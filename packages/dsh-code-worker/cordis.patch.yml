@@ -1,0 +1,32 @@
+# DSH Code Worker 插件 Bundle Patch
+#
+# 该文件是 dsh.bundle.patch 层：通过 `dsh plugin --profile <name> add` 安装后，
+# 管理器会读取本声明并把 dsh-code-worker 追加到 dsh.profile.bundles，profile 启动时
+# 合并本 patch（一条 insert 行）。
+- insert:
+    - id: dsh-code-worker
+      name: dsh-code-worker
+      config:
+        enabled: true
+        # 当 ctx.workingDirectory 不可用时回退到此绝对路径；留空表示用 process.cwd()。
+        workspaceRoot: ''
+        git:
+          enabled: true
+          command: 'git'
+        lsp:
+          servers:
+            - language: typescript
+              command: 'typescript-language-server'
+              args: ['--stdio']
+            - language: javascript
+              command: 'typescript-language-server'
+              args: ['--stdio']
+            - language: python
+              command: 'pyright-langserver'
+              args: ['--stdio']
+            - language: rust
+              command: 'rust-analyzer'
+              args: ['--stdio']
+            - language: go
+              command: 'gopls'
+              args: ['serve']

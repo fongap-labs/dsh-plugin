@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Plugin Template">
+  <rect width="64" height="64" rx="12" fill="#0f172a"/>
+  <path d="M32 14 L46 22 L46 38 L32 46 L18 38 L18 22 Z" fill="none" stroke="#64748b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M32 26 L39 30 L39 37 L32 41 L25 37 L25 30 Z" fill="#22d3ee"/>
+</svg>
