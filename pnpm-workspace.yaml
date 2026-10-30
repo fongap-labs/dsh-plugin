@@ -1,0 +1,6 @@
+packages:
+  - 'packages/*'
+
+# DSH 宿主在运行时提供 @deepseek-ai/* 运行时依赖，插件只声明 peerDependencies。
+# 关闭 peer 自动安装，保证离线环境下 pnpm install 不会去拉取宿主包。
+autoInstallPeers: false

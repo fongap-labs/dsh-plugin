@@ -1,0 +1,45 @@
+{
+  "name": "dsh-code-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH (DeepSeek Harness) 编程插件：MultiEdit 批量编辑、Git 状态与差异、LSP 服务探测与工作流指引",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "manifestVersion": 1
+  },
+  "files": [
+    "src/**/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dependencies": {
+    "@dsh-plugin/shared": "workspace:*"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "0.2.1-rc.3",
+    "@deepseek-ai/cordis": "~4.0.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "license": "MIT"
+}

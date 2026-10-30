@@ -1,0 +1,11 @@
+# plugin-template Bundle Patch
+#
+# 复制本目录新建插件后，请同步修改三处：patch 中的 id、name，以及 package.json 的
+# name / description / files。id 与 name 必须全局唯一，否则 Loader 会因重复挂载失败。
+- insert:
+    - id: plugin-template
+      name: '@dsh-plugin/plugin-template'
+      config:
+        enabled: true
+        # 在这里声明该插件的可调参数，用户可在 profile 的 cordis.patch.yml 中覆盖。
+        greeting: 'hello'

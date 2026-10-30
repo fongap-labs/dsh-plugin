@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "DSH Code Worker",
+    "description": "Code worker plugin for DeepSeek Harness: batch multi-edit, Git status & diff, LSP probing, and coding workflow guidance."
+  }
+}

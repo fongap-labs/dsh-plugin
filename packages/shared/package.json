@@ -1,0 +1,21 @@
+{
+  "name": "@dsh-plugin/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH 插件 Monorepo 内部共享库：defineTool 容错封装、ctx.subprocess 安全调用、路径解析与沙箱校验",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./tool": "./src/tool.js",
+    "./subprocess": "./src/subprocess.js"
+  },
+  "files": [
+    "src/**/*.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "license": "MIT"
+}
