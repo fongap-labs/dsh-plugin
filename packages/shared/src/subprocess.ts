@@ -185,11 +185,11 @@ function runWithNode(options: NormalizedOptions): Promise<RunCommandResult> {
     let stderr = ''
     let stdoutBytes = 0
     let stderrBytes = 0
-    let timedOut = false
-    let settled = false
+    let isTimedOut = false
+    let isSettled = false
 
     const timer = setTimeout(() => {
-      timedOut = true
+      isTimedOut = true
       child.kill()
     }, options.timeoutMs)
     timer.unref()
@@ -205,21 +205,21 @@ function runWithNode(options: NormalizedOptions): Promise<RunCommandResult> {
       stderr += chunk.toString('utf8')
     })
     child.once('error', (error: Error) => {
-      if (settled) return
-      settled = true
+      if (isSettled) return
+      isSettled = true
       clearTimeout(timer)
       reject(new SubprocessError(`failed to spawn ${options.command}: ${error.message}`))
     })
     child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
-      if (settled) return
-      settled = true
+      if (isSettled) return
+      isSettled = true
       clearTimeout(timer)
       resolve({
         stdout,
         stderr,
         exitCode: code,
         signal: signal ?? null,
-        timedOut,
+        timedOut: isTimedOut,
         lossy: stdoutBytes >= options.maxOutputBytes || stderrBytes >= options.maxOutputBytes,
         source: 'node',
       })
