@@ -48,12 +48,22 @@ phase_end
 # Invoke the underlying commands directly (not "pnpm test"/"pnpm build") so a pull request cannot
 # weaken CI by editing package.json scripts. Type checking and compilation use the pinned local
 # TypeScript binary; the compiled output under packages/*/lib is what the tests and bundles load.
+TSCONFIGS=(
+  packages/shared/tsconfig.json
+  packages/dsh-code-worker/tsconfig.json
+  packages/dsh-ui-delta/tsconfig.json
+)
+
 phase_begin typecheck
-./node_modules/.bin/tsc -p packages/shared/tsconfig.json --noEmit
+for config in "${TSCONFIGS[@]}"; do
+  ./node_modules/.bin/tsc -p "$config" --noEmit
+done
 phase_end
 
 phase_begin build
-./node_modules/.bin/tsc -p packages/shared/tsconfig.json
+for config in "${TSCONFIGS[@]}"; do
+  ./node_modules/.bin/tsc -p "$config"
+done
 phase_end
 
 phase_begin test
