@@ -63,36 +63,36 @@ tests/
    - `icon.svg`：原创或可再分发（MIT / Apache-2.0 / CC-BY 等），≤ 256 KiB。
    - 不要用绝对路径、外链 URL、跳出包的 symlink。
 
-6. **编写 `src/index.js`**
-   - 必须导出 `apply(ctx, config)`，可选 `export const inject = [...]`。
-   - 使用 `@dsh-plugin/shared` 注册工具：
-     ```js
-     import { defineTool, registerTool, resolveInside } from "@dsh-plugin/shared";
+6. **编写 `src/index.ts`**
+    - 必须导出 `apply(ctx, config)`，可选 `export const inject = [...]`。
+    - 使用 `@dsh-plugin/shared` 注册工具：
+      ```ts
+      import { defineTool, registerTool, resolveInside } from "@dsh-plugin/shared";
 
-     export const inject = ["tools"];
+      export const inject = ["tools"];
 
-     export function apply(ctx, config) {
-       const tool = defineTool({ name: "...", ... });
-       registerTool(ctx, tool);
-     }
-     ```
-   - 所有文件路径必须经 `resolveInside(workspaceRoot, userPath)` 校验沙箱。
-   - 子进程统一用 `runCommand(ctx, { command, args, ... })`，自动回退到 node:child_process。
-   - 宿主可选服务（`fs`、`workingDirectory`、`systemPrompt`、`subprocess`）用 `ctx.get?.("name")` 动态获取，不要写在 `inject` 里。
+      export function apply(ctx: Context, config: Record<string, unknown> | undefined) {
+        const tool = defineTool({ name: "...", ... });
+        registerTool(ctx, tool);
+      }
+      ```
+    - 所有文件路径必须经 `resolveInside(workspaceRoot, userPath)` 校验沙箱。
+    - 子进程统一用 `runCommand(ctx, { command, args, ... })`，自动回退到 node:child_process。
+    - 宿主可选服务（`fs`、`workingDirectory`、`systemPrompt`、`subprocess`）用 `ctx.get?.("name")` 动态获取，不要写在 `inject` 里。
 
 7. **本地联调**
-   ```bash
-   pnpm link:dev plugin-my-awesome
-   ```
-   脚本会在 `~/.dsh/profiles/<profile>/node_modules/` 下建立软链并把包名写入 `dsh.profile.bundles`。
-   - 默认 Profile 为 `desktop`，可用 `--profile <name>` 或 `DSH_PROFILE` 环境变量切换。
-   - 官方通道等价：`dsh plugin --profile desktop add link:/abs/path/to/plugin-my-awesome`。
+    ```bash
+    pnpm link:dev plugin-my-awesome
+    ```
+    脚本会在 `~/.dsh/profiles/<profile>/node_modules/` 下建立软链并把包名写入 `dsh.profile.bundles`。
+    - 默认 Profile 为 `desktop`，可用 `--profile <name>` 或 `DSH_PROFILE` 环境变量切换。
+    - 官方通道等价：`dsh plugin --profile desktop add link:/abs/path/to/plugin-my-awesome`。
 
 8. **运行测试与校验**
-   ```bash
-   pnpm test
-   pnpm build
-   ```
+    ```bash
+    pnpm test
+    pnpm build
+    ```
 
 ## Bundle 合规清单（提交前必检）
 
@@ -102,8 +102,8 @@ tests/
 | `cordis.patch.yml` | 顶层 `- insert:`，每行含 `id` 与 `name`（值等于包名），可选 `config` |
 | 国际化 | `locale/en.json`、`zh.json` 均含 `meta.title`、`meta.description` |
 | 图标 | `icon.svg` ≤ 256 KiB，合法 SVG，无外部引用 |
-| 入口 | `src/index.js` 导出 `apply` 与 `inject` |
-| `files` | 包含 `src/**/*.js`、`cordis.patch.yml`、`locale/*.json`、`icon.svg`、`README.md` |
+| 入口 | `src/index.ts` 导出 `apply` 与 `inject` |
+| `files` | 包含 `lib/**/*.js`、`lib/**/*.d.ts`、`cordis.patch.yml`、`locale/*.json`、`icon.svg`、`README.md` |
 | 无循环依赖 | `shared` 不依赖任何业务插件；业务插件只依赖 `shared`（workspace:*） |
 
 ## 常见问题与排查
@@ -168,7 +168,7 @@ const abs = resolveInside(workspaceRoot, userPath); // 越界抛错
 ## 约束与限制
 
 - 不得修改只读的 `app.asar` 打包产物。
-- 不得在插件中引入重型构建工具（Webpack、Vite、esbuild 等）；DSH 原生 Bundle 仅需 ESM 源码。
+- 不得在插件中引入重型构建工具（Webpack、Vite、esbuild、rollup 等）；DSH 原生 Bundle 仅需 TypeScript 源码经 `tsc` 编译。
 - 不得使用 `require()` 加载 ESM；全链路 `"type": "module"`。
 - 不要在 `cordis.patch.yml` 中写入 `disabled: true`（默认禁用），除非是为了覆盖 shipped 行。
 - 版本号遵循语义化版本；破坏性改动升主版本，新增功能升次版本，修复升补丁版本。

@@ -95,8 +95,8 @@ pnpm link:dev dsh-code-worker --unlink
 
 - **定位**：为 DeepSeek Harness 提供统一的视觉层、交互层与端侧增强。
 - **架构**：
-  - **客户端** (`client.js`)：声明 `dsh.client.platform = "web"`，在浏览器环境覆盖 49 个 UI Token，精修侧边栏、对话气泡、圆角与滚动条。
-  - **宿主端** (`index.js`)：注入 Cordis WebServer 路由，提供 `/dsh-ui-delta/config`、`/dsh-ui-delta/vision`、`/dsh-ui-delta/search` 和 `/dsh-ui-delta/version` API。
+  - **客户端** (`lib/client.js`)：声明 `dsh.client.platform = "web"`，在浏览器环境覆盖 49 个 UI Token，精修侧边栏、对话气泡、圆角与滚动条。
+  - **宿主端** (`lib/index.js`)：注入 Cordis WebServer 路由，提供 `/dsh-ui-delta/config`、`/dsh-ui-delta/vision`、`/dsh-ui-delta/search` 和 `/dsh-ui-delta/version` API。
   - **安全性**：Windows 下采用 DPAPI 对用户 API 密钥安全加密存储在本地，不上传任何遥测数据。
 
 ### 2. `dsh-code-worker` (编程插件)
@@ -121,7 +121,7 @@ pnpm link:dev dsh-code-worker --unlink
 2. **修改 `package.json`**：设置 `name`、`version`、`description` 与 `dsh.bundle.patch`。
 3. **修改 `cordis.patch.yml`**：设置全局唯一 `id` 与 `name`。
 4. **补充国际化与图标**：`locale/en.json`、`locale/zh.json`（含 `meta.title` 和 `meta.description`），以及 ≤ 256 KiB 的 `icon.svg`。
-5. **实现入口**：在 `src/index.js` 中导出 `apply(ctx, config)` 和 `inject`。
+5. **实现入口**：在 `src/index.ts` 中导出 `apply(ctx, config)` 和 `inject`。
 6. **添加测试**：在 `tests/` 目录下添加对应的 `*.test.mjs` 测试文件。
 7. **执行验证**：运行 `pnpm test` 与 `pnpm build` 确认全部通过。
 
