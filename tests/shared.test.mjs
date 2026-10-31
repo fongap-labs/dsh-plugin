@@ -7,9 +7,9 @@ import { describe, it, before, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 
-const tool = await import("../packages/shared/src/tool.js");
-const subprocess = await import("../packages/shared/src/subprocess.js");
-const index = await import("../packages/shared/src/index.js");
+const tool = await import("../packages/shared/lib/tool.js");
+const subprocess = await import("../packages/shared/lib/subprocess.js");
+const index = await import("../packages/shared/lib/index.js");
 
 const NODE_PRINT = [resolve(process.execPath), "-e", "process.stdout.write('hello')"];
 

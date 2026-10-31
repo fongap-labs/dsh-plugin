@@ -46,12 +46,21 @@ pnpm install --frozen-lockfile
 phase_end
 
 # Invoke the underlying commands directly (not "pnpm test"/"pnpm build") so a pull request cannot
-# weaken CI by editing package.json scripts.
+# weaken CI by editing package.json scripts. Type checking and compilation use the pinned local
+# TypeScript binary; the compiled output under packages/*/lib is what the tests and bundles load.
+phase_begin typecheck
+./node_modules/.bin/tsc -p packages/shared/tsconfig.json --noEmit
+phase_end
+
+phase_begin build
+./node_modules/.bin/tsc -p packages/shared/tsconfig.json
+phase_end
+
 phase_begin test
 node --test "tests/**/*.test.mjs"
 phase_end
 
-phase_begin build
+phase_begin bundle
 node scripts/pack-bundles.mjs --check
 phase_end
 

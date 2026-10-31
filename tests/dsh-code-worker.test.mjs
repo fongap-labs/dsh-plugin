@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const codeWorker = await import("../packages/dsh-code-worker/src/index.js");
-const shared = await import("../packages/shared/src/index.js");
+const shared = await import("../packages/shared/lib/index.js");
 
 const NODE_PRINT = [resolve(process.execPath), "-e", "process.stdout.write('hello')"];
 

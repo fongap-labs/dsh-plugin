@@ -3,15 +3,26 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "DSH 插件 Monorepo 内部共享库：defineTool 容错封装、ctx.subprocess 安全调用、路径解析与沙箱校验",
-  "main": "./src/index.js",
+  "description": "DSH plugin monorepo internal shared library: defineTool wrapper, safe ctx.subprocess invocation, path resolution and sandbox validation",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
   "exports": {
-    ".": "./src/index.js",
-    "./tool": "./src/tool.js",
-    "./subprocess": "./src/subprocess.js"
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./tool": {
+      "types": "./lib/tool.d.ts",
+      "default": "./lib/tool.js"
+    },
+    "./subprocess": {
+      "types": "./lib/subprocess.d.ts",
+      "default": "./lib/subprocess.js"
+    }
   },
   "files": [
-    "src/**/*.js",
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
     "README.md"
   ],
   "engines": {
