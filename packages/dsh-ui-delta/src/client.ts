@@ -1579,12 +1579,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const before = chromeFingerprint();
               try { (account as HTMLElement).click(); } catch (err) { note('account-menu', `trigger click threw: ${err instanceof Error ? err.message : String(err)}`); return false; }
               const ITEM_SEL = '[role="menuitem"], [role="menu"] button, [role="menu"] a, [role="menu"] [tabindex], [data-radix-collection-item]';
-              let recorded = false;
+              let isRecorded = false;
               const recordMenu = () => {
-                if (recorded) return;
+                if (isRecorded) return;
                 const texts = [...document.querySelectorAll<HTMLElement>(ITEM_SEL)]
                   .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 10);
-                if (texts.length) { note('account-menu', `menu items=[${texts.join(' | ')}]`); recorded = true; }
+                if (texts.length) { note('account-menu', `menu items=[${texts.join(' | ')}]`); isRecorded = true; }
               };
               const pickSettingsItem = () => {
                 for (const el of document.querySelectorAll<HTMLElement>(ITEM_SEL)) {
@@ -1600,15 +1600,15 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 }
                 return false;
               };
-              let clickedMenuItem = false;
+              let isClickedMenuItem = false;
               for (const waitMs of [60, 120, 240, 400]) {
                 await waitFor(waitMs);
                 if (isSettingsOpenInDom()) return true;
                 recordMenu();
-                if (!clickedMenuItem) clickedMenuItem = pickSettingsItem();
+                if (!isClickedMenuItem) isClickedMenuItem = pickSettingsItem();
               }
-              const opened = isSettingsOpenInDom();
-              if (!opened && !clickedMenuItem && chromeFingerprint() !== before) {
+              const isOpened = isSettingsOpenInDom();
+              if (!isOpened && !isClickedMenuItem && chromeFingerprint() !== before) {
                 try {
                   document.dispatchEvent(new KeyboardEvent('keydown', {
                     key: 'Escape', code: 'Escape', keyCode: 27, which: 27,
@@ -1616,10 +1616,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   }));
                   note('account-menu', 'no settings item — dismissed the menu');
                 } catch { /* ignore */ }
-              } else if (!opened) {
-                note('account-menu', clickedMenuItem ? 'clicked the item but the page did not open' : 'menu had no settings item');
+              } else if (!isOpened) {
+                note('account-menu', isClickedMenuItem ? 'clicked the item but the page did not open' : 'menu had no settings item');
               }
-              return opened;
+              return isOpened;
             };
 
             // Level 6 — the guaranteed fallback (restored from the 0.1.x
@@ -1733,10 +1733,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               ...DIAG.attempts,
             ].join('\n');
             let diagBoxEl: HTMLPreElement | null = null;
-            const openStandaloneSettings = (withReport: boolean) => {
+            const openStandaloneSettings = (isWithReport: boolean) => {
               const existing = document.querySelector<HTMLElement>('.ens-standalone-settings-modal');
               if (existing) {
-                if (withReport && diagBoxEl) diagBoxEl.textContent = diagText();
+                if (isWithReport && diagBoxEl) diagBoxEl.textContent = diagText();
                 return;
               }
               const backdrop = document.createElement('div');
@@ -1758,10 +1758,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               headBox.append(titleEl, subEl);
               const btns = document.createElement('div');
               btns.style.cssText = 'display:flex;gap:8px;flex:none;';
-              const mkBtn = (label: string, primary: boolean) => {
+              const mkBtn = (label: string, isPrimary: boolean) => {
                 const b = document.createElement('button');
                 b.type = 'button';
-                b.className = 'ens-pill-btn' + (primary ? ' ens-pill-btn-primary' : '');
+                b.className = 'ens-pill-btn' + (isPrimary ? ' ens-pill-btn-primary' : '');
                 b.textContent = label;
                 return b;
               };
@@ -1770,12 +1770,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 try { document.removeEventListener('keydown', onKey, true); } catch { /* ignore */ }
               };
               const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { try { ev.stopPropagation(); } catch { /* ignore */ } close(); } };
-              if (withReport) {
+              if (isWithReport) {
                 const retry = mkBtn(pick('重试打开宿主设置页', 'Retry host settings'), true);
                 retry.addEventListener('click', () => { close(); openSettingsChain(); });
                 btns.appendChild(retry);
               }
-              const copyBtn = withReport ? mkBtn(pick('复制诊断信息', 'Copy diagnostics'), false) : null;
+              const copyBtn = isWithReport ? mkBtn(pick('复制诊断信息', 'Copy diagnostics'), false) : null;
               const closeBtn = mkBtn(pick('关闭 (Esc)', 'Close (Esc)'), false);
               if (copyBtn) btns.appendChild(copyBtn);
               btns.appendChild(closeBtn);
@@ -1783,27 +1783,27 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               if (copyBtn) {
                 copyBtn.addEventListener('click', async () => {
                   const text = diagText();
-                  let ok = false;
-                  try { await navigator.clipboard.writeText(text); ok = true; } catch { /* fall through */ }
-                  if (!ok) {
+                  let isOk = false;
+                  try { await navigator.clipboard.writeText(text); isOk = true; } catch { /* fall through */ }
+                  if (!isOk) {
                     try {
                       const ta = document.createElement('textarea');
                       ta.value = text;
                       ta.style.cssText = 'position:fixed;opacity:0;';
                       document.body.appendChild(ta);
                       ta.select();
-                      ok = document.execCommand('copy');
+                      isOk = document.execCommand('copy');
                       ta.remove();
                     } catch { /* ignore */ }
                   }
-                  copyBtn.textContent = ok ? pick('已复制', 'Copied') : pick('复制失败，见控制台', 'Copy failed — see console');
+                  copyBtn.textContent = isOk ? pick('已复制', 'Copied') : pick('复制失败，见控制台', 'Copy failed — see console');
                   setTimeout(() => { copyBtn.textContent = pick('复制诊断信息', 'Copy diagnostics'); }, 1600);
                   try { console.info('[dsh-ui-delta] 诊断信息：\n' + diagText()); } catch { /* ignore */ }
                 });
               }
               top.append(headBox, btns);
               card.appendChild(top);
-              if (withReport) {
+              if (isWithReport) {
                 const banner = document.createElement('div');
                 banner.className = 'ens-modal-banner';
                 banner.textContent = pick(
@@ -1831,7 +1831,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // The foot 设置 always opens the host's settings page, signed in or not.
             // Delta UI's own settings live in that page's "Delta UI" section.
             const openSettings = () => openSettingsChain();
-            let openSettingsBusy = false;
+            let isOpenSettingsBusy = false;
             let openSettingsBusySince = 0;
             const openSettingsChain = async () => {
               try { console.info(`[dsh-ui-delta] 设置按钮被点击 v${VERSION}`); } catch { /* ignore */ }
@@ -1840,8 +1840,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 return;
               }
               // a stuck chain must not swallow every later click: expire after 8s
-              if (openSettingsBusy && Date.now() - openSettingsBusySince < 8000) return;
-              openSettingsBusy = true;
+              if (isOpenSettingsBusy && Date.now() - openSettingsBusySince < 8000) return;
+              isOpenSettingsBusy = true;
               openSettingsBusySince = Date.now();
               const t0 = Date.now(); // v0.1.0: elapsed time is logged on success
               DIAG.attempts.length = 0;
@@ -1866,17 +1866,17 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                     try { console.info(`[dsh-ui-delta] 设置页已打开（${label} 前的慢加载复检命中）v${VERSION}`); } catch { /* ignore */ }
                     return;
                   }
-                  let opened = false;
-                  try { opened = await attempt(); }
+                  let isOpened = false;
+                  try { isOpened = await attempt(); }
                   catch (err) { note(label, `level threw: ${err instanceof Error ? err.message : String(err)}`); }
-                  if (opened) {
+                  if (isOpened) {
                     try { console.info(`[dsh-ui-delta] 设置已通过「${label}」层打开 (v${VERSION}) · ${Date.now() - t0}ms`); } catch { /* ignore */ }
                     return;
                   }
                 }
                 try { console.info(`[dsh-ui-delta] 宿主设置页未能打开，已启用内置面板 (v${VERSION})。诊断在 window.__ensDiag：`, DIAG); } catch { /* ignore */ }
               } finally {
-                openSettingsBusy = false;
+                isOpenSettingsBusy = false;
                 if (btn) { btn.classList.remove('ens-foot-action-busy'); btn.removeAttribute('aria-busy'); }
               }
             };
@@ -2018,10 +2018,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               syncBalance();
               const acct = document.querySelector<HTMLElement>('.ens-foot-actions [data-ens="account"]');
               if (!acct) return;
-              const on = signedIn();
-              const label = on ? t('登出', 'Sign out') : t('登录', 'Sign in');
+              const isOn = signedIn();
+              const label = isOn ? t('登出', 'Sign out') : t('登录', 'Sign in');
               if (acct.getAttribute('aria-label') === label) return;
-              acct.innerHTML = on ? ICON_LOGOUT : ICON_LOGIN;
+              acct.innerHTML = isOn ? ICON_LOGOUT : ICON_LOGIN;
               acct.setAttribute('aria-label', label);
               acct.title = label;
             }
@@ -2172,12 +2172,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             let annoCleanup: (() => void) | null = null;
             function initAnnotations() {
               if (annoCleanup) return;
-              let on = false;
+              let isOn = false;
               try {
                 const f = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}') || {};
-                on = f.selectionAnnotation === true;
-              } catch { on = false; }
-              if (!on) return;
+                isOn = f.selectionAnnotation === true;
+              } catch { isOn = false; }
+              if (!isOn) return;
               let btn: HTMLButtonElement | null = null;
               let panel: HTMLDivElement | null = null;
               const clear = () => { if (btn) { btn.remove(); btn = null; } if (panel) { panel.remove(); panel = null; } };
@@ -2330,10 +2330,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // input/change, and gives keyboard nav + click-out close. It is purely
             // additive: a select without options or a missing owner is a no-op.
             const SEL = 'select.jrmgQW_selectInput, [class*="jrmgQW_"] select:not([class*="ens-"])';
-            let selectWired = false;
+            let isSelectWired = false;
             const initDeltaSelect = () => {
-              if (selectWired) return;
-              selectWired = true;
+              if (isSelectWired) return;
+              isSelectWired = true;
               let menu: HTMLDivElement | null = null;
               let owner: HTMLSelectElement | null = null;
               let active = -1;
@@ -2474,9 +2474,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
             };
 
-            let ticking = false;
+            let isTicking = false;
             // v0.2.2: the version check runs once per page load, not on every render
-            let versionChecked = false;
+            let isVersionChecked = false;
             // React to account sign-in / sign-out so 登录 shows/hides live.
             let unsubAccount: (() => void) | null = null;
             const wireAccount = () => {
@@ -2487,7 +2487,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               } catch { /* retry on the next run */ }
             };
             const run = () => {
-              ticking = false;
+              isTicking = false;
               try {
                 // the top brand row stays a clean drag strip: no buttons there
                 document.querySelectorAll<HTMLElement>('.ens-top-actions').forEach((el) => el.remove());
@@ -2507,22 +2507,22 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 initDeltaSelect();
                 mountSettingsResize();
                 // v0.2.2: look for a newer version on disk, once per page load
-                if (!versionChecked && document.querySelector<HTMLElement>('.ens-foot-notify')) {
-                  versionChecked = true;
+                if (!isVersionChecked && document.querySelector<HTMLElement>('.ens-foot-notify')) {
+                  isVersionChecked = true;
                   checkVersion();
                 }
               } catch { /* never abort */ }
             };
-            const schedule = () => { if (ticking) return; ticking = true; requestAnimationFrame(run); };
+            const schedule = () => { if (isTicking) return; isTicking = true; requestAnimationFrame(run); };
 
             // v0.1.0: privacy — stop the host's UI analytics at the front end (module
             // blockAnalytics, on by default). The backend's own collection is not touched.
             // Also marks the root for the foldErrors CSS. Both read module flags from storage.
-            const flagOn = (id: string, dflt: boolean) => {
+            const flagOn = (id: string, isDflt: boolean) => {
               try {
                 const f = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}');
-                return f[id] === undefined ? dflt : f[id] === true;
-              } catch { return dflt; }
+                return f[id] === undefined ? isDflt : f[id] === true;
+              } catch { return isDflt; }
             };
             let originalTrack: Function | null = null;
             const applyPrivacyAndFold = () => {
@@ -2598,7 +2598,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // v0.2.2: a version notice is sticky — a later transient message must
             // not erase it, so it is re-applied whenever the pill clears.
             let versionNotice = '';
-            const showNotice = (kind: string, text: string, sticky: boolean) => {
+            const showNotice = (kind: string, text: string, isSticky: boolean) => {
               const pill = document.querySelector<HTMLElement>('.ens-foot-notify');
               if (!pill || !text) return;
               const span = pill.querySelector<HTMLElement>('span');
@@ -2608,7 +2608,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               pill.classList.add('visible');
               pill.title = text;
               if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
-              if (!sticky) {
+              if (!isSticky) {
                 noticeTimer = setTimeout(() => {
                   if (versionNotice) { showNotice('info', versionNotice, true); return; }
                   pill.classList.remove('visible');
@@ -2654,14 +2654,14 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               // several images may be pasted at once; each one is recognised on its
               // own and the recognised text is appended in the order they arrived
               let pending = files.length;
-              let failed = false;
+              let isFailed = false;
               files.forEach((file) => {
                 recognizeImage(file)
                   .then((text) => insertComposer(`\n[图片内容]\n${text}\n`))
-                  .catch((err) => { failed = true; showNotice('error', t(`图片识别失败：${err?.message || err}`, `Image recognition failed: ${err?.message || err}`), true); })
+                  .catch((err) => { isFailed = true; showNotice('error', t(`图片识别失败：${err?.message || err}`, `Image recognition failed: ${err?.message || err}`), true); })
                   .finally(() => {
                     pending -= 1;
-                    if (pending === 0 && !failed) hideNotice();
+                    if (pending === 0 && !isFailed) hideNotice();
                   });
               });
             };
@@ -2817,8 +2817,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   let row = title;
                   while (row.parentElement && !row.querySelector<HTMLElement>(SWITCH_SEL)) row = row.parentElement;
                   const sw = row.querySelector<HTMLElement>(SWITCH_SEL);
-                  const on = sw && (sw.getAttribute('aria-checked') === 'true' || (sw as HTMLInputElement).checked === true);
-                  if (sw && on && !sessionLogSwitched.has(sw)) { sessionLogSwitched.add(sw); (sw as HTMLElement).click(); }
+                  const isOn = sw && (sw.getAttribute('aria-checked') === 'true' || (sw as HTMLInputElement).checked === true);
+                  if (sw && isOn && !sessionLogSwitched.has(sw)) { sessionLogSwitched.add(sw); (sw as HTMLElement).click(); }
                   if ((row as HTMLElement).style.display !== 'none') (row as HTMLElement).style.display = 'none';
                 }
               }
@@ -2849,10 +2849,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // data-provider-id ("deepseek-account"); the group header goes with them.
             // The flag is read straight from storage, so it works before MODULES is set.
             const hideAccountModels = () => {
-              let show = false;
-              try { show = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}')['accountModels'] === true; }
-              catch { show = false; }
-              const want = show ? '' : 'none';
+              let isShow = false;
+              try { isShow = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}')['accountModels'] === true; }
+              catch { isShow = false; }
+              const want = isShow ? '' : 'none';
               const HEADER_RE = /^(DeepSeek 账号|DeepSeek Account)$/;
               document.querySelectorAll<HTMLElement>('[data-provider-id="deepseek-account"]').forEach((row) => {
                 // climb to the group: the highest ancestor that holds this provider's
@@ -2870,9 +2870,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
 
             // v0.1.0: the working status reads 任务执行中 instead of the host's
             // 深度求索中. Text-only swap, so the duration and the rest of the line stay.
-            let statusTicking = false;
+            let isStatusTicking = false;
             const renameStatusText = () => {
-              statusTicking = false;
+              isStatusTicking = false;
               try {
                 const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
                 for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -2883,8 +2883,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               } catch { /* never abort */ }
             };
             const scheduleStatusRename = () => {
-              if (statusTicking) return;
-              statusTicking = true;
+              if (isStatusTicking) return;
+              isStatusTicking = true;
               requestAnimationFrame(renameStatusText);
             };
 
@@ -2961,8 +2961,8 @@ const MODULES: ModuleDef[] = [
           try { return JSON.parse(localStorage.getItem(FLAGS_KEY) || '{}') || {}; }
           catch { return {}; }
         };
-        const writeFlag = (id: string, on: boolean) => {
-          const next = { ...readFlags(), [id]: on };
+        const writeFlag = (id: string, isOn: boolean) => {
+          const next = { ...readFlags(), [id]: isOn };
           try { localStorage.setItem(FLAGS_KEY, JSON.stringify(next)); } catch { /* private mode */ }
         };
         // v0.1.0: vision and search run in the host half (index.js). The browser keeps no
@@ -3045,12 +3045,12 @@ const MODULES: ModuleDef[] = [
             // and sends a new key once; it never keeps the key.
             const [hostCfg, setHostCfg] = React.useState<HostConfig | null>(null);
             React.useEffect(() => {
-              let alive = true;
+              let isAlive = true;
               fetch('/dsh-ui-delta/config')
                 .then((r) => r.json())
-                .then((d) => { if (alive) setHostCfg(d); })
-                .catch(() => { if (alive) setHostCfg({ error: true }); });
-              return () => { alive = false; };
+                .then((d) => { if (isAlive) setHostCfg(d); })
+                .catch(() => { if (isAlive) setHostCfg({ error: true }); });
+              return () => { isAlive = false; };
             }, []);
             const saveHost = (section: string, fields: Record<string, unknown>) => fetch('/dsh-ui-delta/config', {
               method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ section, ...fields }),
