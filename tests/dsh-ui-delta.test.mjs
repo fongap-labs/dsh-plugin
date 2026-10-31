@@ -86,7 +86,9 @@ describe("dsh-ui-delta", () => {
 
     assert.equal(statusCode, 200);
     const parsed = JSON.parse(responseBody);
-    assert.equal(parsed.version, "0.1.0");
+    const manifestPath = join(import.meta.dirname, "../packages/dsh-ui-delta/package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    assert.equal(parsed.version, manifest.version);
   });
 
   it("未受信任的请求会被路由拒绝 (403)", async () => {

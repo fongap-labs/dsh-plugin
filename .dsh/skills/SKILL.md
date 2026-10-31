@@ -18,6 +18,8 @@ description: DSH (DeepSeek Harness) 原生 Bundle / Host Plugin 开发与调试�
 | 将某插件链接到本地 Profile（软链 + 启用） | `pnpm link:dev <plugin-name>` |
 | 将某插件按官方通道安装到本地 Profile | `pnpm install:bundle <plugin-name>` |
 | 从本地 Profile 移除插件 | `pnpm link:dev <plugin-name> --unlink` |
+| 发布到 npm（读最新 git tag） | `pnpm release` |
+| 预览发布（不实际发布） | `pnpm release:dry-run` |
 | 生成发布 zip 到 `dist/` | `pnpm pack:bundles` |
 
 ## 目录约定
@@ -119,12 +121,13 @@ tests/
 ## 发布流程
 
 1. 确保 `pnpm test && pnpm build` 无错误。
-2. 将 `package.json` 的 `"private": true` 改为 `false`。
-3. 执行 `pnpm pack:bundles` 生成 `dist/*.zip`。
-4. 对外发布时：
-   - npm: `npm publish --access public`（需先登录）。
-   - 私有源: `npm publish --registry <url>`。
-5. 发布后可把 `private` 改回 `true` 以防误发。
+2. 在 GitHub Release 界面手动打 tag（格式 `vX.Y.Z`，如 `v1.2.3`）。
+3. 执行 `pnpm release` 发布到 npm。
+   - 预览：`pnpm release:dry-run` 不实际发布。
+   - 私有源：`node scripts/release.mjs --registry <url>`。
+4. 执行 `pnpm pack:bundles` 生成 `dist/*.zip`。
+
+> **版本号约定**：所有 `package.json` 的 `version` 保持占位符 `0.0.0`，不在日常开发中维护。`scripts/release.mjs` 从 git tag 读取版本号，临时注入 `package.json`（同时设 `private: false`），编译、发布后自动还原原值。
 
 > **注意**：本 Monorepo 仅维护源码与打包产物；`dist/*.zip` 不纳入版本控制。发布后建议把 zip 同步到内部制品库或 GitHub Releases。
 
@@ -164,6 +167,14 @@ const abs = resolveInside(workspaceRoot, userPath); // 越界抛错
 | --- | --- |
 | `--check` | 仅校验，不生成 zip（CI 推荐） |
 | 无参数 | 校验 + 打包 zip 到 `dist/` |
+
+### `scripts/release.mjs` 参数
+
+| 参数 | 作用 |
+| --- | --- |
+| `--tag vX.Y.Z` | 指定发布的 git tag（默认读 `git describe --tags --abbrev=0`） |
+| `--dry-run` | 预览：注入版本、编译，但不执行 `pnpm publish` |
+| `--registry <url>` | 发布到私有 npm 源 |
 
 ## 约束与限制
 

@@ -1,6 +1,6 @@
 {
   "name": "@dsh-plugin/shared",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "description": "DSH plugin monorepo internal shared library: defineTool wrapper, safe ctx.subprocess invocation, path resolution and sandbox validation",

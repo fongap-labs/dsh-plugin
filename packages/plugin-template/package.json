@@ -1,6 +1,6 @@
 {
   "name": "@dsh-plugin/plugin-template",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "description": "DSH 原生 Bundle 官方脚手架模板：复制本目录即可快速创建新插件",
@@ -15,7 +15,9 @@
     "./icon": "./icon.svg"
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "manifestVersion": 1
   },
   "files": [
@@ -34,8 +36,12 @@
     "@deepseek-ai/cordis": "~4.0.5"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-tools": { "optional": true },
-    "@deepseek-ai/cordis": { "optional": true }
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=20.10.0"

@@ -15,7 +15,9 @@
     "validate": "node scripts/pack-bundles.mjs --check",
     "pack:bundles": "node scripts/pack-bundles.mjs",
     "link:dev": "node scripts/link-profile.mjs",
-    "install:bundle": "node scripts/link-profile.mjs --install"
+    "install:bundle": "node scripts/link-profile.mjs --install",
+    "release": "node scripts/release.mjs",
+    "release:dry-run": "node scripts/release.mjs --dry-run"
   },
   "keywords": [
     "dsh",
