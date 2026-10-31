@@ -117,7 +117,7 @@ describe("dsh-ui-delta", () => {
   });
 
   it("客户端资源 client.js 与 icon.svg 存在且有效", () => {
-    const clientPath = join(import.meta.dirname, "../packages/dsh-ui-delta/client.js");
+    const clientPath = join(import.meta.dirname, "../packages/dsh-ui-delta/lib/client.js");
     const iconPath = join(import.meta.dirname, "../packages/dsh-ui-delta/icon.svg");
 
     assert.ok(existsSync(clientPath), "client.js 必须存在");

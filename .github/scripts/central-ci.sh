@@ -58,9 +58,11 @@ HOST_TSCONFIGS=(
   packages/dsh-code-worker/tsconfig.json
   packages/dsh-ui-delta/tsconfig.json
 )
+CLIENT_TSCONFIG=packages/dsh-ui-delta/tsconfig.client.json
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"
+  "$CLIENT_TSCONFIG"
 )
 
 phase_begin typecheck
@@ -68,6 +70,7 @@ phase_begin typecheck
 for config in "${HOST_TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config" --noEmit
 done
+./node_modules/.bin/tsc -p "$CLIENT_TSCONFIG" --noEmit
 phase_end
 
 phase_begin build
