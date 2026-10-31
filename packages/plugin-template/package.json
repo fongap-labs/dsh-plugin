@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "description": "DSH 原生 Bundle 官方脚手架模板：复制本目录即可快速创建新插件",
-  "main": "./src/index.js",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
   "exports": {
-    ".": "./src/index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
@@ -15,7 +19,8 @@
     "manifestVersion": 1
   },
   "files": [
-    "src/**/*.js",
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",

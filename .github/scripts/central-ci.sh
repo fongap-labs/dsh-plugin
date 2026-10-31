@@ -57,6 +57,7 @@ SHARED_TSCONFIG=packages/shared/tsconfig.json
 HOST_TSCONFIGS=(
   packages/dsh-code-worker/tsconfig.json
   packages/dsh-ui-delta/tsconfig.json
+  packages/plugin-template/tsconfig.json
 )
 CLIENT_TSCONFIG=packages/dsh-ui-delta/tsconfig.client.json
 TSCONFIGS=(
