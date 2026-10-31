@@ -135,6 +135,55 @@ pnpm link:dev dsh-code-worker --unlink
 - [x] **高测试覆盖率**：共享库、UI 插件生命周期与编程工具全部具备独立自动化测试。
 - [x] **自动化打包验证**：内置 `pack-bundles.mjs` 实现 CRC32 纯原生 zip 格式打包与元数据校验。
 
+## 发布流程（Action Worker per-plugin）
+
+本仓库通过 [action-worker](https://github.com/fongap-labs/action-worker) 的 `release-app.yml` 进行 **每个插件独立发布**，各插件独立 tag、独立版本、独立产物。
+
+### 触发方式
+
+在 **action-worker 仓库** 的 Actions 页面手动运行 `release-app.yml`（手动·发布应用），填入：
+
+| 输入 | 说明 | 示例 |
+|---|---|---|
+| `source_repository` | 源仓库 | `fongap-labs/dsh-plugin` |
+| `requested_version` | 发布版本号（正式版 `vX.Y.Z`，预发布 `vX.Y.Z-beta.N`） | `v1.2.3` |
+| `product` | 要发布的插件目录名（必填，三选一） | `dsh-code-worker` / `dsh-ui-delta` / `plugin-template` |
+
+### 构建流程（Action Worker 内部执行）
+
+1. Action Worker 从源仓库的 `projects/<product>/release.manifest.json` 读取清单。
+2. 清单声明 `root: "packages"`、`script: "<product>/build-release.ps1"`、`assets: ["<safe-name>.zip"]`。
+3. 运行 `build-release.ps1 -Package <product> -Target windows-x64 -Version X.Y.Z -OutputDir <dir>`：
+   - 将目标插件 `package.json` 的 `version` 从占位符 `0.0.0` 暂时注入为发布版本；
+   - `pnpm install --frozen-lockfile`；
+   - `pnpm build` 全量编译（workspace:* 解析需要所有包）；
+   - `pnpm pack:bundles --package=<name>` 仅打包该插件；
+   - 产物 `dist/<safe-name>-<version>.zip` → `OutputDir/<safe-name>.zip`；
+   - `finally` 恢复 `package.json` 原值（版本回到 `0.0.0`）。
+4. Action Worker 生成 SBOM、打包 governed release artifact、派发 release 事件。
+
+### 产物对应表
+
+| 插件 | release_key | 产物 zip | manifest 路径 |
+|---|---|---|---|
+| `dsh-code-worker` | `dsh-code-worker` | `dsh-code-worker.zip` | `projects/dsh-code-worker/release.manifest.json` |
+| `dsh-ui-delta` | `dsh-ui-delta` | `dsh-ui-delta.zip` | `projects/dsh-ui-delta/release.manifest.json` |
+| `plugin-template` | `dsh-plugin-template` | `dsh-plugin-plugin-template.zip` | `projects/plugin-template/release.manifest.json` |
+
+> **注意**：内部共享包 `@dsh-plugin/shared` **不单独发布**，仅作为 `workspace:*` 依赖参与编译。
+
+### 本地发布（开发/预览用）
+
+```bash
+# 预览：inject → build → pack，不实际发布
+pnpm release:dry-run --tag v1.2.3
+
+# 实际发布到 npm（全部插件按依赖顺序 shared → code-worker → ui-delta → template）
+pnpm release --tag v1.2.3
+```
+
+本地脚本 `scripts/release.mjs` 从本地 git tag 读版本；Action Worker 从 `requested_version` 读版本。两套流程互不干扰。
+
 ## Fongap Labs 治理接入
 
 本仓库属于 Fongap Labs 受管仓库。PR 检查、CI、发布与部署、任务执行等共用治理由 [action-worker](https://github.com/fongap-labs/action-worker) 统一负责，本仓库只保留插件本身。
