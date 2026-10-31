@@ -187,10 +187,10 @@ function validateBundle(dir) {
 
   const entryRel = resolveEntry(manifest);
   if (typeof entryRel !== "string" || entryRel.trim() === "") {
-    errors.push('package.json 需声明 exports["."] 或 main');
+    errors.push('package.json must declare exports["."] or main');
   } else if (/\.(ts|mts|cts)$/.test(entryRel)) {
     // A bundle must ship executable JavaScript: the DSH host does not compile TypeScript.
-    errors.push(`入口必须是可执行 JavaScript，不能是 TypeScript 源码: ${entryRel}`);
+    errors.push(`entry must be executable JavaScript, not TypeScript source: ${entryRel}`);
   } else {
     const entryFile = join(dir, entryRel);
     if (!existsSync(entryFile)) {
