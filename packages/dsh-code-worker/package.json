@@ -1,6 +1,6 @@
 {
   "name": "dsh-code-worker",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "description": "DSH (DeepSeek Harness) 编程插件：MultiEdit 批量编辑、Git 状态与差异、LSP 服务探测与工作流指引",

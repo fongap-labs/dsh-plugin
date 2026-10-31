@@ -1,6 +1,6 @@
 {
   "name": "dsh-ui-delta",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "description": "DeepSeek Harness UI 界面深度美化与体验优化插件 (Delta UI)",
