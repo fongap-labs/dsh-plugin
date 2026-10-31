@@ -30,7 +30,7 @@
  */
 window.__ModuleLoader__.load({
   id: 'dsh-ui-delta',
-  factory(require) {
+  factory(require: HarnessRequire) {
     const SOURCE = 'dsh-ui-delta';
     // v0.1.0 — absorbed v0.1.0 enhancements: design-layer dropdown, settings
     // resize grip, annotation hover auto-hide, preview badge suppress, extended
@@ -53,7 +53,7 @@ window.__ModuleLoader__.load({
         return /^zh/i.test(lang);
       } catch { return true; }
     };
-    const t = (zh, en) => (isZhUi() ? zh : (en || zh));
+    const t = (zh: string, en: string) => (isZhUi() ? zh : (en || zh));
 
     /**
      * Palette overlay — Delta 视觉系统完整映射到 Harness 104 个 alias token，
@@ -70,7 +70,7 @@ window.__ModuleLoader__.load({
      * 所有值均为具体 CSS 色值，由 theme presenter 内联发布；配对保持双系可读。
      * tools/palette_aaa.py 重跑 WCAG 2.1 AA/AAA（0 失败）。
      */
-    const PALETTE = {
+    const PALETTE: Record<string, { light: string; dark: string }> = {
       // ===== surfaces & layering =====
       '--dsw-alias-bg-base': { light: '#F5F6F7', dark: '#131417' },
       '--dsw-alias-bg-layer-1': { light: '#FFFFFF', dark: '#1C1E22' },
@@ -1018,7 +1018,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 
     return {
       inject: ['theme', 'slots'],
-      apply(ctx) {
+      apply(ctx: HarnessClientContext) {
         // Every contribution is defensive: a failure here degrades the refresh
         // (no palette / no stylesheet) and must never abort the web boot.
         try { console.info(`[dsh-ui-delta] DeltaUI v${VERSION} loaded`); } catch { /* ignore */ }
@@ -1077,16 +1077,16 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // #24 conversationShare (ready): copy the visible conversation as
             // Markdown. Reads the conversation column's text rather than a slot
             // because the export is a one-shot snapshot, not a rendered view.
-            const copyConversation = async (btn) => {
-              const col = document.querySelector('.V4vHZW_column')
-                || document.querySelector('[data-conversation-scroll]');
+            const copyConversation = async (btn: HTMLElement | null) => {
+              const col = (document.querySelector<HTMLElement>('.V4vHZW_column')
+                || document.querySelector<HTMLElement>('[data-conversation-scroll]')) as HTMLElement | null;
               const text = (col && col.innerText ? col.innerText : '').trim();
               if (!text) return;
               const md = '# 对话记录\n\n' + text + '\n';
               try {
                 await navigator.clipboard.writeText(md);
                 if (btn) {
-                  const label = btn.querySelector('span');
+                  const label = btn.querySelector<HTMLElement>('span');
                   if (label) {
                     const old = label.textContent;
                     label.textContent = '已复制';
@@ -1107,13 +1107,13 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 const svc = ctx && ctx.betterSidebar;
                 if (svc && typeof svc.openTab === 'function') { svc.openTab({ type: 'explorer' }); return; }
               } catch { /* not provided to this fiber — fall through */ }
-              const t = document.querySelector('.nArs4W_toggleButton, .nArs4W_dockFallback button, .nArs4W_dockFallback');
+              const t = document.querySelector<HTMLElement>('.nArs4W_toggleButton, .nArs4W_dockFallback button, .nArs4W_dockFallback') as HTMLElement | null;
               t?.click?.();
             };
 
             // Host action resolvers — read lazily at click time so the slots are
             // guaranteed registered, and degrade to DOM clicks if the shape drifts.
-            const slots = () => (typeof ctx.slots === 'object' && ctx.slots) || null;
+            const slots = () => (typeof ctx.slots === 'object' && ctx.slots) as HarnessClientContext['slots'] | null;
             // v1.0.2: the reader is discovered from the live service instead of
             // assumed. entriesOfSlot()/entries() were guesses; if the real host
             // names its reader differently every slot-based action silently
@@ -1122,32 +1122,68 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // only entry-looking objects are harvested, so a mismatched reader
             // can never feed a foreign object into the action probes.
             const SLOT_READER_KEYS = ['entriesOfSlot', 'entries', 'slotEntries', 'get', 'getSlot', 'ofSlot', 'slot'];
-            const looksLikeEntry = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
+            interface SlotEntry {
+  id?: string;
+  name?: string;
+  inject?: () => unknown;
+  options?: { inject?: () => unknown; store?: SlotStore };
+  store?: SlotStore;
+  [key: string]: unknown;
+}
+
+interface LauncherOps {
+  inject?: () => unknown;
+  options?: { inject?: () => unknown };
+  start?: () => unknown;
+  open?: () => unknown;
+  openSettings?: () => unknown;
+  hooks?: {
+    account?: {
+      getSnapshot?: () => {
+        view?: { status?: string };
+        details?: { balance?: { status?: string; value?: Array<{ currency?: string; balance?: number }> } };
+      };
+      subscribe?: (cb: () => void) => unknown;
+    };
+  };
+  [key: string]: unknown;
+}
+
+interface SlotStore {
+  getState?: () => { actions?: { open?: () => unknown } };
+  open?: () => unknown;
+  create?: () => { actions?: { open?: () => unknown } };
+}
+
+const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'object' && !Array.isArray(v)
               && ('id' in v || 'name' in v || 'inject' in v || 'options' in v || 'store' in v);
-            const slotEntries = (name) => {
+            const slotEntries = (name: string): SlotEntry[] => {
               const s = slots();
               if (!s) return [];
-              const out = [];
-              const call = (fn) => { try { return fn(); } catch { return undefined; } };
-              const harvest = (r) => {
+              const out: SlotEntry[] = [];
+              const call = (fn: () => unknown) => { try { return fn(); } catch { return undefined; } };
+              const harvest = (r: unknown) => {
                 if (!r) return false;
                 if (Array.isArray(r)) { r.forEach((v) => { if (looksLikeEntry(v)) out.push(v); }); return out.length > 0; }
                 if (typeof r !== 'object') return false;
-                const arr = Array.isArray(r.entries) ? r.entries
-                  : Array.isArray(r[name]) ? r[name]
-                  : Array.isArray(r.items) ? r.items : null;
+                const rObj = r as Record<string, unknown>;
+                const arr = Array.isArray(rObj.entries) ? rObj.entries
+                  : Array.isArray(rObj[name]) ? rObj[name]
+                  : Array.isArray(rObj.items) ? rObj.items : null;
                 if (arr) { arr.forEach((v) => { if (looksLikeEntry(v)) out.push(v); }); return out.length > 0; }
                 if (looksLikeEntry(r)) { out.push(r); return true; }
                 return false;
               };
               for (const key of SLOT_READER_KEYS) {
-                if (typeof s[key] !== 'function') continue;
-                if (harvest(call(() => s[key](name)))) return out;
+                const reader = (s as Record<string, unknown>)[key];
+                if (typeof reader !== 'function') continue;
+                const result = call(() => (reader as (n: string) => unknown)(name));
+                if (harvest(result)) return out;
                 out.length = 0;
               }
               for (const holder of [s, s.slots, s.registry, s.map, s.definitions]) {
                 if (!holder) continue;
-                const v = holder[name];
+                const v = (holder as Record<string, unknown>)[name];
                 if (Array.isArray(v)) v.forEach((e) => { if (looksLikeEntry(e)) out.push(e); });
                 else if (looksLikeEntry(v)) out.push(v);
                 if (out.length) return out;
@@ -1155,12 +1191,12 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               }
               return out;
             };
-            let opsCache; // `inject: () => operations` returns a stable object
-            const launcherOps = () => {
+            let opsCache: LauncherOps | null = null; // `inject: () => operations` returns a stable object
+            const launcherOps = (): LauncherOps | null => {
               if (opsCache) return opsCache;
               try {
                 const e = slotEntries('settings.launcher')[0];
-                opsCache = e?.inject?.() ?? e?.options?.inject?.() ?? null;
+                opsCache = (e?.inject?.() ?? e?.options?.inject?.() ?? null) as LauncherOps | null;
               } catch { opsCache = null; }
               return opsCache;
             };
@@ -1193,14 +1229,14 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               version: VERSION,
               ua: '',
               url: '',
-              slotsApi: [],
-              dom: {},
-              moduleProbe: [],
-              attempts: [],
+              slotsApi: [] as string[],
+              dom: {} as Record<string, unknown>,
+              moduleProbe: [] as unknown[],
+              attempts: [] as string[],
             };
             try { DIAG.ua = String(navigator.userAgent || '').slice(0, 140); } catch { /* ignore */ }
             try { window.__ensDiag = DIAG; } catch { /* ignore */ }
-            const note = (level, msg) => { DIAG.attempts.push(`[${level}] ${msg}`); };
+            const note = (level: string, msg: string) => { DIAG.attempts.push(`[${level}] ${msg}`); };
             // A dialog counts as the settings page only when its accessible
             // name or top-level heading IS a settings title (optionally with a
             // " · xxx" suffix). Body copy that merely mentions "settings"
@@ -1213,7 +1249,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // v1.0.3: only a VISIBLE settings node counts. A settings panel the
             // host keeps mounted but hidden used to match here, so openSettings
             // returned at once and the click looked dead, with no popup at all.
-            const isVisibleEl = (el) => {
+            const isVisibleEl = (el: Element) => {
               try {
                 const r = el.getBoundingClientRect();
                 const s = getComputedStyle(el);
@@ -1223,18 +1259,18 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             const isSettingsOpenInDom = () => {
               try {
                 // the panel is the positive signal; check it first
-                const panel = document.querySelector('.AnXs9G_panel');
+                const panel = document.querySelector<HTMLElement>('.AnXs9G_panel');
                 if (panel && isVisibleEl(panel)) return true;
-                for (const el of document.querySelectorAll(SETTINGS_OPEN_SEL)) {
+                for (const el of document.querySelectorAll<HTMLElement>(SETTINGS_OPEN_SEL)) {
                   if (isVisibleEl(el)) return true;
                 }
                 const pathHash = `${location.pathname}${location.hash}`;
                 if (/(^|[/#])settings([/?#]|$)/i.test(pathHash)) return true;
-                const dialogs = document.querySelectorAll('[role="dialog"][data-state="open"], [role="dialog"][aria-modal="true"]');
+                const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][data-state="open"], [role="dialog"][aria-modal="true"]');
                 for (const d of dialogs) {
                   const label = (d.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
                   if (SETTINGS_TITLE_RE.test(label)) return true;
-                  for (const head of d.querySelectorAll('h1, h2, h3')) {
+                  for (const head of d.querySelectorAll<HTMLElement>('h1, h2, h3')) {
                     const txt = (head.textContent || '').replace(/\s+/g, ' ').trim();
                     if (SETTINGS_TITLE_RE.test(txt)) return true;
                   }
@@ -1242,7 +1278,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               } catch { /* fall through */ }
               return false;
             };
-            const waitFor = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+            const waitFor = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
             // Quick confirmation window (~360ms); every next destructive action
             // is preceded by a 500ms late-arrival re-check, so a lazily mounted
             // panel (800ms+) can never be toggled closed by what follows.
@@ -1259,8 +1295,8 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               try {
                 return [
                   document.body ? document.body.children.length : 0,
-                  document.querySelectorAll('[role="dialog"]').length,
-                  document.querySelectorAll('[data-radix-popper-content-wrapper]').length,
+                  document.querySelectorAll<HTMLElement>('[role="dialog"]').length,
+                  document.querySelectorAll<HTMLElement>('[data-radix-popper-content-wrapper]').length,
                   `${location.pathname}${location.hash}`,
                 ].join('|');
               } catch { return ''; }
@@ -1268,11 +1304,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // frame-paced: one check per paint, same total budget as the old 25ms steps.
             // Guarded with a timeout promise so background tabs (where rAF pauses) cannot
             // stall the whole chain — the timeout promise resolves even if rAF never fires.
-            const nextFrame = (ms) => Promise.race([
-              new Promise((resolve) => requestAnimationFrame(() => resolve())),
-              new Promise((resolve) => setTimeout(resolve, ms + 8))
+            const nextFrame = (ms: number) => Promise.race<void>([
+              new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+              new Promise<void>((resolve) => setTimeout(resolve, ms + 8))
             ]);
-            const verifySettingsOpened = async (beforeFingerprint, steps = VERIFY_STEPS) => {
+            const verifySettingsOpened = async (beforeFingerprint: string, steps: number[] = VERIFY_STEPS) => {
               const deadline = performance.now() + steps.reduce((sum, ms) => sum + ms, 0);
               while (performance.now() < deadline) {
                 await nextFrame(steps[0]);
@@ -1280,7 +1316,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               }
               return isSettingsOpenInDom();
             };
-            const isDeltaOwnElement = (el) => {
+            const isDeltaOwnElement = (el: Element) => {
               try {
                 return !!(el.closest('[data-ens], .ens-foot-actions, .ens-search-dock, .ens-anno-panel, .ens-anno-btn, .ens-standalone-settings-modal, .ens-modal-card'));
               } catch { return false; }
@@ -1296,42 +1332,43 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               } catch { DIAG.slotsApi = []; }
               try {
                 DIAG.dom = {
-                  footArea: !!document.querySelector('.wtg9ga_footArea, [class*="_footArea"]'),
-                  footerActions: !!document.querySelector('.wtg9ga_footerActions, [class*="_footerActions"]'),
-                  accountTrigger: !!document.querySelector('._5Qcc8a_trigger, [data-signed-out]'),
-                  nativeSettingsTrigger: !!document.querySelector('.AnXs9G_trigger, [class*="_settingsTrigger"]'),
+                  footArea: !!document.querySelector<HTMLElement>('.wtg9ga_footArea, [class*="_footArea"]'),
+                  footerActions: !!document.querySelector<HTMLElement>('.wtg9ga_footerActions, [class*="_footerActions"]'),
+                  accountTrigger: !!document.querySelector<HTMLElement>('._5Qcc8a_trigger, [data-signed-out]'),
+                  nativeSettingsTrigger: !!document.querySelector<HTMLElement>('.AnXs9G_trigger, [class*="_settingsTrigger"]'),
                 };
               } catch { /* ignore */ }
             };
             const nativeSettingsTriggerCandidates = () => {
-              const seen = new Set();
-              const found = [];
-              const push = (el) => {
+              const seen = new Set<Element>();
+              const found: Element[] = [];
+              const push = (el: Element | null) => {
                 if (!el || seen.has(el) || isDeltaOwnElement(el)) return;
-                if (el.hasAttribute('hidden') || el.disabled) return;
+                if (el.hasAttribute('hidden')) return;
+                if ((el as HTMLButtonElement).disabled) return;
                 if (el.getAttribute('aria-hidden') === 'true') return;
                 if (el.closest('[role="menu"], [role="menuitem"]')) return; // the menu path handles those
                 seen.add(el);
                 found.push(el);
               };
-              const asClickable = (el) => {
+              const asClickable = (el: Element | null): Element | null => {
                 if (!el) return null;
                 if (el.matches('button, [role="button"]')) return el;
-                return el.querySelector('button, [role="button"]');
+                return el.querySelector<HTMLElement>('button, [role="button"]');
               };
               // (a) known / hashed trigger classes (current shipped build)
-              document.querySelectorAll('.AnXs9G_trigger, [class*="_settingsTrigger"], [class*="_settingsBtn"], [class*="_settingsButton"]')
+              document.querySelectorAll<HTMLElement>('.AnXs9G_trigger, [class*="_settingsTrigger"], [class*="_settingsBtn"], [class*="_settingsButton"]')
                 .forEach((el) => push(asClickable(el) || el));
               // (b) accessible-name match: aria-label / title only needs to
               //     MENTION 设置 / settings ("Open settings", "打开设置"…),
               //     unless it is clearly about auth / account / plugins.
-              document.querySelectorAll('button, [role="button"]').forEach((el) => {
+              document.querySelectorAll<HTMLElement>('button, [role="button"]').forEach((el) => {
                 if (seen.has(el)) return;
                 const name = (el.getAttribute('aria-label') || el.getAttribute('title') || '').replace(/\s+/g, ' ').trim();
                 if (name && SETTINGS_HINT_RE.test(name) && !SETTINGS_BLOCK_RE.test(name)) push(el);
               });
               // (c) short visible-text scan across clickable chrome
-              document.querySelectorAll('button, [role="button"], [role="tab"], a').forEach((el) => {
+              document.querySelectorAll<HTMLElement>('button, [role="button"], [role="tab"], a').forEach((el) => {
                 if (seen.has(el)) return;
                 const accessible = (el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || '').replace(/\s+/g, ' ').trim();
                 if (accessible && accessible.length <= 24 && SETTINGS_HINT_RE.test(accessible) && !SETTINGS_BLOCK_RE.test(accessible)) push(el);
@@ -1342,10 +1379,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               //     the settings trigger — this survives a total class-hash
               //     drift and icon-only buttons.
               try {
-                document.querySelectorAll('.wtg9ga_footerActions, [class*="_footerActions"]').forEach((host) => {
-                  for (const el of host.querySelectorAll('button, [role="button"]')) {
+                document.querySelectorAll<HTMLElement>('.wtg9ga_footerActions, [class*="_footerActions"]').forEach((host) => {
+                  for (const el of host.querySelectorAll<HTMLElement>('button, [role="button"]')) {
                     if (seen.has(el) || isDeltaOwnElement(el)) continue;
-                    if (el.hasAttribute('hidden') || el.disabled) continue;
+                    if (el.hasAttribute('hidden')) continue;
+                    if ((el as HTMLButtonElement).disabled) continue;
                     if (el.getAttribute('aria-hidden') === 'true') continue;
                     if (el.closest('[role="menu"], [role="menuitem"]')) continue;
                     if (el.matches('._5Qcc8a_trigger, [data-signed-out], [data-account], [class*="_accountTrigger"], [aria-haspopup="menu"]')) continue;
@@ -1370,29 +1408,33 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               const shapes = [...new Set(entries.map((e) => Object.keys(e || {}).join('+')))];
               note('store', `entries=${entries.length}${shapes.length ? ` shapes=[${shapes.join(' ; ')}]` : ''}`);
               for (const e of entries) {
-                const actions = [];
+                const actions: Array<[string, () => void]> = [];
                 const store = e?.options?.store || e?.store;
                 try {
                   const state = store?.getState?.();
-                  if (typeof state?.actions?.open === 'function') actions.push(['state.actions.open()', () => state.actions.open()]);
+                  const stateOpen = state?.actions?.open;
+                  if (typeof stateOpen === 'function') actions.push(['state.actions.open()', () => stateOpen()]);
                 } catch { /* ignore */ }
-                if (typeof store?.open === 'function') actions.push(['store.open()', () => store.open()]);
+                const storeOpen = store?.open;
+                if (typeof storeOpen === 'function') actions.push(['store.open()', () => storeOpen()]);
                 try {
                   const inj = (typeof e?.inject === 'function' ? e.inject() : null)
                     || (typeof e?.options?.inject === 'function' ? e.options.inject() : null);
-                  if (typeof inj?.openSettings === 'function') actions.push(['inject().openSettings()', () => inj.openSettings()]);
-                  if (typeof inj?.open === 'function') actions.push(['inject().open()', () => inj.open()]);
+                  const injObj = (inj ?? {}) as { openSettings?: () => unknown; open?: () => unknown };
+                  if (typeof injObj.openSettings === 'function') actions.push(['inject().openSettings()', () => injObj.openSettings?.()]);
+                  if (typeof injObj.open === 'function') actions.push(['inject().open()', () => injObj.open?.()]);
                 } catch { /* ignore */ }
                 if (typeof store?.create === 'function') {
                   try {
                     const inst = store.create();
-                    if (typeof inst?.actions?.open === 'function') actions.push(['store.create().actions.open()', () => inst.actions.open()]);
+                    const instOpen = inst?.actions?.open;
+                    if (typeof instOpen === 'function') actions.push(['store.create().actions.open()', () => instOpen()]);
                   } catch { /* ignore */ }
                 }
                 for (const [label, act] of actions) {
                   const before = chromeFingerprint();
                   try { act(); note('store', `called ${label}`); }
-                  catch (err) { note('store', `${label} threw: ${err?.message || err}`); }
+                  catch (err) { note('store', `${label} threw: ${err instanceof Error ? err.message : String(err)}`); }
                   if (await verifySettingsOpened(before)) return true;
                 }
               }
@@ -1434,16 +1476,16 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 try { mod = require(id); } catch { continue; }
                 if (!mod) continue;
                 try { DIAG.moduleProbe.push(`${id} → [${Object.keys(mod).slice(0, 10).join(',') || '(no exports)'}]`); } catch { /* ignore */ }
-                const actions = [];
-                const seen = new Set();
-                const collect = (obj, path, depth) => {
+                const actions: Array<[string, () => void]> = [];
+                const seen = new Set<object>();
+                const collect = (obj: unknown, path: string, depth: number) => {
                   if (!obj || seen.has(obj) || (typeof obj !== 'object' && typeof obj !== 'function')) return;
-                  seen.add(obj);
-                  let keys = [];
-                  try { keys = Object.keys(obj).slice(0, 40); } catch { return; }
+                  seen.add(obj as object);
+                  let keys: string[] = [];
+                  try { keys = Object.keys(obj as object).slice(0, 40); } catch { return; }
                   for (const key of keys) {
-                    let v;
-                    try { v = obj[key]; } catch { continue; }
+                    let v: unknown;
+                    try { v = (obj as Record<string, unknown>)[key]; } catch { continue; }
                     if (typeof v === 'function' && OPENISH_RE.test(key)) {
                       actions.push([`${path}${key}()`, () => v()]);
                     } else if (v && typeof v === 'object' && depth < 1) {
@@ -1455,7 +1497,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 for (const [label, act] of actions) {
                   const before = chromeFingerprint();
                   try { act(); note('host-module', `called ${label}`); }
-                  catch (err) { note('host-module', `${label} threw: ${err?.message || err}`); }
+                  catch (err) { note('host-module', `${label} threw: ${err instanceof Error ? err.message : String(err)}`); }
                   if (await verifySettingsOpened(before)) return true;
                 }
               }
@@ -1473,9 +1515,9 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 if (isSettingsOpenInDom()) return true;
                 const before = chromeFingerprint();
                 try {
-                  el.click();
+                  (el as HTMLElement).click();
                   note('native-trigger', `clicked <${(el.tagName || '').toLowerCase()} class="${(el.getAttribute('class') || '').slice(0, 48)}">`);
-                } catch (err) { note('native-trigger', `click threw: ${err?.message || err}`); }
+                } catch (err) { note('native-trigger', `click threw: ${err instanceof Error ? err.message : String(err)}`); }
                 if (await verifySettingsOpened(before)) return true;
                 if (await settleCheck()) return true;
               }
@@ -1500,7 +1542,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 : [{ metaKey: false, altKey: false, ctrlKey: true }];
               let target = null;
               try {
-                target = document.querySelector('#root, #app, [data-reactroot]')
+                target = document.querySelector<HTMLElement>('#root, #app, [data-reactroot]')
                   || document.body.firstElementChild || document.body;
               } catch { target = document.body; }
               if (!target || !target.dispatchEvent) target = document.body;
@@ -1530,43 +1572,43 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // entry at all, dismiss it again so nothing stays open.
             const attemptAccountMenu = async () => {
               if (isSettingsOpenInDom()) return true;
-              const account = document.querySelector('._5Qcc8a_trigger')
-                || document.querySelector('[class*="_footerActions"] [data-signed-out]')
-                || document.querySelector('[data-signed-out]');
+              const account = document.querySelector<HTMLElement>('._5Qcc8a_trigger')
+                || document.querySelector<HTMLElement>('[class*="_footerActions"] [data-signed-out]')
+                || document.querySelector<HTMLElement>('[data-signed-out]');
               if (!account) { note('account-menu', 'account trigger not found'); return false; }
               const before = chromeFingerprint();
-              try { account.click(); } catch (err) { note('account-menu', `trigger click threw: ${err?.message || err}`); return false; }
+              try { (account as HTMLElement).click(); } catch (err) { note('account-menu', `trigger click threw: ${err instanceof Error ? err.message : String(err)}`); return false; }
               const ITEM_SEL = '[role="menuitem"], [role="menu"] button, [role="menu"] a, [role="menu"] [tabindex], [data-radix-collection-item]';
-              let recorded = false;
+              let isRecorded = false;
               const recordMenu = () => {
-                if (recorded) return;
-                const texts = [...document.querySelectorAll(ITEM_SEL)]
+                if (isRecorded) return;
+                const texts = [...document.querySelectorAll<HTMLElement>(ITEM_SEL)]
                   .map((el) => (el.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 10);
-                if (texts.length) { note('account-menu', `menu items=[${texts.join(' | ')}]`); recorded = true; }
+                if (texts.length) { note('account-menu', `menu items=[${texts.join(' | ')}]`); isRecorded = true; }
               };
               const pickSettingsItem = () => {
-                for (const el of document.querySelectorAll(ITEM_SEL)) {
+                for (const el of document.querySelectorAll<HTMLElement>(ITEM_SEL)) {
                   const txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
                   if (/^设置(?:\s|$|\+|C)/.test(txt) || /^settings(?:\s|$|\+|C)/i.test(txt)) {
-                    const prev = el.style.display;
-                    el.style.display = '';
-                    el.click();
-                    el.style.display = prev;
+                    const prev = (el as HTMLElement).style.display;
+                    (el as HTMLElement).style.display = '';
+                    (el as HTMLElement).click();
+                    (el as HTMLElement).style.display = prev;
                     note('account-menu', `clicked menu item "${txt.slice(0, 24)}"`);
                     return true;
                   }
                 }
                 return false;
               };
-              let clickedMenuItem = false;
+              let isClickedMenuItem = false;
               for (const waitMs of [60, 120, 240, 400]) {
                 await waitFor(waitMs);
                 if (isSettingsOpenInDom()) return true;
                 recordMenu();
-                if (!clickedMenuItem) clickedMenuItem = pickSettingsItem();
+                if (!isClickedMenuItem) isClickedMenuItem = pickSettingsItem();
               }
-              const opened = isSettingsOpenInDom();
-              if (!opened && !clickedMenuItem && chromeFingerprint() !== before) {
+              const isOpened = isSettingsOpenInDom();
+              if (!isOpened && !isClickedMenuItem && chromeFingerprint() !== before) {
                 try {
                   document.dispatchEvent(new KeyboardEvent('keydown', {
                     key: 'Escape', code: 'Escape', keyCode: 27, which: 27,
@@ -1574,10 +1616,10 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                   }));
                   note('account-menu', 'no settings item — dismissed the menu');
                 } catch { /* ignore */ }
-              } else if (!opened) {
-                note('account-menu', clickedMenuItem ? 'clicked the item but the page did not open' : 'menu had no settings item');
+              } else if (!isOpened) {
+                note('account-menu', isClickedMenuItem ? 'clicked the item but the page did not open' : 'menu had no settings item');
               }
-              return opened;
+              return isOpened;
             };
 
             // Level 6 — the guaranteed fallback (restored from the 0.1.x
@@ -1585,7 +1627,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // the host page could not be opened the modal also carries the
             // diagnostic report and a copy button, so the next round can adapt
             // to the real host instead of guessing.
-            const renderDomSettingsInto = (container) => {
+            const renderDomSettingsInto = (container: HTMLElement) => {
               container.textContent = '';
               const wrap = document.createElement('div');
               wrap.className = 'ens-settings';
@@ -1690,11 +1732,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               ...(DIAG.moduleProbe.length ? [`host modules: ${DIAG.moduleProbe.join(' ; ')}`] : []),
               ...DIAG.attempts,
             ].join('\n');
-            let diagBoxEl = null;
-            const openStandaloneSettings = (withReport) => {
-              const existing = document.querySelector('.ens-standalone-settings-modal');
+            let diagBoxEl: HTMLPreElement | null = null;
+            const openStandaloneSettings = (isWithReport: boolean) => {
+              const existing = document.querySelector<HTMLElement>('.ens-standalone-settings-modal');
               if (existing) {
-                if (withReport && diagBoxEl) diagBoxEl.textContent = diagText();
+                if (isWithReport && diagBoxEl) diagBoxEl.textContent = diagText();
                 return;
               }
               const backdrop = document.createElement('div');
@@ -1716,10 +1758,10 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               headBox.append(titleEl, subEl);
               const btns = document.createElement('div');
               btns.style.cssText = 'display:flex;gap:8px;flex:none;';
-              const mkBtn = (label, primary) => {
+              const mkBtn = (label: string, isPrimary: boolean) => {
                 const b = document.createElement('button');
                 b.type = 'button';
-                b.className = 'ens-pill-btn' + (primary ? ' ens-pill-btn-primary' : '');
+                b.className = 'ens-pill-btn' + (isPrimary ? ' ens-pill-btn-primary' : '');
                 b.textContent = label;
                 return b;
               };
@@ -1727,13 +1769,13 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 try { backdrop.remove(); } catch { /* ignore */ }
                 try { document.removeEventListener('keydown', onKey, true); } catch { /* ignore */ }
               };
-              const onKey = (ev) => { if (ev.key === 'Escape') { try { ev.stopPropagation(); } catch { /* ignore */ } close(); } };
-              if (withReport) {
+              const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { try { ev.stopPropagation(); } catch { /* ignore */ } close(); } };
+              if (isWithReport) {
                 const retry = mkBtn(pick('重试打开宿主设置页', 'Retry host settings'), true);
                 retry.addEventListener('click', () => { close(); openSettingsChain(); });
                 btns.appendChild(retry);
               }
-              const copyBtn = withReport ? mkBtn(pick('复制诊断信息', 'Copy diagnostics'), false) : null;
+              const copyBtn = isWithReport ? mkBtn(pick('复制诊断信息', 'Copy diagnostics'), false) : null;
               const closeBtn = mkBtn(pick('关闭 (Esc)', 'Close (Esc)'), false);
               if (copyBtn) btns.appendChild(copyBtn);
               btns.appendChild(closeBtn);
@@ -1741,27 +1783,27 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               if (copyBtn) {
                 copyBtn.addEventListener('click', async () => {
                   const text = diagText();
-                  let ok = false;
-                  try { await navigator.clipboard.writeText(text); ok = true; } catch { /* fall through */ }
-                  if (!ok) {
+                  let isOk = false;
+                  try { await navigator.clipboard.writeText(text); isOk = true; } catch { /* fall through */ }
+                  if (!isOk) {
                     try {
                       const ta = document.createElement('textarea');
                       ta.value = text;
                       ta.style.cssText = 'position:fixed;opacity:0;';
                       document.body.appendChild(ta);
                       ta.select();
-                      ok = document.execCommand('copy');
+                      isOk = document.execCommand('copy');
                       ta.remove();
                     } catch { /* ignore */ }
                   }
-                  copyBtn.textContent = ok ? pick('已复制', 'Copied') : pick('复制失败，见控制台', 'Copy failed — see console');
+                  copyBtn.textContent = isOk ? pick('已复制', 'Copied') : pick('复制失败，见控制台', 'Copy failed — see console');
                   setTimeout(() => { copyBtn.textContent = pick('复制诊断信息', 'Copy diagnostics'); }, 1600);
                   try { console.info('[dsh-ui-delta] 诊断信息：\n' + diagText()); } catch { /* ignore */ }
                 });
               }
               top.append(headBox, btns);
               card.appendChild(top);
-              if (withReport) {
+              if (isWithReport) {
                 const banner = document.createElement('div');
                 banner.className = 'ens-modal-banner';
                 banner.textContent = pick(
@@ -1789,7 +1831,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // The foot 设置 always opens the host's settings page, signed in or not.
             // Delta UI's own settings live in that page's "Delta UI" section.
             const openSettings = () => openSettingsChain();
-            let openSettingsBusy = false;
+            let isOpenSettingsBusy = false;
             let openSettingsBusySince = 0;
             const openSettingsChain = async () => {
               try { console.info(`[dsh-ui-delta] 设置按钮被点击 v${VERSION}`); } catch { /* ignore */ }
@@ -1798,13 +1840,13 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 return;
               }
               // a stuck chain must not swallow every later click: expire after 8s
-              if (openSettingsBusy && Date.now() - openSettingsBusySince < 8000) return;
-              openSettingsBusy = true;
+              if (isOpenSettingsBusy && Date.now() - openSettingsBusySince < 8000) return;
+              isOpenSettingsBusy = true;
               openSettingsBusySince = Date.now();
               const t0 = Date.now(); // v0.1.0: elapsed time is logged on success
               DIAG.attempts.length = 0;
               collectDiagSnapshot();
-              const btn = document.querySelector('.ens-foot-actions [data-ens="settings"]');
+              const btn = document.querySelector<HTMLElement>('.ens-foot-actions [data-ens="settings"]');
               if (btn) { btn.classList.add('ens-foot-action-busy'); btn.setAttribute('aria-busy', 'true'); }
               try {
                 // settleBefore marks the destructive levels: a slow panel from
@@ -1824,17 +1866,17 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                     try { console.info(`[dsh-ui-delta] 设置页已打开（${label} 前的慢加载复检命中）v${VERSION}`); } catch { /* ignore */ }
                     return;
                   }
-                  let opened = false;
-                  try { opened = await attempt(); }
-                  catch (err) { note(label, `level threw: ${err?.message || err}`); }
-                  if (opened) {
+                  let isOpened = false;
+                  try { isOpened = await attempt(); }
+                  catch (err) { note(label, `level threw: ${err instanceof Error ? err.message : String(err)}`); }
+                  if (isOpened) {
                     try { console.info(`[dsh-ui-delta] 设置已通过「${label}」层打开 (v${VERSION}) · ${Date.now() - t0}ms`); } catch { /* ignore */ }
                     return;
                   }
                 }
                 try { console.info(`[dsh-ui-delta] 宿主设置页未能打开，已启用内置面板 (v${VERSION})。诊断在 window.__ensDiag：`, DIAG); } catch { /* ignore */ }
               } finally {
-                openSettingsBusy = false;
+                isOpenSettingsBusy = false;
                 if (btn) { btn.classList.remove('ens-foot-action-busy'); btn.removeAttribute('aria-busy'); }
               }
             };
@@ -1842,11 +1884,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               const ops = launcherOps();
               try { if (ops?.start) { ops.start(); return; } } catch { /* fall through */ }
               // DOM fallback: open the account menu, then click its 登录 item.
-              const trig = document.querySelector('._5Qcc8a_trigger');
+              const trig = document.querySelector<HTMLElement>('._5Qcc8a_trigger');
               if (!trig) return;
               trig.click();
               setTimeout(() => {
-                const item = [...document.querySelectorAll('[role="menuitem"]')]
+                const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
                   .find(el => /登录|登 入|sign\s?in/i.test(el.textContent || ''));
                 item?.click();
               }, 80);
@@ -1854,11 +1896,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // v0.1.0: 登出 goes through the host's own account menu, so the host
             // still shows its sign-out confirmation before anything is cleared.
             const signOutFromMenu = () => {
-              const trig = document.querySelector('._5Qcc8a_trigger');
+              const trig = document.querySelector<HTMLElement>('._5Qcc8a_trigger');
               if (!trig) return;
               trig.click();
               setTimeout(() => {
-                const item = [...document.querySelectorAll('[role="menuitem"], [role="menu"] button, [role="menu"] [tabindex]')]
+                const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menu"] button, [role="menu"] [tabindex]')]
                   .find(el => /退出|登出|sign\s?out/i.test(el.textContent || ''));
                 item?.click();
               }, 80);
@@ -1872,12 +1914,12 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // Clone the host brand SVG (hidden by #1 but still in the DOM) so
             // the avatar slot carries the product identity without shipping a
             // second copy of the artwork; fall back to a person glyph.
-            function injectAccountGlyph(trigger) {
-              if (!trigger || trigger.querySelector('.ens-account-glyph')) return;
+            function injectAccountGlyph(trigger: HTMLElement | null) {
+              if (!trigger || trigger.querySelector<HTMLElement>('.ens-account-glyph')) return;
               const g = document.createElement('span');
               g.className = 'ens-account-glyph';
               g.setAttribute('aria-hidden', 'true');
-              const mark = document.querySelector('.wtg9ga_brandMark svg');
+              const mark = document.querySelector<HTMLElement>('.wtg9ga_brandMark svg');
               g.innerHTML = mark ? mark.outerHTML : ICON_PERSON;
               trigger.appendChild(g);
             }
@@ -1889,12 +1931,12 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               // beside it so the avatar and the actions share one line. Early
               // runs may precede footerActions, so collapse any extra boxes and
               // keep exactly one, always in the preferred host.
-              const host = document.querySelector('.wtg9ga_footerActions')
-                || document.querySelector('.wtg9ga_footArea');
+              const host = document.querySelector<HTMLElement>('.wtg9ga_footerActions')
+                || document.querySelector<HTMLElement>('.wtg9ga_footArea');
               if (!host) return;
 
               // Ensure a single global .ens-foot-actions. If host changed, move it.
-              let box = document.querySelector('.ens-foot-actions');
+              let box = document.querySelector<HTMLElement>('.ens-foot-actions');
               if (box && box.parentElement !== host) {
                 box.remove();
                 box = null;
@@ -1907,30 +1949,32 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 host.appendChild(box);
               }
               // Remove any stale duplicates (should be none, but safe).
-              document.querySelectorAll('.ens-foot-actions').forEach((el) => {
+              document.querySelectorAll<HTMLElement>('.ens-foot-actions').forEach((el) => {
                 if (el !== box) el.remove();
               });
 
               // v0.2.2: notification pill (order 0) — left of 设置.
               // Only rendered when there is something to show (error, progress, or update).
-              if (!box.querySelector('[data-ens="notify"]')) {
+              if (!box.querySelector<HTMLElement>('[data-ens="notify"]')) {
                 const notify = document.createElement('div');
                 notify.dataset.ens = 'notify';
                 notify.className = 'ens-foot-notify';
                 notify.style.order = '0';
                 notify.innerHTML = `<span></span><button class="ens-foot-notify-close" aria-label="${t('关闭', 'Close')}">×</button>`;
                 box.insertBefore(notify, box.firstChild);
-                notify.querySelector('.ens-foot-notify-close').addEventListener('click', (e) => {
+                const notifyClose = notify.querySelector<HTMLElement>('.ens-foot-notify-close');
+                notifyClose?.addEventListener('click', (e) => {
                   e.stopPropagation();
                   notify.classList.remove('visible', 'error', 'warn', 'info');
-                  notify.querySelector('span').textContent = '';
+                  const notifyText = notify.querySelector<HTMLElement>('span');
+                  if (notifyText) notifyText.textContent = '';
                 });
               }
               // v0.1.0: both foot actions are icon buttons. 设置 sits left and
               // 登录/登出 right, the account being the trailing item as usual;
               // the CSS order pins that whatever the insertion order.
-              const iconBtn = (key, icon, label, fn) => {
-                if (box.querySelector('[data-ens="' + key + '"]')) return;
+              const iconBtn = (key: string, icon: string, label: string, fn: (b: HTMLButtonElement) => void) => {
+                if (box.querySelector<HTMLElement>('[data-ens="' + key + '"]')) return;
                 const b = document.createElement('button');
                 b.type = 'button';
                 b.className = 'ens-foot-action ens-foot-icon';
@@ -1943,7 +1987,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               };
               // 分享 was removed per feedback: only 设置 and the account sit here.
               iconBtn('settings', ICON_SETTINGS, t('设置', 'Settings'), () => openSettings());
-              const settingsBtn = box.querySelector('[data-ens="settings"]');
+              const settingsBtn = box.querySelector<HTMLElement>('[data-ens="settings"]');
               if (settingsBtn) settingsBtn.title = t('设置', 'Settings');
               iconBtn('account', ICON_LOGIN, t('登录', 'Sign in'), () => (signedIn() ? signOutFromMenu() : startSignIn()));
             }
@@ -1954,7 +1998,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // leading word and cover the common menu item shapes.
             // Also hide 意见反馈 / 已经反馈 (feedback) — only the foot button remains.
             function hideAccountMenuSettings() {
-              const nodes = document.querySelectorAll(
+              const nodes = document.querySelectorAll<HTMLElement>(
                 '[role="menuitem"], [role="menu"] button, [role="menu"] a, [role="menu"] [tabindex]',
               );
               nodes.forEach(el => {
@@ -1972,23 +2016,22 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // calls this on every render, so it stays in step with sign-in.
             function syncLoginVisibility() {
               syncBalance();
-              const acct = document.querySelector('.ens-foot-actions [data-ens="account"]');
+              const acct = document.querySelector<HTMLElement>('.ens-foot-actions [data-ens="account"]');
               if (!acct) return;
-              const on = signedIn();
-              const label = on ? t('登出', 'Sign out') : t('登录', 'Sign in');
+              const isOn = signedIn();
+              const label = isOn ? t('登出', 'Sign out') : t('登录', 'Sign in');
               if (acct.getAttribute('aria-label') === label) return;
-              acct.innerHTML = on ? ICON_LOGOUT : ICON_LOGIN;
+              acct.innerHTML = isOn ? ICON_LOGOUT : ICON_LOGIN;
               acct.setAttribute('aria-label', label);
               acct.title = label;
             }
             // v0.1.0: balance from the same account store the host reads
             // (details.balance, shown only once status is 'ready').
             function syncBalance() {
-              const area = document.querySelector('.wtg9ga_footArea');
+              const area = document.querySelector<HTMLElement>('.wtg9ga_footArea');
               if (!area) return;
-              let el = area.querySelector(':scope > .ens-balance');
-              if (!el) {
-                el = document.createElement('span');
+              let el: HTMLElement = area.querySelector<HTMLElement>(':scope > .ens-balance') ?? document.createElement('span');
+              if (!area.contains(el)) {
                 el.className = 'ens-balance';
                 area.appendChild(el);
               }
@@ -2009,14 +2052,16 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             }
             // v0.1.0: centre the 设置 / 登录 row and the balance on the avatar's
             // vertical centre, so all three share one horizontal line.
-            function alignFootRow(balanceEl) {
-              const box = document.querySelector('.ens-foot-actions');
-              const avatar = document.querySelector('._5Qcc8a_trigger');
+            function alignFootRow(balanceEl: HTMLElement) {
+              const box = document.querySelector<HTMLElement>('.ens-foot-actions');
+              const avatar = document.querySelector<HTMLElement>('._5Qcc8a_trigger');
               if (!box || !avatar) return;
               const av = avatar.getBoundingClientRect();
               if (av.height === 0) return; // collapsed or hidden: nothing to align to
               // balance sits 8px right of the live avatar edge
-              const area = balanceEl.parentElement.getBoundingClientRect();
+              const parent = balanceEl.parentElement;
+              if (!parent) return;
+              const area = parent.getBoundingClientRect();
               const left = av.right - area.left + 8;
               if (balanceEl.style.left !== left + 'px') balanceEl.style.left = left + 'px';
               const bx = box.getBoundingClientRect();
@@ -2027,8 +2072,8 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 balanceEl.style.bottom = bottom + 'px';
               }
               // right edge: the 登录/登出 glyph lines up with the workspace search field
-              const ref = document.querySelector('.ens-search-dock .GAkraW_search');
-              const glyph = box.querySelector('[data-ens="account"] svg');
+              const ref = document.querySelector<HTMLElement>('.ens-search-dock .GAkraW_search');
+              const glyph = box.querySelector<HTMLElement>('[data-ens="account"] svg');
               if (ref && glyph && ref.getBoundingClientRect().width > 0) {
                 const e = ref.getBoundingClientRect().right - glyph.getBoundingClientRect().right;
                 if (Math.abs(e) >= 0.5) {
@@ -2040,24 +2085,24 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // #2/#3 navigation copy. The owning packages own these slot cells,
             // so the labels are re-stamped on the rendered nodes instead of
             // re-registering the cells (which would shadow the shipped UI).
-            const LABEL_MAP = {
+            const LABEL_MAP: Record<string, string> = {
               '新会话': '开始对话',
               '插件': '插件管理',
               '自动化任务': '定时任务',
             };
             function renameLabels() {
-              const paint = (el, text) => {
+              const paint = (el: HTMLElement, text: string) => {
                 if (el.textContent !== text) el.textContent = text;
               };
-              document.querySelectorAll('.wtg9ga_newSessionLabel').forEach(el => {
+              document.querySelectorAll<HTMLElement>('.wtg9ga_newSessionLabel').forEach(el => {
                 const next = LABEL_MAP[el.textContent || ''];
                 if (next) paint(el, next);
               });
-              document.querySelectorAll('.wtg9ga_panelTitle').forEach(el => {
+              document.querySelectorAll<HTMLElement>('.wtg9ga_panelTitle').forEach(el => {
                 const next = LABEL_MAP[el.textContent || ''];
                 if (next) paint(el, next);
               });
-              document.querySelectorAll('.wtg9ga_newSession, .wtg9ga_panelRow').forEach(el => {
+              document.querySelectorAll<HTMLElement>('.wtg9ga_newSession, .wtg9ga_panelRow').forEach(el => {
                 const next = LABEL_MAP[el.getAttribute('aria-label') || ''];
                 if (next) el.setAttribute('aria-label', next);
               });
@@ -2066,7 +2111,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               // v0.2.2: also hide the new placeholder strings so the hint doesn't
               // double-render as a tooltip in either language.
               const searchHints = ['搜索会话', t('请输入搜索关键词', 'Type keywords to search')];
-              document.querySelectorAll('[class*="tooltip"]').forEach(el => {
+              document.querySelectorAll<HTMLElement>('[class*="tooltip"]').forEach(el => {
                 if (searchHints.includes((el.textContent || '').trim())) el.style.display = 'none';
               });
             }
@@ -2078,19 +2123,19 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // dock clips everything to 44px, so the field can never paint over
             // the 工作区 row.
             function mountSearchDock() {
-              const root = document.querySelector('.wtg9ga_root');
+              const root = document.querySelector<HTMLElement>('.wtg9ga_root');
               if (!root) return;
-              let dock = root.querySelector(':scope > .ens-search-dock');
+              let dock = root.querySelector<HTMLElement>(':scope > .ens-search-dock');
               if (!dock) {
                 dock = document.createElement('div');
                 dock.className = 'ens-search-dock';
                 root.insertBefore(dock, root.firstChild);
               }
               // the live slot is the one React currently manages in the header
-              const live = document.querySelector('.GAkraW_sectionHeader .GAkraW_searchSlot');
+              const live = document.querySelector<HTMLElement>('.GAkraW_sectionHeader .GAkraW_searchSlot');
               if (live && live.parentElement !== dock) dock.appendChild(live);
               // drop stale duplicates React may have orphaned in the dock
-              const dups = [...dock.querySelectorAll('.GAkraW_searchSlot')];
+              const dups = [...dock.querySelectorAll<HTMLElement>('.GAkraW_searchSlot')];
               if (dups.length > 1) dups.slice(0, -1).forEach(el => el.remove());
               // v0.2.2: the hint text is ours to own. The dock carries it in
               // data-ens-placeholder (the CSS ::after reads it) and the real input
@@ -2098,11 +2143,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               // never disagree in either language. Re-stamped every run because
               // React re-renders the input and would restore its own placeholder.
               const hint = t('请输入搜索关键词', 'Type keywords to search');
-              const search = dock.querySelector('.GAkraW_search');
+              const search = dock.querySelector<HTMLElement>('.GAkraW_search');
               if (search && search.getAttribute('data-ens-placeholder') !== hint) {
                 search.setAttribute('data-ens-placeholder', hint);
               }
-              const input = dock.querySelector('.GAkraW_searchInput');
+              const input = dock.querySelector<HTMLElement>('.GAkraW_searchInput');
               if (input && input.getAttribute('placeholder') !== hint) input.setAttribute('placeholder', hint);
             }
 
@@ -2112,9 +2157,9 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // the rendered cards instead of touching the provider registry.
             const THIRD_PARTY = /deepseek|anthropic|claude|openai|chatgpt|google|gemini|moonshot|月之暗面|kimi|zhipu|智谱|qwen|通义|alibaba|baidu|ernie|文心|cohere|mistral|groq|xai|grok|openrouter|azure|bedrock|vertex|together|fireworks|perplexity/i;
             function hideThirdPartyProviders() {
-              document.querySelectorAll('.jrmgQW_rowName').forEach(n => {
+              document.querySelectorAll<HTMLElement>('.jrmgQW_rowName').forEach(n => {
                 if (!THIRD_PARTY.test(n.textContent || '')) return;
-                const row = n.closest('.jrmgQW_rowCard, .jrmgQW_setupCard, .jrmgQW_row, li');
+                const row = n.closest<HTMLElement>('.jrmgQW_rowCard, .jrmgQW_setupCard, .jrmgQW_row, li');
                 if (row && row.style.display !== 'none') row.style.display = 'none';
               });
             }
@@ -2124,22 +2169,22 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // inserted into the composer as a quoted block. Falls back to the
             // clipboard when no composer can be found. Entirely guarded so a
             // future DOM change cannot throw into the chrome loop.
-            let annoCleanup;
+            let annoCleanup: (() => void) | null = null;
             function initAnnotations() {
               if (annoCleanup) return;
-              let on = false;
+              let isOn = false;
               try {
                 const f = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}') || {};
-                on = f.selectionAnnotation === true;
-              } catch { on = false; }
-              if (!on) return;
-              let btn = null;
-              let panel = null;
+                isOn = f.selectionAnnotation === true;
+              } catch { isOn = false; }
+              if (!isOn) return;
+              let btn: HTMLButtonElement | null = null;
+              let panel: HTMLDivElement | null = null;
               const clear = () => { if (btn) { btn.remove(); btn = null; } if (panel) { panel.remove(); panel = null; } };
-              const composer = () => document.querySelector('.GRgSLq_input')
-                || document.querySelector('[contenteditable="true"]')
-                || document.querySelector('textarea');
-              const insert = (text) => {
+              const composer = () => document.querySelector<HTMLElement>('.GRgSLq_input')
+                || document.querySelector<HTMLElement>('[contenteditable="true"]')
+                || document.querySelector<HTMLElement>('textarea');
+              const insert = (text: string) => {
                 const el = composer();
                 if (!el) return false;
                 try {
@@ -2159,8 +2204,9 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 return false;
               };
               // v0.1.0: annotations accumulate here until Enter sends them with the message
-              const pendingNotes = [];
-              let chip = null;
+              interface AnnoNote { quote: string; note: string; }
+              const pendingNotes: AnnoNote[] = [];
+              let chip: HTMLButtonElement | null = null;
               const renderChip = () => {
                 if (!pendingNotes.length) { if (chip) { chip.remove(); chip = null; } return; }
                 if (!chip) {
@@ -2173,7 +2219,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 chip.textContent = `批注 ×${pendingNotes.length}`;
                 chip.title = pendingNotes.map((n, i) => `${i + 1}. ${n.note}`).join('\n') + '\n\n点击清空';
               };
-              const openPanel = (quoted, rect) => {
+              const openPanel = (quoted: string, rect: DOMRect) => {
                 if (btn) { btn.remove(); btn = null; }
                 panel = document.createElement('div');
                 panel.className = 'ens-anno-panel';
@@ -2203,16 +2249,18 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 document.body.appendChild(panel);
                 input.focus();
               };
-              const onUp = (event) => {
+              const onUp = (event: MouseEvent) => {
                 if (panel) return;
-                if (event.target && event.target.closest && event.target.closest('.ens-anno-panel, .ens-anno-btn')) return;
+                const target = event.target as Element | null;
+                if (target?.closest('.ens-anno-panel, .ens-anno-btn')) return;
                 const sel = window.getSelection();
-                const text = sel ? String(sel).trim() : '';
+                if (!sel) return;
+                const text = String(sel).trim();
                 if (!text || text.length < 2) return;
                 const anchor = sel.anchorNode;
-                const host = anchor ? (anchor.nodeType === 1 ? anchor : anchor.parentElement) : null;
-                if (!host || !host.closest('.V4vHZW_column, .an3WzG_body, [data-conversation-scroll]')) return;
-                let rect;
+                const host = anchor ? (anchor.nodeType === 1 ? (anchor as Element) : anchor.parentElement) : null;
+                if (!host || !(host instanceof Element) || !(host.closest('.V4vHZW_column, .an3WzG_body, [data-conversation-scroll]'))) return;
+                let rect: DOMRect | null = null;
                 try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch { return; }
                 if (!rect || (!rect.width && !rect.height)) return;
                 clear();
@@ -2222,7 +2270,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 btn.textContent = '＋ 批注';
                 btn.style.left = Math.max(8, rect.left + rect.width / 2 - 32) + 'px';
                 btn.style.top = Math.max(8, rect.top - 36) + 'px';
-                btn.addEventListener('mousedown', (ev) => ev.preventDefault());
+                btn.addEventListener('mousedown', (ev: MouseEvent) => ev.preventDefault());
                 btn.addEventListener('click', () => openPanel(text, rect));
                 document.body.appendChild(btn);
               };
@@ -2242,10 +2290,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               // and the send press waits for the host's send button to become enabled instead
               // of firing on a fixed 60ms guess — the old timing could press send before the
               // host had committed the text, which sent the message without the annotations.
-              const onAnnoKey = (e) => {
+              const onAnnoKey = (e: KeyboardEvent) => {
                 if (e.key !== 'Enter' || e.shiftKey || e.isComposing || !pendingNotes.length) return;
                 const el = composerEl();
-                if (!el || !(e.target === el || el.contains(e.target))) return;
+                const target = e.target as Node | null;
+                if (!el || !(target === el || el.contains(target))) return;
                 e.preventDefault();
                 e.stopImmediatePropagation();
                 const block = pendingNotes.map((n) => `> ${n.quote}\n\n${n.note}\n\n`).join('');
@@ -2257,7 +2306,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 renderChip();
                 let waited = 0;
                 const press = () => {
-                  const send = document.querySelector('.GRgSLq_primary');
+                  const send = document.querySelector<HTMLButtonElement>('.GRgSLq_primary');
                   if (send && !send.disabled) { send.click(); return; }
                   waited += 50;
                   if (waited < 1000) setTimeout(press, 50);
@@ -2281,68 +2330,70 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // input/change, and gives keyboard nav + click-out close. It is purely
             // additive: a select without options or a missing owner is a no-op.
             const SEL = 'select.jrmgQW_selectInput, [class*="jrmgQW_"] select:not([class*="ens-"])';
-            let selectWired = false;
+            let isSelectWired = false;
             const initDeltaSelect = () => {
-              if (selectWired) return;
-              selectWired = true;
-              let menu = null;
-              let owner = null;
+              if (isSelectWired) return;
+              isSelectWired = true;
+              let menu: HTMLDivElement | null = null;
+              let owner: HTMLSelectElement | null = null;
               let active = -1;
               const close = () => {
                 if (menu) { menu.remove(); menu = null; owner = null; active = -1; }
               };
-              const paint = (items, sel, ix) => {
+              const paint = (items: HTMLDivElement[], sel: number, ix: number) => {
                 items.forEach((el, i) => {
                   el.classList.toggle('ens-menu-active', i === ix);
                   el.setAttribute('aria-selected', i === sel ? 'true' : 'false');
                 });
               };
-              const open = (select) => {
+              const open = (select: HTMLSelectElement) => {
                 close();
                 const opts = [...select.options];
                 if (!opts.length) return;
                 owner = select;
                 const sel = select.selectedIndex;
                 active = Math.max(0, sel);
-                menu = document.createElement('div');
-                menu.className = 'ens-menu';
-                menu.setAttribute('role', 'listbox');
+                const menuEl = document.createElement('div');
+                menu = menuEl;
+                menuEl.className = 'ens-menu';
+                menuEl.setAttribute('role', 'listbox');
                 opts.forEach((o, i) => {
                   const it = document.createElement('div');
                   it.className = 'ens-menu-item';
                   it.setAttribute('role', 'option');
                   it.textContent = o.textContent;
                   it.addEventListener('mouseenter', () => { active = i; paint(items, sel, active); });
-                  it.addEventListener('click', (ev) => { ev.preventDefault(); pick(select, i); close(); select.focus(); });
-                  menu.appendChild(it);
+                  it.addEventListener('click', (ev: MouseEvent) => { ev.preventDefault(); pick(select, i); close(); select.focus(); });
+                  menuEl.appendChild(it);
                 });
-                const items = [...menu.children];
+                const items = [...menuEl.children] as HTMLDivElement[];
                 paint(items, sel, active);
                 document.body.appendChild(menu);
                 const r = select.getBoundingClientRect();
                 menu.style.minWidth = r.width + 'px';
                 menu.style.left = r.left + 'px';
                 menu.style.top = (r.bottom + 4) + 'px';
-                const into = menu.querySelector('.ens-menu-active');
+                const into = menu.querySelector<HTMLElement>('.ens-menu-active');
                 if (into) into.scrollIntoView({ block: 'nearest' });
               };
-              const pick = (select, i) => {
+              const pick = (select: HTMLSelectElement, i: number) => {
                 if (i === select.selectedIndex) return;
                 select.selectedIndex = i;
                 select.dispatchEvent(new Event('input', { bubbles: true }));
                 select.dispatchEvent(new Event('change', { bubbles: true }));
               };
               // the native popup is the OS palette — suppress it and draw ours
-              document.addEventListener('mousedown', (ev) => {
-                const select = ev.target && ev.target.closest ? ev.target.closest(SEL) : null;
+              document.addEventListener('mousedown', (ev: MouseEvent) => {
+                const target = ev.target as Element | null;
+                const select = target?.closest<HTMLSelectElement>(SEL) ?? null;
                 if (!select) { if (menu) close(); return; }
                 ev.preventDefault();
                 select.focus();
                 open(select);
               }, true);
-              document.addEventListener('keydown', (ev) => {
+              document.addEventListener('keydown', (ev: KeyboardEvent) => {
                 if (menu && owner) {
-                  const items = [...menu.children];
+                  const items = [...menu.children] as HTMLDivElement[];
                   if (ev.key === 'ArrowDown') { active = (active + 1) % items.length; paint(items, owner.selectedIndex, active); ev.preventDefault(); return; }
                   if (ev.key === 'ArrowUp') { active = (active - 1 + items.length) % items.length; paint(items, owner.selectedIndex, active); ev.preventDefault(); return; }
                   if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(owner, active); close(); owner.focus(); return; }
@@ -2350,15 +2401,15 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                   return;
                 }
                 // no menu open: Enter / Space on a focused select opens the Delta menu
-                const target = ev.target;
-                const select = target && target.closest ? target.closest(SEL) : null;
+                const target = ev.target as Element | null;
+                const select = target?.closest<HTMLSelectElement>(SEL) ?? null;
                 if (select && (ev.key === 'Enter' || ev.key === ' ')) {
                   ev.preventDefault();
                   open(select);
                 }
               }, true);
-              window.addEventListener('scroll', (ev) => {
-                if (menu && !(ev.target && ev.target.closest && ev.target.closest('.ens-menu'))) close();
+              window.addEventListener('scroll', (ev: Event) => {
+                if (menu && !(ev.target instanceof Element && ev.target.closest('.ens-menu'))) close();
               }, true);
               window.addEventListener('resize', close);
             };
@@ -2368,16 +2419,16 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // localStorage; double-click or Home resets it to the default.
             const RESIZE_KEY = 'dsh-ui-delta.settingsSize';
             const readSize = () => { try { return JSON.parse(localStorage.getItem(RESIZE_KEY) || 'null'); } catch { return null; } };
-            const writeSize = (s) => { try { if (s) localStorage.setItem(RESIZE_KEY, JSON.stringify(s)); else localStorage.removeItem(RESIZE_KEY); } catch { /* keep the size for this session */ } };
+            const writeSize = (s: { w: number; h: number } | null) => { try { if (s) localStorage.setItem(RESIZE_KEY, JSON.stringify(s)); else localStorage.removeItem(RESIZE_KEY); } catch { /* keep the size for this session */ } };
             const panelBounds = () => ({ maxW: window.innerWidth - 48, maxH: window.innerHeight - 48 });
-            const setPanelSize = (panel, w, h) => {
+            const setPanelSize = (panel: HTMLElement, w: number, h: number) => {
               const { maxW, maxH } = panelBounds();
               panel.style.width = Math.round(Math.min(maxW, Math.max(560, w))) + 'px';
               panel.style.height = Math.round(Math.min(maxH, Math.max(420, h))) + 'px';
             };
             const mountSettingsResize = () => {
-              const panel = document.querySelector('.AnXs9G_panel');
-              if (!panel || panel.querySelector('.ens-resize')) return;
+              const panel = document.querySelector<HTMLElement>('.AnXs9G_panel');
+              if (!panel || panel.querySelector<HTMLElement>('.ens-resize')) return;
               const grip = document.createElement('div');
               grip.className = 'ens-resize';
               grip.tabIndex = 0;
@@ -2390,11 +2441,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               if (saved) setPanelSize(panel, saved.w, saved.h);
               const commit = () => writeSize({ w: parseInt(panel.style.width, 10), h: parseInt(panel.style.height, 10) });
               const reset = () => { panel.style.width = ''; panel.style.height = ''; writeSize(null); };
-              grip.addEventListener('pointerdown', (ev) => {
+              grip.addEventListener('pointerdown', (ev: PointerEvent) => {
                 ev.preventDefault();
                 const rect = panel.getBoundingClientRect();
                 grip.setPointerCapture(ev.pointerId);
-                const move = (e) => {
+                const move = (e: PointerEvent) => {
                   // the panel is centred, so the corner follows the pointer at twice the drag distance
                   setPanelSize(panel, rect.width + (e.clientX - ev.clientX) * 2, rect.height + (e.clientY - ev.clientY) * 2);
                 };
@@ -2409,7 +2460,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 grip.addEventListener('pointercancel', up);
               });
               grip.addEventListener('dblclick', reset);
-              grip.addEventListener('keydown', (ev) => {
+              grip.addEventListener('keydown', (ev: KeyboardEvent) => {
                 const step = ev.shiftKey ? 48 : 16;
                 const rect = panel.getBoundingClientRect();
                 if (ev.key === 'ArrowLeft') setPanelSize(panel, rect.width - step, rect.height);
@@ -2423,27 +2474,28 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               });
             };
 
-            let ticking = false;
+            let isTicking = false;
             // v0.2.2: the version check runs once per page load, not on every render
-            let versionChecked = false;
+            let isVersionChecked = false;
             // React to account sign-in / sign-out so 登录 shows/hides live.
-            let unsubAccount;
+            let unsubAccount: (() => void) | null = null;
             const wireAccount = () => {
               if (unsubAccount) return;
               try {
-                unsubAccount = launcherOps()?.hooks?.account?.subscribe?.(syncLoginVisibility);
+                const unsub = launcherOps()?.hooks?.account?.subscribe?.(syncLoginVisibility);
+                if (typeof unsub === 'function') unsubAccount = unsub as () => void;
               } catch { /* retry on the next run */ }
             };
             const run = () => {
-              ticking = false;
+              isTicking = false;
               try {
                 // the top brand row stays a clean drag strip: no buttons there
-                document.querySelectorAll('.ens-top-actions').forEach((el) => el.remove());
+                document.querySelectorAll<HTMLElement>('.ens-top-actions').forEach((el) => el.remove());
                 initAnnotations();
                 mountFootSettings();
                 mountSearchDock();
                 renameLabels();
-                document.querySelectorAll('._5Qcc8a_trigger').forEach(injectAccountGlyph);
+                document.querySelectorAll<HTMLElement>('._5Qcc8a_trigger').forEach(injectAccountGlyph);
                 hideAccountMenuSettings();
                 hideThirdPartyProviders();
                 wireAccount();
@@ -2455,43 +2507,44 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 initDeltaSelect();
                 mountSettingsResize();
                 // v0.2.2: look for a newer version on disk, once per page load
-                if (!versionChecked && document.querySelector('.ens-foot-notify')) {
-                  versionChecked = true;
+                if (!isVersionChecked && document.querySelector<HTMLElement>('.ens-foot-notify')) {
+                  isVersionChecked = true;
                   checkVersion();
                 }
               } catch { /* never abort */ }
             };
-            const schedule = () => { if (ticking) return; ticking = true; requestAnimationFrame(run); };
+            const schedule = () => { if (isTicking) return; isTicking = true; requestAnimationFrame(run); };
 
             // v0.1.0: privacy — stop the host's UI analytics at the front end (module
             // blockAnalytics, on by default). The backend's own collection is not touched.
             // Also marks the root for the foldErrors CSS. Both read module flags from storage.
-            const flagOn = (id, dflt) => {
+            const flagOn = (id: string, isDflt: boolean) => {
               try {
                 const f = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}');
-                return f[id] === undefined ? dflt : f[id] === true;
-              } catch { return dflt; }
+                return f[id] === undefined ? isDflt : f[id] === true;
+              } catch { return isDflt; }
             };
-            let originalTrack = null;
+            let originalTrack: Function | null = null;
             const applyPrivacyAndFold = () => {
               const block = flagOn('blockAnalytics', true);
               try {
                 const pa = typeof ctx.get === 'function' ? ctx.get('productAnalytics') : null;
-                if (pa && typeof pa.track === 'function') {
-                  if (block && pa.track.name !== 'deltaNoop') {
-                    originalTrack = originalTrack || pa.track;
-                    pa.track = function deltaNoop() {};
-                  } else if (!block && originalTrack && pa.track.name === 'deltaNoop') {
-                    pa.track = originalTrack;
+                if (pa && typeof (pa as { track?: unknown }).track === 'function') {
+                  const paTrack = (pa as { track: Function & { name: string } }).track;
+                  if (block && paTrack.name !== 'deltaNoop') {
+                    originalTrack = originalTrack || paTrack;
+                    (pa as { track: Function }).track = function deltaNoop() {};
+                  } else if (!block && originalTrack && paTrack.name === 'deltaNoop') {
+                    (pa as { track: Function }).track = originalTrack;
                   }
                 }
               } catch { /* read-only service: nothing to block */ }
               document.documentElement.toggleAttribute('data-ens-fold-errors', flagOn('foldErrors', true));
             };
             // click a turn-failure row to expand or fold its detail
-            const onErrorRowClick = (e) => {
-              const row = e.target && e.target.closest ? e.target.closest('.LOmM4q_turnErrorRow') : null;
-              if (!row || e.target.closest('a, button, input, textarea')) return;
+            const onErrorRowClick = (e: MouseEvent) => {
+              const row = e.target instanceof Element ? e.target.closest('.LOmM4q_turnErrorRow') : null;
+              if (!row || e.target instanceof Element && e.target.closest('a, button, input, textarea')) return;
               if (row.hasAttribute('data-ens-open')) row.removeAttribute('data-ens-open');
               else row.setAttribute('data-ens-open', '');
             };
@@ -2499,8 +2552,8 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 
             // v0.1.0: vision bridge (visionBridge switch, off by default). Only a pasted
             // image goes out, and only to the vision model the user configured.
-            const insertComposer = (text) => {
-              const el = document.querySelector('.GRgSLq_input') || document.querySelector('[contenteditable="true"]') || document.querySelector('textarea');
+            const insertComposer = (text: string) => {
+              const el = document.querySelector<HTMLElement>('.GRgSLq_input') || document.querySelector<HTMLElement>('[contenteditable="true"]') || document.querySelector<HTMLElement>('textarea');
               if (!el) return false;
               try {
                 if (el.isContentEditable) {
@@ -2526,7 +2579,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               sessionStorage.removeItem('dsh-ui-delta.search.secret');
             } catch { /* storage unavailable */ }
             // the image goes to the host, which calls the vision model configured there
-            const recognizeImage = async (file) => {
+            const recognizeImage = async (file: File) => {
               const res = await fetch('/dsh-ui-delta/vision', { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
               const data = await res.json().catch(() => ({}));
               if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -2541,21 +2594,21 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
              * The pill is hidden entirely when there is nothing to say — no empty
              * placeholder, no version stamp.
              */
-            let noticeTimer = null;
+            let noticeTimer: ReturnType<typeof setTimeout> | null = null;
             // v0.2.2: a version notice is sticky — a later transient message must
             // not erase it, so it is re-applied whenever the pill clears.
             let versionNotice = '';
-            const showNotice = (kind, text, sticky) => {
-              const pill = document.querySelector('.ens-foot-notify');
+            const showNotice = (kind: string, text: string, isSticky: boolean) => {
+              const pill = document.querySelector<HTMLElement>('.ens-foot-notify');
               if (!pill || !text) return;
-              const span = pill.querySelector('span');
+              const span = pill.querySelector<HTMLElement>('span');
               if (span) span.textContent = text;
               pill.classList.remove('error', 'warn', 'info');
               if (kind) pill.classList.add(kind);
               pill.classList.add('visible');
               pill.title = text;
               if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
-              if (!sticky) {
+              if (!isSticky) {
                 noticeTimer = setTimeout(() => {
                   if (versionNotice) { showNotice('info', versionNotice, true); return; }
                   pill.classList.remove('visible');
@@ -2564,7 +2617,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             };
             const hideNotice = () => {
               if (versionNotice) { showNotice('info', versionNotice, true); return; }
-              const pill = document.querySelector('.ens-foot-notify');
+              const pill = document.querySelector<HTMLElement>('.ens-foot-notify');
               if (pill) pill.classList.remove('visible');
             };
             /**
@@ -2584,36 +2637,39 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               } catch { /* host route unavailable — stay quiet */ }
             };
 
-            const onVisionPaste = (e) => {
+            const onVisionPaste = (e: ClipboardEvent) => {
               if (!flagOn('visionBridge', false)) return;
-              const inComposer = e.target && e.target.closest ? e.target.closest('.GRgSLq_card, [contenteditable="true"], textarea') : null;
+              const target = e.target as Element | null;
+              const inComposer = target?.closest('.GRgSLq_card, [contenteditable="true"], textarea') ?? null;
               if (!inComposer) return;
-              const images = [...(e.clipboardData?.items || [])].filter((it) => it.kind === 'file' && it.type.startsWith('image/'));
-              if (!images.length || (e.clipboardData.getData('text') || '').length) return;
+              const clipboardData = e.clipboardData;
+              if (!clipboardData) return;
+              const images = [...clipboardData.items].filter((it) => it.kind === 'file' && it.type.startsWith('image/'));
+              if (!images.length || clipboardData.getData('text').length) return;
               e.preventDefault();
               e.stopImmediatePropagation();
-              const files = images.map((it) => it.getAsFile()).filter(Boolean);
+              const files = images.map((it) => it.getAsFile()).filter((f): f is File => f !== null);
               if (!files.length) return;
               showNotice('info', t(`正在识别 ${files.length} 张图片…`, `Recognising ${files.length} image${files.length > 1 ? 's' : ''}…`), true);
               // several images may be pasted at once; each one is recognised on its
               // own and the recognised text is appended in the order they arrived
               let pending = files.length;
-              let failed = false;
+              let isFailed = false;
               files.forEach((file) => {
                 recognizeImage(file)
                   .then((text) => insertComposer(`\n[图片内容]\n${text}\n`))
-                  .catch((err) => { failed = true; showNotice('error', t(`图片识别失败：${err?.message || err}`, `Image recognition failed: ${err?.message || err}`), true); })
+                  .catch((err) => { isFailed = true; showNotice('error', t(`图片识别失败：${err?.message || err}`, `Image recognition failed (${err?.message || err})`), true); })
                   .finally(() => {
                     pending -= 1;
-                    if (pending === 0 && !failed) hideNotice();
+                    if (pending === 0 && !isFailed) hideNotice();
                   });
               });
             };
             document.addEventListener('paste', onVisionPaste, true);
 
             // shared composer access (vision bridge, annotations and search all use it)
-            const composerEl = () => document.querySelector('.GRgSLq_input') || document.querySelector('[contenteditable="true"]') || document.querySelector('textarea');
-            const readComposer = (el) => (el.isContentEditable ? el.textContent : el.value) || '';
+            const composerEl = () => document.querySelector<HTMLElement>('.GRgSLq_input') || document.querySelector<HTMLElement>('[contenteditable="true"]') || document.querySelector<HTMLElement>('textarea');
+            const readComposer = (el: HTMLElement) => (el.isContentEditable ? (el.textContent || '') : ((el as HTMLTextAreaElement).value || '')) || '';
             /**
              * Write text into the host's composer so the host's own state sees it.
              *
@@ -2625,11 +2681,12 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
              * `execCommand('insertText')` fires beforeinput/input on a contenteditable,
              * and a native value setter + input event does the same for a textarea.
              */
-            const writeComposer = (el, text) => {
+            const writeComposer = (el: HTMLElement, text: string) => {
               try {
                 if (el.isContentEditable) {
                   el.focus();
                   const sel = window.getSelection();
+                  if (!sel) return false;
                   const range = document.createRange();
                   range.selectNodeContents(el);
                   range.collapse(true);           // caret at the start, before the typed text
@@ -2644,7 +2701,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                   return true;
                 }
                 const setter = Object.getOwnPropertyDescriptor(el.constructor.prototype, 'value')?.set;
-                if (setter) setter.call(el, text); else el.value = text;
+                if (setter) setter.call(el, text); else (el as HTMLTextAreaElement).value = text;
                 el.dispatchEvent(new Event('input', { bubbles: true }));
                 return true;
               } catch { return false; }
@@ -2652,11 +2709,12 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 
             // v0.1.0: web search runs in the host (index.js). "/search keywords" + Enter fills
             // the results into the composer; nothing is sent automatically.
-            const onSearchKey = (e) => {
+            const onSearchKey = (e: KeyboardEvent) => {
               if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
               if (!flagOn('webSearch', false)) return;
               const el = composerEl();
-              if (!el || !(e.target === el || el.contains(e.target))) return;
+              const target = e.target as Node | null;
+              if (!el || !(target === el || el.contains(target))) return;
               const m = readComposer(el).trim().match(/^\/search\s+([\s\S]+)$/);
               if (!m) return;
               e.preventDefault();
@@ -2671,7 +2729,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                   return data.results || [];
                 })
                 .then((results) => {
-                  const lines = results.map((x, i) => `${i + 1}. ${x.title}\n   ${x.url}\n   ${x.content}`).join('\n');
+                  const lines = results.map((x: { title: string; url: string; content: string }, i: number) => `${i + 1}. ${x.title}\n   ${x.url}\n   ${x.content}`).join('\n');
                   writeComposer(el, `[网络搜索结果：${query}]\n${lines || '（无结果）'}\n\n请基于以上结果回答：${query}`);
                   hideNotice();
                 })
@@ -2686,7 +2744,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 
             // v0.1.0: export the visible conversation as a Markdown file. Local only.
             const exportConversation = () => {
-              const col = document.querySelector('.V4vHZW_column') || document.querySelector('[data-conversation-scroll]');
+              const col = document.querySelector<HTMLElement>('.V4vHZW_column') || document.querySelector<HTMLElement>('[data-conversation-scroll]');
               const text = (col && col.innerText ? col.innerText : '').trim();
               if (!text) return;
               const blob = new Blob([`# 对话记录\n\n${text}\n`], { type: 'text/markdown;charset=utf-8' });
@@ -2702,24 +2760,24 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // "第三方模型提供商" tab: hidden, and the 自定义模型 API tab is kept selected.
             // (2) The "在使用官方模型 API 时上传 Session Log" row: hidden, and if the host
             // setting is on it is switched off once, so nothing uploads from this row.
-            const leafByText = (re) => {
-              for (const el of document.querySelectorAll('button, [role="tab"], span, div')) {
+            const leafByText = (re: RegExp) => {
+              for (const el of document.querySelectorAll<HTMLElement>('button, [role="tab"], span, div')) {
                 if (el.childElementCount === 0 && re.test((el.textContent || '').trim())) return el;
               }
               return null;
             };
-            const hostTabFor = (re) => {
+            const hostTabFor = (re: RegExp) => {
               const leaf = leafByText(re);
-              return leaf ? (leaf.closest('button, [role="tab"]') || leaf) : null;
+              return leaf ? (leaf.closest<HTMLElement>('button, [role="tab"]') || leaf) : null;
             };
-            const isSelectedTab = (el) => el.getAttribute('aria-selected') === 'true'
+            const isSelectedTab = (el: HTMLElement) => el.getAttribute('aria-selected') === 'true'
               || el.getAttribute('data-state') === 'active'
               || el.getAttribute('aria-pressed') === 'true';
             const SWITCH_SEL = '[role="switch"], input[type="checkbox"], button[aria-checked]';
             const sessionLogSwitched = new WeakSet();
             // the conversation hero's "预览版" badge (exact text only, so "预览版说明" is untouched)
             let lastHostScan = 0;
-            let hostScanTimer = null;
+            let hostScanTimer: ReturnType<typeof setTimeout> | null = null;
             const hideHostOptions = () => {
               const now = Date.now();
               if (now - lastHostScan < 400) {
@@ -2730,7 +2788,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               lastHostScan = now;
               // the hero badge: the host's previewBadge class is the reliable match;
               // exact-text is the fallback when the class is absent.
-              document.querySelectorAll('[class*="_previewBadge"]').forEach((el) => {
+              document.querySelectorAll<HTMLElement>('[class*="_previewBadge"]').forEach((el) => {
                 if (el.style.display !== 'none') el.style.display = 'none';
               });
               const badge = leafByText(/^预览版$/);
@@ -2738,10 +2796,10 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 const pill = badge.parentElement && (badge.parentElement.textContent || '').trim() === '预览版' ? badge.parentElement : badge;
                 if (pill.style.display !== 'none') pill.style.display = 'none';
               }
-              if (document.querySelector('[role="tablist"], [role="dialog"]')) {
+              if (document.querySelector<HTMLElement>('[role="tablist"], [role="dialog"]')) {
                 const third = hostTabFor(/^(第三方模型提供商|Third-party model provider)$/);
                 if (third) {
-                  third.style.display = 'none';
+                  (third as HTMLElement).style.display = 'none';
                   // the tab's own panel goes with it, matched by aria-controls so a
                   // language the regex misses still hides the content, not just the tab
                   const panelId = third.getAttribute('aria-controls');
@@ -2750,18 +2808,18 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                     if (panel && panel.style.display !== 'none') panel.style.display = 'none';
                   }
                   const custom = hostTabFor(/^(自定义模型 API|Custom model API)$/);
-                  if (isSelectedTab(third) && custom) custom.click();
+                  if (isSelectedTab(third) && custom) (custom as HTMLElement).click();
                 }
               }
-              if (document.querySelector(SWITCH_SEL)) {
+              if (document.querySelector<HTMLElement>(SWITCH_SEL)) {
                 const title = leafByText(/^在使用官方模型 API 时上传 Session Log$/);
                 if (title) {
                   let row = title;
-                  while (row.parentElement && !row.querySelector(SWITCH_SEL)) row = row.parentElement;
-                  const sw = row.querySelector(SWITCH_SEL);
-                  const on = sw && (sw.getAttribute('aria-checked') === 'true' || sw.checked === true);
-                  if (sw && on && !sessionLogSwitched.has(sw)) { sessionLogSwitched.add(sw); sw.click(); }
-                  if (row.style.display !== 'none') row.style.display = 'none';
+                  while (row.parentElement && !row.querySelector<HTMLElement>(SWITCH_SEL)) row = row.parentElement;
+                  const sw = row.querySelector<HTMLElement>(SWITCH_SEL);
+                  const isOn = sw && (sw.getAttribute('aria-checked') === 'true' || (sw as HTMLInputElement).checked === true);
+                  if (sw && isOn && !sessionLogSwitched.has(sw)) { sessionLogSwitched.add(sw); (sw as HTMLElement).click(); }
+                  if ((row as HTMLElement).style.display !== 'none') (row as HTMLElement).style.display = 'none';
                 }
               }
             };
@@ -2769,18 +2827,18 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // v0.1.0: hide the models named in the settings field from the picker.
             // Matches the row's name at its start, so a trailing badge does not block it.
             const hideListedModels = () => {
-              let names = [];
+              let names: string[] = [];
               try {
                 names = (localStorage.getItem('dsh-ui-delta.hiddenModels') || '')
                   .split(/[,，]/).map((s) => s.trim().toLowerCase()).filter(Boolean);
               } catch { names = []; }
-              document.querySelectorAll('[data-model-id]').forEach((row) => {
+              document.querySelectorAll<HTMLElement>('[data-model-id]').forEach((row) => {
                 const text = (row.textContent || '').trim().toLowerCase();
                 const hit = names.some((n) => text === n || (text.startsWith(n) && !/[a-z]/i.test(text.charAt(n.length))));
                 const want = hit ? 'none' : '';
                 // hide the wrapper too when it holds only this row, or its slot stays blank
                 let box = row;
-                for (let p = row.parentElement; p && p.querySelectorAll('[data-model-id]').length === 1 && !p.querySelector('input'); p = p.parentElement) box = p;
+                for (let p = row.parentElement; p && p.querySelectorAll<HTMLElement>('[data-model-id]').length === 1 && !p.querySelector<HTMLElement>('input'); p = p.parentElement) box = p;
                 if (box.style.display !== want) box.style.display = want;
                 if (row.style.display !== want) row.style.display = want;
               });
@@ -2791,30 +2849,30 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             // data-provider-id ("deepseek-account"); the group header goes with them.
             // The flag is read straight from storage, so it works before MODULES is set.
             const hideAccountModels = () => {
-              let show = false;
-              try { show = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}')['accountModels'] === true; }
-              catch { show = false; }
-              const want = show ? '' : 'none';
+              let isShow = false;
+              try { isShow = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}')['accountModels'] === true; }
+              catch { isShow = false; }
+              const want = isShow ? '' : 'none';
               const HEADER_RE = /^(DeepSeek 账号|DeepSeek Account)$/;
-              document.querySelectorAll('[data-provider-id="deepseek-account"]').forEach((row) => {
+              document.querySelectorAll<HTMLElement>('[data-provider-id="deepseek-account"]').forEach((row) => {
                 // climb to the group: the highest ancestor that holds this provider's
                 // rows and nothing else (no search input, no other provider's rows)
                 let group = row;
-                for (let p = row.parentElement; p && !p.querySelector('input, [data-provider-id]:not([data-provider-id="deepseek-account"])'); p = p.parentElement) {
+                for (let p = row.parentElement; p && !p.querySelector<HTMLElement>('input, [data-provider-id]:not([data-provider-id="deepseek-account"])'); p = p.parentElement) {
                   group = p;
                 }
-                if (group.style.display !== want) group.style.display = want;
+                if ((group as HTMLElement).style.display !== want) (group as HTMLElement).style.display = want;
                 // the group title can sit just outside the group wrapper
                 const prev = group.previousElementSibling;
-                if (prev && HEADER_RE.test((prev.textContent || '').trim()) && prev.style.display !== want) prev.style.display = want;
+                if (prev && HEADER_RE.test((prev.textContent || '').trim()) && (prev as HTMLElement).style.display !== want) (prev as HTMLElement).style.display = want;
               });
             };
 
             // v0.1.0: the working status reads 任务执行中 instead of the host's
             // 深度求索中. Text-only swap, so the duration and the rest of the line stay.
-            let statusTicking = false;
+            let isStatusTicking = false;
             const renameStatusText = () => {
-              statusTicking = false;
+              isStatusTicking = false;
               try {
                 const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
                 for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -2825,8 +2883,8 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               } catch { /* never abort */ }
             };
             const scheduleStatusRename = () => {
-              if (statusTicking) return;
-              statusTicking = true;
+              if (isStatusTicking) return;
+              isStatusTicking = true;
               requestAnimationFrame(renameStatusText);
             };
 
@@ -2849,7 +2907,16 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
         // ids are semantic (what the module does, not which upstream repo it
         // came from); `ready` marks modules implemented today, everything else
         // is listed as planned so the switch is never a placebo.
-        const MODULES = [
+        interface ModuleDef {
+  id: string;
+  zh: string;
+  en: string;
+  status: string;
+  defaultOn?: boolean;
+  zhDesc: string;
+  enDesc: string;
+}
+const MODULES: ModuleDef[] = [
           { id: 'conversationShare', zh: '对话分享', en: 'Share conversations', status: 'ready', defaultOn: true,
             zhDesc: '把当前对话复制为 Markdown 文本。',
             enDesc: 'Copy the current conversation as Markdown.' },
@@ -2878,8 +2945,8 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             zhDesc: '输入 /search 加关键词，回车把搜索结果填入输入框（不自动发送）。需先配置搜索接口。',
             enDesc: 'Type /search plus keywords and press Enter to fill results into the composer (not sent). Configure the search endpoint first.' },
         ];
-        const STATUS_TAG = { host: '宿主已提供', hostService: '需宿主服务', planned: '规划中' };
-        const STATUS_TAG_EN = { host: 'Built in', hostService: 'Needs host service', planned: 'Planned' };
+        const STATUS_TAG: Record<string, string> = { host: '宿主已提供', hostService: '需宿主服务', planned: '规划中' };
+        const STATUS_TAG_EN: Record<string, string> = { host: 'Built in', hostService: 'Needs host service', planned: 'Planned' };
         // #28 bilingual text: the document language is the single source, so a
         // locale switch is honoured without adding a service dependency.
         const isZh = () => {
@@ -2888,14 +2955,14 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
             return /^zh/i.test(lang);
           } catch { return true; }
         };
-        const pick = (zh, en) => (isZh() ? zh : (en || zh));
+        const pick = (zh: string, en: string) => (isZh() ? zh : (en || zh));
         const FLAGS_KEY = 'dsh-ui-delta.modules';
         const readFlags = () => {
           try { return JSON.parse(localStorage.getItem(FLAGS_KEY) || '{}') || {}; }
           catch { return {}; }
         };
-        const writeFlag = (id, on) => {
-          const next = { ...readFlags(), [id]: on };
+        const writeFlag = (id: string, isOn: boolean) => {
+          const next = { ...readFlags(), [id]: isOn };
           try { localStorage.setItem(FLAGS_KEY, JSON.stringify(next)); } catch { /* private mode */ }
         };
         // v0.1.0: vision and search run in the host half (index.js). The browser keeps no
@@ -2906,11 +2973,11 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
         const readHidden = () => {
           try { return localStorage.getItem(HIDDEN_MODELS_KEY) || ''; } catch { return ''; }
         };
-        const writeHidden = (text) => {
+        const writeHidden = (text: string) => {
           try { localStorage.setItem(HIDDEN_MODELS_KEY, text); } catch { /* private mode */ }
         };
-        const moduleById = (id) => MODULES.find((m) => m.id === id);
-        const moduleOn = (id) => {
+        const moduleById = (id: string) => MODULES.find((m) => m.id === id);
+        const moduleOn = (id: string) => {
           const stored = readFlags()[id];
           if (stored !== undefined) return stored === true;
           const m = moduleById(id);
@@ -2924,14 +2991,14 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
           const h = React.createElement;
           function DeltaSettings() {
             const [flags, setFlags] = React.useState(readFlags);
-            const isReady = (m) => m.status === 'ready';
-            const toggle = (m) => {
+            const isReady = (m: ModuleDef) => m.status === 'ready';
+            const toggle = (m: ModuleDef) => {
               if (!isReady(m)) return;
               const next = !flags[m.id];
               writeFlag(m.id, next);
               setFlags({ ...flags, [m.id]: next });
             };
-            const row = (m) => h('label', {
+            const row = (m: ModuleDef) => h('label', {
               key: m.id,
               className: 'ens-set-row' + (isReady(m) ? '' : ' ens-set-row-planned'),
             }, [
@@ -2971,21 +3038,21 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 className: 'jrmgQW_input',
                 value: hiddenText,
                 placeholder: 'Omni',
-                onChange: (ev) => { setHiddenText(ev.target.value); writeHidden(ev.target.value); },
+                onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => { setHiddenText(ev.target.value); writeHidden(ev.target.value); },
               }),
             ]);
             // v0.1.0: vision and search settings live in the host. The page loads a masked view
             // and sends a new key once; it never keeps the key.
-            const [hostCfg, setHostCfg] = React.useState(null);
+            const [hostCfg, setHostCfg] = React.useState<HostConfig | null>(null);
             React.useEffect(() => {
-              let alive = true;
+              let isAlive = true;
               fetch('/dsh-ui-delta/config')
                 .then((r) => r.json())
-                .then((d) => { if (alive) setHostCfg(d); })
-                .catch(() => { if (alive) setHostCfg({ error: true }); });
-              return () => { alive = false; };
+                .then((d) => { if (isAlive) setHostCfg(d); })
+                .catch(() => { if (isAlive) setHostCfg({ error: true }); });
+              return () => { isAlive = false; };
             }, []);
-            const saveHost = (section, fields) => fetch('/dsh-ui-delta/config', {
+            const saveHost = (section: string, fields: Record<string, unknown>) => fetch('/dsh-ui-delta/config', {
               method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ section, ...fields }),
             }).then((r) => r.json()).then((d) => setHostCfg(d)).catch(() => {});
             /**
@@ -2997,12 +3064,26 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
              * provider the feature actually uses, so a second configuration is a
              * ready spare rather than a silent duplicate.
              */
-            const providerList = (section) => {
-              const cfg = (hostCfg && hostCfg[section]) || {};
-              return Array.isArray(cfg.providers) ? cfg.providers : [];
+            interface ProviderDef {
+              id?: string;
+              label?: string;
+              baseUrl?: string;
+              endpoint?: string;
+              model?: string;
+              keyHint?: string;
+              active?: boolean;
+            }
+            interface HostConfig {
+              error?: boolean;
+              [section: string]: { providers?: ProviderDef[] } | boolean | undefined;
+            }
+            const providerList = (section: string): ProviderDef[] => {
+              const cfg = hostCfg ? hostCfg[section] : undefined;
+              const providers = cfg && typeof cfg === 'object' ? cfg.providers : undefined;
+              return Array.isArray(providers) ? providers : [];
             };
-            const fieldLabel = (text) => h('div', { key: 'l', className: 'ens-set-name' }, text);
-            const providerCard = (section, p, index) => {
+            const fieldLabel = (text: string) => h('div', { key: 'l', className: 'ens-set-name' }, text);
+            const providerCard = (section: string, p: ProviderDef, index: number) => {
               const isVision = section === 'vision';
               const named = (p.label || '').trim() !== '';
               return h('div', { key: p.id || index, className: 'ens-provider' }, [
@@ -3011,7 +3092,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                     key: 'nm', className: 'jrmgQW_input ens-provider-name', type: 'text',
                     placeholder: pick('服务商名称（如 硅基流动）', 'Provider name (e.g. SiliconFlow)'),
                     defaultValue: p.label || '',
-                    onBlur: (ev) => saveHost(section, { provider: { id: p.id, label: ev.target.value } }),
+                    onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => saveHost(section, { provider: { id: p.id, label: ev.target.value } }),
                   }),
                   h('button', {
                     key: 'del', type: 'button', className: 'ens-pill-btn',
@@ -3023,7 +3104,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                   key: 'url', className: 'jrmgQW_input', type: 'text',
                   placeholder: isVision ? 'https://api.example.com/v1' : 'https://api.tavily.com/search',
                   defaultValue: (isVision ? p.baseUrl : p.endpoint) || '',
-                  onBlur: (ev) => saveHost(section, isVision
+                  onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => saveHost(section, isVision
                     ? { provider: { id: p.id, baseUrl: ev.target.value } }
                     : { provider: { id: p.id, endpoint: ev.target.value } }),
                 }),
@@ -3031,13 +3112,13 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 isVision ? h('input', {
                   key: 'model', className: 'jrmgQW_input', type: 'text', placeholder: 'gpt-4o-mini',
                   defaultValue: p.model || '',
-                  onBlur: (ev) => saveHost(section, { provider: { id: p.id, model: ev.target.value } }),
+                  onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => saveHost(section, { provider: { id: p.id, model: ev.target.value } }),
                 }) : null,
                 fieldLabel(pick('API 密钥', 'API key')),
                 h('input', {
                   key: 'key', className: 'jrmgQW_input', type: 'password',
                   placeholder: p.keyHint ? pick(`已保存 ${p.keyHint}，输入新值可替换`, `Saved ${p.keyHint}; type to replace`) : '',
-                  onBlur: (ev) => {
+                  onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => {
                     const v = ev.target.value.trim();
                     if (!v) return;
                     ev.target.value = '';
@@ -3052,7 +3133,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
                 p.active ? h('div', { key: 'act', className: 'ens-set-name' }, pick('当前使用', 'In use')) : null,
               ]);
             };
-            const featureBlock = (section, title, desc) => {
+            const featureBlock = (section: string, title: string, desc: string) => {
               const list = providerList(section);
               return h('div', { key: section, className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, title),

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-const filePath = 'packages/dsh-ui-delta/client.js';
+const filePath = 'packages/dsh-ui-delta/src/client.ts';
 let code = fs.readFileSync(filePath, 'utf8');
 
 // 1. 优化 Hover Token 与 Tooltip Token

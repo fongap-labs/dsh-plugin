@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "rootDir": "src",
+    "outDir": "lib",
+    "declaration": false,
+    "verbatimModuleSyntax": false,
+    "types": []
+  },
+  "include": ["src/client.ts", "src/harness-module.d.ts"]
+}

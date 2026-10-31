@@ -10,8 +10,8 @@
   },
   "scripts": {
     "test": "node --test \"tests/**/*.test.mjs\"",
-    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json --noEmit && tsc -p packages/dsh-ui-delta/tsconfig.json --noEmit",
-    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json && tsc -p packages/dsh-ui-delta/tsconfig.json",
+    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json --noEmit && tsc -p packages/dsh-ui-delta/tsconfig.json --noEmit && tsc -p packages/dsh-ui-delta/tsconfig.client.json --noEmit",
+    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json && tsc -p packages/dsh-ui-delta/tsconfig.json && tsc -p packages/dsh-ui-delta/tsconfig.client.json",
     "validate": "node scripts/pack-bundles.mjs --check",
     "pack:bundles": "node scripts/pack-bundles.mjs",
     "link:dev": "node scripts/link-profile.mjs",
