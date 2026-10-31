@@ -49,20 +49,24 @@ dsh-plugin/
 # 1. 安装依赖（根目录）
 pnpm install
 
-# 2. 运行全部测试（Node 内置 test runner，无需额外测试库）
-pnpm test
-
-# 3. 校验所有 Bundle 合规性（CI 推荐）
+# 2. 类型检查 + 编译（TypeScript 源码 → packages/*/lib）
+pnpm typecheck
 pnpm build
 
-# 4. 生成发布 zip 到 dist/
+# 3. 运行全部测试（Node 内置 test runner，针对编译产物 lib/）
+pnpm test
+
+# 4. 校验所有 Bundle 合规性（CI 推荐）
+pnpm validate
+
+# 5. 生成发布 zip 到 dist/
 pnpm pack:bundles
 
-# 5. 调试：将插件软链接到本机 DSH Profile 并自动启用
+# 6. 调试：将插件软链接到本机 DSH Profile 并自动启用
 pnpm link:dev dsh-ui-delta
 pnpm link:dev dsh-code-worker
 
-# 6. 移除链接
+# 7. 移除链接
 pnpm link:dev dsh-ui-delta --unlink
 pnpm link:dev dsh-code-worker --unlink
 ```
@@ -75,9 +79,10 @@ pnpm link:dev dsh-code-worker --unlink
 
 | 脚本 | 作用 | 关键参数 |
 | --- | --- | --- |
-| `pnpm test` | 执行 `tests/` 下所有 `*.test.mjs` 测试套件 | — |
-| `pnpm build` | 校验所有 Bundle 资源完整性（静态检查） | — |
-| `pnpm validate` | 同 `build` | — |
+| `pnpm test` | 执行 `tests/` 下所有 `*.test.mjs` 测试套件（针对编译产物 `lib/`） | — |
+| `pnpm typecheck` | `tsc --noEmit`，检查 TypeScript 源码类型 | — |
+| `pnpm build` | `tsc` 编译 TypeScript 源码到各包 `lib/` | — |
+| `pnpm validate` | 校验所有 Bundle 资源完整性（静态检查） | — |
 | `pnpm pack:bundles` | 校验通过后打包 zip 到 `dist/` | — |
 | `pnpm link:dev <name>` | 软链插件到 `~/.dsh/profiles/<profile>/node_modules/` 并写入 `dsh.profile.bundles` | `--profile <name>`、`--unlink`、`--install` |
 | `pnpm install:bundle <name>` | 走 DSH 官方通道安装（等价 `plugin_manager.install_bundle`） | `--profile <name>` |
