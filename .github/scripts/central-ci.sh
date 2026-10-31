@@ -48,14 +48,24 @@ phase_end
 # Invoke the underlying commands directly (not "pnpm test"/"pnpm build") so a pull request cannot
 # weaken CI by editing package.json scripts. Type checking and compilation use the pinned local
 # TypeScript binary; the compiled output under packages/*/lib is what the tests and bundles load.
-TSCONFIGS=(
-  packages/shared/tsconfig.json
+#
+# The host plugins import @dsh-plugin/shared through the declaration files that the shared
+# package build produces. On a clean checkout those declarations do not exist yet, so the shared
+# package is compiled first: compiling it also type checks it, and the dependent packages then
+# resolve the shared types instead of failing with an unresolved module.
+SHARED_TSCONFIG=packages/shared/tsconfig.json
+HOST_TSCONFIGS=(
   packages/dsh-code-worker/tsconfig.json
   packages/dsh-ui-delta/tsconfig.json
 )
+TSCONFIGS=(
+  "$SHARED_TSCONFIG"
+  "${HOST_TSCONFIGS[@]}"
+)
 
 phase_begin typecheck
-for config in "${TSCONFIGS[@]}"; do
+./node_modules/.bin/tsc -p "$SHARED_TSCONFIG"
+for config in "${HOST_TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config" --noEmit
 done
 phase_end
