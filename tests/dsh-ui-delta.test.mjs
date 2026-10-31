@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const uiDelta = await import("../packages/dsh-ui-delta/index.js");
+const uiDelta = await import("../packages/dsh-ui-delta/lib/index.js");
 
 function createMockWebServer() {
   const routes = new Map();

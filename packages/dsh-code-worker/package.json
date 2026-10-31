@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "description": "DSH (DeepSeek Harness) 编程插件：MultiEdit 批量编辑、Git 状态与差异、LSP 服务探测与工作流指引",
-  "main": "./src/index.js",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
   "exports": {
-    ".": "./src/index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
@@ -17,7 +21,8 @@
     "manifestVersion": 1
   },
   "files": [
-    "src/**/*.js",
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",

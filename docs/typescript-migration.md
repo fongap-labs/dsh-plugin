@@ -128,11 +128,16 @@ exports["."] = { types: ./lib/index.d.ts, default: ./lib/index.js }
 每个 PR 必须独立通过：
 
 ```bash
-tsc -p <每个包>/tsconfig.json --noEmit   # typecheck
-tsc -p <每个包>/tsconfig.json            # build
-node --test "tests/**/*.test.mjs"        # 针对 lib/ 的回归
-node scripts/pack-bundles.mjs --check     # Bundle 完整性
+tsc -p packages/shared/tsconfig.json            # 先产出 shared 的 .d.ts（依赖方类型检查的前提）
+tsc -p <每个 host 包>/tsconfig.json --noEmit    # typecheck
+tsc -p <每个包>/tsconfig.json                   # build
+node --test "tests/**/*.test.mjs"                # 针对 lib/ 的回归
+node scripts/pack-bundles.mjs --check            # Bundle 完整性
 ```
+
+Host 插件通过 `@dsh-plugin/shared` 的 `lib/*.d.ts` 取得共享类型。干净检出时这些声明文件尚不存在，
+因此 typecheck 阶段先编译 shared 包（编译本身即完成 shared 的类型检查），再对依赖方执行
+`--noEmit` 检查；否则依赖方会以“找不到模块 `@dsh-plugin/shared`”失败。
 
 `typecheck` 通过不等于迁移成功；测试、Bundle 校验与真实 Profile 安装验证各自独立成立。
 

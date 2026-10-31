@@ -144,6 +144,18 @@ function expandFilesList(dir, patterns) {
   return [...files].sort();
 }
 
+/** Resolve the runtime entry declared by a package manifest. */
+function resolveEntry(manifest) {
+  const root = manifest?.exports?.["."];
+  if (typeof root === "string") return root;
+  if (root && typeof root === "object") {
+    for (const condition of ["default", "import", "require"]) {
+      if (typeof root[condition] === "string") return root[condition];
+    }
+  }
+  return typeof manifest?.main === "string" ? manifest.main : "";
+}
+
 function validateBundle(dir) {
   const errors = [];
   const warnings = [];
@@ -173,9 +185,12 @@ function validateBundle(dir) {
     errors.push(`dsh.bundle.patch 指向的文件不存在: ${patchRel}`);
   }
 
-  const entryRel = manifest?.exports?.["."] ?? manifest?.main;
+  const entryRel = resolveEntry(manifest);
   if (typeof entryRel !== "string" || entryRel.trim() === "") {
-    errors.push("package.json 需声明 exports[\".\"] 或 main");
+    errors.push('package.json must declare exports["."] or main');
+  } else if (/\.(ts|mts|cts)$/.test(entryRel)) {
+    // A bundle must ship executable JavaScript: the DSH host does not compile TypeScript.
+    errors.push(`entry must be executable JavaScript, not TypeScript source: ${entryRel}`);
   } else {
     const entryFile = join(dir, entryRel);
     if (!existsSync(entryFile)) {
@@ -222,7 +237,7 @@ function validateBundle(dir) {
 function zipBundle(dir, manifest) {
   const patterns = Array.isArray(manifest.files) && manifest.files.length > 0
     ? manifest.files
-    : ["src/**/*.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"];
+    : ["lib/**/*.js", "lib/**/*.d.ts", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"];
   const files = expandFilesList(dir, patterns);
   if (files.length === 0) throw new Error("没有可打包的文件");
   const entries = files.map((rel) => {

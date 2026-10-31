@@ -4,9 +4,13 @@
   "private": true,
   "type": "module",
   "description": "DeepSeek Harness UI 界面深度美化与体验优化插件 (Delta UI)",
-  "main": "./index.js",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
   "exports": {
-    ".": "./index.js",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
@@ -18,13 +22,22 @@
     "manifestVersion": 1
   },
   "files": [
-    "index.js",
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
     "client.js",
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
     "README.md"
   ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/cordis": {
+      "optional": true
+    }
+  },
   "engines": {
     "node": ">=20.10.0"
   },
