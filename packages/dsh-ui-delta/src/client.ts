@@ -2658,7 +2658,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               files.forEach((file) => {
                 recognizeImage(file)
                   .then((text) => insertComposer(`\n[图片内容]\n${text}\n`))
-                  .catch((err) => { isFailed = true; showNotice('error', t(`图片识别失败：${err?.message || err}`, `Image recognition failed: ${err?.message || err}`), true); })
+                  .catch((err) => { isFailed = true; showNotice('error', t(`图片识别失败：${err?.message || err}`, `Image recognition failed (${err?.message || err})`), true); })
                   .finally(() => {
                     pending -= 1;
                     if (pending === 0 && !isFailed) hideNotice();
