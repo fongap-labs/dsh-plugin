@@ -78,15 +78,15 @@
 
 | 现文件 | 目标文件 | 分类 | 实测行数 |
 | --- | --- | --- | ---: |
-| `packages/shared/src/index.js` | `packages/shared/src/index.ts` | 共享模块 | 67 |
-| `packages/shared/src/tool.js` | `packages/shared/src/tool.ts` | 共享模块 | 235 |
-| `packages/shared/src/subprocess.js` | `packages/shared/src/subprocess.ts` | 共享模块 | 165 |
-| `packages/dsh-code-worker/src/index.js` | `packages/dsh-code-worker/src/index.ts` | Host 插件 | 434 |
-| `packages/dsh-ui-delta/index.js` | `packages/dsh-ui-delta/src/index.ts` | Host 插件 | 311 |
-| `packages/dsh-ui-delta/client.js` | `packages/dsh-ui-delta/src/client.ts` | Browser 客户端 | 3057 |
-| `packages/plugin-template/src/index.js` | `packages/plugin-template/src/index.ts` | 插件模板 | 48 |
+| `packages/shared/src/index.js` | `packages/shared/src/index.ts` | 共享模块 | 84 |
+| `packages/shared/src/tool.js` | `packages/shared/src/tool.ts` | 共享模块 | 359 |
+| `packages/shared/src/subprocess.js` | `packages/shared/src/subprocess.ts` | 共享模块 | 267 |
+| `packages/dsh-code-worker/src/index.js` | `packages/dsh-code-worker/src/index.ts` | Host 插件 | 608 |
+| `packages/dsh-ui-delta/index.js` | `packages/dsh-ui-delta/src/index.ts` | Host 插件 | 454 |
+| `packages/dsh-ui-delta/client.js` | `packages/dsh-ui-delta/src/client.ts` | Browser 客户端 | 3135 |
+| `packages/plugin-template/src/index.js` | `packages/plugin-template/src/index.ts` | 插件模板 | 85 |
 
-合计 7 个文件、4317 行（`wc -l` 口径，含文件末尾空行差异；规划文档中的 4533 行为另一种统计口径）。
+合计 7 个文件、4992 行（`wc -l` 口径，含文件末尾空行差异；规划文档中的 4533 行为另一种统计口径）。
 
 `dsh-ui-delta` 的 Host 入口同时从包根迁移到 `src/`，这是目录结构调整而非重命名。
 
@@ -117,7 +117,7 @@ exports["."] = { types: ./lib/index.d.ts, default: ./lib/index.js }
 `packages/dsh-ui-delta` 使用两份 tsconfig：
 
 - `tsconfig.json`：Node 半（`src/index.ts`），`module`/`moduleResolution` 为 `node16`，`lib` 仅 ES2022。
-- `tsconfig.client.json`：Browser 半（`src/client.ts`），`module: es2022`、`lib` 含 `DOM`，`declaration: false`。
+- `tsconfig.client.json`：Browser 半（`src/client.ts`），`module: es2022`、`lib: ["ES2022","DOM","DOM.Iterable"]`、`declaration: false`、`verbatimModuleSyntax: false`、`types: []`、`moduleResolution: bundler`。
 
 `tsc` 不改变 `window.__ModuleLoader__.load({ id, factory(require) { … } })` 结构；`require` 由宿主模块加载器在运行时注入，不是 Node 的 `require`。
 
