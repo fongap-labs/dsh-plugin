@@ -136,7 +136,7 @@ tests/
    - `release-app.yml` 会读取 manifest，按 `-Package <product> -Target x86_64-pc-windows-msvc -Version X.Y.Z -OutputDir <dir>` 调用 `packages/<product>/build-release.ps1`。
 3. **构建脚本做什么**：
    - 将目标插件的 `package.json` `version` 从占位符 `0.0.0` 暂时注入为 tag 版本；
-   - 解析包管理器：优先 `pnpm`，缺失时回退 `npm exec pnpm@<packageManager 版本>`，再回退 `corepack pnpm`（runner 镜像不保证提供 pnpm shim）；同名候选只取 PATH 中第一个真实文件，逐个跑 `--version` 探针，不可用就继续回退；
+   - 解析包管理器：优先 `pnpm`，缺失时回退 `npm exec pnpm@<packageManager 版本>`，再回退 `corepack pnpm`（runner 镜像不保证提供 pnpm shim）；同名候选只取 PATH 中第一个真实文件，逐个跑 `--version` 探针，不可用就继续回退，全部失败时逐条列出每个候选的退出码与首行输出；
    - `pnpm install --frozen-lockfile`；
    - `pnpm build` 编译全部 TypeScript 包（workspace:* 解析需要）；
    - `pnpm pack:bundles --package=<name>` 仅打包该插件；

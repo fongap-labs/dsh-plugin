@@ -154,6 +154,7 @@ pnpm link:dev dsh-code-worker --unlink
 1. Action Worker 从源仓库的 `projects/<product>/release.manifest.json` 读取清单。
 2. 清单声明 `root: "packages"`、`script: "<product>/build-release.ps1"`、`assets: ["<safe-name>.zip"]`。
 3. Runner 依次准备环境：`node_version_file` 解析到 `packages/.nvmrc`（纯文本 `24`），`target` 必须是 **rustup target triple**（`x86_64-pc-windows-msvc`），因为 Action Worker 会把它直接传给 `rustup toolchain install --target`。
+   构建日志第一行是 `Source revision: <sha>`：Action Worker 按固定提交检出源码，若日志里的 sha 不是你以为的版本，说明这次运行用的是旧提交（workflow_dispatch 的输入在运行创建时就固定了，改动需重新派发而不是 Re-run）。
 4. 运行 `build-release.ps1 -Package <product> -Target x86_64-pc-windows-msvc -Version X.Y.Z -OutputDir <dir>`：
    - 将目标插件 `package.json` 的 `version` 从占位符 `0.0.0` 暂时注入为发布版本；
    - 解析包管理器：优先 `pnpm`，缺失时依次回退 `npm exec pnpm@<packageManager 版本>`、`corepack pnpm`；同名的多个候选（runner 上 `npm.cmd` 同时存在于 hosted toolcache 与 `C:\Program Files\nodejs`）只取 PATH 中的第一个真实文件，且每个候选先跑一次 `--version` 探针，不通过则继续回退；
