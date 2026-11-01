@@ -133,15 +133,17 @@ tests/
      - `dsh-code-worker` → `projects/dsh-code-worker/release.manifest.json`
      - `dsh-ui-delta` → `projects/dsh-ui-delta/release.manifest.json`
      - `plugin-template` → `projects/plugin-template/release.manifest.json`
-   - `release-app.yml` 会读取 manifest，按 `-Package <product> -Target windows-x64 -Version X.Y.Z -OutputDir <dir>` 调用 `packages/<product>/build-release.ps1`。
+   - `release-app.yml` 会读取 manifest，按 `-Package <product> -Target x86_64-pc-windows-msvc -Version X.Y.Z -OutputDir <dir>` 调用 `packages/<product>/build-release.ps1`。
 3. **构建脚本做什么**：
    - 将目标插件的 `package.json` `version` 从占位符 `0.0.0` 暂时注入为 tag 版本；
+   - 解析包管理器：优先 `pnpm`，缺失时回退 `npm exec pnpm@<packageManager 版本>`，再回退 `corepack pnpm`（runner 镜像不保证提供 pnpm shim）；
    - `pnpm install --frozen-lockfile`；
    - `pnpm build` 编译全部 TypeScript 包（workspace:* 解析需要）；
    - `pnpm pack:bundles --package=<name>` 仅打包该插件；
    - 产物 `dist/<safe-name>-<version>.zip` 复制到 `OutputDir/<safe-name>.zip`；
    - `finally` 中恢复 `package.json` 原值（版本回到 `0.0.0`）。
-4. **产物**：`dist/*.zip`，每个插件一个 zip；Action Worker 会生成 SBOM 并派发 release 事件。
+4. **产物**：`dist/*.zip`，每个插件一个 zip；zip 内始终含 `package.json`（与 `npm pack` 一致），所以发布版本会随产物分发。Action Worker 会生成 SBOM 并派发 release 事件。
+5. **清单字段的铁律**：`builds[].target` 必须是 rustup target triple（如 `x86_64-pc-windows-msvc`），因为 Action Worker 直接把它传给 `rustup toolchain install --target`；`node_version_file` 相对 `root` 解析（这里是 `packages/.nvmrc`），且必须是纯 ASCII 文本。`tests/release-manifest.test.mjs` 会校验这些约束。
 
 ### 本地预览发布（不走 Action Worker）
 

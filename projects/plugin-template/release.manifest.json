@@ -14,7 +14,7 @@
     {
       "id": "windows",
       "runner_profile": "windows-build",
-      "target": "windows-x64",
+      "target": "x86_64-pc-windows-msvc",
       "script": "plugin-template/build-release.ps1",
       "assets": [
         "dsh-plugin-plugin-template.zip"

@@ -13,7 +13,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGES_DIR = join(ROOT, "packages");
@@ -115,31 +115,77 @@ function walkFiles(dir, recursive, predicate) {
   return out;
 }
 
+// Minimal glob support: `*` and `?` inside one path segment, and a `**` segment that matches any
+// depth. The `files` field of a package uses forms like `lib/**/*.js` and `locale/*.json`; both must
+// resolve, otherwise a release silently ships without the files it declares.
+function nameMatcher(pattern) {
+  const source = [...pattern]
+    .map((character) => {
+      if (character === "*") return "[^/]*";
+      if (character === "?") return "[^/]";
+      return character.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${source}$`);
+}
+
 function expandFilesList(dir, patterns) {
   const files = new Set();
   for (const pattern of patterns) {
-    if (pattern.includes("**")) {
-      const [base, rest] = pattern.split("**");
-      const baseDir = join(dir, base.replace(/\/$/, ""));
+    const deep = pattern.indexOf("**");
+    if (deep !== -1) {
+      const baseSlash = pattern.lastIndexOf("/", deep);
+      const baseDir = join(dir, baseSlash === -1 ? "" : pattern.slice(0, baseSlash));
+      const restIndex = pattern.indexOf("/", deep);
+      const matcher = nameMatcher(restIndex === -1 ? "*" : pattern.slice(restIndex + 1));
       if (!existsSync(baseDir)) continue;
-      const suffix = (rest ?? "").replace(/^\//, "");
-      const extension = suffix.startsWith("*") ? suffix.slice(1) : null;
-      for (const file of walkFiles(baseDir, true, (name) => (extension ? name.endsWith(extension) : true))) {
+      for (const file of walkFiles(baseDir, true, (name) => matcher.test(name))) {
         files.add(relative(dir, file));
       }
       continue;
     }
-    if (pattern.endsWith("*")) {
-      const baseDir = join(dir, pattern.slice(0, -1).replace(/\/$/, ""));
+    const slash = pattern.lastIndexOf("/");
+    const baseDir = join(dir, slash === -1 ? "" : pattern.slice(0, slash));
+    const namePart = slash === -1 ? pattern : pattern.slice(slash + 1);
+    if (namePart.includes("*") || namePart.includes("?")) {
+      const matcher = nameMatcher(namePart);
       if (!existsSync(baseDir)) continue;
-      const extension = pattern.slice(pattern.lastIndexOf("*") + 1);
-      for (const file of walkFiles(baseDir, false, (name) => (extension ? name.endsWith(extension) : true))) {
+      for (const file of walkFiles(baseDir, false, (name) => matcher.test(name))) {
         files.add(relative(dir, file));
       }
       continue;
     }
     const single = join(dir, pattern);
     if (existsSync(single) && statSync(single).isFile()) files.add(pattern);
+  }
+  return [...files].sort();
+}
+
+// npm always ships these files whatever `files` says. A bundle zip is installed the same way, so
+// package.json must be inside it: it carries name, version, exports and dsh.bundle.patch. Without
+// it the release version injected into package.json never reaches the artifact.
+const ALWAYS_PACKED = ["package.json", "README.md", "LICENSE", "LICENSE.md"];
+
+const DEFAULT_PATTERNS = [
+  "lib/**/*.js",
+  "lib/**/*.d.ts",
+  "cordis.patch.yml",
+  "locale/*.json",
+  "icon.svg",
+  "README.md",
+];
+
+/** Resolve the file list packed into one bundle zip. */
+export function resolveBundleFiles(dir, manifest) {
+  const patterns =
+    Array.isArray(manifest.files) && manifest.files.length > 0 ? manifest.files : DEFAULT_PATTERNS;
+  // Zip entry names are always POSIX-style, so the list is normalized here instead of at write time.
+  const files = new Set(
+    expandFilesList(dir, patterns).map((file) => file.replaceAll("\\", "/"))
+  );
+  for (const name of ALWAYS_PACKED) {
+    const full = join(dir, name);
+    if (existsSync(full) && statSync(full).isFile()) files.add(name);
   }
   return [...files].sort();
 }
@@ -235,10 +281,7 @@ function validateBundle(dir) {
 }
 
 function zipBundle(dir, manifest) {
-  const patterns = Array.isArray(manifest.files) && manifest.files.length > 0
-    ? manifest.files
-    : ["lib/**/*.js", "lib/**/*.d.ts", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"];
-  const files = expandFilesList(dir, patterns);
+  const files = resolveBundleFiles(dir, manifest);
   if (files.length === 0) throw new Error("没有可打包的文件");
   const entries = files.map((rel) => {
     const full = join(dir, rel);
@@ -311,4 +354,5 @@ function main() {
   console.log(checkOnly ? "pack-bundles: 校验通过" : `pack-bundles: 已输出 ${packed.length} 个 zip 到 dist/`);
 }
 
-main();
+const isMain = process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === import.meta.url;
+if (isMain) main();

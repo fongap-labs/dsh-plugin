@@ -14,7 +14,7 @@
     {
       "id": "windows",
       "runner_profile": "windows-build",
-      "target": "windows-x64",
+      "target": "x86_64-pc-windows-msvc",
       "script": "dsh-ui-delta/build-release.ps1",
       "assets": [
         "dsh-ui-delta.zip"

@@ -153,14 +153,22 @@ pnpm link:dev dsh-code-worker --unlink
 
 1. Action Worker 从源仓库的 `projects/<product>/release.manifest.json` 读取清单。
 2. 清单声明 `root: "packages"`、`script: "<product>/build-release.ps1"`、`assets: ["<safe-name>.zip"]`。
-3. 运行 `build-release.ps1 -Package <product> -Target windows-x64 -Version X.Y.Z -OutputDir <dir>`：
+3. Runner 依次准备环境：`node_version_file` 解析到 `packages/.nvmrc`（纯文本 `24`），`target` 必须是 **rustup target triple**（`x86_64-pc-windows-msvc`），因为 Action Worker 会把它直接传给 `rustup toolchain install --target`。
+4. 运行 `build-release.ps1 -Package <product> -Target x86_64-pc-windows-msvc -Version X.Y.Z -OutputDir <dir>`：
    - 将目标插件 `package.json` 的 `version` 从占位符 `0.0.0` 暂时注入为发布版本；
+   - 解析包管理器：优先 `pnpm`，缺失时依次回退 `npm exec pnpm@<packageManager 版本>`、`corepack pnpm`；
    - `pnpm install --frozen-lockfile`；
    - `pnpm build` 全量编译（workspace:* 解析需要所有包）；
    - `pnpm pack:bundles --package=<name>` 仅打包该插件；
    - 产物 `dist/<safe-name>-<version>.zip` → `OutputDir/<safe-name>.zip`；
    - `finally` 恢复 `package.json` 原值（版本回到 `0.0.0`）。
-4. Action Worker 生成 SBOM、打包 governed release artifact、派发 release 事件。
+5. Action Worker 生成 SBOM、打包 governed release artifact、派发 release 事件。
+
+### 发布包内容
+
+`dist/<safe-name>-<version>.zip` 是一个可直接安装的 Bundle 包，始终包含 `package.json`（与 `npm pack` 一致，不受 `files` 字段限制），因此注入的发布版本会随产物一起分发。包内文件为 `package.json`、`lib/**/*.js`、`lib/**/*.d.ts`、`cordis.patch.yml`、`locale/*.json`、`icon.svg`、`README.md`。
+
+`tests/release-manifest.test.mjs` 把上述清单契约固定为测试：布局唯一性、`root`/`script` 路径、rustup target triple、资产名与打包名一致、跨产品唯一性、`.nvmrc` 编码以及包内必须含 `package.json`。清单写错时 `pnpm test` 就会失败，不必等到远端发布。
 
 ### 产物对应表
 
