@@ -2,10 +2,6 @@
 
 ## [Unreleased]
 
-### 新增
-
-- 发布清单声明 `.tgz` 资产（`dsh-ui-delta.tgz`、`dsh-code-worker.tgz`、`dsh-plugin-plugin-template.tgz`），构建脚本同步打包产出标准 npm tarball 附件，支持在 DeepSeek Harness 通过 Release 资产直链在线安装。
-
 ## [0.1.0-beta.1](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.1) - 2026-11-01
 
 ### 新增
