@@ -8,7 +8,8 @@
     build-release.ps1 -Package <name> -Target <target> -Version <X.Y.Z> -OutputDir <dir>
 
   1. Temporarily injects -Version into the specified package's package.json (kept at 0.0.0 otherwise).
-  2. Resolves a package manager shim (pnpm, then corepack, then npm) and installs with the frozen lockfile.
+  2. Resolves a working package manager (pnpm, then `npm exec pnpm@<pinned>`, then corepack) and
+     installs with the frozen lockfile.
   3. Compiles all TypeScript packages (needed for workspace:* resolution).
   4. Validates and packs the specified bundle zip via pack-bundles.mjs --package <name>.
   5. Copies the produced zip under the stable asset name declared in the manifest into -OutputDir.
@@ -53,27 +54,68 @@ $SafeName = ($OriginalPackage.name -replace '^@', '') -replace '/', '-'
 $PackageManagerField = (Get-Content -LiteralPath (Join-Path $RepoRoot 'package.json') -Raw | ConvertFrom-Json).packageManager
 $PnpmVersion = if ($PackageManagerField -match '^pnpm@(.+)$') { $Matches[1] } else { '' }
 
-function Resolve-PackageManager {
-  foreach ($shim in @('pnpm.cmd', 'pnpm.exe', 'pnpm')) {
-    $found = Get-Command $shim -CommandType Application, ExternalScript -ErrorAction SilentlyContinue
-    if ($found) { return @{ Display = 'pnpm'; Command = @($found.Source) } }
+# Get-Command returns *every* match on PATH, so reading `.Source` off its result can yield an array:
+# the Windows runner ships npm both in the hosted toolcache and under Program Files. Passing such an
+# array to the call operator stringifies it into "<path> <path>" and fails as an unknown command
+# name. Resolve to exactly one existing file instead.
+function Resolve-Executable {
+  param([Parameter(Mandatory = $true)][string[]]$Names)
+  foreach ($name in $Names) {
+    $found = @(Get-Command -Name $name -CommandType Application, ExternalScript -ErrorAction SilentlyContinue)
+    foreach ($candidate in $found) {
+      $path = if ($candidate.Path) { [string]$candidate.Path } else { [string]$candidate.Source }
+      if ([string]::IsNullOrWhiteSpace($path)) { continue }
+      if (Test-Path -LiteralPath $path -PathType Leaf) { return $path }
+    }
   }
+  return $null
+}
+
+# A shim can exist and still not work (npm without a reachable registry, corepack without a
+# signature), so every candidate answers a cheap `--version` probe before it is trusted.
+function Test-PackageManager {
+  param([Parameter(Mandatory = $true)][string]$Executable, [string[]]$Prefix = @())
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & $Executable @(@($Prefix) + @('--version')) 2>&1 | Out-Null
+    return ($LASTEXITCODE -eq 0)
+  } catch {
+    return $false
+  } finally {
+    $ErrorActionPreference = $previousPreference
+  }
+}
+
+function Resolve-PackageManager {
+  $candidates = @()
+  $pnpmPath = Resolve-Executable @('pnpm.cmd', 'pnpm.exe', 'pnpm')
+  if ($pnpmPath) { $candidates += @{ Display = 'pnpm'; Executable = $pnpmPath; Prefix = @() } }
   if ($PnpmVersion) {
-    foreach ($shim in @('npm.cmd', 'npm.exe', 'npm')) {
-      $found = Get-Command $shim -CommandType Application, ExternalScript -ErrorAction SilentlyContinue
-      if ($found) {
-        return @{
-          Display = "npm exec pnpm@$PnpmVersion"
-          Command = @($found.Source, 'exec', '--yes', "pnpm@$PnpmVersion", '--')
-        }
+    $npmPath = Resolve-Executable @('npm.cmd', 'npm.exe', 'npm')
+    if ($npmPath) {
+      $candidates += @{
+        Display = "npm exec pnpm@$PnpmVersion"
+        Executable = $npmPath
+        Prefix = @('exec', '--yes', "pnpm@$PnpmVersion", '--')
       }
     }
   }
-  foreach ($shim in @('corepack.cmd', 'corepack.exe', 'corepack')) {
-    $found = Get-Command $shim -CommandType Application, ExternalScript -ErrorAction SilentlyContinue
-    if ($found) { return @{ Display = 'corepack pnpm'; Command = @($found.Source, 'pnpm') } }
+  $corepackPath = Resolve-Executable @('corepack.cmd', 'corepack.exe', 'corepack')
+  if ($corepackPath) {
+    $candidates += @{ Display = 'corepack pnpm'; Executable = $corepackPath; Prefix = @('pnpm') }
   }
-  throw 'No package manager found: expected pnpm, npm or corepack on PATH.'
+  if ($candidates.Count -eq 0) {
+    throw 'No package manager found: expected pnpm, npm or corepack on PATH.'
+  }
+  foreach ($candidate in $candidates) {
+    if (Test-PackageManager -Executable $candidate.Executable -Prefix $candidate.Prefix) {
+      return $candidate
+    }
+    Write-Host "  $($candidate.Display) did not answer its version probe; trying the next candidate."
+  }
+  $tried = ($candidates | ForEach-Object { $_.Display }) -join ', '
+  throw "No working package manager found: tried $tried."
 }
 
 function Invoke-PackageManager {
@@ -90,7 +132,7 @@ function Invoke-PackageManager {
     $ErrorActionPreference = $previousPreference
   }
   if ($exitCode -ne 0) {
-    throw "pnpm $($Arguments[0]) failed (exit $exitCode)"
+    throw "$PackageManagerName $($Arguments[0]) failed (exit $exitCode)"
   }
 }
 
@@ -104,8 +146,13 @@ try {
   # --- 2. Resolve the package manager ----------------------------------------
   $packageManager = Resolve-PackageManager
   Write-Host "Using $($packageManager.Display)..."
-  $pmExe = $packageManager.Command[0]
-  $pmArgs = @($packageManager.Command | Select-Object -Skip 1)
+  # Keep the executable a single string: an array here becomes "<path> <path>" at the call operator.
+  $pmExe = [string]$packageManager.Executable
+  $pmArgs = @($packageManager.Prefix)
+  $PackageManagerName = [string]$packageManager.Display
+  if (-not (Test-Path -LiteralPath $pmExe -PathType Leaf)) {
+    throw "Package manager executable not found: $pmExe"
+  }
 
   # --- 3. Install dependencies -----------------------------------------------
   Write-Host 'Installing dependencies...'
