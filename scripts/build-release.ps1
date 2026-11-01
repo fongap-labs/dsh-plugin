@@ -35,6 +35,25 @@ if ($Version -notmatch '^\d+\.\d+\.\d+(-beta\.\d+)?$') {
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
+# Action Worker checks out the source at a pinned revision, so a run started before a fix builds the
+# old code and the log carries no trace of it. Record the revision, then a log line always maps back
+# to the code that produced it.
+function Get-SourceRevision {
+  $previousPreference = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    $revision = & git rev-parse HEAD 2>$null
+    if ($LASTEXITCODE -eq 0 -and $revision) { return ([string]$revision).Trim() }
+    return 'unknown (git rev-parse HEAD failed)'
+  } catch {
+    return 'unknown (git is unavailable)'
+  } finally {
+    $ErrorActionPreference = $previousPreference
+  }
+}
+
+Write-Host "Source revision: $(Get-SourceRevision)"
+
 $PackageDir = "packages/$Package"
 $PkgPath = Join-Path $RepoRoot "$PackageDir/package.json"
 
@@ -72,19 +91,24 @@ function Resolve-Executable {
 }
 
 # A shim can exist and still not work (npm without a reachable registry, corepack without a
-# signature), so every candidate answers a cheap `--version` probe before it is trusted.
+# signature), so every candidate answers a cheap `--version` probe before it is trusted. A failure
+# keeps the first line of output so the final error explains *why* the candidate was rejected.
 function Test-PackageManager {
   param([Parameter(Mandatory = $true)][string]$Executable, [string[]]$Prefix = @())
   $previousPreference = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
   try {
-    & $Executable @(@($Prefix) + @('--version')) 2>&1 | Out-Null
-    return ($LASTEXITCODE -eq 0)
+    $output = @(& $Executable @(@($Prefix) + @('--version')) 2>&1 | ForEach-Object { [string]$_ })
+    $exitCode = $LASTEXITCODE
   } catch {
-    return $false
+    return @{ Ok = $false; Detail = $_.Exception.Message }
   } finally {
     $ErrorActionPreference = $previousPreference
   }
+  if ($exitCode -eq 0) { return @{ Ok = $true; Detail = '' } }
+  $detail = ($output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1)
+  if (-not $detail) { $detail = "exit $exitCode" }
+  return @{ Ok = $false; Detail = "exit ${exitCode}: $detail" }
 }
 
 function Resolve-PackageManager {
@@ -108,14 +132,17 @@ function Resolve-PackageManager {
   if ($candidates.Count -eq 0) {
     throw 'No package manager found: expected pnpm, npm or corepack on PATH.'
   }
+  $failures = @()
   foreach ($candidate in $candidates) {
-    if (Test-PackageManager -Executable $candidate.Executable -Prefix $candidate.Prefix) {
+    $probe = Test-PackageManager -Executable $candidate.Executable -Prefix $candidate.Prefix
+    if ($probe.Ok) {
+      Write-Host "  $($candidate.Display) answered its version probe."
       return $candidate
     }
-    Write-Host "  $($candidate.Display) did not answer its version probe; trying the next candidate."
+    Write-Host "  $($candidate.Display) did not answer its version probe ($($probe.Detail)); trying the next candidate."
+    $failures += "  - $($candidate.Display) at $($candidate.Executable): $($probe.Detail)"
   }
-  $tried = ($candidates | ForEach-Object { $_.Display }) -join ', '
-  throw "No working package manager found: tried $tried."
+  throw ("No working package manager found:`n" + ($failures -join "`n"))
 }
 
 function Invoke-PackageManager {
@@ -145,7 +172,7 @@ try {
 
   # --- 2. Resolve the package manager ----------------------------------------
   $packageManager = Resolve-PackageManager
-  Write-Host "Using $($packageManager.Display)..."
+  Write-Host "Using $($packageManager.Display) ($($packageManager.Executable))..."
   # Keep the executable a single string: an array here becomes "<path> <path>" at the call operator.
   $pmExe = [string]$packageManager.Executable
   $pmArgs = @($packageManager.Prefix)
