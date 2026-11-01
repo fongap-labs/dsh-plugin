@@ -29,7 +29,7 @@
  *  packages to look for an open()-style export — read-only, verified, guarded.
  */
 window.__ModuleLoader__.load({
-  id: 'dsh-ui-delta',
+  id: '@fongap-labs/dsh-ui-delta',
   factory(require: HarnessRequire) {
     const SOURCE = 'dsh-ui-delta';
     // v0.1.0 — absorbed v0.1.0 enhancements: design-layer dropdown, settings
@@ -3199,7 +3199,7 @@ const MODULES: ModuleDef[] = [
             ]);
           }
           ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register(
-            { name: 'settings.section', id: 'dsh-ui-delta', order: 20, label: 'Delta UI' },
+            { name: 'settings.section', id: '@fongap-labs/dsh-ui-delta', order: 20, label: 'Delta UI' },
             DeltaSettings,
           )), 'dsh-ui-delta: settings module');
         } catch (error) {

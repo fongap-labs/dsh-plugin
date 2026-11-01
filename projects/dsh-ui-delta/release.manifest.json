@@ -17,10 +17,10 @@
       "target": "x86_64-pc-windows-msvc",
       "script": "dsh-ui-delta/build-release.ps1",
       "assets": [
-        "dsh-ui-delta.zip",
-        "dsh-ui-delta.tgz"
+        "fongap-labs-dsh-ui-delta.zip",
+        "fongap-labs-dsh-ui-delta.tgz"
       ],
-      "attest_asset": "dsh-ui-delta.zip"
+      "attest_asset": "fongap-labs-dsh-ui-delta.zip"
     }
   ]
 }

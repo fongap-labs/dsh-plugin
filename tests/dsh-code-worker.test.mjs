@@ -62,7 +62,7 @@ describe("dsh-code-worker", () => {
   });
 
   it("插件声明元信息正确", () => {
-    assert.equal(codeWorker.name, "dsh-code-worker");
+    assert.equal(codeWorker.name, "@fongap-labs/dsh-code-worker");
     assert.deepEqual(codeWorker.inject, ["tools"]);
   });
 

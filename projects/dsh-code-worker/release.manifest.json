@@ -17,10 +17,10 @@
       "target": "x86_64-pc-windows-msvc",
       "script": "dsh-code-worker/build-release.ps1",
       "assets": [
-        "dsh-code-worker.zip",
-        "dsh-code-worker.tgz"
+        "fongap-labs-dsh-code-worker.zip",
+        "fongap-labs-dsh-code-worker.tgz"
       ],
-      "attest_asset": "dsh-code-worker.zip"
+      "attest_asset": "fongap-labs-dsh-code-worker.zip"
     }
   ]
 }

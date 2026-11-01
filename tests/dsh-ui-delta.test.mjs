@@ -23,7 +23,7 @@ function createMockWebServer() {
 
 describe("dsh-ui-delta", () => {
   it("插件元信息导出正确", () => {
-    assert.equal(uiDelta.name, "dsh-ui-delta");
+    assert.equal(uiDelta.name, "@fongap-labs/dsh-ui-delta");
     assert.deepEqual(uiDelta.inject, ["webServer"]);
     assert.equal(typeof uiDelta.apply, "function");
   });

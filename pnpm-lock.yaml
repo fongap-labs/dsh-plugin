@@ -26,7 +26,7 @@ importers:
 
   packages/dsh-code-worker:
     dependencies:
-      '@dsh-plugin/shared':
+      '@fongap-labs/shared':
         specifier: workspace:*
         version: link:../shared
 
@@ -34,7 +34,7 @@ importers:
 
   packages/plugin-template:
     dependencies:
-      '@dsh-plugin/shared':
+      '@fongap-labs/shared':
         specifier: workspace:*
         version: link:../shared
 

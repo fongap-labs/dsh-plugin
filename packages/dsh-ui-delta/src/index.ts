@@ -100,7 +100,7 @@ interface PublicView {
 // `lib/index.js` sits one level below the package root, which holds package.json.
 const PLUGIN_DIR = fileURLToPath(new URL('..', import.meta.url))
 
-export const name = 'dsh-ui-delta'
+export const name = '@fongap-labs/dsh-ui-delta'
 export const inject = ['webServer']
 
 const CONFIG_DIR = join(homedir(), '.dsh-ui-delta')

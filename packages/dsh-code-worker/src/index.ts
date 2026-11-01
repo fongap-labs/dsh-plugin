@@ -20,7 +20,7 @@ import {
   runCommand,
   resolveInside,
   SandboxViolationError,
-} from '@dsh-plugin/shared'
+} from '@fongap-labs/shared'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -135,7 +135,7 @@ const DEFAULT_GUIDANCE = [
   'Always pass paths relative to the workspace root; absolute paths outside the workspace are rejected by the sandbox.',
 ].join('\n')
 
-export const name = 'dsh-code-worker'
+export const name = '@fongap-labs/dsh-code-worker'
 export const inject = ['tools']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
