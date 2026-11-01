@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "root": "packages",
+  "artifact_name": "dsh-code-worker-release",
+  "target_repository": "fongap-labs/dsh-plugin",
+  "release_key": "dsh-code-worker",
+  "release_name": "dsh-code-worker",
+  "release_notes": "",
+  "license_expression": "MIT",
+  "node_version_file": ".nvmrc",
+  "python_version_file": "",
+  "sbom_asset": "dsh-code-worker-sbom.cdx.json",
+  "builds": [
+    {
+      "id": "windows",
+      "runner_profile": "windows-build",
+      "target": "windows-x64",
+      "script": "dsh-code-worker/build-release.ps1",
+      "assets": [
+        "dsh-code-worker.zip"
+      ],
+      "attest_asset": "dsh-code-worker.zip"
+    }
+  ]
+}

@@ -255,14 +255,25 @@ function zipBundle(dir, manifest) {
 
 function main() {
   const checkOnly = process.argv.includes("--check");
+  const packageArg = process.argv.find((arg) => arg.startsWith("--package="));
+  const targetPackage = packageArg ? packageArg.split("=")[1] : null;
+
   if (!existsSync(PACKAGES_DIR)) {
     console.error(`pack-bundles: 目录不存在: ${PACKAGES_DIR}`);
     process.exit(1);
   }
-  const dirs = readdirSync(PACKAGES_DIR, { withFileTypes: true })
+  let dirs = readdirSync(PACKAGES_DIR, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => join(PACKAGES_DIR, entry.name))
     .filter((dir) => existsSync(join(dir, "package.json")));
+
+  if (targetPackage) {
+    dirs = dirs.filter((dir) => relative(PACKAGES_DIR, dir) === targetPackage);
+    if (dirs.length === 0) {
+      console.error(`pack-bundles: package not found: ${targetPackage}`);
+      process.exit(1);
+    }
+  }
 
   if (dirs.length === 0) {
     console.error(`pack-bundles: packages/ 下没有可校验的插件包`);
