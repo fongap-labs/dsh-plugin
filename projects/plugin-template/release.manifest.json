@@ -17,7 +17,8 @@
       "target": "x86_64-pc-windows-msvc",
       "script": "plugin-template/build-release.ps1",
       "assets": [
-        "dsh-plugin-plugin-template.zip"
+        "dsh-plugin-plugin-template.zip",
+        "dsh-plugin-plugin-template.tgz"
       ],
       "attest_asset": "dsh-plugin-plugin-template.zip"
     }
