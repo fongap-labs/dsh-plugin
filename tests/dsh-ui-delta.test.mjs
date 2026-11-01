@@ -128,4 +128,13 @@ describe("dsh-ui-delta", () => {
     const clientSrc = readFileSync(clientPath, "utf8");
     assert.ok(clientSrc.length > 1000, "client.js 应当包含 Delta UI 客户端逻辑");
   });
+
+  it("declares valid dsh.client configuration for web client discovery", () => {
+    const manifestPath = join(import.meta.dirname, "../packages/dsh-ui-delta/package.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    assert.equal(manifest.dsh?.client?.platform, "web");
+    assert.ok(Array.isArray(manifest.dsh?.client?.inject));
+    assert.ok(manifest.dsh.client.inject.includes("@deepseek-ai/dsh-client-ui-theme"));
+    assert.ok(manifest.dsh.client.inject.includes("@deepseek-ai/dsh-client-ui-renderer"));
+  });
 });
