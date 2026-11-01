@@ -1,0 +1,2 @@
+# Keep the Node version pin as plain text with LF endings.
+packages/.nvmrc text eol=lf
