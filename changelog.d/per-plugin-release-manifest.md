@@ -1,6 +1,0 @@
-- 新增: 每个 DSH 插件独立发布的 Action Worker `projects/` 布局清单（`projects/dsh-code-worker/release.manifest.json`、`projects/dsh-ui-delta/release.manifest.json`、`projects/plugin-template/release.manifest.json`）。
-- 新增: 通用构建脚本 `scripts/build-release.ps1` 与各包包装脚本（`packages/*/build-release.ps1`），支持 `-Package`、`-Target`、`-Version`、`-OutputDir` 参数，注入版本 → 安装依赖 → 全量编译 → 仅打包目标插件 → 产出单一 zip → 还原 package.json。
-- 变更: `packages/.nvmrc` 指定 Node 24，供发布清单 `node_version_file` 解析使用。
-- 变更: 根 `package.json` 新增 `release` / `release:dry-run` 脚本（复用 PR #8 的 `scripts/release.mjs`）。
-- 变更: 所有插件包 `package.json` 版本统一为占位符 `0.0.0`。
-- 变更: `scripts/pack-bundles.mjs` 增加 `--package=<name>` 参数，仅校验/打包指定包。
