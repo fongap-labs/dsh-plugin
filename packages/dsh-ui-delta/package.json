@@ -19,7 +19,14 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
-    "manifestVersion": 1
+    "manifestVersion": 1,
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ],
+      "platform": "web"
+    }
   },
   "files": [
     "lib/**/*.js",
@@ -41,4 +48,4 @@
     "node": ">=20.10.0"
   },
   "license": "MIT"
-}
+}
