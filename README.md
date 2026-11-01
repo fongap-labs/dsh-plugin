@@ -17,6 +17,43 @@
 
 ---
 
+## 在线安装指南 (DeepSeek Harness)
+
+DeepSeek Harness（DSH）支持以下两种在线安装方式：
+
+### 方案一：通过 npm 包名一键安装（推荐）
+
+在 DeepSeek Harness 插件管理器搜索框或控制台中直接输入插件包名：
+
+```bash
+# 安装稳定版
+dsh-ui-delta
+
+# 或安装预发布/Beta 版本
+dsh-ui-delta@beta
+```
+
+- **适用场景**：日常使用、版本更新与自动依赖解析。
+- **运行原理**：插件包已发布至 npm Registry，安装包根目录完整包含 `cordis.patch.yml` 与 `package.json`，DSH 的包管理器（pnpm）可自动下载并挂载插件。
+
+### 方案二：通过 GitHub Release `.tgz` 资产直链安装
+
+在 DeepSeek Harness 插件管理器的安装输入框中粘贴对应插件 Release 的 `.tgz` 资产直链：
+
+```text
+https://github.com/fongap-labs/dsh-plugin/releases/download/<release-tag>/<plugin-name>.tgz
+```
+
+**示例**：
+```text
+https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-ui-delta-v0.1.0-beta.1/dsh-ui-delta.tgz
+```
+
+- **适用场景**：内网/离线环境、安装特定历史构建版本、或者无法访问 npm 镜像源时。
+- **运行原理**：每个插件在 GitHub Release 发布时，均包含独立打包的标准 npm tarball（`.tgz`），单包打包结构完全满足 DSH 安装解压协议，避免了 Monorepo 根目录无插件清单导致识别失败的问题。
+
+---
+
 ## 目录结构
 
 ```
@@ -173,11 +210,13 @@ pnpm link:dev dsh-code-worker --unlink
 
 ### 产物对应表
 
-| 插件 | release_key | 产物 zip | manifest 路径 |
-|---|---|---|---|
-| `dsh-code-worker` | `dsh-code-worker` | `dsh-code-worker.zip` | `projects/dsh-code-worker/release.manifest.json` |
-| `dsh-ui-delta` | `dsh-ui-delta` | `dsh-ui-delta.zip` | `projects/dsh-ui-delta/release.manifest.json` |
-| `plugin-template` | `dsh-plugin-template` | `dsh-plugin-plugin-template.zip` | `projects/plugin-template/release.manifest.json` |
+| 插件 | release_key | Release 产物 (.zip / .tgz) | npm 包名 | manifest 路径 |
+|---|---|---|---|---|
+| `dsh-code-worker` | `dsh-code-worker` | `dsh-code-worker.zip`<br>`dsh-code-worker.tgz` | `dsh-code-worker` | `projects/dsh-code-worker/release.manifest.json` |
+| `dsh-ui-delta` | `dsh-ui-delta` | `dsh-ui-delta.zip`<br>`dsh-ui-delta.tgz` | `dsh-ui-delta` | `projects/dsh-ui-delta/release.manifest.json` |
+| `plugin-template` | `dsh-plugin-template` | `dsh-plugin-plugin-template.zip`<br>`dsh-plugin-plugin-template.tgz` | `dsh-plugin-plugin-template` | `projects/plugin-template/release.manifest.json` |
+
+> **提示**：通过 `action-worker` 触发发布时，系统会自动将编译出的 `.tgz` 资产同步发布到 npm 仓库（支持正式版与带 `--tag beta` 的预发布版）。
 
 > **注意**：内部共享包 `@dsh-plugin/shared` **不单独发布**，仅作为 `workspace:*` 依赖参与编译。
 
