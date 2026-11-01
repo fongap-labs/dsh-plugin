@@ -172,7 +172,7 @@ describe("release manifests", () => {
     }
   });
 
-  it("declares assets that match the packed bundle name", () => {
+  it("declares assets that match the packed bundle and tarball names", () => {
     for (const { name, manifest } of products) {
       const label = `projects/${name}/release.manifest.json`;
       const packageJsonPath = join(repoRoot, manifest.root, name, "package.json");
@@ -181,11 +181,12 @@ describe("release manifests", () => {
         `${label} expects a package at ${manifest.root}/${name}/package.json`
       );
       const packageJson = readJson(packageJsonPath);
-      // The build script copies the packed zip to <safe-name>.zip, so the declared asset has to be
-      // exactly that name or the packaging step reports a mismatched asset set.
-      const expected = `${safeNameOf(packageJson.name)}.zip`;
+      // The build script copies the packed zip to <safe-name>.zip and the tarball to <safe-name>.tgz,
+      // so the declared assets must match both.
+      const safe = safeNameOf(packageJson.name);
+      const expected = [`${safe}.zip`, `${safe}.tgz`];
       const declared = manifest.builds.flatMap((build) => build.assets);
-      assert.deepEqual(declared, [expected], `${label} assets must be exactly ["${expected}"]`);
+      assert.deepEqual(declared, expected, `${label} assets must be exactly ${JSON.stringify(expected)}`);
     }
   });
 

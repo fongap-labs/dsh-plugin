@@ -17,7 +17,8 @@
       "target": "x86_64-pc-windows-msvc",
       "script": "dsh-ui-delta/build-release.ps1",
       "assets": [
-        "dsh-ui-delta.zip"
+        "dsh-ui-delta.zip",
+        "dsh-ui-delta.tgz"
       ],
       "attest_asset": "dsh-ui-delta.zip"
     }

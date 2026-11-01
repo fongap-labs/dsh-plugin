@@ -208,6 +208,27 @@ try {
   $dest = Join-Path $OutputDir $destName
   Copy-Item -LiteralPath $source -Destination $dest -Force
   Write-Host "  -> $destName"
+
+  # --- 7. Pack npm tarball (.tgz) and copy under stable asset name -----------
+  $tempTgzDir = Join-Path $RepoRoot "dist/tgz-temp"
+  if (Test-Path -LiteralPath $tempTgzDir) {
+    Remove-Item -LiteralPath $tempTgzDir -Recurse -Force
+  }
+  New-Item -ItemType Directory -Force -Path $tempTgzDir | Out-Null
+
+  Write-Host "Packing npm tarball for $Package..."
+  Invoke-PackageManager @('--filter', "./packages/$Package", 'pack', '--pack-destination', $tempTgzDir)
+
+  $packedTgz = Get-ChildItem -LiteralPath $tempTgzDir -Filter "*.tgz" | Select-Object -First 1
+  if (-not $packedTgz) {
+    throw "Expected npm tarball not produced by pnpm pack in $tempTgzDir"
+  }
+
+  $destTgzName = "$SafeName.tgz"
+  $destTgz = Join-Path $OutputDir $destTgzName
+  Copy-Item -LiteralPath $packedTgz.FullName -Destination $destTgz -Force
+  Remove-Item -LiteralPath $tempTgzDir -Recurse -Force
+  Write-Host "  -> $destTgzName"
 }
 finally {
   # Restore original so the checkout stays clean even if a step threw.
