@@ -16,7 +16,7 @@ import {
   defineTool,
   registerTool,
   resolveInside,
-} from '@dsh-plugin/shared'
+} from '@fongap-labs/shared'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -43,7 +43,7 @@ export interface TemplateConfig {
   greeting?: string
 }
 
-export const name = 'plugin-template'
+export const name = '@fongap-labs/plugin-template'
 export const inject = ['tools']
 
 export function apply(ctx: Context, config?: TemplateConfig): () => void {

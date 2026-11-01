@@ -235,7 +235,7 @@ function validateBundle(dir) {
   if (manifest.type !== "module") errors.push('package.json 需声明 "type": "module"');
 
   const patchRel = manifest?.dsh?.bundle?.patch;
-  // 内部共享库（如 @dsh-plugin/shared）不声明 dsh.bundle.patch，跳过 Bundle 校验
+  // Internal shared libraries (such as @fongap-labs/shared) do not declare dsh.bundle.patch; skip bundle validation
   if (typeof patchRel !== "string" || patchRel.trim() === "") {
     return { errors, warnings, manifest };
   }
@@ -328,7 +328,7 @@ function validateBundle(dir) {
   const dependencies = manifest.dependencies ? Object.keys(manifest.dependencies) : [];
   const bundledList = manifest.bundleDependencies || manifest.bundledDependencies || [];
   for (const dep of dependencies) {
-    if (dep.startsWith("@dsh-plugin/")) {
+    if (dep.startsWith("@fongap-labs/")) {
       if (!bundledList.includes(dep)) {
         errors.push(`depends on internal package ${dep}; must declare it in bundleDependencies so it is packed with the plugin`);
       }

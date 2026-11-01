@@ -303,7 +303,7 @@ describe("release manifests", () => {
       if (!existsSync(manifestPath)) continue;
       const manifest = readJson(manifestPath);
       const deps = manifest.dependencies ? Object.keys(manifest.dependencies) : [];
-      const internalDeps = deps.filter((dep) => dep.startsWith("@dsh-plugin/"));
+      const internalDeps = deps.filter((dep) => dep.startsWith("@fongap-labs/"));
       if (internalDeps.length > 0) {
         const bundled = manifest.bundleDependencies || manifest.bundledDependencies || [];
         for (const dep of internalDeps) {

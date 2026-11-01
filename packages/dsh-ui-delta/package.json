@@ -1,7 +1,7 @@
 {
-  "name": "dsh-ui-delta",
+  "name": "@fongap-labs/dsh-ui-delta",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "DeepSeek Harness UI 界面深度美化与体验优化插件 (Delta UI)",
   "main": "./lib/index.js",
@@ -50,5 +50,8 @@
   "engines": {
     "node": ">=20.10.0"
   },
-  "license": "MIT"
-}
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

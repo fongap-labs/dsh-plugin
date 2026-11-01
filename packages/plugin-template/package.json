@@ -1,7 +1,7 @@
 {
-  "name": "@dsh-plugin/plugin-template",
+  "name": "@fongap-labs/plugin-template",
   "version": "0.0.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "description": "DSH 原生 Bundle 官方脚手架模板：复制本目录即可快速创建新插件",
   "main": "./lib/index.js",
@@ -29,7 +29,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@dsh-plugin/shared": "workspace:*"
+    "@fongap-labs/shared": "workspace:*"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-tools": "0.2.1-rc.3",
@@ -48,6 +48,9 @@
   },
   "license": "MIT",
   "bundleDependencies": [
-    "@dsh-plugin/shared"
-  ]
-}
+    "@fongap-labs/shared"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
