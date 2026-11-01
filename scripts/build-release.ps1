@@ -167,6 +167,7 @@ try {
   # --- 1. Inject the release version into the package.json -------------------
   Write-Host "Injecting version into $PackageDir/package.json..."
   $patched = $OriginalText -replace '"version":\s*"[^"]*"', "`"version`": `"$Version`""
+  $patched = $patched -replace '"private":\s*true', '"private": false'
   [System.IO.File]::WriteAllText($PkgPath, $patched, $Utf8NoBom)
   Write-Host "  $PackageDir -> $Version"
 

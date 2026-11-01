@@ -187,6 +187,19 @@ export function resolveBundleFiles(dir, manifest) {
     const full = join(dir, name);
     if (existsSync(full) && statSync(full).isFile()) files.add(name);
   }
+
+  // Include bundleDependencies so the packed bundle zip is self-contained.
+  const bundled = manifest.bundleDependencies || manifest.bundledDependencies || [];
+  for (const dep of bundled) {
+    const depDir = join(dir, "node_modules", dep);
+    if (existsSync(depDir)) {
+      const depFiles = walkFiles(depDir, true);
+      for (const file of depFiles) {
+        files.add(relative(dir, file).replaceAll("\\", "/"));
+      }
+    }
+  }
+
   return [...files].sort();
 }
 
@@ -272,6 +285,74 @@ function validateBundle(dir) {
     errors.push("缺少 icon.svg");
   } else if (statSync(iconPath).size > MAX_ICON_BYTES) {
     errors.push(`icon.svg 超过 256 KiB 上限 (${statSync(iconPath).size} bytes)`);
+  }
+
+  // Client Web extension declaration validation (dsh.client)
+  const hasClientSource =
+    existsSync(join(dir, "src/client.ts")) ||
+    existsSync(join(dir, "src/client.js")) ||
+    existsSync(join(dir, "lib/client.js")) ||
+    existsSync(join(dir, "client.js"));
+  const clientExport = manifest?.exports?.["./client"];
+  const dshClient = manifest?.dsh?.client;
+
+  if (hasClientSource || clientExport || dshClient) {
+    if (!dshClient) {
+      errors.push('detected client code or exports["./client"], but package.json is missing dsh.client (DSH will not inject client.js into webview)');
+    } else {
+      if (dshClient.platform !== "web") {
+        errors.push(`dsh.client.platform must be "web", got: ${dshClient.platform}`);
+      }
+      if (dshClient.immediately !== undefined && typeof dshClient.immediately !== "boolean") {
+        errors.push("dsh.client.immediately must be a boolean");
+      }
+      if (dshClient.inject !== undefined && !Array.isArray(dshClient.inject)) {
+        errors.push("dsh.client.inject must be an array of strings");
+      }
+      if (!clientExport) {
+        errors.push('dsh.client is declared, but package.json is missing exports["./client"]');
+      } else {
+        const clientRel = typeof clientExport === "string" ? clientExport : clientExport?.default;
+        if (!clientRel) {
+          errors.push('exports["./client"] must specify a valid path');
+        } else if (/\.(ts|mts|cts)$/.test(clientRel)) {
+          errors.push(`exports["./client"] must point to executable JavaScript, not TypeScript source: ${clientRel}`);
+        } else if (!existsSync(join(dir, clientRel))) {
+          errors.push(`exports["./client"] points to non-existent file: ${clientRel}`);
+        }
+      }
+    }
+  }
+
+  // Internal workspace dependencies must be declared in bundleDependencies
+  const dependencies = manifest.dependencies ? Object.keys(manifest.dependencies) : [];
+  const bundledList = manifest.bundleDependencies || manifest.bundledDependencies || [];
+  for (const dep of dependencies) {
+    if (dep.startsWith("@dsh-plugin/")) {
+      if (!bundledList.includes(dep)) {
+        errors.push(`depends on internal package ${dep}; must declare it in bundleDependencies so it is packed with the plugin`);
+      }
+    }
+  }
+
+  // files field coverage validation
+  if (Array.isArray(manifest.files) && manifest.files.length > 0) {
+    const packedFiles = new Set(expandFilesList(dir, manifest.files).map((f) => f.replaceAll("\\", "/")));
+    if (entryRel && !packedFiles.has(entryRel.replace(/^\.\//, ""))) {
+      errors.push(`files field does not include entry file: ${entryRel}`);
+    }
+    if (clientExport) {
+      const clientRel = typeof clientExport === "string" ? clientExport : clientExport?.default;
+      if (clientRel && !packedFiles.has(clientRel.replace(/^\.\//, ""))) {
+        errors.push(`files field does not include client entry file: ${clientRel}`);
+      }
+    }
+    if (patchRel && !packedFiles.has(patchRel.replace(/^\.\//, ""))) {
+      errors.push(`files field does not include patch file: ${patchRel}`);
+    }
+    if (!packedFiles.has("icon.svg")) {
+      errors.push("files field does not include icon.svg");
+    }
   }
 
   if (manifest.name && dir.split(/[\\/]/).pop() !== manifest.name.split("/").pop()) {
