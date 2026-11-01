@@ -269,4 +269,50 @@ describe("release manifests", () => {
       assert.match(text, /^\d+(?:\.\d+){0,2}$/, `${label} node_version_file must hold a version: ${text}`);
     }
   });
+  it("enforces valid dsh.client manifest for all packages with client assets", () => {
+    const packagesDir = join(repoRoot, "packages");
+    const dirs = readdirSync(packagesDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    for (const pkg of dirs) {
+      const dir = join(packagesDir, pkg);
+      const manifestPath = join(dir, "package.json");
+      if (!existsSync(manifestPath)) continue;
+      const manifest = readJson(manifestPath);
+      const hasClient =
+        existsSync(join(dir, "src/client.ts")) ||
+        existsSync(join(dir, "lib/client.js")) ||
+        Boolean(manifest?.exports?.["./client"]) ||
+        Boolean(manifest?.dsh?.client);
+      if (hasClient) {
+        assert.equal(typeof manifest?.dsh?.client, "object", `${pkg} must declare dsh.client object`);
+        assert.equal(manifest.dsh.client.platform, "web", `${pkg} dsh.client.platform must be web`);
+        assert.ok(manifest.exports?.["./client"], `${pkg} must declare exports["./client"]`);
+      }
+    }
+  });
+
+  it("enforces bundleDependencies for packages depending on internal workspace packages", () => {
+    const packagesDir = join(repoRoot, "packages");
+    const dirs = readdirSync(packagesDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    for (const pkg of dirs) {
+      const dir = join(packagesDir, pkg);
+      const manifestPath = join(dir, "package.json");
+      if (!existsSync(manifestPath)) continue;
+      const manifest = readJson(manifestPath);
+      const deps = manifest.dependencies ? Object.keys(manifest.dependencies) : [];
+      const internalDeps = deps.filter((dep) => dep.startsWith("@dsh-plugin/"));
+      if (internalDeps.length > 0) {
+        const bundled = manifest.bundleDependencies || manifest.bundledDependencies || [];
+        for (const dep of internalDeps) {
+          assert.ok(
+            bundled.includes(dep),
+            `${pkg} depends on internal ${dep} but does not declare it in bundleDependencies`
+          );
+        }
+      }
+    }
+  });
 });
