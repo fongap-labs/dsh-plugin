@@ -141,7 +141,6 @@ const searchWithPython = (
   child.stdin.end(JSON.stringify({ query, maxResults }))
 })
 
-
 const decodeEntities = (value: string): string =>
   value.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos|nbsp);/gi, (_match, entity: string) => {
     const named: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
