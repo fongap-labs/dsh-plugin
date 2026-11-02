@@ -7,5 +7,6 @@
       name: '@fongap-labs/plugin-template'
       config:
         enabled: true
-        # 在这里声明该插件的可调参数，用户可在 profile 的 cordis.patch.yml 中覆盖。
-        greeting: 'hello'
+        # Optional profile overrides: greeting and systemPromptText (no prompt is injected by default).
+        # greeting: 'hello'
+        # systemPromptText: 'Optional guidance for this plugin'
