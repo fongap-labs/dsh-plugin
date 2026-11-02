@@ -36,17 +36,28 @@ it('shows only ready balance data and clears stale hints', () => {
   context.sync()
   assert.equal(attributes.has('data-ens-balance'), false)
 })
-it('blocks avatar click and keyboard activation before the native menu', () => {
+it('preserves native avatar click and keyboard activation while updating the balance', () => {
   class Element { closest() { return this } }
-  class KeyboardEvent { constructor(key) { this.key = key; this.target = new Element() } preventDefault() { this.prevented = true } stopImmediatePropagation() { this.stopped = true } }
+  class KeyboardEvent {
+    constructor(key) { this.key = key; this.target = new Element() }
+    preventDefault() { this.prevented = true }
+    stopImmediatePropagation() { this.stopped = true }
+  }
   let refreshes = 0
   const context = { Element, KeyboardEvent, syncBalance: () => refreshes++ }
   runInNewContext(extract('const onAvatarActivate =', "['pointerdown', 'mousedown', 'click', 'keydown'].forEach") + ';globalThis.activate = onAvatarActivate;', context)
   for (const key of ['Enter', ' ', 'ArrowDown']) {
-    const event = new KeyboardEvent(key); context.activate(event)
-    assert.equal(event.prevented, true); assert.equal(event.stopped, true)
+    const event = new KeyboardEvent(key)
+    context.activate(event)
+    assert.equal(event.prevented, undefined)
+    assert.equal(event.stopped, undefined)
   }
-  const tab = new KeyboardEvent('Tab'); context.activate(tab)
+  const mouse = { target: new Element(), preventDefault() { this.prevented = true }, stopImmediatePropagation() { this.stopped = true } }
+  context.activate(mouse)
+  assert.equal(mouse.prevented, undefined)
+  assert.equal(mouse.stopped, undefined)
+  const tab = new KeyboardEvent('Tab')
+  context.activate(tab)
   assert.equal(tab.prevented, undefined)
-  assert.equal(refreshes, 3)
+  assert.equal(refreshes, 4)
 })
