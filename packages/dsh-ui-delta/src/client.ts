@@ -2716,41 +2716,24 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               let names: string[] = [];
               try {
                 names = (localStorage.getItem('dsh-ui-delta.hiddenModels') || '')
-                  .split(/[,，]/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+                  .split(/[,，]/).map((entry) => entry.trim().toLowerCase()).filter(Boolean);
               } catch { names = []; }
               document.querySelectorAll<HTMLElement>('[data-model-id]').forEach((row) => {
-                const text = (row.textContent || '').trim().toLowerCase();
-                const hit = names.some((n) => text === n || (text.startsWith(n) && !/[a-z]/i.test(text.charAt(n.length))));
-                const want = hit ? 'none' : '';
-                // hide the wrapper too when it holds only this row, or its slot stays blank
-                let box = row;
-                for (let p = row.parentElement; p && p.querySelectorAll<HTMLElement>('[data-model-id]').length === 1 && !p.querySelector<HTMLElement>('input'); p = p.parentElement) box = p;
-                if (box.style.display !== want) box.style.display = want;
-                if (row.style.display !== want) row.style.display = want;
+                const modelName = (row.textContent || '').trim().toLowerCase();
+                const hidden = names.some((name) => modelName === name ||
+                  (modelName.startsWith(name) && !/[a-z]/i.test(modelName.charAt(name.length))));
+                const display = hidden ? 'none' : '';
+                if (row.style.display !== display) row.style.display = display;
               });
             };
 
-            // v0.1.0: DeepSeek account models stay out of the model picker unless the
-            // "显示 DeepSeek 账号模型" switch is on. Rows are matched by the host's
-            // data-provider-id ("deepseek-account"); the group header goes with them.
-            // The flag is read straight from storage, so it works before MODULES is set.
             const hideAccountModels = () => {
-              let isShow = false;
-              try { isShow = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}')['accountModels'] === true; }
-              catch { isShow = false; }
-              const want = isShow ? '' : 'none';
-              const HEADER_RE = /^(DeepSeek 账号|DeepSeek Account)$/;
+              let isVisible = false;
+              try { isVisible = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}').accountModels === true; }
+              catch { isVisible = false; }
+              const display = isVisible ? '' : 'none';
               document.querySelectorAll<HTMLElement>('[data-provider-id="deepseek-account"]').forEach((row) => {
-                // climb to the group: the highest ancestor that holds this provider's
-                // rows and nothing else (no search input, no other provider's rows)
-                let group = row;
-                for (let p = row.parentElement; p && !p.querySelector<HTMLElement>('input, [data-provider-id]:not([data-provider-id="deepseek-account"])'); p = p.parentElement) {
-                  group = p;
-                }
-                if ((group as HTMLElement).style.display !== want) (group as HTMLElement).style.display = want;
-                // the group title can sit just outside the group wrapper
-                const prev = group.previousElementSibling;
-                if (prev && HEADER_RE.test((prev.textContent || '').trim()) && (prev as HTMLElement).style.display !== want) (prev as HTMLElement).style.display = want;
+                if (row.style.display !== display) row.style.display = display;
               });
             };
 
