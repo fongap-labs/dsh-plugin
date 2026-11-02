@@ -1850,6 +1850,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                     return;
                   }
                 }
+                // The native settings route can differ between Harness builds. Never
+                // leave a visible footer control with no result when all host attempts
+                // failed: the built-in Delta settings panel is the last resort.
+                if (!isSettingsOpenInDom()) {
+                  note('fallback', 'host settings unavailable; opening Delta settings with diagnostics');
+                  openStandaloneSettings(true);
+                }
                 try { console.info('[dsh-ui-delta] host settings unavailable; diagnostics:', DIAG); } catch { /* ignore */ }
               } finally {
                 isOpenSettingsBusy = false;
@@ -2057,12 +2064,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               trigger?.setAttribute('aria-label', walletLines.length ? t('查看账户余额', 'View account balance') : t('账户头像', 'Account avatar'));
             }
 
-            // Intercept before the native React launcher sees pointer or keyboard activation.
+            // Refresh the balance hint without intercepting the Host's account launcher.
+            // In beta.9, preventDefault()/stopImmediatePropagation() here swallowed the
+            // native menu click (including trig.click() used by the footer sign-in,
+            // sign-out and settings fallback actions). Let the Host own activation.
             const onAvatarActivate = (event: Event) => {
               if (!(event.target instanceof Element) || !event.target.closest('._5Qcc8a_trigger')) return;
               if (event instanceof KeyboardEvent && !['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
-              event.preventDefault();
-              event.stopImmediatePropagation();
               syncBalance();
             };
             ['pointerdown', 'mousedown', 'click', 'keydown'].forEach(type => document.addEventListener(type, onAvatarActivate, true));
