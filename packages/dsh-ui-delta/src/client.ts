@@ -35,7 +35,6 @@ window.__ModuleLoader__.load({
     // v0.1.0 — absorbed v0.1.0 enhancements: design-layer dropdown, settings
     // resize grip, annotation hover auto-hide, preview badge suppress, extended
     // form normalization, Delta-only tokens, contrast-verified palette.
-    const VERSION = '0.1.0';
 
     /**
      * Bilingual copy for the plugin's own chrome. The document language is the
@@ -236,34 +235,15 @@ html[data-theme="dark"] {
   background: var(--dsw-alias-interactive-bg-hover) !important;
 }
 .wnFoaW_sessionRow.wnFoaW_selected {
-  background: var(--dsw-specific-sidebar-nav-item-active) !important;
+  background: transparent !important;
   color: var(--ens-accent-strong) !important;
   font-weight: 500;
-  box-shadow: inset 2px 0 0 0 var(--dsw-alias-brand-primary);
+  box-shadow: none !important;
+  border-color: transparent !important;
 }
+.wnFoaW_sessionRow.wnFoaW_selected::before { display: none !important; }
 
-/* 现代浮层卡片体系（Tooltip/Popover）：白底磨砂 + 漫反射高级阴影 */
-[role="tooltip"],
-[class*="tooltip"]:not(.ens-foot-notify),
-[class*="popover"] {
-  background: var(--dsw-alias-bg-layer-1) !important;
-  color: var(--dsw-alias-label-primary) !important;
-  border: 1px solid var(--dsw-alias-border-l1) !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04) !important;
-  backdrop-filter: blur(12px) !important;
-  border-radius: var(--dsw-radius-md) !important;
-}
-[role="tooltip"] *,
-[class*="tooltip"]:not(.ens-foot-notify) * {
-  color: inherit;
-}
-[role="tooltip"] [class*="caption"],
-[role="tooltip"] [class*="time"],
-[role="tooltip"] [class*="secondary"],
-[class*="tooltip"] [class*="caption"],
-[class*="tooltip"] [class*="time"] {
-  color: var(--dsw-alias-label-secondary) !important;
-}
+/* Host-owned tooltips and popovers retain their original appearance. */
 
 /* 顶栏操作区：后台任务与创造模式对调位置（后台任务居左，创造模式居右） */
 .an3WzG_headerActions,
@@ -390,8 +370,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .GAkraW_sectionLabel { font-size: 12px; font-weight: 600; letter-spacing: 0.03em; color: var(--dsw-alias-label-caption); }
 .GAkraW_iconButton { transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard); }
 .wnFoaW_sessionRow { height: 34px; border-radius: var(--dsw-radius-sm); }
-.wnFoaW_sessionRow:hover,
-.wnFoaW_sessionRow.wnFoaW_selected { background: var(--dsw-alias-interactive-bg-hover); }
+.wnFoaW_sessionRow:not(.wnFoaW_selected):hover { background: var(--dsw-alias-interactive-bg-hover); }
 .wnFoaW_title { font-size: 13px; }
 .GAkraW_search { border-radius: var(--dsw-radius-md); transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), box-shadow var(--ens-dur-fast) var(--ens-ease-standard); }
 .GAkraW_search:focus-within {
@@ -577,10 +556,6 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .wtg9ga_regionArea { order: 5; }
 .wtg9ga_footArea { order: 6; }
 
-/* #3 hide the "更多" overflow row (it carries aria-haspopup="menu"; the plain
-      panel rows do not). */
-.wtg9ga_panelRow[aria-haspopup="menu"] { display: none !important; }
-
 /* #2/#13 restyle 新会话 (→开始对话) as a panel row identical to 定时任务:
       same box (min-height/padding/gap), same inset, flush-left content. The
       shipped button centres its content at 100cqw with a gradient mask for the
@@ -678,7 +653,6 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 /* the host's search slot is relocated into the dock above 插件管理; while it
    still sits in the workspace header (before the observer moves it, or when
    React re-creates it there) it stays invisible — the dock shows the real one. */
-.GAkraW_sectionHeader .GAkraW_searchSlot { opacity: 0; pointer-events: none; }
 .ens-search-dock .GAkraW_searchSlot { opacity: 1; pointer-events: auto; }
 
 /* #10 the center column shares bg-base with the rightbar; give the side panels a
@@ -1021,8 +995,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
       apply(ctx: HarnessClientContext) {
         // Every contribution is defensive: a failure here degrades the refresh
         // (no palette / no stylesheet) and must never abort the web boot.
-        try { console.info(`[dsh-ui-delta] DeltaUI v${VERSION} loaded`); } catch { /* ignore */ }
-        try { document.documentElement.dataset.deltaVersion = VERSION; } catch { /* ignore */ }
+        try { console.info('[dsh-ui-delta] Delta UI loaded'); } catch { /* ignore */ }
         try {
           ctx.effect(() => ctx.theme.overrideTokens(SOURCE, PALETTE), 'dsh-ui-delta: palette layer');
         } catch (error) {
@@ -1226,7 +1199,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // the DOM looked like, and what every level tried. Exposed on
             // window.__ensDiag and rendered inside the fallback modal.
             const DIAG = {
-              version: VERSION,
+              source: SOURCE,
               ua: '',
               url: '',
               slotsApi: [] as string[],
@@ -1724,7 +1697,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               container.appendChild(wrap);
             };
             const diagText = () => [
-              `DeltaUI v${VERSION} — 设置打开诊断`,
+              'Delta UI — 设置打开诊断',
               `页面: ${DIAG.url || '(unknown)'}`,
               `UA: ${DIAG.ua || '(unknown)'}`,
               `slots API keys: ${DIAG.slotsApi.join(', ') || '(none)'}`,
@@ -1754,7 +1727,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               titleEl.textContent = pick('设置 · Delta UI', 'Settings · Delta UI');
               const subEl = document.createElement('div');
               subEl.className = 'ens-modal-sub';
-              subEl.textContent = `DeltaUI v${VERSION}`;
+              subEl.textContent = 'Delta UI';
               headBox.append(titleEl, subEl);
               const btns = document.createElement('div');
               btns.style.cssText = 'display:flex;gap:8px;flex:none;';
@@ -1834,7 +1807,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             let isOpenSettingsBusy = false;
             let openSettingsBusySince = 0;
             const openSettingsChain = async () => {
-              try { console.info(`[dsh-ui-delta] 设置按钮被点击 v${VERSION}`); } catch { /* ignore */ }
+              try { console.info(`[dsh-ui-delta] 设置按钮被点击`); } catch { /* ignore */ }
               if (isSettingsOpenInDom()) {       // already open — never toggle-close it
                 try { console.info('[dsh-ui-delta] 设置已可见，不再重复打开'); } catch { /* ignore */ }
                 return;
@@ -1863,18 +1836,18 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 ];
                 for (const { label, attempt, settleBefore } of LEVELS) {
                   if (settleBefore && await settleCheck()) {
-                    try { console.info(`[dsh-ui-delta] 设置页已打开（${label} 前的慢加载复检命中）v${VERSION}`); } catch { /* ignore */ }
+                    try { console.info(`[dsh-ui-delta] 设置页已打开（${label} 前的慢加载复检命中）v${SOURCE}`); } catch { /* ignore */ }
                     return;
                   }
                   let isOpened = false;
                   try { isOpened = await attempt(); }
                   catch (err) { note(label, `level threw: ${err instanceof Error ? err.message : String(err)}`); }
                   if (isOpened) {
-                    try { console.info(`[dsh-ui-delta] 设置已通过「${label}」层打开 (v${VERSION}) · ${Date.now() - t0}ms`); } catch { /* ignore */ }
+                    try { console.info(`[dsh-ui-delta] 设置已通过「${label}」层打开 · ${Date.now() - t0}ms`); } catch { /* ignore */ }
                     return;
                   }
                 }
-                try { console.info(`[dsh-ui-delta] 宿主设置页未能打开，已启用内置面板 (v${VERSION})。诊断在 window.__ensDiag：`, DIAG); } catch { /* ignore */ }
+                try { console.info(`[dsh-ui-delta] 宿主设置页未能打开，已启用内置面板。诊断在 window.__ensDiag：`, DIAG); } catch { /* ignore */ }
               } finally {
                 isOpenSettingsBusy = false;
                 if (btn) { btn.classList.remove('ens-foot-action-busy'); btn.removeAttribute('aria-busy'); }
@@ -2476,7 +2449,6 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
 
             let isTicking = false;
             // v0.2.2: the version check runs once per page load, not on every render
-            let isVersionChecked = false;
             // React to account sign-in / sign-out so 登录 shows/hides live.
             let unsubAccount: (() => void) | null = null;
             const wireAccount = () => {
@@ -2493,24 +2465,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 document.querySelectorAll<HTMLElement>('.ens-top-actions').forEach((el) => el.remove());
                 initAnnotations();
                 mountFootSettings();
-                mountSearchDock();
                 renameLabels();
                 document.querySelectorAll<HTMLElement>('._5Qcc8a_trigger').forEach(injectAccountGlyph);
-                hideAccountMenuSettings();
-                hideThirdPartyProviders();
                 wireAccount();
                 syncLoginVisibility();
-                hideAccountModels();
-                hideListedModels();
                 applyPrivacyAndFold();
-                hideHostOptions();
                 initDeltaSelect();
                 mountSettingsResize();
-                // v0.2.2: look for a newer version on disk, once per page load
-                if (!isVersionChecked && document.querySelector<HTMLElement>('.ens-foot-notify')) {
-                  isVersionChecked = true;
-                  checkVersion();
-                }
               } catch { /* never abort */ }
             };
             const schedule = () => { if (isTicking) return; isTicking = true; requestAnimationFrame(run); };
@@ -2595,9 +2556,6 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
              * placeholder, no version stamp.
              */
             let noticeTimer: ReturnType<typeof setTimeout> | null = null;
-            // v0.2.2: a version notice is sticky — a later transient message must
-            // not erase it, so it is re-applied whenever the pill clears.
-            let versionNotice = '';
             const showNotice = (kind: string, text: string, isSticky: boolean) => {
               const pill = document.querySelector<HTMLElement>('.ens-foot-notify');
               if (!pill || !text) return;
@@ -2610,31 +2568,15 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
               if (!isSticky) {
                 noticeTimer = setTimeout(() => {
-                  if (versionNotice) { showNotice('info', versionNotice, true); return; }
                   pill.classList.remove('visible');
+                  noticeTimer = null;
                 }, 4200);
               }
             };
             const hideNotice = () => {
-              if (versionNotice) { showNotice('info', versionNotice, true); return; }
+              if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
               const pill = document.querySelector<HTMLElement>('.ens-foot-notify');
               if (pill) pill.classList.remove('visible');
-            };
-            /**
-             * v0.2.2 — check the installed version against the one this page was
-             * built from. A mismatch means the files on disk are newer than the
-             * running bundle, so the pill says so; no mismatch, no pill.
-             */
-            const checkVersion = async () => {
-              try {
-                const res = await fetch('/dsh-ui-delta/version');
-                if (!res.ok) return;
-                const data = await res.json();
-                const installed = String(data.version || '');
-                if (!installed || installed === VERSION) return;
-                versionNotice = t(`有新版本 v${installed}`, `Update available v${installed}`);
-                showNotice('info', versionNotice, true);
-              } catch { /* host route unavailable — stay quiet */ }
             };
 
             const onVisionPaste = (e: ClipboardEvent) => {
@@ -2757,75 +2699,6 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             window.__deltaExportConversation = exportConversation;
 
             // v0.1.0: removes two host options from view. (1) The add-model dialog's
-            // "第三方模型提供商" tab: hidden, and the 自定义模型 API tab is kept selected.
-            // (2) The "在使用官方模型 API 时上传 Session Log" row: hidden, and if the host
-            // setting is on it is switched off once, so nothing uploads from this row.
-            const leafByText = (re: RegExp) => {
-              for (const el of document.querySelectorAll<HTMLElement>('button, [role="tab"], span, div')) {
-                if (el.childElementCount === 0 && re.test((el.textContent || '').trim())) return el;
-              }
-              return null;
-            };
-            const hostTabFor = (re: RegExp) => {
-              const leaf = leafByText(re);
-              return leaf ? (leaf.closest<HTMLElement>('button, [role="tab"]') || leaf) : null;
-            };
-            const isSelectedTab = (el: HTMLElement) => el.getAttribute('aria-selected') === 'true'
-              || el.getAttribute('data-state') === 'active'
-              || el.getAttribute('aria-pressed') === 'true';
-            const SWITCH_SEL = '[role="switch"], input[type="checkbox"], button[aria-checked]';
-            const sessionLogSwitched = new WeakSet();
-            // the conversation hero's "预览版" badge (exact text only, so "预览版说明" is untouched)
-            let lastHostScan = 0;
-            let hostScanTimer: ReturnType<typeof setTimeout> | null = null;
-            const hideHostOptions = () => {
-              const now = Date.now();
-              if (now - lastHostScan < 400) {
-                // a badge rendered inside the window still gets hidden: scan again when it ends
-                if (hostScanTimer === null) hostScanTimer = setTimeout(() => { hostScanTimer = null; hideHostOptions(); }, 420);
-                return;
-              }
-              lastHostScan = now;
-              // the hero badge: the host's previewBadge class is the reliable match;
-              // exact-text is the fallback when the class is absent.
-              document.querySelectorAll<HTMLElement>('[class*="_previewBadge"]').forEach((el) => {
-                if (el.style.display !== 'none') el.style.display = 'none';
-              });
-              const badge = leafByText(/^预览版$/);
-              if (badge) {
-                const pill = badge.parentElement && (badge.parentElement.textContent || '').trim() === '预览版' ? badge.parentElement : badge;
-                if (pill.style.display !== 'none') pill.style.display = 'none';
-              }
-              if (document.querySelector<HTMLElement>('[role="tablist"], [role="dialog"]')) {
-                const third = hostTabFor(/^(第三方模型提供商|Third-party model provider)$/);
-                if (third) {
-                  (third as HTMLElement).style.display = 'none';
-                  // the tab's own panel goes with it, matched by aria-controls so a
-                  // language the regex misses still hides the content, not just the tab
-                  const panelId = third.getAttribute('aria-controls');
-                  if (panelId) {
-                    const panel = document.getElementById(panelId);
-                    if (panel && panel.style.display !== 'none') panel.style.display = 'none';
-                  }
-                  const custom = hostTabFor(/^(自定义模型 API|Custom model API)$/);
-                  if (isSelectedTab(third) && custom) (custom as HTMLElement).click();
-                }
-              }
-              if (document.querySelector<HTMLElement>(SWITCH_SEL)) {
-                const title = leafByText(/^在使用官方模型 API 时上传 Session Log$/);
-                if (title) {
-                  let row = title;
-                  while (row.parentElement && !row.querySelector<HTMLElement>(SWITCH_SEL)) row = row.parentElement;
-                  const sw = row.querySelector<HTMLElement>(SWITCH_SEL);
-                  const isOn = sw && (sw.getAttribute('aria-checked') === 'true' || (sw as HTMLInputElement).checked === true);
-                  if (sw && isOn && !sessionLogSwitched.has(sw)) { sessionLogSwitched.add(sw); (sw as HTMLElement).click(); }
-                  if ((row as HTMLElement).style.display !== 'none') (row as HTMLElement).style.display = 'none';
-                }
-              }
-            };
-
-            // v0.1.0: hide the models named in the settings field from the picker.
-            // Matches the row's name at its start, so a trailing badge does not block it.
             const hideListedModels = () => {
               let names: string[] = [];
               try {
@@ -2896,7 +2769,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { mo.disconnect(); moStatus.disconnect(); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); unsubAccount?.(); annoCleanup?.(); };
+            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); document.querySelectorAll('.ens-foot-actions, .ens-search-dock').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
