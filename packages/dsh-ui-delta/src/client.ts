@@ -350,12 +350,20 @@ body {
 /* v0.1.0: the trajectory pane uses the conversation column's width and centring,
    so both tabs keep the same left and right gutter. */
 /* v0.1.0: account balance beside the avatar, shown only when signed in. */
-.ens-balance {
-  display: block; flex: 1 1 0; min-width: 0;
-  font-size: 11px; line-height: 32px; font-weight: 500; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-secondary); pointer-events: none;
+/* Account balances are transient avatar hints, not permanent footer text. */
+._5Qcc8a_root { position: relative; }
+._5Qcc8a_root[data-ens-balance]::after {
+  content: attr(data-ens-balance);
+  position: absolute; left: 0; bottom: calc(100% + 10px);
+  z-index: 50; pointer-events: none; max-width: min(320px, 85vw);
+  padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary); box-shadow: var(--dsw-elevation-soft);
+  font-size: 12px; line-height: 18px; font-weight: 500; white-space: pre; opacity: 0;
+  visibility: hidden; transition: opacity 120ms ease;
 }
-.wtg9ga_collapsed .ens-balance { display: none !important; }
+._5Qcc8a_root[data-ens-balance]:hover::after,
+._5Qcc8a_root[data-ens-balance]:focus-within::after { opacity: 1; visibility: visible; }
 /* v0.1.0: turn-failure detail folds to one line (foldErrors switch); click the row to expand */
 html[data-ens-fold-errors] .LOmM4q_turnErrorRow { cursor: pointer; min-width: 0; }
 html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_turnErrorCopy { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -477,7 +485,8 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 ._5Qcc8a_trigger[data-signed-out=true] > svg { display: none; }
 ._5Qcc8a_trigger[data-signed-out=true] .ens-account-glyph { display: inline-flex; }
 /* The avatar is display only; the account action lives in the footer. */
-._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger, .ens-account-glyph { pointer-events: none !important; cursor: default; }
+._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger { pointer-events: auto !important; cursor: pointer; }
+.ens-account-glyph { pointer-events: none; }
 /* Keep the two host seats aligned without positioning the actions individually. */
 .wtg9ga_footArea { position: relative; }
 .ens-foot-actions {
@@ -1133,7 +1142,7 @@ interface LauncherOps {
     account?: {
       getSnapshot?: () => {
         view?: { status?: string };
-        details?: { balance?: { status?: string; value?: Array<{ currency?: string; balance?: string | number }> } };
+        details?: { balance?: { status?: string; value?: Array<{ currency?: string; balance?: string | number }>; bonusWallets?: Array<{ currency?: string; balance?: string | number }> } };
       };
       subscribe?: (cb: () => void) => unknown;
     };
@@ -2047,29 +2056,25 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               if (/^0+$/.test(integer) && cents === '00') return `${isNegative ? '-' : '<'}${symbol}0.01`;
               return `${isNegative ? '-' : ''}${symbol}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${cents}`;
             };
-            // Balance is read from the same account snapshot as the host settings.
+            // Only the Host's ready account snapshot can provide balances.
             function syncBalance() {
               const account = document.querySelector<HTMLElement>('._5Qcc8a_root');
-              const row = account?.parentElement;
-              if (!account || !row) return;
-              let el = row.querySelector<HTMLElement>(':scope > .ens-balance');
-              if (!el) {
-                el = document.createElement('span');
-                el.className = 'ens-balance';
-                account.insertAdjacentElement('afterend', el);
+              if (!account) return;
+              if (!signedIn()) {
+                account.removeAttribute('data-ens-balance');
+                return;
               }
-              let balance = '';
+              const walletLines: string[] = [];
               try {
-                const bal = signedIn() ? launcherOps()?.hooks?.account?.getSnapshot?.()?.details?.balance : null;
-                if (bal?.status === 'ready' && Array.isArray(bal.value) && bal.value.length) {
-                  balance = bal.value
-                    .map((w) => formatAccountBalance(w.balance, w.currency))
-                    .filter(Boolean)
-                    .join(' + ');
+                const balance = launcherOps()?.hooks?.account?.getSnapshot?.()?.details?.balance;
+                if (balance?.status === 'ready') {
+                  const recharge = balance.value?.map(w => formatAccountBalance(w.balance, w.currency)).filter(Boolean) || [];
+                  const bonus = balance.bonusWallets?.map(w => formatAccountBalance(w.balance, w.currency)).filter(Boolean) || [];
+                  if (recharge.length) walletLines.push(`${t('账户余额', 'Account balance')}: ${recharge.join(' + ')}`);
+                  if (bonus.length) walletLines.push(`${t('赠送余额', 'Bonus balance')}: ${bonus.join(' + ')}`);
                 }
-              } catch { balance = ''; }
-              const text = signedIn() ? `${t('余额', 'Balance')} ${balance || '—'}` : '';
-              if (el.textContent !== text) el.textContent = text;
+              } catch { /* Unavailable balance must never be shown as zero. */ }
+              account.setAttribute('data-ens-balance', walletLines.join('\n') || t('余额暂不可用', 'Balance unavailable'));
             }
 
             // #2/#3 navigation copy. The owning packages own these slot cells,
@@ -2836,11 +2841,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               } catch { return false; }
             };
 
-            // v0.1.0: web search runs in the host (index.js). "/search keywords" + Enter fills
+            // Web search uses a configured independent service, or the native Host web seam.
+            // "/search keywords" + Enter fills
             // the results into the composer; nothing is sent automatically.
             const onSearchKey = (e: KeyboardEvent) => {
               if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
-              if (!flagOn('webSearch', false)) return;
+              if (!flagOn('webSearch', true)) return;
               const el = composerEl();
               const target = e.target as Node | null;
               if (!el || !(target === el || el.contains(target))) return;
@@ -3093,7 +3099,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions, .ens-balance').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
+            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
@@ -3138,9 +3144,9 @@ const MODULES: ModuleDef[] = [
           { id: 'visionBridge', zh: '视觉识别', en: 'Vision bridge', status: 'ready', defaultOn: false,
             zhDesc: '粘贴图片后，由你配置的视觉多模态模型识别为文字并插入输入框。默认关闭，需先在设置里配置。',
             enDesc: 'Paste an image; your configured vision model turns it into text in the composer. Off by default; configure it in settings first.' },
-          { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: false,
-            zhDesc: '输入 /search 加关键词，回车把搜索结果填入输入框（不自动发送）。需先配置搜索接口。',
-            enDesc: 'Type /search plus keywords and press Enter to fill results into the composer (not sent). Configure the search endpoint first.' },
+          { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: true,
+            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。搜索可使用独立服务商或宿主服务；模型 API Key 不等于 DeepSeek 官方搜索密钥。',
+            enDesc: 'Use /search plus keywords for manual results in the composer. Configure an independent provider or a Host web provider. A model key is not a DeepSeek official search credential.' },
         ];
         const STATUS_TAG: Record<string, string> = { host: '宿主已提供', hostService: '需宿主服务', planned: '规划中' };
         const STATUS_TAG_EN: Record<string, string> = { host: 'Built in', hostService: 'Needs host service', planned: 'Planned' };
@@ -3378,8 +3384,8 @@ const MODULES: ModuleDef[] = [
             const searchRow = searchOn ? featureBlock('search',
               pick('联网搜索配置', 'Web search settings'),
               pick(
-                '输入框里输入 /search 加关键词，回车把结果填入输入框，不自动发送。可同时配置多个搜索服务商（Tavily 兼容格式），列表中的第一个生效；密钥由宿主加密保存。',
-                'Type /search plus keywords and press Enter to fill the results into the composer; nothing is sent automatically. Several Tavily-compatible providers can be configured at once; the first one is used. Keys are stored encrypted by the host.',
+                '输入 /search 加关键词，可手动搜索并把结果填入输入框，不自动发送。可配置 Tavily 兼容接口；未配置时尝试宿主原生搜索。宿主默认 DeepSeek 官方搜索需要官方密钥，与你的自定义模型 API Key 独立。',
+                'Type /search plus keywords to fill the composer with results; nothing is sent automatically. Configure a Tavily-compatible endpoint or use the Host web service. The Host default DeepSeek search requires a separate official key.',
               )) : null;
             const exportRow = h('div', { key: 'exp', className: 'ens-set-row' }, [
               h('span', { key: 't', className: 'ens-set-text' }, [
