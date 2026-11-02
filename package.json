@@ -18,7 +18,8 @@
     "link:dev": "node scripts/link-profile.mjs",
     "install:bundle": "node scripts/link-profile.mjs --install",
     "release": "node scripts/release.mjs",
-    "release:dry-run": "node scripts/release.mjs --dry-run"
+    "release:dry-run": "node scripts/release.mjs --dry-run",
+    "scaffold": "node scripts/scaffold-plugin.mjs"
   },
   "keywords": [
     "dsh",
