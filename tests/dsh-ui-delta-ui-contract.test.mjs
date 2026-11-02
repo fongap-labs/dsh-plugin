@@ -35,7 +35,7 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
 
   it('never traverses model row ancestors when applying visibility preferences', () => {
     const modelFilters = client.slice(client.indexOf('const hideListedModels = () => {'),
-      client.indexOf('const renameStatusText ='));
+      client.indexOf('// v0.1.0: the working status reads'));
     assert.ok(modelFilters.length > 100);
     assert.doesNotMatch(modelFilters, /row\\.parentElement|group\\.previousElementSibling/);
     assert.match(modelFilters, /row\\.style\\.display/);
