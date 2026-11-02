@@ -56,6 +56,27 @@ describe('GitHub account configuration and automatic routing', () => {
     await assert.rejects(tools[0].execute({ repository: 'unknown/repo' }, exec), /no GitHub account/)
     await assert.rejects(tools.find((tool) => tool.name === 'code_github_branch').execute({ repository: 'fongap-labs/delta', branch: 'feat/test' }, exec), /writes are disabled/)
   })
+  it('uses the matching token for each of multiple repository owners', async () => {
+    const config = normalizeConfig({ github: { accounts: accounts.slice(0, 2) } })
+    const connection = createGitHubTools({ get: () => undefined }, config)
+      .find((entry) => entry.name === 'code_github_connection')
+    const previousFetch = globalThis.fetch
+    const seen = []
+    try {
+      globalThis.fetch = async (url, options) => {
+        seen.push({ url: String(url), authorization: options.headers.Authorization })
+        return new Response(JSON.stringify({ private: false, permissions: { pull: true } }), { status: 200 })
+      }
+      const exec = { signal: new AbortController().signal }
+      await connection.execute({ repository: 'fongap-labs/delta' }, exec)
+      await connection.execute({ repository: 'another-user/project' }, exec)
+      assert.deepEqual(seen.map((value) => value.authorization),
+        ['Bearer github_pat_local_test_team', 'Bearer github_pat_local_test_personal'])
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
   it('returns bounded PR checks and central CI status links with the owner token', async () => {
     const config = normalizeConfig({ github: { accounts: accounts.slice(0, 1) } })
     const tool = createGitHubTools({ get: () => undefined }, config)
