@@ -32,7 +32,7 @@ export function createWorktreeTool(ctx: Context, settings: Settings): ToolDefini
       const root = await resolveRoot(ctx, exec, settings)
       if (args.action === 'list') {
         const result = await runCommand(ctx, { command: settings.gitCommand, args: ['worktree', 'list', '--porcelain'],
-          cwd: root, timeoutMs: 15_000, maxOutputBytes: 32 * 1024, signal: exec.signal })
+          cwd: root, timeoutMs: 15_000, maxOutputBytes: 32 * 1024, signal: exec.signal, hostOnly: true })
         if (result.exitCode !== 0 || result.timedOut || result.lossy) throw new Error('git worktree list failed')
         return { action: 'list', output: result.stdout }
       }
@@ -55,7 +55,7 @@ export function createWorktreeTool(ctx: Context, settings: Settings): ToolDefini
       const branch = 'code-worker/' + task
       const result = await runCommand(ctx, {
         command: settings.gitCommand, args: ['worktree', 'add', '-b', branch, target, base],
-        cwd: canonicalRoot, signal: exec.signal, timeoutMs: 45_000, maxOutputBytes: 8 * 1024,
+        cwd: canonicalRoot, signal: exec.signal, timeoutMs: 45_000, maxOutputBytes: 8 * 1024, hostOnly: true,
       })
       if (result.exitCode !== 0 || result.timedOut) throw new Error('git worktree add failed: ' + result.stderr.slice(0, 1000))
       return { action: 'create', output: 'Created ' + branch + ' in ' + target }
