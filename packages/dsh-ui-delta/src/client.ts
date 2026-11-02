@@ -256,6 +256,16 @@ html[data-theme="dark"] {
 [style*="--dsh-hover-preview-fade"] [class*="_hoverPath"],
 [style*="--dsh-hover-preview-fade"] [class*="_hoverTime"] { color: var(--dsw-alias-label-secondary) !important; }
 [style*="--dsh-hover-preview-fade"] [class*="_hoverStatus"] { color: var(--dsw-alias-label-tertiary) !important; }
+/* Keep a session's title, status and time together while retaining optional details. */
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) {
+  flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTitle"] {
+  order: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverStatus"] { order: 1; white-space: nowrap; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTime"] { order: 2; white-space: nowrap; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverPath"] { order: 3; flex-basis: 100%; }
 
 /* 顶栏操作区：后台任务与创造模式对调位置（后台任务居左，创造模式居右） */
 .an3WzG_headerActions,
@@ -337,9 +347,9 @@ body {
    so both tabs keep the same left and right gutter. */
 /* v0.1.0: account balance beside the avatar, shown only when signed in. */
 .ens-balance {
-  position: absolute; left: 50px; bottom: 6px; height: 32px; display: inline-flex; align-items: center;
-  font-size: 12.5px; line-height: 18px; font-weight: 500; white-space: nowrap; pointer-events: none;
-  color: var(--dsw-alias-label-secondary);
+  display: flex; flex: 1 1 0; min-width: 0; align-items: center;
+  font-size: 11px; line-height: 14px; font-weight: 500; white-space: nowrap;
+  overflow: hidden; color: var(--dsw-alias-label-secondary); pointer-events: none;
 }
 .wtg9ga_collapsed .ens-balance { display: none !important; }
 /* v0.1.0: turn-failure detail folds to one line (foldErrors switch); click the row to expand */
@@ -447,13 +457,12 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
    32px glyph — the host avatar when signed in, the DeepSeek Harness whale
    mark when signed out — and a right-aligned 设置 button joins it on the same
    row. The launcher row stays a React-owned node; only the button is added. */
-._5Qcc8a_root { flex: 1; min-width: 0; }
-/* The host footer is .wtg9ga_footArea > .wtg9ga_footerActions (width:100%), and
-   the account launcher lives inside footerActions. Keep THAT as the row and put
-   the actions inside it too — making footArea a row pushed the actions out of
-   view behind the 100%-wide host row. */
-.wtg9ga_footArea { flex-direction: column; }
-.wtg9ga_footerActions { display: flex; align-items: center; gap: 8px; width: 100%; }
+._5Qcc8a_root { flex: none; min-width: 0; }
+/* The host keeps the account launcher and footer actions in separate seats. */
+.wtg9ga_footArea { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.wtg9ga_settingsArea { order: 0; flex: 1 1 auto; min-width: 0; width: auto; }
+.wtg9ga_settingsArea [class*="_triggerRow"] { margin: 0; }
+.wtg9ga_footerActions { order: 1; display: flex; align-items: center; gap: 8px; width: auto; flex: none; }
 ._5Qcc8a_trigger { width: 32px !important; height: 32px !important; min-height: 32px; padding: 0 !important; justify-content: center; gap: 0; }
 ._5Qcc8a_label { display: none; }
 ._5Qcc8a_trigger[data-signed-out='true'] > svg { display: none; }
@@ -463,16 +472,10 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 ._5Qcc8a_trigger[data-signed-out='true'] .ens-account-glyph { display: inline-flex; }
 ._5Qcc8a_trigger[data-signed-out=true] > svg { display: none; }
 ._5Qcc8a_trigger[data-signed-out=true] .ens-account-glyph { display: inline-flex; }
-/* v0.1.0: the avatar / whale mark is display only. 登录/登出 now lives in the
-   foot actions, to the left of 设置, so the account row takes no clicks. */
+/* The avatar is display only; the account action lives in the footer. */
 ._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger, .ens-account-glyph { pointer-events: none !important; cursor: default; }
-/* Foot actions (#30): only 设置, pinned to the bottom-right of the footer so it
-   sits on the avatar's horizontal line no matter how the host nests the
-   account row. */
+/* Keep the two host seats aligned without positioning the actions individually. */
 .wtg9ga_footArea { position: relative; }
-/* The host's footerActions is a flex row (account avatar flex:1 on the left,
-   our actions on the right). Use flex ordering instead of absolute positioning
-   so layout stays stable across collapsed/expanded rails and themes. */
 .ens-foot-actions {
   display: flex;
   align-items: center;
@@ -488,13 +491,21 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
 .ens-foot-action:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-/* v0.1.0: foot actions are icon buttons; notify (order 0) → 设置 (1) → 登录/登出 (2). */
-.ens-foot-icon { width: 32px; height: 32px; border-radius: 50%; padding: 0 !important; justify-content: center; flex-shrink: 0; }
+/* Settings and account actions share the same icon target. */
+.ens-foot-icon { display: inline-flex; align-items: center; box-sizing: border-box; width: 32px; height: 32px; border-radius: 50%; padding: 0 !important; justify-content: center; flex-shrink: 0; }
 .ens-foot-icon svg { width: 20px; height: 20px; display: block; }
-.ens-foot-notify { order: 0; }
 .ens-foot-icon[data-ens="settings"] { order: 1; }
 .ens-foot-icon[data-ens="account"] { order: 2; }
-.ens-version-action { display: inline-flex !important; align-items: center; flex: none; height: 32px; margin: 0; }
+.ens-version-action {
+  display: inline-flex !important; align-items: center; justify-content: center; flex: none;
+  width: 32px; height: 32px; padding: 0; margin: 0 0 0 auto; box-sizing: border-box;
+  border: 0; border-radius: 50%; background: transparent; color: var(--dsw-alias-label-secondary);
+}
+.ens-version-action:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.ens-version-action > span:first-child { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; }
+.ens-version-action > span:first-child svg { width: 20px; height: 20px; }
+.ens-version-action > span:not(:first-child) { display: none; }
+.ens-version-action + [role="tooltip"] { color: var(--dsw-alias-label-primary); }
 /* collapsed rail: the host hides the whole foot area, but 设置 must stay
    reachable (the account menu no longer offers it). Keep only that button. */
 .wtg9ga_collapsed .wtg9ga_footArea { display: flex; flex-direction: column; align-items: center; }
@@ -502,18 +513,22 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_collapsed .ens-foot-actions [data-ens="share"] { display: none; }
 .wtg9ga_collapsed .ens-foot-action { padding: 0 6px; font-size: 12px; }
 .ens-foot-notify {
-  height: 28px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l2);
+  position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 30;
+  width: max-content; max-width: 100%; min-height: 32px; padding: 6px 10px;
+  box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; line-height: 26px;
-  cursor: default; white-space: nowrap; display: none; align-items: center; gap: 6px;
+  color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; line-height: 18px;
+  cursor: default; white-space: normal; display: none; align-items: center; gap: 6px;
   box-shadow: var(--dsw-elevation-soft);
 }
 .ens-foot-notify.visible { display: inline-flex; }
-.ens-foot-notify.error { border-color: var(--dsw-alias-state-error); color: var(--dsw-alias-state-error); }
-.ens-foot-notify.warn { border-color: var(--dsw-alias-state-warn); color: var(--dsw-alias-state-warn); }
+.ens-foot-notify > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.ens-foot-notify.error { border-color: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-state-error-primary); }
+.ens-foot-notify.warn { border-color: var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-state-warn-primary); }
 .ens-foot-notify.info { border-color: var(--dsw-alias-state-business-primary); color: var(--dsw-alias-state-business-primary); }
-.ens-foot-notify .ens-foot-notify-close { width: 16px; height: 16px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+.ens-foot-notify .ens-foot-notify-close { flex: none; width: 16px; height: 16px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
 .ens-foot-notify .ens-foot-notify-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.wtg9ga_collapsed .ens-foot-notify { position: fixed; left: 12px; right: auto; bottom: 60px; max-width: min(320px, calc(100vw - 24px)); }
 .ens-foot-icon[data-ens="settings"] { order: 1; }
 .ens-foot-icon[data-ens="account"] { order: 2; }
 /* collapsed rail: the host hides the whole foot area, but 设置 must stay
@@ -522,12 +537,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_collapsed .ens-foot-actions { flex-direction: column; align-items: center; margin-left: 0; }
 .wtg9ga_collapsed .ens-foot-actions [data-ens="share"] { display: none; }
 .wtg9ga_collapsed .ens-foot-action { padding: 0 6px; font-size: 12px; }
-
-/* Hide the DeepSeek model-binding rows in Settings → 模型. The account-bound
-   DeepSeek row carries the "已登录" status badge; other DeepSeek-named rows
-   (API-key bound) are hidden by the chrome observer on display-name. */
-.jrmgQW_rowCard:has(.jrmgQW_accountStatus),
-.jrmgQW_setupCard:has(.jrmgQW_accountStatus) { display: none; }
 
 /* 10 — structure: drop the brand, reorder the sidebar, field-style search,
       legible three-column dividers, discoverable resize handles */
@@ -720,18 +729,10 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
   box-shadow: none;
 }
 
-/* Jobs header action (from @deepseek-ai/dsh-client-ui-jobs):
-   the count is pinned to a fixed 14ch so the header never reflows when the
-   job count changes. Idle: "1 个后台任务"; Live: "99 个后台任务运行中" (14
-   characters) — 14ch holds the longest live form without an ellipsis. */
+/* Reserve the live indicator's slot even when no job is running. */
+.Ag-ohG_trigger:not(:has(.Ag-ohG_triggerDot))::before { content: ''; width: 10px; height: 10px; flex: none; }
 .Ag-ohG_count {
-  width: 14ch;
-  min-width: 14ch;
-  max-width: 14ch;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: right;
   flex: none;
 }
 
@@ -1128,7 +1129,7 @@ interface LauncherOps {
     account?: {
       getSnapshot?: () => {
         view?: { status?: string };
-        details?: { balance?: { status?: string; value?: Array<{ currency?: string; balance?: number }> } };
+        details?: { balance?: { status?: string; value?: Array<{ currency?: string; balance?: string | number }> } };
       };
       subscribe?: (cb: () => void) => unknown;
     };
@@ -1918,8 +1919,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               // beside it so the avatar and the actions share one line. Early
               // runs may precede footerActions, so collapse any extra boxes and
               // keep exactly one, always in the preferred host.
-              const host = document.querySelector<HTMLElement>('.wtg9ga_footerActions')
-                || document.querySelector<HTMLElement>('.wtg9ga_footArea');
+              const host = document.querySelector<HTMLElement>('.wtg9ga_footerActions');
               if (!host) return;
 
               // Ensure a single global .ens-foot-actions. If host changed, move it.
@@ -1940,13 +1940,11 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (el !== box) el.remove();
               });
 
-              // v0.2.2: notification pill (order 0) — left of 设置.
-              // Only rendered when there is something to show (error, progress, or update).
+              // Notifications sit above the footer and do not consume icon-row space.
               if (!box.querySelector<HTMLElement>('[data-ens="notify"]')) {
                 const notify = document.createElement('div');
                 notify.dataset.ens = 'notify';
                 notify.className = 'ens-foot-notify';
-                notify.style.order = '0';
                 notify.innerHTML = `<span></span><button class="ens-foot-notify-close" aria-label="${t('关闭', 'Close')}">×</button>`;
                 box.insertBefore(notify, box.firstChild);
                 const notifyClose = notify.querySelector<HTMLElement>('.ens-foot-notify-close');
@@ -1979,85 +1977,23 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               iconBtn('account', ICON_LOGIN, t('登录', 'Sign in'), () => (signedIn() ? signOutFromMenu() : startSignIn()));
             }
 
-            // Place the host's update prompt on the account footer line without
-            // moving its React-owned node. Restore the original inline styles
-            // when Delta unloads.
-            const versionActionOrigins = new Map<HTMLElement, { position: string; left: string; top: string; zIndex: string; margin: string }>();
-            let versionActionResizeObserver: ResizeObserver | null = null;
-            let versionActionFrame = 0;
-            const placeVersionActions = () => {
-              const actions = document.querySelector<HTMLElement>('.ens-foot-actions');
-              if (!actions) return;
-              const row = actions.getBoundingClientRect();
-              if (!row.width || !row.height) return;
-              versionActionOrigins.forEach((_original, action) => {
-                if (!action.isConnected) return;
-                const rect = action.getBoundingClientRect();
-                if (!rect.width || !rect.height) return;
-                const left = Math.max(8, row.left - rect.width - 8);
-                const top = row.top + (row.height - rect.height) / 2;
-                action.style.position = 'fixed';
-                action.style.left = `${left}px`;
-                action.style.top = `${top}px`;
-                action.style.zIndex = '25';
-                action.style.margin = '0';
-              });
-            };
-            const scheduleVersionActionPlacement = () => {
-              if (versionActionFrame) return;
-              versionActionFrame = requestAnimationFrame(() => {
-                versionActionFrame = 0;
-                placeVersionActions();
-              });
-            };
-            const observeVersionActionLayout = (actions: HTMLElement, action: HTMLElement) => {
-              if (typeof ResizeObserver === 'undefined') {
-                scheduleVersionActionPlacement();
-                return;
-              }
-              if (!versionActionResizeObserver) {
-                versionActionResizeObserver = new ResizeObserver(scheduleVersionActionPlacement);
-              }
-              versionActionResizeObserver.observe(actions);
-              versionActionResizeObserver.observe(action);
-            };
+            // The update indicator already belongs to the settings trigger row.
+            // Keep it there so the host tooltip follows its actual anchor.
+            const versionActions = new Set<HTMLElement>();
             function mountVersionAction() {
-              const actions = document.querySelector<HTMLElement>('.ens-foot-actions');
-              if (!actions) return;
-              document.querySelectorAll<HTMLElement>('button, a, [role="button"]').forEach((action) => {
-                if (action.closest('.ens-foot-notify, .ens-foot-actions')) return;
+              versionActions.forEach((action) => { if (!action.isConnected) versionActions.delete(action); });
+              document.querySelectorAll<HTMLElement>('.wtg9ga_settingsArea button, .wtg9ga_settingsArea a, .wtg9ga_settingsArea [role="button"]').forEach((action) => {
                 const text = (action.textContent || '').replace(/[↓⬇⇩]/g, '').replace(/\s+/g, ' ').trim();
                 const label = `${action.getAttribute('aria-label') || ''} ${action.title || ''} ${text}`.trim();
                 if (!/new version|update available/i.test(label)
                   && !label.includes('新版本') && !label.includes('新版提示')) return;
-                if (!versionActionOrigins.has(action)) {
-                  versionActionOrigins.set(action, {
-                    position: action.style.position,
-                    left: action.style.left,
-                    top: action.style.top,
-                    zIndex: action.style.zIndex,
-                    margin: action.style.margin,
-                  });
-                }
                 action.classList.add('ens-version-action');
-                observeVersionActionLayout(actions, action);
+                versionActions.add(action);
               });
-              scheduleVersionActionPlacement();
             }
             function restoreVersionActions() {
-              if (versionActionFrame) cancelAnimationFrame(versionActionFrame);
-              versionActionFrame = 0;
-              versionActionResizeObserver?.disconnect();
-              versionActionResizeObserver = null;
-              versionActionOrigins.forEach((original, action) => {
-                action.classList.remove('ens-version-action');
-                action.style.position = original.position;
-                action.style.left = original.left;
-                action.style.top = original.top;
-                action.style.zIndex = original.zIndex;
-                action.style.margin = original.margin;
-              });
-              versionActionOrigins.clear();
+              versionActions.forEach((action) => action.classList.remove('ens-version-action'));
+              versionActions.clear();
             }
 
             // #30 the account menu must never carry 设置: the foot button is the
@@ -2093,61 +2029,43 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               acct.setAttribute('aria-label', label);
               acct.title = label;
             }
-            // v0.1.0: balance from the same account store the host reads
-            // (details.balance, shown only once status is 'ready').
+            // Match the host's decimal display without rounding a small balance to zero.
+            const formatAccountBalance = (amount: string | number | undefined, currency: string | undefined) => {
+              const match = String(amount ?? '').trim().match(/^([+-]?)(\d+)(?:\.(\d+))?$/);
+              if (!match || !currency) return '';
+              const integer = match[2].replace(/^0+(?=\d)/, '');
+              const fraction = (match[3] || '').padEnd(2, '0');
+              const cents = fraction.slice(0, 2);
+              const symbol = currency === 'CNY' ? '¥' : currency === 'USD' ? '$' : `${currency} `;
+              const zero = /^0+$/.test(integer) && /^0*$/.test(fraction);
+              if (zero) return `${symbol}0.00`;
+              const negative = match[1] === '-';
+              if (/^0+$/.test(integer) && cents === '00') return `${negative ? '-' : '<'}${symbol}0.01`;
+              return `${negative ? '-' : ''}${symbol}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${cents}`;
+            };
+            // Balance is read from the same account snapshot as the host settings.
             function syncBalance() {
-              const area = document.querySelector<HTMLElement>('.wtg9ga_footArea');
-              if (!area) return;
-              let el: HTMLElement = area.querySelector<HTMLElement>(':scope > .ens-balance') ?? document.createElement('span');
-              if (!area.contains(el)) {
+              const account = document.querySelector<HTMLElement>('._5Qcc8a_root');
+              const row = account?.parentElement;
+              if (!account || !row) return;
+              let el = row.querySelector<HTMLElement>(':scope > .ens-balance');
+              if (!el) {
+                el = document.createElement('span');
                 el.className = 'ens-balance';
-                area.appendChild(el);
+                account.insertAdjacentElement('afterend', el);
               }
-              let text = '';
+              let balance = '';
               try {
                 const bal = signedIn() ? launcherOps()?.hooks?.account?.getSnapshot?.()?.details?.balance : null;
                 if (bal?.status === 'ready' && Array.isArray(bal.value) && bal.value.length) {
-                  text = bal.value
-                    .map((w) => `${w.currency === 'CNY' ? '¥' : '$'}${Number(w.balance).toFixed(2)}`)
+                  balance = bal.value
+                    .map((w) => formatAccountBalance(w.balance, w.currency))
+                    .filter(Boolean)
                     .join(' + ');
                 }
-              } catch { text = ''; }
-              // write only on change: a rewrite re-fires the mutation observer
+              } catch { balance = ''; }
+              const text = signedIn() ? `${t('余额', 'Balance')} ${balance || '—'}` : '';
               if (el.textContent !== text) el.textContent = text;
-              const shown = text ? '' : 'none';
-              if (el.style.display !== shown) el.style.display = shown;
-              alignFootRow(el);
-            }
-            // v0.1.0: centre the 设置 / 登录 row and the balance on the avatar's
-            // vertical centre, so all three share one horizontal line.
-            function alignFootRow(balanceEl: HTMLElement) {
-              const box = document.querySelector<HTMLElement>('.ens-foot-actions');
-              const avatar = document.querySelector<HTMLElement>('._5Qcc8a_trigger');
-              if (!box || !avatar) return;
-              const av = avatar.getBoundingClientRect();
-              if (av.height === 0) return; // collapsed or hidden: nothing to align to
-              // balance sits 8px right of the live avatar edge
-              const parent = balanceEl.parentElement;
-              if (!parent) return;
-              const area = parent.getBoundingClientRect();
-              const left = av.right - area.left + 8;
-              if (balanceEl.style.left !== left + 'px') balanceEl.style.left = left + 'px';
-              const bx = box.getBoundingClientRect();
-              const d = (av.top + av.height / 2) - (bx.top + bx.height / 2);
-              const bottom = (parseFloat(getComputedStyle(box).bottom) || 0) - d;
-              if (Math.abs(d) >= 0.5) {
-                box.style.bottom = bottom + 'px';
-                balanceEl.style.bottom = bottom + 'px';
-              }
-              // right edge: the 登录/登出 glyph lines up with the workspace search field
-              const ref = document.querySelector<HTMLElement>('.ens-search-dock .GAkraW_search');
-              const glyph = box.querySelector<HTMLElement>('[data-ens="account"] svg');
-              if (ref && glyph && ref.getBoundingClientRect().width > 0) {
-                const e = ref.getBoundingClientRect().right - glyph.getBoundingClientRect().right;
-                if (Math.abs(e) >= 0.5) {
-                  box.style.right = ((parseFloat(getComputedStyle(box).right) || 0) - e) + 'px';
-                }
-              }
             }
 
             // #2/#3 navigation copy. The owning packages own these slot cells,
@@ -2343,13 +2261,17 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // future DOM change cannot throw into the chrome loop.
             let annoCleanup: (() => void) | null = null;
             function initAnnotations() {
-              if (annoCleanup) return;
               let isOn = false;
               try {
                 const f = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}') || {};
                 isOn = f.selectionAnnotation === true;
               } catch { isOn = false; }
-              if (!isOn) return;
+              if (!isOn) {
+                annoCleanup?.();
+                annoCleanup = null;
+                return;
+              }
+              if (annoCleanup) return;
               let btn: HTMLButtonElement | null = null;
               let panel: HTMLDivElement | null = null;
               const clear = () => { if (btn) { btn.remove(); btn = null; } if (panel) { panel.remove(); panel = null; } };
@@ -2393,7 +2315,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 ghost.addEventListener('click', clear);
                 primary.addEventListener('click', () => {
                   const note = (input.value || '').trim();
-                  pendingNotes.push({ quote: quoted.replace(/\n+/g, ' '), note: note || '（批注）' });
+                  pendingNotes.push({ quote: quoted.replace(/\n+/g, ' '), note });
                   renderChip();
                   clear();
                 });
@@ -2439,9 +2361,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               document.addEventListener('selectionchange', onSelChange);
               document.addEventListener('scroll', dropButton, true);
               const normalizeMessageText = (value: string) => value.replace(/\s+/g, ' ').trim();
-              const annotationBlock = (notes: AnnoNote[]) => notes.map((n) =>
-                `${t('选中内容：', 'Selected text:')}\n${n.quote}\n${t('批注：', 'Annotation:')}\n${n.note}`,
-              ).join('\n\n') + '\n\n';
+              const annotationText = ({ quote, note }: AnnoNote) => {
+                if (!note || note.includes(quote)) return note || quote;
+                if (/^什么意思[？?！!。.]?$/.test(note)) return `${quote}是${note}`;
+                const adjacent = /[\u3400-\u9fff]$/.test(quote) && /^[\u3400-\u9fff\p{P}]/u.test(note);
+                return `${quote}${adjacent ? '' : ' '}${note}`;
+              };
+              const annotationBlock = (notes: AnnoNote[]) => notes.map(annotationText).join('\n\n');
               const submitAnnotations = (el: HTMLElement) => {
                 if (!pendingNotes.length || isAnnotationSendInFlight) return;
                 const notes = pendingNotes.slice();
@@ -2455,7 +2381,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 // A retry after a delayed host render must not prepend the same
                 // quote and note a second time.
                 if (!hasEveryAnnotation(draft)) {
-                  if (!writeComposer(el, block + draft)) return;
+                  const separator = draft ? (el.isContentEditable ? '\n' : '\n\n') : '';
+                  if (!prependComposer(el, block + separator)) return;
                 }
                 isAnnotationSendInFlight = true;
                 let waited = 0;
@@ -2697,12 +2624,14 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 syncLoginVisibility();
                 hideAccountModels();
                 hideListedModels();
+                installContentSearch();
                 applyPrivacyAndFold();
                 initDeltaSelect();
                 mountSettingsResize();
               } catch { /* never abort */ }
             };
             const schedule = () => { if (isTicking) return; isTicking = true; requestAnimationFrame(run); };
+            window.addEventListener('dsh-ui-delta:flags-changed', schedule);
 
             // v0.1.0: privacy — stop the host's UI analytics at the front end (module
             // blockAnalytics, on by default). The backend's own collection is not touched.
@@ -2775,11 +2704,11 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               return String(data.text || '');
             };
             /**
-             * v0.2.2 — footer notice pill, left of 设置.
+             * Footer notice for progress and errors.
              *
              * Errors and progress used to be written into the composer as text, which
              * landed the message in the wrong place (mid-draft, and easy to send by
-             * accident). They now surface in a small pill next to the settings button.
+             * accident). They now surface above the footer actions.
              * The pill is hidden entirely when there is nothing to say — no empty
              * placeholder, no version stamp.
              */
@@ -2791,6 +2720,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               if (span) span.textContent = text;
               pill.classList.remove('error', 'warn', 'info');
               if (kind) pill.classList.add(kind);
+              pill.setAttribute('role', kind === 'error' ? 'alert' : 'status');
               pill.classList.add('visible');
               pill.title = text;
               if (noticeTimer) { clearTimeout(noticeTimer); noticeTimer = null; }
@@ -2839,7 +2769,23 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
 
             // shared composer access (vision bridge, annotations and search all use it)
             const composerEl = () => document.querySelector<HTMLElement>('.GRgSLq_input') || document.querySelector<HTMLElement>('[contenteditable="true"]') || document.querySelector<HTMLElement>('textarea');
-            const readComposer = (el: HTMLElement) => (el.isContentEditable ? (el.textContent || '') : ((el as HTMLTextAreaElement).value || '')) || '';
+            const readComposer = (el: HTMLElement) => (el.isContentEditable ? (el.innerText || el.textContent || '') : ((el as HTMLTextAreaElement).value || '')) || '';
+            // Insert only the annotation prefix, so existing editor references
+            // and other structured draft content remain owned by the host.
+            const prependComposer = (el: HTMLElement, text: string) => {
+              if (!el.isContentEditable) return writeComposer(el, text + readComposer(el));
+              try {
+                el.focus();
+                const sel = window.getSelection();
+                if (!sel) return false;
+                const range = document.createRange();
+                range.selectNodeContents(el);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                return document.execCommand('insertText', false, text);
+              } catch { return false; }
+            };
             /**
              * Write text into the host's composer so the host's own state sees it.
              *
@@ -2859,7 +2805,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   if (!sel) return false;
                   const range = document.createRange();
                   range.selectNodeContents(el);
-                  range.collapse(true);           // caret at the start, before the typed text
+                  range.collapse(true);
                   sel.removeAllRanges();
                   sel.addRange(range);
                   // execCommand is the only API that reaches a React/contenteditable
@@ -2942,11 +2888,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
             };
 
+            const builtInModelRows = new Set<HTMLElement>();
             const hideAccountModels = () => {
+              builtInModelRows.forEach((row) => { if (!row.isConnected) builtInModelRows.delete(row); });
               let isVisible = false;
               try { isVisible = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}').accountModels === true; }
               catch { isVisible = false; }
-              document.querySelectorAll<HTMLElement>('[role="menu"] [data-provider-id="deepseek-account"]').forEach((modelLabel) => {
+              document.querySelectorAll<HTMLElement>('[role="menu"] [data-provider-id="deepseek-account"], [role="menu"] [data-provider-id="deepseek-official"]').forEach((modelLabel) => {
                 const item = modelLabel.closest<HTMLElement>('[role="menuitemradio"]') || modelLabel;
                 setHostNodeVisible(item, isVisible);
                 const group = item.closest<HTMLElement>('[role="group"][data-menu-group]');
@@ -2955,6 +2903,153 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   .some((candidate) => candidate.style.display !== 'none' && !candidate.hidden);
                 setHostNodeVisible(group, isVisible || hasVisibleModel);
               });
+              document.querySelectorAll<HTMLElement>('.jrmgQW_rowCard, .jrmgQW_setupCard').forEach((row) => {
+                const name = row.querySelector<HTMLElement>('.jrmgQW_rowName')?.textContent?.trim();
+                const custom = !!row.querySelector('.jrmgQW_rowTag');
+                const setupRoute = row.querySelector<HTMLElement>('.jrmgQW_editorRoute')?.textContent?.trim();
+                const isBuiltIn = !!row.querySelector('.jrmgQW_accountStatus')
+                  || (!custom && /^deepseek$/i.test(name || ''))
+                  || (row.matches('.jrmgQW_setupCard') && setupRoute === 'deepseek-official');
+                if (isBuiltIn) {
+                  builtInModelRows.add(row);
+                  setHostNodeVisible(row, isVisible);
+                } else if (builtInModelRows.delete(row)) {
+                  setHostNodeVisible(row, true);
+                }
+              });
+            };
+
+            interface SearchHit { sessionId: string; snippet: string; }
+            interface SearchResponse {
+              ok: boolean;
+              value?: { items: SearchHit[]; hasMore: boolean };
+              [key: string]: unknown;
+            }
+            interface SearchService {
+              search: (query: string, signal: AbortSignal) => Promise<SearchResponse>;
+              searchResultLimit?: number;
+              list: { getSnapshot: () => { ids: string[]; byId: Record<string, { blank?: boolean; origin?: string }> } };
+            }
+            interface HistoryRecord { event?: { type?: string; seq?: number; data?: unknown }; }
+            interface HistoryGateway {
+              session?: { events?: (request: unknown, signal: AbortSignal) => Promise<{
+                ok: boolean; value?: { records: HistoryRecord[]; hasMore: boolean };
+              }> };
+            }
+            const searchMessageText = (record: HistoryRecord) => {
+              const event = record.event;
+              if (!event || (event.type !== 'user/message' && event.type !== 'assistant/message')) return '';
+              if (!event.data || typeof event.data !== 'object') return '';
+              const data = event.data as { content?: unknown; message?: { content?: unknown } };
+              const content = event.type === 'user/message' ? data.content : data.message?.content;
+              if (typeof content === 'string') return content;
+              if (!Array.isArray(content)) return '';
+              return content.map((block: unknown) => {
+                if (!block || typeof block !== 'object') return '';
+                const item = block as { type?: unknown; text?: unknown };
+                return item.type === 'text' && typeof item.text === 'string' ? item.text : '';
+              }).join('');
+            };
+            let restoreContentSearch: (() => void) | null = null;
+            // The host's word index can miss a substring inside a Chinese sentence.
+            // Supplement it through the same authorized, passive history API the
+            // client uses, without persisting or exposing a separate index.
+            const installContentSearch = () => {
+              if (restoreContentSearch) return;
+              try {
+                const service = (ctx.get?.('sessions') || ctx.sessions) as SearchService | undefined;
+                const remote = (ctx.get?.('remote') || ctx.remote) as HistoryGateway | undefined;
+                if (!service || typeof service.search !== 'function' || typeof service.list?.getSnapshot !== 'function'
+                  || typeof remote?.session?.events !== 'function') return;
+                const original = service.search;
+                const ownDescriptor = Object.getOwnPropertyDescriptor(service, 'search');
+                const pendingScans = new Set<AbortController>();
+                let active = true;
+                const wrapped: SearchService['search'] = async (query, signal) => {
+                  const base = await original.call(service, query, signal);
+                  const needle = query.trim().toLocaleLowerCase();
+                  if (signal.aborted || !/\p{Script=Han}/u.test(needle)) return base;
+                  const existing = base.ok && base.value ? base.value.items : [];
+                  const configuredLimit = service.searchResultLimit;
+                  const limit = typeof configuredLimit === 'number' && Number.isSafeInteger(configuredLimit)
+                    ? Math.min(100, Math.max(1, configuredLimit)) : 20;
+                  if (existing.length >= limit) return base;
+                  let snapshot: ReturnType<SearchService['list']['getSnapshot']>;
+                  try { snapshot = service.list.getSnapshot(); } catch { return base; }
+                  if (!Array.isArray(snapshot.ids) || !snapshot.byId) return base;
+                  const seen = new Set(existing.map((item) => item.sessionId));
+                  const ids = snapshot.ids.filter((id) => {
+                    const item = snapshot.byId[id];
+                    return item && !item.blank && item.origin !== 'subagent' && !seen.has(id);
+                  });
+                  const found: Array<{ index: number; hit: SearchHit }> = [];
+                  const controller = new AbortController();
+                  pendingScans.add(controller);
+                  const cancel = () => controller.abort();
+                  signal.addEventListener('abort', cancel, { once: true });
+                  if (signal.aborted || !active) controller.abort();
+                  const timer = setTimeout(cancel, 10000);
+                  let next = 0;
+                  let readCount = 0;
+                  let failed = false;
+                  const worker = async () => {
+                    while (!controller.signal.aborted && next < ids.length && existing.length + found.length < limit) {
+                      const index = next++;
+                      const sessionId = ids[index];
+                      let beforeSeq: number | undefined;
+                      while (!controller.signal.aborted) {
+                        try {
+                          const response = await remote.session!.events!({
+                            address: { kind: 'session', sessionId }, maxMessages: 100,
+                            ...(beforeSeq === undefined ? {} : { beforeSeq }),
+                          }, controller.signal);
+                          if (!response.ok || !response.value || !Array.isArray(response.value.records)) { failed = true; break; }
+                          readCount++;
+                          const records = response.value.records;
+                          const matched = records.map(searchMessageText).find((text) => text.toLocaleLowerCase().includes(needle));
+                          if (matched !== undefined) {
+                            const at = matched.toLocaleLowerCase().indexOf(needle);
+                            const start = Math.max(0, at - 60);
+                            const end = Math.min(matched.length, at + needle.length + 100);
+                            found.push({ index, hit: { sessionId, snippet: `${start ? '…' : ''}${matched.slice(start, end)}${end < matched.length ? '…' : ''}` } });
+                            break;
+                          }
+                          if (!response.value.hasMore) break;
+                          const seqs = records.map((record) => record.event?.seq).filter((seq): seq is number => Number.isSafeInteger(seq));
+                          if (!seqs.length) { failed = true; break; }
+                          const nextBefore = Math.min(...seqs);
+                          if (beforeSeq !== undefined && nextBefore >= beforeSeq) { failed = true; break; }
+                          beforeSeq = nextBefore;
+                        } catch {
+                          if (!controller.signal.aborted) failed = true;
+                          break;
+                        }
+                      }
+                    }
+                  };
+                  try { await Promise.all(Array.from({ length: Math.min(4, ids.length) }, worker)); }
+                  finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); pendingScans.delete(controller); }
+                  if (signal.aborted || !active) return base;
+                  const incomplete = failed || controller.signal.aborted;
+                  if (incomplete) showNotice('warn', t('部分会话正文未能搜索，请重试', 'Some conversation content could not be searched; try again'), false);
+                  if (!base.ok && !readCount) return base;
+                  found.sort((a, b) => a.index - b.index);
+                  const combined = [...existing, ...found.map((item) => item.hit)];
+                  return { ok: true, value: {
+                    items: combined.slice(0, limit),
+                    hasMore: !!base.value?.hasMore || combined.length > limit || next < ids.length || incomplete,
+                  } };
+                };
+                service.search = wrapped;
+                if (Object.getOwnPropertyDescriptor(service, 'search')?.value !== wrapped) return;
+                restoreContentSearch = () => {
+                  active = false;
+                  pendingScans.forEach((controller) => controller.abort());
+                  if (Object.getOwnPropertyDescriptor(service, 'search')?.value !== wrapped) return;
+                  if (ownDescriptor) Object.defineProperty(service, 'search', ownDescriptor);
+                  else delete (service as Partial<SearchService>).search;
+                };
+              } catch { /* The host may not expose passive history to this client. */ }
             };
 
             // v0.1.0: the working status reads 任务执行中 instead of the host's
@@ -2985,7 +3080,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); unsubAccount?.(); annoCleanup?.(); };
+            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions, .ens-balance').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
@@ -3010,11 +3105,11 @@ const MODULES: ModuleDef[] = [
             zhDesc: '把当前对话复制为 Markdown 文本。',
             enDesc: 'Copy the current conversation as Markdown.' },
           { id: 'selectionAnnotation', zh: '选中批注', en: 'Selection annotations', status: 'ready', defaultOn: false,
-            zhDesc: '选中正文即可批注，多条批注累积；发送时会带上原文和批注。',
-            enDesc: 'Select text to annotate; the selected text and notes are included when you send.' },
-          { id: 'accountModels', zh: '显示 DeepSeek 账号模型', en: 'Show DeepSeek account models', status: 'ready', defaultOn: false,
-            zhDesc: '默认隐藏账号提供的模型，模型选择里只显示你自己配置的模型；开启后显示。',
-            enDesc: 'Hidden by default, so the model picker lists only the models you configured; turn on to show the account models.' },
+            zhDesc: '选中正文即可批注，多条批注累积；发送时将选中内容和批注组合为问题。',
+            enDesc: 'Select text to annotate; the selected text and notes are combined when you send.' },
+          { id: 'accountModels', zh: '显示 DeepSeek 自带模型', en: 'Show built-in DeepSeek models', status: 'ready', defaultOn: false,
+            zhDesc: '默认隐藏 DeepSeek 自带的模型和设置项；开启后显示。',
+            enDesc: 'Hide built-in DeepSeek models and their settings by default; turn on to show them.' },
           { id: 'blockAnalytics', zh: '阻止界面埋点上报', en: 'Block UI analytics', status: 'ready', defaultOn: true,
             zhDesc: '界面点击等埋点事件不再发送，默认开启。宿主后端的采集策略不受此开关影响。',
             enDesc: 'Stops UI click analytics from being sent; on by default. The host backend collection policy is not affected.' },
@@ -3053,6 +3148,7 @@ const MODULES: ModuleDef[] = [
         const writeFlag = (id: string, isOn: boolean) => {
           const next = { ...readFlags(), [id]: isOn };
           try { localStorage.setItem(FLAGS_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+          window.dispatchEvent(new Event('dsh-ui-delta:flags-changed'));
         };
         // v0.1.0: vision and search run in the host half (index.js). The browser keeps no
         // API key: settings are read from and written to the host, which stores the key encrypted.
