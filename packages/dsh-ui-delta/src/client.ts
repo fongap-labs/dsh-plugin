@@ -2841,7 +2841,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               } catch { return false; }
             };
 
-            // v0.1.0: web search runs in the host (index.js). "/search keywords" + Enter fills
+            // Web search uses a configured independent service, or the native Host web seam.
+            // "/search keywords" + Enter fills
             // the results into the composer; nothing is sent automatically.
             const onSearchKey = (e: KeyboardEvent) => {
               if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
@@ -3144,8 +3145,8 @@ const MODULES: ModuleDef[] = [
             zhDesc: '粘贴图片后，由你配置的视觉多模态模型识别为文字并插入输入框。默认关闭，需先在设置里配置。',
             enDesc: 'Paste an image; your configured vision model turns it into text in the composer. Off by default; configure it in settings first.' },
           { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: false,
-            zhDesc: '输入 /search 加关键词，回车把搜索结果填入输入框（不自动发送）。需先配置搜索接口。',
-            enDesc: 'Type /search plus keywords and press Enter to fill results into the composer (not sent). Configure the search endpoint first.' },
+            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。搜索可使用独立服务商或宿主服务；模型 API Key 不等于 DeepSeek 官方搜索密钥。',
+            enDesc: 'Use /search plus keywords for manual results in the composer. Configure an independent provider or a Host web provider. A model key is not a DeepSeek official search credential.' },
         ];
         const STATUS_TAG: Record<string, string> = { host: '宿主已提供', hostService: '需宿主服务', planned: '规划中' };
         const STATUS_TAG_EN: Record<string, string> = { host: 'Built in', hostService: 'Needs host service', planned: 'Planned' };
@@ -3383,8 +3384,8 @@ const MODULES: ModuleDef[] = [
             const searchRow = searchOn ? featureBlock('search',
               pick('联网搜索配置', 'Web search settings'),
               pick(
-                '输入框里输入 /search 加关键词，回车把结果填入输入框，不自动发送。可同时配置多个搜索服务商（Tavily 兼容格式），列表中的第一个生效；密钥由宿主加密保存。',
-                'Type /search plus keywords and press Enter to fill the results into the composer; nothing is sent automatically. Several Tavily-compatible providers can be configured at once; the first one is used. Keys are stored encrypted by the host.',
+                '输入 /search 加关键词，可手动搜索并把结果填入输入框，不自动发送。可配置 Tavily 兼容接口；未配置时尝试宿主原生搜索。宿主默认 DeepSeek 官方搜索需要官方密钥，与你的自定义模型 API Key 独立。',
+                'Type /search plus keywords to fill the composer with results; nothing is sent automatically. Configure a Tavily-compatible endpoint or use the Host web service. The Host default DeepSeek search requires a separate official key.',
               )) : null;
             const exportRow = h('div', { key: 'exp', className: 'ens-set-row' }, [
               h('span', { key: 't', className: 'ens-set-text' }, [
