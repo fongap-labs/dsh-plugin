@@ -715,23 +715,8 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .an3WzG_tab { padding-bottom: 10px; }
 .an3WzG_tabLabel { max-width: none; }
 
-/* 12 — better-sidebar workbench (#16) + ModLens card (#17). Both bundles are
-      fully token-driven (1047 --dsw-* refs), so the Delta palette recolours
-      them automatically; DeltaUI only adds its motion rhythm, radii and the
-      tinted active state so the workbench reads as one design system. */
-.nArs4W_tab,
-.nArs4W_tabClose,
-.nArs4W_tabBarPlus,
-.nArs4W_explorerRow { transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard); }
-.nArs4W_tab { border-radius: var(--dsw-radius-sm); }
-.nArs4W_tabActive {
-  background: var(--dsw-specific-sidebar-nav-item-active);
-  color: var(--ens-accent-strong);
-  box-shadow: inset 0 -2px 0 0 var(--dsw-alias-state-business-primary);
-}
-.nArs4W_explorerRowSelected:before { border-radius: 2px; }
-.nArs4W_chipUnread { background: var(--dsw-alias-state-business-primary); }
-.nArs4W_bottomPanel { border-radius: var(--dsw-radius-panel) var(--dsw-radius-panel) 0 0; }
+/* Native Workbench owns the file tree, tabs and previews. Theme it through
+       Harness tokens without styling optional third-party sidebar internals. */
 /* ModLens vision card uses the native plugin-card chrome and ui.Input, so it
       already follows Delta tokens; give its focus state the DeltaUI accent. */
 .V7pFBG_card input:focus-visible,
@@ -1066,10 +1051,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
               'stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>' +
               '<circle cx="12" cy="7" r="4"/></svg>';
-            const ICON_WORKBENCH =
-              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
-              'stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l2-5h14l2 5"/>' +
-              '<path d="M3 9v11h18V9"/><path d="M9 13h6"/></svg>';
             const ICON_SHARE =
               '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
               'stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>' +
@@ -1097,19 +1078,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
               } catch (error) {
                 console.warn('[dsh-ui-delta] clipboard unavailable:', error);
               }
-            };
-
-            // #16 BetterSidebar integration: open its file-explorer page in the
-            // native right sidebar. The service is accessed defensively (never
-            // declared in `inject`) so removing dsh-better-sidebar can never
-            // take DeltaUI down with it; a DOM toggle is the fallback.
-            const openWorkbench = () => {
-              try {
-                const svc = ctx && ctx.betterSidebar;
-                if (svc && typeof svc.openTab === 'function') { svc.openTab({ type: 'explorer' }); return; }
-              } catch { /* not provided to this fiber — fall through */ }
-              const t = document.querySelector<HTMLElement>('.nArs4W_toggleButton, .nArs4W_dockFallback button, .nArs4W_dockFallback') as HTMLElement | null;
-              t?.click?.();
             };
 
             // Host action resolvers — read lazily at click time so the slots are
@@ -3135,12 +3103,6 @@ const MODULES: ModuleDef[] = [
           { id: 'foldErrors', zh: '错误信息折叠为一行', en: 'Fold error details to one line', status: 'ready', defaultOn: true,
             zhDesc: '“本轮运行失败”的详情默认显示为一行，点击该行展开。',
             enDesc: 'Turn-failure details show on one line by default; click the row to expand.' },
-          { id: 'fileReference', zh: '文件引用', en: 'File references', status: 'host',
-            zhDesc: '在输入框键入 @ 检索工作区文件；宿主已内置该能力。',
-            enDesc: 'Type @ in the composer to reference workspace files; provided by the host.' },
-          { id: 'workbench', zh: '工作台', en: 'Workbench', status: 'host',
-            zhDesc: '文件、终端与文档预览；宿主已提供对应侧栏。',
-            enDesc: 'Files, terminal and document preview; the host already provides these panels.' },
           { id: 'visionBridge', zh: '视觉识别', en: 'Vision bridge', status: 'ready', defaultOn: false,
             zhDesc: '粘贴图片后，由你配置的视觉多模态模型识别为文字并插入输入框。默认关闭，需先在设置里配置。',
             enDesc: 'Paste an image; your configured vision model turns it into text in the composer. Off by default; configure it in settings first.' },
@@ -3148,8 +3110,8 @@ const MODULES: ModuleDef[] = [
             zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。搜索可使用独立服务商或宿主服务；模型 API Key 不等于 DeepSeek 官方搜索密钥。',
             enDesc: 'Use /search plus keywords for manual results in the composer. Configure an independent provider or a Host web provider. A model key is not a DeepSeek official search credential.' },
         ];
-        const STATUS_TAG: Record<string, string> = { host: '宿主已提供', hostService: '需宿主服务', planned: '规划中' };
-        const STATUS_TAG_EN: Record<string, string> = { host: 'Built in', hostService: 'Needs host service', planned: 'Planned' };
+        const STATUS_TAG: Record<string, string> = { hostService: '需宿主服务', planned: '规划中' };
+        const STATUS_TAG_EN: Record<string, string> = { hostService: 'Needs host service', planned: 'Planned' };
         // #28 bilingual text: the document language is the single source, so a
         // locale switch is honoured without adding a service dependency.
         const isZh = () => {
