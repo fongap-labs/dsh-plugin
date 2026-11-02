@@ -35,39 +35,32 @@ export function errorMessage(error: unknown): string {
   return message ? String(message) : String(error)
 }
 
-/** Reject invalid or overlapping account configuration before any token can be used. */
+/** Validate account routing without ever logging or returning a token to the agent. */
 export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[] {
   if (accounts === undefined) return []
   if (!Array.isArray(accounts)) throw new Error('github.accounts must be an array')
-  const ids = new Set<string>()
+  const owners = new Set<string>()
   const result: GitHubAccountConfig[] = []
-  for (const item of accounts) {
-    if (!item || typeof item !== 'object') throw new Error('invalid GitHub account')
-    const account = item as Partial<GitHubAccountConfig>
-    if (typeof account.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(account.id)) {
-      throw new Error('GitHub account id must contain only letters, digits, _ or -')
+  for (const entry of accounts) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error('invalid GitHub account')
     }
-    if (ids.has(account.id.toLowerCase())) throw new Error('duplicate GitHub account id')
-    ids.add(account.id.toLowerCase())
-    if (typeof account.tokenEnv !== 'string' || !/^[A-Z_][A-Z0-9_]*$/.test(account.tokenEnv)) {
-      throw new Error('GitHub tokenEnv must name an uppercase environment variable')
+    const account = entry as Partial<GitHubAccountConfig>
+    const owner = typeof account.owner === 'string' ? account.owner.trim().toLowerCase() : ''
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(owner)) {
+      throw new Error('github.accounts[].owner must be a GitHub username or organization')
     }
-    if (account.login !== undefined &&
-      (typeof account.login !== 'string' || !/^[a-zA-Z0-9-]{1,39}$/.test(account.login))) {
-      throw new Error('invalid GitHub account login')
+    if (owners.has(owner)) throw new Error('duplicate GitHub owner mapping: ' + owner)
+    owners.add(owner)
+    const token = typeof account.token === 'string' ? account.token.trim() : ''
+    const tokenEnv = typeof account.tokenEnv === 'string' ? account.tokenEnv.trim() : ''
+    if ((token !== '' && tokenEnv !== '') || (token === '' && tokenEnv === '')) {
+      throw new Error('configure exactly one of token or tokenEnv for GitHub owner ' + owner)
     }
-    if (!Array.isArray(account.repositories) || account.repositories.length === 0 ||
-      !account.repositories.every((pattern) =>
-        typeof pattern === 'string' &&
-        /^[a-zA-Z0-9_.-]+\/(?:[a-zA-Z0-9_.-]+|\*)$/.test(pattern))) {
-      throw new Error('github.accounts[].repositories must contain owner/repo or owner/*')
+    if (tokenEnv && !/^[A-Z_][A-Z0-9_]*$/.test(tokenEnv)) {
+      throw new Error('github.accounts[].tokenEnv must name an uppercase environment variable')
     }
-    result.push({
-      id: account.id,
-      tokenEnv: account.tokenEnv,
-      ...(account.login ? { login: account.login } : {}),
-      repositories: account.repositories.map((pattern) => pattern.toLowerCase()),
-    })
+    result.push({ owner, ...(token ? { token } : { tokenEnv }) })
   }
   return result
 }
