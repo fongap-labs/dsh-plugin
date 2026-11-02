@@ -4,7 +4,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { registerRoutes } from './host/routes.js'
-import { makeDuckDuckGoProvider } from './host/duckduckgo.js'
+import { makeWebSearchProvider } from './host/search.js'
 
 export const name = '@fongap-labs/dsh-ui-delta'
 export const inject = ['webServer']
@@ -24,9 +24,9 @@ export function apply(ctx: Context): void {
   // The bundle patch selects this id; profile overrides can still select paid providers.
   optionalHost?.inject?.(['web'], (child) => {
     const web = (child as { web?: {
-      registerSearchProvider: (provider: ReturnType<typeof makeDuckDuckGoProvider>) => unknown
+      registerSearchProvider: (provider: ReturnType<typeof makeWebSearchProvider>) => unknown
     } }).web
-    web?.registerSearchProvider(makeDuckDuckGoProvider())
+    web?.registerSearchProvider(makeWebSearchProvider())
   })
   // Follow the explicit Harness UI language preference for model replies.
   // The Host owns locale.preference; reading it at assembly time makes language

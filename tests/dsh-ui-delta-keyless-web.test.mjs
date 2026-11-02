@@ -59,7 +59,7 @@ describe('native keyless web search', () => {
   it('uses the native web registry, while retaining the existing HTTP fetch backend', () => {
     const host = readFileSync(new URL('../packages/dsh-ui-delta/src/index.ts', import.meta.url), 'utf8')
     const patch = readFileSync(new URL('../packages/dsh-ui-delta/cordis.patch.yml', import.meta.url), 'utf8')
-    assert.match(host, /registerSearchProvider\(makeDuckDuckGoProvider\(\)\)/)
+    assert.match(host, /registerSearchProvider\(makeWebSearchProvider\(\)\)/)
     assert.match(patch, /searchProvider: delta-duckduckgo/)
     assert.match(patch, /fetchProvider: http/)
     assert.doesNotMatch(patch, /web-fetch-http.*disabled: true/)

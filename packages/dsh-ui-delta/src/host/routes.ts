@@ -4,7 +4,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import { publicView, updateConfig } from './config.js'
+import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
+import { mainModelView } from './main-model.js'
 import { searchWeb } from './search.js'
 import { deleteColdSession } from './session-delete.js'
 
@@ -71,7 +73,7 @@ const readBody = async (req: IncomingMessage, limit: number): Promise<Buffer> =>
 }
 
 const sendJson = (res: ServerResponse, status: number, body: unknown): void => {
-  res.writeHead(status, { 'content-type': 'application/json' })
+  res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' })
   res.end(JSON.stringify(body))
 }
 
@@ -79,6 +81,13 @@ export function registerRoutes(ctx: Context): void {
   // without a web server there is nowhere to serve the routes; the plugin stays inert
   const webServer = ctx?.webServer
   if (!webServer) return
+  let modelContext = ctx
+  const optionalContext = ctx as unknown as {
+    inject?: (dependencies: string[], callback: (child: unknown) => void) => unknown
+  }
+  optionalContext.inject?.(['settings', 'credentials', 'llm', 'agentDefaultModel'], (child) => {
+    modelContext = child as Context
+  })
 
   const route = (
     path: string,
@@ -110,11 +119,14 @@ export function registerRoutes(ctx: Context): void {
     }
   }
 
+  const configView = async () => ({ ...publicView(), mainModel: await mainModelView(modelContext) })
+
   route('/dsh-ui-delta/config', async (req, res) => {
-    if (req.method === 'GET') return sendJson(res, 200, publicView())
+    if (req.method === 'GET') return sendJson(res, 200, await configView())
     if (req.method === 'POST') {
       const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}')
-      return sendJson(res, 200, await updateConfig(body))
+      await updateConfig(body)
+      return sendJson(res, 200, await configView())
     }
     return sendJson(res, 405, { error: 'method not allowed' })
   })
@@ -126,7 +138,15 @@ export function registerRoutes(ctx: Context): void {
       return sendJson(res, 415, { error: 'image required' })
     }
     const bytes = await readBody(req, MAX_IMAGE_BYTES)
-    return sendJson(res, 200, { text: await recognizeImage(bytes, mime) })
+    return sendJson(res, 200, { text: await recognizeImage(bytes, mime, modelContext) })
+  })
+
+  route('/dsh-ui-delta/image-generate', async (req, res) => {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}')
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
+    if (!prompt) return sendJson(res, 400, { error: 'prompt required' })
+    return sendJson(res, 200, await generateImage(prompt, body.size, modelContext))
   })
 
   route('/dsh-ui-delta/search', async (req, res) => {
@@ -134,7 +154,7 @@ export function registerRoutes(ctx: Context): void {
     const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}')
     const query = String(body.query || '').trim().slice(0, 500)
     if (query === '') return sendJson(res, 400, { error: 'query required' })
-    return sendJson(res, 200, { results: await searchWeb(query, ctx as unknown as { get?: (name: string) => unknown }) })
+    return sendJson(res, 200, { results: await searchWeb(query) })
   })
 
   route('/dsh-ui-delta/session-delete', async (req, res) => {

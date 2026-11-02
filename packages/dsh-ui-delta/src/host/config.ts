@@ -15,7 +15,7 @@ export interface ProviderRecord {
   keyHint?: string
 }
 
-/** One feature section, including the single-provider shape it migrates from. */
+/** One service section, including the single-provider shape it migrates from. */
 export interface SectionConfig {
   providers?: ProviderRecord[]
   baseUrl?: string
@@ -28,11 +28,19 @@ export interface SectionConfig {
 /** Whole config file. */
 export interface ConfigFile {
   vision?: SectionConfig
+  visionModel?: string
+  visionOptions?: { temperature?: number; maxTokens?: number }
   search?: SectionConfig
+  imageGen?: ImageGenConfig
+}
+
+/** Optional model-name override for image generation. */
+export interface ImageGenConfig {
+  model?: string
 }
 
 /** Feature section name. */
-export type Section = 'vision' | 'search'
+export type Section = 'search'
 
 /** Provider fields a client may update. */
 export interface ProviderInput {
@@ -53,12 +61,18 @@ export interface UpdateConfigBody {
   provider?: ProviderInput
   clearKey?: boolean
   apiKey?: string
+  baseUrl?: string
+  model?: string
+  temperature?: unknown
+  maxTokens?: unknown
 }
 
 /** Config view returned to the page: ciphertext is never included. */
 export interface PublicView {
-  vision: { providers: ProviderRecord[] }
+  visionModel: string
+  visionOptions: { temperature?: number; maxTokens?: number }
   search: { providers: ProviderRecord[] }
+  imageGen: { model: string }
   secureStorage: boolean
 }
 
@@ -69,7 +83,13 @@ const memoryKeys = new Map<string, string>()
 
 export const readConfig = (): ConfigFile => {
   try {
-    return JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) || {}
+    const config: ConfigFile = JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) || {}
+    if (config.visionModel === undefined) {
+      const legacy = config.vision
+      config.visionModel = legacy?.providers?.find(provider => provider.active)?.model
+        || legacy?.providers?.[0]?.model || legacy?.model || ''
+    }
+    return config
   } catch {
     return {}
   }
@@ -156,21 +176,13 @@ const safeUrl = (value: string): string => {
 
 const providerId = (): string => Math.random().toString(36).slice(2, 10)
 
-// Each feature holds a list, so several providers can be configured at once.
-// The legacy single-provider shape is migrated in place on first read.
+// Search can hold several providers. The legacy single-provider shape is
+// migrated in place on first read.
 export const normalizeProviders = (section: Section, current: SectionConfig): ProviderRecord[] => {
-  const legacy =
-    section === 'vision'
-      ? current.baseUrl || current.model || current.apiKeyEnc
-      : current.endpoint || current.apiKeyEnc
+  const legacy = current.endpoint || current.apiKeyEnc
   if (legacy && !Array.isArray(current.providers)) {
     const provider: ProviderRecord = { id: providerId(), label: '', active: true }
-    if (section === 'vision') {
-      provider.baseUrl = current.baseUrl || ''
-      provider.model = current.model || ''
-    } else {
-      provider.endpoint = current.endpoint || ''
-    }
+    provider.endpoint = current.endpoint || ''
     provider.keyHint = current.keyHint || ''
     if (current.apiKeyEnc) provider.apiKeyEnc = current.apiKeyEnc
     current.providers = [provider]
@@ -186,20 +198,47 @@ export const normalizeProviders = (section: Section, current: SectionConfig): Pr
 
 export const publicView = (): PublicView => {
   const cfg = readConfig()
-  const vision = normalizeProviders('vision', cfg.vision || {})
   const search = normalizeProviders('search', cfg.search || {})
   return {
-    vision: { providers: vision.map((provider) => ({ ...provider, apiKeyEnc: undefined })) },
+    visionModel: cfg.visionModel || '',
+    visionOptions: cfg.visionOptions || {},
     search: { providers: search.map((provider) => ({ ...provider, apiKeyEnc: undefined })) },
+    imageGen: {
+      model: cfg.imageGen?.model || '',
+    },
     secureStorage: dpapiAvailable(),
   }
 }
 
 export const updateConfig = async (body: UpdateConfigBody): Promise<PublicView> => {
-  const section: Section | null =
-    body.section === 'vision' || body.section === 'search' ? body.section : null
+  const section: Section | 'visionModel' | 'imageGen' | null =
+    body.section === 'visionModel' ? 'visionModel' :
+    body.section === 'imageGen' ? 'imageGen' :
+    body.section === 'search' ? body.section : null
   if (!section) throw new Error('unknown section')
   const cfg = readConfig()
+  if (section === 'visionModel') {
+    cfg.visionModel = typeof body.model === 'string' ? body.model.trim().slice(0, 200) : cfg.visionModel || ''
+    const options = { ...cfg.visionOptions }
+    for (const [name, min, max] of [['temperature', 0, 2], ['maxTokens', 1, 65536]] as const) {
+      const value = body[name]
+      if (value === undefined) continue
+      if (value === '' || value === null) { delete options[name]; continue }
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max
+        || (name === 'maxTokens' && !Number.isInteger(value))) throw new Error(`invalid ${name}`)
+      options[name] = value
+    }
+    cfg.visionOptions = options
+    writeConfig(cfg)
+    return publicView()
+  }
+  if (section === 'imageGen') {
+    cfg.imageGen = {
+      model: typeof body.model === 'string' ? body.model.trim().slice(0, 200) : cfg.imageGen?.model || '',
+    }
+    writeConfig(cfg)
+    return publicView()
+  }
   const current: SectionConfig = { ...(cfg[section] || {}) }
   const providers = normalizeProviders(section, current)
 
@@ -229,10 +268,7 @@ export const updateConfig = async (body: UpdateConfigBody): Promise<PublicView> 
     if (index >= 0) {
       const provider = providers[index]!
       if (typeof input.label === 'string') provider.label = input.label.trim().slice(0, 80)
-      if (section === 'vision') {
-        if (typeof input.baseUrl === 'string') provider.baseUrl = safeUrl(input.baseUrl)
-        if (typeof input.model === 'string') provider.model = input.model.trim().slice(0, 200)
-      } else if (typeof input.endpoint === 'string') {
+      if (typeof input.endpoint === 'string') {
         provider.endpoint = safeUrl(input.endpoint)
       }
       if (typeof input.apiKey === 'string' && input.apiKey.trim() !== '') {
