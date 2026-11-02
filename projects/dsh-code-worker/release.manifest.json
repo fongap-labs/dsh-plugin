@@ -23,5 +23,9 @@
       "attest_asset": "fongap-labs-dsh-code-worker.zip",
       "setup_rust": false
     }
+  ],
+  "changelog_entries": [
+    "修复: 取消 Code Worker 对宿主工具包的精确运行时版本绑定，避免 Harness 候选版本误判插件不兼容。",
+    "变更: 编程插件采用 Linux portable 构建流程，独立提供 zip 与 tgz 安装产物。"
   ]
 }
