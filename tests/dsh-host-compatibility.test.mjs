@@ -42,8 +42,13 @@ describe('one-plugin compatibility with the native Harness Host', () => {
         const source = readFileSync(file, 'utf8')
         // Runtime tools are registered via ctx.tools. Any direct static host import
         // would turn the optional Host package into an actual runtime dependency.
-        for (const match of source.matchAll(/import\s+([\s\S]*?)\s+from\s+['"]@deepseek-ai\/dsh-tools['"]/g)) {
-          assert.match(match[0], /^import\s+type\b/, `runtime dsh-tools import in ${file}`)
+        let statement = ''
+        for (const line of source.split(/\r?\n/)) {
+          if (/^\s*(?:import|export)\s/.test(line)) statement = line.trim()
+          if (/\bfrom\s+['"]@deepseek-ai\/dsh-tools['"]/.test(line)) {
+            assert.match(statement, /^(?:import|export)\s+type\b/,
+              `runtime dsh-tools import in ${file}`)
+          }
         }
       }
     }
