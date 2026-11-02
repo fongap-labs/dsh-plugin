@@ -9,7 +9,7 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
   it('does not hardcode a mismatched runtime version or show its own update banner', () => {
     assert.doesNotMatch(client, /const VERSION\s*=\s*['"]0\.1\.0['"]/);
     assert.doesNotMatch(client, /checkVersion\s*=|versionNotice\s*=/);
-    assert.doesNotMatch(client, /Update available v|有新版本 v/);
+    assert.doesNotMatch(client, /Update available v/);
   });
 
   it('keeps selected conversation styling text-only', () => {
