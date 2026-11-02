@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.9](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.9) - 2026-11-02
+
+### 变更
+
+- 头像仅在真实余额就绪时显示提示，点击不再打开原生菜单；会话预览的状态与时间保持在同一行。
+- 视觉识别复用主模型账号并保留模型名称、温度和输出长度参数；Delta 配置顶部提供在线生图、预览与下载入口。
+
+### 修复
+
+- 联网搜索不再依赖 Python，支持 Bing 区域跳转并让手动搜索和模型搜索共用配置；搜索结果替换草稿时不再重复插入文字。
+
 ## [0.1.0-beta.8](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.8) - 2026-11-02
 
 ### 修复
@@ -123,6 +134,7 @@
 - 三个发布清单（`projects/*/release.manifest.json`）的 `builds[].target` 由 `windows-x64` 改为合法 rustup target triple `x86_64-pc-windows-msvc`，修复 Action Worker 直接把它传给 `rustup toolchain install --target` 时下载 `rust-std` 失败导致的发布构建中断。
 - 打包产物现在始终包含 `package.json`（与 `npm pack` 行为一致），此前注入的发布版本只存在于工作区、不会出现在 zip 中，产物因此没有版本信息。
 - `scripts/build-release.ps1` 解析包管理器时把 `Get-Command` 的多个匹配结果当作单个路径，导致发布构建直接失败（`The term 'C:\hostedtoolcache\...\npm.cmd C:\Program Files\nodejs\npm.cmd' is not recognized`）。Windows runner 的 `npm.cmd` 同时存在于 hosted toolcache 与 `C:\Program Files\nodejs`，`$found.Source` 因此是数组，传给调用运算符后被拼成 `"<路径> <路径>"`；现改为逐个候选解析成唯一真实文件路径。
+
 
 
 
