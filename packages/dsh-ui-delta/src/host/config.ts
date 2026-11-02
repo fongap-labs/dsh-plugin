@@ -17,6 +17,7 @@ export interface ProviderRecord {
 
 /** One service section, including the single-provider shape it migrates from. */
 export interface SectionConfig {
+  fallbackToKeyless?: boolean
   providers?: ProviderRecord[]
   baseUrl?: string
   model?: string
@@ -60,6 +61,7 @@ export interface UpdateConfigBody {
   removeProvider?: string
   provider?: ProviderInput
   clearKey?: boolean
+  fallbackToKeyless?: boolean
   apiKey?: string
   baseUrl?: string
   model?: string
@@ -71,7 +73,7 @@ export interface UpdateConfigBody {
 export interface PublicView {
   visionModel: string
   visionOptions: { temperature?: number; maxTokens?: number }
-  search: { providers: ProviderRecord[] }
+  search: { providers: ProviderRecord[]; fallbackToKeyless: boolean }
   imageGen: { model: string }
   secureStorage: boolean
 }
@@ -202,7 +204,7 @@ export const publicView = (): PublicView => {
   return {
     visionModel: cfg.visionModel || '',
     visionOptions: cfg.visionOptions || {},
-    search: { providers: search.map((provider) => ({ ...provider, apiKeyEnc: undefined })) },
+    search: { providers: search.map((provider) => ({ ...provider, apiKeyEnc: undefined })), fallbackToKeyless: cfg.search?.fallbackToKeyless === true },
     imageGen: {
       model: cfg.imageGen?.model || '',
     },
@@ -241,6 +243,12 @@ export const updateConfig = async (body: UpdateConfigBody): Promise<PublicView> 
   }
   const current: SectionConfig = { ...(cfg[section] || {}) }
   const providers = normalizeProviders(section, current)
+  if (typeof body.fallbackToKeyless === 'boolean') {
+    current.fallbackToKeyless = body.fallbackToKeyless
+    cfg[section] = current
+    writeConfig(cfg)
+    return publicView()
+  }
 
   if (body.addProvider === true) {
     providers.push({ id: providerId(), label: '', active: providers.length === 0 })
