@@ -42,6 +42,7 @@ export interface ProviderInput {
   model?: string
   endpoint?: string
   active?: boolean
+  apiKey?: string
 }
 
 /** Config update posted by the browser. */
@@ -233,6 +234,12 @@ export const updateConfig = async (body: UpdateConfigBody): Promise<PublicView> 
         if (typeof input.model === 'string') provider.model = input.model.trim().slice(0, 200)
       } else if (typeof input.endpoint === 'string') {
         provider.endpoint = safeUrl(input.endpoint)
+      }
+      if (typeof input.apiKey === 'string' && input.apiKey.trim() !== '') {
+        const key = input.apiKey.trim()
+        const sealed = await sealKey(keySlot(section, provider), key)
+        if (sealed !== null) provider.apiKeyEnc = sealed
+        provider.keyHint = maskOf(key)
       }
       if (input.active === true) {
         providers.forEach((candidate, position) => {
