@@ -36,7 +36,7 @@ describe('session-scoped approval extension', () => {
     assert.doesNotMatch(client.slice(client.indexOf('const grants = new Map'),client.indexOf('function DeltaApprovalComposer')), /localStorage|sessionStorage/)
   })
   it('subscribes to real pending interactions rather than intercepting untrusted browser clicks', () => {
-    assert.match(client, /sessionStatus\.getSnapshot/)
+    assert.match(client, /status\.getSnapshot\(\)/)
     assert.match(client, /status\.subscribe\(reuseApprovals\)/)
     assert.match(client, /handled\.add\(approval\)/)
     for (const dep of ['@deepseek-ai/dsh-api-session-controller', '@deepseek-ai/dsh-client-ui-session', '@deepseek-ai/dsh-client-ui-approval'])
