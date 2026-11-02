@@ -1,54 +1,44 @@
-# @dsh-plugin/shared
+# @fongap-labs/shared
 
-DSH 插件 Monorepo 内部共享库。为各 Bundle 提供与宿主解耦的通用能力，使插件在
-「有完整 DSH 宿主」与「无宿主的测试 / CI / 脚手架预览」两种环境下都能工作。
+DSH 插件工作区共享库，为业务插件提供工具注册、子进程调用、路径解析与沙箱校验能力。本包是可分发的 npm 依赖，不是独立的 DSH 插件；依赖它的插件通过 `bundleDependencies` 将其一并打入安装包。
 
 ## 模块
 
-源码为 TypeScript（`src/*.ts`），经 `pnpm build` 编译为 `lib/*.js` 与同目录的 `lib/*.d.ts`。
+源码使用 TypeScript（`src/*.ts`），由根目录 `pnpm build` 编译为 `lib/*.js` 与同目录声明文件。
 
-| 模块 | 职责 |
-| --- | --- |
-| `src/tool.ts` → `lib/tool.js` | `defineTool` 容错封装与 Schema 校验。 |
-| `src/subprocess.ts` → `lib/subprocess.js` | `ctx.subprocess` 安全调用与降级。 |
-| `src/index.ts` → `lib/index.js` | 路径解析与沙箱校验，并再导出上述两个模块。 |
+| 模块 | 导出 | 职责 |
+| --- | --- | --- |
+| `@fongap-labs/shared/tool` | `defineTool`、`primeHostTools`、`registerTool` | 宿主工具注册与无宿主测试环境回退 |
+| `@fongap-labs/shared/subprocess` | `runCommand`、`runCommandOrThrow` | 优先使用宿主子进程服务，并提供受限回退 |
+| `@fongap-labs/shared` | `resolveInside`、`isPathInside`、`tryResolveInside`、`SandboxViolationError` | 工作区路径解析与越界校验 |
 
-## `lib/tool.js`
+## 工具注册
 
 ```ts
-import { defineTool, primeHostTools, registerTool } from "@dsh-plugin/shared";
+import { defineTool, primeHostTools, registerTool } from "@fongap-labs/shared/tool";
 
-await primeHostTools();   // 可选：尝试加载宿主 @deepseek-ai/dsh-tools 的 defineTool
+await primeHostTools(); // 可选且幂等：尝试加载宿主 defineTool
 
 const tool = defineTool({
   name: "my_tool",
   description: "...",
-  parameters: { path: { type: "string", required: true, description: "..." } },
-  output: {
-    schema: { type: "object", additionalProperties: false, properties: { ok: { type: "boolean", required: true } } },
-    render: (_args, value) => [{ type: "text", text: String(value.ok) }],
+  parameters: {
+    path: { type: "string", required: true, description: "..." },
   },
-  async execute(args, exec) { return { ok: true }; },
+  async execute(args, exec) {
+    return { ok: true };
+  },
 });
 
-const result = registerTool(ctx, tool);   // { registered, disposer?, error? }
+registerTool(ctx, tool);
 ```
 
-- 参数与输出声明使用官方 `ParameterSchemaSpec` / `ValueSchemaSpec` 形状，`args` 与
-  `value` 自动推导，因此对象节点必须显式声明 `additionalProperties`。
-- `primeHostTools()` 幂等；加载失败时静默降级，插件不会因一次 import 失败而不可用。
-- 本地回退实现复刻宿主 `defineTool` 的编译产物形状：参数属性映射会被编译成
-  `type: "object"` 根的 JSON Schema，`required: true` 标记会聚合成 `required` 数组。
-  回退实现支持 `type` / `enum` / `items` / `properties` / `description` 子集，
-  更复杂的 schema 请确保宿主依赖可用。
-- `registerTool()` 在 `ctx.tools` 缺失时降级为 warn 并返回 `{ registered: false }`，
-  不会让整个 profile 启动失败。
+参数和输出声明遵循当前宿主的 `ParameterSchemaSpec` / `ValueSchemaSpec` 类型。宿主工具服务不可用时，注册过程会返回未注册结果，不应导致整个 Profile 启动失败。
 
-## `lib/subprocess.js`
+## 子进程
 
 ```ts
-import { runCommand, runCommandOrThrow } from "@dsh-plugin/shared";
-
+import { runCommand, runCommandOrThrow } from "@fongap-labs/shared/subprocess";
 
 const result = await runCommand(ctx, {
   command: "git",
@@ -56,25 +46,25 @@ const result = await runCommand(ctx, {
   cwd: workspaceRoot,
   timeoutMs: 30_000,
 });
-// { stdout, stderr, exitCode, signal, timedOut, lossy, source: "host" | "node" }
 ```
 
-宿主 `ctx.subprocess` 可用时走 `ctx.subprocess.spawn()`（继承凭据清洗、作业对象托管、
-输出上限与 spill），否则回退到 `node:child_process`，两者返回同一形状。
+宿主 `ctx.subprocess` 可用时优先使用宿主服务；否则回退到 `node:child_process`。调用方统一处理同一结果结构，不应自行拼接 shell 命令。
 
-## `lib/index.js` 路径与沙箱
+## 路径与沙箱
 
 ```ts
-import { resolveInside, isPathInside, SandboxViolationError } from "@dsh-plugin/shared";
+import { resolveInside, isPathInside, SandboxViolationError } from "@fongap-labs/shared";
 
-const absolute = resolveInside(workspaceRoot, userSuppliedPath); // 越界即抛错
+const absolute = resolveInside(workspaceRoot, userSuppliedPath);
 ```
 
-- `resolveInside(root, candidate)`：解析为 root 内的绝对路径，越界抛 `SandboxViolationError`。
-- `isPathInside(root, target)`：布尔判定，不解析符号链接。
-- `tryResolveInside(root, candidate)`：失败返回 `undefined`，用于可选路径。
+- `resolveInside(root, candidate)`：解析为 root 内绝对路径；越界时抛出 `SandboxViolationError`。
+- `isPathInside(root, target)`：判断路径是否位于 root 内，不解析符号链接。
+- `tryResolveInside(root, candidate)`：无法安全解析时返回 `undefined`。
 
-## 使用约束
+## 依赖边界
 
-- 本包仅供本 Monorepo 内部使用（`private: true`），不作为公开 npm 包发布。
-- 插件之间通过它共享能力，但不得形成循环依赖：本包不依赖任何业务插件。
+- 本包不依赖任何业务插件，不得形成循环依赖。
+- 不在此处放置 Delta UI、Code Worker 等产品专属逻辑。
+- 业务插件使用 `workspace:*` 声明依赖，并在 `bundleDependencies` 中列出本包。
+- 根目录默认许可证为 Apache-2.0；本包当前显式采用 Apache-2.0。许可证变更必须同步本目录 `LICENSE` 与对应发布元数据。

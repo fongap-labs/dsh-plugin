@@ -1,53 +1,50 @@
-# @dsh-plugin/plugin-template
+# @fongap-labs/plugin-template
 
-DSH 原生 Bundle 官方脚手架模板。直接复制本目录即可快速创建新插件。
+DeepSeek Harness 原生插件脚手架。复制本目录创建新插件，再按下列步骤替换模板标识与实现。
 
-## 快速开始
+## 创建
 
 ```bash
 cp -r packages/plugin-template packages/plugin-my-awesome
-cd packages/plugin-my-awesome
 ```
 
-然后按下列步骤修改：
+## 必须调整
 
-1. **package.json**：
-   - `"name": "@dsh-plugin/plugin-my-awesome"`
-   - `"description": "你的插件描述"`
-   - `files` 数组保持不变（除非新增资源）。
+1. **`package.json`**
+   - 将 `name` 改为 `@fongap-labs/plugin-my-awesome`。
+   - 更新描述、导出入口和 `files`。
+   - 默认许可证为 Apache-2.0；如需其他许可证，更新 `license` 和本包 `LICENSE`。
 
-2. **cordis.patch.yml**：
-   - `id: my-awesome`（全局唯一，建议 kebab-case）
-   - `name: '@dsh-plugin/plugin-my-awesome'`（与包名一致）
+2. **`cordis.patch.yml`**
+   - 使用全局唯一的 kebab-case `id`，例如 `plugin-my-awesome`。
+   - `name` 使用与 `package.json` 一致的完整包名。
 
-3. **locale/en.json / zh.json**：
-   - `meta.title`：在 Bundle 管理器中显示的标题。
-   - `meta.description`：能力简述（≤ 1 行）。
+3. **`projects/plugin-my-awesome/release.manifest.json`**
+   - 为需要通过 Action Worker 发布的插件新增独立清单。
+   - `license_expression` 必须与包的 `package.json.license` 一致。
 
-4. **icon.svg**：
-   - 原创或可再分发的 SVG / PNG / JPEG / WebP，≤ 256 KiB。
-   - 路径必须在包内（绝对路径、URL、跳出包的 symlink 均被拒绝）。
+4. **`src/index.ts`**
+   - 导出 `apply(ctx, config)`，按需导出 `inject`。
+   - 使用 `@fongap-labs/shared` 提供的通用能力。
+   - 路径必须经过 `resolveInside` 校验；子进程优先使用 `runCommand`。
+   - 注册的事件、定时器、观察器和 UI 资源必须提供清理逻辑。
 
-5. **src/index.js**：
-   - 导出 `apply(ctx, config)`，可选 `export const inject = [...]`。
-   - 使用 `@dsh-plugin/shared` 的 `defineTool`、`registerTool` 等。
-   - 资源注册请用 `ctx.effect` / `ctx.on` 并在返回函数中清理。
+5. **资源与文档**
+   - 更新 `locale/en.json`、`locale/zh.json` 和 `icon.svg`。
+   - 更新插件自己的 `README.md` 和 `LICENSE`。
+   - 不复制仓库级治理规则；共用规范由 Action Worker 维护。
 
-## 本地联调
+## 本地开发与验证
 
 ```bash
-# 根目录
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm build
+pnpm test
+pnpm validate
 pnpm link:dev plugin-my-awesome
 ```
 
-或手动在 profile 目录（默认 `~/.dsh/profiles/desktop`）：
+## 发布边界
 
-```bash
-pnpm add link:/absolute/path/to/packages/plugin-my-awesome
-# 并在 profile package.json 的 dsh.profile.bundles 追加 "@dsh-plugin/plugin-my-awesome"
-```
-
-## 发布
-
-1. 将 `package.json` 的 `"private": true` 改为 `false`。
-2. 可选：`npm publish --access public`（需先 `pnpm build` 校验资源完整性）。
+插件独立版本、独立发布。发布前核对包名、`cordis.patch.yml`、`release.manifest.json`、许可证及安装包内容。发布流程由 Action Worker 统一执行；不要在插件包中新增自己的完整发布工作流。
