@@ -73,7 +73,7 @@ export function rankResults(query: string, rows: readonly SearchRow[], limit = 1
 export function researchQueries(query: string): string[] {
   const full = collapse(query).slice(0, 500)
   if (!full) return []
-  const sections = full.split(/\s+(?:vs\.?|versus|or|and)\s+|[；;，,、]|\s*对比\s*|\s*比较\s*/i)
+  const sections = full.split(/\s+(?:vs\.?|versus|or|and)\s+|[\uFF1B;\uFF0C,\u3001]|\s*\u5BF9\u6BD4\s*|\s*\u6BD4\u8F83\s*/i)
     .map(part => part.trim()).filter(part => part.length >= 3 && part !== full)
   if (sections.length < 2 && full.length > 75) {
     const tokens = full.split(/\s+/)
