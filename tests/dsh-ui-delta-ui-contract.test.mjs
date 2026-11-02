@@ -12,6 +12,13 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.doesNotMatch(client, /Update available v/);
   });
 
+  it('falls back to the Delta settings panel when no native settings surface opens', () => {
+    assert.match(client, /if \(!isSettingsOpenInDom\(\)\) \{\s*note\('fallback'/);
+    assert.match(client, /openStandaloneSettings\(true\)/);
+    assert.match(client, /iconBtn\('settings', ICON_SETTINGS/);
+    assert.match(client, /iconBtn\('account', ICON_LOGIN/);
+  });
+
   it('keeps selected conversation styling text-only', () => {
     const selected = client.match(/\.wnFoaW_sessionRow\.wnFoaW_selected\s*\{([^}]*)\}/)?.[1];
     assert.ok(selected, 'expected the selected conversation rule');
