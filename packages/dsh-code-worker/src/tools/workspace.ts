@@ -1,7 +1,8 @@
 
+import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand, resolveInside } from '@fongap-labs/shared'
+import { defineTool, runCommand, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 
@@ -55,9 +56,12 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       if (limit < 1 || limit > MAX_LIMIT) throw new Error('limit must be between 1 and 250')
       const root = await resolveRoot(ctx, exec, settings)
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
+      const canonicalRoot = await realpath(root)
+      const canonicalCwd = await realpath(cwd)
+      if (!isPathInside(canonicalRoot, canonicalCwd)) throw new Error('workspace directory escapes the repository')
       const command = await runCommand(ctx, {
         command: settings.gitCommand, args: ['ls-files', '-z', '--cached'],
-        cwd, signal: exec.signal, timeoutMs: 15_000, maxOutputBytes: 1024 * 1024,
+        cwd: canonicalCwd, signal: exec.signal, timeoutMs: 15_000, maxOutputBytes: 1024 * 1024,
       })
       if (command.exitCode !== 0 || command.timedOut || command.lossy) {
         throw new Error('unable to enumerate tracked files without truncation')
