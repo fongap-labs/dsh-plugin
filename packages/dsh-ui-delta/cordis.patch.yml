@@ -1,5 +1,11 @@
-# Override the default selected search provider without disabling the native web tools.
-# The profile may still override this row to select Exa, Tavily or DeepSeek.
+# Route model web_search through Python DDGS and keep web_fetch on HTTP.
+# Disable DeepSeek Messages Search and the combined DeepSeek Search/Fetch API package.
+- id: web-search-deepseek
+  disabled: true
+
+- id: web-deepseek-api
+  disabled: true
+
 - id: web
   config:
     searchProvider: delta-duckduckgo
