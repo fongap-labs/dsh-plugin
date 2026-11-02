@@ -1010,7 +1010,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 `;
 
     return {
-      inject: ['theme', 'slots'],
+      inject: ['theme', 'slots', 'contextMenus'],
       apply(ctx: HarnessClientContext) {
         // Every contribution is defensive: a failure here degrades the refresh
         // (no palette / no stylesheet) and must never abort the web boot.
@@ -3571,6 +3571,49 @@ const MODULES: ModuleDef[] = [
           }
         } catch (error) {
           console.warn('[dsh-ui-delta] session approval enhancement unavailable:', error);
+        }
+
+        // Attach to the Host's structured context-menu registry, not a DOM
+        // replacement. The server refuses live sessions and unsafe storage paths.
+        try {
+          type MenuTarget = { sessionId: string; displayTitle?: string };
+          type MenuDef = {
+            id: string; target: 'session'; order: number;
+            observe: (target: MenuTarget) => unknown[];
+            resolve: (target: MenuTarget) => Array<{ id: string; label: string; run: () => void; separatorBefore: boolean }>;
+          };
+          const menus = (ctx.get?.('contextMenus') ?? ctx.contextMenus) as {
+            register?: (definition: MenuDef) => (() => void)
+          } | undefined;
+          if (menus?.register) {
+            ctx.effect(() => menus.register!({
+              id: 'session.delta-delete', target: 'session', order: 700,
+              observe: () => [],
+              resolve: (target) => [{
+                id: 'delta-delete', label: t('删除会话', 'Delete session'),
+                separatorBefore: true,
+                run: () => {
+                  const sessionId = target.sessionId;
+                  if (!sessionId) return;
+                  const confirmed = window.confirm(t(
+                    `永久删除「${target.displayTitle || sessionId}」？该操作不可撤销；正在运行或仍在内存中的会话会被拒绝。`,
+                    `Permanently delete "${target.displayTitle || sessionId}"? This cannot be undone; running or live sessions are refused.`,
+                  ));
+                  if (!confirmed) return;
+                  void fetch('/dsh-ui-delta/session-delete', {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json' },
+                    body: JSON.stringify({ sessionId }),
+                  }).then(async response => {
+                    const result = await response.json();
+                    if (!response.ok || !result.ok) throw new Error(result.error || 'Delete rejected');
+                  }).catch(error => window.alert(t('删除失败：', 'Delete failed: ') + String(error.message || error)));
+                },
+              }],
+            }), 'dsh-ui-delta: session delete menu');
+          }
+        } catch (error) {
+          console.warn('[dsh-ui-delta] delete session menu unavailable:', error);
         }
 
         // NOTE: the shipped global-panel cells ('plugins', 'schedules') are NOT
