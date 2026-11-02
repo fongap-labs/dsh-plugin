@@ -56,6 +56,34 @@ describe('GitHub account configuration and automatic routing', () => {
     await assert.rejects(tools[0].execute({ repository: 'unknown/repo' }, exec), /no GitHub account/)
     await assert.rejects(tools.find((tool) => tool.name === 'code_github_branch').execute({ repository: 'fongap-labs/delta', branch: 'feat/test' }, exec), /writes are disabled/)
   })
+  it('returns bounded PR checks and central CI status links with the owner token', async () => {
+    const config = normalizeConfig({ github: { accounts: accounts.slice(0, 1) } })
+    const tool = createGitHubTools({ get: () => undefined }, config)
+      .find((entry) => entry.name === 'code_github_checks')
+    const previousFetch = globalThis.fetch
+    const requests = []
+    try {
+      globalThis.fetch = async (url, options) => {
+        requests.push({ url: String(url), authorization: options.headers.Authorization })
+        const payload = String(url).includes('/pulls/8') ?
+          { head: { sha: 'a'.repeat(40) } } :
+          String(url).includes('/check-runs') ?
+            { check_runs: [{ name: 'lint', status: 'completed', conclusion: 'failure', output: { summary: 'typecheck error' } }] } :
+            { statuses: [{ context: 'CI Evidence', state: 'failure', target_url: 'https://github.com/fongap-labs/action-worker/actions/runs/123' }] }
+        return new Response(JSON.stringify(payload), { status: 200 })
+      }
+      const output = await tool.execute({ repository: 'fongap-labs/delta', prNumber: 8 }, { signal: new AbortController().signal })
+      const data = JSON.parse(output.result)
+      assert.equal(data.checks[0].conclusion, 'failure')
+      assert.equal(data.statuses[0].context, 'CI Evidence')
+      assert.equal(requests.length, 3)
+      assert.ok(requests.every((request) => request.authorization === 'Bearer github_pat_local_test_team'))
+      assert.doesNotMatch(JSON.stringify(output), /github_pat_local_test_team/)
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
   it('never exposes plaintext tokens through connection results', async () => {
     const config = normalizeConfig({ github: { accounts: accounts.slice(0, 1) } })
     const tool = createGitHubTools({ get: () => undefined }, config)[0]
