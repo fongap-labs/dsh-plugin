@@ -24,7 +24,7 @@ except ModuleNotFoundError:
 try:
     request = json.loads(sys.stdin.read())
     query = request["query"]
-    limit = min(5, max(1, int(request.get("max_results", 5))))
+    limit = min(20, max(1, int(request.get("max_results", 5))))
     # Prefer DuckDuckGo, but keep ddgs' other free engines as a fallback.
     try:
         rows = DDGS(timeout=10).text(query, max_results=limit, backend="duckduckgo")
@@ -122,18 +122,19 @@ const pythonCandidates = (): Array<{ command: string; args: string[] }> => {
 
 /** Prefer Python ddgs; fail visibly if the runtime/package is unavailable. */
 export async function searchPythonDdgs(
-  query: string, signal?: AbortSignal, execute: PythonExecutor = launchPython
+  query: string, signal?: AbortSignal, execute: PythonExecutor = launchPython, maxResults = 5
 ): Promise<PythonSearchRow[]> {
   signal?.throwIfAborted()
   const cleanQuery = query.trim().slice(0, 500)
   if (!cleanQuery) throw new Error('search query required')
-  const payload = JSON.stringify({ query: cleanQuery, max_results: 5 })
+  const limit = Math.max(1, Math.min(20, Math.trunc(maxResults) || 5))
+  const payload = JSON.stringify({ query: cleanQuery, max_results: limit })
   const failures: string[] = []
   for (const { command, args } of pythonCandidates()) {
     try {
       const output: unknown = await execute(command, args, payload, signal)
       if (!Array.isArray(output)) throw new Error('Python ddgs returned a non-array response')
-      return output.slice(0, 5).filter((row): row is Record<string, unknown> =>
+      return output.slice(0, limit).filter((row): row is Record<string, unknown> =>
         !!row && typeof row === 'object' && !Array.isArray(row)
       ).map(row => ({
         title: String(row.title || ''),
@@ -149,4 +150,31 @@ export async function searchPythonDdgs(
   throw new Error(
     `Python ddgs is unavailable (${failures.join('; ')}). Install Python 3.10+ and run "python -m pip install ddgs==9.16.1"; on Windows, use "py -3 -m pip install ddgs==9.16.1". Set DSH_DDGS_PYTHON if Harness uses another Python environment.`
   )
+}
+
+
+/** Health probe never submits a user query; the result is cached briefly. */
+const PROBE_PROGRAM = 'import json\nfrom ddgs import DDGS\nprint(json.dumps({"ok": true}))'.replace('true', 'True')
+let cachedProbe: { until: number; ok: boolean } | undefined
+
+export async function checkPythonDdgs(
+  signal?: AbortSignal, execute: PythonExecutor = launchPython
+): Promise<boolean> {
+  signal?.throwIfAborted()
+  if (execute === launchPython && cachedProbe && cachedProbe.until > Date.now()) return cachedProbe.ok
+  let ok = false
+  for (const { command, args } of pythonCandidates()) {
+    const probeArgs = [...args]
+    probeArgs[probeArgs.length - 1] = PROBE_PROGRAM
+    try {
+      const result = await execute(command, probeArgs, '', signal)
+      ok = !!result && typeof result === 'object' && (result as { ok?: unknown }).ok === true
+      if (ok) break
+    } catch (error) {
+      signal?.throwIfAborted()
+      if (!(error instanceof PythonUnavailable)) break
+    }
+  }
+  if (execute === launchPython) cachedProbe = { until: Date.now() + 60_000, ok }
+  return ok
 }
