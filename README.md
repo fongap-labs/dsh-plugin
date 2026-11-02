@@ -25,16 +25,14 @@ DeepSeek Harness（DSH）支持以下两种在线安装方式：
 
 在 DeepSeek Harness 插件管理器搜索框或控制台中直接输入插件包名：
 
-```bash
-# 安装稳定版
-dsh-ui-delta
-
-# 或安装预发布/Beta 版本
-dsh-ui-delta@beta
+```text
+@fongap-labs/dsh-ui-delta@0.1.0-beta.1
 ```
 
+正式包名为 `@fongap-labs/dsh-ui-delta`。GitHub Release 标签 `dsh-ui-delta-v0.1.0-beta.1` 不属于 npm 版本号。使用 npm 安装前，须确认该版本已发布到所选 Registry（包括国内镜像）；若镜像尚未同步，请使用 Release 文件。
+
 - **适用场景**：日常使用、版本更新与自动依赖解析。
-- **运行原理**：插件包已发布至 npm Registry，安装包根目录完整包含 `cordis.patch.yml` 与 `package.json`，DSH 的包管理器（pnpm）可自动下载并挂载插件。
+- **运行原理**：使用前须确认插件包已发布至所选 npm Registry，安装包根目录完整包含 `cordis.patch.yml` 与 `package.json`，DSH 的包管理器（pnpm）可自动下载并挂载插件。
 
 ### 方案二：通过 GitHub Release `.tgz` 资产直链安装
 
@@ -46,7 +44,7 @@ https://github.com/fongap-labs/dsh-plugin/releases/download/<release-tag>/<plugi
 
 **示例**：
 ```text
-https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-ui-delta-v0.1.0-beta.1/dsh-ui-delta.tgz
+https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-ui-delta-v0.1.0-beta.1/fongap-labs-dsh-ui-delta.tgz
 ```
 
 - **适用场景**：内网/离线环境、安装特定历史构建版本、或者无法访问 npm 镜像源时。
