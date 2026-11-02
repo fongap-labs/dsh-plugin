@@ -225,7 +225,7 @@ describe("release manifests", () => {
     const defaultLicense = readJson(join(repoRoot, "package.json")).license;
     const defaultLicenseText = readFileSync(join(repoRoot, "LICENSE"), "utf8");
     assert.equal(defaultLicense, "Apache-2.0");
-    assert.match(defaultLicenseText, /Apache License\\s+Version 2\\.0/);
+    assert.match(defaultLicenseText, /Apache License\s+Version 2\.0/);
 
     const packagesDir = join(repoRoot, "packages");
     const packageManifests = new Map();
