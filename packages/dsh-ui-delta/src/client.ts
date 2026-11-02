@@ -2079,8 +2079,6 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               '新会话': '开始对话',
               '插件': '插件管理',
               '自动化任务': '定时任务',
-              '模型': '模型配置',
-              'Models': 'Model configuration',
             };
             function renameLabels() {
               const paint = (el: HTMLElement, text: string) => {
@@ -2099,7 +2097,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (next) el.setAttribute('aria-label', next);
               });
               document.querySelectorAll<HTMLElement>('[class*="navCell"] [class*="navLabel"]').forEach(el => {
-                const next = LABEL_MAP[(el.textContent || '').trim()];
+                const label = (el.textContent || '').trim();
+                const next = label === t('模型', 'Models')
+                  ? t('模型配置', 'Model configuration')
+                  : LABEL_MAP[label];
                 if (next) paint(el, next);
               });
               // the field already reads 搜索会话, so its hover tooltip is noise;
