@@ -2037,11 +2037,11 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const fraction = (match[3] || '').padEnd(2, '0');
               const cents = fraction.slice(0, 2);
               const symbol = currency === 'CNY' ? '¥' : currency === 'USD' ? '$' : `${currency} `;
-              const zero = /^0+$/.test(integer) && /^0*$/.test(fraction);
-              if (zero) return `${symbol}0.00`;
-              const negative = match[1] === '-';
-              if (/^0+$/.test(integer) && cents === '00') return `${negative ? '-' : '<'}${symbol}0.01`;
-              return `${negative ? '-' : ''}${symbol}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${cents}`;
+              const isZero = /^0+$/.test(integer) && /^0*$/.test(fraction);
+              if (isZero) return `${symbol}0.00`;
+              const isNegative = match[1] === '-';
+              if (/^0+$/.test(integer) && cents === '00') return `${isNegative ? '-' : '<'}${symbol}0.01`;
+              return `${isNegative ? '-' : ''}${symbol}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${cents}`;
             };
             // Balance is read from the same account snapshot as the host settings.
             function syncBalance() {
@@ -2366,8 +2366,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (/^\u4ec0\u4e48\u610f\u601d[\uff1f?\uff01!\u3002.]?$/.test(note)) {
                   return `${quote}是${note}`;
                 }
-                const adjacent = /[\u3400-\u9fff]$/.test(quote) && /^[\u3400-\u9fff\p{P}]/u.test(note);
-                return `${quote}${adjacent ? '' : ' '}${note}`;
+                const isAdjacent = /[\u3400-\u9fff]$/.test(quote) && /^[\u3400-\u9fff\p{P}]/u.test(note);
+                return `${quote}${isAdjacent ? '' : ' '}${note}`;
               };
               const annotationBlock = (notes: AnnoNote[]) => notes.map(annotationText).join('\n\n');
               const submitAnnotations = (el: HTMLElement) => {
@@ -2907,10 +2907,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
               document.querySelectorAll<HTMLElement>('.jrmgQW_rowCard, .jrmgQW_setupCard').forEach((row) => {
                 const name = row.querySelector<HTMLElement>('.jrmgQW_rowName')?.textContent?.trim();
-                const custom = !!row.querySelector('.jrmgQW_rowTag');
+                const isCustom = !!row.querySelector('.jrmgQW_rowTag');
                 const setupRoute = row.querySelector<HTMLElement>('.jrmgQW_editorRoute')?.textContent?.trim();
                 const isBuiltIn = !!row.querySelector('.jrmgQW_accountStatus')
-                  || (!custom && /^deepseek$/i.test(name || ''))
+                  || (!isCustom && /^deepseek$/i.test(name || ''))
                   || (row.matches('.jrmgQW_setupCard') && setupRoute === 'deepseek-official');
                 if (isBuiltIn) {
                   builtInModelRows.add(row);
@@ -2966,7 +2966,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 const original = service.search;
                 const ownDescriptor = Object.getOwnPropertyDescriptor(service, 'search');
                 const pendingScans = new Set<AbortController>();
-                let active = true;
+                let isSearchActive = true;
                 const wrapped: SearchService['search'] = async (query, signal) => {
                   const base = await original.call(service, query, signal);
                   const needle = query.trim().toLocaleLowerCase();
@@ -2989,11 +2989,11 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   pendingScans.add(controller);
                   const cancel = () => controller.abort();
                   signal.addEventListener('abort', cancel, { once: true });
-                  if (signal.aborted || !active) controller.abort();
+                  if (signal.aborted || !isSearchActive) controller.abort();
                   const timer = setTimeout(cancel, 10000);
                   let next = 0;
                   let readCount = 0;
-                  let failed = false;
+                  let hasReadFailure = false;
                   const worker = async () => {
                     while (!controller.signal.aborted && next < ids.length && existing.length + found.length < limit) {
                       const index = next++;
@@ -3005,7 +3005,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                             address: { kind: 'session', sessionId }, maxMessages: 100,
                             ...(beforeSeq === undefined ? {} : { beforeSeq }),
                           }, controller.signal);
-                          if (!response.ok || !response.value || !Array.isArray(response.value.records)) { failed = true; break; }
+                          if (!response.ok || !response.value || !Array.isArray(response.value.records)) { hasReadFailure = true; break; }
                           readCount++;
                           const records = response.value.records;
                           const matched = records.map(searchMessageText).find((text) => text.toLocaleLowerCase().includes(needle));
@@ -3018,12 +3018,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                           }
                           if (!response.value.hasMore) break;
                           const seqs = records.map((record) => record.event?.seq).filter((seq): seq is number => Number.isSafeInteger(seq));
-                          if (!seqs.length) { failed = true; break; }
+                          if (!seqs.length) { hasReadFailure = true; break; }
                           const nextBefore = Math.min(...seqs);
-                          if (beforeSeq !== undefined && nextBefore >= beforeSeq) { failed = true; break; }
+                          if (beforeSeq !== undefined && nextBefore >= beforeSeq) { hasReadFailure = true; break; }
                           beforeSeq = nextBefore;
                         } catch {
-                          if (!controller.signal.aborted) failed = true;
+                          if (!controller.signal.aborted) hasReadFailure = true;
                           break;
                         }
                       }
@@ -3031,21 +3031,21 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   };
                   try { await Promise.all(Array.from({ length: Math.min(4, ids.length) }, worker)); }
                   finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); pendingScans.delete(controller); }
-                  if (signal.aborted || !active) return base;
-                  const incomplete = failed || controller.signal.aborted;
-                  if (incomplete) showNotice('warn', t('部分会话正文未能搜索，请重试', 'Some conversation content could not be searched; try again'), false);
+                  if (signal.aborted || !isSearchActive) return base;
+                  const isIncomplete = hasReadFailure || controller.signal.aborted;
+                  if (isIncomplete) showNotice('warn', t('部分会话正文未能搜索，请重试', 'Some conversation content could not be searched; try again'), false);
                   if (!base.ok && !readCount) return base;
                   found.sort((a, b) => a.index - b.index);
                   const combined = [...existing, ...found.map((item) => item.hit)];
                   return { ok: true, value: {
                     items: combined.slice(0, limit),
-                    hasMore: !!base.value?.hasMore || combined.length > limit || next < ids.length || incomplete,
+                    hasMore: !!base.value?.hasMore || combined.length > limit || next < ids.length || isIncomplete,
                   } };
                 };
                 service.search = wrapped;
                 if (Object.getOwnPropertyDescriptor(service, 'search')?.value !== wrapped) return;
                 restoreContentSearch = () => {
-                  active = false;
+                  isSearchActive = false;
                   pendingScans.forEach((controller) => controller.abort());
                   if (Object.getOwnPropertyDescriptor(service, 'search')?.value !== wrapped) return;
                   if (ownDescriptor) Object.defineProperty(service, 'search', ownDescriptor);
