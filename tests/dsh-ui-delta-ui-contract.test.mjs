@@ -84,3 +84,17 @@ describe('Delta settings privacy and usability', () => {
     assert.doesNotMatch(client, /This plugin collects and uploads nothing/);
   });
 });
+
+describe('Delta avatar and independent search contracts', () => {
+  it('shows signed-in balance only on hover or keyboard focus', () => {
+    assert.match(client, /_5Qcc8a_root\[data-ens-balance\]:hover::after/);
+    assert.match(client, /_5Qcc8a_root\[data-ens-balance\]:focus-within::after/);
+    assert.match(client, /account\.removeAttribute\('data-ens-balance'\)/);
+    assert.match(client, /bonusWallets/);
+    assert.doesNotMatch(client, /\.ens-balance\s*\{\s*display: block/);
+  });
+  it('does not present a custom model key as DeepSeek official search credentials', () => {
+    assert.match(client, /A model key is not a DeepSeek official search credential/);
+    assert.match(client, /Host web service/);
+  });
+});
