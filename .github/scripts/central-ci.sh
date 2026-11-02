@@ -38,7 +38,15 @@ phase_end() {
 # lockfile is interpreted by the same pnpm release the project was verified with.
 phase_begin pnpm
 corepack enable
-corepack prepare pnpm@10.28.0 --activate
+PACKAGE_MANAGER="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json', 'utf8')).packageManager || ''")"
+case "$PACKAGE_MANAGER" in
+  pnpm@*) ;;
+  *)
+    echo "central-ci: package.json must pin pnpm via packageManager" >&2
+    exit 65
+    ;;
+esac
+corepack prepare "$PACKAGE_MANAGER" --activate
 phase_end
 
 phase_begin install
