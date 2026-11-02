@@ -7,7 +7,7 @@ import { publicView, updateConfig } from './config.js'
 import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
-import { searchWeb } from './search.js'
+import { searchWeb, researchWeb } from './search.js'
 import { deleteColdSession } from './session-delete.js'
 
 declare module '@deepseek-ai/cordis' {
@@ -155,6 +155,14 @@ export function registerRoutes(ctx: Context): void {
     const query = String(body.query || '').trim().slice(0, 500)
     if (query === '') return sendJson(res, 400, { error: 'query required' })
     return sendJson(res, 200, { results: await searchWeb(query) })
+  })
+
+  route('/dsh-ui-delta/research', async (req, res) => {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}')
+    const query = String(body.query || '').trim().slice(0, 500)
+    if (!query) return sendJson(res, 400, { error: 'query required' })
+    return sendJson(res, 200, await researchWeb(query))
   })
 
   route('/dsh-ui-delta/session-delete', async (req, res) => {
