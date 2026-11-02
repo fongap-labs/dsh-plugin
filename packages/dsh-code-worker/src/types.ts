@@ -45,6 +45,16 @@ export interface LspServerConfig {
   args?: string[]
 }
 
+/** A GitHub account selected automatically by the repository owner (user or organization). */
+export interface GitHubAccountConfig {
+  /** GitHub username or organization name (left side of owner/repository). */
+  owner: string
+  /** Personal access token. Set only in a local, untracked user profile. */
+  token?: string
+  /** Optional environment-variable alternative to a literal token. */
+  tokenEnv?: string
+}
+
 /** Plugin configuration as accepted from the Cordis patch file. */
 export interface CodeWorkerConfig {
   enabled?: boolean
@@ -52,6 +62,15 @@ export interface CodeWorkerConfig {
   git?: {
     enabled?: boolean
     command?: string
+  }
+  execution?: {
+    allowWorktreeWrites?: boolean
+    allowCommands?: boolean
+  }
+  github?: {
+    enabled?: boolean
+    allowWrites?: boolean
+    accounts?: GitHubAccountConfig[]
   }
   lsp?: {
     servers?: LspServerConfig[]
@@ -65,6 +84,11 @@ export interface Settings {
   workspaceRoot: string
   gitEnabled: boolean
   gitCommand: string
+  allowWorktreeWrites: boolean
+  allowCommands: boolean
+  githubEnabled: boolean
+  githubAllowWrites: boolean
+  githubAccounts: GitHubAccountConfig[]
   lspServers: LspServerConfig[]
   systemPromptText: string
 }

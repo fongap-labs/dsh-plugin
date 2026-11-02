@@ -68,7 +68,7 @@ describe("dsh-code-worker", () => {
 
   it("注册了预期的工具集合", () => {
     const names = [...ctx.registered.keys()].sort();
-    assert.deepEqual(names, ["code_git_diff", "code_git_status", "code_lsp_probe", "code_multi_edit"]);
+    assert.deepEqual(names, ["code_git_diff", "code_git_status", "code_git_worktree", "code_lsp_probe", "code_multi_edit", "code_verify", "code_workspace_map"]);
   });
 
   it("code_multi_edit: dryRun 不写盘", async () => {
@@ -187,7 +187,7 @@ describe("dsh-code-worker", () => {
       enabled: true,
       workspaceRoot: workspace,
     });
-    assert.equal(unregisterCtx.registered.size, 4);
+    assert.equal(unregisterCtx.registered.size, 7);
     disposer();
     assert.equal(unregisterCtx.registered.size, 0);
   });

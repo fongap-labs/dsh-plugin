@@ -13,5 +13,6 @@ Thumbs.db
 .idea/
 .vscode/
 .env
+.dsh-code-worker/
 .env.*
 !.env.example

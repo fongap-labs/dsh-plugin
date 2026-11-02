@@ -1,0 +1,63 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { normalizeConfig } from '../packages/dsh-code-worker/lib/runtime.js'
+import { rankTrackedFiles, createWorkspaceMapTool } from '../packages/dsh-code-worker/lib/tools/workspace.js'
+import { validateWorktreeName, createWorktreeTool } from '../packages/dsh-code-worker/lib/tools/worktree.js'
+import { redactKnownTokens, createVerifyTool } from '../packages/dsh-code-worker/lib/tools/verify.js'
+
+const git = promisify(execFile)
+const ctx = { get: () => undefined }
+const exec = { signal: new AbortController().signal }
+
+describe('dsh-code-worker integrated workflow helpers', () => {
+  it('ranks relevant filenames without returning source content', () => {
+    const files = ['docs/notes.md', 'src/server.ts', 'src/handler.ts', 'package.json']
+    assert.deepEqual(rankTrackedFiles(files, 'handler', 2), ['src/handler.ts'])
+    assert.equal(rankTrackedFiles(files, '', 2).length, 2)
+  })
+  it('rejects invalid worktree names and refs', () => {
+    validateWorktreeName('fix-issue-123', 'HEAD')
+    validateWorktreeName('add_feature', 'main')
+    assert.throws(() => validateWorktreeName('../escape', 'main'), /invalid/)
+    assert.throws(() => validateWorktreeName('safe', 'main~1'), /invalid/)
+    assert.throws(() => validateWorktreeName('safe', '--help'), /invalid/)
+  })
+  it('redacts inline and environment-sourced GitHub tokens in command output', () => {
+    const settings = normalizeConfig({ github: { accounts: [
+      { owner: 'group', token: 'abcdefgh1234' },
+      { owner: 'personal', tokenEnv: 'DSH_TEST_TOKEN_NOT_SET' },
+    ] } })
+    assert.equal(redactKnownTokens('abc abcdefgh1234 xyz', settings), 'abc [REDACTED] xyz')
+  })
+  it('does not allow command execution and worktree creation by default', async () => {
+    const settings = normalizeConfig({})
+    assert.equal(settings.allowCommands, false)
+    assert.equal(settings.allowWorktreeWrites, false)
+    await assert.rejects(createVerifyTool(ctx, settings).execute({ script: 'test' }, exec), /script execution disabled/)
+    await assert.rejects(createWorktreeTool(ctx, settings).execute({ action: 'create', task: 'demo' }, exec), /host subprocess service/)
+  })
+  it('uses tracked files from git ls-files with query and limit', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-code-worker-workflow-'))
+    try {
+      await mkdir(join(root, 'src'))
+      await writeFile(join(root, 'src', 'handler.ts'), 'export const handler = 1')
+      await writeFile(join(root, 'src', 'other.ts'), 'export const other = 2')
+      await writeFile(join(root, 'README.md'), '# test')
+      await git('git', ['init', '-q'], { cwd: root })
+      await git('git', ['add', 'src/handler.ts', 'src/other.ts', 'README.md'], { cwd: root })
+      const settings = normalizeConfig({ workspaceRoot: root })
+      const tool = createWorkspaceMapTool(ctx, settings)
+      const result = await tool.execute({ query: 'handler', limit: 3 }, exec)
+      assert.equal(result.total, 3)
+      assert.deepEqual(result.selected, ['src/handler.ts'])
+      await assert.rejects(tool.execute({ limit: 251 }, exec), /limit/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+})

@@ -55,6 +55,8 @@ export interface RunCommandOptions {
   env?: Record<string, string> | undefined
   /** Cancellation signal. */
   signal?: AbortSignal | undefined
+  /** Prevent falling back to Node if the host executor is unavailable or fails. */
+  hostOnly?: boolean | undefined
 }
 
 /** Normalized options with every default resolved. */
@@ -254,11 +256,13 @@ export async function runCommand(
     try {
       return await runWithHost(ctx as SubprocessContext, normalized)
     } catch (error) {
+      if (options.hostOnly) throw error
       if ((error as { name?: string } | null)?.name === 'AbortError') throw error
       const message = (error as { message?: string } | null)?.message ?? String(error)
       ctx?.logger?.warn?.(`runCommand: host subprocess failed, falling back to node:child_process (${message})`)
     }
   }
+  if (options.hostOnly) throw new SubprocessError('host subprocess service unavailable; refusing fallback')
   return runWithNode(normalized)
 }
 

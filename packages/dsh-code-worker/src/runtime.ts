@@ -3,7 +3,7 @@ import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside } from '@fongap-labs/shared'
-import type { CodeWorkerConfig, LspServerConfig, Settings } from './types.js'
+import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
 
 export const TOOL_PREFIX = 'code_'
 const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
@@ -18,6 +18,12 @@ export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
   'Use the `code_multi_edit` tool for batch file edits instead of repeated single edits.',
   'Use `code_git_status` and `code_git_diff` to inspect repository state before and after changes.',
+  'Use `code_workspace_map` to find relevant tracked files before opening large source trees.',
+  'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
+  'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
+  'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
+  'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',
+  'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
   'Use `code_lsp_probe` to detect available language servers in the current workspace.',
   'Always pass paths relative to the workspace root; absolute paths outside the workspace are rejected by the sandbox.',
 ].join('\n')
@@ -29,10 +35,43 @@ export function errorMessage(error: unknown): string {
   return message ? String(message) : String(error)
 }
 
+/** Validate account routing without ever logging or returning a token to the agent. */
+export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[] {
+  if (accounts === undefined) return []
+  if (!Array.isArray(accounts)) throw new Error('github.accounts must be an array')
+  const owners = new Set<string>()
+  const result: GitHubAccountConfig[] = []
+  for (const entry of accounts) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error('invalid GitHub account')
+    }
+    const account = entry as Partial<GitHubAccountConfig>
+    const owner = typeof account.owner === 'string' ? account.owner.trim().toLowerCase() : ''
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(owner)) {
+      throw new Error('github.accounts[].owner must be a GitHub username or organization')
+    }
+    if (owners.has(owner)) throw new Error('duplicate GitHub owner mapping: ' + owner)
+    owners.add(owner)
+    const token = typeof account.token === 'string' ? account.token.trim() : ''
+    const tokenEnv = typeof account.tokenEnv === 'string' ? account.tokenEnv.trim() : ''
+    if ((token !== '' && tokenEnv !== '') || (token === '' && tokenEnv === '')) {
+      throw new Error('configure exactly one of token or tokenEnv for GitHub owner ' + owner)
+    }
+    if (tokenEnv && !/^[A-Z_][A-Z0-9_]*$/.test(tokenEnv)) {
+      throw new Error('github.accounts[].tokenEnv must name an uppercase environment variable')
+    }
+    result.push({ owner, ...(token ? { token } : { tokenEnv }) })
+  }
+  return result
+}
+
 export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings {
   const cfg: CodeWorkerConfig = config && typeof config === 'object' ? config : {}
   const git = cfg.git && typeof cfg.git === 'object' ? cfg.git : {}
   const lsp = cfg.lsp && typeof cfg.lsp === 'object' ? cfg.lsp : {}
+  const execution = cfg.execution && typeof cfg.execution === 'object' ? cfg.execution : {}
+  const github = cfg.github && typeof cfg.github === 'object' ? cfg.github : {}
+  const accounts = validateGitHubAccounts(github.accounts)
   const servers =
     Array.isArray(lsp.servers) && lsp.servers.length > 0 ? lsp.servers : DEFAULT_LSP_SERVERS
   return {
@@ -41,6 +80,11 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
     gitEnabled: git.enabled !== false,
     gitCommand:
       typeof git.command === 'string' && git.command.trim() !== '' ? git.command.trim() : 'git',
+    allowWorktreeWrites: execution.allowWorktreeWrites === true,
+    allowCommands: execution.allowCommands === true,
+    githubEnabled: github.enabled !== false && accounts.length > 0,
+    githubAllowWrites: github.allowWrites === true,
+    githubAccounts: accounts,
     lspServers: servers.filter(
       (server): server is LspServerConfig =>
         Boolean(server) && typeof server.command === 'string',

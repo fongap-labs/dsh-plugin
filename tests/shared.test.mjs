@@ -126,6 +126,23 @@ describe("shared/subprocess.js", () => {
     assert.ok(Number.isInteger(result.exitCode));
   });
 
+  it("runCommand: hostOnly refuses Node fallback when the host is missing", async () => {
+    await assert.rejects(subprocess.runCommand(null, {
+      command: NODE_PRINT[0],
+      args: NODE_PRINT.slice(1),
+      hostOnly: true,
+    }), /host subprocess service unavailable/);
+  });
+
+  it("runCommand: hostOnly propagates host failure instead of invoking Node", async () => {
+    const ctx = { subprocess: { spawn() { throw new Error("mock host rejection"); } } };
+    await assert.rejects(subprocess.runCommand(ctx, {
+      command: NODE_PRINT[0],
+      args: NODE_PRINT.slice(1),
+      hostOnly: true,
+    }), /mock host rejection/);
+  });
+
   it("runCommandOrThrow: 非零退出码抛出 SubprocessError", async () => {
     let thrown = false;
     try {
