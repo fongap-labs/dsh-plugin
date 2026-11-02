@@ -36,7 +36,7 @@ describe('one-plugin compatibility with the native Harness Host', () => {
     }
     const development = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
     assert.match(development.devDependencies?.['@deepseek-ai/cordis'] ?? '', /^\d+\.\d+\.\d+$/)
-    assert.match(development.devDependencies?.['@deepseek-ai/dsh-tools'] ?? '', /^\d+\.\d+-rc\.\d+$/)
+    assert.match(development.devDependencies?.['@deepseek-ai/dsh-tools'] ?? '', /^\d+\.\d+\.\d+-rc\.\d+$/)
   })
 
   it('imports Cordis only as a type and never as a runtime module', () => {
@@ -44,8 +44,14 @@ describe('one-plugin compatibility with the native Harness Host', () => {
       const files = walkTypeScript(join(root, 'packages', folder, 'src'))
       for (const file of files) {
         const source = readFileSync(file, 'utf8')
-        for (const match of source.matchAll(/\bimport\s+([\s\S]*?)\s+from\s+['"]@deepseek-ai\/cordis['"]/g)) {
-          assert.match(match[0], /^import\s+type\b/, `runtime Cordis import in ${file}`)
+        // Track each import declaration separately; a cross-import regex can
+        // misclassify a valid import type when another import precedes it.
+        let declaration = ''
+        for (const line of source.split(/\r?\n/)) {
+          if (/^\s*(?:import|export)\s/.test(line)) declaration = line.trim()
+          if (/\bfrom\s+['"]@deepseek-ai\/cordis['"]/.test(line)) {
+            assert.match(declaration, /^(?:import|export)\s+type\b/, `runtime Cordis import in ${file}`)
+          }
         }
         assert.doesNotMatch(source, /\bimport\s*\(\s*['"]@deepseek-ai\/cordis['"]/, `dynamic Cordis import in ${file}`)
         assert.doesNotMatch(source, /^\s*import\s*['"]@deepseek-ai\/cordis['"]/m, `side effect Cordis import in ${file}`)

@@ -56,9 +56,11 @@ async function main() {
     if (!/^pnpm@\d+\.\d+\.\d+$/.test(manager)) {
       throw new Error('Expected pinned pnpm packageManager in root package.json')
     }
-    // npm exec is present with setup-node; it avoids dependence on runner pnpm shims.
+    // npm provides a stable bootstrap when pnpm/corepack are missing from the runner.
+    // Select an exact pnpm package and explicitly execute its binary.
     const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-    const pnpm = (parameters) => run(npm, ['exec', '--yes', manager, '--', ...parameters])
+    const pnpm = (parameters) =>
+      run(npm, ['exec', '--yes', `--package=${manager}`, '--', 'pnpm', ...parameters])
     pnpm(['install', '--frozen-lockfile'])
     pnpm(['build'])
     pnpm(['pack:bundles', '--package=' + name])

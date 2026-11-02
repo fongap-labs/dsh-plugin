@@ -93,6 +93,8 @@ export function scaffoldPlugin({ name: slug, description, root = ROOT, dryRun = 
     let wrapper = readFileSync(wrapperPath, 'utf8')
     wrapper = replaceOnce(wrapper, `'--package', '${sourceSlug}'`, `'--package', '${slug}'`, 'release package')
     writeFileSync(wrapperPath, wrapper)
+    // Do not copy the legacy wrapper with the template's stale plugin identity.
+    rmSync(join(targetDir, 'build-release.ps1'), { force: true })
 
     for (const locale of ['en', 'zh']) {
       const path = join(targetDir, 'locale', `${locale}.json`)

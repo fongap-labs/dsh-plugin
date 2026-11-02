@@ -32,7 +32,8 @@ const MANIFEST_KEYS = new Set([
   "target_repository",
 ]);
 const MANIFEST_REQUIRED_KEYS = [...MANIFEST_KEYS].filter((key) => key !== "root");
-const BUILD_KEYS = new Set(["assets", "attest_asset", "id", "runner_profile", "script", "target"]);
+const BUILD_KEYS = new Set(["assets", "attest_asset", "id", "runner_profile", "script", "target", "setup_rust"]);
+const REQUIRED_BUILD_KEYS = [...BUILD_KEYS].filter((key) => key !== "setup_rust");
 
 const PRODUCT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const ASSET_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -122,14 +123,14 @@ describe("release manifests", () => {
     }
   });
 
-  it("declares build entries with a rustup target, an existing script and a valid asset set", () => {
+  it("declares portable Node or native PowerShell build entries with valid assets", () => {
     for (const { name, manifest } of products) {
       const label = `projects/${name}/release.manifest.json`;
       const ids = new Set();
       const assets = new Set();
       for (const build of manifest.builds) {
         assert.equal(typeof build, "object", `${label} build entry must be an object`);
-        for (const key of BUILD_KEYS) {
+        for (const key of REQUIRED_BUILD_KEYS) {
           assert.ok(Object.hasOwn(build, key), `${label} build entry is missing ${key}`);
         }
         for (const key of Object.keys(build)) {
@@ -143,13 +144,19 @@ describe("release manifests", () => {
           RUNNER_PROFILE,
           `${label} runner_profile is invalid: ${build.runner_profile}`
         );
-        assert.match(
-          build.target,
-          RUSTUP_TARGET,
-          `${label} target must be a rustup target triple such as x86_64-pc-windows-msvc, got: ${build.target}`
-        );
+        assert.match(build.target, /^[A-Za-z0-9_.-]+$/, `${label} build target is invalid`);
         assert.match(build.script, RELATIVE_PATH, `${label} script must be a relative path`);
-        assert.ok(build.script.endsWith(".ps1"), `${label} script must end with .ps1: ${build.script}`);
+        const portable = build.script.endsWith(".mjs");
+        assert.ok(portable || build.script.endsWith(".ps1"), `${label} script must be .ps1 or .mjs`);
+        if (build.setup_rust !== undefined) {
+          assert.equal(typeof build.setup_rust, "boolean", `${label} setup_rust must be a boolean`);
+        }
+        if (portable) {
+          assert.equal(build.target, "portable", `${label} Node plugin target must be portable`);
+          assert.equal(build.setup_rust, false, `${label} portable plugin does not need Rust`);
+        } else {
+          assert.match(build.target, RUSTUP_TARGET, `${label} native target must be a rustup triple`);
+        }
         // Action Worker joins the manifest root with the script path and requires the file.
         const scriptPath = join(repoRoot, manifest.root, build.script);
         assert.ok(existsSync(scriptPath), `${label} script does not exist: ${manifest.root}/${build.script}`);
@@ -194,10 +201,12 @@ describe("release manifests", () => {
     for (const { name, manifest } of products) {
       for (const build of manifest.builds) {
         const text = readFileSync(join(repoRoot, manifest.root, build.script), "utf8");
-        assert.ok(
-          text.includes(`-Package ${name}`),
-          `projects/${name}: ${build.script} must call the generic script with -Package ${name}`
-        );
+        if (build.script.endsWith(".mjs")) {
+          assert.ok(text.includes(`'--package', '${name}'`), `projects/${name}: Node wrapper must pass the package name`);
+          assert.match(text, /scripts\/build-release\.mjs/, `projects/${name}: Node wrapper must delegate to the shared builder`);
+        } else {
+          assert.ok(text.includes(`-Package ${name}`), `projects/${name}: PowerShell wrapper must pass the package name`);
+        }
       }
     }
   });
