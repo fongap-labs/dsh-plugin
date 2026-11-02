@@ -162,19 +162,19 @@ export async function checkPythonDdgs(
 ): Promise<boolean> {
   signal?.throwIfAborted()
   if (execute === launchPython && cachedProbe && cachedProbe.until > Date.now()) return cachedProbe.ok
-  let ok = false
+  let isReady = false
   for (const { command, args } of pythonCandidates()) {
     const probeArgs = [...args]
     probeArgs[probeArgs.length - 1] = PROBE_PROGRAM
     try {
       const result = await execute(command, probeArgs, '', signal)
-      ok = !!result && typeof result === 'object' && (result as { ok?: unknown }).ok === true
-      if (ok) break
+      isReady = !!result && typeof result === 'object' && (result as { ok?: unknown }).ok === true
+      if (isReady) break
     } catch (error) {
       signal?.throwIfAborted()
       if (!(error instanceof PythonUnavailable)) break
     }
   }
-  if (execute === launchPython) cachedProbe = { until: Date.now() + 60_000, ok }
-  return ok
+  if (execute === launchPython) cachedProbe = { until: Date.now() + 60_000, ok: isReady }
+  return isReady
 }
