@@ -2028,7 +2028,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (action.closest('.ens-foot-notify, .ens-foot-actions')) return;
                 const text = (action.textContent || '').replace(/[↓⬇⇩]/g, '').replace(/\s+/g, ' ').trim();
                 const label = `${action.getAttribute('aria-label') || ''} ${action.title || ''} ${text}`.trim();
-                if (!/(?:新版本|新版提示|new version|update available)/i.test(label)) return;
+                if (!/new version|update available/i.test(label)
+                  && !label.includes('新版本') && !label.includes('新版提示')) return;
                 if (!versionActionOrigins.has(action)) {
                   versionActionOrigins.set(action, {
                     position: action.style.position,
@@ -2272,7 +2273,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 setHostNodeVisible(el, false);
               });
               document.querySelectorAll<HTMLElement>('span, small, [class*="badge"], [class*="Badge"]').forEach((el) => {
-                if (!/^(?:预览版|preview(?:\s+version)?)$/i.test((el.textContent || '').replace(/\s+/g, ' ').trim())) return;
+                const label = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                if (label === '预览版') {
+                  setHostNodeVisible(el, false);
+                  return;
+                }
+                if (!/^(?:preview(?:\s+version)?)$/i.test(label)) return;
+                setHostNodeVisible(el, false);
                 setHostNodeVisible(el, false);
               });
               document.querySelectorAll<HTMLElement>(
@@ -2280,7 +2287,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               ).forEach((el) => {
                 const labels = [el.getAttribute('aria-label') || '', el.textContent || '']
                   .map((label) => label.replace(/\s+/g, ' ').trim());
-                if (!labels.some((label) => /^(?:更多|more)$/i.test(label))) return;
+                if (labels.some((label) => label === '更多')) {
+                  setHostNodeVisible(el, false);
+                  return;
+                }
+                if (!labels.some((label) => /^(?:more)$/i.test(label))) return;
+                setHostNodeVisible(el, false);
                 setHostNodeVisible(el, false);
               });
             }
@@ -2288,15 +2300,21 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // #2 hide third-party model providers; the user-authored custom
             // model API stays. First collapse the built-in catalog mode, then
             // hide already-configured third-party cards in the host directory.
-            const THIRD_PARTY = /anthropic|claude|openai|chatgpt|google|gemini|moonshot|月之暗面|kimi|zhipu|智谱|qwen|通义|alibaba|baidu|ernie|文心|cohere|mistral|groq|xai|grok|openrouter|azure|bedrock|vertex|together|fireworks|perplexity/i;
+            const THIRD_PARTY = /anthropic|claude|openai|chatgpt|google|gemini|moonshot|kimi|zhipu|qwen|alibaba|baidu|ernie|cohere|mistral|groq|xai|grok|openrouter|azure|bedrock|vertex|together|fireworks|perplexity/i;
+            const THIRD_PARTY_LOCALIZED = ['月之暗面', '智谱', '通义', '文心'];
             function hideThirdPartyProviders() {
               const tabs = [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
-              const catalogTab = tabs.find((tab) => /^(?:第三方模型(?:提供商|供应商)|third-party model provider)$/i.test(
-                (tab.textContent || '').replace(/\s+/g, ' ').trim(),
-              ));
-              const customTab = tabs.find((tab) => /^(?:自定义模型 API|custom model API)$/i.test(
-                (tab.textContent || '').replace(/\s+/g, ' ').trim(),
-              ));
+              const tabLabel = (tab: HTMLElement) => (tab.textContent || '').replace(/\s+/g, ' ').trim();
+              const isCatalogTab = (label: string) => {
+                if (label === '第三方模型提供商' || label === '第三方模型供应商') return true;
+                return /^third-party model provider$/i.test(label);
+              };
+              const isCustomTab = (label: string) => {
+                if (label === '自定义模型 API') return true;
+                return /^custom model API$/i.test(label);
+              };
+              const catalogTab = tabs.find((tab) => isCatalogTab(tabLabel(tab)));
+              const customTab = tabs.find((tab) => isCustomTab(tabLabel(tab)));
               if (catalogTab) {
                 if (catalogTab.getAttribute('aria-selected') === 'true' && customTab && !customTab.hasAttribute('disabled')) {
                   customTab.click();
@@ -2310,7 +2328,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 } else setHostNodeVisible(catalogTab, false);
               }
               document.querySelectorAll<HTMLElement>('.jrmgQW_rowName').forEach(n => {
-                if (!THIRD_PARTY.test(n.textContent || '')) return;
+                const name = n.textContent || '';
+                const isVendor = THIRD_PARTY.test(name) || THIRD_PARTY_LOCALIZED.some((label) => name.includes(label));
+                if (!isVendor) return;
                 const row = n.closest<HTMLElement>('.jrmgQW_rowCard, .jrmgQW_setupCard, .jrmgQW_row, li');
                 if (row) setHostNodeVisible(row, false);
               });
