@@ -12,7 +12,7 @@ const MAX_OUTPUT = 32 * 1024
 export function redactKnownTokens(text: string, settings: Settings): string {
   let value = text
   for (const account of settings.githubAccounts) {
-    const token = process.env[account.tokenEnv]
+    const token = account.token || (account.tokenEnv ? process.env[account.tokenEnv] : undefined)
     if (token && token.length >= 8) value = value.split(token).join('[REDACTED]')
   }
   return value
