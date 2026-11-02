@@ -10,6 +10,9 @@ import { DEFAULT_GUIDANCE, errorMessage, normalizeConfig } from './runtime.js'
 import { createMultiEditTool } from './tools/multi-edit.js'
 import { createGitStatusTool, createGitDiffTool } from './tools/git.js'
 import { createLspProbeTool } from './tools/lsp.js'
+import { createWorkspaceMapTool } from './tools/workspace.js'
+import { createWorktreeTool } from './tools/worktree.js'
+import { createVerifyTool } from './tools/verify.js'
 import { createGitHubTools } from './tools/github.js'
 
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
@@ -62,7 +65,12 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
 function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
   if (settings.enabled === false) return []
 
-  const tools: ToolDefinition[] = [createMultiEditTool(ctx, settings)]
+  const tools: ToolDefinition[] = [
+    createMultiEditTool(ctx, settings),
+    createWorkspaceMapTool(ctx, settings),
+    createWorktreeTool(ctx, settings),
+    createVerifyTool(ctx, settings),
+  ]
   if (settings.gitEnabled) {
     tools.push(createGitStatusTool(ctx, settings))
     tools.push(createGitDiffTool(ctx, settings))
