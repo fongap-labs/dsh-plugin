@@ -34,7 +34,7 @@ export async function deleteColdSession(host: SessionHost, id: string): Promise<
   const persistence = service('sessionPersistence') as SessionPersistence | undefined
   if (!persistence?.list || !persistence.locate) throw new Error('宿主未提供安全的会话持久化定位接口')
   const entries = await persistence.list()
-  const header = entries.map(row => row.header || row).find(row => row?.id === id)
+  const header = entries.map(row => row.header || row).find(row => row?.id === id) as SessionHeader | undefined
   if (!header) throw new Error('会话文件已不存在')
   const located = persistence.locate(header)
   if (!located?.path) throw new Error('宿主无法定位会话文件')
