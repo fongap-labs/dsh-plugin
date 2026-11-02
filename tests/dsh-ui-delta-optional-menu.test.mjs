@@ -25,12 +25,11 @@ test('client starts without contextMenus and registers its menu when the service
   assert.doesNotThrow(() => plugin.apply(ctx))
   assert.equal(typeof onMenuService, 'function')
   let registered
-  let cleanup
+  let isCleanedUp
   onMenuService({
-    get() { return { register(definition) { registered = definition; return () => { cleanup = true } } } },
+    get() { return { register(definition) { registered = definition; return () => { isCleanedUp = true } } } },
     effect(callback) { const dispose = callback(); dispose() },
   })
   assert.equal(registered.id, 'session.delta-delete')
-  assert.equal(cleanup, true)
+  assert.equal(isCleanedUp, true)
 })
-
