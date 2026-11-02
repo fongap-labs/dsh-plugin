@@ -3478,7 +3478,7 @@ const MODULES: ModuleDef[] = [
               pick('联网搜索配置', 'Web search settings'),
               pick(
                 '输入 /search 加关键词，可手动搜索并把结果填入输入框，不自动发送。默认使用 Python ddgs（需安装 Python 3.10+ 和 ddgs），可配置独立搜索接口；/research 启用限量多查询检索。网页正文由 Harness 原生 Web Fetch 读取。',
-                'Type /search plus keywords to fill the composer with results; nothing is sent automatically. Uses local Python ddgs (Python 3.10+ and ddgs required); configure an optional independent search endpoint. /research performs bounded multi-query retrieval. Page reading remains with native Harness Web Fetch.',
+                'Type /search plus keywords to fill the composer with results; nothing is sent automatically. Uses local Python ddgs (Python 3.10+ and ddgs required); configure an optional independent search endpoint. /research performs bounded multi-query retrieval. The search provider is shared with native model web search. Page reading remains with native Harness Web Fetch.',
               )) : null;
             const imageGenConfig = hostCfg?.imageGen && typeof hostCfg.imageGen === 'object' ? hostCfg.imageGen : undefined;
             const saveImageGen = async () => {
