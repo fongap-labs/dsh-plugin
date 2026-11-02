@@ -42,7 +42,19 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
   });
 
   it('documents the actual scoped package and published release asset name', () => {
-    assert.match(readme, /@fongap-labs\/dsh-ui-delta@0\.1\.0-beta\.1/);
-    assert.match(readme, /releases\/download\/dsh-ui-delta-v0\.1\.0-beta\.1\/fongap-labs-dsh-ui-delta\.tgz/);
+    const manifest = JSON.parse(readFileSync(
+      new URL('../packages/dsh-ui-delta/package.json', import.meta.url), 'utf8'
+    ));
+    const release = JSON.parse(readFileSync(
+      new URL('../projects/dsh-ui-delta/release.manifest.json', import.meta.url), 'utf8'
+    ));
+    const npmSpec = readme.match(/pnpm view (\S+)@(\d+\.\d+\.\d+(?:-beta\.\d+)?) version --registry/);
+    assert.ok(npmSpec, 'README must show a versioned npm package query');
+    assert.equal(npmSpec[1], manifest.name, 'README package must match package.json');
+    const tarball = release.builds.flatMap((build) => build.assets)
+      .find((asset) => asset.endsWith('.tgz'));
+    assert.ok(tarball, 'release manifest must declare a tarball');
+    const expectedUrl = `releases/download/${release.release_key}-v${npmSpec[2]}/${tarball}`;
+    assert.ok(readme.includes(expectedUrl), 'README tarball URL must match the npm version and release manifest');
   });
 });
