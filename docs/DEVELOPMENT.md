@@ -30,12 +30,12 @@ pnpm install --frozen-lockfile
 
 ## 3. 新增插件
 
-1. 复制 `packages/plugin-template` 到 `packages/<plugin>`。
-2. 设置唯一的 `@fongap-labs/<plugin>` 包名和 Cordis patch ID。
-3. 明确 `apply(ctx, config)`、`inject` 和资源生命周期。
-4. 只把跨插件通用能力放入 `packages/shared`；禁止循环依赖。
-5. 为独立发布的插件创建 `projects/<plugin>/release.manifest.json`。
-6. 添加测试、包内 README 和 LICENSE。
+1. 优先运行 `pnpm scaffold --name <plugin> --description "My plugin"`（可先加 `--dry-run`）。生成器会自动创建 `packages/<plugin>` 与 `projects/<plugin>/release.manifest.json` 并统一包名、Cordis ID、脚本参数、Release 资产及许可证。
+2. 在 `src/host/` 编写具体功能，`src/index.ts` 仅编排 `apply(ctx, config)`、`inject` 和资源生命周期；模板演示工具可直接替换。
+3. 只把跨插件通用能力放入 `packages/shared`；禁止循环依赖。
+4. 仅在真正需要 Webview 时加入 Browser 端模块；遵循 §4 的单入口编译约束，不照搬 Delta UI 的私有选择器。
+5. 添加真实行为测试、包内 README 和 LICENSE，并检查生成的 Release Manifest。
+6. 运行 `pnpm build && pnpm test && pnpm validate`；联调时再链接到 DSH Profile。
 7. 更新本仓库文档，不复制 Action Worker 的组织级治理规范。
 
 ## 4. Delta UI 模块约定
