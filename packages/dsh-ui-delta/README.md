@@ -34,3 +34,9 @@ Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表�
 安装本 Bundle 后，`web.searchProvider` 默认设为 `delta-duckduckgo`，但用户 Profile 中对 `web` 的覆盖配置优先。适配器通过 DuckDuckGo HTML 搜索页获取搜索结果，不需要 API Key；搜索结果可能因限流、地区封锁或网页结构变动而失败，遇到这种情况会报错而不会编造内容。请在宿主代理或网络连接可用的前提下测试。
 
 Delta UI 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx.web` 注册一个 Provider。普通对话的自动搜索取决于所选 Agent preset 是否实际加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用 Harness `web-fetch-http` 的安全规则。Exa、Tavily、Brave 等 API 型服务商仍可按各自 Host 提供方或独立接口配置使用，费用与密钥由服务商决定。
+
+## 本次会话允许
+
+工具审批弹窗增加“本次会话允许”。首次点击仍通过宿主原生 `PendingApproval.answer('allowed-once')` 批准当前请求，以便宿主记录 `approval/asked` 与 `approval/decided`。插件只在**相同浏览器加载周期、同一会话实例、同一个工具、完全相同的原始参数及审批原因**全部相同时，自动批准后续请求。不同命令、文件路径、参数、原因、会话、分支会话不共享授权；调用缺失、历史未就绪或无法确定参数时仍仅提供一次性审批。保留宿主的 `never` 拒绝策略。
+
+授权只在当前 Delta UI 页面内存中持有，刷新页面、卸载插件或宿主连接重新建立后自动失效；**不提供永久允许**，也不把会话授权等同于“对全部操作取消审批”。目前未提供单独的授权列表；如需立即撤销已授权的重复操作，可刷新页面。真实桌面端仍需验证宿主审批区域是否按预期显示第三个按钮。
