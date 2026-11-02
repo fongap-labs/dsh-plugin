@@ -2230,8 +2230,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             }
 
             const hostVisibilityOrigins = new Map<HTMLElement, { display: string; hidden: boolean; ariaHidden: string | null }>();
-            const setHostNodeVisible = (el: HTMLElement, visible: boolean) => {
-              if (visible) {
+            const setHostNodeVisible = (el: HTMLElement, isVisible: boolean) => {
+              if (isVisible) {
                 const original = hostVisibilityOrigins.get(el);
                 if (original) {
                   el.style.display = original.display;
@@ -2357,7 +2357,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               // accepts a send action, whether the user presses Enter or clicks.
               interface AnnoNote { quote: string; note: string; }
               const pendingNotes: AnnoNote[] = [];
-              let annotationSendInFlight = false;
+              let isAnnotationSendInFlight = false;
               let annotationSendTimer: ReturnType<typeof setTimeout> | null = null;
               let chip: HTMLButtonElement | null = null;
               const renderChip = () => {
@@ -2443,7 +2443,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 `${t('选中内容：', 'Selected text:')}\n${n.quote}\n${t('批注：', 'Annotation:')}\n${n.note}`,
               ).join('\n\n') + '\n\n';
               const submitAnnotations = (el: HTMLElement) => {
-                if (!pendingNotes.length || annotationSendInFlight) return;
+                if (!pendingNotes.length || isAnnotationSendInFlight) return;
                 const notes = pendingNotes.slice();
                 const block = annotationBlock(notes);
                 let draft = readComposer(el);
@@ -2457,12 +2457,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (!hasEveryAnnotation(draft)) {
                   if (!writeComposer(el, block + draft)) return;
                 }
-                annotationSendInFlight = true;
+                isAnnotationSendInFlight = true;
                 let waited = 0;
                 const press = () => {
                   annotationSendTimer = null;
                   if (!notes.every((note, index) => pendingNotes[index] === note)) {
-                    annotationSendInFlight = false;
+                    isAnnotationSendInFlight = false;
                     return;
                   }
                   draft = readComposer(el);
@@ -2473,12 +2473,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                     send.click();
                     pendingNotes.splice(0, notes.length);
                     renderChip();
-                    annotationSendInFlight = false;
+                    isAnnotationSendInFlight = false;
                     return;
                   }
                   waited += 50;
                   if (waited >= 1000) {
-                    annotationSendInFlight = false;
+                    isAnnotationSendInFlight = false;
                     return; // Keep the chip so the user can retry.
                   }
                   annotationSendTimer = setTimeout(press, 50);
@@ -2496,7 +2496,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 submitAnnotations(el);
               };
               const onAnnoSendClick = (e: MouseEvent) => {
-                if (!pendingNotes.length || annotationSendInFlight) return;
+                if (!pendingNotes.length || isAnnotationSendInFlight) return;
                 const target = e.target as Element | null;
                 if (!target?.closest('.GRgSLq_primary')) return;
                 const el = composerEl();
