@@ -350,12 +350,20 @@ body {
 /* v0.1.0: the trajectory pane uses the conversation column's width and centring,
    so both tabs keep the same left and right gutter. */
 /* v0.1.0: account balance beside the avatar, shown only when signed in. */
-.ens-balance {
-  display: block; flex: 1 1 0; min-width: 0;
-  font-size: 11px; line-height: 32px; font-weight: 500; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-secondary); pointer-events: none;
+/* Account balances are transient avatar hints, not permanent footer text. */
+._5Qcc8a_root { position: relative; }
+._5Qcc8a_root[data-ens-balance]::after {
+  content: attr(data-ens-balance);
+  position: absolute; left: 0; bottom: calc(100% + 10px);
+  z-index: 50; pointer-events: none; max-width: min(320px, 85vw);
+  padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-primary); box-shadow: var(--dsw-elevation-soft);
+  font-size: 12px; line-height: 18px; font-weight: 500; white-space: pre; opacity: 0;
+  visibility: hidden; transition: opacity 120ms ease;
 }
-.wtg9ga_collapsed .ens-balance { display: none !important; }
+._5Qcc8a_root[data-ens-balance]:hover::after,
+._5Qcc8a_root[data-ens-balance]:focus-within::after { opacity: 1; visibility: visible; }
 /* v0.1.0: turn-failure detail folds to one line (foldErrors switch); click the row to expand */
 html[data-ens-fold-errors] .LOmM4q_turnErrorRow { cursor: pointer; min-width: 0; }
 html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_turnErrorCopy { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -477,7 +485,8 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 ._5Qcc8a_trigger[data-signed-out=true] > svg { display: none; }
 ._5Qcc8a_trigger[data-signed-out=true] .ens-account-glyph { display: inline-flex; }
 /* The avatar is display only; the account action lives in the footer. */
-._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger, .ens-account-glyph { pointer-events: none !important; cursor: default; }
+._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger { pointer-events: auto !important; cursor: pointer; }
+.ens-account-glyph { pointer-events: none; }
 /* Keep the two host seats aligned without positioning the actions individually. */
 .wtg9ga_footArea { position: relative; }
 .ens-foot-actions {
@@ -1133,7 +1142,7 @@ interface LauncherOps {
     account?: {
       getSnapshot?: () => {
         view?: { status?: string };
-        details?: { balance?: { status?: string; value?: Array<{ currency?: string; balance?: string | number }> } };
+        details?: { balance?: { status?: string; value?: Array<{ currency?: string; balance?: string | number }>; bonusWallets?: Array<{ currency?: string; balance?: string | number }> } };
       };
       subscribe?: (cb: () => void) => unknown;
     };
@@ -2047,29 +2056,25 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               if (/^0+$/.test(integer) && cents === '00') return `${isNegative ? '-' : '<'}${symbol}0.01`;
               return `${isNegative ? '-' : ''}${symbol}${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${cents}`;
             };
-            // Balance is read from the same account snapshot as the host settings.
+            // Only the Host's ready account snapshot can provide balances.
             function syncBalance() {
               const account = document.querySelector<HTMLElement>('._5Qcc8a_root');
-              const row = account?.parentElement;
-              if (!account || !row) return;
-              let el = row.querySelector<HTMLElement>(':scope > .ens-balance');
-              if (!el) {
-                el = document.createElement('span');
-                el.className = 'ens-balance';
-                account.insertAdjacentElement('afterend', el);
+              if (!account) return;
+              if (!signedIn()) {
+                account.removeAttribute('data-ens-balance');
+                return;
               }
-              let balance = '';
+              const walletLines: string[] = [];
               try {
-                const bal = signedIn() ? launcherOps()?.hooks?.account?.getSnapshot?.()?.details?.balance : null;
-                if (bal?.status === 'ready' && Array.isArray(bal.value) && bal.value.length) {
-                  balance = bal.value
-                    .map((w) => formatAccountBalance(w.balance, w.currency))
-                    .filter(Boolean)
-                    .join(' + ');
+                const balance = launcherOps()?.hooks?.account?.getSnapshot?.()?.details?.balance;
+                if (balance?.status === 'ready') {
+                  const recharge = balance.value?.map(w => formatAccountBalance(w.balance, w.currency)).filter(Boolean) || [];
+                  const bonus = balance.bonusWallets?.map(w => formatAccountBalance(w.balance, w.currency)).filter(Boolean) || [];
+                  if (recharge.length) walletLines.push(`${t('账户余额', 'Account balance')}: ${recharge.join(' + ')}`);
+                  if (bonus.length) walletLines.push(`${t('赠送余额', 'Bonus balance')}: ${bonus.join(' + ')}`);
                 }
-              } catch { balance = ''; }
-              const text = signedIn() ? `${t('余额', 'Balance')} ${balance || '—'}` : '';
-              if (el.textContent !== text) el.textContent = text;
+              } catch { /* Unavailable balance must never be shown as zero. */ }
+              account.setAttribute('data-ens-balance', walletLines.join('\n') || t('余额暂不可用', 'Balance unavailable'));
             }
 
             // #2/#3 navigation copy. The owning packages own these slot cells,
@@ -3093,7 +3098,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions, .ens-balance').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
+            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
