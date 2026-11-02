@@ -19,23 +19,23 @@
 
 打开 [发布页面](https://github.com/fongap-labs/dsh-plugin/releases)，选择对应插件的版本并下载 `.tgz` 文件。**不要把整个仓库地址或 Release 标签当作 npm 包名。**
 
-例如，Delta UI 已有 `0.1.0-beta.2` 预发布版。可以在终端执行：
+例如，Delta UI 的 GitHub Release 已发布 `0.1.0-beta.3`。可以在终端执行：
 
 ```bash
-dsh plugin --profile desktop add "https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-ui-delta-v0.1.0-beta.2/fongap-labs-dsh-ui-delta.tgz"
+dsh plugin --profile desktop add "https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-ui-delta-v0.1.0-beta.3/fongap-labs-dsh-ui-delta.tgz"
 ```
 
 `desktop` 是示例配置档案名称；如果你使用其他配置档案（如 `web`），请替换为实际名称。安装完成后，前往 DeepSeek Harness 的插件页面确认插件已启用；若运行环境未启用热重载，请重启对应配置档案。
 
-[查看 Delta UI 预发布版与校验文件](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.2)
+[查看 Delta UI 预发布版与校验文件](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.3)
 
 ### 通过 npm 安装
 
 **仅当目标版本已发布到当前使用的 npm 仓库时**，才能按包名安装。以 Delta UI 为例：
 
 ```bash
-pnpm view @fongap-labs/dsh-ui-delta@0.1.0-beta.2 version --registry https://registry.npmjs.org
-dsh plugin --profile desktop add @fongap-labs/dsh-ui-delta@0.1.0-beta.2
+pnpm view @fongap-labs/dsh-ui-delta@0.1.0-beta.3 version --registry https://registry.npmjs.org
+dsh plugin --profile desktop add @fongap-labs/dsh-ui-delta@0.1.0-beta.3
 ```
 
 第一条命令应能查询到该版本，才执行第二条。GitHub Release 中存在文件，**不代表** npm 官方仓库或镜像已经收录相同版本；找不到包时请使用上述 Release `.tgz` 文件。`.zip` 是另一种构建产物，不应直接当作 npm 包名安装。
@@ -90,4 +90,4 @@ pnpm link:dev dsh-ui-delta --profile desktop --unlink
 
 除非在具体插件中另有明确声明，本仓库自有插件、共享库和插件模板默认采用 [Apache-2.0](LICENSE) 许可证；第三方依赖遵循各自的许可证。此规则不追溯修改已经发布的历史安装包。
 
-相关文档：[TypeScript 架构](docs/typescript-migration.md) · [变更记录](CHANGELOG.md) · [许可证文件](LICENSE) · [问题反馈](https://github.com/fongap-labs/dsh-plugin/issues)
+相关文档：[架构与边界](docs/ARCHITECTURE.md) · [开发指南](docs/DEVELOPMENT.md) · [构建与发布](docs/OPERATIONS.md) · [变更记录](CHANGELOG.md) · [许可证](LICENSE) · [问题反馈](https://github.com/fongap-labs/dsh-plugin/issues)

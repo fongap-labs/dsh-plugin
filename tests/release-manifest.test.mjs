@@ -221,38 +221,51 @@ describe("release manifests", () => {
     }
   });
 
-  it("aligns package, release, and distributed license metadata", () => {
-    const licenseText = readFileSync(join(repoRoot, "LICENSE"), "utf8");
-    assert.match(licenseText, /Apache License\s+Version 2\.0/);
-    const license = readJson(join(repoRoot, "package.json")).license;
-    assert.equal(license, "Apache-2.0");
+  it("allows package-specific licenses and aligns package, release, and distributed metadata", () => {
+    const defaultLicense = readJson(join(repoRoot, "package.json")).license;
+    const defaultLicenseText = readFileSync(join(repoRoot, "LICENSE"), "utf8");
+    assert.equal(defaultLicense, "Apache-2.0");
+    assert.match(defaultLicenseText, /Apache License\s+Version 2\.0/);
 
     const packagesDir = join(repoRoot, "packages");
+    const packageManifests = new Map();
     for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const dir = join(packagesDir, entry.name);
       const manifestPath = join(dir, "package.json");
       if (!existsSync(manifestPath)) continue;
+
       const pkg = readJson(manifestPath);
-      assert.equal(pkg.license, license, `${entry.name}: package license must match root`);
-      assert.equal(
-        readFileSync(join(dir, "LICENSE"), "utf8"),
-        licenseText,
-        `${entry.name}: distributed license must match root`
+      assert.equal(typeof pkg.license, "string", `${entry.name}: package license must be explicit`);
+      assert.match(
+        pkg.license,
+        /^[A-Za-z0-9][A-Za-z0-9.+() -]*$/,
+        `${entry.name}: package license must be a valid SPDX-style expression`
       );
+
+      const licensePath = join(dir, "LICENSE");
+      assert.ok(existsSync(licensePath), `${entry.name}: package-specific LICENSE file is required`);
+      const licenseText = readFileSync(licensePath, "utf8");
+      assert.ok(licenseText.trim().length > 0, `${entry.name}: LICENSE must not be empty`);
+      if (pkg.license === defaultLicense) {
+        assert.equal(licenseText, defaultLicenseText, `${entry.name}: default license text must match root`);
+      }
       if (pkg.dsh?.bundle?.patch) {
         assert.ok(
           resolveBundleFiles(dir, pkg).includes("LICENSE"),
-          `${entry.name}: packaged zip must contain LICENSE`
+          `${entry.name}: packaged bundle must contain its own LICENSE`
         );
       }
+      packageManifests.set(entry.name, pkg);
     }
 
     for (const { name, manifest } of products) {
+      const pkg = packageManifests.get(name);
+      assert.ok(pkg, `${name}: release product must have a package manifest`);
       assert.equal(
         manifest.license_expression,
-        license,
-        `${name}: release license must match package license`
+        pkg.license,
+        `${name}: release license must match its package license, not the repository default`
       );
     }
   });
