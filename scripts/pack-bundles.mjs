@@ -14,6 +14,7 @@
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { parseBoundedPeerRange } from "./dsh-peer-compat.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGES_DIR = join(ROOT, "packages");
@@ -233,6 +234,17 @@ function validateBundle(dir) {
   if (typeof manifest.name !== "string" || manifest.name.trim() === "") errors.push("package.json 缺少 name");
   if (typeof manifest.version !== "string" || manifest.version.trim() === "") errors.push("package.json 缺少 version");
   if (manifest.type !== "module") errors.push('package.json 需声明 "type": "module"');
+
+  // Check published peer metadata, not just the pinned build dependencies.
+  // This runs for every bundle that declares a DSH tools peer, including templates.
+  const toolsPeer = manifest.peerDependencies?.["@deepseek-ai/dsh-tools"];
+  if (toolsPeer !== undefined) {
+    try {
+      parseBoundedPeerRange(toolsPeer);
+    } catch (error) {
+      errors.push(`Invalid DSH tools compatibility range: ${error.message}`);
+    }
+  }
 
   const patchRel = manifest?.dsh?.bundle?.patch;
   // Internal shared libraries (such as @fongap-labs/shared) do not declare dsh.bundle.patch; skip bundle validation
