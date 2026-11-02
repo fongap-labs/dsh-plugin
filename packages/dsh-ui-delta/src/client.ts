@@ -1006,6 +1006,9 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 }
 .ens-pill-btn:active { background: var(--dsw-alias-interactive-bg-active); }
 .ens-pill-btn:disabled { opacity: .5; cursor: not-allowed; }
+.ens-session-approval-button { display: block; margin: 8px auto 0; padding: 9px 16px; }
+.ens-session-approval { width: 100%; min-width: 0; }
+
 /* a pill button inside a column keeps its own width, not the full row */
 .ens-privacy > .ens-pill-btn { align-self: flex-start; margin-top: 4px; }
 .ens-pill-btn-primary { border-color: var(--dsw-alias-state-business-primary); color: var(--dsw-alias-state-business-primary); }
@@ -3427,6 +3430,150 @@ const MODULES: ModuleDef[] = [
           )), 'dsh-ui-delta: settings module');
         } catch (error) {
           console.warn('[dsh-ui-delta] settings module unavailable:', error);
+        }
+
+        // Session-scoped approval reuse. Only exact previously approved tool-call
+        // bytes and the same live Session binding qualify. The Host's existing
+        // PendingApproval.answer('allowed-once') remains the only grant path,
+        // preserving approval/asked + approval/decided audit events and 'never'.
+        try {
+          interface DeltaPendingApproval {
+            kind: string;
+            key: string;
+            sessionId: string;
+            toolName: string;
+            callId?: string;
+            reason?: string;
+            displayReason?: { en?: string; [language: string]: string | undefined };
+            answerable: boolean;
+            answer(outcome: 'allowed-once' | 'rejected'): Promise<void>;
+          }
+          interface DeltaSessionBinding {
+            eventSource: { getSnapshot(): { entries: ReadonlyArray<{
+              type: string;
+              event?: { type: string; data?: {
+                callId?: string; name?: string; arguments?: string;
+              } };
+            }> } };
+          }
+          interface DeltaApprovalServices {
+            sessions?: { binding(id: string): DeltaSessionBinding | undefined };
+            uiSession?: { sessionStatus: {
+              getSnapshot(): ReadonlyMap<string, { pendingInteraction?: DeltaPendingApproval }>;
+              subscribe(onChange: () => void): () => void;
+            } };
+          }
+          const services = ctx as HarnessClientContext & DeltaApprovalServices;
+          const sessions = services.sessions;
+          const status = services.uiSession?.sessionStatus;
+          if (sessions && status) {
+            const ReactApproval = require('react');
+            const hApproval = ReactApproval.createElement;
+            // Grants are intentionally ephemeral: no localStorage, no disk
+            // persistence, no cross-tab transfer, no fork/subagent inheritance.
+            const grants = new Map<string, { binding: DeltaSessionBinding; signatures: Set<string> }>();
+            const handled = new WeakSet<object>();
+            const fingerprint = (approval: DeltaPendingApproval) => {
+              if (!approval.callId || !approval.toolName || !approval.answerable) return null;
+              const binding = sessions.binding(approval.sessionId);
+              if (!binding) return null;
+              const entries = binding.eventSource.getSnapshot().entries;
+              for (let index = entries.length - 1; index >= 0; index -= 1) {
+                const record = entries[index];
+                const event = record?.type === 'event' ? record.event : undefined;
+                if (event?.type !== 'tool/call' || event.data?.callId !== approval.callId) continue;
+                if (event.data.name !== approval.toolName || typeof event.data.arguments !== 'string') return null;
+                // Retain the exact raw arguments. No permissive tool-name-only
+                // rules, semantic normalization, wildcards or path prefixes.
+                return {
+                  binding,
+                  signature: JSON.stringify([approval.toolName, event.data.arguments, approval.reason ?? null]),
+                };
+              }
+              return null;
+            };
+            const eligible = (approval: DeltaPendingApproval) => {
+              const candidate = fingerprint(approval);
+              if (!candidate) return false;
+              const grant = grants.get(approval.sessionId);
+              return grant?.binding === candidate.binding && grant.signatures.has(candidate.signature);
+            };
+            const reuseApprovals = () => {
+              for (const [sessionId, detail] of status.getSnapshot()) {
+                const approval = detail.pendingInteraction;
+                if (approval?.kind !== 'approval' || !approval.answerable || handled.has(approval)) continue;
+                if (approval.sessionId !== sessionId || !eligible(approval)) continue;
+                handled.add(approval);
+                // Fail closed on any session or approval transport error.
+                void approval.answer('allowed-once').catch(() => {});
+              }
+            };
+            ctx.effect(() => {
+              const unsubscribe = status.subscribe(reuseApprovals);
+              reuseApprovals();
+              return () => { unsubscribe(); grants.clear(); };
+            }, 'dsh-ui-delta: session approval reuse');
+            interface DeltaApprovalProps {
+              matched: DeltaPendingApproval;
+              renderFactorySlot(name: string, props: Record<string, unknown>): unknown;
+            }
+            function DeltaApprovalComposer(props: DeltaApprovalProps) {
+              const approval = props.matched;
+              const candidate = fingerprint(approval);
+              const allowSession = async () => {
+                const current = fingerprint(approval);
+                if (!current || !approval.answerable) return;
+                let grant = grants.get(approval.sessionId);
+                if (!grant || grant.binding !== current.binding) {
+                  grant = { binding: current.binding, signatures: new Set() };
+                  grants.set(approval.sessionId, grant);
+                }
+                if (grant.signatures.size >= 100) return;
+                grant.signatures.add(current.signature);
+                try {
+                  await approval.answer('allowed-once');
+                } catch (error) {
+                  grant.signatures.delete(current.signature);
+                  throw error;
+                }
+              };
+              const reason = approval.displayReason
+                ? (approval.displayReason[isZhUi() ? 'zh' : 'en'] || approval.displayReason.en)
+                : approval.reason;
+              const card = props.renderFactorySlot('conversation.approval.card', {
+                requestKey: approval.key,
+                title: reason || t('允许工具执行此操作？', 'Allow this tool operation?'),
+                ...(approval.callId ? { callId: approval.callId } : {}),
+                canAnswer: () => approval.answerable,
+                onAllow: () => approval.answer('allowed-once'),
+                onReject: () => approval.answer('rejected'),
+              });
+              return hApproval('div', { className: 'ens-session-approval' }, [
+                card,
+                candidate ? hApproval('button', {
+                  key: 'session', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary ens-session-approval-button',
+                  disabled: !approval.answerable,
+                  onClick: () => { void allowSession().catch(() => {}); },
+                  title: t(
+                    '只允许当前会话中相同工具、完全相同的参数与审批原因；其他操作仍需审批。刷新后失效。',
+                    'Only the same tool, identical raw arguments and reason in this session. Expires on refresh.',
+                  ),
+                }, t('本次会话允许', 'Allow in this session')) : null,
+              ]);
+            }
+            ctx.effect(() => ctx.slots.inject('conversation.composer', () => {
+              return (ctx.slots.register as unknown as (
+                options: Record<string, unknown>, component: unknown,
+              ) => unknown)({
+                name: 'conversation.composer',
+                priority: -10,
+                select: ({ pendingInteraction }: { pendingInteraction?: DeltaPendingApproval }) =>
+                  pendingInteraction?.kind === 'approval' ? pendingInteraction : null,
+              }, DeltaApprovalComposer);
+            }), 'dsh-ui-delta: session approval composer');
+          }
+        } catch (error) {
+          console.warn('[dsh-ui-delta] session approval enhancement unavailable:', error);
         }
 
         // NOTE: the shipped global-panel cells ('plugins', 'schedules') are NOT
