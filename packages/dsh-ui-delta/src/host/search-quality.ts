@@ -30,7 +30,7 @@ const collapse = (value: string): string => value.replace(/\s+/g, ' ').trim()
 export function safeResults(rows: readonly SearchRow[], maxResults = 5, snippetChars = 500): SearchRow[] {
   const seen = new Set<string>()
   const output: SearchRow[] = []
-  const cap = Math.max(1, Math.min(20, Math.trunc(maxResults) || 5))
+  const cap = Math.max(1, Math.min(60, Math.trunc(maxResults) || 5))
   for (const row of rows) {
     if (!row || typeof row !== 'object') continue
     const url = normalizeSearchUrl(String(row.url || ''))
@@ -51,7 +51,7 @@ const keywords = (query: string): string[] =>
 
 export function rankResults(query: string, rows: readonly SearchRow[], limit = 10): SearchRow[] {
   const terms = keywords(query)
-  const searched = safeResults(rows, 20, 1500)
+  const searched = safeResults(rows, 60, 1500)
   return searched.map((row, index) => {
     const title = row.title.toLocaleLowerCase()
     const body = row.content.toLocaleLowerCase()
