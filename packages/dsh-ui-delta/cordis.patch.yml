@@ -1,3 +1,10 @@
+# Override the default selected search provider without disabling the native web tools.
+# The profile may still override this row to select Exa, Tavily or DeepSeek.
+- id: web
+  config:
+    searchProvider: delta-duckduckgo
+    fetchProvider: http
+
 - insert:
     - id: dsh-ui-delta
       name: '@fongap-labs/dsh-ui-delta'

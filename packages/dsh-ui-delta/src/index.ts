@@ -4,6 +4,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { registerRoutes } from './host/routes.js'
+import { makeDuckDuckGoProvider } from './host/duckduckgo.js'
 
 export const name = '@fongap-labs/dsh-ui-delta'
 export const inject = ['webServer']
@@ -19,6 +20,14 @@ export function apply(ctx: Context): void {
   const optionalHost = ctx as unknown as {
     inject?: (dependencies: string[], callback: (child: unknown) => void) => unknown
   } | null
+  // Register a keyless source at the same Host seam as native web_search.
+  // The bundle patch selects this id; profile overrides can still select paid providers.
+  optionalHost?.inject?.(['web'], (child) => {
+    const web = (child as { web?: {
+      registerSearchProvider: (provider: ReturnType<typeof makeDuckDuckGoProvider>) => unknown
+    } }).web
+    web?.registerSearchProvider(makeDuckDuckGoProvider())
+  })
   optionalHost?.inject?.(['sessionLogDeepSeek'], (child) => {
     const service = (child as { sessionLogDeepSeek?: {
       registerExclusion: (exclude: () => boolean) => unknown
