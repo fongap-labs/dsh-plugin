@@ -39,7 +39,9 @@ const safeResults = (rows: readonly SearchRow[]): SearchRow[] => rows.filter(row
  * configured independent endpoint, otherwise the local Python ddgs library.
  * Never silently fall back to the official DeepSeek paid search provider.
  */
-export const searchWeb = async (query: string, signal?: AbortSignal): Promise<SearchRow[]> => {
+export const searchWeb = async (
+  query: string, signal?: AbortSignal, keyless: typeof searchPythonDdgs = searchPythonDdgs
+): Promise<SearchRow[]> => {
   signal?.throwIfAborted()
   query = query.trim().slice(0, 500)
   if (!query) throw new Error('search query required')
@@ -64,7 +66,7 @@ export const searchWeb = async (query: string, signal?: AbortSignal): Promise<Se
       content: String(hit.content || ''),
     })))
   }
-  try { return safeResults(await searchPythonDdgs(query, signal)) }
+  try { return safeResults(await keyless(query, signal)) }
   catch (error) {
     signal?.throwIfAborted()
     throw new SearchUnavailableError([error instanceof Error ? error.message : String(error)])
