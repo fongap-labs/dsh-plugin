@@ -11,12 +11,11 @@ const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*\\\[\x00-\x20])
 
 export function selectGitHubAccount(accounts: GitHubAccountConfig[], repository: string): GitHubAccountConfig {
   if (!REPOSITORY.test(repository)) throw new Error('invalid owner/repository')
-  const repo = repository.toLowerCase()
-  const exact = accounts.filter((account) => account.repositories.includes(repo))
-  const owner = repo.split('/')[0]!
-  const wildcard = accounts.filter((account) => account.repositories.includes(owner + '/*'))
-  const matches = exact.length ? exact : wildcard
-  if (matches.length !== 1) throw new Error(matches.length ? 'ambiguous GitHub account mapping' : 'no GitHub account configured for repository')
+  const owner = repository.split('/')[0]!.toLowerCase()
+  const matches = accounts.filter((account) => account.owner.toLowerCase() === owner)
+  if (matches.length !== 1) {
+    throw new Error(matches.length ? 'ambiguous GitHub owner mapping' : 'no GitHub account configured for repository owner ' + owner)
+  }
   return matches[0]!
 }
 
@@ -53,8 +52,8 @@ async function githubRequest(
 ): Promise<{ repository: string; account: string; data: any }> {
   const repo = await resolveRepository(ctx, exec, settings, repository)
   const account = selectGitHubAccount(settings.githubAccounts, repo)
-  const token = process.env[account.tokenEnv]
-  if (!token?.trim()) throw new Error('GitHub credential unavailable for account ' + account.id + ' (environment variable ' + account.tokenEnv + ')')
+  const token = account.token || (account.tokenEnv ? process.env[account.tokenEnv] : undefined)
+  if (!token?.trim()) throw new Error('GitHub credential unavailable for repository owner ' + account.owner)
   const url = API + path(repo)
   if (!url.startsWith(API + '/') || !new URL(url).hostname.endsWith('github.com')) throw new Error('invalid GitHub API URL')
   const response = await fetch(url, {
@@ -71,9 +70,9 @@ async function githubRequest(
     redirect: 'error',
   })
   if (!response.ok) {
-    throw new Error('GitHub API ' + response.status + ' for ' + repo + ' (' + account.id + ')')
+    throw new Error('GitHub API ' + response.status + ' for ' + repo + ' (' + account.owner + ')')
   }
-  return { repository: repo, account: account.id, data: response.status === 204 ? null : await response.json() }
+  return { repository: repo, account: account.owner, data: response.status === 204 ? null : await response.json() }
 }
 
 function requireWrites(settings: Settings): void {
