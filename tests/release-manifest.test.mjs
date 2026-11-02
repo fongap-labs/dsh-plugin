@@ -20,6 +20,7 @@ const projectsDir = join(repoRoot, "projects");
 const MANIFEST_KEYS = new Set([
   "artifact_name",
   "builds",
+  "changelog_entries",
   "license_expression",
   "node_version_file",
   "python_version_file",
@@ -31,7 +32,7 @@ const MANIFEST_KEYS = new Set([
   "schema_version",
   "target_repository",
 ]);
-const MANIFEST_REQUIRED_KEYS = [...MANIFEST_KEYS].filter((key) => key !== "root");
+const MANIFEST_REQUIRED_KEYS = [...MANIFEST_KEYS].filter((key) => key !== "root" && key !== "changelog_entries");
 const BUILD_KEYS = new Set(["assets", "attest_asset", "id", "runner_profile", "script", "target", "setup_rust"]);
 const REQUIRED_BUILD_KEYS = [...BUILD_KEYS].filter((key) => key !== "setup_rust");
 
@@ -108,6 +109,19 @@ describe("release manifests", () => {
       assert.ok(manifest.release_name.length >= 1, `${label} release_name must not be empty`);
       assert.equal(typeof manifest.release_notes, "string", `${label} release_notes must be a string`);
       assert.ok(manifest.release_notes.length <= 20000, `${label} release_notes is too long`);
+      if (manifest.changelog_entries !== undefined) {
+        assert.ok(Array.isArray(manifest.changelog_entries), `${label} changelog_entries must be an array`);
+        assert.ok(
+          manifest.changelog_entries.length >= 1 && manifest.changelog_entries.length <= 20,
+          `${label} changelog_entries must hold 1 to 20 entries`
+        );
+        for (const line of manifest.changelog_entries) {
+          assert.ok(
+            typeof line === "string" && line.length <= 300 && !/[\r\n]/.test(line),
+            `${label} changelog_entries contains an invalid line`
+          );
+        }
+      }
       assert.ok(
         typeof manifest.license_expression === "string" && manifest.license_expression.length >= 1,
         `${label} license_expression must not be empty`
