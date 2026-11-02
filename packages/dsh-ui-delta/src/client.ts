@@ -3449,7 +3449,7 @@ const MODULES: ModuleDef[] = [
             answer(outcome: 'allowed-once' | 'rejected'): Promise<void>;
           }
           interface DeltaSessionBinding {
-            eventSource: { getSnapshot(): { entries: ReadonlyArray<{
+            eventSource: { subscribe(onChange: () => void): () => void; getSnapshot(): { entries: ReadonlyArray<{
               type: string;
               event?: { type: string; data?: {
                 callId?: string; name?: string; arguments?: string;
@@ -3473,6 +3473,7 @@ const MODULES: ModuleDef[] = [
             // persistence, no cross-tab transfer, no fork/subagent inheritance.
             const grants = new Map<string, { binding: DeltaSessionBinding; signatures: Set<string> }>();
             const handled = new WeakSet<object>();
+            const eventObservers = new Map<string, { binding: DeltaSessionBinding; dispose: () => void }>();
             const fingerprint = (approval: DeltaPendingApproval) => {
               if (!approval.callId || !approval.toolName || !approval.answerable) return null;
               const binding = sessions.binding(approval.sessionId);
@@ -3499,19 +3500,44 @@ const MODULES: ModuleDef[] = [
               return grant?.binding === candidate.binding && grant.signatures.has(candidate.signature);
             };
             const reuseApprovals = () => {
+              const active = new Set<string>();
               for (const [sessionId, detail] of status.getSnapshot()) {
                 const approval = detail.pendingInteraction;
-                if (approval?.kind !== 'approval' || !approval.answerable || handled.has(approval)) continue;
-                if (approval.sessionId !== sessionId || !eligible(approval)) continue;
+                if (approval?.kind !== 'approval' || !approval.answerable) continue;
+                active.add(sessionId);
+                const binding = sessions.binding(sessionId);
+                const observer = eventObservers.get(sessionId);
+                if (observer && observer.binding !== binding) {
+                  observer.dispose();
+                  eventObservers.delete(sessionId);
+                  grants.delete(sessionId);
+                }
+                if (binding && !eventObservers.has(sessionId)) {
+                  eventObservers.set(sessionId, {
+                    binding,
+                    dispose: binding.eventSource.subscribe(reuseApprovals),
+                  });
+                }
+                if (handled.has(approval) || approval.sessionId !== sessionId || !eligible(approval)) continue;
                 handled.add(approval);
                 // Fail closed on any session or approval transport error.
                 void approval.answer('allowed-once').catch(() => {});
+              }
+              for (const [sessionId, observer] of eventObservers) {
+                if (active.has(sessionId)) continue;
+                observer.dispose();
+                eventObservers.delete(sessionId);
               }
             };
             ctx.effect(() => {
               const unsubscribe = status.subscribe(reuseApprovals);
               reuseApprovals();
-              return () => { unsubscribe(); grants.clear(); };
+              return () => {
+                unsubscribe();
+                for (const observer of eventObservers.values()) observer.dispose();
+                eventObservers.clear();
+                grants.clear();
+              };
             }, 'dsh-ui-delta: session approval reuse');
             interface DeltaApprovalProps {
               matched: DeltaPendingApproval;
