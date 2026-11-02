@@ -221,6 +221,42 @@ describe("release manifests", () => {
     }
   });
 
+  it("aligns package, release, and distributed license metadata", () => {
+    const licenseText = readFileSync(join(repoRoot, "LICENSE"), "utf8");
+    assert.match(licenseText, /Apache License\s+Version 2\.0/);
+    const license = readJson(join(repoRoot, "package.json")).license;
+    assert.equal(license, "Apache-2.0");
+
+    const packagesDir = join(repoRoot, "packages");
+    for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const dir = join(packagesDir, entry.name);
+      const manifestPath = join(dir, "package.json");
+      if (!existsSync(manifestPath)) continue;
+      const pkg = readJson(manifestPath);
+      assert.equal(pkg.license, license, `${entry.name}: package license must match root`);
+      assert.equal(
+        readFileSync(join(dir, "LICENSE"), "utf8"),
+        licenseText,
+        `${entry.name}: distributed license must match root`
+      );
+      if (pkg.dsh?.bundle?.patch) {
+        assert.ok(
+          resolveBundleFiles(dir, pkg).includes("LICENSE"),
+          `${entry.name}: packaged zip must contain LICENSE`
+        );
+      }
+    }
+
+    for (const { name, manifest } of products) {
+      assert.equal(
+        manifest.license_expression,
+        license,
+        `${name}: release license must match package license`
+      );
+    }
+  });
+
   it("packs package.json so the release version reaches the artifact", () => {
     for (const { name, manifest } of products) {
       const dir = join(repoRoot, manifest.root, name);

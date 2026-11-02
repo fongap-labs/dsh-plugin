@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "DSH (DeepSeek Harness) 原生 Bundle / Host Plugin 多插件 Monorepo",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@11.28.5",
   "engines": {
     "node": ">=20.10.0"
