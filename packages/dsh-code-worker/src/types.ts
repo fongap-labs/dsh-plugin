@@ -45,12 +45,14 @@ export interface LspServerConfig {
   args?: string[]
 }
 
-/** One GitHub identity and its explicitly assigned repositories. */
+/** A GitHub account selected automatically by the repository owner (user or organization). */
 export interface GitHubAccountConfig {
-  id: string
-  tokenEnv: string
-  login?: string
-  repositories: string[]
+  /** GitHub username or organization name (left side of owner/repository). */
+  owner: string
+  /** Personal access token. Set only in a local, untracked user profile. */
+  token?: string
+  /** Optional environment-variable alternative to a literal token. */
+  tokenEnv?: string
 }
 
 /** Plugin configuration as accepted from the Cordis patch file. */
