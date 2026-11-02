@@ -91,7 +91,7 @@ function validBranch(value: string): string {
 const string = { type: 'string', required: true } as const
 const optional = { type: 'string' } as const
 const responseSchema = {
-  type: 'object', properties: {
+  type: 'object', additionalProperties: false, properties: {
     repository: { type: 'string', required: true },
     account: { type: 'string', required: true },
     result: { type: 'string', required: true },
@@ -102,7 +102,7 @@ function tool(
   name: string,
   description: string,
   parameters: Record<string, any>,
-  action: (args: any, exec: Parameters<ToolDefinition['execute']>[1]) => Promise<unknown>,
+  action: (args: any, exec: Parameters<ToolDefinition['execute']>[1]) => Promise<{ repository: string; account: string; result: string }>,
 ): ToolDefinition {
   return defineTool({
     name: 'code_github_' + name,
