@@ -7,7 +7,7 @@ const manifest = JSON.parse(readFileSync(new URL('../packages/dsh-ui-delta/packa
 
 describe('session-scoped approval extension', () => {
   it('adds a real session option in the existing approval composer without replacing the Host audit path', () => {
-    assert.match(client, /本次会话允许/)
+    assert.match(client, /Allow in this session/)
     assert.match(client, /name: 'conversation\.composer'/)
     assert.match(client, /priority: -10/)
     assert.match(client, /renderFactorySlot\('conversation\.approval\.card'/)
