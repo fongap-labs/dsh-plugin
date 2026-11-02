@@ -242,6 +242,10 @@ html[data-theme="dark"] {
   border-color: transparent !important;
 }
 .wnFoaW_sessionRow.wnFoaW_selected::before { display: none !important; }
+/* Native session rows: preserve active-state dots, suppress only decorative idle/done dots. */
+[class*="sessionRow"] [data-state="idle"],
+[class*="sessionRow"] [data-state="done"] { display: none !important; }
+[class*="sessionRow"] [class*="rowResting"] { margin-left: auto; }
 
 /* HoverCard uses a hard-coded charcoal fill in the host. Follow the active
    Delta surfaces and labels for its session preview without touching other
@@ -2075,6 +2079,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               '新会话': '开始对话',
               '插件': '插件管理',
               '自动化任务': '定时任务',
+              '模型': '模型配置',
+              'Models': 'Model configuration',
             };
             function renameLabels() {
               const paint = (el: HTMLElement, text: string) => {
@@ -2091,6 +2097,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               document.querySelectorAll<HTMLElement>('.wtg9ga_newSession, .wtg9ga_panelRow').forEach(el => {
                 const next = LABEL_MAP[el.getAttribute('aria-label') || ''];
                 if (next) el.setAttribute('aria-label', next);
+              });
+              document.querySelectorAll<HTMLElement>('[class*="navCell"] [class*="navLabel"]').forEach(el => {
+                const next = LABEL_MAP[(el.textContent || '').trim()];
+                if (next) paint(el, next);
               });
               // the field already reads 搜索会话, so its hover tooltip is noise;
               // hide only that tooltip (matched by text) to keep others intact.
@@ -2970,7 +2980,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 const wrapped: SearchService['search'] = async (query, signal) => {
                   const base = await original.call(service, query, signal);
                   const needle = query.trim().toLocaleLowerCase();
-                  if (signal.aborted || !/\p{Script=Han}/u.test(needle)) return base;
+                  if (signal.aborted || !needle) return base;
                   const existing = base.ok && base.value ? base.value.items : [];
                   const configuredLimit = service.searchResultLimit;
                   const limit = typeof configuredLimit === 'number' && Number.isSafeInteger(configuredLimit)
@@ -3231,6 +3241,7 @@ const MODULES: ModuleDef[] = [
             // v0.1.0: vision and search settings live in the host. The page loads a masked view
             // and sends a new key once; it never keeps the key.
             const [hostCfg, setHostCfg] = React.useState<HostConfig | null>(null);
+            const [saveStatus, setSaveStatus] = React.useState<Record<string, string>>({});
             React.useEffect(() => {
               let isAlive = true;
               fetch('/dsh-ui-delta/config')
@@ -3239,9 +3250,15 @@ const MODULES: ModuleDef[] = [
                 .catch(() => { if (isAlive) setHostCfg({ error: true }); });
               return () => { isAlive = false; };
             }, []);
-            const saveHost = (section: string, fields: Record<string, unknown>) => fetch('/dsh-ui-delta/config', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ section, ...fields }),
-            }).then((r) => r.json()).then((d) => setHostCfg(d)).catch(() => {});
+            const saveHost = async (section: string, fields: Record<string, unknown>) => {
+              const r = await fetch('/dsh-ui-delta/config', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ section, ...fields }),
+              });
+              const d = await r.json();
+              if (!r.ok || d.error) throw new Error(d.error || 'HTTP ' + r.status);
+              setHostCfg(d);
+              return d;
+            };
             /**
              * v0.2.2 — one provider list per feature, several providers at a time.
              *
@@ -3279,11 +3296,11 @@ const MODULES: ModuleDef[] = [
                     key: 'nm', className: 'jrmgQW_input ens-provider-name', type: 'text',
                     placeholder: pick('服务商名称（如 硅基流动）', 'Provider name (e.g. SiliconFlow)'),
                     defaultValue: p.label || '',
-                    onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => saveHost(section, { provider: { id: p.id, label: ev.target.value } }),
+                    'data-provider-field': 'label',
                   }),
                   h('button', {
                     key: 'del', type: 'button', className: 'ens-pill-btn',
-                    onClick: () => saveHost(section, { removeProvider: p.id }),
+                    onClick: () => { saveHost(section, { removeProvider: p.id }).catch((error) => setSaveStatus(prev => ({ ...prev, [p.id || '']: String(error) }))); },
                   }, pick('删除', 'Remove')),
                 ]),
                 fieldLabel(isVision ? pick('接口地址（OpenAI 兼容）', 'API base URL (OpenAI-compatible)') : pick('搜索接口地址', 'Search endpoint')),
@@ -3291,32 +3308,44 @@ const MODULES: ModuleDef[] = [
                   key: 'url', className: 'jrmgQW_input', type: 'text',
                   placeholder: isVision ? 'https://api.example.com/v1' : 'https://api.tavily.com/search',
                   defaultValue: (isVision ? p.baseUrl : p.endpoint) || '',
-                  onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => saveHost(section, isVision
-                    ? { provider: { id: p.id, baseUrl: ev.target.value } }
-                    : { provider: { id: p.id, endpoint: ev.target.value } }),
+                  'data-provider-field': isVision ? 'baseUrl' : 'endpoint',
                 }),
                 isVision ? fieldLabel(pick('视觉模型', 'Vision model')) : null,
                 isVision ? h('input', {
                   key: 'model', className: 'jrmgQW_input', type: 'text', placeholder: 'gpt-4o-mini',
                   defaultValue: p.model || '',
-                  onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => saveHost(section, { provider: { id: p.id, model: ev.target.value } }),
+                  'data-provider-field': 'model',
                 }) : null,
                 fieldLabel(pick('API 密钥', 'API key')),
                 h('input', {
                   key: 'key', className: 'jrmgQW_input', type: 'password',
                   placeholder: p.keyHint ? pick(`已保存 ${p.keyHint}，输入新值可替换`, `Saved ${p.keyHint}; type to replace`) : '',
-                  onBlur: (ev: HarnessReactChangeEvent<HTMLInputElement>) => {
-                    const v = ev.target.value.trim();
-                    if (!v) return;
-                    ev.target.value = '';
-                    // a nameless card takes its name from the endpoint host, so the list
-                    // never shows two identical blank rows
-                    const auto = named ? {} : (() => {
-                      try { return { label: new URL((isVision ? p.baseUrl : p.endpoint) || '').host }; } catch { return {}; }
-                    })();
-                    saveHost(section, { provider: { id: p.id, apiKey: v, ...auto } });
-                  },
+                  'data-provider-field': 'apiKey',
                 }),
+                h('div', { key: 'saveRow' }, [
+                  h('button', {
+                    key: 'save', type: 'button', className: 'ens-pill-btn',
+                    onClick: async (ev: { currentTarget: HTMLElement }) => {
+                      const card = ev.currentTarget.closest('.ens-provider');
+                      if (!card) return;
+                      const fields: Record<string, string> = {};
+                      card.querySelectorAll<HTMLInputElement>('input[data-provider-field]').forEach(input => {
+                        if (input.dataset.providerField && (input.dataset.providerField !== 'apiKey' || input.value.trim()))
+                          fields[input.dataset.providerField] = input.value;
+                      });
+                      setSaveStatus(prev => ({ ...prev, [p.id || '']: pick('保存中…', 'Saving…') }));
+                      try {
+                        await saveHost(section, { provider: { id: p.id, ...fields } });
+                        const keyInput = card.querySelector<HTMLInputElement>('input[data-provider-field="apiKey"]');
+                        if (keyInput) keyInput.value = '';
+                        setSaveStatus(prev => ({ ...prev, [p.id || '']: pick('已保存', 'Saved') }));
+                      } catch (error) {
+                        setSaveStatus(prev => ({ ...prev, [p.id || '']: pick('保存失败：', 'Save failed: ') + String(error) }));
+                      }
+                    },
+                  }, pick('保存配置', 'Save settings')),
+                  h('span', { key: 'status', role: 'status', className: 'ens-set-desc' }, saveStatus[p.id || ''] || ''),
+                ]),
                 p.active ? h('div', { key: 'act', className: 'ens-set-name' }, pick('当前使用', 'In use')) : null,
               ]);
             };
@@ -3330,7 +3359,7 @@ const MODULES: ModuleDef[] = [
                   : h('div', { key: 'empty', className: 'ens-privacy-body' }, pick('尚未配置服务商。', 'No provider configured yet.')),
                 h('button', {
                   key: 'add', type: 'button', className: 'ens-pill-btn',
-                  onClick: () => saveHost(section, { addProvider: true }),
+                  onClick: () => { saveHost(section, { addProvider: true }).catch((error) => setSaveStatus(prev => ({ ...prev, [section]: String(error) }))); },
                 }, pick('添加服务商', 'Add provider')),
               ]);
             };
@@ -3366,7 +3395,7 @@ const MODULES: ModuleDef[] = [
             ]);
             return h('div', { className: 'ens-settings' }, [
               h('div', { key: 'h', className: 'ens-set-head' }, [
-                h('div', { key: 't', className: 'ens-set-title' }, 'Delta UI'),
+                h('div', { key: 't', className: 'ens-set-title' }, pick('Delta 配置', 'Delta settings')),
                 h('div', { key: 'd', className: 'ens-set-sub' }, pick(
                   '外观与功能模块。仅「可用」的开关可操作，其余标注其真实状态。',
                   'Appearance and feature modules. Only available switches are operable; the rest state their real status.',
@@ -3379,14 +3408,14 @@ const MODULES: ModuleDef[] = [
               h('div', { key: 'p', className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, pick('隐私', 'Privacy')),
                 h('div', { key: 'b', className: 'ens-privacy-body' }, pick(
-                  '本插件不收集、不上传任何数据，全部设置仅保存在本机浏览器。应用本身仅向已配置的模型服务发送推理请求；未发现任何第三方遥测或对话审查上传。',
-                  'This plugin collects and uploads nothing; every setting stays in this browser. The app only sends inference requests to your configured model provider; no third-party telemetry or review upload was found.',
+                  '本插件不会主动上传会话日志；官方 DeepSeek 上传功能仍须在宿主配置中关闭。视觉识别和联网搜索会向你配置的服务发送相关内容。',
+                  'This plugin excludes official DeepSeek session-log contributions, but the Host setting must also be disabled. Vision and web search send data to the services you configure.',
                 )),
               ]),
             ]);
           }
           ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register(
-            { name: 'settings.section', id: '@fongap-labs/dsh-ui-delta', order: 20, label: 'Delta UI' },
+            { name: 'settings.section', id: '@fongap-labs/dsh-ui-delta', order: 20, label: t('Delta 配置', 'Delta settings') },
             DeltaSettings,
           )), 'dsh-ui-delta: settings module');
         } catch (error) {
