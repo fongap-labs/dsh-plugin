@@ -5,7 +5,7 @@ import type { GitHubAccountConfig, Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 
 const API = 'https://api.github.com'
-const REPOSITORY = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/
+const REPOSITORY = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?\/(?!\.{1,2}$)[a-zA-Z0-9_.-]{1,100}$/
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\x00-\x1f]+$/
 const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*\\\[\x00-\x20])[^/]+(?:\/[^/]+)*$/
 
@@ -22,7 +22,7 @@ export function selectGitHubAccount(accounts: GitHubAccountConfig[], repository:
 export function repositoryFromRemote(remote: string): string | undefined {
   const value = remote.trim()
   const match = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+?)(?:\.git)?\/?$/.exec(value)
-  return match?.[1]
+  return match?.[1] && REPOSITORY.test(match[1]) ? match[1] : undefined
 }
 
 async function resolveRepository(ctx: Context, exec: Parameters<ToolDefinition['execute']>[1], settings: Settings, supplied?: string): Promise<string> {
