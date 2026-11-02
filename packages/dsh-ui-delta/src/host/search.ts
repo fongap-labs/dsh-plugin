@@ -105,7 +105,7 @@ export const searchWeb = async (query: string, _ctx?: OptionalWebContext): Promi
       body: JSON.stringify({ query, max_results: 5 }),
       signal: AbortSignal.timeout(30_000),
     })
-    if (!response.ok) throw new Error(`独立搜索服务 HTTP ${response.status}`)
+    if (!response.ok) throw new Error(`Independent search provider HTTP ${response.status}`)
     const data = (await response.json()) as { results?: SearchHit[] }
     const rows = Array.isArray(data?.results) ? data.results : []
     return safeResults(rows.map(hit => ({
