@@ -241,6 +241,7 @@ html[data-theme="dark"] {
   box-shadow: none !important;
   border-color: transparent !important;
 }
+.wnFoaW_sessionRow.wnFoaW_selected:hover { background: var(--dsw-alias-interactive-bg-hover) !important; }
 .wnFoaW_sessionRow.wnFoaW_selected::before { display: none !important; }
 /* Native session rows: preserve active-state dots, suppress only decorative idle/done dots. */
 [class*="sessionRow"] [data-state="idle"],
@@ -262,14 +263,14 @@ html[data-theme="dark"] {
 [style*="--dsh-hover-preview-fade"] [class*="_hoverStatus"] { color: var(--dsw-alias-label-tertiary) !important; }
 /* Keep a session's title, status and time together while retaining optional details. */
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) {
-  flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
 }
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTitle"] {
-  order: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  order: 0; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverStatus"] { order: 1; white-space: nowrap; }
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTime"] { order: 2; white-space: nowrap; }
-[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverPath"] { order: 3; flex-basis: 100%; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverPath"] { order: 3; width: 100%; }
 
 /* 顶栏操作区：后台任务与创造模式对调位置（后台任务居左，创造模式居右） */
 .an3WzG_headerActions,
@@ -347,6 +348,8 @@ body {
 /* v0.1.0: the logo row was a 50px empty strip, pushing the search far down. */
 .wtg9ga_logoRow { height: 6px; margin-bottom: 0; }
 [data-windows-titlebar] .wtg9ga_root .wtg9ga_logoRow { height: 6px; margin: 0; }
+/* The account tooltip belongs to Delta alone; suppress conflicting native title hints. */
+._5Qcc8a_root[data-ens-balance] [title] { pointer-events: auto; }
 /* v0.1.0: the trajectory pane uses the conversation column's width and centring,
    so both tabs keep the same left and right gutter. */
 /* v0.1.0: account balance beside the avatar, shown only when signed in. */
@@ -2036,6 +2039,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 return;
               }
               const walletLines: string[] = [];
+              account.querySelectorAll<HTMLElement>('[title]').forEach(el => { if (el === account || el.classList.contains('_5Qcc8a_trigger')) el.removeAttribute('title'); });
               try {
                 const balance = launcherOps()?.hooks?.account?.getSnapshot?.()?.details?.balance;
                 if (balance?.status === 'ready') {
@@ -2046,6 +2050,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 }
               } catch { /* Unavailable balance must never be shown as zero. */ }
               account.setAttribute('data-ens-balance', walletLines.join('\n') || t('余额暂不可用', 'Balance unavailable'));
+              const trigger = account.querySelector<HTMLElement>('._5Qcc8a_trigger');
+              trigger?.removeAttribute('title');
+              trigger?.setAttribute('aria-label', t('查看账户余额', 'View account balance'));
             }
 
             // #2/#3 navigation copy. The owning packages own these slot cells,
@@ -2054,6 +2061,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             const LABEL_MAP: Record<string, string> = {
               '新会话': '开始对话',
               '插件': '插件管理',
+              '账户与余额': '账户详情',
+              'Account & Balance': 'Account details',
+              'Account and Balance': 'Account details',
               '自动化任务': '定时任务',
             };
             function renameLabels() {
@@ -2067,6 +2077,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               document.querySelectorAll<HTMLElement>('.wtg9ga_panelTitle').forEach(el => {
                 const next = LABEL_MAP[el.textContent || ''];
                 if (next) paint(el, next);
+              });
+              document.querySelectorAll<HTMLElement>('[class*="navCell"], [class*="settings"] [role="tab"], [class*="settings"] button').forEach(el => {
+                if (el.children.length === 0 && (el.textContent || '').trim() === '账户与余额') paint(el, '账户详情');
               });
               document.querySelectorAll<HTMLElement>('.wtg9ga_newSession, .wtg9ga_panelRow').forEach(el => {
                 const next = LABEL_MAP[el.getAttribute('aria-label') || ''];
