@@ -15,7 +15,7 @@ export function redactKnownTokens(text: string, settings: Settings): string {
     const token = account.token || (account.tokenEnv ? process.env[account.tokenEnv] : undefined)
     if (token && token.length >= 8) value = value.split(token).join('[REDACTED]')
   }
-  return value
+  return value.replace(/\\b(?:github_pat_[a-zA-Z0-9_]{12,}|gh[pousr]_[a-zA-Z0-9]{20,})\\b/g, '[REDACTED]')
 }
 
 async function choosePackageManager(cwd: string): Promise<'pnpm' | 'yarn' | 'bun' | 'npm'> {
@@ -62,7 +62,7 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       const argv = manager === 'npm' ? ['run', args.script] : ['run', args.script]
       const result = await runCommand(ctx, {
         command: manager, args: argv, cwd, signal: exec.signal,
-        timeoutMs: 120_000, maxOutputBytes: MAX_OUTPUT,
+        timeoutMs: 120_000, maxOutputBytes: MAX_OUTPUT, hostOnly: true,
       })
       const exitCode = result.exitCode ?? -1
       return {
