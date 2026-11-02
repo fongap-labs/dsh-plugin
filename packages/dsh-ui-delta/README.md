@@ -19,7 +19,7 @@ DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta UI)。
 
 ## 搜索与账户展示
 
-插件的 `/search 查询词` 功能不是模型调用的 `web_search` 工具：它只把搜索结果填入输入框，等待用户确认和发送。现在优先使用 Delta 配置中的 Tavily 兼容搜索接口；未配置时复用 Harness 原生 `ctx.web` 搜索服务。Delta UI 的 Bundle 默认把宿主 `web_search` 提供方指定为无需密钥的 DuckDuckGo，`web_fetch` 仍使用原生 HTTP 抓取。
+插件的 `/search 查询词` 功能不是模型调用的 `web_search` 工具：它只把搜索结果填入输入框，等待用户确认和发送。它优先使用 Delta 配置中的 Tavily 兼容搜索接口；未配置时调用 Python `ddgs`，失败后回退到 Bing RSS。模型的 `web_search` 继续走 Harness 的 `ctx.web` 接口，默认使用同一个 Python DDGS provider；网页读取仍使用原生 HTTP 抓取。
 
 **模型密钥不能代替搜索密钥。** Harness 未安装 Delta UI 时默认使用 `deepseek-official` 进行搜索，需单独具备官方认证。安装 Delta UI 的 Bundle 后默认选择 `delta-duckduckgo`，不需要官方搜索 API Key。使用其他模型网关时，建议为宿主指定独立搜索服务商（例如 Exa），或在 Delta 配置中提供 Tavily 兼容接口。若没有可用搜索服务，插件将明确说明配置失败原因；不会伪造新闻。
 
@@ -31,7 +31,9 @@ Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表�
 
 ## 免密钥搜索与原生工具
 
-安装本 Bundle 后，`web.searchProvider` 默认设为 `delta-duckduckgo`，但用户 Profile 中对 `web` 的覆盖配置优先。适配器通过 DuckDuckGo HTML 搜索页获取搜索结果，不需要 API Key；搜索结果可能因限流、地区封锁或网页结构变动而失败，遇到这种情况会报错而不会编造内容。请在宿主代理或网络连接可用的前提下测试。
+安装本 Bundle 后，`web.searchProvider` 默认设为 `delta-duckduckgo`，并禁用 Harness 自带的 DeepSeek Messages Search provider 和 Search/Fetch API package，避免它们发起搜索请求。若用户 Profile 显式覆盖了 `web.searchProvider`，需改为 `delta-duckduckgo` 才能使用模型搜索；旧值不会回退调用已禁用的 DeepSeek provider。Python DDGS 失败时模型搜索会返回错误，不会改用 DeepSeek。
+
+运行 Delta 的 Python 环境必须安装 `ddgs>=9`。建议将环境变量 `DSH_DDGS_PYTHON` 指向 OpenWorker 虚拟环境的 Python 可执行文件（Windows 常见为 `<OpenWorker>/.venv/Scripts/python.exe`，macOS/Linux 常见为 `<OpenWorker>/.venv/bin/python`）；未设置时使用系统 PATH 中的 `python`。如果网络不可达或该环境没有 `ddgs`，搜索会返回错误。
 
 Delta UI 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx.web` 注册一个 Provider。普通对话的自动搜索取决于所选 Agent preset 是否实际加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用 Harness `web-fetch-http` 的安全规则。Exa、Tavily、Brave 等 API 型服务商仍可按各自 Host 提供方或独立接口配置使用，费用与密钥由服务商决定。
 
