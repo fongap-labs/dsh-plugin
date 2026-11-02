@@ -1,8 +1,8 @@
-import { access } from 'node:fs/promises'
+import { access, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, isSubprocessAvailable, runCommand, resolveInside } from '@fongap-labs/shared'
+import { defineTool, isSubprocessAvailable, runCommand, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { readTextSafe, resolveRoot } from '../runtime.js'
 
@@ -53,15 +53,20 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       if (!SCRIPTS.has(args.script)) throw new Error('script is not allowlisted')
       const root = await resolveRoot(ctx, exec, settings)
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
-      const raw = await readTextSafe(ctx, exec, cwd, 'package.json')
+      const canonicalRoot = await realpath(root)
+      const canonicalCwd = await realpath(cwd)
+      if (!isPathInside(canonicalRoot, canonicalCwd)) throw new Error('script directory escapes the workspace')
+      const packageFile = await realpath(join(canonicalCwd, 'package.json'))
+      if (!isPathInside(canonicalRoot, packageFile)) throw new Error('package.json escapes the workspace')
+      const raw = await readTextSafe(ctx, exec, canonicalCwd, 'package.json')
       const pkg: unknown = JSON.parse(raw)
       if (!pkg || typeof pkg !== 'object') throw new Error('invalid package.json')
       const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
       if (typeof scripts?.[args.script] !== 'string') throw new Error('package.json does not declare script ' + args.script)
-      const manager = await choosePackageManager(cwd)
+      const manager = await choosePackageManager(canonicalCwd)
       const argv = manager === 'npm' ? ['run', args.script] : ['run', args.script]
       const result = await runCommand(ctx, {
-        command: manager, args: argv, cwd, signal: exec.signal,
+        command: manager, args: argv, cwd: canonicalCwd, signal: exec.signal,
         timeoutMs: 120_000, maxOutputBytes: MAX_OUTPUT, hostOnly: true,
       })
       const exitCode = result.exitCode ?? -1
