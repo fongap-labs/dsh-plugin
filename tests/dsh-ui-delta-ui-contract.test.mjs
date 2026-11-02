@@ -62,3 +62,25 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.ok(readme.includes(expectedUrl), 'README tarball URL must match the npm version and release manifest');
   });
 });
+
+describe('Delta settings privacy and usability', () => {
+  const host = readFileSync(new URL('../packages/dsh-ui-delta/src/index.ts', import.meta.url), 'utf8');
+  const config = readFileSync(new URL('../packages/dsh-ui-delta/src/host/config.ts', import.meta.url), 'utf8');
+  it('excludes official DeepSeek session log contributions before reading them', () => {
+    assert.match(host, /registerExclusion\(\(\) => true\)/);
+  });
+  it('accepts credentials in the same provider update as the other fields', () => {
+    assert.match(config, /input\.apiKey\.trim\(\)/);
+    assert.match(client, /data-provider-field/);
+    assert.match(client, /保存配置/);
+    assert.match(client, /if \(!r\.ok \|\| d\.error\)/);
+  });
+  it('searches all nonempty text queries, not only Chinese', () => {
+    assert.match(client, /if \(signal\.aborted \|\| !needle\) return base/);
+  });
+  it('keeps privacy copy precise and labels the settings section correctly', () => {
+    assert.match(client, /Delta 配置/);
+    assert.match(client, /模型配置/);
+    assert.doesNotMatch(client, /本插件不收集、不上传任何数据/);
+  });
+});
