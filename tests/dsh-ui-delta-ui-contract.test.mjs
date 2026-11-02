@@ -72,15 +72,15 @@ describe('Delta settings privacy and usability', () => {
   it('accepts credentials in the same provider update as the other fields', () => {
     assert.match(config, /input\.apiKey\.trim\(\)/);
     assert.match(client, /data-provider-field/);
-    assert.match(client, /保存配置/);
+    assert.match(client, /Save settings/);
     assert.match(client, /if \(!r\.ok \|\| d\.error\)/);
   });
   it('searches all nonempty text queries, not only Chinese', () => {
     assert.match(client, /if \(signal\.aborted \|\| !needle\) return base/);
   });
   it('keeps privacy copy precise and labels the settings section correctly', () => {
-    assert.match(client, /Delta 配置/);
-    assert.match(client, /模型配置/);
-    assert.doesNotMatch(client, /本插件不收集、不上传任何数据/);
+    assert.match(client, /Delta settings/);
+    assert.match(client, /Model configuration/);
+    assert.doesNotMatch(client, /This plugin collects and uploads nothing/);
   });
 });
