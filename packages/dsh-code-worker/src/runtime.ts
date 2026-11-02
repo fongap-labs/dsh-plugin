@@ -3,7 +3,7 @@ import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside } from '@fongap-labs/shared'
-import type { CodeWorkerConfig, LspServerConfig, Settings } from './types.js'
+import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
 
 export const TOOL_PREFIX = 'code_'
 const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
@@ -18,6 +18,9 @@ export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
   'Use the `code_multi_edit` tool for batch file edits instead of repeated single edits.',
   'Use `code_git_status` and `code_git_diff` to inspect repository state before and after changes.',
+  'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
+  'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',
+  'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
   'Use `code_lsp_probe` to detect available language servers in the current workspace.',
   'Always pass paths relative to the workspace root; absolute paths outside the workspace are rejected by the sandbox.',
 ].join('\n')
@@ -29,10 +32,49 @@ export function errorMessage(error: unknown): string {
   return message ? String(message) : String(error)
 }
 
+/** Reject invalid or overlapping account configuration before any token can be used. */
+export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[] {
+  if (accounts === undefined) return []
+  if (!Array.isArray(accounts)) throw new Error('github.accounts must be an array')
+  const ids = new Set<string>()
+  const result: GitHubAccountConfig[] = []
+  for (const item of accounts) {
+    if (!item || typeof item !== 'object') throw new Error('invalid GitHub account')
+    const account = item as Partial<GitHubAccountConfig>
+    if (typeof account.id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(account.id)) {
+      throw new Error('GitHub account id must contain only letters, digits, _ or -')
+    }
+    if (ids.has(account.id.toLowerCase())) throw new Error('duplicate GitHub account id')
+    ids.add(account.id.toLowerCase())
+    if (typeof account.tokenEnv !== 'string' || !/^[A-Z_][A-Z0-9_]*$/.test(account.tokenEnv)) {
+      throw new Error('GitHub tokenEnv must name an uppercase environment variable')
+    }
+    if (account.login !== undefined &&
+      (typeof account.login !== 'string' || !/^[a-zA-Z0-9-]{1,39}$/.test(account.login))) {
+      throw new Error('invalid GitHub account login')
+    }
+    if (!Array.isArray(account.repositories) || account.repositories.length === 0 ||
+      !account.repositories.every((pattern) =>
+        typeof pattern === 'string' &&
+        /^[a-zA-Z0-9_.-]+\/(?:[a-zA-Z0-9_.-]+|\*)$/.test(pattern))) {
+      throw new Error('github.accounts[].repositories must contain owner/repo or owner/*')
+    }
+    result.push({
+      id: account.id,
+      tokenEnv: account.tokenEnv,
+      ...(account.login ? { login: account.login } : {}),
+      repositories: account.repositories.map((pattern) => pattern.toLowerCase()),
+    })
+  }
+  return result
+}
+
 export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings {
   const cfg: CodeWorkerConfig = config && typeof config === 'object' ? config : {}
   const git = cfg.git && typeof cfg.git === 'object' ? cfg.git : {}
   const lsp = cfg.lsp && typeof cfg.lsp === 'object' ? cfg.lsp : {}
+  const github = cfg.github && typeof cfg.github === 'object' ? cfg.github : {}
+  const accounts = validateGitHubAccounts(github.accounts)
   const servers =
     Array.isArray(lsp.servers) && lsp.servers.length > 0 ? lsp.servers : DEFAULT_LSP_SERVERS
   return {
@@ -41,6 +83,9 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
     gitEnabled: git.enabled !== false,
     gitCommand:
       typeof git.command === 'string' && git.command.trim() !== '' ? git.command.trim() : 'git',
+    githubEnabled: github.enabled !== false && accounts.length > 0,
+    githubAllowWrites: github.allowWrites === true,
+    githubAccounts: accounts,
     lspServers: servers.filter(
       (server): server is LspServerConfig =>
         Boolean(server) && typeof server.command === 'string',
