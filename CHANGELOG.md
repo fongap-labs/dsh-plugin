@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.10](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.10) - 2026-11-02
+
+### 新增
+
+- 为插件模板提供一键生成器，自动同步包名、Cordis 标识、构建包装脚本、本地化信息和 Action Worker 发布清单，拒绝重复或非法名称。
+
+### 变更
+
+- 插件模板改用宿主原生工具服务，避免新插件再次引入精确版本耦合。
+- 将插件模板的配置与演示工具拆分为独立 Host 模块，默认不注入示例提示词，统一注册与卸载清理，并允许新建插件使用通用构建脚本。
+
+### 修复
+
+- 取消编程插件不必要的工具运行时版本绑定，使宿主更新候选版本时不会因精确依赖声明被误判为不兼容。
+- Delta UI 的模型联网搜索与手动搜索统一使用 Python ddgs 执行免密钥检索，优先使用 DuckDuckGo 并保留库内自动后备引擎；移除旧版网页解析搜索逻辑，补充依赖缺失提示及安装说明。
+- 恢复 Delta UI 设置、登录和登出的按钮响应，避免头像事件拦截阻断宿主账户菜单；当宿主设置无法打开时显示插件内置设置面板与诊断信息。
+
 ## [0.1.0-beta.1](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-code-worker-v0.1.0-beta.1) - 2026-11-02
 
 ### 新增
@@ -145,6 +162,7 @@
 - 三个发布清单（`projects/*/release.manifest.json`）的 `builds[].target` 由 `windows-x64` 改为合法 rustup target triple `x86_64-pc-windows-msvc`，修复 Action Worker 直接把它传给 `rustup toolchain install --target` 时下载 `rust-std` 失败导致的发布构建中断。
 - 打包产物现在始终包含 `package.json`（与 `npm pack` 行为一致），此前注入的发布版本只存在于工作区、不会出现在 zip 中，产物因此没有版本信息。
 - `scripts/build-release.ps1` 解析包管理器时把 `Get-Command` 的多个匹配结果当作单个路径，导致发布构建直接失败（`The term 'C:\hostedtoolcache\...\npm.cmd C:\Program Files\nodejs\npm.cmd' is not recognized`）。Windows runner 的 `npm.cmd` 同时存在于 hosted toolcache 与 `C:\Program Files\nodejs`，`$found.Source` 因此是数组，传给调用运算符后被拼成 `"<路径> <路径>"`；现改为逐个候选解析成唯一真实文件路径。
+
 
 
 
