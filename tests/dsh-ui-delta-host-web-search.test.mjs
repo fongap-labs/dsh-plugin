@@ -11,7 +11,7 @@ describe('shared Python ddgs search execution', () => {
     assert.match(search, /await keyless\(query, signal, undefined, limit\)/)
     assert.match(search, /keyless: typeof searchPythonDdgs = searchPythonDdgs/)
     assert.match(routes, /searchWeb\(query\)/)
-    assert.match(search, /searchWeb\(request\.query, signal, searchPythonDdgs, request\.maxResults\)/)
+    assert.match(search, /searchWeb\(request\.query, signal, searchPythonDdgs, limit\)/)
     assert.doesNotMatch(search, /searchBingRss|makeDuckDuckGoProvider\(\)\.search/)
   })
   it('does not use a paid official search API or blindly scrape HTML', () => {
