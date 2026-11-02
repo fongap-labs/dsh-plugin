@@ -15,6 +15,9 @@ export function apply(ctx: Context): void {
   // defense; users must still persist enabled: false in the Host profile so
   // disabling or uninstalling Delta UI cannot re-enable uploads.
   ctx.inject(['sessionLogDeepSeek'], (child) => {
-    child.sessionLogDeepSeek.registerExclusion(() => true)
+    const service = (child as unknown as { sessionLogDeepSeek?: {
+      registerExclusion: (exclude: () => boolean) => unknown
+    } }).sessionLogDeepSeek
+    service?.registerExclusion(() => true)
   })
 }
