@@ -145,6 +145,41 @@ export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinit
       const response = await githubRequest(ctx, exec, settings, args.repository, 'GET', (repo) => encodeRepo(repo) + '/pulls?per_page=30&state=' + state)
       return envelope(response, response.data.map((pr: any) => ({ number: pr.number, title: pr.title, state: pr.state, draft: pr.draft, html_url: pr.html_url })))
     }),
+    tool('checks', 'Inspect all check runs and commit statuses for a GitHub pull request, including central Action Worker check links.', {
+      repository: optional, prNumber: { type: 'integer', required: true },
+    }, async (args, exec) => {
+      if (!Number.isSafeInteger(args.prNumber) || args.prNumber <= 0) throw new Error('invalid pull request number')
+      const pr = await githubRequest(ctx, exec, settings, args.repository, 'GET', (repo) => encodeRepo(repo) + '/pulls/' + args.prNumber)
+      const sha = pr.data.head?.sha
+      if (typeof sha !== 'string' || !/^[a-f0-9]{40}$/.test(sha)) throw new Error('pull request head SHA unavailable')
+      const checks = await githubRequest(ctx, exec, settings, pr.repository, 'GET', (repo) => encodeRepo(repo) + '/commits/' + sha + '/check-runs?per_page=100')
+      const statuses = await githubRequest(ctx, exec, settings, pr.repository, 'GET', (repo) => encodeRepo(repo) + '/commits/' + sha + '/status?per_page=100')
+      return envelope(pr, {
+        number: args.prNumber, head: sha,
+        checks: (checks.data.check_runs ?? []).slice(0, 100).map((check: any) => ({
+          name: check.name, status: check.status, conclusion: check.conclusion,
+          url: check.html_url, summary: typeof check.output?.summary === 'string' ? check.output.summary.slice(0, 800) : '',
+        })),
+        statuses: (statuses.data.statuses ?? []).slice(0, 100).map((status: any) => ({
+          context: status.context, state: status.state, description: status.description, url: status.target_url,
+        })),
+      })
+    }),
+    tool('jobs', 'Inspect failed GitHub Actions jobs and steps by workflow run ID; for central CI use repository=fongap-labs/action-worker.', {
+      repository: optional, runId: { type: 'integer', required: true },
+    }, async (args, exec) => {
+      if (!Number.isSafeInteger(args.runId) || args.runId <= 0) throw new Error('invalid workflow run ID')
+      const response = await githubRequest(ctx, exec, settings, args.repository, 'GET', (repo) => encodeRepo(repo) + '/actions/runs/' + args.runId + '/jobs?per_page=100')
+      return envelope(response, {
+        runId: args.runId,
+        total: response.data.total_count,
+        jobs: (response.data.jobs ?? []).slice(0, 100).map((job: any) => ({
+          id: job.id, name: job.name, conclusion: job.conclusion, url: job.html_url,
+          failedSteps: (job.steps ?? []).filter((step: any) => step.conclusion === 'failure')
+            .map((step: any) => ({ name: step.name, number: step.number })),
+        })),
+      })
+    }),
     tool('branch', 'Create a feature branch from a known base branch without changing main.', { repository: optional, branch: string, base: optional }, async (args, exec) => {
       requireWrites(settings)
       const branch = validBranch(args.branch)
