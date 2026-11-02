@@ -2089,6 +2089,16 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
             }
 
+            const restoreNativeSearch = () => {
+              const dock = document.querySelector<HTMLElement>('.ens-search-dock');
+              if (!dock) return;
+              const host = document.querySelector<HTMLElement>('.GAkraW_sectionHeader');
+              const slot = dock.querySelector<HTMLElement>('.GAkraW_searchSlot');
+              if (slot && !host) return;
+              if (slot && host && !host.querySelector('.GAkraW_searchSlot')) host.appendChild(slot);
+              dock.remove();
+            };
+
             // #4 relocate the workspace search slot into a dock above 插件管理.
             // The host's `.GAkraW_searchSlot` is a React-owned node inside the
             // workspace header; we move the live one into the dock and drop the
@@ -2465,10 +2475,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 document.querySelectorAll<HTMLElement>('.ens-top-actions').forEach((el) => el.remove());
                 initAnnotations();
                 mountFootSettings();
+                restoreNativeSearch();
                 renameLabels();
                 document.querySelectorAll<HTMLElement>('._5Qcc8a_trigger').forEach(injectAccountGlyph);
                 wireAccount();
                 syncLoginVisibility();
+                hideAccountModels();
+                hideListedModels();
                 applyPrivacyAndFold();
                 initDeltaSelect();
                 mountSettingsResize();
@@ -2769,7 +2782,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); document.querySelectorAll('.ens-foot-actions, .ens-search-dock').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); unsubAccount?.(); annoCleanup?.(); };
+            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
