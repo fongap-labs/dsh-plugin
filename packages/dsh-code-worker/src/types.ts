@@ -61,6 +61,10 @@ export interface CodeWorkerConfig {
     enabled?: boolean
     command?: string
   }
+  execution?: {
+    allowWorktreeWrites?: boolean
+    allowCommands?: boolean
+  }
   github?: {
     enabled?: boolean
     allowWrites?: boolean
@@ -78,6 +82,8 @@ export interface Settings {
   workspaceRoot: string
   gitEnabled: boolean
   gitCommand: string
+  allowWorktreeWrites: boolean
+  allowCommands: boolean
   githubEnabled: boolean
   githubAllowWrites: boolean
   githubAccounts: GitHubAccountConfig[]
