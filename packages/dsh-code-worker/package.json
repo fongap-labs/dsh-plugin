@@ -32,7 +32,7 @@
     "@fongap-labs/shared": "workspace:*"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-tools": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.3 <0.2.2-0",
     "@deepseek-ai/cordis": "~4.0.5"
   },
   "peerDependenciesMeta": {
