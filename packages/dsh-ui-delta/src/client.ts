@@ -3450,8 +3450,7 @@ const MODULES: ModuleDef[] = [
           }
           interface DeltaSessionBinding {
             eventSource: { subscribe(onChange: () => void): () => void; getSnapshot(): { entries: ReadonlyArray<{
-              type: string;
-              event?: { type: string; data?: {
+              event: { type: string; data?: {
                 callId?: string; name?: string; arguments?: string;
               } };
             }> } };
@@ -3481,7 +3480,7 @@ const MODULES: ModuleDef[] = [
               const entries = binding.eventSource.getSnapshot().entries;
               for (let index = entries.length - 1; index >= 0; index -= 1) {
                 const record = entries[index];
-                const event = record?.type === 'event' ? record.event : undefined;
+                const event = record?.event;
                 if (event?.type !== 'tool/call' || event.data?.callId !== approval.callId) continue;
                 if (event.data.name !== approval.toolName || typeof event.data.arguments !== 'string') return null;
                 // Retain the exact raw arguments. No permissive tool-name-only
@@ -3555,13 +3554,10 @@ const MODULES: ModuleDef[] = [
                   grants.set(approval.sessionId, grant);
                 }
                 if (grant.signatures.size >= 100) return;
+                // A future pending request must not reuse a grant until
+                // the Host has accepted the user's current approval.
+                await approval.answer('allowed-once');
                 grant.signatures.add(current.signature);
-                try {
-                  await approval.answer('allowed-once');
-                } catch (error) {
-                  grant.signatures.delete(current.signature);
-                  throw error;
-                }
               };
               const reason = approval.displayReason
                 ? (approval.displayReason[isZhUi() ? 'zh' : 'en'] || approval.displayReason.en)
