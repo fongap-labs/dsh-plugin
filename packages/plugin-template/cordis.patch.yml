@@ -7,6 +7,6 @@
       name: '@fongap-labs/plugin-template'
       config:
         enabled: true
-        # 可在 Profile 中覆盖 greeting；systemPromptText 默认不注入。
+        # Optional profile overrides: greeting and systemPromptText (no prompt is injected by default).
         # greeting: 'hello'
         # systemPromptText: 'Optional guidance for this plugin'
