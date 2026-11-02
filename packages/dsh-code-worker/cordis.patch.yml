@@ -13,6 +13,11 @@
         git:
           enabled: true
           command: 'git'
+        # GitHub accounts are configured in the local user profile, not in this bundle.
+        github:
+          enabled: true
+          allowWrites: false
+          accounts: []
         lsp:
           servers:
             - language: typescript
