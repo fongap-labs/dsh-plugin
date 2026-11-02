@@ -3044,7 +3044,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   if (signal.aborted || !isSearchActive) return base;
                   const isIncomplete = hasReadFailure || controller.signal.aborted;
                   if (isIncomplete) showNotice('warn', t('部分会话正文未能搜索，请重试', 'Some conversation content could not be searched; try again'), false);
-                  if (!base.ok && !readCount) return base;
+                  if (!base.ok && !found.length) return base;
                   found.sort((a, b) => a.index - b.index);
                   const combined = [...existing, ...found.map((item) => item.hit)];
                   return { ok: true, value: {
