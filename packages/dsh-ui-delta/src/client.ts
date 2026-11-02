@@ -1807,7 +1807,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             let isOpenSettingsBusy = false;
             let openSettingsBusySince = 0;
             const openSettingsChain = async () => {
-              try { console.info(`[dsh-ui-delta] 设置按钮被点击`); } catch { /* ignore */ }
+              try { console.info('[dsh-ui-delta] settings requested'); } catch { /* ignore */ }
               if (isSettingsOpenInDom()) {       // already open — never toggle-close it
                 try { console.info('[dsh-ui-delta] 设置已可见，不再重复打开'); } catch { /* ignore */ }
                 return;
@@ -1836,18 +1836,18 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 ];
                 for (const { label, attempt, settleBefore } of LEVELS) {
                   if (settleBefore && await settleCheck()) {
-                    try { console.info(`[dsh-ui-delta] 设置页已打开（${label} 前的慢加载复检命中）v${SOURCE}`); } catch { /* ignore */ }
+                    try { console.info(`[dsh-ui-delta] settings already opened before ${label}`); } catch { /* ignore */ }
                     return;
                   }
                   let isOpened = false;
                   try { isOpened = await attempt(); }
                   catch (err) { note(label, `level threw: ${err instanceof Error ? err.message : String(err)}`); }
                   if (isOpened) {
-                    try { console.info(`[dsh-ui-delta] 设置已通过「${label}」层打开 · ${Date.now() - t0}ms`); } catch { /* ignore */ }
+                    try { console.info(`[dsh-ui-delta] settings opened via ${label} in ${Date.now() - t0}ms`); } catch { /* ignore */ }
                     return;
                   }
                 }
-                try { console.info(`[dsh-ui-delta] 宿主设置页未能打开，已启用内置面板。诊断在 window.__ensDiag：`, DIAG); } catch { /* ignore */ }
+                try { console.info('[dsh-ui-delta] host settings unavailable; diagnostics:', DIAG); } catch { /* ignore */ }
               } finally {
                 isOpenSettingsBusy = false;
                 if (btn) { btn.classList.remove('ens-foot-action-busy'); btn.removeAttribute('aria-busy'); }
