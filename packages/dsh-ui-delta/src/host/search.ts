@@ -1,5 +1,5 @@
 import { openKey, normalizeProviders, readConfig } from './config.js'
-import { makeDuckDuckGoProvider } from './duckduckgo.js'
+import { makeDuckDuckGoProvider, DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
 
 interface SearchHit {
   title?: unknown
@@ -11,17 +11,6 @@ interface SearchRow {
   title: string
   url: string
   content: string
-}
-
-interface HostWebSearch {
-  search(request: { query: string; maxResults?: number }, signal?: AbortSignal): Promise<{
-    sources: readonly { title?: string; url: string; snippet?: string; summary?: string }[]
-  }>
-}
-
-interface OptionalWebContext {
-  get?(name: string): unknown
-  web?: HostWebSearch
 }
 
 export class SearchUnavailableError extends Error {
@@ -68,14 +57,28 @@ const textOf = (value: string): string => value
   .trim()
 
 /** Fallback source: Bing's public search RSS, independent of API credentials. */
-export const searchBingRss = async (query: string, request: typeof fetch = fetch): Promise<SearchRow[]> => {
+export const searchBingRss = async (query: string, request: typeof fetch = fetch, signal?: AbortSignal): Promise<SearchRow[]> => {
   const url = new URL('https://www.bing.com/search')
   url.searchParams.set('format', 'rss')
   url.searchParams.set('q', query.slice(0, 500))
-  const response = await request(url, {
-    method: 'GET', redirect: 'error', signal: AbortSignal.timeout(15_000),
-    headers: { accept: 'application/rss+xml, application/xml, text/xml' },
-  })
+  const timeout = AbortSignal.any([AbortSignal.timeout(15_000), ...(signal ? [signal] : [])])
+  let endpoint = url
+  let response: Response
+  for (let redirects = 0; ; redirects++) {
+    response = await request(endpoint, {
+      method: 'GET', redirect: 'manual', signal: timeout,
+      headers: { accept: 'application/rss+xml, application/xml, text/xml' },
+    })
+    if (![301, 302, 303, 307, 308].includes(response.status)) break
+    const location = response.headers.get('location')
+    await response.body?.cancel()
+    if (!location || redirects >= 3) throw new Error('Bing RSS redirect limit exceeded')
+    const next = new URL(location, endpoint)
+    // Bing redirects mainland requests to cn.bing.com. Follow only its HTTPS search endpoint.
+    if (next.protocol !== 'https:' || !['www.bing.com', 'cn.bing.com', 'bing.com'].includes(next.hostname)
+      || next.port || next.username || next.password || next.pathname !== '/search') throw new Error('Bing RSS refused an unexpected redirect')
+    endpoint = next
+  }
   if (!response.ok) throw new Error(`Bing RSS HTTP ${response.status}`)
   const xml = (await response.text()).slice(0, 1_000_000)
   if (!/<rss\b/i.test(xml)) throw new Error('Bing RSS did not return RSS content')
@@ -92,10 +95,12 @@ export const searchBingRss = async (query: string, request: typeof fetch = fetch
 }
 
 /**
- * The slash command always has a working keyless execution path of its own.
- * The Host web registry is a separate capability used by native model web_search.
+ * Slash commands and native web_search share configuration and keyless sources.
  */
-export const searchWeb = async (query: string, _ctx?: OptionalWebContext): Promise<SearchRow[]> => {
+export const searchWeb = async (query: string, signal?: AbortSignal): Promise<SearchRow[]> => {
+  signal?.throwIfAborted()
+  query = query.trim().slice(0, 500)
+  if (!query) throw new Error('search query required')
   const cfg = readConfig().search || {}
   const providers = normalizeProviders('search', cfg)
   const active = providers.find(provider => provider.active) || providers[0]
@@ -103,9 +108,10 @@ export const searchWeb = async (query: string, _ctx?: OptionalWebContext): Promi
     const key = await openKey('search', active)
     const response = await fetch(active.endpoint, {
       method: 'POST',
+      redirect: 'error',
       headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) },
       body: JSON.stringify({ query, max_results: 5 }),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]),
     })
     if (!response.ok) throw new Error(`Independent search provider HTTP ${response.status}`)
     const data = (await response.json()) as { results?: SearchHit[] }
@@ -117,13 +123,28 @@ export const searchWeb = async (query: string, _ctx?: OptionalWebContext): Promi
     })))
   }
   const failures: string[] = []
+  try { return await searchBingRss(query, fetch, signal) }
+  catch (error) { signal?.throwIfAborted(); failures.push(`Bing RSS：${errorCause(error)}`) }
   try {
-    const result = await makeDuckDuckGoProvider().search({ query, maxResults: 5 })
+    const result = await makeDuckDuckGoProvider().search({ query, maxResults: 5 }, signal)
     return safeResults(result.sources.map(source => ({
       title: source.title || '', url: source.url, content: source.snippet || '',
     })))
-  } catch (error) { failures.push(`DuckDuckGo：${errorCause(error)}`) }
-  try { return await searchBingRss(query) }
-  catch (error) { failures.push(`Bing RSS：${errorCause(error)}`) }
+  } catch (error) { signal?.throwIfAborted(); failures.push(`DuckDuckGo：${errorCause(error)}`) }
   throw new SearchUnavailableError(failures)
 }
+
+/** Keep the published provider id so existing profiles pick up the repaired path. */
+export const makeWebSearchProvider = () => ({
+  id: DUCKDUCKGO_PROVIDER_ID,
+  available: () => true,
+  ready: async () => true,
+  async search(request: SearchRequest, signal?: AbortSignal) {
+    const rows = await searchWeb(request.query, signal)
+    const limit = Math.max(1, Math.min(5, Number.isInteger(request.maxResults) ? request.maxResults! : 5))
+    return {
+      sources: rows.slice(0, limit).map(row => ({ url: row.url, title: row.title, snippet: row.content })),
+      truncated: rows.length > limit,
+    }
+  },
+})
