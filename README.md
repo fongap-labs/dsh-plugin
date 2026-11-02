@@ -9,7 +9,7 @@
 | 插件 | 主要用途 | 源码 |
 | --- | --- | --- |
 | **Delta UI**（`@fongap-labs/dsh-ui-delta`） | 优化界面配色、排版与交互；提供可选的视觉识别、联网搜索及相关配置入口 | [查看](packages/dsh-ui-delta) |
-| **Code Worker**（`@fongap-labs/dsh-code-worker`） | 批量编辑文件、查看 Git 状态与差异、探测语言服务器，并提供编码工作流指引 | [查看](packages/dsh-code-worker) |
+| **Code Worker**（`@fongap-labs/dsh-code-worker`） | 一体化编程工作流：仓库分析、批量编辑、Git 工作树、GitHub 多账号、PR/CI 诊断与测试验证 | [查看](packages/dsh-code-worker) |
 | **插件模板**（`@fongap-labs/plugin-template`） | 创建符合本仓库结构的新插件，主要供开发者使用 | [查看](packages/plugin-template) |
 | **共享库**（`@fongap-labs/shared`） | 为插件提供工具注册、子进程调用与工作区路径校验等公共能力，不作为独立插件安装 | [查看](packages/shared) |
 
