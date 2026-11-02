@@ -33,6 +33,14 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.match(client, /hideListedModels\(\);/);
   });
 
+  it('never traverses model row ancestors when applying visibility preferences', () => {
+    const modelFilters = client.slice(client.indexOf('const hideListedModels = () => {'),
+      client.indexOf('const renameStatusText ='));
+    assert.ok(modelFilters.length > 100);
+    assert.doesNotMatch(modelFilters, /row\\.parentElement|group\\.previousElementSibling/);
+    assert.match(modelFilters, /row\\.style\\.display/);
+  });
+
   it('documents the actual scoped package and published release asset name', () => {
     assert.match(readme, /@fongap-labs\/dsh-ui-delta@0\.1\.0-beta\.1/);
     assert.match(readme, /releases\/download\/dsh-ui-delta-v0\.1\.0-beta\.1\/fongap-labs-dsh-ui-delta\.tgz/);
