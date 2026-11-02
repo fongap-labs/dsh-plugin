@@ -75,12 +75,12 @@ const searchWithPython = (
   })
   let output = ''
   let stderr = ''
-  let settled = false
+  let isSettled = false
   let timeout: ReturnType<typeof setTimeout> | undefined
   let onAbort: () => void = () => {}
   const finish = (callback: () => void): void => {
-    if (settled) return
-    settled = true
+    if (isSettled) return
+    isSettled = true
     if (timeout !== undefined) clearTimeout(timeout)
     signal?.removeEventListener('abort', onAbort)
     callback()
@@ -121,7 +121,7 @@ const searchWithPython = (
     finish(() => reject(new Error(message)))
   })
   child.on('close', (code, exitSignal) => {
-    if (settled) return
+    if (isSettled) return
     if (code !== 0) {
       const missingPackage = /No module named ['"]ddgs['"]/.test(stderr)
       const detail = missingPackage
