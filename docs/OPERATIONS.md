@@ -20,10 +20,10 @@ projects/<plugin>/release.manifest.json
    - `requested_version`: `X.Y.Z` 或 `X.Y.Z-beta.N`
    - `product`: 对应的 `projects/<plugin>` 目录名
 3. Action Worker 从当前默认分支提交读取发布清单，验证来源和 CI 证据，再按清单选择 Runner Profile。
-4. 各插件的 `build-release.ps1` 仅作为薄入口，调用通用 `scripts/build-release.ps1`。
+4. 各插件的 `build-release.mjs` 是薄入口，调用通用 `scripts/build-release.mjs`。
 5. 构建产物、SBOM 和来源证明通过验证后，由中央流程发布 GitHub Release。
 
-当前 Action Worker Release Build 合约要求 `builds[].script` 使用 `.ps1`，并要求 `target` 为 target triple。因此本仓库当前使用 `windows-build` Profile 和 `x86_64-pc-windows-msvc`。插件产物本身是 JavaScript/资源包，不代表它包含 Windows 原生二进制；Runner 选择来自现行中央合约。改为 Linux/Node 构建必须先更新 Action Worker 合约与执行器，不能只改本仓库的 manifest。
+纯 JavaScript/TypeScript 插件使用 `linux-standard` Runner 和 `portable` 目标，不安装 Rust。生成的 ZIP/TGZ 不包含操作系统原生二进制，供 Windows、macOS、Linux 上兼容版本的 DeepSeek Harness 安装。宿主 API 和行为仍应分别进行跨系统验证；插件依赖若引入原生模块，需重新评估发布矩阵。Action Worker 仍为其他原生应用保留 PowerShell 和 Windows 构建能力。
 
 ## 3. 产物与校验
 

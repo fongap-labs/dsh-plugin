@@ -89,11 +89,9 @@ export function scaffoldPlugin({ name: slug, description, root = ROOT, dryRun = 
       `export const name = '${packageName}'`, 'Host plugin name',
     ))
 
-    const wrapperPath = join(targetDir, 'build-release.ps1')
+    const wrapperPath = join(targetDir, 'build-release.mjs')
     let wrapper = readFileSync(wrapperPath, 'utf8')
-    wrapper = replaceOnce(wrapper, `-Package ${sourceSlug} -Target`, `-Package ${slug} -Target`, 'release package')
-    wrapper = wrapper.replaceAll(`for ${sourceSlug}.`, `for ${slug}.`)
-      .replaceAll(`projects/${sourceSlug}/`, `projects/${slug}/`)
+    wrapper = replaceOnce(wrapper, `'--package', '${sourceSlug}'`, `'--package', '${slug}'`, 'release package')
     writeFileSync(wrapperPath, wrapper)
 
     for (const locale of ['en', 'zh']) {
@@ -113,7 +111,7 @@ export function scaffoldPlugin({ name: slug, description, root = ROOT, dryRun = 
       sbom_asset: `${slug}-sbom.cdx.json`,
       builds: manifest.builds.map((build) => ({
         ...build,
-        script: `${slug}/build-release.ps1`,
+        script: `${slug}/build-release.mjs`,
         assets: build.assets.map((asset) => {
           const ext = asset.endsWith('.zip') ? '.zip' : asset.endsWith('.tgz') ? '.tgz' : null
           if (!ext) throw new Error(`Unrecognized template release asset: ${asset}`)
