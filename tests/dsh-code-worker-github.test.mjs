@@ -39,14 +39,14 @@ describe('GitHub account configuration and automatic routing', () => {
     assert.equal(repositoryFromRemote('ssh://git@github.com/fongap-labs/delta'), 'fongap-labs/delta')
     assert.equal(repositoryFromRemote('https://github.com.evil.example/fongap-labs/delta'), undefined)
   })
-  it('defaults to read-only and installs exactly the six GitHub tools', () => {
+  it('defaults to read-only and installs all GitHub tools', () => {
     const config = normalizeConfig({ github: { accounts } })
     assert.equal(config.githubEnabled, true)
     assert.equal(config.githubAllowWrites, false)
     const tools = createGitHubTools({ get: () => undefined }, config)
     assert.deepEqual(tools.map((tool) => tool.name), [
       'code_github_connection', 'code_github_file', 'code_github_pulls',
-      'code_github_branch', 'code_github_commit_file', 'code_github_create_pr',
+      'code_github_checks', 'code_github_jobs', 'code_github_branch', 'code_github_commit_file', 'code_github_create_pr',
     ])
   })
   it('fails closed before any network request for unmatched owners or unauthorized writes', async () => {
@@ -54,7 +54,7 @@ describe('GitHub account configuration and automatic routing', () => {
     const tools = createGitHubTools({ get: () => undefined }, config)
     const exec = { signal: new AbortController().signal }
     await assert.rejects(tools[0].execute({ repository: 'unknown/repo' }, exec), /no GitHub account/)
-    await assert.rejects(tools[3].execute({ repository: 'fongap-labs/delta', branch: 'feat/test' }, exec), /writes are disabled/)
+    await assert.rejects(tools.find((tool) => tool.name === 'code_github_branch').execute({ repository: 'fongap-labs/delta', branch: 'feat/test' }, exec), /writes are disabled/)
   })
   it('never exposes plaintext tokens through connection results', async () => {
     const config = normalizeConfig({ github: { accounts: accounts.slice(0, 1) } })
