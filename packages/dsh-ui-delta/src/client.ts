@@ -1850,6 +1850,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                     return;
                   }
                 }
+                // The native settings route can differ between Harness builds. Never
+                // leave a visible footer control with no result when all host attempts
+                // failed: the built-in Delta settings panel is the last resort.
+                if (!isSettingsOpenInDom()) {
+                  note('fallback', 'host settings unavailable; opening Delta settings with diagnostics');
+                  openStandaloneSettings(true);
+                }
                 try { console.info('[dsh-ui-delta] host settings unavailable; diagnostics:', DIAG); } catch { /* ignore */ }
               } finally {
                 isOpenSettingsBusy = false;
@@ -2057,12 +2064,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               trigger?.setAttribute('aria-label', walletLines.length ? t('查看账户余额', 'View account balance') : t('账户头像', 'Account avatar'));
             }
 
-            // Intercept before the native React launcher sees pointer or keyboard activation.
+            // Refresh the balance hint without intercepting the Host's account launcher.
+            // In beta.9, preventDefault()/stopImmediatePropagation() here swallowed the
+            // native menu click (including trig.click() used by the footer sign-in,
+            // sign-out and settings fallback actions). Let the Host own activation.
             const onAvatarActivate = (event: Event) => {
               if (!(event.target instanceof Element) || !event.target.closest('._5Qcc8a_trigger')) return;
               if (event instanceof KeyboardEvent && !['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
-              event.preventDefault();
-              event.stopImmediatePropagation();
               syncBalance();
             };
             ['pointerdown', 'mousedown', 'click', 'keydown'].forEach(type => document.addEventListener(type, onAvatarActivate, true));
@@ -3145,8 +3153,8 @@ const MODULES: ModuleDef[] = [
             zhDesc: '在 Delta 配置中输入图片描述，复用主配置账号生成、预览并下载图片。',
             enDesc: 'Generate and download an image from a prompt in Delta settings using the main configured account.' },
           { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: true,
-            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。默认免密钥搜索，也可配置独立搜索服务商。',
-            enDesc: 'Use /search plus keywords for manual results in the composer. Uses keyless search by default, with an optional independent search provider.' },
+            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。默认使用免密钥 Python ddgs 搜索（需安装 Python 与 ddgs），也可配置独立搜索服务商。',
+            enDesc: 'Use /search plus keywords for manual results in the composer. Uses keyless search by default (Python and ddgs required), or configure an independent search provider.' },
         ];
         const STATUS_TAG: Record<string, string> = { hostService: '需宿主服务', planned: '规划中' };
         const STATUS_TAG_EN: Record<string, string> = { hostService: 'Needs host service', planned: 'Planned' };

@@ -1,5 +1,6 @@
 import { openKey, normalizeProviders, readConfig } from './config.js'
-import { makeDuckDuckGoProvider, DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
+import { DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
+import { searchPythonDdgs } from './python-ddgs.js'
 
 interface SearchHit {
   title?: unknown
@@ -16,11 +17,12 @@ interface SearchRow {
 export class SearchUnavailableError extends Error {
   readonly code = 'KEYLESS_SEARCH_UNAVAILABLE'
   constructor(causes: string[]) {
-    super(`免密钥搜索源均不可用（${causes.join('；')}）。请检查宿主网络或代理配置，或在 Delta 配置中指定独立搜索服务商。`)
+    super(`搜索不可用（${causes.join('；')}）。请检查 Python ddgs 安装与宿主网络/代理配置，或在 Delta 配置中指定独立搜索服务商。`)
     this.name = 'SearchUnavailableError'
   }
 }
 
+// Accept HTTP(S) destination URLs only; bound untrusted result size for prompts.
 const safeResults = (rows: readonly SearchRow[]): SearchRow[] => rows.filter(row => {
   try {
     const u = new URL(row.url)
@@ -32,72 +34,14 @@ const safeResults = (rows: readonly SearchRow[]): SearchRow[] => rows.filter(row
   content: row.content.replace(/\s+/g, ' ').slice(0, 500),
 }))
 
-const errorCause = (error: unknown): string => {
-  const message = error instanceof Error ? error.message : String(error)
-  if (/fetch failed|network|ECONN|ETIMEDOUT|ENETUNREACH|abort|timeout/i.test(message)) {
-    return 'Network request failed or timed out'
-  }
-  return message.slice(0, 160)
-}
-
-/** Decode simple RSS text without trusting remote HTML or script. */
-const textOf = (value: string): string => value
-  .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
-  .replace(/<[^>]+>/g, ' ')
-  .replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos|nbsp);/gi, (_full, entity: string) => {
-    const named: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
-    const key = entity.toLowerCase()
-    if (key in named) return named[key]!
-    if (key.startsWith('#')) {
-      const code = Number.parseInt(key.slice(key[1] === 'x' ? 2 : 1), key[1] === 'x' ? 16 : 10)
-      if (code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff)) return String.fromCodePoint(code)
-    }
-    return ''
-  })
-  .trim()
-
-/** Fallback source: Bing's public search RSS, independent of API credentials. */
-export const searchBingRss = async (query: string, request: typeof fetch = fetch, signal?: AbortSignal): Promise<SearchRow[]> => {
-  const url = new URL('https://www.bing.com/search')
-  url.searchParams.set('format', 'rss')
-  url.searchParams.set('q', query.slice(0, 500))
-  const timeout = AbortSignal.any([AbortSignal.timeout(15_000), ...(signal ? [signal] : [])])
-  let endpoint = url
-  let response: Response
-  for (let redirects = 0; ; redirects++) {
-    response = await request(endpoint, {
-      method: 'GET', redirect: 'manual', signal: timeout,
-      headers: { accept: 'application/rss+xml, application/xml, text/xml' },
-    })
-    if (![301, 302, 303, 307, 308].includes(response.status)) break
-    const location = response.headers.get('location')
-    await response.body?.cancel()
-    if (!location || redirects >= 3) throw new Error('Bing RSS redirect limit exceeded')
-    const next = new URL(location, endpoint)
-    // Bing redirects mainland requests to cn.bing.com. Follow only its HTTPS search endpoint.
-    if (next.protocol !== 'https:' || !['www.bing.com', 'cn.bing.com', 'bing.com'].includes(next.hostname)
-      || next.port || next.username || next.password || next.pathname !== '/search') throw new Error('Bing RSS refused an unexpected redirect')
-    endpoint = next
-  }
-  if (!response.ok) throw new Error(`Bing RSS HTTP ${response.status}`)
-  const xml = (await response.text()).slice(0, 1_000_000)
-  if (!/<rss\b/i.test(xml)) throw new Error('Bing RSS did not return RSS content')
-  const rows: SearchRow[] = []
-  for (const item of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
-    const part = item[1]!
-    const value = (tag: string) => new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i').exec(part)?.[1] || ''
-    const link = textOf(value('link'))
-    rows.push({ title: textOf(value('title')), url: link, content: textOf(value('description')) })
-    if (rows.length >= 10) break
-  }
-  if (!rows.length && !/<channel\b/i.test(xml)) throw new Error('Bing RSS returned no recognizable entries')
-  return safeResults(rows)
-}
-
 /**
- * Slash commands and native web_search share configuration and keyless sources.
+ * Native model web_search and /search share the same implementation:
+ * configured independent endpoint, otherwise the local Python ddgs library.
+ * Never silently fall back to the official DeepSeek paid search provider.
  */
-export const searchWeb = async (query: string, signal?: AbortSignal): Promise<SearchRow[]> => {
+export const searchWeb = async (
+  query: string, signal?: AbortSignal, keyless: typeof searchPythonDdgs = searchPythonDdgs
+): Promise<SearchRow[]> => {
   signal?.throwIfAborted()
   query = query.trim().slice(0, 500)
   if (!query) throw new Error('search query required')
@@ -122,19 +66,14 @@ export const searchWeb = async (query: string, signal?: AbortSignal): Promise<Se
       content: String(hit.content || ''),
     })))
   }
-  const failures: string[] = []
-  try { return await searchBingRss(query, fetch, signal) }
-  catch (error) { signal?.throwIfAborted(); failures.push(`Bing RSS：${errorCause(error)}`) }
-  try {
-    const result = await makeDuckDuckGoProvider().search({ query, maxResults: 5 }, signal)
-    return safeResults(result.sources.map(source => ({
-      title: source.title || '', url: source.url, content: source.snippet || '',
-    })))
-  } catch (error) { signal?.throwIfAborted(); failures.push(`DuckDuckGo：${errorCause(error)}`) }
-  throw new SearchUnavailableError(failures)
+  try { return safeResults(await keyless(query, signal)) }
+  catch (error) {
+    signal?.throwIfAborted()
+    throw new SearchUnavailableError([error instanceof Error ? error.message : String(error)])
+  }
 }
 
-/** Keep the published provider id so existing profiles pick up the repaired path. */
+/** Retain the existing provider id for installed Harness profile compatibility. */
 export const makeWebSearchProvider = () => ({
   id: DUCKDUCKGO_PROVIDER_ID,
   available: () => true,
