@@ -3145,8 +3145,8 @@ const MODULES: ModuleDef[] = [
             zhDesc: '在 Delta 配置中输入图片描述，复用主配置账号生成、预览并下载图片。',
             enDesc: 'Generate and download an image from a prompt in Delta settings using the main configured account.' },
           { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: true,
-            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。默认免密钥搜索，也可配置独立搜索服务商。',
-            enDesc: 'Use /search plus keywords for manual results in the composer. Uses keyless search by default, with an optional independent search provider.' },
+            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。默认使用免密钥 Python ddgs 搜索（需安装 Python 与 ddgs），也可配置独立搜索服务商。',
+            enDesc: 'Use /search plus keywords for manual results in the composer. Uses keyless search by default (Python and ddgs required), or configure an independent search provider.' },
         ];
         const STATUS_TAG: Record<string, string> = { hostService: '需宿主服务', planned: '规划中' };
         const STATUS_TAG_EN: Record<string, string> = { hostService: 'Needs host service', planned: 'Planned' };
