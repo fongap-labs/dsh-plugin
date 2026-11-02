@@ -1,7 +1,7 @@
 packages:
   - 'packages/*'
 
-# DSH 宿主在运行时提供 @deepseek-ai/*。插件仅通过 Host ctx 使用宿主能力，
-# 不在发布元数据中声明 Cordis/DSH Host peer；根目录 devDependencies 用于类型检查。
-# 保留关闭 peer 自动安装的策略，防止新引入的 peer 隐式拉取宿主包。
+# DSH Host provides @deepseek-ai/* runtime services and Cordis.
+# Plugin bundles rely on Host ctx, with type-only Host dependencies pinned at workspace root.
+# Keep automatic peer installation disabled to avoid installing extra Host framework copies.
 autoInstallPeers: false
