@@ -17,18 +17,6 @@ export class SearchUnavailableError extends Error {
   }
 }
 
-// Accept HTTP(S) destination URLs only; bound untrusted result size for prompts.
-const safeResults = (rows: readonly SearchRow[]): SearchRow[] => rows.filter(row => {
-  try {
-    const u = new URL(row.url)
-    return (u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password
-  } catch { return false }
-}).slice(0, 5).map(row => ({
-  title: row.title.slice(0, 300),
-  url: row.url,
-  content: row.content.replace(/\s+/g, ' ').slice(0, 500),
-}))
-
 /**
  * Native model web_search and /search share the same implementation:
  * configured independent endpoint, otherwise the local Python ddgs library.
