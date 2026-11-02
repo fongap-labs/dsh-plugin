@@ -34,8 +34,8 @@ dsh plugin --profile desktop add "https://github.com/fongap-labs/dsh-plugin/rele
 **仅当目标版本已发布到当前使用的 npm 仓库时**，才能按包名安装。以 Delta UI 为例：
 
 ```bash
-pnpm view @fongap-labs/dsh-ui-delta versions --json --registry https://registry.npmjs.org
-dsh plugin --profile desktop add @fongap-labs/dsh-ui-delta@<已确认存在的版本>
+pnpm view @fongap-labs/dsh-ui-delta@0.1.0-beta.3 version --registry https://registry.npmjs.org
+dsh plugin --profile desktop add @fongap-labs/dsh-ui-delta@0.1.0-beta.3
 ```
 
 第一条命令应能查询到该版本，才执行第二条。GitHub Release 中存在文件，**不代表** npm 官方仓库或镜像已经收录相同版本；找不到包时请使用上述 Release `.tgz` 文件。`.zip` 是另一种构建产物，不应直接当作 npm 包名安装。
