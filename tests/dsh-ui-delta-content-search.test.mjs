@@ -53,7 +53,7 @@ describe('conversation content search', () => {
     const result = await h.service.search('后台任务', new AbortController().signal);
     assert.equal(result.ok, true);
     assert.deepEqual(Array.from(result.value.items, item => item.sessionId), ['native', 'chinese', 'assistant']);
-    assert.match(result.value.items[1].snippet, /后台任务/);
+    assert.ok(result.value.items[1].snippet.includes('后台任务'));
     assert.ok(h.calls.some(call => call.address.sessionId === 'chinese' && call.beforeSeq === 100));
     assert.ok(!h.calls.some(call => call.address.sessionId === 'child' || call.address.sessionId === 'native'));
     h.dispose();

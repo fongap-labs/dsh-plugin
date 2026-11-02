@@ -347,9 +347,9 @@ body {
    so both tabs keep the same left and right gutter. */
 /* v0.1.0: account balance beside the avatar, shown only when signed in. */
 .ens-balance {
-  display: flex; flex: 1 1 0; min-width: 0; align-items: center;
-  font-size: 11px; line-height: 14px; font-weight: 500; white-space: nowrap;
-  overflow: hidden; color: var(--dsw-alias-label-secondary); pointer-events: none;
+  display: block; flex: 1 1 0; min-width: 0;
+  font-size: 11px; line-height: 32px; font-weight: 500; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; color: var(--dsw-alias-label-secondary); pointer-events: none;
 }
 .wtg9ga_collapsed .ens-balance { display: none !important; }
 /* v0.1.0: turn-failure detail folds to one line (foldErrors switch); click the row to expand */
@@ -2363,7 +2363,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const normalizeMessageText = (value: string) => value.replace(/\s+/g, ' ').trim();
               const annotationText = ({ quote, note }: AnnoNote) => {
                 if (!note || note.includes(quote)) return note || quote;
-                if (/^什么意思[？?！!。.]?$/.test(note)) return `${quote}是${note}`;
+                if (/^\u4ec0\u4e48\u610f\u601d[\uff1f?\uff01!\u3002.]?$/.test(note)) {
+                  return `${quote}是${note}`;
+                }
                 const adjacent = /[\u3400-\u9fff]$/.test(quote) && /^[\u3400-\u9fff\p{P}]/u.test(note);
                 return `${quote}${adjacent ? '' : ' '}${note}`;
               };
