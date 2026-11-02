@@ -28,7 +28,7 @@ it('shows only ready balance data and clears stale hints', () => {
   let balance = { status: 'ready', value: [{ balance: '14.36', currency: 'CNY' }], bonusWallets: [{ balance: '0.09', currency: 'CNY' }] }
   const context = { document: { querySelector: () => account }, signedIn: () => true, t: text => text,
     launcherOps: () => ({ hooks: { account: { getSnapshot: () => ({ details: { balance } }) } } }) }
-  runInNewContext(extract('const formatAccountBalance =', '// Intercept before') + ';globalThis.sync = syncBalance;', context)
+  runInNewContext(extract('const formatAccountBalance =', 'const onAvatarActivate =') + ';globalThis.sync = syncBalance;', context)
   context.sync()
   assert.match(attributes.get('data-ens-balance'), /14\.36/)
   assert.match(attributes.get('data-ens-balance'), /0\.09/)
