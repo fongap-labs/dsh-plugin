@@ -133,7 +133,7 @@ export function registerRoutes(ctx: Context): void {
     const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}')
     const query = String(body.query || '').trim().slice(0, 500)
     if (query === '') return sendJson(res, 400, { error: 'query required' })
-    return sendJson(res, 200, { results: await searchWeb(query) })
+    return sendJson(res, 200, { results: await searchWeb(query, ctx) })
   })
 
   // version endpoint: client polls once on load to detect if a new version is on disk
