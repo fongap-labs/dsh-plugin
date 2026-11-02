@@ -42,14 +42,6 @@
     "icon.svg",
     "README.md"
   ],
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "~4.0.5"
-  },
-  "peerDependenciesMeta": {
-    "@deepseek-ai/cordis": {
-      "optional": true
-    }
-  },
   "engines": {
     "node": ">=20.10.0"
   },

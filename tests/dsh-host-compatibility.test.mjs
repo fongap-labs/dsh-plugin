@@ -1,9 +1,9 @@
 /**
  * Host compatibility contract:
  * - Native DSH services are resolved from ctx at runtime.
- * - The only declared Host peer is Cordis (shared with Delta UI).
- * - The TypeScript-only dsh-tools contract is a development dependency.
- * - Avoid pinning RC versions in distributable plugin metadata.
+ * - Cordis and dsh-tools are provided by the Host; no Host peer is installed in plugin bundles.
+ * - Host types remain pinned only in root development dependencies.
+ * - Runtime access goes through the Host Context rather than a private Cordis instance.
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
@@ -24,14 +24,32 @@ function walkTypeScript(directory) {
 }
 
 describe('one-plugin compatibility with the native Harness Host', () => {
-  it('does not require a specific dsh-tools runtime package version', () => {
-    const ui = readManifest('dsh-ui-delta')
-    for (const name of ['dsh-code-worker', 'plugin-template']) {
+  it('never pins or installs Host framework packages in distributed plugin manifests', () => {
+    for (const name of ['dsh-ui-delta', 'dsh-code-worker', 'plugin-template']) {
       const plugin = readManifest(name)
-      assert.equal(Object.hasOwn(plugin.peerDependencies ?? {}, '@deepseek-ai/dsh-tools'), false)
-      assert.equal(Object.hasOwn(plugin.dependencies ?? {}, '@deepseek-ai/dsh-tools'), false)
-      assert.equal(Object.hasOwn(plugin.peerDependenciesMeta ?? {}, '@deepseek-ai/dsh-tools'), false)
-      assert.equal(plugin.peerDependencies?.['@deepseek-ai/cordis'], ui.peerDependencies?.['@deepseek-ai/cordis'])
+      for (const hostPackage of ['@deepseek-ai/cordis', '@deepseek-ai/dsh-tools']) {
+        assert.equal(Object.hasOwn(plugin.peerDependencies ?? {}, hostPackage), false)
+        assert.equal(Object.hasOwn(plugin.dependencies ?? {}, hostPackage), false)
+        assert.equal(Object.hasOwn(plugin.peerDependenciesMeta ?? {}, hostPackage), false)
+        assert.equal((plugin.bundleDependencies ?? []).includes(hostPackage), false)
+      }
+    }
+    const development = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+    assert.match(development.devDependencies?.['@deepseek-ai/cordis'] ?? '', /^\\d+\\.\\d+\\.\\d+$/)
+    assert.match(development.devDependencies?.['@deepseek-ai/dsh-tools'] ?? '', /^\\d+\\.\\d+-rc\\.\\d+$/)
+  })
+
+  it('imports Cordis only as a type and never as a runtime module', () => {
+    for (const folder of ['dsh-ui-delta', 'dsh-code-worker', 'plugin-template', 'shared']) {
+      const files = walkTypeScript(join(root, 'packages', folder, 'src'))
+      for (const file of files) {
+        const source = readFileSync(file, 'utf8')
+        for (const match of source.matchAll(/\\bimport\\s+([\\s\\S]*?)\\s+from\\s+['"]@deepseek-ai\\/cordis['"]/g)) {
+          assert.match(match[0], /^import\\s+type\\b/, `runtime Cordis import in ${file}`)
+        }
+        assert.doesNotMatch(source, /\\bimport\\s*\\(\\s*['"]@deepseek-ai\\/cordis['"]/, `dynamic Cordis import in ${file}`)
+        assert.doesNotMatch(source, /^\\s*import\\s*['"]@deepseek-ai\\/cordis['"]/m, `side effect Cordis import in ${file}`)
+      }
     }
   })
 
