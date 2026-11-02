@@ -8,7 +8,7 @@ const routes = readFileSync(new URL('../packages/dsh-ui-delta/src/host/routes.ts
 describe('search execution', () => {
   it('does not send slash search to the Host official search or require its key', () => {
     assert.match(search, /makeDuckDuckGoProvider\(\)\.search/)
-    assert.match(search, /searchBingRss\(query\)/)
+    assert.match(search, /searchBingRss\(query, fetch, signal\)/)
     assert.doesNotMatch(search, /web\.search\(/)
     assert.doesNotMatch(search, /Host web search is unavailable/)
     assert.match(routes, /searchWeb\(query/)

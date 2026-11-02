@@ -93,8 +93,8 @@ describe('Delta avatar and independent search contracts', () => {
     assert.match(client, /bonusWallets/);
     assert.doesNotMatch(client, /\.ens-balance\s*\{\s*display: block/);
   });
-  it('does not present a custom model key as DeepSeek official search credentials', () => {
-    assert.match(client, /A model key is not a DeepSeek official search credential/);
-    assert.match(client, /Host web service/);
+  it('describes the shared keyless default and independent search configuration', () => {
+    assert.match(client, /Uses keyless search by default/);
+    assert.match(client, /shared with native model web search/);
   });
 });

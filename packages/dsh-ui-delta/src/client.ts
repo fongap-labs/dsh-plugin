@@ -263,14 +263,15 @@ html[data-theme="dark"] {
 [style*="--dsh-hover-preview-fade"] [class*="_hoverStatus"] { color: var(--dsw-alias-label-tertiary) !important; }
 /* Keep a session's title, status and time together while retaining optional details. */
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 12px;
 }
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTitle"] {
-  order: 0; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  grid-column: 1 / -1; grid-row: 1; width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverStatus"] { order: 1; white-space: nowrap; }
-[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTime"] { order: 2; white-space: nowrap; }
-[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverPath"] { order: 3; width: 100%; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverStatus"] { grid-column: 1; grid-row: 2; white-space: nowrap; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"] > [class*="_hoverStatus"] ~ [class*="_hoverStatus"] { grid-column: 1 / -1; grid-row: auto; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTime"] { grid-column: 2; grid-row: 2; white-space: nowrap; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverPath"] { grid-column: 1 / -1; grid-row: auto; width: 100%; }
 
 /* 顶栏操作区：后台任务与创造模式对调位置（后台任务居左，创造模式居右） */
 .an3WzG_headerActions,
@@ -1692,7 +1693,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               privacyBody.className = 'ens-privacy-body';
               privacyBody.textContent = pick(
                 '本插件不主动上传会话日志；仍需在宿主中关闭官方日志上传。视觉识别与搜索请求会发送给用户配置的服务。',
-                'This plugin excludes session-log uploads when the host service is available; disable the host feature too. Vision and search send requests to configured services.',
+                'This plugin excludes session-log uploads when the host service is available; disable the host feature too. Vision and generation reuse the main model account; search uses its own configured service.',
               );
               privacy.append(privacyTitle, privacyBody);
               wrap.append(head, list, privacy);
@@ -2049,11 +2050,22 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   if (bonus.length) walletLines.push(`${t('赠送余额', 'Bonus balance')}: ${bonus.join(' + ')}`);
                 }
               } catch { /* Unavailable balance must never be shown as zero. */ }
-              account.setAttribute('data-ens-balance', walletLines.join('\n') || t('余额暂不可用', 'Balance unavailable'));
+              if (walletLines.length) account.setAttribute('data-ens-balance', walletLines.join('\n'));
+              else account.removeAttribute('data-ens-balance');
               const trigger = account.querySelector<HTMLElement>('._5Qcc8a_trigger');
               trigger?.removeAttribute('title');
-              trigger?.setAttribute('aria-label', t('查看账户余额', 'View account balance'));
+              trigger?.setAttribute('aria-label', walletLines.length ? t('查看账户余额', 'View account balance') : t('账户头像', 'Account avatar'));
             }
+
+            // Intercept before the native React launcher sees pointer or keyboard activation.
+            const onAvatarActivate = (event: Event) => {
+              if (!(event.target instanceof Element) || !event.target.closest('._5Qcc8a_trigger')) return;
+              if (event instanceof KeyboardEvent && !['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              syncBalance();
+            };
+            ['pointerdown', 'mousedown', 'click', 'keydown'].forEach(type => document.addEventListener(type, onAvatarActivate, true));
 
             // #2/#3 navigation copy. The owning packages own these slot cells,
             // so the labels are re-stamped on the rendered nodes instead of
@@ -2670,7 +2682,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             document.addEventListener('click', onErrorRowClick, true);
 
             // v0.1.0: vision bridge (visionBridge switch, off by default). Only a pasted
-            // image goes out, and only to the vision model the user configured.
+            // image goes to the current model provider selected in main Host settings.
             const insertComposer = (text: string) => {
               const el = document.querySelector<HTMLElement>('.GRgSLq_input') || document.querySelector<HTMLElement>('[contenteditable="true"]') || document.querySelector<HTMLElement>('textarea');
               if (!el) return false;
@@ -2697,7 +2709,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               sessionStorage.removeItem('dsh-ui-delta.vision.secret');
               sessionStorage.removeItem('dsh-ui-delta.search.secret');
             } catch { /* storage unavailable */ }
-            // the image goes to the host, which calls the vision model configured there
+            // the image goes to the host, which reuses the main model account
             const recognizeImage = async (file: File) => {
               const res = await fetch('/dsh-ui-delta/vision', { method: 'POST', headers: { 'Content-Type': file.type }, body: file });
               const data = await res.json().catch(() => ({}));
@@ -2806,7 +2818,6 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   if (!sel) return false;
                   const range = document.createRange();
                   range.selectNodeContents(el);
-                  range.collapse(true);
                   sel.removeAllRanges();
                   sel.addRange(range);
                   // execCommand is the only API that reaches a React/contenteditable
@@ -2827,6 +2838,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // Web search uses a configured independent service, or the native Host web seam.
             // "/search keywords" + Enter fills
             // the results into the composer; nothing is sent automatically.
+            let pendingSearch: AbortController | undefined;
             const onSearchKey = (e: KeyboardEvent) => {
               if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
               if (!flagOn('webSearch', true)) return;
@@ -2838,23 +2850,31 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               e.preventDefault();
               e.stopImmediatePropagation();
               const query = m[1].trim();
-              writeComposer(el, `正在搜索：${query} …`);
+              const draft = readComposer(el);
+              pendingSearch?.abort();
+              const controller = new AbortController();
+              pendingSearch = controller;
               showNotice('info', t(`正在搜索：${query}`, `Searching: ${query}`), true);
-              fetch('/dsh-ui-delta/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
+              fetch('/dsh-ui-delta/search', { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
                 .then(async (res) => {
                   const data = await res.json().catch(() => ({}));
                   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
                   return data.results || [];
                 })
                 .then((results) => {
+                  if (controller.signal.aborted) return;
+                  if (!el.isConnected || composerEl() !== el || readComposer(el) !== draft) {
+                    showNotice('warn', t('草稿已修改，搜索结果未覆盖输入内容。', 'Draft changed; search results did not overwrite it.'), false);
+                    return;
+                  }
                   const lines = results.map((x: { title: string; url: string; content: string }, i: number) => `${i + 1}. ${x.title}\n   ${x.url}\n   ${x.content}`).join('\n');
                   writeComposer(el, `[网络搜索结果：${query}]\n${lines || '（无结果）'}\n\n请基于以上结果回答：${query}`);
                   hideNotice();
                 })
                 .catch((err) => {
+                  if (controller.signal.aborted) return;
                   // the query stays in the composer so it can be retried; the reason
                   // goes to the notice pill instead of into the draft
-                  writeComposer(el, `/search ${query}`);
                   showNotice('error', t(`搜索失败：${err?.message || err}`, `Search failed: ${err?.message || err}`), true);
                 });
             };
@@ -3082,7 +3102,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
+            return () => { pendingSearch?.abort(); ['pointerdown', 'mousedown', 'click', 'keydown'].forEach(type => document.removeEventListener(type, onAvatarActivate, true)); mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
@@ -3119,11 +3139,14 @@ const MODULES: ModuleDef[] = [
             zhDesc: '“本轮运行失败”的详情默认显示为一行，点击该行展开。',
             enDesc: 'Turn-failure details show on one line by default; click the row to expand.' },
           { id: 'visionBridge', zh: '视觉识别', en: 'Vision bridge', status: 'ready', defaultOn: false,
-            zhDesc: '粘贴图片后，由你配置的视觉多模态模型识别为文字并插入输入框。默认关闭，需先在设置里配置。',
-            enDesc: 'Paste an image; your configured vision model turns it into text in the composer. Off by default; configure it in settings first.' },
+            zhDesc: '粘贴图片后，复用主配置模型识别为文字并插入输入框。默认关闭。',
+            enDesc: 'Paste an image; the main configured model turns it into text in the composer. Off by default.' },
+          { id: 'imageGen', zh: '在线生图', en: 'Online image generation', status: 'ready', defaultOn: true,
+            zhDesc: '在 Delta 配置中输入图片描述，复用主配置账号生成、预览并下载图片。',
+            enDesc: 'Generate and download an image from a prompt in Delta settings using the main configured account.' },
           { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: true,
-            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。搜索可使用独立服务商或宿主服务；模型 API Key 不等于 DeepSeek 官方搜索密钥。',
-            enDesc: 'Use /search plus keywords for manual results in the composer. Configure an independent provider or a Host web provider. A model key is not a DeepSeek official search credential.' },
+            zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。默认免密钥搜索，也可配置独立搜索服务商。',
+            enDesc: 'Use /search plus keywords for manual results in the composer. Uses keyless search by default, with an optional independent search provider.' },
         ];
         const STATUS_TAG: Record<string, string> = { hostService: '需宿主服务', planned: '规划中' };
         const STATUS_TAG_EN: Record<string, string> = { hostService: 'Needs host service', planned: 'Planned' };
@@ -3146,8 +3169,8 @@ const MODULES: ModuleDef[] = [
           try { localStorage.setItem(FLAGS_KEY, JSON.stringify(next)); } catch { /* private mode */ }
           window.dispatchEvent(new Event('dsh-ui-delta:flags-changed'));
         };
-        // v0.1.0: vision and search run in the host half (index.js). The browser keeps no
-        // API key: settings are read from and written to the host, which stores the key encrypted.
+        // Vision and generation resolve the main Host account on the server. The browser
+        // keeps no credential value; only the search service stores its own key here.
 
         // v0.1.0: model names to hide from the model picker (display only; they stay callable)
         const HIDDEN_MODELS_KEY = 'dsh-ui-delta.hiddenModels';
@@ -3172,10 +3195,11 @@ const MODULES: ModuleDef[] = [
           const h = React.createElement;
           function DeltaSettings() {
             const [flags, setFlags] = React.useState(readFlags);
+            const enabled = (m: ModuleDef) => flags[m.id] ?? m.defaultOn;
             const isReady = (m: ModuleDef) => m.status === 'ready';
             const toggle = (m: ModuleDef) => {
               if (!isReady(m)) return;
-              const next = !flags[m.id];
+              const next = !enabled(m);
               writeFlag(m.id, next);
               setFlags({ ...flags, [m.id]: next });
             };
@@ -3196,10 +3220,10 @@ const MODULES: ModuleDef[] = [
                   key: 'b',
                   type: 'button',
                   role: 'switch',
-                  'aria-checked': flags[m.id] === true,
+                  'aria-checked': enabled(m),
                   'aria-label': m.zh,
                   disabled: !isReady(m),
-                  className: 'ens-switch' + (flags[m.id] === true ? ' ens-switch-on' : ''),
+                  className: 'ens-switch' + (enabled(m) ? ' ens-switch-on' : ''),
                   onClick: () => toggle(m),
                 }, h('span', { key: 'k', className: 'ens-switch-knob' })),
               ]),
@@ -3226,11 +3250,27 @@ const MODULES: ModuleDef[] = [
             // and sends a new key once; it never keeps the key.
             const [hostCfg, setHostCfg] = React.useState<HostConfig | null>(null);
             const [saveStatus, setSaveStatus] = React.useState<Record<string, string>>({});
+            const [visionModelForm, setVisionModelForm] = React.useState({ model: '', temperature: '', maxTokens: '' });
+            const [visionModelStatus, setVisionModelStatus] = React.useState('');
+            const [imageGenForm, setImageGenForm] = React.useState({
+              model: '',
+            });
+            const [imagePrompt, setImagePrompt] = React.useState('');
+            const [imageSize, setImageSize] = React.useState('1024x1024');
+            const [generatedImage, setGeneratedImage] = React.useState('');
+            const [imageGenBusy, setImageGenBusy] = React.useState(false);
+            const [imageGenStatus, setImageGenStatus] = React.useState('');
             React.useEffect(() => {
               let isAlive = true;
               fetch('/dsh-ui-delta/config')
                 .then((r) => r.json())
-                .then((d) => { if (isAlive) setHostCfg(d); })
+                .then((d) => {
+                  if (!isAlive) return;
+                  setHostCfg(d);
+                  const imageGen = d?.imageGen;
+                  if (imageGen && typeof imageGen === 'object') setImageGenForm({ model: String(imageGen.model || '') });
+                  setVisionModelForm({ model: typeof d?.visionModel === 'string' ? d.visionModel : '', temperature: String(d?.visionOptions?.temperature ?? ''), maxTokens: String(d?.visionOptions?.maxTokens ?? '') });
+                })
                 .catch(() => { if (isAlive) setHostCfg({ error: true }); });
               return () => { isAlive = false; };
             }, []);
@@ -3244,7 +3284,7 @@ const MODULES: ModuleDef[] = [
               return d;
             };
             /**
-             * v0.2.2 — one provider list per feature, several providers at a time.
+             * v0.2.2 — the search service can keep several providers at a time.
              *
              * Each entry is { id, label, baseUrl/model/endpoint, keyHint, active }.
              * The host stores the array and encrypts every key; the browser only ever
@@ -3263,7 +3303,10 @@ const MODULES: ModuleDef[] = [
             }
             interface HostConfig {
               error?: boolean;
-              [section: string]: { providers?: ProviderDef[] } | boolean | undefined;
+              [section: string]: {
+                providers?: ProviderDef[]; model?: string; keyHint?: string; configured?: boolean;
+                provider?: string; ready?: boolean; imageInputSupported?: boolean; openAICompatible?: boolean;
+              } | boolean | string | undefined;
             }
             const providerList = (section: string): ProviderDef[] => {
               const cfg = hostCfg ? hostCfg[section] : undefined;
@@ -3272,7 +3315,6 @@ const MODULES: ModuleDef[] = [
             };
             const fieldLabel = (text: string) => h('div', { key: 'l', className: 'ens-set-name' }, text);
             const providerCard = (section: string, p: ProviderDef, index: number) => {
-              const isVision = section === 'vision';
               const named = (p.label || '').trim() !== '';
               return h('div', { key: p.id || index, className: 'ens-provider' }, [
                 h('div', { key: 'hd', className: 'ens-provider-head' }, [
@@ -3287,19 +3329,13 @@ const MODULES: ModuleDef[] = [
                     onClick: () => { saveHost(section, { removeProvider: p.id }).catch((error) => setSaveStatus(prev => ({ ...prev, [p.id || '']: String(error) }))); },
                   }, pick('删除', 'Remove')),
                 ]),
-                fieldLabel(isVision ? pick('接口地址（OpenAI 兼容）', 'API base URL (OpenAI-compatible)') : pick('搜索接口地址', 'Search endpoint')),
+                fieldLabel(pick('搜索接口地址', 'Search endpoint')),
                 h('input', {
                   key: 'url', className: 'jrmgQW_input', type: 'text',
-                  placeholder: isVision ? 'https://api.example.com/v1' : 'https://api.tavily.com/search',
-                  defaultValue: (isVision ? p.baseUrl : p.endpoint) || '',
-                  'data-provider-field': isVision ? 'baseUrl' : 'endpoint',
+                  placeholder: 'https://api.tavily.com/search',
+                  defaultValue: p.endpoint || '',
+                  'data-provider-field': 'endpoint',
                 }),
-                isVision ? fieldLabel(pick('视觉模型', 'Vision model')) : null,
-                isVision ? h('input', {
-                  key: 'model', className: 'jrmgQW_input', type: 'text', placeholder: 'gpt-4o-mini',
-                  defaultValue: p.model || '',
-                  'data-provider-field': 'model',
-                }) : null,
                 fieldLabel(pick('API 密钥', 'API key')),
                 h('input', {
                   key: 'key', className: 'jrmgQW_input', type: 'password',
@@ -3352,18 +3388,147 @@ const MODULES: ModuleDef[] = [
             // configuration that nothing reads.
             const visionOn = moduleOn('visionBridge');
             const searchOn = moduleOn('webSearch');
-            const visionRow = visionOn ? featureBlock('vision',
-              pick('视觉识别配置', 'Vision bridge settings'),
-              pick(
-                '粘贴的图片由宿主发送到下面配置的视觉多模态模型，识别出的文字插入输入框。可同时配置多个服务商，列表中的第一个生效；密钥由宿主加密保存，这里只显示末四位。',
-                'The host sends a pasted image to the vision providers below and puts the recognised text into the composer. Several providers can be configured at once; the first one is used. Keys are stored encrypted by the host and only their last four characters are shown here.',
-              )) : null;
+            const mainModelInfo = hostCfg?.mainModel && typeof hostCfg.mainModel === 'object' ? hostCfg.mainModel : undefined;
+            const mainModelLabel = mainModelInfo?.provider && mainModelInfo.model
+              ? `${mainModelInfo.provider} / ${mainModelInfo.model}`
+              : pick('主配置模型不可用', 'Main model unavailable');
+            const visionRow = visionOn ? h('div', { key: 'vision', className: 'ens-privacy' }, [
+              h('div', { key: 'title', className: 'ens-privacy-title' }, pick('视觉识别', 'Vision bridge')),
+              h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
+                '粘贴图片识别时自动复用主配置的模型账号、接口地址和 API Key，不需要为 Delta 再配置一套。可指定支持图片输入的视觉模型，留空跟随主模型。',
+                'Pasted-image recognition reuses the main model account, endpoint and API key; Delta needs no separate credentials. Choose an image-capable model, or leave the name blank to follow the main model.',
+              )),
+              h('div', { key: 'model', className: 'ens-set-name' }, mainModelLabel),
+              !mainModelInfo?.ready ? h('div', { key: 'unready', role: 'status', className: 'ens-set-desc' }, pick('请先在主配置中设置模型账号。', 'Configure a model account in the main settings first.')) : null,
+              mainModelInfo?.openAICompatible === false ? h('div', { key: 'protocol', role: 'status', className: 'ens-set-desc' }, pick('当前账号接口不兼容 Delta 的图文识别请求。', 'The current provider protocol is not compatible with Delta image-recognition requests.')) : null,
+              !visionModelForm.model.trim() && mainModelInfo?.imageInputSupported === false ? h('div', { key: 'no-image', role: 'status', className: 'ens-set-desc' }, pick('当前模型不支持图片输入。', 'The current model does not accept image input.')) : null,
+              h('div', { key: 'override', className: 'ens-provider' }, [
+                fieldLabel(pick('视觉模型名称（留空跟随主模型）', 'Vision model name (blank follows the main model)')),
+                h('input', {
+                  key: 'model-input', className: 'jrmgQW_input', type: 'text', value: visionModelForm.model,
+                  placeholder: mainModelInfo?.model || pick('使用主配置模型', 'Use the main model'),
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setVisionModelForm(prev => ({ ...prev, model: ev.target.value })),
+                }),
+                h('label', { key: 'temperature' }, [
+                  pick('温度（0–2，留空使用默认值）', 'Temperature (0–2; blank uses default)'),
+                  h('input', { key: 'input', className: 'jrmgQW_input', type: 'number', min: 0, max: 2, step: 0.1, value: visionModelForm.temperature,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setVisionModelForm(prev => ({ ...prev, temperature: ev.target.value })) }),
+                ]),
+                h('label', { key: 'tokens' }, [
+                  pick('最大输出长度（留空使用默认值）', 'Maximum output tokens (blank uses default)'),
+                  h('input', { key: 'input', className: 'jrmgQW_input', type: 'number', min: 1, max: 65536, step: 1, value: visionModelForm.maxTokens,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setVisionModelForm(prev => ({ ...prev, maxTokens: ev.target.value })) }),
+                ]),
+                h('div', { key: 'save', className: 'ens-set-row' }, [
+                  h('button', { key: 'button', type: 'button', className: 'ens-pill-btn', onClick: async () => {
+                    setVisionModelStatus(pick('保存中…', 'Saving…'));
+                    try {
+                      await saveHost('visionModel', { model: visionModelForm.model,
+                        temperature: visionModelForm.temperature === '' ? null : Number(visionModelForm.temperature),
+                        maxTokens: visionModelForm.maxTokens === '' ? null : Number(visionModelForm.maxTokens) });
+                      setVisionModelStatus(pick('模型参数已保存', 'Model parameters saved'));
+                    } catch (error) {
+                      setVisionModelStatus(pick('保存失败：', 'Save failed: ') + String(error));
+                    }
+                  } }, pick('保存模型参数', 'Save model parameters')),
+                  h('span', { key: 'status', role: 'status', className: 'ens-set-desc' }, visionModelStatus),
+                ]),
+              ]),
+            ]) : null;
             const searchRow = searchOn ? featureBlock('search',
               pick('联网搜索配置', 'Web search settings'),
               pick(
-                '输入 /search 加关键词，可手动搜索并把结果填入输入框，不自动发送。可配置 Tavily 兼容接口；未配置时尝试宿主原生搜索。宿主默认 DeepSeek 官方搜索需要官方密钥，与你的自定义模型 API Key 独立。',
-                'Type /search plus keywords to fill the composer with results; nothing is sent automatically. Configure a Tavily-compatible endpoint or use the Host web service. The Host default DeepSeek search requires a separate official key.',
+                '输入 /search 加关键词，可手动搜索并把结果填入输入框，不自动发送。默认使用 Bing RSS，失败时尝试 DuckDuckGo，无需 Python 或密钥。可选配 Tavily 兼容接口；模型联网搜索与此处使用同一配置。',
+                'Type /search plus keywords to fill the composer with results; nothing is sent automatically. Uses Bing RSS with DuckDuckGo fallback, without Python or keys. An optional Tavily-compatible endpoint is shared with native model web search.',
               )) : null;
+            const imageGenConfig = hostCfg?.imageGen && typeof hostCfg.imageGen === 'object' ? hostCfg.imageGen : undefined;
+            const saveImageGen = async () => {
+              setImageGenStatus(pick('保存中…', 'Saving…'));
+              try {
+                await saveHost('imageGen', { model: imageGenForm.model });
+                setImageGenStatus(pick('配置已保存', 'Settings saved'));
+              } catch (error) {
+                setImageGenStatus(pick('保存失败：', 'Save failed: ') + String(error));
+              }
+            };
+            const createImage = async () => {
+              if (!imagePrompt.trim()) {
+                setImageGenStatus(pick('请先填写图片描述。', 'Enter an image prompt first.'));
+                return;
+              }
+              setImageGenBusy(true);
+              setImageGenStatus(pick('正在生成…', 'Generating…'));
+              try {
+                await saveHost('imageGen', { model: imageGenForm.model });
+                const response = await fetch('/dsh-ui-delta/image-generate', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ prompt: imagePrompt, size: imageSize }),
+                });
+                const result = await response.json();
+                if (!response.ok || result.error) throw new Error(result.error || `HTTP ${response.status}`);
+                if (typeof result.image !== 'string' || !result.image.startsWith('data:image/')) throw new Error('Invalid image response');
+                setGeneratedImage(result.image);
+                setImageGenStatus(pick('图片已生成，可下载保存。', 'Image generated. Download it to save a copy.'));
+              } catch (error) {
+                setImageGenStatus(pick('生成失败：', 'Generation failed: ') + String(error));
+              } finally {
+                setImageGenBusy(false);
+              }
+            };
+            const imageGenOn = moduleOn('imageGen');
+            const imageGenRow = imageGenOn ? h('div', { key: 'image-gen', id: 'delta-image-generation', className: 'ens-privacy' }, [
+              h('div', { key: 'title', className: 'ens-privacy-title' }, pick('在线生图', 'Online image generation')),
+              h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
+                '自动复用主配置的服务商、接口地址和 API Key。生图模型留空时跟随主模型；如该服务商需要专用生图模型，可在下方填写模型 ID。服务商需要提供 OpenAI 兼容的图片生成接口。生成结果暂存在此页面，可下载到本机。',
+                'Reuses the main model provider, endpoint and API key. Leave the image model blank to follow the main model; enter a model ID below only if the provider needs a dedicated image model. The provider must expose an OpenAI-compatible image-generation endpoint. Generated images stay in this page until downloaded.',
+              )),
+              h('div', { key: 'account', className: 'ens-set-name' }, mainModelLabel),
+              !mainModelInfo?.ready ? h('div', { key: 'unready', role: 'status', className: 'ens-set-desc' }, pick('请先在主配置中设置模型账号。', 'Configure a model account in the main settings first.')) : null,
+              mainModelInfo?.openAICompatible === false ? h('div', { key: 'protocol', role: 'status', className: 'ens-set-desc' }, pick('当前服务商未声明 OpenAI 兼容接口，图片生成可能不可用。', 'The provider has not declared an OpenAI-compatible API; image generation may be unavailable.')) : null,
+              h('div', { key: 'form', className: 'ens-provider' }, [
+                fieldLabel(pick('生图模型 ID（留空跟随主模型）', 'Image model ID (blank follows the main model)')),
+                h('input', {
+                  key: 'model', className: 'jrmgQW_input', type: 'text', value: imageGenForm.model,
+                  placeholder: mainModelInfo?.model || pick('使用主配置模型', 'Use the main model'),
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setImageGenForm(prev => ({ ...prev, model: ev.target.value })),
+                }),
+                h('div', { key: 'save', className: 'ens-set-row' }, [
+                  h('button', { key: 'button', type: 'button', className: 'ens-pill-btn', onClick: () => { void saveImageGen(); } }, pick('保存生图配置', 'Save image settings')),
+                  imageGenConfig?.model ? h('span', { key: 'override', className: 'ens-set-desc' }, pick('使用生图模型覆写', 'Image model override enabled')) : null,
+                ]),
+              ]),
+              h('label', { key: 'prompt-label', className: 'ens-set-name' }, pick('图片描述', 'Image prompt')),
+              h('textarea', {
+                key: 'prompt', className: 'jrmgQW_input', value: imagePrompt, rows: 4, maxLength: 4000,
+                placeholder: pick('描述你想生成的图片…', 'Describe the image you want…'),
+                onChange: (ev: HarnessReactChangeEvent<HTMLTextAreaElement>) => setImagePrompt(ev.target.value),
+              }),
+              h('div', { key: 'generate-row', className: 'ens-set-row' }, [
+                h('select', {
+                  key: 'size', className: 'jrmgQW_input', value: imageSize,
+                  onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) => setImageSize(ev.target.value),
+                }, [
+                  h('option', { key: 'square', value: '1024x1024' }, '1024 × 1024'),
+                  h('option', { key: 'landscape', value: '1536x1024' }, '1536 × 1024'),
+                  h('option', { key: 'portrait', value: '1024x1536' }, '1024 × 1536'),
+                ]),
+                h('button', {
+                  key: 'generate', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
+                  disabled: imageGenBusy, onClick: () => { void createImage(); },
+                }, imageGenBusy ? pick('生成中…', 'Generating…') : pick('生成图片', 'Generate image')),
+                h('span', { key: 'status', role: 'status', className: 'ens-set-desc' }, imageGenStatus),
+              ]),
+              generatedImage ? h('div', { key: 'result', className: 'ens-provider' }, [
+                h('img', {
+                  key: 'preview', src: generatedImage, alt: pick('生成的图片', 'Generated image'),
+                  style: { display: 'block', maxWidth: '100%', maxHeight: '480px', objectFit: 'contain', margin: '0 auto 12px' },
+                }),
+                h('a', {
+                  key: 'download', className: 'ens-pill-btn', href: generatedImage,
+                  download: generatedImage.startsWith('data:image/jpeg') ? 'delta-generated-image.jpg' : generatedImage.startsWith('data:image/webp') ? 'delta-generated-image.webp' : 'delta-generated-image.png',
+                }, pick('下载图片', 'Download image')),
+              ]) : null,
+            ]) : null;
             const exportRow = h('div', { key: 'exp', className: 'ens-set-row' }, [
               h('span', { key: 't', className: 'ens-set-text' }, [
                 h('span', { key: 'n', className: 'ens-set-name' }, pick('导出当前对话', 'Export this conversation')),
@@ -3385,6 +3550,7 @@ const MODULES: ModuleDef[] = [
                   'Appearance and feature modules. Only available switches are operable; the rest state their real status.',
                 )),
               ]),
+              imageGenRow,
               h('div', { key: 'l', className: 'ens-set-list' }, [...MODULES.map(row), hiddenRow]),
               visionRow,
               searchRow,
@@ -3392,8 +3558,8 @@ const MODULES: ModuleDef[] = [
               h('div', { key: 'p', className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, pick('隐私', 'Privacy')),
                 h('div', { key: 'b', className: 'ens-privacy-body' }, pick(
-                  '本插件不会主动上传会话日志；官方 DeepSeek 上传功能仍须在宿主配置中关闭。视觉识别和联网搜索会向你配置的服务发送相关内容。',
-                  'This plugin excludes official DeepSeek session-log contributions, but the Host setting must also be disabled. Vision and web search send data to the services you configure.',
+                  '本插件不会主动上传会话日志；官方 DeepSeek 上传功能仍须在宿主配置中关闭。视觉识别和生图使用主配置服务商；搜索关键词发送到所选搜索源。',
+                  'This plugin excludes official DeepSeek session-log contributions, but the Host setting must also be disabled. Vision, web search and image-generation prompts go to their configured providers.',
                 )),
               ]),
             ]);

@@ -1,6 +1,4 @@
-import { spawn } from 'node:child_process'
-
-/** A keyless DuckDuckGo provider backed by the Python ddgs library. */
+/** A keyless DuckDuckGo provider using the Host JavaScript runtime. */
 export const DUCKDUCKGO_PROVIDER_ID = 'delta-duckduckgo'
 
 export interface SearchSource {
@@ -20,126 +18,6 @@ export interface SearchResult {
 }
 
 type SearchFetch = typeof fetch
-
-interface PythonSearchRow {
-  title?: unknown
-  url?: unknown
-  snippet?: unknown
-}
-
-const PYTHON_SCRIPT = [
-  'import json, sys',
-  'from ddgs import DDGS',
-  'request = json.load(sys.stdin)',
-  'rows = DDGS().text(request["query"], max_results=request["maxResults"]) or []',
-  'print(json.dumps([{"title": str(r.get("title") or ""), "url": str(r.get("href") or r.get("url") or ""), "snippet": str(r.get("body") or r.get("snippet") or "")} for r in rows], ensure_ascii=False))',
-].join('\n')
-
-const pythonExecutable = (): string => process.env.DSH_DDGS_PYTHON?.trim() || 'python'
-
-const parsePythonRows = (output: string, maximum: number): SearchSource[] => {
-  const parsed: unknown = JSON.parse(output)
-  if (!Array.isArray(parsed)) throw new Error('Python DDGS returned an invalid result list')
-  const seen = new Set<string>()
-  const sources: SearchSource[] = []
-  for (const item of parsed) {
-    if (item === null || typeof item !== 'object') continue
-    const row = item as PythonSearchRow
-    const url = String(row.url || '')
-    try {
-      const target = new URL(url)
-      if (!['https:', 'http:'].includes(target.protocol) || target.username || target.password) continue
-    } catch { continue }
-    if (seen.has(url)) continue
-    seen.add(url)
-    const title = String(row.title || '').slice(0, 300)
-    const snippet = String(row.snippet || '').replace(/\s+/g, ' ').slice(0, 600)
-    sources.push({ url, ...(title ? { title } : {}), ...(snippet ? { snippet } : {}) })
-    if (sources.length >= maximum) break
-  }
-  return sources
-}
-
-const searchWithPython = (
-  query: string,
-  maxResults: number,
-  signal?: AbortSignal,
-): Promise<SearchSource[]> => new Promise((resolve, reject) => {
-  if (signal?.aborted) {
-    reject(new Error('DuckDuckGo search aborted'))
-    return
-  }
-  const child = spawn(pythonExecutable(), ['-c', PYTHON_SCRIPT], {
-    windowsHide: true,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
-  let output = ''
-  let stderr = ''
-  let isSettled = false
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  let onAbort: () => void = () => {}
-  const finish = (callback: () => void): void => {
-    if (isSettled) return
-    isSettled = true
-    if (timeout !== undefined) clearTimeout(timeout)
-    signal?.removeEventListener('abort', onAbort)
-    callback()
-  }
-  onAbort = () => {
-    child.kill()
-    finish(() => reject(new Error('DuckDuckGo search aborted')))
-  }
-  timeout = setTimeout(() => {
-    child.kill()
-    finish(() => reject(new Error('Python DDGS search timed out after 20 seconds')))
-  }, 20_000)
-  timeout.unref()
-  signal?.addEventListener('abort', onAbort, { once: true })
-  if (signal?.aborted) {
-    onAbort()
-    return
-  }
-
-  child.stdout.setEncoding('utf8')
-  child.stderr.setEncoding('utf8')
-  child.stdout.on('data', (chunk: string) => {
-    output += chunk
-    if (output.length > 1_000_000) {
-      child.kill()
-      finish(() => reject(new Error('Python DDGS result exceeded the 1 MB limit')))
-    }
-  })
-  child.stderr.on('data', (chunk: string) => {
-    if (stderr.length < 4000) stderr += chunk.slice(0, 4000 - stderr.length)
-  })
-  child.stdin.on('error', () => {})
-  child.on('error', (error) => {
-    const code = (error as Error & { code?: string }).code
-    const message = code === 'ENOENT'
-      ? 'Python was not found; set DSH_DDGS_PYTHON to OpenWorker’s Python executable'
-      : 'Could not start Python search: ' + error.message
-    finish(() => reject(new Error(message)))
-  })
-  child.on('close', (code, exitSignal) => {
-    if (isSettled) return
-    if (code !== 0) {
-      const missingPackage = /No module named ['"]ddgs['"]/.test(stderr)
-      const detail = missingPackage
-        ? 'Python package ddgs is not installed in the selected environment'
-        : stderr.trim().slice(0, 500) || 'ddgs search process failed'
-      finish(() => reject(new Error('Python DDGS failed (' + (code ?? exitSignal ?? 'unknown') + '): ' + detail)))
-      return
-    }
-    try {
-      const sources = parsePythonRows(output, maxResults)
-      finish(() => resolve(sources))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      finish(() => reject(new Error('Python DDGS returned invalid JSON: ' + message)))
-    }
-  })
-  child.stdin.end(JSON.stringify({ query, maxResults }))
-})
 
 const decodeEntities = (value: string): string =>
   value.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos|nbsp);/gi, (_match, entity: string) => {
@@ -191,7 +69,7 @@ export function parseDuckDuckGoHtml(html: string, maximum = 5): SearchSource[] {
   return sources
 }
 
-export function makeDuckDuckGoProvider(fetchHtml?: SearchFetch) {
+export function makeDuckDuckGoProvider(fetchHtml: SearchFetch = fetch) {
   return {
     id: DUCKDUCKGO_PROVIDER_ID,
     available: () => true,
@@ -201,8 +79,8 @@ export function makeDuckDuckGoProvider(fetchHtml?: SearchFetch) {
       const maximum = Math.max(1, Math.min(10, Number.isInteger(request.maxResults) ? request.maxResults! : 5))
       const query = request.query.trim().slice(0, 500)
 
-      // Preserve the injected HTML transport as a test seam. Production uses Python DDGS below.
-      if (fetchHtml) {
+      // Production and tests use the same HTTP transport; no external runtime is required.
+      {
         const timeout = AbortSignal.timeout(15_000)
         const combined = signal ? AbortSignal.any([signal, timeout]) : timeout
         const endpoint = new URL('https://html.duckduckgo.com/html/')
@@ -222,8 +100,6 @@ export function makeDuckDuckGoProvider(fetchHtml?: SearchFetch) {
         return { sources, truncated: false }
       }
 
-      const sources = await searchWithPython(query, maximum, signal)
-      return { sources, truncated: false }
     },
   }
 }
