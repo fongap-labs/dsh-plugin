@@ -30,7 +30,9 @@ describe('session-scoped approval extension', () => {
   it('expires on reload, supports missing callId fail-closed and cleans up on unload', () => {
     assert.match(client, /if \(!approval\.callId \|\| !approval\.toolName \|\| !approval\.answerable\) return null/)
     assert.match(client, /grants = new Map/)
-    assert.match(client, /return \(\) => \{ unsubscribe\(\); grants\.clear\(\); \}/)
+    assert.match(client, /eventObservers\.clear\(\)/)
+    assert.match(client, /grants\.clear\(\)/)
+    assert.match(client, /binding\.eventSource\.subscribe\(reuseApprovals\)/)
     assert.doesNotMatch(client.slice(client.indexOf('const grants = new Map'),client.indexOf('function DeltaApprovalComposer')), /localStorage|sessionStorage/)
   })
   it('subscribes to real pending interactions rather than intercepting untrusted browser clicks', () => {
