@@ -25,6 +25,10 @@ describe('GitHub account configuration and automatic routing', () => {
     assert.throws(() => selectGitHubAccount(accounts, 'unknown/repository'), /no GitHub account/)
     assert.throws(() => selectGitHubAccount([...accounts, { owner: 'fongap-labs', token: 'other' }], 'fongap-labs/other'), /ambiguous/)
     assert.throws(() => selectGitHubAccount(accounts, '../repo'), /invalid/)
+    assert.throws(() => selectGitHubAccount(accounts, 'fongap-labs/..'), /invalid/)
+    assert.throws(() => selectGitHubAccount(accounts, 'fongap-labs/.'), /invalid/)
+    assert.throws(() => selectGitHubAccount(accounts, '-owner/repository'), /invalid/)
+    assert.throws(() => selectGitHubAccount(accounts, 'owner/name/extra'), /invalid/)
   })
   it('rejects duplicate owners and invalid/missing tokens', () => {
     assert.throws(() => validateGitHubAccounts([{ owner: 'owner', token: 'value' }, { owner: 'OWNER', token: 'second' }]), /duplicate/)
@@ -38,6 +42,8 @@ describe('GitHub account configuration and automatic routing', () => {
     assert.equal(repositoryFromRemote('git@github.com:fongap-labs/delta.git'), 'fongap-labs/delta')
     assert.equal(repositoryFromRemote('ssh://git@github.com/fongap-labs/delta'), 'fongap-labs/delta')
     assert.equal(repositoryFromRemote('https://github.com.evil.example/fongap-labs/delta'), undefined)
+    assert.equal(repositoryFromRemote('https://github.com/../repo'), undefined)
+    assert.equal(repositoryFromRemote('git@github.com:owner/..'), undefined)
   })
   it('defaults to read-only and installs all GitHub tools', () => {
     const config = normalizeConfig({ github: { accounts } })
