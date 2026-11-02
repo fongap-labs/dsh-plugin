@@ -10,8 +10,9 @@ import { DEFAULT_GUIDANCE, errorMessage, normalizeConfig } from './runtime.js'
 import { createMultiEditTool } from './tools/multi-edit.js'
 import { createGitStatusTool, createGitDiffTool } from './tools/git.js'
 import { createLspProbeTool } from './tools/lsp.js'
+import { createGitHubTools } from './tools/github.js'
 
-export type { CodeWorkerConfig, LspServerConfig } from './types.js'
+export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 const PROMPT_SECTION_NAME = 'dsh-code-worker:guidance'
 export const name = '@fongap-labs/dsh-code-worker'
 export const inject = ['tools']
@@ -66,6 +67,7 @@ function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
     tools.push(createGitStatusTool(ctx, settings))
     tools.push(createGitDiffTool(ctx, settings))
   }
+  if (settings.githubEnabled) tools.push(...createGitHubTools(ctx, settings))
   tools.push(createLspProbeTool(ctx, settings))
   return tools
 }
