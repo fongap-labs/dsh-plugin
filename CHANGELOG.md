@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.2](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-code-worker-v0.1.0-beta.2) - 2026-11-02
+
+### 变更
+
+- 编程插件采用 Linux portable 构建流程，独立提供 zip 与 tgz 安装产物。
+
+### 修复
+
+- 取消 Code Worker 对宿主工具包的精确运行时版本绑定，避免 Harness 候选版本误判插件不兼容。
+
 ## [0.1.0-beta.10](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.10) - 2026-11-02
 
 ### 新增
@@ -162,6 +172,7 @@
 - 三个发布清单（`projects/*/release.manifest.json`）的 `builds[].target` 由 `windows-x64` 改为合法 rustup target triple `x86_64-pc-windows-msvc`，修复 Action Worker 直接把它传给 `rustup toolchain install --target` 时下载 `rust-std` 失败导致的发布构建中断。
 - 打包产物现在始终包含 `package.json`（与 `npm pack` 行为一致），此前注入的发布版本只存在于工作区、不会出现在 zip 中，产物因此没有版本信息。
 - `scripts/build-release.ps1` 解析包管理器时把 `Get-Command` 的多个匹配结果当作单个路径，导致发布构建直接失败（`The term 'C:\hostedtoolcache\...\npm.cmd C:\Program Files\nodejs\npm.cmd' is not recognized`）。Windows runner 的 `npm.cmd` 同时存在于 hosted toolcache 与 `C:\Program Files\nodejs`，`$found.Source` 因此是数组，传给调用运算符后被拼成 `"<路径> <路径>"`；现改为逐个候选解析成唯一真实文件路径。
+
 
 
 
