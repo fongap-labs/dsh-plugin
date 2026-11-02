@@ -3313,7 +3313,7 @@ const MODULES: ModuleDef[] = [
             interface HostConfig {
               error?: boolean;
               [section: string]: {
-                providers?: ProviderDef[]; model?: string; keyHint?: string; configured?: boolean;
+                providers?: ProviderDef[]; model?: string; keyHint?: string; configured?: boolean; fallbackToKeyless?: boolean;
                 provider?: string; ready?: boolean; imageInputSupported?: boolean; openAICompatible?: boolean;
               } | boolean | string | undefined;
             }
@@ -3390,6 +3390,21 @@ const MODULES: ModuleDef[] = [
                   key: 'add', type: 'button', className: 'ens-pill-btn',
                   onClick: () => { saveHost(section, { addProvider: true }).catch((error) => setSaveStatus(prev => ({ ...prev, [section]: String(error) }))); },
                 }, pick('添加服务商', 'Add provider')),
+                section === 'search' ? h('label', { key: 'fallback', className: 'ens-set-row' }, [
+                  h('input', {
+                    key: 'enabled', type: 'checkbox',
+                    checked: hostCfg?.search && typeof hostCfg.search === 'object' ? !!hostCfg.search.fallbackToKeyless : false,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => {
+                      void saveHost('search', { fallbackToKeyless: ev.target.checked })
+                        .catch((error) => setSaveStatus(prev => ({ ...prev, fallback: String(error) })));
+                    },
+                  }),
+                  h('span', { key: 'text', className: 'ens-set-desc' }, pick(
+                    '独立搜索接口失败后，允许回退到免密钥 ddgs（查询将发送给不同的搜索服务商）',
+                    'Allow keyless ddgs fallback when configured endpoints fail (queries may be sent to a different search provider)',
+                  )),
+                  h('span', { key: 'error', role: 'status', className: 'ens-set-desc' }, saveStatus.fallback || ''),
+                ]) : null,
               ]);
             };
             // v0.2.2: a feature's settings appear only while its switch is on — an
