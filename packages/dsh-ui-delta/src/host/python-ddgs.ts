@@ -63,10 +63,10 @@ const launchPython: PythonExecutor = (command, args, payload, signal) => new Pro
   })
   let stdout = ''
   let stderr = ''
-  let finished = false
+  let isFinished = false
   const finish = (error?: Error, data?: unknown) => {
-    if (finished) return
-    finished = true
+    if (isFinished) return
+    isFinished = true
     clearTimeout(timeout)
     signal?.removeEventListener('abort', onAbort)
     if (error) reject(error)
@@ -98,7 +98,7 @@ const launchPython: PythonExecutor = (command, args, payload, signal) => new Pro
     if (Buffer.byteLength(stderr) < MAX_ERROR_BYTES) stderr += chunk.toString('utf8')
   })
   child.on('close', (code) => {
-    if (finished) return
+    if (isFinished) return
     if (code === 3 || stderr.includes('DDGS_NOT_INSTALLED')) {
       return finish(new PythonUnavailable('The Python ddgs package is not installed'))
     }
