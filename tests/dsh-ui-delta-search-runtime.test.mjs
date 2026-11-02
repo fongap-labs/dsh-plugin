@@ -55,3 +55,47 @@ it('respects the configured independent provider without invoking Python ddgs', 
   const controller = new AbortController(); controller.abort()
   await assert.rejects(() => searchWeb('news', controller.signal), { name: 'AbortError' })
 })
+
+
+it('retries transient failures and switches only among configured endpoints', async () => {
+  config({ search: { providers: [
+    { id: 'primary', active: true, endpoint: 'https://search.example/primary' },
+    { id: 'secondary', active: false, endpoint: 'https://search.example/secondary' },
+  ] } })
+  const calls = []
+  mock.method(globalThis, 'fetch', async url => {
+    calls.push(String(url))
+    if (String(url).endsWith('/primary')) return new Response('busy', { status: 503 })
+    return Response.json({ results: [{ title: 'Fallback source', url: 'https://example.com/a', content: 'ok' }] })
+  })
+  const hits = await searchWeb('news', undefined, async () => { throw Error('not approved for keyless fallback') })
+  assert.equal(hits.length, 1)
+  assert.equal(calls.filter(url => url.endsWith('/primary')).length, 2)
+  assert.equal(calls.filter(url => url.endsWith('/secondary')).length, 1)
+})
+
+it('does not switch provider on authentication failure', async () => {
+  config({ search: { providers: [
+    { id: 'primary', active: true, endpoint: 'https://search.example/primary' },
+    { id: 'secondary', active: false, endpoint: 'https://search.example/secondary' },
+  ] } })
+  let count = 0
+  mock.method(globalThis, 'fetch', async () => { count++; return new Response('bad key', { status: 401 }) })
+  await assert.rejects(() => searchWeb('news'), /HTTP 401/)
+  assert.equal(count, 1)
+})
+
+it('only uses keyless failover after explicit consent', async () => {
+  config({ search: {
+    fallbackToKeyless: true,
+    providers: [{ id: 'primary', active: true, endpoint: 'https://search.example/primary' }],
+  } })
+  mock.method(globalThis, 'fetch', async () => new Response('rate limited', { status: 429 }))
+  let count = 0
+  const hits = await searchWeb('news', undefined, async () => {
+    count++
+    return [{ title: 'Keyless', url: 'https://example.com/ok', content: 'ok' }]
+  })
+  assert.equal(count, 1)
+  assert.equal(hits[0].title, 'Keyless')
+})

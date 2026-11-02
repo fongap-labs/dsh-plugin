@@ -37,6 +37,18 @@ Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表�
 
 Delta UI 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx.web` 注册一个 Provider。普通对话的自动搜索取决于所选 Agent preset 是否实际加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用 Harness `web-fetch-http` 的安全规则。Exa、Tavily、Brave 等 API 型服务商仍可按各自 Host 提供方或独立接口配置使用，费用与密钥由服务商决定。
 
+## 搜索质量与深度检索
+
+默认 `web_search` 保持单次搜索，支持由 Harness 提供的 `maxResults`（最多 20 条）；结果统一过滤非 HTTP(S) 链接、删除常见追踪参数、按 URL 去重并限制摘要长度。Python `ddgs` 的缺失状态通过轻量导入检查进行检测，检查不发出搜索查询。
+
+手动输入 `/search 关键词` 继续执行单次搜索。输入 `/research alpha versus beta` 则使用受控多查询：保留原始查询，按明确的对比或分隔符生成最多两个额外子查询，逐次检索、去重并按关键词相关性排序。研究结果最多保留 15 条；部分查询失败时仍显示已获得的结果，全部失败时明确报错。两种命令只回填编辑框，不自动发送消息。
+
+网页正文通过 Harness 原生 `ctx.web.fetch` 读取，不创建新的联网工具或独立 HTTP 传输栈。针对 /research 的自动读取另外要求公开 HTTPS 域名、DNS 解析为公网地址、禁止 IP 字面量，并对最终 URL 再次校验；每次最多读取 3 个页面、单页最多提取约 6000 字符。可提取标题、常见发布日期元数据和去掉脚本/导航内容的正文。读取失败会明确记录，不能当作已验证事实。由于宿主底层 HTTP Fetch 不绑定本次 DNS 检查的 IP，仍存在极端 DNS 重绑定的剩余风险，生产环境需配合网络出口的内网访问隔离。
+
+独立搜索 Provider 遇到 HTTP 408/425/429/5xx 等暂时性错误后有限重试，再尝试已配置的其他独立 Provider；HTTP 401/403 等认证/权限错误直接返回，不自动换源。若希望独立端点均失败后退回免密钥 ddgs，可在 Delta 联网搜索设置中明确开启（查询会被发往不同服务商），默认关闭。
+
+研究结果提供候选来源、真实网页摘录和可识别的发布日期，而不是自动生成的事实核验结论。跨来源事实冲突仍需模型读取证据并逐一验证。
+
 ## 视觉识别与在线生图
 
 打开「设置 → Delta 配置」，顶部默认显示「在线生图」。填写生图模型 ID 后保存，输入图片描述、选择尺寸并点击「生成图片」，结果可直接预览和下载。生图只在点击后发起；当前支持返回 Base64 图片的 OpenAI 兼容 Images 接口。GPT Image 模型不发送其不支持的 response_format 参数，参见 [接口说明](https://developers.openai.com/api/reference/resources/images/methods/generate)。仅返回远程图片 URL 的服务会提示不兼容。
