@@ -6,6 +6,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { publicView, updateConfig } from './config.js'
 import { recognizeImage } from './vision.js'
 import { searchWeb } from './search.js'
+import { deleteColdSession } from './session-delete.js'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -134,6 +135,18 @@ export function registerRoutes(ctx: Context): void {
     const query = String(body.query || '').trim().slice(0, 500)
     if (query === '') return sendJson(res, 400, { error: 'query required' })
     return sendJson(res, 200, { results: await searchWeb(query, ctx as unknown as { get?: (name: string) => unknown }) })
+  })
+
+  route('/dsh-ui-delta/session-delete', async (req, res) => {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}')
+    const id = typeof body.sessionId === 'string' ? body.sessionId : ''
+    try {
+      await deleteColdSession(ctx as unknown as Parameters<typeof deleteColdSession>[0], id)
+      return sendJson(res, 200, { ok: true })
+    } catch (error) {
+      return sendJson(res, 409, { error: errorMessage(error) })
+    }
   })
 
   // version endpoint: client polls once on load to detect if a new version is on disk
