@@ -45,8 +45,10 @@ const safeResults = (rows: readonly SearchRow[]): SearchRow[] => rows.filter(row
 
 const errorCause = (error: unknown): string => {
   const message = error instanceof Error ? error.message : String(error)
-  return /fetch failed|network|ECONN|ETIMEDOUT|ENETUNREACH|abort|timeout/i.test(message)
-    ? '网络请求失败或超时' : message.slice(0, 160)
+  if (/fetch failed|network|ECONN|ETIMEDOUT|ENETUNREACH|abort|timeout/i.test(message)) {
+    return 'Network request failed or timed out'
+  }
+  return message.slice(0, 160)
 }
 
 /** Decode simple RSS text without trusting remote HTML or script. */
