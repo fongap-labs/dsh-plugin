@@ -10,4 +10,11 @@ export const inject = ['webServer']
 
 export function apply(ctx: Context): void {
   registerRoutes(ctx)
+  // The official DeepSeek extension enables Session Log contribution by default.
+  // Exclude every request before the host reads log records. This is a second
+  // defense; users must still persist enabled: false in the Host profile so
+  // disabling or uninstalling Delta UI cannot re-enable uploads.
+  ctx.inject(['sessionLogDeepSeek'], (child) => {
+    child.sessionLogDeepSeek.registerExclusion(() => true)
+  })
 }
