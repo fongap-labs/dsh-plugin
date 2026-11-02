@@ -1,7 +1,7 @@
-import { relative } from 'node:path'
+
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand } from '@fongap-labs/shared'
+import { defineTool, runCommand, resolveInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 
@@ -37,6 +37,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
     description: 'Return a compact, query-ranked map of tracked repository files (no file content). Use before reading source or planning a refactor.',
     parameters: {
       query: { type: 'string', description: 'Optional keywords, symbols or filename fragments.' },
+      cwd: { type: 'string', description: 'Optional relative workspace subdirectory, including a task worktree.' },
       limit: { type: 'integer', description: 'Maximum paths, 1..250; defaults to 100.' },
     },
     output: {
@@ -53,9 +54,10 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       const limit = args.limit ?? DEFAULT_LIMIT
       if (limit < 1 || limit > MAX_LIMIT) throw new Error('limit must be between 1 and 250')
       const root = await resolveRoot(ctx, exec, settings)
+      const cwd = args.cwd ? resolveInside(root, args.cwd) : root
       const command = await runCommand(ctx, {
         command: settings.gitCommand, args: ['ls-files', '-z', '--cached'],
-        cwd: root, signal: exec.signal, timeoutMs: 15_000, maxOutputBytes: 1024 * 1024,
+        cwd, signal: exec.signal, timeoutMs: 15_000, maxOutputBytes: 1024 * 1024,
       })
       if (command.exitCode !== 0 || command.timedOut || command.lossy) {
         throw new Error('unable to enumerate tracked files without truncation')
