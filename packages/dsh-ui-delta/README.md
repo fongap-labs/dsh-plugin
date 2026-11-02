@@ -19,12 +19,18 @@ DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta UI)。
 
 ## 搜索与账户展示
 
-插件的 `/search 查询词` 功能不是模型调用的 `web_search` 工具：它只把搜索结果填入输入框，等待用户确认和发送。现在优先使用 Delta 配置中的 Tavily 兼容搜索接口；未配置时，尝试复用 Harness 的 `ctx.web` 原生搜索服务。
+插件的 `/search 查询词` 功能不是模型调用的 `web_search` 工具：它只把搜索结果填入输入框，等待用户确认和发送。现在优先使用 Delta 配置中的 Tavily 兼容搜索接口；未配置时复用 Harness 原生 `ctx.web` 搜索服务。Delta UI 的 Bundle 默认把宿主 `web_search` 提供方指定为无需密钥的 DuckDuckGo，`web_fetch` 仍使用原生 HTTP 抓取。
 
-**模型密钥不能代替搜索密钥。** Harness 默认使用 `deepseek-official` 进行搜索，需单独具备官方认证。使用其他模型网关时，建议为宿主指定独立搜索服务商（例如 Exa），或在 Delta 配置中提供 Tavily 兼容接口。若没有可用搜索服务，插件将明确说明配置失败原因；不会伪造新闻。
+**模型密钥不能代替搜索密钥。** Harness 未安装 Delta UI 时默认使用 `deepseek-official` 进行搜索，需单独具备官方认证。安装 Delta UI 的 Bundle 后默认选择 `delta-duckduckgo`，不需要官方搜索 API Key。使用其他模型网关时，建议为宿主指定独立搜索服务商（例如 Exa），或在 Delta 配置中提供 Tavily 兼容接口。若没有可用搜索服务，插件将明确说明配置失败原因；不会伪造新闻。
 
 登录后，头像悬停/键盘聚焦显示 Harness 账户余额与赠送余额。数据只来自宿主的账户快照，未就绪时显示不可用，不执行独立的带密钥请求。余额指的是 DeepSeek 官方账户，不是自定义模型提供商或 AI Gateway 的余额。
 
 ## 会话删除的安全边界
 
 Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表、刷新，并没有受支持的永久删除事务。第三方 `dsh-plugin-session-delete` 通过移除物理目录、缓存、工作区记录与宿主内部生命周期完成删除，但该操作依赖宿主内部实现；不能将它视为官方兼容 API。在没有可验证的一致性删除接口前，Delta UI 不直接执行物理删除。当前请使用 Harness 原生**归档**（可恢复）清理侧栏；切勿把归档称为永久删除。
+
+## 免密钥搜索与原生工具
+
+安装本 Bundle 后，`web.searchProvider` 默认设为 `delta-duckduckgo`，但用户 Profile 中对 `web` 的覆盖配置优先。适配器通过 DuckDuckGo HTML 搜索页获取搜索结果，不需要 API Key；搜索结果可能因限流、地区封锁或网页结构变动而失败，遇到这种情况会报错而不会编造内容。请在宿主代理或网络连接可用的前提下测试。
+
+Delta UI 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx.web` 注册一个 Provider。普通对话的自动搜索取决于所选 Agent preset 是否实际加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用 Harness `web-fetch-http` 的安全规则。Exa、Tavily、Brave 等 API 型服务商仍可按各自 Host 提供方或独立接口配置使用，费用与密钥由服务商决定。
