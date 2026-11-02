@@ -28,6 +28,9 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.doesNotMatch(client, /\.wtg9ga_panelRow\[aria-haspopup="menu"\]\s*\{\s*display:\s*none/);
     assert.doesNotMatch(client, /hideHostOptions\(\);/);
     assert.doesNotMatch(client, /mountSearchDock\(\);/);
+    assert.match(client, /restoreNativeSearch\(\);/);
+    assert.match(client, /hideAccountModels\(\);/);
+    assert.match(client, /hideListedModels\(\);/);
   });
 
   it('documents the actual scoped package and published release asset name', () => {
