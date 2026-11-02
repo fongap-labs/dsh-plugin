@@ -2229,7 +2229,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               if (input && input.getAttribute('placeholder') !== hint) input.setAttribute('placeholder', hint);
             }
 
-            const hostVisibilityOrigins = new Map<HTMLElement, { display: string; hidden: boolean; ariaHidden: string | null }>();
+            const hostVisibilityOrigins = new Map<HTMLElement, { display: string; hidden: HTMLElement['hidden']; ariaHidden: string | null }>();
             const setHostNodeVisible = (el: HTMLElement, isVisible: boolean) => {
               if (isVisible) {
                 const original = hostVisibilityOrigins.get(el);
