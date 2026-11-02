@@ -20,7 +20,7 @@ export const DEFAULT_GUIDANCE = [
   'Use `code_git_status` and `code_git_diff` to inspect repository state before and after changes.',
   'Use `code_workspace_map` to find relevant tracked files before opening large source trees.',
   'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
-  'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.'
+  'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
   'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
   'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',
   'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
