@@ -50,7 +50,7 @@
   "engines": {
     "node": ">=20.10.0"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   }

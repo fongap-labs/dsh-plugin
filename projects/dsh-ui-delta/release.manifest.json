@@ -6,7 +6,7 @@
   "release_key": "dsh-ui-delta",
   "release_name": "dsh-ui-delta",
   "release_notes": "",
-  "license_expression": "MIT",
+  "license_expression": "Apache-2.0",
   "node_version_file": ".nvmrc",
   "python_version_file": "",
   "sbom_asset": "dsh-ui-delta-sbom.cdx.json",
