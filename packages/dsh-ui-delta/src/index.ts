@@ -28,6 +28,41 @@ export function apply(ctx: Context): void {
     } }).web
     web?.registerSearchProvider(makeDuckDuckGoProvider())
   })
+  // Follow the explicit Harness UI language preference for model replies.
+  // The Host owns locale.preference; reading it at assembly time makes language
+  // changes effective on the next model step without injecting chat messages.
+  // An absent preference leaves the normal model behavior unchanged.
+  optionalHost?.inject?.(['systemPrompt', 'settings'], (child) => {
+    const host = child as {
+      effect?: (callback: () => unknown, label?: string) => unknown
+      systemPrompt?: { section: (value: { name: string; order: number; text: () => string }) => unknown }
+      settings?: { describe: (options?: { redactSecrets?: boolean }) => Array<{
+        ns: string
+        value?: { preference?: unknown }
+      }> }
+    }
+    if (!host.systemPrompt || !host.settings || !host.effect) return
+    host.effect(() => host.systemPrompt!.section({
+      name: 'delta:reply-language',
+      order: 10150,
+      text: () => {
+        try {
+          const locale = host.settings!.describe({ redactSecrets: true })
+            .find((item) => item.ns === 'locale')?.value?.preference
+          if (typeof locale !== 'string') return ''
+          if (/^zh(?:-|$)/i.test(locale)) {
+            return 'Reply in Simplified Chinese by default. Preserve code, names, citations, and explicitly requested output languages.'
+          }
+          if (/^en(?:-|$)/i.test(locale)) {
+            return 'Reply in English by default. Preserve code, names, citations, and explicitly requested output languages.'
+          }
+        } catch {
+          // The preference can be unavailable while the Host settings load.
+        }
+        return ''
+      },
+    }), 'dsh-ui-delta: reply language follows Host locale')
+  })
   optionalHost?.inject?.(['sessionLogDeepSeek'], (child) => {
     const service = (child as { sessionLogDeepSeek?: {
       registerExclusion: (exclude: () => boolean) => unknown
