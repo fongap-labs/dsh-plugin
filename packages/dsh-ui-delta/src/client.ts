@@ -2846,7 +2846,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // the results into the composer; nothing is sent automatically.
             const onSearchKey = (e: KeyboardEvent) => {
               if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
-              if (!flagOn('webSearch', false)) return;
+              if (!flagOn('webSearch', true)) return;
               const el = composerEl();
               const target = e.target as Node | null;
               if (!el || !(target === el || el.contains(target))) return;
@@ -3144,7 +3144,7 @@ const MODULES: ModuleDef[] = [
           { id: 'visionBridge', zh: '视觉识别', en: 'Vision bridge', status: 'ready', defaultOn: false,
             zhDesc: '粘贴图片后，由你配置的视觉多模态模型识别为文字并插入输入框。默认关闭，需先在设置里配置。',
             enDesc: 'Paste an image; your configured vision model turns it into text in the composer. Off by default; configure it in settings first.' },
-          { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: false,
+          { id: 'webSearch', zh: '联网搜索', en: 'Web search', status: 'ready', defaultOn: true,
             zhDesc: '输入 /search 加关键词手动搜索，结果会填入输入框供确认。搜索可使用独立服务商或宿主服务；模型 API Key 不等于 DeepSeek 官方搜索密钥。',
             enDesc: 'Use /search plus keywords for manual results in the composer. Configure an independent provider or a Host web provider. A model key is not a DeepSeek official search credential.' },
         ];
