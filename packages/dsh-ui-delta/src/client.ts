@@ -1708,8 +1708,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const privacyBody = document.createElement('div');
               privacyBody.className = 'ens-privacy-body';
               privacyBody.textContent = pick(
-                '本插件不收集、不上传任何数据，全部设置仅保存在本机浏览器。',
-                'This plugin collects and uploads nothing; every setting stays in this browser.',
+                '本插件不主动上传会话日志；仍需在宿主中关闭官方日志上传。视觉识别与搜索请求会发送给用户配置的服务。',
+                'This plugin excludes session-log uploads when the host service is available; disable the host feature too. Vision and search send requests to configured services.',
               );
               privacy.append(privacyTitle, privacyBody);
               wrap.append(head, list, privacy);
