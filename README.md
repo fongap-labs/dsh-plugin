@@ -72,7 +72,7 @@ pnpm link:dev dsh-ui-delta --profile desktop
 pnpm link:dev dsh-ui-delta --profile desktop --unlink
 ```
 
-第二条命令用于移除开发链接。其他参数和插件开发约定参见 [项目技能文档](.dsh/skills/SKILL.md)。
+第二条命令用于移除开发链接。其他参数和插件开发约定参见 [项目技能文档](.agents/skills/dsh-plugin-dev/SKILL.md)。
 
 ## 项目结构与发布
 

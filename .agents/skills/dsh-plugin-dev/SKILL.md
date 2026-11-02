@@ -21,7 +21,7 @@ description: Develop, test, package, and maintain native DeepSeek Harness plugin
 - `scripts/`: reusable repository build, bundle, release, and local-profile tooling.
 - `tests/`: Node.js regression and contract tests.
 - `docs/`: human-maintained project architecture, development, and operations documentation.
-- `.dsh/skills/`: agent workflow instructions; keep this file concise and executable.
+- `.agents/skills/<skill-name>/SKILL.md`: agent workflow instructions; one self-contained skill per directory.
 
 ## Package identity
 

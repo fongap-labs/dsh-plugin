@@ -14,7 +14,7 @@
 | `scripts/` | 本仓库可复用的构建、打包、发布和本地联调工具 |
 | `tests/` | 针对源码行为、编译产物和发布契约的测试 |
 | `docs/` | 面向开发者和维护者的项目文档 |
-| `.dsh/skills/` | Agent 开发技能；不放通用组织治理规范 |
+| `.agents/skills/<skill-name>/SKILL.md` | Agent 开发技能；不放通用组织治理规范 |
 
 仓库级 CI、PR 门禁、AI Review、Release 和 Deploy 由 Action Worker 统一治理。本仓库只保留项目执行入口和通知桥接，不复制中央策略。
 
