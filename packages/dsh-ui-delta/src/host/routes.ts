@@ -8,6 +8,7 @@ import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
 import { searchWeb, researchWeb } from './search.js'
+import { collectEvidence, type HostFetch } from './research-fetch.js'
 import { deleteColdSession } from './session-delete.js'
 
 declare module '@deepseek-ai/cordis' {
@@ -89,6 +90,15 @@ export function registerRoutes(ctx: Context): void {
     modelContext = child as Context
   })
 
+  // Reuse the Host's selected fetch provider; no second networking stack.
+  let hostFetch: HostFetch | undefined
+  optionalContext.inject?.(['web'], (child) => {
+    const service = (child as { web?: { fetch?: HostFetch } }).web
+    if (typeof service?.fetch === 'function') {
+      hostFetch = (request, signal) => service.fetch!(request, signal)
+    }
+  })
+
   const route = (
     path: string,
     handler: (req: IncomingMessage, res: ServerResponse) => Promise<void> | void,
@@ -162,7 +172,10 @@ export function registerRoutes(ctx: Context): void {
     const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}')
     const query = String(body.query || '').trim().slice(0, 500)
     if (!query) return sendJson(res, 400, { error: 'query required' })
-    return sendJson(res, 200, await researchWeb(query))
+    const report = await researchWeb(query)
+    const pages = await collectEvidence(report.results, hostFetch)
+    return sendJson(res, 200, { ...report, ...pages })
+
   })
 
   route('/dsh-ui-delta/session-delete', async (req, res) => {
