@@ -1,17 +1,12 @@
 import { openKey, normalizeProviders, readConfig } from './config.js'
 import { DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
-import { searchPythonDdgs } from './python-ddgs.js'
+import { searchPythonDdgs, checkPythonDdgs } from './python-ddgs.js'
+import { safeResults, rankResults, researchQueries, type SearchRow } from './search-quality.js'
 
 interface SearchHit {
   title?: unknown
   url?: unknown
   content?: unknown
-}
-
-interface SearchRow {
-  title: string
-  url: string
-  content: string
 }
 
 export class SearchUnavailableError extends Error {
@@ -40,11 +35,13 @@ const safeResults = (rows: readonly SearchRow[]): SearchRow[] => rows.filter(row
  * Never silently fall back to the official DeepSeek paid search provider.
  */
 export const searchWeb = async (
-  query: string, signal?: AbortSignal, keyless: typeof searchPythonDdgs = searchPythonDdgs
+  query: string, signal?: AbortSignal, keyless: typeof searchPythonDdgs = searchPythonDdgs,
+  maxResults = 5
 ): Promise<SearchRow[]> => {
   signal?.throwIfAborted()
   query = query.trim().slice(0, 500)
   if (!query) throw new Error('search query required')
+  const limit = Math.max(1, Math.min(20, Math.trunc(maxResults) || 5))
   const cfg = readConfig().search || {}
   const providers = normalizeProviders('search', cfg)
   const active = providers.find(provider => provider.active) || providers[0]
@@ -54,7 +51,7 @@ export const searchWeb = async (
       method: 'POST',
       redirect: 'error',
       headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) },
-      body: JSON.stringify({ query, max_results: 5 }),
+      body: JSON.stringify({ query, max_results: limit }),
       signal: AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]),
     })
     if (!response.ok) throw new Error(`Independent search provider HTTP ${response.status}`)
@@ -64,9 +61,9 @@ export const searchWeb = async (
       title: String(hit.title || ''),
       url: String(hit.url || ''),
       content: String(hit.content || ''),
-    })))
+    })), limit)
   }
-  try { return safeResults(await keyless(query, signal)) }
+  try { return safeResults(await keyless(query, signal, undefined, limit), limit) }
   catch (error) {
     signal?.throwIfAborted()
     throw new SearchUnavailableError([error instanceof Error ? error.message : String(error)])
@@ -77,13 +74,57 @@ export const searchWeb = async (
 export const makeWebSearchProvider = () => ({
   id: DUCKDUCKGO_PROVIDER_ID,
   available: () => true,
-  ready: async () => true,
+  ready: async () => {
+    const cfg = readConfig().search || {}
+    if (normalizeProviders('search', cfg).some(provider => provider.active && provider.endpoint)) return true
+    return checkPythonDdgs()
+  },
   async search(request: SearchRequest, signal?: AbortSignal) {
-    const rows = await searchWeb(request.query, signal)
-    const limit = Math.max(1, Math.min(5, Number.isInteger(request.maxResults) ? request.maxResults! : 5))
+    const rows = await searchWeb(request.query, signal, searchPythonDdgs, request.maxResults)
+    const limit = Math.max(1, Math.min(20, Number.isInteger(request.maxResults) ? request.maxResults! : 5))
     return {
       sources: rows.slice(0, limit).map(row => ({ url: row.url, title: row.title, snippet: row.content })),
       truncated: rows.length > limit,
     }
   },
 })
+
+
+export interface ResearchReport {
+  query: string
+  queries: string[]
+  results: SearchRow[]
+  errors: string[]
+  partial: boolean
+}
+
+/**
+ * Manual deep research only: bounded sequential searches, URL deduplication and
+ * deterministic keyword ranking. Native web_search keeps the single-query path.
+ */
+export async function researchWeb(
+  query: string, signal?: AbortSignal,
+  search: typeof searchWeb = searchWeb
+): Promise<ResearchReport> {
+  const queries = researchQueries(query)
+  if (!queries.length) throw new Error('search query required')
+  const collected: SearchRow[] = []
+  const errors: string[] = []
+  for (const term of queries) {
+    signal?.throwIfAborted()
+    try {
+      collected.push(...await search(term, signal, searchPythonDdgs, 10))
+    } catch (error) {
+      signal?.throwIfAborted()
+      errors.push(error instanceof Error ? error.message : String(error))
+    }
+  }
+  if (!collected.length && errors.length) throw new SearchUnavailableError(errors)
+  return {
+    query: queries[0]!,
+    queries,
+    results: rankResults(query, collected, 15),
+    errors,
+    partial: errors.length > 0,
+  }
+}
