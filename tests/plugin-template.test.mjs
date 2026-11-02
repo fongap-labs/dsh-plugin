@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { name, inject, apply } from '../packages/plugin-template/lib/index.js'
 import { normalizeTemplateConfig } from '../packages/plugin-template/lib/host/config.js'
 import { scaffoldPlugin } from '../scripts/scaffold-plugin.mjs'
 
-const root = new URL('..', import.meta.url).pathname
+const root = fileURLToPath(new URL('..', import.meta.url))
 const readJson = path => JSON.parse(readFileSync(path, 'utf8'))
 
 describe('plugin-template Host lifecycle', () => {
