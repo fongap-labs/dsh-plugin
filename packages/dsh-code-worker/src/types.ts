@@ -45,6 +45,14 @@ export interface LspServerConfig {
   args?: string[]
 }
 
+/** One GitHub identity and its explicitly assigned repositories. */
+export interface GitHubAccountConfig {
+  id: string
+  tokenEnv: string
+  login?: string
+  repositories: string[]
+}
+
 /** Plugin configuration as accepted from the Cordis patch file. */
 export interface CodeWorkerConfig {
   enabled?: boolean
@@ -52,6 +60,11 @@ export interface CodeWorkerConfig {
   git?: {
     enabled?: boolean
     command?: string
+  }
+  github?: {
+    enabled?: boolean
+    allowWrites?: boolean
+    accounts?: GitHubAccountConfig[]
   }
   lsp?: {
     servers?: LspServerConfig[]
@@ -65,6 +78,9 @@ export interface Settings {
   workspaceRoot: string
   gitEnabled: boolean
   gitCommand: string
+  githubEnabled: boolean
+  githubAllowWrites: boolean
+  githubAccounts: GitHubAccountConfig[]
   lspServers: LspServerConfig[]
   systemPromptText: string
 }
