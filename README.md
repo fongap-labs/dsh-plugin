@@ -86,4 +86,8 @@ pnpm link:dev dsh-ui-delta --profile desktop --unlink
 
 插件发布由 [Action Worker](https://github.com/fongap-labs/action-worker) 统一执行，依据 `projects/<插件目录>/release.manifest.json` 构建并生成独立版本及 `.zip`、`.tgz` 等发布产物。**是否已同步到 npm，以实际 npm 仓库查询结果为准。**
 
+## 许可证
+
+除非在具体插件中另有明确声明，本仓库自有插件、共享库和插件模板默认采用 [Apache-2.0](LICENSE) 许可证；第三方依赖遵循各自的许可证。此规则不追溯修改已经发布的历史安装包。
+
 相关文档：[TypeScript 架构](docs/typescript-migration.md) · [变更记录](CHANGELOG.md) · [许可证文件](LICENSE) · [问题反馈](https://github.com/fongap-labs/dsh-plugin/issues)
