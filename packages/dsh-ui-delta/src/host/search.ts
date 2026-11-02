@@ -115,7 +115,7 @@ export const makeWebSearchProvider = () => ({
   available: () => true,
   ready: async () => {
     const cfg = readConfig().search || {}
-    if (normalizeProviders('search', cfg).some(provider => provider.active && provider.endpoint)) return true
+    if (normalizeProviders('search', cfg).some(provider => provider.endpoint)) return true
     return checkPythonDdgs()
   },
   async search(request: SearchRequest, signal?: AbortSignal) {
