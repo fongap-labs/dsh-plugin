@@ -243,7 +243,19 @@ html[data-theme="dark"] {
 }
 .wnFoaW_sessionRow.wnFoaW_selected::before { display: none !important; }
 
-/* Host-owned tooltips and popovers retain their original appearance. */
+/* HoverCard uses a hard-coded charcoal fill in the host. Follow the active
+   Delta surfaces and labels for its session preview without touching other
+   tooltips or popovers. */
+[style*="--dsh-hover-preview-fade"] {
+  border: 1px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1) !important;
+  color: var(--dsw-alias-label-primary);
+  box-shadow: var(--dsw-elevation-panel);
+}
+[style*="--dsh-hover-preview-fade"] [class*="_hoverTitle"] { color: var(--dsw-alias-label-primary) !important; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverPath"],
+[style*="--dsh-hover-preview-fade"] [class*="_hoverTime"] { color: var(--dsw-alias-label-secondary) !important; }
+[style*="--dsh-hover-preview-fade"] [class*="_hoverStatus"] { color: var(--dsw-alias-label-tertiary) !important; }
 
 /* 顶栏操作区：后台任务与创造模式对调位置（后台任务居左，创造模式居右） */
 .an3WzG_headerActions,
@@ -482,6 +494,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .ens-foot-notify { order: 0; }
 .ens-foot-icon[data-ens="settings"] { order: 1; }
 .ens-foot-icon[data-ens="account"] { order: 2; }
+.ens-version-action { display: inline-flex !important; align-items: center; flex: none; height: 32px; margin: 0; }
 /* collapsed rail: the host hides the whole foot area, but 设置 must stay
    reachable (the account menu no longer offers it). Keep only that button. */
 .wtg9ga_collapsed .wtg9ga_footArea { display: flex; flex-direction: column; align-items: center; }
@@ -654,6 +667,7 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
    still sits in the workspace header (before the observer moves it, or when
    React re-creates it there) it stays invisible — the dock shows the real one. */
 .ens-search-dock .GAkraW_searchSlot { opacity: 1; pointer-events: auto; }
+.GAkraW_sectionHeader .GAkraW_searchSlot { opacity: 0 !important; pointer-events: none !important; }
 
 /* #10 the center column shares bg-base with the rightbar; give the side panels a
       shared "panel" surface and a crisp hairline so the three columns read. */
@@ -724,7 +738,7 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 /* 13 — #31 conversation header: header actions sit flush-right (work mode +
        job count), the conversation name takes the remaining space and truncates
        with an ellipsis instead of pushing actions off-screen. */
-.an3WzG_headerActions { order: 1; margin-left: auto; flex: none; }
+.an3WzG_headerActions { order: 1; margin-left: auto; flex: none; column-gap: 12px !important; }
 .an3WzG_crumbSeg { min-width: 0; overflow: hidden; }
 .an3WzG_crumbCurrent { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* inside the header actions the background-job count leads the work-mode chip */
@@ -1965,6 +1979,86 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               iconBtn('account', ICON_LOGIN, t('登录', 'Sign in'), () => (signedIn() ? signOutFromMenu() : startSignIn()));
             }
 
+            // Place the host's update prompt on the account footer line without
+            // moving its React-owned node. Restore the original inline styles
+            // when Delta unloads.
+            const versionActionOrigins = new Map<HTMLElement, { position: string; left: string; top: string; zIndex: string; margin: string }>();
+            let versionActionResizeObserver: ResizeObserver | null = null;
+            let versionActionFrame = 0;
+            const placeVersionActions = () => {
+              const actions = document.querySelector<HTMLElement>('.ens-foot-actions');
+              if (!actions) return;
+              const row = actions.getBoundingClientRect();
+              if (!row.width || !row.height) return;
+              versionActionOrigins.forEach((_original, action) => {
+                if (!action.isConnected) return;
+                const rect = action.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+                const left = Math.max(8, row.left - rect.width - 8);
+                const top = row.top + (row.height - rect.height) / 2;
+                action.style.position = 'fixed';
+                action.style.left = `${left}px`;
+                action.style.top = `${top}px`;
+                action.style.zIndex = '25';
+                action.style.margin = '0';
+              });
+            };
+            const scheduleVersionActionPlacement = () => {
+              if (versionActionFrame) return;
+              versionActionFrame = requestAnimationFrame(() => {
+                versionActionFrame = 0;
+                placeVersionActions();
+              });
+            };
+            const observeVersionActionLayout = (actions: HTMLElement, action: HTMLElement) => {
+              if (typeof ResizeObserver === 'undefined') {
+                scheduleVersionActionPlacement();
+                return;
+              }
+              if (!versionActionResizeObserver) {
+                versionActionResizeObserver = new ResizeObserver(scheduleVersionActionPlacement);
+              }
+              versionActionResizeObserver.observe(actions);
+              versionActionResizeObserver.observe(action);
+            };
+            function mountVersionAction() {
+              const actions = document.querySelector<HTMLElement>('.ens-foot-actions');
+              if (!actions) return;
+              document.querySelectorAll<HTMLElement>('button, a, [role="button"]').forEach((action) => {
+                if (action.closest('.ens-foot-notify, .ens-foot-actions')) return;
+                const text = (action.textContent || '').replace(/[↓⬇⇩]/g, '').replace(/\s+/g, ' ').trim();
+                const label = `${action.getAttribute('aria-label') || ''} ${action.title || ''} ${text}`.trim();
+                if (!/(?:新版本|新版提示|new version|update available)/i.test(label)) return;
+                if (!versionActionOrigins.has(action)) {
+                  versionActionOrigins.set(action, {
+                    position: action.style.position,
+                    left: action.style.left,
+                    top: action.style.top,
+                    zIndex: action.style.zIndex,
+                    margin: action.style.margin,
+                  });
+                }
+                action.classList.add('ens-version-action');
+                observeVersionActionLayout(actions, action);
+              });
+              scheduleVersionActionPlacement();
+            }
+            function restoreVersionActions() {
+              if (versionActionFrame) cancelAnimationFrame(versionActionFrame);
+              versionActionFrame = 0;
+              versionActionResizeObserver?.disconnect();
+              versionActionResizeObserver = null;
+              versionActionOrigins.forEach((original, action) => {
+                action.classList.remove('ens-version-action');
+                action.style.position = original.position;
+                action.style.left = original.left;
+                action.style.top = original.top;
+                action.style.zIndex = original.zIndex;
+                action.style.margin = original.margin;
+              });
+              versionActionOrigins.clear();
+            }
+
             // #30 the account menu must never carry 设置: the foot button is the
             // only door. The item's text is "设置 Ctrl + ," (shortcut inside the
             // same node) and it may not carry role="menuitem", so match on the
@@ -2134,16 +2228,91 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               if (input && input.getAttribute('placeholder') !== hint) input.setAttribute('placeholder', hint);
             }
 
-            // #2 hide third-party model providers; the custom model API row is
-            // left in place (its name is user-authored, so it never matches the
-            // denylist). The host directory owns the rows, so this only hides
-            // the rendered cards instead of touching the provider registry.
-            const THIRD_PARTY = /deepseek|anthropic|claude|openai|chatgpt|google|gemini|moonshot|月之暗面|kimi|zhipu|智谱|qwen|通义|alibaba|baidu|ernie|文心|cohere|mistral|groq|xai|grok|openrouter|azure|bedrock|vertex|together|fireworks|perplexity/i;
+            const hostVisibilityOrigins = new Map<HTMLElement, { display: string; hidden: boolean; ariaHidden: string | null }>();
+            const setHostNodeVisible = (el: HTMLElement, visible: boolean) => {
+              if (visible) {
+                const original = hostVisibilityOrigins.get(el);
+                if (original) {
+                  el.style.display = original.display;
+                  el.hidden = original.hidden;
+                  if (original.ariaHidden === null) el.removeAttribute('aria-hidden');
+                  else el.setAttribute('aria-hidden', original.ariaHidden);
+                  hostVisibilityOrigins.delete(el);
+                }
+                return;
+              }
+              if (!hostVisibilityOrigins.has(el)) {
+                hostVisibilityOrigins.set(el, {
+                  display: el.style.display,
+                  hidden: el.hidden,
+                  ariaHidden: el.getAttribute('aria-hidden'),
+                });
+              }
+              el.style.display = 'none';
+              el.hidden = true;
+              el.setAttribute('aria-hidden', 'true');
+            };
+            const restoreHostVisibility = () => {
+              hostVisibilityOrigins.forEach((original, el) => {
+                el.style.display = original.display;
+                el.hidden = original.hidden;
+                if (original.ariaHidden === null) el.removeAttribute('aria-hidden');
+                else el.setAttribute('aria-hidden', original.ariaHidden);
+              });
+              hostVisibilityOrigins.clear();
+            };
+
+            // Hide the host preview badge, More launcher, catalog-provider
+            // mode, and configured third-party provider cards. The custom API
+            // mode remains available; the provider directory itself is intact.
+            function hideHostOptions() {
+              document.querySelectorAll<HTMLElement>(
+                '[class*="previewBadge"], [data-preview-badge], [data-previewbadge]',
+              ).forEach((el) => {
+                setHostNodeVisible(el, false);
+              });
+              document.querySelectorAll<HTMLElement>('span, small, [class*="badge"], [class*="Badge"]').forEach((el) => {
+                if (!/^(?:预览版|preview(?:\s+version)?)$/i.test((el.textContent || '').replace(/\s+/g, ' ').trim())) return;
+                setHostNodeVisible(el, false);
+              });
+              document.querySelectorAll<HTMLElement>(
+                '.wtg9ga_panelRow[aria-haspopup="menu"], [class*="panelRow"][aria-haspopup="menu"]',
+              ).forEach((el) => {
+                const labels = [el.getAttribute('aria-label') || '', el.textContent || '']
+                  .map((label) => label.replace(/\s+/g, ' ').trim());
+                if (!labels.some((label) => /^(?:更多|more)$/i.test(label))) return;
+                setHostNodeVisible(el, false);
+              });
+            }
+
+            // #2 hide third-party model providers; the user-authored custom
+            // model API stays. First collapse the built-in catalog mode, then
+            // hide already-configured third-party cards in the host directory.
+            const THIRD_PARTY = /anthropic|claude|openai|chatgpt|google|gemini|moonshot|月之暗面|kimi|zhipu|智谱|qwen|通义|alibaba|baidu|ernie|文心|cohere|mistral|groq|xai|grok|openrouter|azure|bedrock|vertex|together|fireworks|perplexity/i;
             function hideThirdPartyProviders() {
+              const tabs = [...document.querySelectorAll<HTMLElement>('[role="tab"]')];
+              const catalogTab = tabs.find((tab) => /^(?:第三方模型(?:提供商|供应商)|third-party model provider)$/i.test(
+                (tab.textContent || '').replace(/\s+/g, ' ').trim(),
+              ));
+              const customTab = tabs.find((tab) => /^(?:自定义模型 API|custom model API)$/i.test(
+                (tab.textContent || '').replace(/\s+/g, ' ').trim(),
+              ));
+              if (catalogTab) {
+                if (catalogTab.getAttribute('aria-selected') === 'true' && customTab && !customTab.hasAttribute('disabled')) {
+                  customTab.click();
+                }
+                const catalogPanelId = catalogTab.getAttribute('aria-controls');
+                const catalogPanel = catalogPanelId ? document.getElementById(catalogPanelId) : null;
+                if (catalogPanel instanceof HTMLElement) setHostNodeVisible(catalogPanel, false);
+                const tabList = catalogTab.closest<HTMLElement>('[role="tablist"]');
+                if (tabList) {
+                  setHostNodeVisible(tabList, false);
+                } else setHostNodeVisible(catalogTab, false);
+              }
               document.querySelectorAll<HTMLElement>('.jrmgQW_rowName').forEach(n => {
                 if (!THIRD_PARTY.test(n.textContent || '')) return;
                 const row = n.closest<HTMLElement>('.jrmgQW_rowCard, .jrmgQW_setupCard, .jrmgQW_row, li');
-                if (row && row.style.display !== 'none') row.style.display = 'none';
+                if (row) setHostNodeVisible(row, false);
               });
             }
 
@@ -2164,31 +2333,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               let btn: HTMLButtonElement | null = null;
               let panel: HTMLDivElement | null = null;
               const clear = () => { if (btn) { btn.remove(); btn = null; } if (panel) { panel.remove(); panel = null; } };
-              const composer = () => document.querySelector<HTMLElement>('.GRgSLq_input')
-                || document.querySelector<HTMLElement>('[contenteditable="true"]')
-                || document.querySelector<HTMLElement>('textarea');
-              const insert = (text: string) => {
-                const el = composer();
-                if (!el) return false;
-                try {
-                  if (el.isContentEditable) {
-                    el.focus();
-                    document.execCommand('insertText', false, text);
-                    return true;
-                  }
-                  if ('value' in el) {
-                    const setter = Object.getOwnPropertyDescriptor(el.constructor.prototype, 'value')?.set;
-                    if (setter) setter.call(el, (el.value || '') + text); else el.value = (el.value || '') + text;
-                    el.dispatchEvent(new Event('input', { bubbles: true }));
-                    el.focus();
-                    return true;
-                  }
-                } catch { /* fall through */ }
-                return false;
-              };
-              // v0.1.0: annotations accumulate here until Enter sends them with the message
+              // Annotations stay attached to their selected text until the host
+              // accepts a send action, whether the user presses Enter or clicks.
               interface AnnoNote { quote: string; note: string; }
               const pendingNotes: AnnoNote[] = [];
+              let annotationSendInFlight = false;
+              let annotationSendTimer: ReturnType<typeof setTimeout> | null = null;
               let chip: HTMLButtonElement | null = null;
               const renderChip = () => {
                 if (!pendingNotes.length) { if (chip) { chip.remove(); chip = null; } return; }
@@ -2268,11 +2418,54 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               };
               document.addEventListener('selectionchange', onSelChange);
               document.addEventListener('scroll', dropButton, true);
-              // Enter with pending annotations: put them ahead of the typed text, then press send.
-              // v0.2.2: the notes are only cleared once the injection is confirmed in the DOM,
-              // and the send press waits for the host's send button to become enabled instead
-              // of firing on a fixed 60ms guess — the old timing could press send before the
-              // host had committed the text, which sent the message without the annotations.
+              const normalizeMessageText = (value: string) => value.replace(/\s+/g, ' ').trim();
+              const annotationBlock = (notes: AnnoNote[]) => notes.map((n) =>
+                `${t('选中内容：', 'Selected text:')}\n${n.quote}\n${t('批注：', 'Annotation:')}\n${n.note}`,
+              ).join('\n\n') + '\n\n';
+              const submitAnnotations = (el: HTMLElement) => {
+                if (!pendingNotes.length || annotationSendInFlight) return;
+                const notes = pendingNotes.slice();
+                const block = annotationBlock(notes);
+                let draft = readComposer(el);
+                const hasEveryAnnotation = (value: string) => {
+                  const normalized = normalizeMessageText(value);
+                  return notes.every((n) => normalized.includes(normalizeMessageText(n.quote))
+                    && normalized.includes(normalizeMessageText(n.note)));
+                };
+                // A retry after a delayed host render must not prepend the same
+                // quote and note a second time.
+                if (!hasEveryAnnotation(draft)) {
+                  if (!writeComposer(el, block + draft)) return;
+                }
+                annotationSendInFlight = true;
+                let waited = 0;
+                const press = () => {
+                  annotationSendTimer = null;
+                  if (!notes.every((note, index) => pendingNotes[index] === note)) {
+                    annotationSendInFlight = false;
+                    return;
+                  }
+                  draft = readComposer(el);
+                  const send = document.querySelector<HTMLButtonElement>('.GRgSLq_primary');
+                  if (hasEveryAnnotation(draft) && send && !send.disabled) {
+                    // The in-flight guard lets this synthetic click reach the
+                    // host handler without running annotation injection again.
+                    send.click();
+                    pendingNotes.splice(0, notes.length);
+                    renderChip();
+                    annotationSendInFlight = false;
+                    return;
+                  }
+                  waited += 50;
+                  if (waited >= 1000) {
+                    annotationSendInFlight = false;
+                    return; // Keep the chip so the user can retry.
+                  }
+                  annotationSendTimer = setTimeout(press, 50);
+                };
+                annotationSendTimer = setTimeout(press, 50);
+              };
+              // Enter and the composer send button share the same guarded path.
               const onAnnoKey = (e: KeyboardEvent) => {
                 if (e.key !== 'Enter' || e.shiftKey || e.isComposing || !pendingNotes.length) return;
                 const el = composerEl();
@@ -2280,28 +2473,27 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (!el || !(target === el || el.contains(target))) return;
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                const block = pendingNotes.map((n) => `> ${n.quote}\n\n${n.note}\n\n`).join('');
-                const head = block.slice(0, 24);
-                if (!writeComposer(el, block + readComposer(el)) || !readComposer(el).includes(head)) {
-                  return;      // injection failed — keep the notes so the user can retry
-                }
-                pendingNotes.length = 0;
-                renderChip();
-                let waited = 0;
-                const press = () => {
-                  const send = document.querySelector<HTMLButtonElement>('.GRgSLq_primary');
-                  if (send && !send.disabled) { send.click(); return; }
-                  waited += 50;
-                  if (waited < 1000) setTimeout(press, 50);
-                };
-                setTimeout(press, 50);
+                submitAnnotations(el);
+              };
+              const onAnnoSendClick = (e: MouseEvent) => {
+                if (!pendingNotes.length || annotationSendInFlight) return;
+                const target = e.target as Element | null;
+                if (!target?.closest('.GRgSLq_primary')) return;
+                const el = composerEl();
+                if (!el) return;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                submitAnnotations(el);
               };
               document.addEventListener('keydown', onAnnoKey, true);
+              document.addEventListener('click', onAnnoSendClick, true);
               annoCleanup = () => {
                 document.removeEventListener('mouseup', onUp, true);
                 document.removeEventListener('keydown', onAnnoKey, true);
+                document.removeEventListener('click', onAnnoSendClick, true);
                 document.removeEventListener('selectionchange', onSelChange);
                 document.removeEventListener('scroll', dropButton, true);
+                if (annotationSendTimer) clearTimeout(annotationSendTimer);
                 clear();
                 if (chip) { chip.remove(); chip = null; }
               };
@@ -2475,7 +2667,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 document.querySelectorAll<HTMLElement>('.ens-top-actions').forEach((el) => el.remove());
                 initAnnotations();
                 mountFootSettings();
-                restoreNativeSearch();
+                mountVersionAction();
+                mountSearchDock();
+                hideHostOptions();
+                hideThirdPartyProviders();
                 renameLabels();
                 document.querySelectorAll<HTMLElement>('._5Qcc8a_trigger').forEach(injectAccountGlyph);
                 wireAccount();
@@ -2731,9 +2926,14 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               let isVisible = false;
               try { isVisible = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}').accountModels === true; }
               catch { isVisible = false; }
-              const display = isVisible ? '' : 'none';
-              document.querySelectorAll<HTMLElement>('[data-provider-id="deepseek-account"]').forEach((row) => {
-                if (row.style.display !== display) row.style.display = display;
+              document.querySelectorAll<HTMLElement>('[role="menu"] [data-provider-id="deepseek-account"]').forEach((modelLabel) => {
+                const item = modelLabel.closest<HTMLElement>('[role="menuitemradio"]') || modelLabel;
+                setHostNodeVisible(item, isVisible);
+                const group = item.closest<HTMLElement>('[role="group"][data-menu-group]');
+                if (!group) return;
+                const hasVisibleModel = [...group.querySelectorAll<HTMLElement>('[role="menuitemradio"]')]
+                  .some((candidate) => candidate.style.display !== 'none' && !candidate.hidden);
+                setHostNodeVisible(group, isVisible || hasVisibleModel);
               });
             };
 
@@ -2765,7 +2965,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); unsubAccount?.(); annoCleanup?.(); };
+            return () => { mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
@@ -2790,8 +2990,8 @@ const MODULES: ModuleDef[] = [
             zhDesc: '把当前对话复制为 Markdown 文本。',
             enDesc: 'Copy the current conversation as Markdown.' },
           { id: 'selectionAnnotation', zh: '选中批注', en: 'Selection annotations', status: 'ready', defaultOn: false,
-            zhDesc: '选中正文即可批注，多条批注累积，按回车随下一条消息一并发送。',
-            enDesc: 'Select text to annotate; annotations accumulate and go out with your next message on Enter.' },
+            zhDesc: '选中正文即可批注，多条批注累积；发送时会带上原文和批注。',
+            enDesc: 'Select text to annotate; the selected text and notes are included when you send.' },
           { id: 'accountModels', zh: '显示 DeepSeek 账号模型', en: 'Show DeepSeek account models', status: 'ready', defaultOn: false,
             zhDesc: '默认隐藏账号提供的模型，模型选择里只显示你自己配置的模型；开启后显示。',
             enDesc: 'Hidden by default, so the model picker lists only the models you configured; turn on to show the account models.' },

@@ -19,26 +19,30 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.match(selected, /box-shadow:\s*none/);
   });
 
-  it('does not globally override host tooltip or popover classes', () => {
+  it('themes host hover previews through the preview-card token hook only', () => {
     assert.doesNotMatch(client, /\[class\*=["']tooltip["']\]:not/);
     assert.doesNotMatch(client, /\[class\*=["']popover["']\]\s*\{/);
+    assert.match(client, /\[style\*=["']--dsh-hover-preview-fade["']\]/);
+    assert.match(client, /background:\s*var\(--dsw-alias-bg-layer-1\)\s*!important/);
   });
 
-  it('does not suppress host navigation and session features', () => {
-    assert.doesNotMatch(client, /\.wtg9ga_panelRow\[aria-haspopup="menu"\]\s*\{\s*display:\s*none/);
-    assert.doesNotMatch(client, /hideHostOptions\(\);/);
-    assert.doesNotMatch(client, /mountSearchDock\(\);/);
+  it('applies requested sidebar and model settings changes without replacing host slots', () => {
+    assert.match(client, /function hideHostOptions\(\)/);
+    assert.match(client, /hideHostOptions\(\);/);
+    assert.match(client, /hideThirdPartyProviders\(\);/);
+    assert.match(client, /mountSearchDock\(\);/);
     assert.match(client, /restoreNativeSearch\(\);/);
     assert.match(client, /hideAccountModels\(\);/);
     assert.match(client, /hideListedModels\(\);/);
   });
 
-  it('never traverses model row ancestors when applying visibility preferences', () => {
-    const modelFilters = client.slice(client.indexOf('const hideListedModels = () => {'),
+  it('hides account model menu items and their empty provider group', () => {
+    const modelFilters = client.slice(client.indexOf('const hideAccountModels = () => {'),
       client.indexOf('// v0.1.0: the working status reads'));
     assert.ok(modelFilters.length > 100);
-    assert.doesNotMatch(modelFilters, /row\.parentElement|group\.previousElementSibling/);
-    assert.match(modelFilters, /row\.style\.display/);
+    assert.match(modelFilters, /\[role="menu"\] \[data-provider-id="deepseek-account"\]/);
+    assert.match(modelFilters, /closest<HTMLElement>\('\[role="menuitemradio"\]'\)/);
+    assert.match(modelFilters, /\[role="group"\]\[data-menu-group\]/);
   });
 
   it('documents the actual scoped package and published release asset name', () => {
