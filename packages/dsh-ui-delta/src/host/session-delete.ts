@@ -25,35 +25,35 @@ const validId = (id: string): boolean => /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.te
  * writer may recreate its files. Disk paths come exclusively from persistence.
  */
 export async function deleteColdSession(host: SessionHost, id: string): Promise<void> {
-  if (!validId(id)) throw new Error('无效的会话标识')
+  if (!validId(id)) throw new Error('Invalid session identifier')
   const service = (name: string): unknown => host.get?.(name)
   const agents = service('agents') as Agents | undefined
   const sessions = service('sessions') as SessionStore | undefined
-  if (agents?.get(id)?.status === 'running') throw new Error('会话正在运行，请先停止')
-  if (sessions?.get(id) !== undefined) throw new Error('会话仍在宿主内存中，请关闭此会话并重启 Harness 后删除')
+  if (agents?.get(id)?.status === 'running') throw new Error('Session is running. Stop it first.')
+  if (sessions?.get(id) !== undefined) throw new Error('Session remains active in Host memory. Restart Harness before deleting.')
   const persistence = service('sessionPersistence') as SessionPersistence | undefined
-  if (!persistence?.list || !persistence.locate) throw new Error('宿主未提供安全的会话持久化定位接口')
+  if (!persistence?.list || !persistence.locate) throw new Error('Host session persistence locator is unavailable.')
   const entries = await persistence.list()
   const header = entries.map(row => row.header || row).find(row => row?.id === id) as SessionHeader | undefined
-  if (!header) throw new Error('会话文件已不存在')
+  if (!header) throw new Error('Session record does not exist.')
   const located = persistence.locate(header)
-  if (!located?.path) throw new Error('宿主无法定位会话文件')
+  if (!located?.path) throw new Error('Host cannot locate session storage.')
   const artifact = resolve(located.path)
   const directory = dirname(artifact)
   // Only a dedicated directory literally named after this session is deletable.
   if (basename(directory) !== id || directory === dirname(directory)) {
-    throw new Error('会话路径不满足独立目录约束，拒绝删除')
+    throw new Error('Session storage is not an isolated directory. Delete refused.')
   }
   const parent = await realpath(dirname(directory))
   const actual = await realpath(directory)
   if (actual !== resolve(parent, id) || !actual.startsWith(parent + sep)) {
-    throw new Error('会话目录包含符号链接，拒绝删除')
+    throw new Error('Session path crosses a symbolic link. Delete refused.')
   }
   const stat = await lstat(actual)
-  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('会话目录类型无效')
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Invalid session directory type.')
   // Verify that this session is still cold immediately before filesystem mutation.
   if (agents?.get(id)?.status === 'running' || sessions?.get(id) !== undefined) {
-    throw new Error('会话已重新激活，删除已取消')
+    throw new Error('Session became active again. Delete cancelled.')
   }
   await rm(actual, { recursive: true, force: false })
   const registry = service('workspaceRegistry') as WorkspaceRegistry | undefined
