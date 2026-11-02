@@ -1199,7 +1199,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // the DOM looked like, and what every level tried. Exposed on
             // window.__ensDiag and rendered inside the fallback modal.
             const DIAG = {
-              source: SOURCE,
+              version: '',
               ua: '',
               url: '',
               slotsApi: [] as string[],
