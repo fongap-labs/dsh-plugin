@@ -58,4 +58,8 @@ Host 源码由 TypeScript 编译为 `lib/` 下的 ESM。包的公开入口仍是
 
 `package.json` 描述包自身的入口、导出和依赖；`projects/<plugin>/release.manifest.json` 描述 Action Worker 如何构建和发布该产品。两者不得维护重复且互相冲突的版本、包名或许可证信息。
 
-Action Worker 当前 Release Build 合约要求构建项使用 PowerShell 脚本、受控 Runner Profile 和 target triple。当前插件构建入口是各包的薄 `build-release.ps1`，实际实现集中在根目录 `scripts/build-release.ps1`。若要改为跨平台 Node 构建，必须先协调修改 Action Worker 合约、执行器和测试，再同步本仓库；不能单边修改清单绕过校验。
+Action Worker 支持 PowerShell 原生构建和 Node.js 便携构建。插件发布采用 `linux-standard` Runner、`portable` 目标和每包一个薄 `build-release.mjs` 入口，实际构建集中在 `scripts/build-release.mjs`，保留 GitHub Release 的 ZIP/TGZ、SBOM 和来源证明。此规则依赖 Action Worker 的相应合约先行合并，不能绕过中央门禁。
+
+### Host 依赖边界
+
+Harness 在宿主进程中提供 Cordis 和其他 Host 服务。插件在运行时通过 `ctx` 获取服务；`@deepseek-ai/cordis` 仅用于 TypeScript 的 `import type`，不得被打包为插件自己的运行时框架副本。三个插件的发布 `package.json` 不声明 Cordis/DSH Tools 的 `dependencies`、`peerDependencies` 或 `bundleDependencies`；根目录 `devDependencies` 和 `pnpm-lock.yaml` 固定开发/CI 类型基线。删除版本约束不代表跨宿主版本天然兼容：引入新 Host API 时必须做能力检测及 Windows/macOS/Linux 的宿主回归验证。

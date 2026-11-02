@@ -12,15 +12,16 @@
   "sbom_asset": "dsh-code-worker-sbom.cdx.json",
   "builds": [
     {
-      "id": "windows",
-      "runner_profile": "windows-build",
-      "target": "x86_64-pc-windows-msvc",
-      "script": "dsh-code-worker/build-release.ps1",
+      "id": "portable",
+      "runner_profile": "linux-standard",
+      "target": "portable",
+      "script": "dsh-code-worker/build-release.mjs",
       "assets": [
         "fongap-labs-dsh-code-worker.zip",
         "fongap-labs-dsh-code-worker.tgz"
       ],
-      "attest_asset": "fongap-labs-dsh-code-worker.zip"
+      "attest_asset": "fongap-labs-dsh-code-worker.zip",
+      "setup_rust": false
     }
   ]
 }
