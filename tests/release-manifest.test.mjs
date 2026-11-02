@@ -117,7 +117,7 @@ describe("release manifests", () => {
         );
         for (const line of manifest.changelog_entries) {
           assert.ok(
-            typeof line === "string" && line.length <= 300 && !/[\\r\\n]/.test(line),
+            typeof line === "string" && line.length <= 300 && !/[\r\n]/.test(line),
             `${label} changelog_entries contains an invalid line`
           );
         }
