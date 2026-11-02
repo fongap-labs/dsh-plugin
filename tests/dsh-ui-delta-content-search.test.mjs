@@ -60,7 +60,7 @@ describe('conversation content search', () => {
     assert.equal(h.service.search, h.original);
   });
 
-  it('can search when the native index fails and leaves other queries to the host', async () => {
+  it('falls back when the native index fails and preserves errors for unmatched queries', async () => {
     const h = fixture({ failingIndex: true });
     const result = await h.service.search('后台任务', new AbortController().signal);
     assert.equal(result.ok, true);
@@ -68,7 +68,24 @@ describe('conversation content search', () => {
     const count = h.calls.length;
     const english = await h.service.search('background', new AbortController().signal);
     assert.equal(english.ok, false);
-    assert.equal(h.calls.length, count);
+    assert.ok(h.calls.length > count);
+    h.dispose();
+  });
+
+
+  it('finds English message text without dropping native search matches', async () => {
+    const h = fixture({ read: async (request) => ({
+      ok: true,
+      value: { records: [{ event: {
+        seq: 1, type: 'user/message',
+        data: { content: [{ type: 'text', text: request.address.sessionId === 'chinese'
+          ? 'Keep the background job running.' : 'unrelated content' }] },
+      } }], hasMore: false },
+    }) });
+    const result = await h.service.search('background', new AbortController().signal);
+    assert.equal(result.ok, true);
+    assert.ok(result.value.items.some(item => item.sessionId === 'chinese'));
+    assert.ok(result.value.items.some(item => item.sessionId === 'native'));
     h.dispose();
   });
 
