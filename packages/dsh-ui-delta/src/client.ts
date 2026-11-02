@@ -1010,7 +1010,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 `;
 
     return {
-      inject: ['theme', 'slots', 'contextMenus'],
+      inject: ['theme', 'slots'],
       apply(ctx: HarnessClientContext) {
         // Every contribution is defensive: a failure here degrades the refresh
         // (no palette / no stylesheet) and must never abort the web boot.
@@ -3581,11 +3581,12 @@ const MODULES: ModuleDef[] = [
             observe: (target: MenuTarget) => unknown[];
             resolve: (target: MenuTarget) => Array<{ id: string; label: string; run: () => void; separatorBefore: boolean }>;
           };
-          const menus = (ctx.get?.('contextMenus') ?? ctx.contextMenus) as {
-            register?: (definition: MenuDef) => (() => void)
-          } | undefined;
-          if (menus?.register) {
-            ctx.effect(() => menus.register!({
+          const registerMenu = (child: HarnessClientContext) => {
+            const menus = (child.get?.('contextMenus') ?? child.contextMenus) as {
+              register?: (definition: MenuDef) => (() => void)
+            } | undefined;
+            if (!menus?.register) return;
+            child.effect(() => menus.register!({
               id: 'session.delta-delete', target: 'session', order: 700,
               observe: () => [],
               resolve: (target) => [{
@@ -3610,7 +3611,12 @@ const MODULES: ModuleDef[] = [
                 },
               }],
             }), 'dsh-ui-delta: session delete menu');
-          }
+          };
+          const optional = ctx as unknown as {
+            inject?: (dependencies: string[], callback: (child: HarnessClientContext) => void) => unknown
+          };
+          if (optional.inject) optional.inject(['contextMenus'], registerMenu);
+          else registerMenu(ctx);
         } catch (error) {
           console.warn('[dsh-ui-delta] delete session menu unavailable:', error);
         }
@@ -3624,3 +3630,4 @@ const MODULES: ModuleDef[] = [
     };
   },
 });
+
