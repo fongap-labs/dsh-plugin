@@ -5,7 +5,7 @@ import { runInNewContext } from 'node:vm';
 
 const source = readFileSync(new URL('../packages/dsh-ui-delta/lib/client.js', import.meta.url), 'utf8');
 const start = source.indexOf('const searchMessageText =');
-const end = source.indexOf('// v0.1.0: the working status reads', start);
+const end = source.indexOf('let isStatusTicking = false;', start);
 assert.ok(start >= 0 && end > start, 'compiled content search must exist');
 const code = `${source.slice(start, end)} globalThis.install = installContentSearch; globalThis.dispose = () => restoreContentSearch?.();`;
 
