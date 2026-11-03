@@ -16,16 +16,15 @@ const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
 
 export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
-  'Use the `code_multi_edit` tool for batch file edits instead of repeated single edits.',
-  'Use `code_git_status` and `code_git_diff` to inspect repository state before and after changes.',
-  'Use `code_workspace_map` to find relevant tracked files before opening large source trees.',
-  'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
-  'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
-  'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
-  'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',
-  'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
-  'Use `code_lsp_probe` to detect available language servers in the current workspace.',
-  'Always pass paths relative to the workspace root; absolute paths outside the workspace are rejected by the sandbox.',
+  'Start coding tasks with code_project_profile to identify project rules, stack and verification commands. Read applicable AGENTS.md / CLAUDE.md with the Host file reader.',
+  'Use native Harness search, editor, terminal, LSP, Skills, subagents and task tracking rather than duplicating them.',
+  'For nontrivial coding work, load code-workflow from the Host skill tool, then the smallest relevant specialized code-* skill. A tiny clear edit uses code-fast-change directly; do not force long planning rituals.',
+  'Use code_workspace_map for compact tracked-file discovery and code_multi_edit only for carefully scoped batch edits.',
+  'Check code_git_status and code_git_diff around edits; preserve unrelated user changes.',
+  'Use code_verify for explicit project scripts only if execution is enabled. Report actual evidence and never represent unrun checks as passes.',
+  'Use code_git_worktree only when isolation is enabled, and do not bypass the Harness permissions or GitHub CI gates.',
+  'GitHub account tokens stay private. Push only feature branches; CI, release and merge authority remain external.',
+  'Apply code-verification-gate before claiming success. A red/pending required check or an unrun test is not a pass; obey all Host permissions and project rules.',
 ].join('\n')
 
 /** Render an unknown thrown value the way the JavaScript implementation did. */

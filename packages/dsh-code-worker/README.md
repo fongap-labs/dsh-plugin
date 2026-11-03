@@ -6,9 +6,10 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 | 工具 | 说明 |
 | --- | --- |
-| `code_multi_edit` | 在工作区内原子地批量改文件：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
+| `code_multi_edit` | 在工作区内逐项批量修改文件（非跨文件事务）：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
+| `code_project_profile` | 只读检测项目技术栈、规则文件和项目现有测试脚本；不加载大段源码。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
 
 除工具外，插件还通过 `ctx.systemPrompt.section()` 注入一段编码工作流指引（与 `TOOL_EDIT` 同级排序），提示模型优先使用批量编辑与 Git 工具。
@@ -138,3 +139,34 @@ execution:
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - Token 为 Schema `role('secret')`，Host 不会回显。已有账号留空 Token 即保留；新账号必须填 Token 或 tokenEnv。
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
+
+
+## 内置端到端 Coding 工作流
+
+本插件通过 DSH 原生 `ctx.skills.register` 挂载 **21 个按需调用的技能**。这不是另一个 Agent Runtime：DSH 负责执行、会话、权限、子 Agent、Workflow、LSP、终端与 Skills 加载；Code Worker 提供工程方法、项目预检、Git/GitHub 集成及验证门禁指引。无需另行安装 Superpowers 或其他 Coding Skill 插件。
+
+**按任务选择路径，而不是所有任务都跑完整流程：**
+
+| 任务类型 | 工作路径 |
+| --- | --- |
+| 小修改 | `code-fast-change` → 修改 → 针对性验证 |
+| 新功能 | `code-workflow` → `code-brainstorming`（仅需求不清时）→ `code-writing-plans` → `code-executing-plans` / `code-subagent-delivery` → `code-verification-gate` |
+| Bug / CI 红叉 | `code-root-cause-debugging` / `code-ci-repair` → 定向回归测试 → 根因修复 → `code-verification-gate` |
+| PR 审查 | `code-request-review` / `code-review-readiness` → `code-receive-review` → `code-finish-branch` |
+| 大型仓库 | `code-context-discipline` + `code_project_profile` + 宿主搜索/LSP，限制上下文 |
+| 多独立任务 | `code-parallel-work` + DSH 原生子 Agent；同文件修改不并行 |
+| 长时自主迭代 | `code-autonomous-loop` + DSH 原生 Ralph/Workflow；遵守轮次上限、审批和停止条件 |
+
+基础能力覆盖需求澄清、方案设计、细粒度计划、测试驱动、单 Agent 执行、原生子 Agent 协作、并行任务、工作树隔离、审查与反馈、结果验证、分支收尾、技能编写、上下文节制和失败会话诊断。
+
+**可验证的边界：**
+
+- `code_project_profile` 读取项目结构元信息、约束文件名和已声明的验证脚本，不把整个项目源码塞进上下文。
+- `code_workspace_map` 只是按关键词排序的已跟踪**文件名**，不声称已有 Aider 那样的符号依赖图；需要符号与调用关系时用 DSH 原生 LSP 与搜索。
+- `code_verify` 执行项目已有的 `test/typecheck/build/lint/check` 脚本，需要用户在配置中开启 `execution.allowCommands` 且宿主提供子进程服务。默认不执行任何工程脚本。
+- `code_git_worktree` 创建隔离工作树须独立开启权限；GitHub 写权限也默认关闭。PR 的 CI、审核及合并门禁继续由 Action Worker 负责。
+- `code_multi_edit` 是逐文件、逐项执行，**没有跨文件事务回滚**，单次返回结果不能替代检查最终 diff。
+- 技能是按需加载的操作指导；不能仅凭安装保证自动执行完整流程、拥有某个原生 Agent 能力，或宣称未实际跑过的测试通过。
+
+**参考项目与取舍：** [Superpowers](https://github.com/obra/superpowers)（端到端流程与 TDD）、[Aider Repo Map](https://aider.chat/docs/repomap.html)（聚焦上下文）、[OpenCode](https://opencode.ai/docs/skills)（Skills 按需加载及原生权限）、[SWE-agent](https://github.com/SWE-agent/SWE-agent)（工具反馈与真实验证）、[Anthropic Skills](https://github.com/anthropics/skills)（渐进披露）。借鉴公开方法而非复制这些项目的 Runtime、依赖或原文。
+

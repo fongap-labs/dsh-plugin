@@ -15,6 +15,8 @@ import { createWorkspaceMapTool } from './tools/workspace.js'
 import { createWorktreeTool } from './tools/worktree.js'
 import { createVerifyTool } from './tools/verify.js'
 import { createGitHubTools } from './tools/github.js'
+import { createProjectProfileTool } from './tools/profile.js'
+import { registerCodingSkills } from './skills.js'
 
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 const PROMPT_SECTION_NAME = 'dsh-code-worker:guidance'
@@ -51,6 +53,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
     if (typeof unsubscribe === 'function') cleanup.push(unsubscribe)
   }
   register()
+  cleanup.push(registerCodingSkills(ctx))
 
   ctx.inject(['systemPrompt'], (child) => {
     try {
@@ -88,6 +91,7 @@ function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
 
   const tools: ToolDefinition[] = [
     createMultiEditTool(ctx, settings),
+    createProjectProfileTool(ctx, settings),
     createWorkspaceMapTool(ctx, settings),
     createWorktreeTool(ctx, settings),
     createVerifyTool(ctx, settings),
