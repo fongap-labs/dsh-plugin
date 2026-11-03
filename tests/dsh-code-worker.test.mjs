@@ -74,11 +74,11 @@ describe("dsh-code-worker", () => {
     const fresh = createContext();
     const dispose = codeWorker.apply(fresh, { workspaceRoot: workspace });
     const names = [...fresh.registeredSkills.keys()];
-    assert.equal(names.length, 19);
+    assert.equal(names.length, 21);
     assert.equal(new Set(names).size, names.length);
     for (const name of ["code-fast-change", "code-workflow", "code-brainstorming", "code-writing-plans",
       "code-executing-plans", "code-subagent-delivery", "code-test-driven-development",
-      "code-parallel-work", "code-worktrees", "code-verification-gate", "code-finish-branch"]) {
+      "code-parallel-work", "code-worktrees", "code-verification-gate", "code-finish-branch", "code-autonomous-loop", "code-ci-repair"]) {
       assert.ok(fresh.registeredSkills.has(name), name);
     }
     assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /acceptance/);
