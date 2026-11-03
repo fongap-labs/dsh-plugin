@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { deltaMemory, type MemoryInput, type MemoryQuery, type MemorySettings } from './memory.js'
+import { deltaMemory, type MemoryInput } from './memory.js'
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void> | void
 type Register = (path: string, handler: Handler) => void
@@ -59,7 +59,7 @@ export function registerMemoryRoutes(route: Register): void {
           return send(res, 200, await deltaMemory.import(payload.data))
         case 'settings':
           if (!isRecord(payload.settings)) throw new Error('settings required')
-          return send(res, 200, { settings: await deltaMemory.setSettings(payload.settings as MemorySettings) })
+          return send(res, 200, { settings: await deltaMemory.setSettings({ autoCapture: payload.settings.autoCapture as boolean | undefined, recall: payload.settings.recall as boolean | undefined }) })
         default:
           return send(res, 400, { error: 'unknown memory action' })
       }
