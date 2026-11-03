@@ -49,6 +49,16 @@ Delta UI 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx
 
 研究结果提供候选来源、真实网页摘录和可识别的发布日期，而不是自动生成的事实核验结论。跨来源事实冲突仍需模型读取证据并逐一验证。
 
+## 上下文管理与长期记忆（P0–P2）
+
+- **上下文（P0）**：复用 Harness 的 ContextMeter、Token Meter、自动 Compaction、原生 /compact 和 @ 跨会话引用。Delta 设置页提供操作说明，不重写历史，不实现第二套压缩引擎。
+- **本地记忆（P1）**：在「设置 → Delta 配置 → 长期记忆」使用本地 SQLite 存储。支持全局／项目／会话范围、类别、来源会话、过期时间、置顶、创建、编辑、删除、搜索和 JSON 备份／导入。数据库路径为 DSH_HOME/delta-memory/memory.sqlite（未指定 DSH_HOME 时使用 ~/.dsh/delta-memory/memory.sqlite）。
+- **检索治理（P2）**：SQLite FTS5 加子字符串补充检索，按置顶、匹配与更新时间排序；搜索不返回已过期或已被新决策替代的记录。Agent 使用 delta_memory_search 按需召回，并使用 delta_memory_save 保存可独立理解的事实；每条记忆保留来源。
+- **隐私**：Agent 自动写入默认关闭，服务端拒绝未启用时的 Agent 写入；手动管理仍可使用。Agent 召回默认开启，可随时关闭。拦截常见 API Key、密码和私钥文本，记忆仅是不可执行的历史背景。删除单条记忆从 SQLite 表及 FTS 索引中删除，但不追溯删除备份文件。
+- **运行时**：记忆需要 Node.js 22.13+（推荐 Node 24），使用内置 node:sqlite，无额外 MCP 或 embedding 服务。旧 Node 仍可使用 Delta UI 其他功能，记忆接口会给出明确错误。宿主缺少 tools/systemPrompt 时仅 Agent 记忆工具降级。
+
+管理 API：/dsh-ui-delta/memory、/dsh-ui-delta/memory/settings、/dsh-ui-delta/memory/export。备份含记忆正文，需妥善保管。项目 ID 使用 Agent 工作目录 SHA-256 摘要，避免把本地绝对路径存进索引。Agent 在服务端限定为当前项目、当前会话和全局记忆。记忆提取依赖 Agent 主动调用工具，并非每条消息的自动后台处理。
+
 ## 视觉识别与在线生图
 
 打开「设置 → Delta 配置」，顶部默认显示「在线生图」。填写生图模型 ID 后保存，输入图片描述、选择尺寸并点击「生成图片」，结果可直接预览和下载。生图只在点击后发起；当前支持返回 Base64 图片的 OpenAI 兼容 Images 接口。GPT Image 模型不发送其不支持的 response_format 参数，参见 [接口说明](https://developers.openai.com/api/reference/resources/images/methods/generate)。仅返回远程图片 URL 的服务会提示不兼容。
