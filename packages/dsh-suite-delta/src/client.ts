@@ -2954,7 +2954,35 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   if (controller.signal.aborted) return;
                   // the query stays in the composer so it can be retried; the reason
                   // goes to the notice pill instead of into the draft
-                  showNotice('error', t(`搜索失败：${err?.message || err}`, `Search failed: ${err?.message || err}`), true);
+                  const reason = String(err?.message || err);
+                  // Only check optional ddgs dependencies after an actual search failure.
+                  // No installer, no setup dialog, and no background probing.
+                  if (/Python ddgs|Python executable|ddgs package|ddgs is unavailable/i.test(reason)) {
+                    void fetch('/dsh-ui-delta/ddgs-status').then(r => {
+                      if (!r.ok) throw new Error('dependency check failed');
+                      return r.json();
+                    }).then((status: { state?: string; installCommand?: string }) => {
+                      if (controller.signal.aborted) return;
+                      if (status.state === 'missing-python') {
+                        showNotice('error', t(
+                          '搜索兜底缺少 Python 3.10+。请先从 python.org/downloads 安装 Python，完成后重新搜索。',
+                          'Python 3.10+ is missing for the search fallback. Install from python.org/downloads, then retry search.'
+                        ), true);
+                      } else if (status.state === 'missing-ddgs') {
+                        const command = status.installCommand || 'python -m pip install ddgs==9.16.1';
+                        showNotice('error', t(
+                          '搜索兜底缺少 ddgs。请在终端执行：' + command + '；完成后重新搜索。',
+                          'The ddgs fallback is missing. Run in a terminal: ' + command + '; then retry search.'
+                        ), true);
+                      } else {
+                        showNotice('error', t('搜索失败：' + reason, 'Search failed: ' + reason), true);
+                      }
+                    }).catch(() => {
+                      if (!controller.signal.aborted) showNotice('error', t('搜索失败：' + reason, 'Search failed: ' + reason), true);
+                    });
+                  } else {
+                    showNotice('error', t('搜索失败：' + reason, 'Search failed: ' + reason), true);
+                  }
                 });
             };
             document.addEventListener('keydown', onSearchKey, true);
