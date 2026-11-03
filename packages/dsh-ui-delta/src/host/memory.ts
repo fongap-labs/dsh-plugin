@@ -223,6 +223,12 @@ export class DeltaMemory {
       ' ORDER BY pinned DESC, updated_at DESC LIMIT ?').all(...params, clampLimit(query.limit))
     return (rows as Record<string, unknown>[]).map(normalize)
   }
+  async scopes(): Promise<Array<{ scope: string; scopeId: string; count: number }>> {
+    const db = await this.open()
+    const rows = db.prepare("SELECT scope, scope_id AS scopeId, COUNT(*) AS count FROM memories WHERE status='active' AND (expires_at IS NULL OR expires_at>?) GROUP BY scope, scope_id ORDER BY scope, scope_id")
+      .all(Date.now()) as Array<{ scope: string; scopeId: string; count: number }>
+    return rows
+  }
   async get(id: string): Promise<MemoryRecord | null> {
     const db = await this.open()
     const row = db.prepare('SELECT ' + FIELDS + ' FROM memories WHERE id=?').get(required(id, 100, 'id'))
