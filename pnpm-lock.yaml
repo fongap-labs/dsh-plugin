@@ -26,6 +26,9 @@ importers:
 
   packages/dsh-code-worker:
     dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.5
+        version: 3.18.5
       '@fongap-labs/shared':
         specifier: workspace:*
         version: link:../shared
