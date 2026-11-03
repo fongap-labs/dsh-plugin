@@ -75,7 +75,7 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
   })
 }
 
-function parseGitStatus(raw: string): GitStatusResult {
+export function parseGitStatus(raw: string): GitStatusResult {
   const parts = raw.split('\0').filter((part) => part.length > 0)
   const staged: string[] = []
   const unstaged: string[] = []
