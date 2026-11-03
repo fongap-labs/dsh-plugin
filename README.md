@@ -19,26 +19,26 @@
 
 打开 [发布页面](https://github.com/fongap-labs/dsh-plugin/releases)，选择对应插件的版本并下载 `.tgz` 文件。**不要把整个仓库地址或 Release 标签当作 npm 包名。**
 
-例如，Delta UI 的 GitHub Release 已发布 `0.1.0-beta.3`。可以在终端执行：
+安装时应以 [Releases 页面](https://github.com/fongap-labs/dsh-plugin/releases) 中实际发布的 Delta UI 版本为准，选择标签前缀为 `dsh-ui-delta-v` 的条目，并复制其中的 `fongap-labs-dsh-ui-delta.tgz` 资产链接。**main 已合并的功能不等于已发布的安装包。**
 
 ```bash
-dsh plugin --profile desktop add "https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-ui-delta-v0.1.0-beta.3/fongap-labs-dsh-ui-delta.tgz"
+# 把尖括号中的地址替换为 Release 页面复制的真实 .tgz 下载链接
+dsh plugin --profile desktop add "<Delta UI Release 中的 .tgz 资产地址>"
 ```
 
-`desktop` 是示例配置档案名称；如果你使用其他配置档案（如 `web`），请替换为实际名称。安装完成后，前往 DeepSeek Harness 的插件页面确认插件已启用；若运行环境未启用热重载，请重启对应配置档案。
-
-[查看 Delta UI 预发布版与校验文件](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-ui-delta-v0.1.0-beta.3)
+`desktop` 是示例配置档案名称；如果实际使用其他配置档案（如 `web`），请替换为真实名称。安装后检查插件版本及功能开关；宿主未开启热重载时需要重启配置档案。
 
 ### 通过 npm 安装
 
 **仅当目标版本已发布到当前使用的 npm 仓库时**，才能按包名安装。以 Delta UI 为例：
 
 ```bash
-pnpm view @fongap-labs/dsh-ui-delta@0.1.0-beta.3 version --registry https://registry.npmjs.org
-dsh plugin --profile desktop add @fongap-labs/dsh-ui-delta@0.1.0-beta.3
+# 先列出实际已发布到 npm 的版本，再选择其中一个已验证版本
+pnpm view @fongap-labs/dsh-ui-delta versions --json --registry https://registry.npmjs.org
+dsh plugin --profile desktop add "@fongap-labs/dsh-ui-delta@<已核对的版本号>"
 ```
 
-第一条命令应能查询到该版本，才执行第二条。GitHub Release 中存在文件，**不代表** npm 官方仓库或镜像已经收录相同版本；找不到包时请使用上述 Release `.tgz` 文件。`.zip` 是另一种构建产物，不应直接当作 npm 包名安装。
+先确认 npm 中存在目标版本，才执行安装命令。GitHub Release 中存在文件，**不代表** npm 官方仓库或镜像已经收录相同版本；找不到包时请使用上述 Release `.tgz` 文件。`.zip` 是另一种构建产物，不应直接当作 npm 包名安装。
 
 ## 常见问题
 
