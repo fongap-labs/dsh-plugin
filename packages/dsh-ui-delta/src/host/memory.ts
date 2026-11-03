@@ -9,7 +9,6 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, chmod } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { DatabaseSync } from 'node:sqlite'
 
 export type MemoryScope = 'global' | 'project' | 'session'
 export type MemoryCategory = 'preference' | 'fact' | 'decision' | 'task' | 'other'
@@ -59,7 +58,7 @@ interface SqlStatement {
   get(...params: unknown[]): unknown
   all(...params: unknown[]): unknown[]
 }
-type SqliteDatabase = Pick<DatabaseSync, 'exec' | 'prepare' | 'close'>
+interface SqliteDatabase { exec(sql: string): void; prepare(sql: string): SqlStatement; close(): void }
 
 const ALLOWED_SCOPE = new Set(['global', 'project', 'session'])
 const ALLOWED_CATEGORY = new Set(['preference', 'fact', 'decision', 'task', 'other'])
@@ -142,7 +141,7 @@ export class DeltaMemory {
     catch { throw new Error('Delta memory requires Node.js with built-in node:sqlite (Node 22.13+ recommended)') }
     const path = localPath()
     await mkdir(join(path, '..'), { recursive: true, mode: 0o700 })
-    const db = new ctor(path)
+    const db = new ctor(path) as unknown as SqliteDatabase
     try {
       db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;')
       db.exec(
@@ -297,8 +296,8 @@ export class DeltaMemory {
         const match = terms.map(term => '"' + term.replace(/"/g, '""') + '"').join(' OR ')
         try {
           const sql = 'SELECT ' + FIELDS.split(', ').map(field => 'm.' + field).join(', ') +
-            ' FROM memory_fts f JOIN memories m ON m.id=f.id WHERE f.content MATCH ? AND ' +
-            where + ' ORDER BY m.pinned DESC, bm25(f) ASC, m.updated_at DESC LIMIT ?'
+            ' FROM memory_fts JOIN memories m ON m.id=memory_fts.id WHERE memory_fts MATCH ? AND ' +
+            where + ' ORDER BY m.pinned DESC, bm25(memory_fts) ASC, m.updated_at DESC LIMIT ?'
           const rows = db.prepare(sql).all(match, ...params, limit)
           for (const row of rows) {
             const memory = normalize(row as Record<string, unknown>)
