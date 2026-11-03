@@ -19,7 +19,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
     title: 'Code Worker: route and finish coding work',
     description: 'Start a coding task or decide which coding procedure to use; routes by risk and complexity rather than forcing a full process for small changes.',
     instructions: [
-      'First obey user instructions and repository AGENTS.md/CLAUDE.md. Inspect code_project_profile and a bounded relevant-file search. Do not make an architectural decision from a filename list alone.',
+      'First obey user instructions and repository AGENTS.md/CLAUDE.md. Inspect code_project_profile. For nontrivial work call code_workflow_route with grounded scope/risk and only confirmed native subagent capability; then read bounded relevant sources.',
       'Route a clear one-file edit to code-fast-change; a defect to code-root-cause-debugging; uncertain requirements to code-brainstorming; an agreed multi-step change to code-writing-plans then code-executing-plans.',
       'Use code-subagent-delivery only for independently reviewable work when the native Host exposes agent dispatch. Use code-parallel-work only for disjoint tasks; never invent agent APIs or silently raise permissions.',
       'For behavior changes use code-test-driven-development when a meaningful test exists. Apply code-verification-gate before completion claims, and code-finish-branch for PR or cleanup.',
@@ -99,7 +99,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Run the new test before changing production code; verify it fails for the expected reason. An environment or import failure is not a useful red test.',
       'Make the minimum implementation change to satisfy the test, run it again and record the result; then refactor without expanding scope.',
       'Add boundary, error and backward-compatibility cases that matter for the change. Do not inflate coverage with vacuous assertions.',
-      'Use existing test runner/Host terminal or code_verify for supported declared package scripts. If execution is unavailable, state tests are unrun.',
+      'Use the existing test runner/Host terminal or code_verify for declared Node scripts and project-scoped Rust, Go, Python checks. If execution is unavailable or dependencies are missing, state tests are unrun or failed.',
       'Review source and test diffs together. Green focused tests are not a substitute for integration and CI gates.',
     ],
   },
