@@ -1,0 +1,2 @@
+- 变更 [breaking, migration]: 将原 Delta UI 正式更名为 Delta Suite（Delta 套件），统一包名与发布标识；升级需重新安装新包，历史版本保留。
+- 变更: Delta 套件单独改用 MIT 许可证，仓库默认许可证及其他插件不变。

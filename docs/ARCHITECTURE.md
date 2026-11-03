@@ -6,7 +6,7 @@
 
 | 路径 | 职责 |
 | --- | --- |
-| `packages/dsh-ui-delta/` | Delta UI：浏览器界面增强及 Host 端配置、视觉识别、搜索服务 |
+| `packages/dsh-suite-delta/` | Delta Suite：浏览器界面增强及 Host 端配置、视觉识别、搜索服务 |
 | `packages/dsh-code-worker/` | Code Worker：文件编辑、Git、LSP 与编码工作流工具 |
 | `packages/shared/` | 不含产品逻辑的通用工具注册、子进程和路径安全能力 |
 | `packages/plugin-template/` | 新插件的最小工程模板 |
@@ -24,11 +24,11 @@
 
 包名使用 `@fongap-labs/<package-name>`。包名、Cordis patch 中的名称、包内文档和发布元数据必须一致。已发布包名属于外部接口；只有存在明确收益并提供升级方案时才调整。
 
-## 3. Delta UI Host 与 Browser 双端
+## 3. Delta Suite Host 与 Browser 双端
 
 ### Host
 
-Host 入口位于 `packages/dsh-ui-delta/src/index.ts`，导出 `name`、`inject` 和 `apply(ctx)`。实现按职责拆分：
+Host 入口位于 `packages/dsh-suite-delta/src/index.ts`，导出 `name`、`inject` 和 `apply(ctx)`。实现按职责拆分：
 
 - `host/config.ts`：配置读写、Provider 归一化、密钥缓存与安全存储。
 - `host/routes.ts`：本地 HTTP 路由、请求来源校验、请求体限制和版本查询。

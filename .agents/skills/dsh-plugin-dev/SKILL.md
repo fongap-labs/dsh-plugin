@@ -34,7 +34,7 @@ description: Develop, test, package, and maintain native DeepSeek Harness plugin
 
 - Host plugins are TypeScript ESM. Export `apply(ctx, config)` and any required `inject` list.
 - Host source is compiled by the pinned TypeScript compiler into `lib/*.js` and `lib/*.d.ts`.
-- Delta UI browser code is currently one client entry compiled to `lib/client.js`. Preserve the Harness closure-factory contract: `window.__ModuleLoader__.load({ id, factory(require) { ... } })`.
+- Delta Suite browser code is currently one client entry compiled to `lib/client.js`. Preserve the Harness closure-factory contract: `window.__ModuleLoader__.load({ id, factory(require) { ... } })`.
 - The browser factory's `require` is injected by the Harness loader; it is not Node's `require`.
 - Do not split browser code into local imports unless the build emits one verified client artifact and the installed Harness loads it successfully.
 - Host modules may be split by responsibility. Keep public plugin exports, route paths, config shape, and lifecycle behavior stable unless a reviewed change requires otherwise.

@@ -193,7 +193,7 @@ function main() {
       [
         "Usage: node scripts/link-profile.mjs <plugin-name> [--profile <name>] [--unlink] [--install]",
         "",
-        "  <plugin-name>   插件包名或 packages/ 下的目录名，例如 dsh-code-worker 或 dsh-ui-delta",
+        "  <plugin-name>   插件包名或 packages/ 下的目录名，例如 dsh-code-worker 或 dsh-suite-delta",
         "  --profile       DSH Profile 名称，默认取 $DSH_PROFILE 或 desktop",
         "  --install       走 DSH 官方安装通道（等价 plugin_manager.install_bundle）",
         "  --unlink        移除链接并从 dsh.profile.bundles 摘除",
