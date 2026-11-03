@@ -12,6 +12,7 @@ import { collectEvidence, type HostFetch } from './research-fetch.js'
 import { digestEvidence } from './evidence-analysis.js'
 import { deleteColdSession } from './session-delete.js'
 import { registerMemoryRoutes } from './memory-routes.js'
+import { listSkills, mutateSkill, type SkillAction } from './skills.js'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -132,6 +133,20 @@ export function registerRoutes(ctx: Context): void {
   }
 
   registerMemoryRoutes(route)
+
+  // Native skills registry, supplied by Harness when mounted. Missing services
+  // must not abort Delta settings or conversation boot.
+  let skillsRegistry: Parameters<typeof listSkills>[0]
+  optionalContext.inject?.(['skills'], (child) => {
+    skillsRegistry = (child as { skills?: typeof skillsRegistry }).skills
+  })
+  route('/dsh-ui-delta/skills', async (req, res) => {
+    if (req.method === 'GET') return sendJson(res, 200, await listSkills(skillsRegistry))
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}') as SkillAction
+    try { return sendJson(res, 200, await mutateSkill(body)) }
+    catch (error) { return sendJson(res, 400, { error: errorMessage(error) }) }
+  })
 
   const configView = async () => ({ ...publicView(), mainModel: await mainModelView(modelContext) })
 
