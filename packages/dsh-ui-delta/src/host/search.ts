@@ -72,7 +72,7 @@ async function searchEndpoint(
  */
 export const searchWeb = async (
   query: string, signal?: AbortSignal, keyless: typeof searchPythonDdgs = searchPythonDdgs,
-  maxResults = 5
+  maxResults = 5, publicSearch: typeof searchPublicInstances = searchPublicInstances
 ): Promise<SearchRow[]> => {
   signal?.throwIfAborted()
   query = query.trim().slice(0, 500)
@@ -112,7 +112,7 @@ export const searchWeb = async (
   }
   // Built-in public nodes are opt-in when a custom provider was selected.
   // Fail closed on custom-provider authentication errors above.
-  const publicHits = await searchPublicInstances(query, limit, signal)
+  const publicHits = await publicSearch(query, limit, signal)
   if (publicHits.results.length) return publicHits.results
   throw new SearchUnavailableError([...errors, ...publicHits.failures])
 }
