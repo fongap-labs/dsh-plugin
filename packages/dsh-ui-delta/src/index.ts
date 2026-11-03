@@ -5,12 +5,14 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { registerRoutes } from './host/routes.js'
 import { makeWebSearchProvider } from './host/search.js'
+import { registerMemoryTools } from './host/memory-tools.js'
 
 export const name = '@fongap-labs/dsh-ui-delta'
 export const inject = ['webServer']
 
 export function apply(ctx: Context): void {
   registerRoutes(ctx)
+  registerMemoryTools(ctx)
   // The official DeepSeek extension enables Session Log contribution by default.
   // Exclude every request before the host reads log records. This is a second
   // defense; users must still persist enabled: false in the Host profile so
