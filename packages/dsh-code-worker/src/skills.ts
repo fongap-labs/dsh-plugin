@@ -77,10 +77,10 @@ export const CODING_SKILLS: readonly CodingSkill[] = [
 ]
 
 export function registerCodingSkills(ctx: Context): () => void {
-  let active = true
+  let isActive = true
   const disposers: Array<() => void> = []
   ctx.inject(['skills'], (child) => {
-    if (!active) return
+    if (!isActive) return
     const registry = (child as unknown as { skills?: SkillRegistry }).skills
     if (typeof registry?.register !== 'function') return
     for (const skill of CODING_SKILLS) {
@@ -99,7 +99,7 @@ export function registerCodingSkills(ctx: Context): () => void {
     }
   })
   return () => {
-    active = false
+    isActive = false
     for (const dispose of disposers.splice(0).reverse()) {
       try { dispose() } catch { /* best-effort unmount */ }
     }
