@@ -3,7 +3,6 @@
  * GitHub tokens are write-only: the settings wire reports secret presence, not values.
  */
 import Schema from '@deepseek-ai/schemastery'
-import type { CodeWorkerConfig } from './types.js'
 
 const Account = Schema.object({
   owner: Schema.string().required(),
@@ -16,7 +15,11 @@ const Server = Schema.object({
   args: Schema.array(Schema.string()).default([]),
 })
 
-export const Config: Schema<CodeWorkerConfig> = Schema.object({
+// The native schema resolves Volatile<T> references, while the runtime
+// CodeWorkerConfig describes the unwrapped values passed to the tools.
+// Keep the exported schema type generic to avoid leaking private inferred
+// Schemastery / cosmokit types through the generated declaration.
+export const Config: Schema<Record<string, unknown>> = Schema.object({
   enabled: Schema.boolean().default(true).volatile(),
   workspaceRoot: Schema.string().default('').volatile(),
   git: Schema.object({
