@@ -1008,6 +1008,20 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   color: var(--dsw-alias-label-secondary); white-space: pre-wrap; word-break: break-all;
   max-height: 168px; overflow: auto;
 }
+
+/* Delta local memory management. Inherits Host palette; no additional shell. */
+.ens-memory-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.ens-memory-list { display:grid; gap:8px; max-height:360px; overflow:auto; }
+.ens-memory-item { padding:10px 12px; border:1px solid var(--dsw-alias-border-l2); border-radius:var(--dsw-radius-md); background:var(--dsw-alias-bg-layer-1); min-width:0; }
+.ens-memory-item-text { font-size:13px; line-height:1.6; color:var(--dsw-alias-label-primary); overflow-wrap:anywhere; white-space:pre-wrap; }
+.ens-memory-meta { font-size:11px; color:var(--dsw-alias-label-tertiary); margin:4px 0; overflow-wrap:anywhere; }
+.ens-memory-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.ens-memory-form { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ens-memory-form .ens-memory-wide { grid-column:1/-1; }
+.ens-memory-form textarea { min-height:80px; resize:vertical; }
+.ens-memory-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.ens-memory-toolbar input { min-width:120px; flex:1; }
+.ens-memory-status { color:var(--dsw-alias-label-secondary); font-size:12px; }
 `;
 
     return {
@@ -3596,6 +3610,245 @@ const MODULES: ModuleDef[] = [
                 }, pick('下载图片', 'Download image')),
               ]) : null,
             ]) : null;
+
+            // P0: Harness's ContextMeter and /compact own token accounting and
+            // compression. Delta provides a discoverable control surface only.
+            const contextRow = h('div', { key: 'delta-context', className: 'ens-privacy' }, [
+              h('div', { key: 't', className: 'ens-privacy-title' }, pick('上下文管理', 'Context management')),
+              h('div', { key: 'd', className: 'ens-privacy-body' }, pick(
+                '上下文占用率由对话输入栏旁的 Harness 原生计量器提供，压缩由 Harness 原生引擎处理。输入 /compact 可手动压缩；使用 @ 引用其他会话。Delta 不修改模型历史或覆盖压缩事件。',
+                'The native Harness meter by the composer shows context usage. The Host handles compaction. Type /compact to manually compact, or @ to reference another session. Delta never rewrites the Host history or compaction events.',
+              )),
+            ]);
+            interface LocalMemory {
+              id: string; scope: string; scopeId: string; key: string; category: string;
+              content: string; sourceSession: string; source: string; pinned: boolean;
+              updatedAt: number; expiresAt: number | null;
+            }
+            const emptyMemoryForm = () => ({
+              id: '', content: '', key: '', scope: 'global', scopeId: '',
+              category: 'other', sourceSession: '', pinned: false, expiresAt: '',
+            });
+            const [memoryForm, setMemoryForm] = React.useState(emptyMemoryForm);
+            const [memoryRows, setMemoryRows] = React.useState<LocalMemory[]>([]);
+            const [memoryQuery, setMemoryQuery] = React.useState('');
+            const [memoryScope, setMemoryScope] = React.useState('global');
+            const [memoryScopeId, setMemoryScopeId] = React.useState('');
+            const [memorySettings, setMemorySettings] = React.useState({ autoCapture: false, recall: true });
+            const [memoryBusy, setMemoryBusy] = React.useState(false);
+            const [memoryStatus, setMemoryStatus] = React.useState('');
+            const requestMemory = async (path: string, action?: Record<string, unknown>) => {
+              const res = await fetch('/dsh-ui-delta/memory' + path, action ? {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(action),
+              } : undefined);
+              const data = await res.json();
+              if (!res.ok || data.error) throw new Error(data.error || 'HTTP ' + res.status);
+              return data;
+            };
+            const refreshMemory = async () => {
+              const params = new URLSearchParams({ scope: memoryScope, scopeId: memoryScopeId, limit: '50' });
+              if (memoryQuery.trim()) params.set('q', memoryQuery.trim());
+              const result = await requestMemory('?' + params.toString());
+              setMemoryRows(Array.isArray(result.items) ? result.items : []);
+            };
+            React.useEffect(() => {
+              let alive = true;
+              requestMemory('/settings').then((data) => {
+                if (alive && data.settings) setMemorySettings(data.settings);
+              }).catch((error) => { if (alive) setMemoryStatus(String(error)); });
+              return () => { alive = false; };
+            }, []);
+            React.useEffect(() => {
+              let alive = true;
+              const params = new URLSearchParams({ scope: memoryScope, scopeId: memoryScopeId, limit: '50' });
+              if (memoryQuery.trim()) params.set('q', memoryQuery.trim());
+              requestMemory('?' + params.toString()).then((data) => {
+                if (alive) setMemoryRows(Array.isArray(data.items) ? data.items : []);
+              }).catch((error) => { if (alive) setMemoryStatus(String(error)); });
+              return () => { alive = false; };
+            }, [memoryScope, memoryScopeId, memoryQuery]);
+            const actMemory = async (job: () => Promise<void>) => {
+              if (memoryBusy) return;
+              setMemoryBusy(true);
+              setMemoryStatus('');
+              try { await job(); await refreshMemory(); }
+              catch (error) { setMemoryStatus(pick('操作失败：', 'Operation failed: ') + String(error)); }
+              finally { setMemoryBusy(false); }
+            };
+            const saveMemory = () => void actMemory(async () => {
+              const record: Record<string, unknown> = {
+                scope: memoryForm.scope, scopeId: memoryForm.scopeId,
+                key: memoryForm.key, category: memoryForm.category,
+                content: memoryForm.content, sourceSession: memoryForm.sourceSession,
+                source: 'manual', pinned: memoryForm.pinned,
+                expiresAt: memoryForm.expiresAt ? new Date(memoryForm.expiresAt).getTime() : null,
+              };
+              if (memoryForm.id) record.id = memoryForm.id;
+              await requestMemory('', { action: 'save', memory: record });
+              setMemoryForm(emptyMemoryForm());
+              setMemoryStatus(pick('记忆已保存', 'Memory saved'));
+            });
+            const updateMemorySettings = (field: 'autoCapture' | 'recall', enabled: boolean) => {
+              void actMemory(async () => {
+                const result = await requestMemory('', {
+                  action: 'settings', settings: { [field]: enabled },
+                });
+                setMemorySettings(result.settings);
+              });
+            };
+            const exportMemories = () => void actMemory(async () => {
+              const payload = await requestMemory('/export');
+              const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              try {
+                const link = document.createElement('a');
+                link.href = url; link.download = 'delta-memory-backup.json';
+                link.click();
+              } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+            });
+            const importMemories = (file: File | undefined) => {
+              if (!file) return;
+              void actMemory(async () => {
+                if (file.size > 2 * 1024 * 1024) throw new Error('Backup file exceeds 2 MiB');
+                const payload = JSON.parse(await file.text());
+                const result = await requestMemory('', { action: 'import', data: payload });
+                setMemoryStatus(pick(
+                  '已导入 ' + result.imported + ' 条，跳过 ' + result.skipped + ' 条',
+                  'Imported ' + result.imported + ', skipped ' + result.skipped,
+                ));
+              });
+            };
+            const memoryInput = (label: string, name: keyof ReturnType<typeof emptyMemoryForm>, placeholder = '') =>
+              h('label', { key: name, className: name === 'content' ? 'ens-memory-wide' : '' }, [
+                fieldLabel(label),
+                name === 'content' ? h('textarea', {
+                  key: 'i', className: 'jrmgQW_input', value: String(memoryForm[name]), maxLength: 4000,
+                  placeholder, onChange: (ev: HarnessReactChangeEvent<HTMLTextAreaElement>) =>
+                    setMemoryForm(prev => ({ ...prev, [name]: ev.target.value })),
+                }) : h('input', {
+                  key: 'i', className: 'jrmgQW_input', value: String(memoryForm[name]), maxLength: 160,
+                  placeholder, onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
+                    setMemoryForm(prev => ({ ...prev, [name]: ev.target.value })),
+                }),
+              ]);
+            const memoryRow = h('div', { key: 'delta-memory', className: 'ens-privacy' }, [
+              h('div', { key: 'title', className: 'ens-privacy-title' }, pick('长期记忆', 'Long-term memory')),
+              h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
+                '本地 SQLite 存储，不等于会话历史。支持分层作用域、来源、覆盖旧决策、过期过滤与按需召回。自动提取默认关闭；不要保存凭据。需 Node.js 22.13 或更高版本。',
+                'Local SQLite storage, separate from session logs. Supports scope, provenance, superseding decisions, expiry and on-demand recall. Automatic capture is off by default. Never store credentials. Requires Node.js 22.13 or newer.',
+              )),
+              h('label', { key: 'auto', className: 'ens-set-row' }, [
+                h('input', { key: 'input', type: 'checkbox', checked: memorySettings.autoCapture,
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
+                    updateMemorySettings('autoCapture', ev.target.checked) }),
+                pick('允许 Agent 自动提取长期记忆', 'Allow automatic memory capture by Agent'),
+              ]),
+              h('label', { key: 'recall', className: 'ens-set-row' }, [
+                h('input', { key: 'input', type: 'checkbox', checked: memorySettings.recall,
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
+                    updateMemorySettings('recall', ev.target.checked) }),
+                pick('允许 Agent 按需召回记忆', 'Allow on-demand memory recall by Agent'),
+              ]),
+              h('div', { key: 'search', className: 'ens-memory-toolbar' }, [
+                h('select', { key: 'scope', className: 'jrmgQW_input', value: memoryScope,
+                  onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) => setMemoryScope(ev.target.value) },
+                ['global','project','session'].map(item =>
+                  h('option', { key: item, value: item }, item))),
+                memoryScope !== 'global' ? h('input', { key: 'id', className: 'jrmgQW_input',
+                  placeholder: pick('作用域 ID', 'Scope ID'), value: memoryScopeId,
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setMemoryScopeId(ev.target.value) }) : null,
+                h('input', { key: 'query', className: 'jrmgQW_input', value: memoryQuery,
+                  placeholder: pick('搜索已保存的记忆', 'Search saved memories'),
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setMemoryQuery(ev.target.value) }),
+                h('button', { key: 'refresh', type: 'button', disabled: memoryBusy,
+                  className: 'ens-pill-btn', onClick: () => void actMemory(async () => {}) },
+                  pick('刷新', 'Refresh')),
+              ]),
+              h('div', { key: 'rows', className: 'ens-memory-list' }, [
+                ...memoryRows.map(item => h('div', { key: item.id, className: 'ens-memory-item' }, [
+                  h('div', { key: 'body', className: 'ens-memory-item-text' }, item.content),
+                  h('div', { key: 'meta', className: 'ens-memory-meta' },
+                    [item.scope, item.scopeId, item.category, item.key,
+                    item.sourceSession ? ('session: ' + item.sourceSession) : '',
+                    new Date(item.updatedAt).toLocaleDateString()].filter(Boolean).join(' · ')),
+                  h('div', { key: 'buttons', className: 'ens-memory-actions' }, [
+                    h('button', { key: 'edit', type: 'button', className: 'ens-pill-btn',
+                      onClick: () => setMemoryForm({
+                        id: item.id, scope: item.scope, scopeId: item.scopeId,
+                        key: item.key, category: item.category, content: item.content,
+                        sourceSession: item.sourceSession, pinned: item.pinned,
+                        expiresAt: item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0,16) : '',
+                      }) }, pick('编辑', 'Edit')),
+                    h('button', { key: 'remove', type: 'button', className: 'ens-pill-btn',
+                      disabled: memoryBusy,
+                      onClick: () => {
+                        if (!window.confirm(pick('永久删除这条记忆？', 'Delete this memory permanently?'))) return;
+                        void actMemory(async () => {
+                          await requestMemory('', { action: 'delete', id: item.id });
+                        });
+                      } }, pick('删除', 'Delete')),
+                  ]),
+                ])),
+                memoryRows.length === 0 ? h('span', { key: 'empty', className: 'ens-set-desc' },
+                  pick('没有符合条件的记忆。', 'No matching memories.')) : null,
+              ]),
+              h('div', { key: 'form', className: 'ens-memory-form' }, [
+                memoryInput(pick('记忆内容', 'Memory content'), 'content', pick('记录一条可独立理解的事实或决策', 'Enter one durable fact or decision')),
+                h('label', { key: 'scope' }, [
+                  fieldLabel(pick('作用域', 'Scope')),
+                  h('select', { className: 'jrmgQW_input', value: memoryForm.scope,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) =>
+                      setMemoryForm(prev => ({ ...prev, scope: ev.target.value, scopeId: '' })) },
+                    ['global','project','session'].map(item => h('option', { key: item, value: item }, item))),
+                ]),
+                memoryForm.scope !== 'global' ? memoryInput(pick('作用域 ID', 'Scope ID'), 'scopeId') : null,
+                memoryInput(pick('概念键（更新同一决策）', 'Concept key (supersedes prior decision)'), 'key'),
+                h('label', { key: 'cat' }, [
+                  fieldLabel(pick('类别', 'Category')),
+                  h('select', { className: 'jrmgQW_input', value: memoryForm.category,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) =>
+                      setMemoryForm(prev => ({ ...prev, category: ev.target.value })) },
+                    ['other','preference','fact','decision','task'].map(item =>
+                      h('option', { key: item, value: item }, item))),
+                ]),
+                memoryInput(pick('来源会话（可选）', 'Source session (optional)'), 'sourceSession'),
+                h('label', { key: 'expires' }, [
+                  fieldLabel(pick('过期时间（可选）', 'Expiry (optional)')),
+                  h('input', { type: 'datetime-local', className: 'jrmgQW_input', value: memoryForm.expiresAt,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
+                      setMemoryForm(prev => ({ ...prev, expiresAt: ev.target.value })) }),
+                ]),
+                h('label', { key: 'pinned', className: 'ens-memory-wide' }, [
+                  h('input', { type: 'checkbox', checked: memoryForm.pinned,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
+                      setMemoryForm(prev => ({ ...prev, pinned: ev.target.checked })) }),
+                  pick('置顶记忆', 'Pin memory'),
+                ]),
+                h('div', { key: 'actions', className: 'ens-memory-actions ens-memory-wide' }, [
+                  h('button', { key: 'save', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
+                    disabled: memoryBusy || !memoryForm.content.trim(), onClick: saveMemory },
+                    memoryForm.id ? pick('更新记忆', 'Update memory') : pick('保存记忆', 'Save memory')),
+                  h('button', { key: 'clear', type: 'button', className: 'ens-pill-btn',
+                    onClick: () => setMemoryForm(emptyMemoryForm()) }, pick('清空表单', 'Clear form')),
+                ]),
+              ]),
+              h('div', { key: 'backup', className: 'ens-memory-toolbar' }, [
+                h('button', { key: 'export', type: 'button', className: 'ens-pill-btn',
+                  disabled: memoryBusy, onClick: exportMemories }, pick('导出 JSON', 'Export JSON')),
+                h('label', { key: 'import', className: 'ens-pill-btn' }, [
+                  pick('导入 JSON', 'Import JSON'),
+                  h('input', { type: 'file', accept: 'application/json,.json',
+                    style: { display: 'none' },
+                    onChange: (ev: { target: HTMLInputElement }) => {
+                      importMemories(ev.target.files?.[0]);
+                      ev.target.value = '';
+                    } }),
+                ]),
+              ]),
+              h('div', { key: 'status', className: 'ens-memory-status', role: 'status' }, memoryStatus),
+            ]);
+
             const exportRow = h('div', { key: 'exp', className: 'ens-set-row' }, [
               h('span', { key: 't', className: 'ens-set-text' }, [
                 h('span', { key: 'n', className: 'ens-set-name' }, pick('导出当前对话', 'Export this conversation')),
@@ -3621,6 +3874,8 @@ const MODULES: ModuleDef[] = [
               h('div', { key: 'l', className: 'ens-set-list' }, [...MODULES.map(row), hiddenRow]),
               visionRow,
               searchRow,
+              contextRow,
+              memoryRow,
               exportRow,
               h('div', { key: 'p', className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, pick('隐私', 'Privacy')),
