@@ -143,7 +143,7 @@ export function registerRoutes(ctx: Context): void {
   route('/dsh-ui-delta/skills', async (req, res) => {
     if (req.method === 'GET') return sendJson(res, 200, await listSkills(skillsRegistry))
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
-    const body = JSON.parse((await readBody(req, MAX_CONFIG_BYTES)).toString('utf8') || '{}') as SkillAction
+    const body = JSON.parse((await readBody(req, 160 * 1024)).toString('utf8') || '{}') as SkillAction
     try { return sendJson(res, 200, await mutateSkill(body)) }
     catch (error) { return sendJson(res, 400, { error: errorMessage(error) }) }
   })
