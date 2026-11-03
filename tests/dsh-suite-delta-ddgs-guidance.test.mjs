@@ -26,7 +26,7 @@ describe('optional ddgs guidance without an installer', () => {
     assert.match(ui, /status\.state === 'missing-python'/)
     assert.match(ui, /status\.state === 'missing-ddgs'/)
     assert.match(ui, /python\.org\/downloads/)
-    assert.match(ui, /完成后重新搜索/)
+    assert.match(ui, /then retry search/)
     assert.doesNotMatch(ui, /fetch\('\/dsh-ui-delta\/ddgs-install'/)
   })
 })
