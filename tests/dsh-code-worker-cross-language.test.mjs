@@ -17,7 +17,7 @@ describe('cross-language validation command boundaries', () => {
     assert.deepEqual(chooseVerificationCommand('test', 'auto', ['node'], 'pnpm', ['test']), { project: 'node', command: 'pnpm', args: ['run', 'test'] })
     assert.throws(() => chooseVerificationCommand('test', 'auto', ['node', 'rust']), /multiple project types/)
     assert.throws(() => chooseVerificationCommand('test', 'python', ['go']), /manifest not found/)
-    assert.throws(() => chooseVerificationCommand('build', 'python', ['python']), /safe preset/)
+    assert.deepEqual(chooseVerificationCommand('build', 'python', ['python']), { project: 'python', command: 'python', args: ['-m', 'build'] })
     assert.throws(() => chooseVerificationCommand('lint', 'node', ['node'], 'npm', ['test']), /does not declare/)
   })
 
