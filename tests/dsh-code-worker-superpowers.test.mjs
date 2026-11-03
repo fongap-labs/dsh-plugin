@@ -36,4 +36,8 @@ test('workflow has honest verification and no duplicate runtime claims', () => {
   assert.match(byName.get('code-parallel-work'), /disjoint|independent/)
   assert.match(byName.get('code-context-discipline'), /filenames only/)
   assert.match(byName.get('code-finish-branch'), /Never auto-merge/)
+  assert.match(byName.get('code-writing-plans'), /execution waves/)
+  assert.match(byName.get('code-brainstorming'), /ADDED\/MODIFIED\/REMOVED/)
+  assert.match(byName.get('code-request-review'), /security, performance and maintainability/)
+  assert.match(byName.get('code-incident-diagnosis'), /learning loop/)
 })
