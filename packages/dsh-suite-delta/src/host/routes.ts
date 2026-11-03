@@ -12,7 +12,8 @@ import { collectEvidence, type HostFetch } from './research-fetch.js'
 import { digestEvidence } from './evidence-analysis.js'
 import { deleteColdSession } from './session-delete.js'
 import { registerMemoryRoutes } from './memory-routes.js'
-import { listSkills, mutateSkill, type SkillAction } from './skills.js'
+import { listSkills, mutateSkill, listSkillRevisions, restoreSkillRevision, type SkillAction } from './skills.js'
+import { previewGithubSkill, previewZipSkill } from './skill-import.js'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -146,6 +147,30 @@ export function registerRoutes(ctx: Context): void {
     const body = JSON.parse((await readBody(req, 160 * 1024)).toString('utf8') || '{}') as SkillAction
     try { return sendJson(res, 200, await mutateSkill(body)) }
     catch (error) { return sendJson(res, 400, { error: errorMessage(error) }) }
+  })
+
+  route('/dsh-ui-delta/skills/import-preview', async (req, res) => {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    try {
+      const mime = String(req.headers['content-type'] || '')
+      if (mime.startsWith('application/zip')) {
+        const archive = await readBody(req, 2_000_000)
+        return sendJson(res, 200, previewZipSkill(archive))
+      }
+      if (!mime.startsWith('application/json')) return sendJson(res, 415, { error: 'Expected JSON or ZIP' })
+      const payload = JSON.parse((await readBody(req, 2048)).toString('utf8')) as { githubUrl?: string }
+      return sendJson(res, 200, await previewGithubSkill(payload.githubUrl ?? ''))
+    } catch (error) { return sendJson(res, 400, { error: errorMessage(error) }) }
+  })
+  route('/dsh-ui-delta/skills/revisions', async (req, res) => {
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    try {
+      const payload = JSON.parse((await readBody(req, 2048)).toString('utf8')) as
+        { name: string; action: 'list' | 'restore'; revision?: string }
+      if (payload.action === 'list') return sendJson(res, 200, await listSkillRevisions(payload.name))
+      if (payload.action === 'restore') return sendJson(res, 200, await restoreSkillRevision(payload.name, payload.revision ?? ''))
+      return sendJson(res, 400, { error: 'Unknown revision action' })
+    } catch (error) { return sendJson(res, 400, { error: errorMessage(error) }) }
   })
 
   const configView = async () => ({ ...publicView(), mainModel: await mainModelView(modelContext) })
