@@ -132,6 +132,7 @@ function memoryTools(ctx: RuntimeContext): ToolDefinition[] {
 
 /** Registration never replaces the Host's compaction or session services. */
 export function registerMemoryTools(ctx: Context): void {
+  if (!ctx) return
   const host = ctx as unknown as RuntimeContext
   host.inject?.(['tools'], child => {
     const install = () => {
