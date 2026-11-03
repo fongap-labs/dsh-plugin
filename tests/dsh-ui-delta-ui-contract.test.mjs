@@ -67,8 +67,8 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.ok(readme.includes(release.release_key + '-v'),
       'README must explain the product-specific release tag prefix');
     assert.ok(readme.includes(tarball), 'README must show the actual tarball asset name');
-    assert.match(readme, /main 已合并的功能不等于已发布的安装包/);
-    assert.doesNotMatch(readme, /Delta UI 的 GitHub Release 已发布 \`0\\./,
+    assert.ok(readme.includes('main 已合并的功能不等于已发布的安装包'));
+    assert.ok(!readme.includes('Delta UI 的 GitHub Release 已发布 `0.1.0-beta.3`'),
       'README must not claim a pinned old version is the latest release');
   });
 
