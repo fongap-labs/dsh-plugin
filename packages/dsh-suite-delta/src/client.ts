@@ -3945,6 +3945,37 @@ const MODULES: ModuleDef[] = [
             const [skillEditing, setSkillEditing] = React.useState(false);
             const [skillBusy, setSkillBusy] = React.useState(false);
             const [skillStatus, setSkillStatus] = React.useState('');
+            const [skillGithubUrl, setSkillGithubUrl] = React.useState('');
+            const [skillRevisions, setSkillRevisions] = React.useState<Array<{ id: string; date: string }>>([]);
+            const [skillRevisionName, setSkillRevisionName] = React.useState('');
+            const loadSkillRevisions = async (name: string) => {
+              const response = await fetch('/dsh-ui-delta/skills/revisions', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'list', name }),
+              });
+              const data = await response.json();
+              if (!response.ok || data.error) throw new Error(data.error || 'Cannot load revisions');
+              setSkillRevisionName(name);
+              setSkillRevisions(data.revisions || []);
+            };
+            const previewSkillImport = async (body: string | ArrayBuffer, isZip: boolean) => {
+              if (skillBusy) return;
+              setSkillBusy(true);
+              setSkillStatus('');
+              try {
+                const response = await fetch('/dsh-ui-delta/skills/import-preview', {
+                  method: 'POST', headers: { 'Content-Type': isZip ? 'application/zip' : 'application/json' },
+                  body,
+                });
+                const data = await response.json();
+                if (!response.ok || data.error) throw new Error(data.error || 'Import preview failed');
+                const isExistingManaged = skillRows.some(row => row.managed && row.name === data.name);
+                setSkillEditing(isExistingManaged);
+                setSkillName(data.name); setSkillDescription(data.description); setSkillBody(data.body);
+                setSkillStatus(pick('已载入待审核技能，请检查全部指令后手动保存。', 'Preview loaded. Review the complete instructions before saving.'));
+              } catch (error) { setSkillStatus(String(error)); }
+              finally { setSkillBusy(false); }
+            };
             const skillRequest = async (input?: Record<string, unknown>) => {
               const response = await fetch('/dsh-ui-delta/skills', input ? {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
@@ -4005,6 +4036,9 @@ const MODULES: ModuleDef[] = [
                             setSkillName(data.name); setSkillDescription(data.description); setSkillBody(data.body); setSkillEditing(true);
                           }).catch(error => setSkillStatus(String(error)));
                         } }, pick('编辑', 'Edit')),
+                      h('button', { key: 'revisions', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                        onClick: () => { void loadSkillRevisions(item.name).catch(error => setSkillStatus(String(error))); } },
+                        pick('版本历史', 'History')),
                       h('button', { key: 'delete', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
                         onClick: () => {
                           if (window.confirm(pick('删除 Delta 管理的技能？此操作不可撤销。', 'Permanently delete this Delta-managed skill?')))
@@ -4013,6 +4047,29 @@ const MODULES: ModuleDef[] = [
                     ]) : null,
                   ]))),
               ...skillDiagnostics.map((message, index) => h('div', { key: 'diagnostic-' + index, className: 'ens-set-desc' }, message)),
+              skillRevisionName ? h('div', { key: 'revisions', className: 'ens-memory-list' }, [
+                h('div', { key: 'title', className: 'ens-set-name' }, pick('版本历史：', 'Revision history: ') + skillRevisionName),
+                ...skillRevisions.map(revision => h('div', { key: revision.id, className: 'ens-memory-item' }, [
+                  h('span', { key: 'date' }, revision.date),
+                  h('button', { key: 'restore', type: 'button', className: 'ens-pill-btn', disabled: skillBusy,
+                    onClick: () => {
+                      if (!window.confirm(pick('确认恢复此版本？当前内容将自动保存为历史版本。', 'Restore this revision? Current content will be archived.'))) return;
+                      setSkillBusy(true);
+                      void fetch('/dsh-ui-delta/skills/revisions', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: skillRevisionName, action: 'restore', revision: revision.id }),
+                      }).then(async response => {
+                        const data = await response.json();
+                        if (!response.ok || data.error) throw new Error(data.error || 'Restore failed');
+                        await refreshSkills();
+                        await loadSkillRevisions(skillRevisionName);
+                        setSkillStatus(pick('版本已恢复', 'Revision restored'));
+                      }).catch(error => setSkillStatus(String(error))).finally(() => setSkillBusy(false));
+                    } }, pick('恢复', 'Restore')),
+                ])),
+                skillRevisions.length === 0 ? h('div', { key: 'empty', className: 'ens-set-desc' },
+                  pick('尚无历史版本', 'No revisions yet')) : null,
+              ]) : null,
               h('div', { key: 'editor', className: 'ens-memory-form' }, [
                 h('label', { key: 'name' }, [fieldLabel(pick('技能名称（小写字母与连字符）', 'Skill name (lowercase kebab-case)')),
                   h('input', { className: 'jrmgQW_input', value: skillName, disabled: skillEditing, maxLength: 80,
@@ -4032,6 +4089,25 @@ const MODULES: ModuleDef[] = [
                   h('button', { key: 'clear', type: 'button', className: 'ens-pill-btn',
                     onClick: () => { setSkillEditing(false); setSkillName(''); setSkillDescription(''); setSkillBody(''); } },
                     pick('新建 / 清空', 'New / Clear')),
+                  h('input', { key: 'github-url', className: 'jrmgQW_input', value: skillGithubUrl,
+                    placeholder: 'https://github.com/owner/repo/blob/main/SKILL.md',
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillGithubUrl(ev.target.value) }),
+                  h('button', { key: 'github-preview', type: 'button', className: 'ens-pill-btn',
+                    disabled: skillBusy || !skillGithubUrl.trim(),
+                    onClick: () => { void previewSkillImport(JSON.stringify({ githubUrl: skillGithubUrl.trim() }), false); } },
+                    pick('预览 GitHub 技能', 'Preview GitHub skill')),
+                  h('label', { key: 'zip-import', className: 'ens-pill-btn' }, [
+                    pick('导入 ZIP（预览）', 'Preview ZIP'),
+                    h('input', { type: 'file', accept: '.zip,application/zip', style: { display: 'none' },
+                      onChange: (ev: { target: HTMLInputElement }) => {
+                        const file = ev.target.files?.[0];
+                        ev.target.value = '';
+                        if (!file) return;
+                        if (file.size > 2000000) { setSkillStatus('ZIP exceeds 2 MB'); return; }
+                        void file.arrayBuffer().then(buffer => previewSkillImport(buffer, true))
+                          .catch(error => setSkillStatus(String(error)));
+                      } }),
+                  ]),
                   h('label', { key: 'import', className: 'ens-pill-btn' }, [
                     pick('导入 SKILL.md', 'Import SKILL.md'),
                     h('input', { type: 'file', accept: '.md,text/markdown', style: { display: 'none' },

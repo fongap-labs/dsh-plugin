@@ -15,6 +15,50 @@ const validName = (value: unknown): string => {
 }
 const pathOf = (name: string, isDisabled = false) => join(ROOT(), name + (isDisabled ? '.md.disabled' : '.md'))
 const managedMarker = '# delta-suite-managed: true'
+
+const HISTORY_DIR = () => join(ROOT(), '.delta-skill-history')
+const HISTORY_KEEP = 10
+const HISTORY_ID = /^[0-9]{13}-[a-f0-9]{8}\.md$/
+const historyPath = (name: string) => join(HISTORY_DIR(), name)
+const saveRevision = async (name: string, previous: string): Promise<void> => {
+  const directory = historyPath(name)
+  await mkdir(directory, { recursive: true, mode: 0o700 })
+  const revision = `${Date.now()}-${randomUUID().slice(0, 8)}.md`
+  await writeFile(join(directory, revision), previous, { flag: 'wx', mode: 0o600 })
+  const files = (await readdir(directory)).filter(file => HISTORY_ID.test(file)).sort().reverse()
+  for (const file of files.slice(HISTORY_KEEP)) await rm(join(directory, file))
+}
+export const listSkillRevisions = async (rawName: string): Promise<{ revisions: Array<{ id: string; date: string }> }> => {
+  const name = validName(rawName)
+  await managed(name) // no revision access for a non-managed skill
+  let files: string[]
+  try { files = await readdir(historyPath(name)) }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { revisions: [] }
+    throw error
+  }
+  return { revisions: files.filter(file => HISTORY_ID.test(file)).sort().reverse().slice(0, HISTORY_KEEP).map(id => ({
+    id, date: new Date(Number(id.slice(0, 13))).toISOString(),
+  })) }
+}
+export const restoreSkillRevision = async (rawName: string, revision: string): Promise<{ ok: true }> => {
+  const name = validName(rawName)
+  if (typeof revision !== 'string' || !HISTORY_ID.test(revision)) throw new Error('Invalid skill revision')
+  const entry = await managed(name)
+  const file = join(historyPath(name), revision)
+  const previous = await checkFile(file)
+  const header = HEADER.exec(previous)
+  if (!header || !new RegExp('(?:^|\\n)name: ' + name + '(?:\\r?\\n|$)').test(header[1]!)) throw new Error('Revision name mismatch')
+  await saveRevision(name, entry.text)
+  const temp = join(ROOT(), `.${name}.${randomUUID()}.tmp`)
+  try {
+    await writeFile(temp, previous, { flag: 'wx', mode: 0o600 })
+    await checkFile(entry.path)
+    await rename(temp, entry.path)
+  } finally { await rm(temp, { force: true }).catch(() => {}) }
+  return { ok: true }
+}
+
 const metadata = (name: string, description: string, body: string) => {
   if (typeof description !== 'string' || !description.trim() || description.length > 500 || /[\r\n]/.test(description)) throw new Error('Invalid skill description')
   if (typeof body !== 'string' || !body.trim() || Buffer.byteLength(body) > MAX_BODY || body.includes('\u0000')) throw new Error('Invalid skill body')
@@ -120,7 +164,8 @@ export const mutateSkill = async (input: SkillAction): Promise<Record<string, un
     const temp = join(ROOT(), `.${name}.${randomUUID()}.tmp`)
     try {
       await writeFile(temp, next, { flag: 'wx', mode: 0o600 })
-      await checkFile(entry.path)
+      const previous = await checkFile(entry.path)
+      await saveRevision(name, previous)
       await rename(temp, entry.path)
       try { await chmod(entry.path, 0o600) } catch { /* Windows ACL */ }
     } finally { await rm(temp, { force: true }).catch(() => {}) }
