@@ -3931,13 +3931,13 @@ const MODULES: ModuleDef[] = [
               setSkillDiagnostics(Array.isArray(data.diagnostics) ? data.diagnostics : []);
             };
             React.useEffect(() => {
-              let active = true;
+              let isActive = true;
               skillRequest().then(data => {
-                if (!active) return;
+                if (!isActive) return;
                 setSkillRows(Array.isArray(data.items) ? data.items : []);
                 setSkillDiagnostics(Array.isArray(data.diagnostics) ? data.diagnostics : []);
-              }).catch(error => { if (active) setSkillStatus(String(error)); });
-              return () => { active = false; };
+              }).catch(error => { if (isActive) setSkillStatus(String(error)); });
+              return () => { isActive = false; };
             }, []);
             const skillAction = async (action: Record<string, unknown>) => {
               if (skillBusy) return;
