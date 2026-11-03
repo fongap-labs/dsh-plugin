@@ -1,6 +1,6 @@
 import { openKey, normalizeProviders, readConfig, type ProviderRecord } from './config.js'
 import { DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
-import { searchPythonDdgs, checkPythonDdgs } from './python-ddgs.js'
+import { searchPythonDdgs } from './python-ddgs.js'
 import { searchPublicInstances } from './searxng.js'
 import { safeResults, rankResults, researchQueries, type SearchRow } from './search-quality.js'
 
@@ -124,7 +124,8 @@ export const makeWebSearchProvider = () => ({
   ready: async () => {
     const cfg = readConfig().search || {}
     if (normalizeProviders('search', cfg).some(provider => provider.endpoint)) return true
-    return checkPythonDdgs()
+    // Public SearXNG fallbacks remain available even without a local Python runtime.
+    return true
   },
   async search(request: SearchRequest, signal?: AbortSignal) {
     const limit = limitOf(request.maxResults ?? 5)
