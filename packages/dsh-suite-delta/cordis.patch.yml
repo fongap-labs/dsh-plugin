@@ -12,6 +12,20 @@
     searchProvider: delta-duckduckgo
     fetchProvider: http
 
+# Default the Coding Tools view ("显示代码工作视图" / developerTools) ON.
+# The host schema already defaults ui-settings.enabled to true; restating it
+# here keeps the suite's intent when a lower layer tries to inherit otherwise.
+- id: ui-settings
+  config:
+    enabled: true
+
+# Default the official-API Session Log upload ("在使用官方模型 API 时上传 Session Log")
+# OFF. The host schema defaults enabled to true; the suite opts out by default.
+# Users can still re-enable it in Settings → General.
+- id: session-log-deepseek
+  config:
+    enabled: false
+
 - insert:
     - id: dsh-suite-delta
       name: '@fongap-labs/dsh-suite-delta'

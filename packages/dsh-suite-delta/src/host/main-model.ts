@@ -118,14 +118,27 @@ const accountFrom = async (ctx: Context, modelOverride?: string): Promise<MainMo
   const apiKey = hit?.value?.trim() || process.env[keyRef]?.trim() || ''
   if (!apiKey) throw new Error('main model API key is not configured')
 
+  // Prefer the explicit model declaration in the active provider profile: a
+  // hand-declared gateway model that lists `image` in its `input` array is
+  // image-capable even when the host's runtime modality metadata is silent or
+  // stale (e.g. Omni on a custom OpenAI-compatible route). Only when the
+  // profile does not declare modalities do we fall back to the host catalog,
+  // which may not describe every custom route.
+  const declaredModels = Array.isArray(profile.models)
+    ? profile.models as Array<{ id?: string; name?: string; input?: readonly string[] }>
+    : []
+  const declaredModel = declaredModels.find((m) => m.id === selection.model || m.name === selection.model)
+  const declaredImage = declaredModel?.input ? declaredModel.input.includes('image') : undefined
   let imageInputSupported: boolean | undefined
-  try {
-    const model = await llm.resolveModelInfo(selection.provider, selection.model)
-    imageInputSupported = model.inputModalities === undefined
-      ? undefined
-      : model.inputModalities.includes('image')
-  } catch {
-    imageInputSupported = undefined
+  if (declaredImage === true) {
+    imageInputSupported = true
+  } else {
+    try {
+      const model = await llm.resolveModelInfo(selection.provider, selection.model)
+      imageInputSupported = model.inputModalities === undefined ? undefined : model.inputModalities.includes('image')
+    } catch {
+      imageInputSupported = undefined
+    }
   }
 
   return {

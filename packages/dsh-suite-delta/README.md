@@ -9,7 +9,7 @@ DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Suite)。
 
 ## 隐私与配置
 
-宿主的「在使用官方模型 API 时上传 Session Log」功能默认为开启。为禁止会话日志上传，必须在 DeepSeek Harness 当前配置档案中将 `session-log-deepseek` 的 `enabled` 设置为 `false`，并确认生效。Delta Suite 同时在宿主提供 `sessionLogDeepSeek` 服务时注册全局请求排除规则，作为第二层保护；禁用或卸载 Delta Suite 后，这层保护不再存在。已经准备的在途请求不会被追溯取消。普通模型推理仍会发送必需的消息内容，关闭 Session Log 不等于完全离线。
+Delta Suite 的 Bundle 默认将「在使用官方模型 API 时上传 Session Log」设为关闭，即宿主 `session-log-deepseek` 的 `enabled` 为 `false`；需要上传时可在宿主「设置 → 通用」中重新开启。Delta Suite 同时在宿主提供 `sessionLogDeepSeek` 服务时注册全局请求排除规则，作为第二层保护；禁用或卸载 Delta Suite 后，这层保护不再存在。已经准备的在途请求不会被追溯取消。普通模型推理仍会发送必需的消息内容，关闭 Session Log 不等于完全离线。
 
 联网搜索的独立服务商配置需要按「保存配置」才会写入宿主。视觉识别与生图复用「模型配置」中当前默认模型的账号、接口地址和 API Key，不再单独添加视觉服务商；各自可指定模型 ID。API 密钥在提交成功后从输入框清除。Windows 下使用当前用户的 DPAPI 加密；其他系统当前仅在进程内保存密钥，重启后需要重新输入。
 
@@ -23,7 +23,7 @@ DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Suite)。
 
 **模型密钥不能代替搜索密钥。** Harness 未安装 Delta Suite 时默认使用 `deepseek-official` 进行搜索，需单独具备官方认证。安装 Delta Suite 的 Bundle 后默认选择 `delta-duckduckgo`，不需要官方搜索 API Key。使用其他模型网关时，建议为宿主指定独立搜索服务商（例如 Exa），或在 Delta 套件中提供 Tavily 兼容接口。若没有可用搜索服务，插件将明确说明配置失败原因；不会伪造新闻。
 
-登录后，头像悬停/键盘聚焦显示 Harness 账户余额与赠送余额。数据只来自宿主的账户快照，未就绪时不显示任何余额提示；点击头像不再弹出设置、反馈或退出菜单，不执行独立的带密钥请求。余额指的是 DeepSeek 官方账户，不是自定义模型提供商或 AI Gateway 的余额。
+登录后，头像悬停/键盘聚焦显示 Harness 账户余额与赠送余额。数据只来自宿主的账户快照，未就绪时不显示任何余额提示；宿主提供今日消费数据时，悬停提示会一并显示今日消费金额，缺失时不会显示虚假数值；点击头像不再弹出设置、反馈或退出菜单，不执行独立的带密钥请求。余额指的是 DeepSeek 官方账户，不是自定义模型提供商或 AI Gateway 的余额。
 
 ## 会话删除的安全边界
 

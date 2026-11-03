@@ -98,3 +98,40 @@ it('reports image endpoint failures and rejects non-image responses', async () =
   mock.method(globalThis, 'fetch', async () => Response.json({ data: [{ b64_json: Buffer.from('<script/>').toString('base64') }] }))
   await assert.rejects(() => generateImage('a tree', '1024x1024', ctx), /unsupported image format/)
 })
+
+it('accepts a model that declares image input in the provider profile even when host modality metadata is stale', async () => {
+  const omniCtx = {
+    ...ctx,
+    agentDefaultModel: { currentSelection: () => ({ provider: 'custom', model: 'Omni' }) },
+    llm: {
+      listConfigurableProviders: () => [{ provider: 'custom', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'custom'] }],
+      resolveModelInfo: async () => ({ inputModalities: ['text'] }),
+    },
+    settings: { describe: () => [{ ns: 'llm-pi-ai', value: { providers: { custom: {
+      baseURL: 'https://model.example/v1', api: 'openai-completions', apiKeyEnv: 'TEST_IMAGE_KEY',
+      models: [{ id: 'Omni', name: 'Omni', input: ['text', 'image'] }],
+    } } } }] },
+  }
+  const account = await resolveMainImageAccount(omniCtx, 'Omni')
+  assert.equal(account.model, 'Omni')
+  assert.equal(account.imageInputSupported, true)
+  const view = await mainModelView(omniCtx)
+  assert.equal(view.imageInputSupported, true)
+})
+
+it('still reports a model that declares no image input', async () => {
+  const textCtx = {
+    ...ctx,
+    agentDefaultModel: { currentSelection: () => ({ provider: 'custom', model: 'Text' }) },
+    llm: {
+      listConfigurableProviders: () => [{ provider: 'custom', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'custom'] }],
+      resolveModelInfo: async () => ({ inputModalities: ['text'] }),
+    },
+    settings: { describe: () => [{ ns: 'llm-pi-ai', value: { providers: { custom: {
+      baseURL: 'https://model.example/v1', api: 'openai-completions', apiKeyEnv: 'TEST_IMAGE_KEY',
+      models: [{ id: 'Text', name: 'Text', input: ['text'] }],
+    } } } }] },
+  }
+  const account = await resolveMainImageAccount(textCtx, 'Text')
+  assert.equal(account.imageInputSupported, false)
+})
