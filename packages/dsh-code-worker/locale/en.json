@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "DSH Code Worker",
-    "description": "Code worker plugin for DeepSeek Harness: batch multi-edit, Git status & diff, LSP probing, and coding workflow guidance."
+    "title": "Delta Code Worker",
+    "description": "Delta Code Worker for DeepSeek Harness: AI coding workflows, multi-edit, Git, LSP and project verification."
   }
 }

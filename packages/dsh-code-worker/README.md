@@ -1,4 +1,4 @@
-# dsh-code-worker
+# Delta 编程助手（Delta Code Worker）
 
 DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
@@ -135,7 +135,7 @@ execution:
 
 ## 原生图形配置页面
 
-在 DSH **插件 → Code Worker → 组件 dsh-code-worker → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
+在 DSH **插件 → Delta 编程助手 → 组件 dsh-code-worker → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
 
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - Token 为 Schema `role('secret')`，Host 不会回显。已有账号留空 Token 即保留；新账号必须填 Token 或 tokenEnv。
@@ -151,7 +151,7 @@ execution:
 - CI/PR 红叉自动进入 `code-ci-repair`；Debug 进入根因定位；代码审查进入 review；小范围修改走快速路径；功能开发走完整路径。
 - 简短的「继续」继承该 Agent 上一次编程任务；普通聊天或明确说「不要使用 Code Worker」会清除自动选择。
 - 路由只影响指导内容，不扩大文件、命令或 GitHub 权限。执行脚本仍需明确打开 `execution.allowCommands`。
-- 可以在 DSH「插件 → Code Worker → 配置」将 `autoRouting` 改成 `false`，保留工具与 Skills 手动使用。
+- 可以在 DSH「插件 → Delta 编程助手 → 配置」将 `autoRouting` 改成 `false`，保留工具与 Skills 手动使用。
 - 若所用 DSH 版本没有上述原生事件或动态上下文接口，插件不会伪称已经自动路由；回退为原有工具、Skills 与系统提示指引。
 
 这不是强制的对话分类器。判断基于高置信度编程意图，不会因为用户提及 Python、Rust 或 GitHub，就把普通科普问题变成编码任务。模型仍须遵循用户目标与工作区规则。

@@ -15,7 +15,7 @@ const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
 ]
 
 export const DEFAULT_GUIDANCE = [
-  '## DSH Code Worker',
+  '## Delta Code Worker',
   'Start coding tasks with code_project_profile to identify project rules, stack and verification commands. Read applicable AGENTS.md / CLAUDE.md with the Host file reader.',
   'Use native Harness search, editor, terminal, LSP, Skills, subagents and task tracking rather than duplicating them.',
   'When autoRouting is enabled, coding requests select a procedure automatically. For substantial tasks use the read-only code_workflow_route to refine risk and scope; load other native code-* Skills only as needed. Keep small changes lightweight.',

@@ -1,2 +1,3 @@
 - 新增: Code Worker 根据任务范围、风险与宿主能力确定轻量或完整 Coding 工作流。
 - 新增: 验证工具支持 Node、Rust、Go 和 Python 项目，保留宿主执行权限和结果证据边界。
+- 变更: 插件展示名称调整为“Delta 编程助手”（英文“Delta Code Worker”），技术包名与插件 ID 保持不变。
