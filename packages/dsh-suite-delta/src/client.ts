@@ -3941,9 +3941,10 @@ const MODULES: ModuleDef[] = [
                 });
                 const data = await response.json();
                 if (!response.ok || data.error) throw new Error(data.error || 'Import preview failed');
-                setSkillEditing(false);
+                const isExistingManaged = skillRows.some(row => row.managed && row.name === data.name);
+                setSkillEditing(isExistingManaged);
                 setSkillName(data.name); setSkillDescription(data.description); setSkillBody(data.body);
-                setSkillStatus(pick('已载入待审核技能，请检查全部指令后手动创建。', 'Preview loaded. Review the complete instructions before creating.'));
+                setSkillStatus(pick('已载入待审核技能，请检查全部指令后手动保存。', 'Preview loaded. Review the complete instructions before saving.'));
               } catch (error) { setSkillStatus(String(error)); }
               finally { setSkillBusy(false); }
             };
