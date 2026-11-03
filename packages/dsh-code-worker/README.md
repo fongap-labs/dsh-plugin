@@ -208,5 +208,5 @@ execution:
 - `code_multi_edit` 是逐文件、逐项执行，**没有跨文件事务回滚**，单次返回结果不能替代检查最终 diff。
 - 技能是按需加载的操作指导；不能仅凭安装保证自动执行完整流程、拥有某个原生 Agent 能力，或宣称未实际跑过的测试通过。
 
-**参考项目与取舍：** [Superpowers](https://github.com/obra/superpowers)（端到端流程与 TDD）、[Aider Repo Map](https://aider.chat/docs/repomap.html)（聚焦上下文）、[OpenCode](https://opencode.ai/docs/skills)（Skills 按需加载及原生权限）、[SWE-agent](https://github.com/SWE-agent/SWE-agent)（工具反馈与真实验证）、[Anthropic Skills](https://github.com/anthropics/skills)（渐进披露）。借鉴公开方法而非复制这些项目的 Runtime、依赖或原文。
+**参考项目与取舍：** [Superpowers](https://github.com/obra/superpowers)（端到端流程与 TDD）、[Aider Repo Map](https://aider.chat/docs/repomap.html)（聚焦上下文）、[OpenCode](https://opencode.ai/docs/skills)（Skills 按需加载及原生权限）、[SWE-agent](https://github.com/SWE-agent/SWE-agent)（工具反馈与真实验证）、[Anthropic Skills](https://github.com/anthropics/skills)（渐进披露）。另按需吸收 [GSD Core](https://github.com/open-gsd/gsd-core) 的依赖执行波次与断点恢复、[OpenSpec](https://github.com/Fission-AI/OpenSpec) 的行为变更规格、[Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin) 的多视角审查和知识反馈、[BMAD](https://github.com/bmad-code-org/BMAD-METHOD) 的流程规模适配。这些都基于 DSH 原生任务、Skills 与 Agent 实现；不额外安装框架，也不新增独立状态账本。借鉴公开方法而非复制这些项目的 Runtime、依赖或原文。
 
