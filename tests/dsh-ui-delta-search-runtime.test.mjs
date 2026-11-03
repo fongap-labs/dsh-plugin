@@ -21,7 +21,7 @@ it('uses Python ddgs results, normalizes URLs and limits untrusted content', asy
       { title: 'unsafe', url: 'file:///etc/passwd', content: 'reject' },
       { title: 'B', url: 'https://example.com/b', content: 'b' },
     ]
-  })
+  }, 5, async () => ({ results: [], source: '', failures: ['public sources unavailable'] }))
   assert.deepEqual(calls, ['news'])
   assert.equal(hits.length, 2)
   assert.equal(hits[0].content.length, 500)
@@ -92,22 +92,35 @@ it('only uses keyless failover after explicit consent', async () => {
     providers: [{ id: 'primary', active: true, endpoint: 'https://search.example/primary' }],
   } })
   mock.method(globalThis, 'fetch', async () => new Response('rate limited', { status: 429 }))
-  let count = 0
+  let ddgsCalls = 0
   const hits = await searchWeb('news', undefined, async () => {
-    count++
+    ddgsCalls++
     return [{ title: 'Keyless', url: 'https://example.com/ok', content: 'ok' }]
-  })
-  assert.equal(count, 1)
+  }, 5, async () => ({ results: [], source: '', failures: ['all public instances failed'] }))
+  assert.equal(ddgsCalls, 1)
   assert.equal(hits[0].title, 'Keyless')
 })
 
 
-it('uses public instances after ddgs fails when no custom source is configured', async () => {
+it('uses public instances first, without calling ddgs', async () => {
   config()
-  const hits = await searchWeb('news', undefined, async () => { throw new Error('ddgs unavailable') }, 5,
+  let ddgsCalls = 0
+  const hits = await searchWeb('news', undefined, async () => { ddgsCalls++; throw new Error('should not call ddgs') }, 5,
     async () => ({ source: 'https://search.utilibre.org', failures: [],
-      results: [{ title: 'Free fallback', url: 'https://example.com/free', content: 'ok' }] }))
-  assert.equal(hits[0].title, 'Free fallback')
+      results: [{ title: 'Public source', url: 'https://example.com/free', content: 'ok' }] }))
+  assert.equal(hits[0].title, 'Public source')
+  assert.equal(ddgsCalls, 0)
+})
+
+it('uses ddgs as last resort after all public instances fail', async () => {
+  config()
+  let ddgsCalls = 0
+  const hits = await searchWeb('news', undefined, async () => {
+    ddgsCalls++
+    return [{ title: 'Last resort', url: 'https://example.com/ddgs', content: 'ok' }]
+  }, 5, async () => ({ results: [], source: '', failures: ['public nodes unavailable'] }))
+  assert.equal(hits[0].title, 'Last resort')
+  assert.equal(ddgsCalls, 1)
 })
 
 it('does not leak custom-provider queries to public nodes without explicit opt-in', async () => {
