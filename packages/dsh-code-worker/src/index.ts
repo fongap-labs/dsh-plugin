@@ -6,6 +6,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { registerTool } from '@fongap-labs/shared'
 import type { CodeWorkerConfig, Settings } from './types.js'
+export { Config } from './config.js'
 import { DEFAULT_GUIDANCE, errorMessage, normalizeConfig } from './runtime.js'
 import { createMultiEditTool } from './tools/multi-edit.js'
 import { createGitStatusTool, createGitDiffTool } from './tools/git.js'
@@ -21,9 +22,11 @@ export const name = '@fongap-labs/dsh-code-worker'
 export const inject = ['tools']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
-  const settings = normalizeConfig(config)
+  let settings = normalizeConfig(config)
   const disposers: Array<() => void> = []
+  const cleanup: Array<() => void> = []
 
+  const register = () => {
   for (const tool of createTools(ctx, settings)) {
     const result = registerTool(ctx, tool)
     if (result.registered && typeof result.disposer === 'function') {
@@ -34,6 +37,20 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
       )
     }
   }
+
+  }
+  // Hot changes replace tool definitions; unload the old registrations first.
+  // Snapshot the configuration for each tool generation.
+  if (typeof (ctx as any).on === 'function') {
+    const unsubscribe = (ctx as any).on('loader/volatile-update', () => {
+      for (const disposer of disposers.splice(0)) { try { disposer() } catch {} }
+      settings = normalizeConfig(config)
+      register()
+    })
+    // Cordis events usually return an unsubscribe callback.
+    if (typeof unsubscribe === 'function') cleanup.push(unsubscribe)
+  }
+  register()
 
   ctx.inject(['systemPrompt'], (child) => {
     try {
@@ -52,6 +69,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   })
 
   return () => {
+    for (const dispose of cleanup) { try { dispose() } catch {} }
     for (let i = disposers.length - 1; i >= 0; i -= 1) {
       try {
         disposers[i]!()

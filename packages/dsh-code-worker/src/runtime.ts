@@ -66,7 +66,15 @@ export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[]
 }
 
 export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings {
-  const cfg: CodeWorkerConfig = config && typeof config === 'object' ? config : {}
+  // Cordis volatile configuration nodes expose get(); project them into a
+  // normal immutable snapshot before existing validation/default resolution.
+  const unwrap = (value: any): any => {
+    if (value && typeof value === 'object' && typeof value.get === 'function') return unwrap(value.get())
+    if (Array.isArray(value)) return value.map(unwrap)
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k,v]) => [k, unwrap(v)]))
+    return value
+  }
+  const cfg: CodeWorkerConfig = unwrap(config && typeof config === 'object' ? config : {})
   const git = cfg.git && typeof cfg.git === 'object' ? cfg.git : {}
   const lsp = cfg.lsp && typeof cfg.lsp === 'object' ? cfg.lsp : {}
   const execution = cfg.execution && typeof cfg.execution === 'object' ? cfg.execution : {}
