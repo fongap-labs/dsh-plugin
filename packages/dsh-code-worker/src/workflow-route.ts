@@ -29,7 +29,7 @@ export function decideCodingWorkflow(input: RouteInput): RouteResult {
   const canParallelize = independentTasks >= 2 && input.nativeSubagents === true
   const isHighRisk = input.risk === 'high'
   const isLarge = input.scope === 'large'
-  const needsPlan = isHighRisk || isLarge || input.scope === 'medium'
+  const shouldPlan = isHighRisk || isLarge || input.scope === 'medium'
   const stopConditions = [
     'Host permissions or credentials unavailable: stop, do not silently fall back or escalate.',
     'Destructive or irreversible action: require explicit authorization.',
@@ -63,7 +63,7 @@ export function decideCodingWorkflow(input: RouteInput): RouteResult {
     ],
     parallelCandidate: false, verification, stopConditions,
   }
-  if (!needsPlan) return {
+  if (!shouldPlan) return {
     mode: 'fast', skills: ['code-fast-change', 'code-verification-gate'], parallelCandidate: false,
     verification, stopConditions,
   }
