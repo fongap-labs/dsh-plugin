@@ -38,9 +38,11 @@ export function registerMemoryRoutes(route: Register): void {
         const scopeId = url.searchParams.get('scopeId') || ''
         const query = url.searchParams.get('q') || ''
         const limit = Number(url.searchParams.get('limit') || '30')
-        const items = query ? await deltaMemory.search({ query, projectId: scope === 'project' ? scopeId : '',
-          sessionId: scope === 'session' ? scopeId : '', limit }) :
-          await deltaMemory.list({ scope, scopeId, limit })
+        const items = query
+          ? (await deltaMemory.search({ query, projectId: scope === 'project' ? scopeId : '',
+              sessionId: scope === 'session' ? scopeId : '', limit }))
+              .filter(item => item.scope === scope && item.scopeId === scopeId)
+          : await deltaMemory.list({ scope, scopeId, limit })
         return send(res, 200, { items })
       }
       if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' })
@@ -64,6 +66,11 @@ export function registerMemoryRoutes(route: Register): void {
     } catch (error) {
       return send(res, 400, { error: error instanceof Error ? error.message : 'memory operation failed' })
     }
+  })
+  route('/dsh-ui-delta/memory/scopes', async (req, res) => {
+    if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' })
+    try { return send(res, 200, { scopes: await deltaMemory.scopes() }) }
+    catch (error) { return send(res, 503, { error: String(error) }) }
   })
   route('/dsh-ui-delta/memory/settings', async (req, res) => {
     if (req.method !== 'GET') return send(res, 405, { error: 'method not allowed' })
