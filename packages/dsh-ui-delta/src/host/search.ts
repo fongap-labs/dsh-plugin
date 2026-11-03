@@ -1,6 +1,7 @@
 import { openKey, normalizeProviders, readConfig, type ProviderRecord } from './config.js'
 import { DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
 import { searchPythonDdgs, checkPythonDdgs } from './python-ddgs.js'
+import { searchPublicInstances } from './searxng.js'
 import { safeResults, rankResults, researchQueries, type SearchRow } from './search-quality.js'
 
 interface SearchHit {
@@ -101,12 +102,19 @@ export const searchWeb = async (
   if (candidates.length && !cfg.fallbackToKeyless) {
     throw new SearchUnavailableError(errors)
   }
-  try { return safeResults(await keyless(query, signal, undefined, limit), limit) }
-  catch (error) {
+  try {
+    const keylessHits = safeResults(await keyless(query, signal, undefined, limit), limit)
+    if (keylessHits.length) return keylessHits
+    errors.push('Python ddgs returned no results')
+  } catch (error) {
     signal?.throwIfAborted()
     errors.push(error instanceof Error ? error.message : String(error))
-    throw new SearchUnavailableError(errors)
   }
+  // Built-in public nodes are opt-in when a custom provider was selected.
+  // Fail closed on custom-provider authentication errors above.
+  const publicHits = await searchPublicInstances(query, limit, signal)
+  if (publicHits.results.length) return publicHits.results
+  throw new SearchUnavailableError([...errors, ...publicHits.failures])
 }
 
 /** Keep this stable id for installed Harness profile compatibility. */
