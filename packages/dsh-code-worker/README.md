@@ -9,6 +9,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 | `code_multi_edit` | 在工作区内原子地批量改文件：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
+| `code_project_profile` | 只读检测项目技术栈、规则文件和项目现有测试脚本；不加载大段源码。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
 
 除工具外，插件还通过 `ctx.systemPrompt.section()` 注入一段编码工作流指引（与 `TOOL_EDIT` 同级排序），提示模型优先使用批量编辑与 Git 工具。
@@ -138,3 +139,19 @@ execution:
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - Token 为 Schema `role('secret')`，Host 不会回显。已有账号留空 Token 即保留；新账号必须填 Token 或 tokenEnv。
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
+
+
+## 内置编程技能（无需额外插件）
+
+通过宿主原生 `ctx.skills.register` 注册；Harness 的 Skills 注册表、目录发现、按需加载及用户命令仍由宿主负责。插件不自建第二个技能管理系统，也不向用户配置目录写入文件。支持：
+
+- `code-fast-change`：小任务快速定位、最小修改、针对性测试。
+- `code-feature-delivery`：将复杂需求拆成可验证步骤，先测试再实现，交付 PR。
+- `code-root-cause-debugging`：先复现和定位根因，再实施回归修复。
+- `code-review-readiness`：核对正确性、安全、兼容性和实际测试证据。
+
+模型按任务加载匹配的技能，不会把全部技能正文常驻放入系统提示词。宿主缺少 `ctx.skills` 时，编码工具仍正常注册，只有这些技能不可用。安装本插件即可使用上述技能；无需另行导入 Skill 压缩包。
+
+建议流程：先 `code_project_profile` 获取轻量项目画像，读取适用的项目规则，再用宿主搜索、编辑、LSP、终端能力完成实现。测试调用 `code_verify` 仍必须显式开启 `execution.allowCommands`，并且要求宿主子进程服务。当前 `code_multi_edit` 是逐项执行、逐项报告结果，**不提供跨文件事务回滚**；失败时应检查返回值和 Git diff。
+
+本插件不是第二个 Agent Runtime：不覆盖宿主子 Agent、任务跟踪、长循环、工具审批、上下文压缩、Skills 发现或终端实现。GitHub 写入和 CI 合并门禁沿用现有权限模型。
