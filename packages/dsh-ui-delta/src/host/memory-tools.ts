@@ -3,6 +3,7 @@
  * Tools are optional and registered through the Host's standard Cordis seam.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { createHash } from 'node:crypto'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, registerTool } from '@fongap-labs/shared'
 import { deltaMemory } from './memory.js'
@@ -10,6 +11,7 @@ import { deltaMemory } from './memory.js'
 interface RuntimeContext {
   get?(name: string): unknown
   logger?: { warn?(message: string): void }
+  effect?(callback: () => unknown, label?: string): unknown
   inject?(services: string[], callback: (child: RuntimeContext) => void): unknown
 }
 interface AgentLike { session?: { id?: unknown }; id?: unknown }
@@ -29,7 +31,7 @@ async function projectIdOf(ctx: RuntimeContext, exec: ToolRunContext): Promise<s
   if (!service?.ensure || !exec.agent) return ''
   try {
     const value = await service.ensure(exec.agent, exec.signal)
-    return typeof value === 'string' ? value.slice(0, 160) : ''
+    return typeof value === 'string' ? 'project:' + createHash('sha256').update(value.replace(/\\/g, '/').toLowerCase()).digest('hex').slice(0, 32) : ''
   } catch { return '' }
 }
 function memoryTools(ctx: RuntimeContext): ToolDefinition[] {
@@ -90,15 +92,21 @@ function memoryTools(ctx: RuntimeContext): ToolDefinition[] {
 export function registerMemoryTools(ctx: Context): void {
   const host = ctx as unknown as RuntimeContext
   host.inject?.(['tools'], child => {
-    const tools = memoryTools(child)
-    for (const tool of tools) {
-      try {
-        const result = registerTool(child as Parameters<typeof registerTool>[0], tool)
-        if (!result.registered) child.logger?.warn?.('Delta memory tool unavailable: ' + tool.name)
-      } catch (error) {
-        child.logger?.warn?.('Delta memory tool registration failed: ' + String(error))
+    const install = () => {
+      const disposers: Array<() => void> = []
+      for (const tool of memoryTools(child)) {
+        try {
+          const result = registerTool(child as Parameters<typeof registerTool>[0], tool)
+          if (!result.registered) child.logger?.warn?.('Delta memory tool unavailable: ' + tool.name)
+          if (result.disposer) disposers.push(result.disposer)
+        } catch (error) {
+          child.logger?.warn?.('Delta memory tool registration failed: ' + String(error))
+        }
       }
+      return () => { for (const dispose of disposers.reverse()) dispose() }
     }
+    if (child.effect) child.effect(install, 'dsh-ui-delta: memory tools')
+    else install()
   })
   host.inject?.(['systemPrompt'], child => {
     const service = (child as RuntimeContext & {
