@@ -200,4 +200,30 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Redact tokens and sensitive user data before sharing diagnostic excerpts or GitHub issues.',
     ],
   },
+  {
+    name: 'code-autonomous-loop',
+    title: 'Long-running coding loop with bounded verification',
+    description: 'Use when a user requests sustained autonomous feature delivery or repeated verification; delegate iteration to native DSH Ralph or Workflow only when available.',
+    instructions: [
+      'Confirm the objective and concrete stop conditions: acceptance tests, scope, permission boundaries, maximum iterations and human approval points.',
+      'Inspect whether DSH native ralph or workflow tools are actually exposed. If present, use them for orchestration and native subagents; do not write a second persistent scheduler or background task engine.',
+      'Break complex objectives into small verified checkpoints and use a bounded task plan. Read actual tool and test feedback at each round; do not repeatedly run the same failing command without a new hypothesis.',
+      'Stop on destructive operations, missing credentials, unresolvable environment failures or a contradiction in the accepted requirements. Never silently escalate host permissions.',
+      'On completion inspect the latest diff, run code-verification-gate and report tests with exact evidence; pending external CI is not finished work.',
+    ],
+  },
+  {
+    name: 'code-ci-repair',
+    title: 'GitHub PR and CI red-check repair',
+    description: 'Diagnose a failed PR or GitHub Actions check using commit-scoped status, failed jobs and logs, then patch the real cause and verify the new head.',
+    instructions: [
+      'Identify the repository, PR and exact current head SHA before acting. Use code_github_checks and code_github_jobs when configured; for failures in Action Worker inspect its referenced run rather than only the source repository.',
+      'Read the failed step and decisive error lines, distinguishing code/test failure, governance rule, missing secret or token permission, runner outage and stale historical failures.',
+      'Do not chase older runs after the PR head changes. State the concrete failure and narrowest proposed fix; reproduce locally via native terminal/code_verify when possible.',
+      'Change only files addressing the demonstrated cause. Keep required changelog fragments, naming rules, secret handling and workflow permissions intact; never bypass a required check to turn it green.',
+      'If credentials are missing or insufficient, fail closed and name the required token and minimal permissions without exposing its value. Do not fall back to broader tokens.',
+      'After pushing to a feature branch, inspect the new head SHA and new check conclusions. Report pending/running/failed exactly; never claim a red PR is fixed before its latest gates pass.',
+    ],
+  },
+
 ]
