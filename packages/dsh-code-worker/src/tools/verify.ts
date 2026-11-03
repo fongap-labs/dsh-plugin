@@ -5,8 +5,10 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, isSubprocessAvailable, runCommand, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { readTextSafe, resolveRoot } from '../runtime.js'
+import { chooseVerificationCommand, type VerificationProject } from './verify-presets.js'
 
 const SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
+const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
 const MAX_OUTPUT = 32 * 1024
 
 export function redactKnownTokens(text: string, settings: Settings): string {
@@ -31,13 +33,15 @@ async function choosePackageManager(cwd: string): Promise<'pnpm' | 'yarn' | 'bun
 export function createVerifyTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
     name: 'code_verify',
-    description: 'Run an existing package.json test, typecheck, build, lint, or check script through the host subprocess. Disabled unless execution.allowCommands=true. Returns bounded evidence without claiming success on failure.',
+    description: 'Run an allowlisted test/typecheck/build/lint/check for Node, Rust, Python or Go in the Host subprocess. Disabled unless execution.allowCommands=true; returns bounded evidence.',
     parameters: {
       script: { type: 'string', required: true, enum: ['test', 'typecheck', 'build', 'lint', 'check'] },
       cwd: { type: 'string', description: 'Optional relative workspace subdirectory.' },
+      project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'], description: 'Project type; auto requires exactly one manifest type.' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       script: { type: 'string', required: true },
+      project: { type: 'string', required: true },
       command: { type: 'string', required: true },
       exitCode: { type: 'integer', required: true },
       passed: { type: 'boolean', required: true },
@@ -56,23 +60,48 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       const canonicalRoot = await realpath(root)
       const canonicalCwd = await realpath(cwd)
       if (!isPathInside(canonicalRoot, canonicalCwd)) throw new Error('script directory escapes the workspace')
-      const packageFile = await realpath(join(canonicalCwd, 'package.json'))
-      if (!isPathInside(canonicalRoot, packageFile)) throw new Error('package.json escapes the workspace')
-      const raw = await readTextSafe(ctx, exec, canonicalCwd, 'package.json')
-      const pkg: unknown = JSON.parse(raw)
-      if (!pkg || typeof pkg !== 'object') throw new Error('invalid package.json')
-      const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
-      if (typeof scripts?.[args.script] !== 'string') throw new Error('package.json does not declare script ' + args.script)
-      const manager = await choosePackageManager(canonicalCwd)
-      const argv = manager === 'npm' ? ['run', args.script] : ['run', args.script]
+      const project = args.project ?? 'auto'
+      if (typeof project !== 'string' || !PROJECTS.has(project)) throw new Error('project type is not allowlisted')
+      const manifests = [
+        ['node', 'package.json'], ['rust', 'Cargo.toml'],
+        ['python', 'pyproject.toml'], ['python', 'requirements.txt'],
+        ['go', 'go.mod'],
+      ] as const
+      const found = new Set<'node' | 'rust' | 'python' | 'go'>()
+      for (const [language, name] of manifests) {
+        try {
+          const manifest = await realpath(join(canonicalCwd, name))
+          if (!isPathInside(canonicalRoot, manifest)) throw new Error(name + ' escapes the workspace')
+          await access(manifest)
+          found.add(language)
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('escapes the workspace')) throw error
+        }
+      }
+      const nodeScripts: string[] = []
+      if (found.has('node')) {
+        const raw = await readTextSafe(ctx, exec, canonicalCwd, 'package.json')
+        if (Buffer.byteLength(raw) > 1024 * 1024) throw new Error('package.json is too large')
+        const pkg: unknown = JSON.parse(raw)
+        if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('invalid package.json')
+        const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
+        for (const script of SCRIPTS) {
+          if (typeof scripts?.[script] === 'string') nodeScripts.push(script)
+        }
+      }
+      const manager = found.has('node') ? await choosePackageManager(canonicalCwd) : 'npm'
+      const plan = chooseVerificationCommand(
+        args.script, project as VerificationProject, [...found], manager, nodeScripts,
+      )
       const result = await runCommand(ctx, {
-        command: manager, args: argv, cwd: canonicalCwd, signal: exec.signal,
+        command: plan.command, args: plan.args, cwd: canonicalCwd, signal: exec.signal,
         timeoutMs: 120_000, maxOutputBytes: MAX_OUTPUT, hostOnly: true,
       })
       const exitCode = result.exitCode ?? -1
       return {
         script: args.script,
-        command: manager + ' run ' + args.script,
+        project: plan.project,
+        command: [plan.command, ...plan.args].join(' '),
         exitCode,
         passed: exitCode === 0 && !result.timedOut && !result.lossy,
         timedOut: result.timedOut,
