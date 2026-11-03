@@ -68,7 +68,7 @@ export async function inspectProject(cwd: string, root: string): Promise<Project
   }
 
   const guidance = files.filter(name => name === 'AGENTS.md' || name === 'CLAUDE.md')
-  const suggestedChecks = scripts.filter(name => name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
+  const suggestedChecks: string[] = scripts.filter(name => name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
   if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
   return {
     cwd: canonicalCwd.slice(0, MAX_DESCRIPTION),
