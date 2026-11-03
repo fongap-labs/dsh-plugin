@@ -25,7 +25,7 @@ const PACKAGES_DIR = join(ROOT, 'packages')
 const PUBLISH_ORDER = [
   'shared',
   'dsh-code-worker',
-  'dsh-ui-delta',
+  'dsh-suite-delta',
   'plugin-template',
 ]
 
@@ -104,9 +104,9 @@ async function main() {
     console.log('\nBuilding all packages...')
     run('node node_modules/typescript/bin/tsc -p packages/shared/tsconfig.json')
     run('node node_modules/typescript/bin/tsc -p packages/dsh-code-worker/tsconfig.json')
-    run('node node_modules/typescript/bin/tsc -p packages/dsh-ui-delta/tsconfig.json')
+    run('node node_modules/typescript/bin/tsc -p packages/dsh-suite-delta/tsconfig.json')
     run('node node_modules/typescript/bin/tsc -p packages/plugin-template/tsconfig.json')
-    run('node node_modules/typescript/bin/tsc -p packages/dsh-ui-delta/tsconfig.client.json')
+    run('node node_modules/typescript/bin/tsc -p packages/dsh-suite-delta/tsconfig.client.json')
     console.log('Build complete.\n')
 
     // ── Step 4: publish in dependency order ──────────────────────────

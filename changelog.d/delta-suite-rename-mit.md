@@ -1,0 +1,1 @@
+- 变更 [breaking, migration]: 将 Delta UI 更名为 Delta Suite（Delta 套件），统一 npm 包名及发布标识，并单独改用 MIT 许可证；升级需要安装新包，历史版本保留。

@@ -1,0 +1,17 @@
+# Route model web_search through the local Python ddgs adapter and keep web_fetch on HTTP.
+# Preserve the existing delta-duckduckgo provider id for stored profiles.
+# Disable DeepSeek Messages Search and the combined DeepSeek Search/Fetch API package.
+- id: web-search-deepseek
+  disabled: true
+
+- id: web-deepseek-api
+  disabled: true
+
+- id: web
+  config:
+    searchProvider: delta-duckduckgo
+    fetchProvider: http
+
+- insert:
+    - id: dsh-suite-delta
+      name: '@fongap-labs/dsh-suite-delta'

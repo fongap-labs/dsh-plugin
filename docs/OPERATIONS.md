@@ -64,3 +64,5 @@ CI 检查包许可证与发布清单一致，并确保 Bundle 包含对应许可
 2. 通过 Harness 插件管理器或安装命令回退到已验证的历史版本。
 3. 修复源码并走正常 PR、中央 CI 和新版本发布。
 4. 不覆盖或重写已发布的 tag、Release 资产和来源证明。
+
+Delta Suite（Delta 套件）独立采用 MIT 许可证，发布清单位于 `projects/dsh-suite-delta/release.manifest.json`。旧标签 `dsh-ui-delta-v*` 保留作历史回滚，新版本统一使用 `dsh-suite-delta-v*`。

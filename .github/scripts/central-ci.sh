@@ -64,10 +64,10 @@ phase_end
 SHARED_TSCONFIG=packages/shared/tsconfig.json
 HOST_TSCONFIGS=(
   packages/dsh-code-worker/tsconfig.json
-  packages/dsh-ui-delta/tsconfig.json
+  packages/dsh-suite-delta/tsconfig.json
   packages/plugin-template/tsconfig.json
 )
-CLIENT_TSCONFIG=packages/dsh-ui-delta/tsconfig.client.json
+CLIENT_TSCONFIG=packages/dsh-suite-delta/tsconfig.client.json
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"

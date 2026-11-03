@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
-for (const name of ['dsh-ui-delta', 'dsh-code-worker', 'plugin-template']) {
+for (const name of ['dsh-suite-delta', 'dsh-code-worker', 'plugin-template']) {
   test(name + ' is built as a portable Linux-hosted bundle', () => {
     const manifest = JSON.parse(readFileSync(join(root, 'projects', name, 'release.manifest.json'), 'utf8'))
     const build = manifest.builds[0]

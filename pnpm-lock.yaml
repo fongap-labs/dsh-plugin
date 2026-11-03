@@ -33,7 +33,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/dsh-ui-delta: {}
+  packages/dsh-suite-delta: {}
 
   packages/plugin-template:
     dependencies:
