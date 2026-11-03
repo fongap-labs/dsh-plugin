@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 const root = new URL('../packages/dsh-code-worker/', import.meta.url)
 const read = (p) => readFileSync(new URL(p,root),'utf8')
 describe('code worker native settings contract', () => {
@@ -11,6 +11,8 @@ describe('code worker native settings contract', () => {
   it('ships a proper client entry, not an HTML/DOM overlay', () => {
     const pkg = JSON.parse(read('package.json'))
     assert.equal(pkg.exports['./client'], './lib/client.js')
+    assert.ok(existsSync(new URL('lib/client.js', root)), 'build must emit the DSH client script')
+    assert.match(read('lib/client.js'), /__ModuleLoader__\.load\(/)
     assert.equal(pkg.dsh.client.platform,'web')
     assert.match(read('src/client.ts'), /plugins\.row\.config/)
     assert.match(read('src/client.ts'), /mutate\(ops, state\.revision\)/)
