@@ -2096,7 +2096,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             const LABEL_MAP: Record<string, string> = {
               '新会话': '开始对话',
               '插件': '插件管理',
-              '账户与余额': '账户详情',
+              ['账户与余额']: '账户详情',
               'Account & Balance': 'Account details',
               'Account and Balance': 'Account details',
               '自动化任务': '定时任务',
