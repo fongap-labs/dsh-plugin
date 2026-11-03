@@ -143,7 +143,7 @@ execution:
 
 ## 内置端到端 Coding 工作流
 
-本插件通过 DSH 原生 `ctx.skills.register` 挂载 **19 个按需调用的技能**。这不是另一个 Agent Runtime：DSH 负责执行、会话、权限、子 Agent、Workflow、LSP、终端与 Skills 加载；Code Worker 提供工程方法、项目预检、Git/GitHub 集成及验证门禁指引。无需另行安装 Superpowers 或其他 Coding Skill 插件。
+本插件通过 DSH 原生 `ctx.skills.register` 挂载 **21 个按需调用的技能**。这不是另一个 Agent Runtime：DSH 负责执行、会话、权限、子 Agent、Workflow、LSP、终端与 Skills 加载；Code Worker 提供工程方法、项目预检、Git/GitHub 集成及验证门禁指引。无需另行安装 Superpowers 或其他 Coding Skill 插件。
 
 **按任务选择路径，而不是所有任务都跑完整流程：**
 
@@ -151,10 +151,11 @@ execution:
 | --- | --- |
 | 小修改 | `code-fast-change` → 修改 → 针对性验证 |
 | 新功能 | `code-workflow` → `code-brainstorming`（仅需求不清时）→ `code-writing-plans` → `code-executing-plans` / `code-subagent-delivery` → `code-verification-gate` |
-| Bug / CI 红叉 | `code-root-cause-debugging` → 定向回归测试 → 根因修复 → `code-verification-gate` |
+| Bug / CI 红叉 | `code-root-cause-debugging` / `code-ci-repair` → 定向回归测试 → 根因修复 → `code-verification-gate` |
 | PR 审查 | `code-request-review` / `code-review-readiness` → `code-receive-review` → `code-finish-branch` |
 | 大型仓库 | `code-context-discipline` + `code_project_profile` + 宿主搜索/LSP，限制上下文 |
 | 多独立任务 | `code-parallel-work` + DSH 原生子 Agent；同文件修改不并行 |
+| 长时自主迭代 | `code-autonomous-loop` + DSH 原生 Ralph/Workflow；遵守轮次上限、审批和停止条件 |
 
 基础能力覆盖需求澄清、方案设计、细粒度计划、测试驱动、单 Agent 执行、原生子 Agent 协作、并行任务、工作树隔离、审查与反馈、结果验证、分支收尾、技能编写、上下文节制和失败会话诊断。
 
