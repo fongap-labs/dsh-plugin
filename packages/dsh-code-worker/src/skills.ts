@@ -1,4 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
+import { WORKFLOW_SKILLS } from './workflow-skills.js'
 
 interface SkillRegistry {
   register(skill: {
@@ -76,6 +77,8 @@ export const CODING_SKILLS: readonly CodingSkill[] = [
   },
 ]
 
+export const ALL_CODING_SKILLS: readonly CodingSkill[] = [...CODING_SKILLS, ...WORKFLOW_SKILLS]
+
 export function registerCodingSkills(ctx: Context): () => void {
   let isActive = true
   const disposers: Array<() => void> = []
@@ -83,7 +86,7 @@ export function registerCodingSkills(ctx: Context): () => void {
     if (!isActive) return
     const registry = (child as unknown as { skills?: SkillRegistry }).skills
     if (typeof registry?.register !== 'function') return
-    for (const skill of CODING_SKILLS) {
+    for (const skill of ALL_CODING_SKILLS) {
       try {
         const dispose = registry.register({
           name: skill.name,
