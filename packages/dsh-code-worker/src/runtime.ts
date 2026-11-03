@@ -18,13 +18,13 @@ export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
   'Start coding tasks with code_project_profile to identify project rules, stack and verification commands. Read applicable AGENTS.md / CLAUDE.md with the Host file reader.',
   'Use native Harness search, editor, terminal, LSP, Skills, subagents and task tracking rather than duplicating them.',
-  'Load the matching code-* skill only when the task calls for it: quick change, feature delivery, root-cause debugging or review.',
+  'For nontrivial coding work, load code-workflow from the Host skill tool, then the smallest relevant specialized code-* skill. A tiny clear edit uses code-fast-change directly; do not force long planning rituals.',
   'Use code_workspace_map for compact tracked-file discovery and code_multi_edit only for carefully scoped batch edits.',
   'Check code_git_status and code_git_diff around edits; preserve unrelated user changes.',
   'Use code_verify for explicit project scripts only if execution is enabled. Report actual evidence and never represent unrun checks as passes.',
   'Use code_git_worktree only when isolation is enabled, and do not bypass the Harness permissions or GitHub CI gates.',
   'GitHub account tokens stay private. Push only feature branches; CI, release and merge authority remain external.',
-  'Do not claim completion until relevant tests, change scope and remaining limitations have been reviewed.',
+  'Apply code-verification-gate before claiming success. A red/pending required check or an unrun test is not a pass; obey all Host permissions and project rules.',
 ].join('\n')
 
 /** Render an unknown thrown value the way the JavaScript implementation did. */
