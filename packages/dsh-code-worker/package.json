@@ -12,13 +12,21 @@
       "default": "./lib/index.js"
     },
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./client": "./lib/client.js"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
-    "manifestVersion": 1
+    "manifestVersion": 1,
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
   },
   "files": [
     "lib/**/*.js",
@@ -29,7 +37,8 @@
     "README.md"
   ],
   "dependencies": {
-    "@fongap-labs/shared": "workspace:*"
+    "@fongap-labs/shared": "workspace:*",
+    "@deepseek-ai/schemastery": "3.18.5"
   },
   "engines": {
     "node": ">=20.10.0"

@@ -4,6 +4,11 @@
  */
 declare module '@deepseek-ai/cordis' {
   interface Context {
+    /** Stable subset of the Host service lookup used by this plugin. */
+    get(name: 'workingDirectory'): WorkingDirectoryService | undefined
+    get(name: 'fs'): HostFsService | undefined
+    /** Defer optional prompt registration until the service exists. */
+    inject(dependencies: string[], callback: (child: Context) => void): unknown
     /** Optional host prompt service; the guidance section is skipped without it. */
     systemPrompt?: SystemPromptService
     /** Optional host workspace provider; paths fall back to config and `cwd`. */

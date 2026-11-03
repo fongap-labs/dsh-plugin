@@ -130,3 +130,11 @@ execution:
 ```
 
 启用 `allowCommands` 后只允许调用项目 `package.json` 中已存在的 `test`、`typecheck`、`build`、`lint`、`check` 脚本。运行项目脚本可能执行该仓库中的任意代码，应仅对可信工作区开启。没有 Harness 子进程服务时，这两项高权限工具拒绝执行，不绕过宿主执行能力与审批边界。
+
+## 原生图形配置页面
+
+在 DSH **插件 → Code Worker → 组件 dsh-code-worker → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
+
+- Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
+- Token 为 Schema `role('secret')`，Host 不会回显。已有账号留空 Token 即保留；新账号必须填 Token 或 tokenEnv。
+- 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
