@@ -31,7 +31,10 @@ async function projectIdOf(ctx: RuntimeContext, exec: ToolRunContext): Promise<s
   if (!service?.ensure || !exec.agent) return ''
   try {
     const value = await service.ensure(exec.agent, exec.signal)
-    return typeof value === 'string' ? 'project:' + createHash('sha256').update(value.replace(/\\/g, '/').toLowerCase()).digest('hex').slice(0, 32) : ''
+    if (typeof value !== 'string') return ''
+    const canonical = value.replace(/\\/g, '/')
+    const scopedPath = process.platform === 'win32' ? canonical.toLowerCase() : canonical
+    return 'project:' + createHash('sha256').update(scopedPath).digest('hex').slice(0, 32)
   } catch { return '' }
 }
 function memoryTools(ctx: RuntimeContext): ToolDefinition[] {
