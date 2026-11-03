@@ -102,6 +102,12 @@ export const searchWeb = async (
   if (candidates.length && !cfg.fallbackToKeyless) {
     throw new SearchUnavailableError(errors)
   }
+  // Public nodes are attempted before local ddgs, with no extra setup.
+  // With custom providers, this step requires explicit permission to fall back.
+  const publicHits = await publicSearch(query, limit, signal)
+  if (publicHits.results.length) return publicHits.results
+  errors.push(...publicHits.failures)
+  // Python ddgs remains the final fallback, never a prerequisite.
   try {
     const keylessHits = safeResults(await keyless(query, signal, undefined, limit), limit)
     if (keylessHits.length) return keylessHits
@@ -110,11 +116,7 @@ export const searchWeb = async (
     signal?.throwIfAborted()
     errors.push(error instanceof Error ? error.message : String(error))
   }
-  // Built-in public nodes are opt-in when a custom provider was selected.
-  // Fail closed on custom-provider authentication errors above.
-  const publicHits = await publicSearch(query, limit, signal)
-  if (publicHits.results.length) return publicHits.results
-  throw new SearchUnavailableError([...errors, ...publicHits.failures])
+  throw new SearchUnavailableError(errors)
 }
 
 /** Keep this stable id for installed Harness profile compatibility. */
