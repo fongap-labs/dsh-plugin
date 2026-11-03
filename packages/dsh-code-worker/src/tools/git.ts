@@ -89,8 +89,8 @@ function parseGitStatus(raw: string): GitStatusResult {
       // Porcelain -z emits a single branch header, optionally followed by
       // '[ahead N, behind M]'. Parse counts independently of their order.
       branch = head.split('...')[0]!.split(' [')[0]!.trim()
-      const aheadMatch = head.match(/\\bahead (\\d+)\\b/)
-      const behindMatch = head.match(/\\bbehind (\\d+)\\b/)
+      const aheadMatch = head.match(/\bahead (\d+)\b/)
+      const behindMatch = head.match(/\bbehind (\d+)\b/)
       if (aheadMatch) ahead = Number(aheadMatch[1])
       if (behindMatch) behind = Number(behindMatch[1])
       continue
