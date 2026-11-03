@@ -23,7 +23,7 @@
  *  activate and the web boot aborts — so DeltaSuite restyles those rows instead of
  *  replacing them.
  *
- *  DeltaSuite reads theme tokens; its own chrome (foot 设置 button, search dock,
+ *  DeltaSuite reads theme tokens; its own chrome (footer settings button, search dock,
  *  annotation pill) is additive and reverts on unload. Inside the settings
  *  open fallback it may additionally require sibling @deepseek-ai client
  *  packages to look for an open()-style export — read-only, verified, guarded.
