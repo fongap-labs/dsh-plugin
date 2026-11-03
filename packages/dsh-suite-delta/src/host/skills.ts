@@ -1,6 +1,6 @@
 /** Delta-managed user skills. Harness filesystem provider owns discovery and loading. */
 import { homedir } from 'node:os'
-import { join, resolve, dirname } from 'node:path'
+import { join, resolve } from 'node:path'
 import { mkdir, readdir, readFile, writeFile, rename, lstat, rm, chmod } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 
@@ -47,7 +47,7 @@ export interface SkillRow {
   name: string; description: string; source: string; provider: string;
   enabled: boolean; managed: boolean; path?: string; diagnostics?: string
 }
-type Registry = { list(options?: { cwd?: string }): Promise<readonly Array<{ name: string; description: string; source: string; provider: string; path?: string }>> }
+type Registry = { list(options?: { cwd?: string }): Promise<ReadonlyArray<{ name: string; description: string; source: string; provider: string; path?: string }>> }
 export const listSkills = async (registry?: Registry): Promise<{ items: SkillRow[]; diagnostics: string[] }> => {
   const diagnostics: string[] = []
   const all: SkillRow[] = []
@@ -101,7 +101,12 @@ export const mutateSkill = async (input: SkillAction): Promise<Record<string, un
   }
   if (input.action === 'toggle') {
     if (typeof input.enabled !== 'boolean') throw new Error('enabled must be boolean')
-    if (entry.enabled !== input.enabled) await rename(entry.path, pathOf(name, !input.enabled))
+    if (entry.enabled !== input.enabled) {
+      const target = pathOf(name, !input.enabled)
+      try { await lstat(target); throw new Error('Target skill file already exists') }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error }
+      await rename(entry.path, target)
+    }
     return { ok: true, enabled: input.enabled }
   }
   if (input.action === 'delete') {
