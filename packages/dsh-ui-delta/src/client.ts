@@ -3656,23 +3656,23 @@ const MODULES: ModuleDef[] = [
               setMemoryScopes(Array.isArray(known.scopes) ? known.scopes : []);
             };
             React.useEffect(() => {
-              let alive = true;
+              let isAlive = true;
               requestMemory('/scopes').then((data) => {
-                if (alive) setMemoryScopes(Array.isArray(data.scopes) ? data.scopes : []);
+                if (isAlive) setMemoryScopes(Array.isArray(data.scopes) ? data.scopes : []);
               }).catch(() => {});
               requestMemory('/settings').then((data) => {
-                if (alive && data.settings) setMemorySettings(data.settings);
-              }).catch((error) => { if (alive) setMemoryStatus(String(error)); });
-              return () => { alive = false; };
+                if (isAlive && data.settings) setMemorySettings(data.settings);
+              }).catch((error) => { if (isAlive) setMemoryStatus(String(error)); });
+              return () => { isAlive = false; };
             }, []);
             React.useEffect(() => {
-              let alive = true;
+              let isAlive = true;
               const params = new URLSearchParams({ scope: memoryScope, scopeId: memoryScopeId, limit: '50' });
               if (memoryQuery.trim()) params.set('q', memoryQuery.trim());
               requestMemory('?' + params.toString()).then((data) => {
-                if (alive) setMemoryRows(Array.isArray(data.items) ? data.items : []);
-              }).catch((error) => { if (alive) setMemoryStatus(String(error)); });
-              return () => { alive = false; };
+                if (isAlive) setMemoryRows(Array.isArray(data.items) ? data.items : []);
+              }).catch((error) => { if (isAlive) setMemoryStatus(String(error)); });
+              return () => { isAlive = false; };
             }, [memoryScope, memoryScopeId, memoryQuery]);
             const actMemory = async (job: () => Promise<void>) => {
               if (memoryBusy) return;
@@ -3695,10 +3695,10 @@ const MODULES: ModuleDef[] = [
               setMemoryForm(emptyMemoryForm());
               setMemoryStatus(pick('记忆已保存', 'Memory saved'));
             });
-            const updateMemorySettings = (field: 'autoCapture' | 'recall', enabled: boolean) => {
+            const updateMemorySettings = (field: 'autoCapture' | 'recall', isEnabled: boolean) => {
               void actMemory(async () => {
                 const result = await requestMemory('', {
-                  action: 'settings', settings: { [field]: enabled },
+                  action: 'settings', settings: { [field]: isEnabled },
                 });
                 setMemorySettings(result.settings);
               });
