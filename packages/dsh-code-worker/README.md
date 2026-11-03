@@ -9,6 +9,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 | `code_multi_edit` | 在工作区内逐项批量修改文件（非跨文件事务）：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
+| `code_workflow_route` | 按任务类型、风险和规模确定执行路径，只推荐宿主已具备的能力，不自动启动 Agent。 |
 | `code_project_profile` | 只读检测项目技术栈、规则文件和项目现有测试脚本；不加载大段源码。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
 
@@ -120,7 +121,7 @@ github:
 | --- | --- |
 | `code_workspace_map` | 用查询关键词对 Git 已跟踪的文件排序，只返回有限数量的文件名，避免整仓库占用上下文 |
 | `code_git_worktree` | 查看工作树或为新任务创建隔离工作树和功能分支 |
-| `code_verify` | 在 Harness 子进程服务中运行项目声明的测试、检查、构建脚本并返回有界证据 |
+| `code_verify` | 通过宿主子进程运行 Node 声明的脚本或 Rust、Go、Python 的固定验证命令，返回实际退出码和有界输出 |
 
 写入和执行操作需要在用户 Profile 中分别显式启用，默认为关闭：
 
@@ -130,7 +131,9 @@ execution:
   allowCommands: false
 ```
 
-启用 `allowCommands` 后只允许调用项目 `package.json` 中已存在的 `test`、`typecheck`、`build`、`lint`、`check` 脚本。运行项目脚本可能执行该仓库中的任意代码，应仅对可信工作区开启。没有 Harness 子进程服务时，这两项高权限工具拒绝执行，不绕过宿主执行能力与审批边界。
+启用 `allowCommands` 后，Node 项目只允许调用 `package.json` 中已声明的 `test/typecheck/build/lint/check` 脚本；Rust 使用 `cargo test/check/build/clippy`，Go 使用 `go test/vet/build`，Python 使用已安装的 `pytest/mypy/ruff/build` 或标准库 `compileall`。所有命令通过 DSH 原生子进程服务执行，传入固定参数而非任意 Shell 片段；不自动下载依赖。缺少工具链或测试失败时，如实报告失败。Go 的 `typecheck` 只编译、不运行测试，Python 的 `check` 是语法编译检查（会生成缓存），不等于静态类型检查。运行项目代码有副作用风险，仅对可信工作区开启。
+
+`code_verify` 默认 `ecosystem: auto`；单项目目录自动识别，混合语言根目录明确报错，需指定 `ecosystem` 或使用 `cwd` 进入子项目。单次执行默认超时 120 秒，可在 10–600 秒之间配置，输出上限约 32 KiB。宿主没有子进程服务时拒绝执行，不进行无权限回退。
 
 ## 原生图形配置页面
 
@@ -146,6 +149,8 @@ execution:
 本插件通过 DSH 原生 `ctx.skills.register` 挂载 **21 个按需调用的技能**。这不是另一个 Agent Runtime：DSH 负责执行、会话、权限、子 Agent、Workflow、LSP、终端与 Skills 加载；Code Worker 提供工程方法、项目预检、Git/GitHub 集成及验证门禁指引。无需另行安装 Superpowers 或其他 Coding Skill 插件。
 
 **按任务选择路径，而不是所有任务都跑完整流程：**
+
+`code_workflow_route` 为中大型任务提供可测试的确定性路由：输入任务类型、范围、风险和是否已确认 DSH 原生子 Agent 可用，输出技能顺序、并行候选与必须核实的证据。小修改直接使用 `code-fast-change`，无需为一次简单编辑多调用路由工具。此工具本身只读，不执行操作或绕过审批。
 
 | 任务类型 | 工作路径 |
 | --- | --- |
@@ -168,5 +173,5 @@ execution:
 - `code_multi_edit` 是逐文件、逐项执行，**没有跨文件事务回滚**，单次返回结果不能替代检查最终 diff。
 - 技能是按需加载的操作指导；不能仅凭安装保证自动执行完整流程、拥有某个原生 Agent 能力，或宣称未实际跑过的测试通过。
 
-**参考项目与取舍：** [Superpowers](https://github.com/obra/superpowers)（端到端流程与 TDD）、[Aider Repo Map](https://aider.chat/docs/repomap.html)（聚焦上下文）、[OpenCode](https://opencode.ai/docs/skills)（Skills 按需加载及原生权限）、[SWE-agent](https://github.com/SWE-agent/SWE-agent)（工具反馈与真实验证）、[Anthropic Skills](https://github.com/anthropics/skills)（渐进披露）。借鉴公开方法而非复制这些项目的 Runtime、依赖或原文。
+**参考项目与取舍：** [GSD](https://github.com/gsd-build/get-shit-done)（按依赖分批与上下文隔离）、[OpenSpec](https://github.com/Fission-AI/OpenSpec)（可验收的变更规格）、[BMAD](https://github.com/bmad-code-org/BMAD-METHOD)（按复杂度调节交付流程）、[Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin)（多视角审查与复盘）、[gstack](https://github.com/garrytan/gstack)（角色化审查）；以及 [Superpowers](https://github.com/obra/superpowers)（端到端流程与 TDD）、[Aider Repo Map](https://aider.chat/docs/repomap.html)（聚焦上下文）、[OpenCode](https://opencode.ai/docs/skills)（Skills 按需加载及原生权限）、[SWE-agent](https://github.com/SWE-agent/SWE-agent)（工具反馈与真实验证）、[Anthropic Skills](https://github.com/anthropics/skills)（渐进披露）。借鉴公开方法而非复制这些项目的 Runtime、依赖或原文。
 
