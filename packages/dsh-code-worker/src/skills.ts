@@ -4,7 +4,8 @@ interface SkillRegistry {
   register(skill: {
     name: string
     description: string
-    load: () => Promise<{ title: string; instructions: string[] }>
+    source: 'runtime'
+    content: string
   }): (() => void) | void
 }
 
@@ -87,7 +88,8 @@ export function registerCodingSkills(ctx: Context): () => void {
         const dispose = registry.register({
           name: skill.name,
           description: skill.description,
-          load: async () => ({ title: skill.title, instructions: [...skill.instructions] }),
+          source: 'runtime',
+          content: '# ' + skill.title + '\n\n' + skill.instructions.map(line => '- ' + line).join('\n'),
         })
         if (typeof dispose === 'function') disposers.push(dispose)
       } catch (error) {
