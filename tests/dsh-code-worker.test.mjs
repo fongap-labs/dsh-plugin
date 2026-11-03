@@ -18,11 +18,20 @@ const NODE_PRINT = [resolve(process.execPath), "-e", "process.stdout.write('hell
 function createContext() {
   const registered = new Map();
   const warnings = [];
+  const skills = new Map();
   const ctx = {
     registered,
     warnings,
+    registeredSkills: skills,
     logger: { warn: (message) => warnings.push(String(message)) },
     inject: (deps, callback) => {
+      if (deps.includes("skills")) {
+        callback({ skills: { register(skill) {
+          skills.set(skill.name, skill);
+          return () => skills.delete(skill.name);
+        } } });
+        return;
+      }
       callback({
         systemPrompt: {
           getSectionOrder: () => 1300,
@@ -59,6 +68,16 @@ describe("dsh-code-worker", () => {
 
   after(async () => {
     await rm(workspace, { recursive: true, force: true });
+  });
+
+  it("native skills register with content and dispose cleanly", async () => {
+    const fresh = createContext();
+    const dispose = codeWorker.apply(fresh, { workspaceRoot: workspace });
+    const names = [...fresh.registeredSkills.keys()];
+    assert.deepEqual(names, ["code-fast-change", "code-feature-delivery", "code-root-cause-debugging", "code-review-readiness"]);
+    assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /acceptance/);
+    dispose();
+    assert.equal(fresh.registeredSkills.size, 0);
   });
 
   it("插件声明元信息正确", () => {
