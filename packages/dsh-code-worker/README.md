@@ -6,7 +6,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 | 工具 | 说明 |
 | --- | --- |
-| `code_multi_edit` | 在工作区内原子地批量改文件：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
+| `code_multi_edit` | 在工作区内逐项批量修改文件（非跨文件事务）：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
 | `code_project_profile` | 只读检测项目技术栈、规则文件和项目现有测试脚本；不加载大段源码。 |
