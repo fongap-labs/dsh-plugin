@@ -130,7 +130,8 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
     async execute(args, exec) {
       if (!settings.allowCommands) throw new Error('script execution disabled; set execution.allowCommands=true')
       if (!isSubprocessAvailable(ctx)) throw new Error('host subprocess service is required for script execution')
-      if (!SCRIPTS.includes(args.script)) throw new Error('script is not allowlisted')
+      if (!SCRIPTS.includes(args.script as VerificationScript)) throw new Error('script is not allowlisted')
+      const script = args.script as VerificationScript
       const timeoutMs = args.timeoutMs ?? 120_000
       if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 600_000) {
         throw new Error('timeoutMs must be between 10000 and 600000')
@@ -141,7 +142,7 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       const canonicalCwd = await realpath(cwd)
       if (!isPathInside(canonicalRoot, canonicalCwd)) throw new Error('script directory escapes the workspace')
 
-      const ecosystem = await detectVerificationEcosystem(canonicalCwd, canonicalRoot, args.ecosystem ?? 'auto')
+      const ecosystem = await detectVerificationEcosystem(canonicalCwd, canonicalRoot, (args.ecosystem ?? 'auto') as VerificationEcosystem | 'auto')
       let selected: VerificationCommand
       if (ecosystem === 'node') {
         const raw = await readTextSafe(ctx, exec, canonicalCwd, 'package.json')
@@ -149,13 +150,13 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
         const pkg: unknown = JSON.parse(raw)
         if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('invalid package.json')
         const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
-        if (typeof scripts?.[args.script] !== 'string') {
-          throw new Error('package.json does not declare script ' + args.script)
+        if (typeof scripts?.[script] !== 'string') {
+          throw new Error('package.json does not declare script ' + script)
         }
-        selected = verificationCommandFor('node', args.script, await choosePackageManager(canonicalCwd))
+        selected = verificationCommandFor('node', script, await choosePackageManager(canonicalCwd))
       } else {
         const isRustLocked = ecosystem === 'rust' && await containsSafeFile(canonicalCwd, canonicalRoot, 'Cargo.lock')
-        selected = verificationCommandFor(ecosystem, args.script, 'npm', isRustLocked)
+        selected = verificationCommandFor(ecosystem, script, 'npm', isRustLocked)
       }
       const result = await runCommand(ctx, {
         command: selected.command, args: selected.args, cwd: canonicalCwd,
