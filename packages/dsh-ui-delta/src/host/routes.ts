@@ -9,6 +9,7 @@ import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
 import { searchWeb, researchWeb } from './search.js'
 import { collectEvidence, type HostFetch } from './research-fetch.js'
+import { digestEvidence } from './evidence-analysis.js'
 import { deleteColdSession } from './session-delete.js'
 import { registerMemoryRoutes } from './memory-routes.js'
 
@@ -176,8 +177,9 @@ export function registerRoutes(ctx: Context): void {
     const query = String(body.query || '').trim().slice(0, 500)
     if (!query) return sendJson(res, 400, { error: 'query required' })
     const report = await researchWeb(query)
-    const pages = await collectEvidence(report.results, hostFetch)
-    return sendJson(res, 200, { ...report, ...pages })
+    const pages = await collectEvidence(report.results, hostFetch, undefined, 5)
+    const analysis = digestEvidence(query, pages.evidence)
+    return sendJson(res, 200, { ...report, ...pages, analysis })
 
   })
 

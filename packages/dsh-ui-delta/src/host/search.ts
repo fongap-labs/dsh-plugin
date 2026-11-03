@@ -1,6 +1,7 @@
 import { openKey, normalizeProviders, readConfig, type ProviderRecord } from './config.js'
 import { DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
-import { searchPythonDdgs, checkPythonDdgs } from './python-ddgs.js'
+import { searchPythonDdgs } from './python-ddgs.js'
+import { searchPublicInstances } from './searxng.js'
 import { safeResults, rankResults, researchQueries, type SearchRow } from './search-quality.js'
 
 interface SearchHit {
@@ -71,7 +72,7 @@ async function searchEndpoint(
  */
 export const searchWeb = async (
   query: string, signal?: AbortSignal, keyless: typeof searchPythonDdgs = searchPythonDdgs,
-  maxResults = 5
+  maxResults = 5, publicSearch: typeof searchPublicInstances = searchPublicInstances
 ): Promise<SearchRow[]> => {
   signal?.throwIfAborted()
   query = query.trim().slice(0, 500)
@@ -101,12 +102,21 @@ export const searchWeb = async (
   if (candidates.length && !cfg.fallbackToKeyless) {
     throw new SearchUnavailableError(errors)
   }
-  try { return safeResults(await keyless(query, signal, undefined, limit), limit) }
-  catch (error) {
+  // Public nodes are attempted before local ddgs, with no extra setup.
+  // With custom providers, this step requires explicit permission to fall back.
+  const publicHits = await publicSearch(query, limit, signal)
+  if (publicHits.results.length) return publicHits.results
+  errors.push(...publicHits.failures)
+  // Python ddgs remains the final fallback, never a prerequisite.
+  try {
+    const keylessHits = safeResults(await keyless(query, signal, undefined, limit), limit)
+    if (keylessHits.length) return keylessHits
+    errors.push('Python ddgs returned no results')
+  } catch (error) {
     signal?.throwIfAborted()
     errors.push(error instanceof Error ? error.message : String(error))
-    throw new SearchUnavailableError(errors)
   }
+  throw new SearchUnavailableError(errors)
 }
 
 /** Keep this stable id for installed Harness profile compatibility. */
@@ -116,7 +126,8 @@ export const makeWebSearchProvider = () => ({
   ready: async () => {
     const cfg = readConfig().search || {}
     if (normalizeProviders('search', cfg).some(provider => provider.endpoint)) return true
-    return checkPythonDdgs()
+    // Public SearXNG fallbacks remain available even without a local Python runtime.
+    return true
   },
   async search(request: SearchRequest, signal?: AbortSignal) {
     const limit = limitOf(request.maxResults ?? 5)
