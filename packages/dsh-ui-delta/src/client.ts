@@ -489,7 +489,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 ._5Qcc8a_trigger[data-signed-out=true] > svg { display: none; }
 ._5Qcc8a_trigger[data-signed-out=true] .ens-account-glyph { display: inline-flex; }
 /* The avatar is display only; the account action lives in the footer. */
-._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger { pointer-events: auto !important; cursor: pointer; }
+._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger { pointer-events: auto !important; cursor: default !important; }
 .ens-account-glyph { pointer-events: none; }
 /* Keep the two host seats aligned without positioning the actions individually. */
 .wtg9ga_footArea { position: relative; }
@@ -1546,6 +1546,14 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             // collection attribute to the item selector and records the menu's
             // actual contents for the diagnostic. If the menu holds no settings
             // entry at all, dismiss it again so nothing stays open.
+            // Keep the host's existing sign-in/sign-out/settings menu accessible
+            // to explicit footer actions, without making the avatar a menu trigger.
+            let isFooterAccountMenuActivation = false;
+            const activateAccountMenuForFooter = (trigger: HTMLElement) => {
+              isFooterAccountMenuActivation = true;
+              try { trigger.click(); }
+              finally { isFooterAccountMenuActivation = false; }
+            };
             const attemptAccountMenu = async () => {
               if (isSettingsOpenInDom()) return true;
               const account = document.querySelector<HTMLElement>('._5Qcc8a_trigger')
@@ -1553,7 +1561,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 || document.querySelector<HTMLElement>('[data-signed-out]');
               if (!account) { note('account-menu', 'account trigger not found'); return false; }
               const before = chromeFingerprint();
-              try { (account as HTMLElement).click(); } catch (err) { note('account-menu', `trigger click threw: ${err instanceof Error ? err.message : String(err)}`); return false; }
+              try { activateAccountMenuForFooter(account as HTMLElement); } catch (err) { note('account-menu', `trigger click threw: ${err instanceof Error ? err.message : String(err)}`); return false; }
               const ITEM_SEL = '[role="menuitem"], [role="menu"] button, [role="menu"] a, [role="menu"] [tabindex], [data-radix-collection-item]';
               let isRecorded = false;
               const recordMenu = () => {
@@ -1869,7 +1877,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               // DOM fallback: open the account menu, then click its 登录 item.
               const trig = document.querySelector<HTMLElement>('._5Qcc8a_trigger');
               if (!trig) return;
-              trig.click();
+              activateAccountMenuForFooter(trig);
               setTimeout(() => {
                 const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')]
                   .find(el => /登录|登 入|sign\s?in/i.test(el.textContent || ''));
@@ -1881,7 +1889,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             const signOutFromMenu = () => {
               const trig = document.querySelector<HTMLElement>('._5Qcc8a_trigger');
               if (!trig) return;
-              trig.click();
+              activateAccountMenuForFooter(trig);
               setTimeout(() => {
                 const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menu"] button, [role="menu"] [tabindex]')]
                   .find(el => /退出|登出|sign\s?out/i.test(el.textContent || ''));
@@ -2042,8 +2050,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             function syncBalance() {
               const account = document.querySelector<HTMLElement>('._5Qcc8a_root');
               if (!account) return;
+              const trigger = account.querySelector<HTMLElement>('._5Qcc8a_trigger');
+              // A visible, focusable account identifier; not an interactive launcher.
+              trigger?.setAttribute('aria-disabled', 'true');
               if (!signedIn()) {
                 account.removeAttribute('data-ens-balance');
+                trigger?.setAttribute('aria-label', t('账户标识（仅展示）', 'Account icon (display only)'));
                 return;
               }
               const walletLines: string[] = [];
@@ -2059,21 +2071,24 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               } catch { /* Unavailable balance must never be shown as zero. */ }
               if (walletLines.length) account.setAttribute('data-ens-balance', walletLines.join('\n'));
               else account.removeAttribute('data-ens-balance');
-              const trigger = account.querySelector<HTMLElement>('._5Qcc8a_trigger');
               trigger?.removeAttribute('title');
-              trigger?.setAttribute('aria-label', walletLines.length ? t('查看账户余额', 'View account balance') : t('账户头像', 'Account avatar'));
+              trigger?.setAttribute('aria-label', walletLines.length ? t('账户余额（仅展示）', 'Account balance (display only)') : t('账户头像（仅展示）', 'Account avatar (display only)'));
             }
 
-            // Refresh the balance hint without intercepting the Host's account launcher.
-            // In beta.9, preventDefault()/stopImmediatePropagation() here swallowed the
-            // native menu click (including trig.click() used by the footer sign-in,
-            // sign-out and settings fallback actions). Let the Host own activation.
+            // Block only direct activation of the host avatar (including Radix
+            // pointerdown and keyboard activation); never block its footer siblings.
+            // An explicit footer action can still open the host menu synchronously
+            // via activateAccountMenuForFooter, preserving sign-out confirmation.
             const onAvatarActivate = (event: Event) => {
               if (!(event.target instanceof Element) || !event.target.closest('._5Qcc8a_trigger')) return;
+              if (isFooterAccountMenuActivation && event.type === 'click') return;
               if (event instanceof KeyboardEvent && !['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(event.key)) return;
               syncBalance();
+              if (event.cancelable) event.preventDefault();
+              event.stopImmediatePropagation();
             };
-            ['pointerdown', 'mousedown', 'click', 'keydown'].forEach(type => document.addEventListener(type, onAvatarActivate, true));
+            const avatarActivationEvents = ['pointerdown', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'keydown', 'keyup'];
+            avatarActivationEvents.forEach(type => document.addEventListener(type, onAvatarActivate, true));
 
             // #2/#3 navigation copy. The owning packages own these slot cells,
             // so the labels are re-stamped on the rendered nodes instead of
@@ -2081,6 +2096,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             const LABEL_MAP: Record<string, string> = {
               '新会话': '开始对话',
               '插件': '插件管理',
+              ['账户与余额']: '账户详情',
               'Account & Balance': 'Account details',
               'Account and Balance': 'Account details',
               '自动化任务': '定时任务',
@@ -2098,7 +2114,19 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (next) paint(el, next);
               });
               document.querySelectorAll<HTMLElement>('[class*="navCell"], [class*="settings"] [role="tab"], [class*="settings"] button').forEach(el => {
-                if (el.children.length === 0 && (el.textContent || '').trim() === '账户与余额') paint(el, '账户详情');
+                // Settings navigation items can contain an icon and nested text spans.
+                // Rewrite only matching text nodes; replacing the entire cell would
+                // destroy React-owned icons, handlers and focus semantics.
+                const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+                for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                  const value = (node.nodeValue || '').trim();
+                  const next = LABEL_MAP[value];
+                  if (next) node.nodeValue = (node.nodeValue || '').replace(value, next);
+                }
+                for (const attr of ['aria-label', 'title']) {
+                  const old = el.getAttribute(attr) || '';
+                  if (LABEL_MAP[old]) el.setAttribute(attr, LABEL_MAP[old]);
+                }
               });
               document.querySelectorAll<HTMLElement>('.wtg9ga_newSession, .wtg9ga_panelRow').forEach(el => {
                 const next = LABEL_MAP[el.getAttribute('aria-label') || ''];
@@ -2937,9 +2965,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             const builtInModelRows = new Set<HTMLElement>();
             const hideAccountModels = () => {
               builtInModelRows.forEach((row) => { if (!row.isConnected) builtInModelRows.delete(row); });
-              let isVisible = false;
-              try { isVisible = JSON.parse(localStorage.getItem('dsh-ui-delta.modules') || '{}').accountModels === true; }
-              catch { isVisible = false; }
+              // New opt-out flag: old accountModels (opt-in) values are intentionally
+              // ignored so upgrading restores the requested visible-by-default UI.
+              const isVisible = !flagOn('hideAccountModels', false);
               document.querySelectorAll<HTMLElement>('[role="menu"] [data-provider-id="deepseek-account"], [role="menu"] [data-provider-id="deepseek-official"]').forEach((modelLabel) => {
                 const item = modelLabel.closest<HTMLElement>('[role="menuitemradio"]') || modelLabel;
                 setHostNodeVisible(item, isVisible);
@@ -3126,7 +3154,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { pendingSearch?.abort(); ['pointerdown', 'mousedown', 'click', 'keydown'].forEach(type => document.removeEventListener(type, onAvatarActivate, true)); mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
+            return () => { pendingSearch?.abort(); avatarActivationEvents.forEach(type => document.removeEventListener(type, onAvatarActivate, true)); mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
@@ -3153,9 +3181,9 @@ const MODULES: ModuleDef[] = [
           { id: 'selectionAnnotation', zh: '选中批注', en: 'Selection annotations', status: 'ready', defaultOn: false,
             zhDesc: '选中正文即可批注，多条批注累积；发送时将选中内容和批注组合为问题。',
             enDesc: 'Select text to annotate; the selected text and notes are combined when you send.' },
-          { id: 'accountModels', zh: '显示 DeepSeek 自带模型', en: 'Show built-in DeepSeek models', status: 'ready', defaultOn: false,
-            zhDesc: '默认隐藏 DeepSeek 自带的模型和设置项；开启后显示。',
-            enDesc: 'Hide built-in DeepSeek models and their settings by default; turn on to show them.' },
+          { id: 'hideAccountModels', zh: '关闭 DeepSeek 自带模型', en: 'Hide built-in DeepSeek models', status: 'ready', defaultOn: false,
+            zhDesc: '默认显示 DeepSeek 自带模型及其配置；开启后隐藏其模型与设置项。',
+            enDesc: 'Built-in DeepSeek models and their settings are visible by default; turn on to hide them.' },
           { id: 'blockAnalytics', zh: '阻止界面埋点上报', en: 'Block UI analytics', status: 'ready', defaultOn: true,
             zhDesc: '界面点击等埋点事件不再发送，默认开启。宿主后端的采集策略不受此开关影响。',
             enDesc: 'Stops UI click analytics from being sent; on by default. The host backend collection policy is not affected.' },

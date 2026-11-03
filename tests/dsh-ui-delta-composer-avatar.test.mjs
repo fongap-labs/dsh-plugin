@@ -36,28 +36,37 @@ it('shows only ready balance data and clears stale hints', () => {
   context.sync()
   assert.equal(attributes.has('data-ens-balance'), false)
 })
-it('preserves native avatar click and keyboard activation while updating the balance', () => {
-  class Element { closest() { return this } }
+it('blocks direct avatar activation but preserves explicit footer-driven menu clicks', () => {
+  class Element { closest(selector) { return selector === '._5Qcc8a_trigger' ? this : null } }
   class KeyboardEvent {
-    constructor(key) { this.key = key; this.target = new Element() }
+    constructor(key) { this.key = key; this.type = 'keydown'; this.cancelable = true; this.target = new Element() }
     preventDefault() { this.prevented = true }
     stopImmediatePropagation() { this.stopped = true }
   }
   let refreshes = 0
-  const context = { Element, KeyboardEvent, syncBalance: () => refreshes++ }
-  runInNewContext(extract('const onAvatarActivate =', "['pointerdown', 'mousedown', 'click', 'keydown'].forEach") + ';globalThis.activate = onAvatarActivate;', context)
-  for (const key of ['Enter', ' ', 'ArrowDown']) {
+  const context = {
+    Element, KeyboardEvent, isFooterAccountMenuActivation: false,
+    syncBalance: () => refreshes++,
+  }
+  runInNewContext(extract('const onAvatarActivate =', 'const avatarActivationEvents =') + ';globalThis.activate = onAvatarActivate;', context)
+  for (const key of ['Enter', ' ', 'ArrowDown', 'ArrowUp']) {
     const event = new KeyboardEvent(key)
     context.activate(event)
-    assert.equal(event.prevented, undefined)
-    assert.equal(event.stopped, undefined)
+    assert.equal(event.prevented, true)
+    assert.equal(event.stopped, true)
   }
-  const mouse = { target: new Element(), preventDefault() { this.prevented = true }, stopImmediatePropagation() { this.stopped = true } }
+  const mouse = { type: 'pointerdown', cancelable: true, target: new Element(), preventDefault() { this.prevented = true }, stopImmediatePropagation() { this.stopped = true } }
   context.activate(mouse)
-  assert.equal(mouse.prevented, undefined)
-  assert.equal(mouse.stopped, undefined)
+  assert.equal(mouse.prevented, true)
+  assert.equal(mouse.stopped, true)
   const tab = new KeyboardEvent('Tab')
   context.activate(tab)
   assert.equal(tab.prevented, undefined)
-  assert.equal(refreshes, 4)
+  assert.equal(tab.stopped, undefined)
+  context.isFooterAccountMenuActivation = true
+  const delegated = { ...mouse, type: 'click', prevented: false, stopped: false }
+  context.activate(delegated)
+  assert.equal(delegated.prevented, false)
+  assert.equal(delegated.stopped, false)
+  assert.equal(refreshes, 5)
 })
