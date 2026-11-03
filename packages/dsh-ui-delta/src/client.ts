@@ -3729,12 +3729,41 @@ const MODULES: ModuleDef[] = [
             const importMemories = (file: File | undefined) => {
               if (!file) return;
               void actMemory(async () => {
-                if (file.size > 2 * 1024 * 1024) throw new Error('Backup file exceeds 2 MiB');
-                const payload = JSON.parse(await file.text());
-                const result = await requestMemory('', { action: 'import', data: payload });
+                // Backups can exceed the Host's per-request payload and 500-record
+                // transaction limit. Restore in bounded chunks; never truncate.
+                if (file.size > 64 * 1024 * 1024) throw new Error('Backup file exceeds 64 MiB');
+                const payload: unknown = JSON.parse(await file.text());
+                if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+                  throw new Error('Invalid backup file');
+                }
+                const backup = payload as { version?: unknown; memories?: unknown };
+                if (backup.version !== 1 || !Array.isArray(backup.memories)) {
+                  throw new Error('Backup must contain version 1 and a memories array');
+                }
+                const encoder = new TextEncoder();
+                let imported = 0;
+                let skipped = 0;
+                for (let index = 0; index < backup.memories.length;) {
+                  const records: unknown[] = [];
+                  let bytes = 128;
+                  while (index < backup.memories.length && records.length < 200) {
+                    const record: unknown = backup.memories[index];
+                    const recordBytes = encoder.encode(JSON.stringify(record)).length + 4;
+                    if (bytes + recordBytes > 1_500_000 && records.length > 0) break;
+                    if (recordBytes > 1_500_000) throw new Error('Single memory exceeds the import limit');
+                    records.push(record);
+                    bytes += recordBytes;
+                    index++;
+                  }
+                  const result = await requestMemory('', {
+                    action: 'import', data: { version: 1, memories: records },
+                  });
+                  imported += Number(result.imported) || 0;
+                  skipped += Number(result.skipped) || 0;
+                }
                 setMemoryStatus(pick(
-                  '已导入 ' + result.imported + ' 条，跳过 ' + result.skipped + ' 条',
-                  'Imported ' + result.imported + ', skipped ' + result.skipped,
+                  '已导入 ' + imported + ' 条，跳过 ' + skipped + ' 条（已存在的同名决策不会被覆盖）',
+                  'Imported ' + imported + ', skipped ' + skipped + ' (existing decisions preserved)',
                 ));
               });
             };

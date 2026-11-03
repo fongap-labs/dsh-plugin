@@ -143,7 +143,7 @@ export class DeltaMemory {
     await mkdir(join(path, '..'), { recursive: true, mode: 0o700 })
     const db = new ctor(path) as unknown as SqliteDatabase
     try {
-      db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;')
+      db.exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA secure_delete=ON;')
       db.exec(
         'CREATE TABLE IF NOT EXISTS memories (' +
         'id TEXT PRIMARY KEY, scope TEXT NOT NULL, scope_id TEXT NOT NULL,' +
@@ -334,14 +334,25 @@ export class DeltaMemory {
     if (data.version !== 1 || !Array.isArray(data.memories) || data.memories.length > MAX_IMPORT) {
       throw new Error('import requires version 1 and at most 500 memories per request')
     }
+    const db = await this.open()
     let imported = 0
     let skipped = 0
     for (const entry of data.memories) {
-      if (!entry || typeof entry !== 'object') { skipped++; continue }
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) { skipped++; continue }
       const row = entry as MemoryRecord
       try {
-        await this.save({ scope: row.scope, scopeId: row.scopeId, key: row.key,
-          category: row.category, content: row.content, sourceSession: row.sourceSession,
+        const scope = scopeOf(row.scope)
+        const scopeId = scope === 'global' ? '' : safeId(row.scopeId, 'scopeId')
+        const key = row.key === undefined ? '' : safeId(row.key, 'memory key').toLocaleLowerCase()
+        // An older backup must never silently roll back a newer active decision.
+        // The default is additive restore: duplicates and key conflicts are skipped.
+        if (key && db.prepare("SELECT id FROM memories WHERE scope=? AND scope_id=? AND memory_key=? AND status='active'")
+          .get(scope, scopeId, key)) {
+          skipped++
+          continue
+        }
+        await this.save({ scope, scopeId, key, category: row.category,
+          content: row.content, sourceSession: row.sourceSession,
           source: 'import', pinned: row.pinned, expiresAt: row.expiresAt })
         imported++
       } catch { skipped++ }
