@@ -62,7 +62,7 @@ interface SqliteDatabase { exec(sql: string): void; prepare(sql: string): SqlSta
 
 const ALLOWED_SCOPE = new Set(['global', 'project', 'session'])
 const ALLOWED_CATEGORY = new Set(['preference', 'fact', 'decision', 'task', 'other'])
-const SECRET = /(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:password|passwd|api[_ -]?key|access[_ -]?token|secret|密码|口令|密钥)\s*[:=：]\s*\S+|(?:sk-|ghp_|github_pat_)[a-zA-Z0-9_-]{16,})/i
+const SECRET = /(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:password|passwd|api[_ -]?key|access[_ -]?token|secret|\u5bc6\u7801|\u53e3\u4ee4|\u5bc6\u94a5)\s*[:=\uff1a]\s*\S+|(?:sk-|ghp_|github_pat_)[a-zA-Z0-9_-]{16,})/i
 const MAX_CONTENT = 4000
 const MAX_IMPORT = 500
 const MAX_RESULTS = 50
