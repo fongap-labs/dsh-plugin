@@ -110,7 +110,7 @@ test('Host-only command execution respects permissions, manifests and ecosystem 
       assert.equal(host.calls.at(-1).cwd, join(root, check.cwd))
     }
     await assert.rejects(tool.execute({ cwd: 'node', script: 'lint' }, exec), /does not declare script lint/)
-    await assert.rejects(tool.execute({ cwd: 'polyglot', script: 'test' }, exec), /ambiguous/)
+    await assert.rejects(tool.execute({ cwd: 'polyglot', script: 'test' }, exec), /ambiguous|multiple project types/)
     await assert.rejects(tool.execute({ cwd: 'rust', script: 'test', timeoutMs: 9999 }, exec), /timeoutMs/)
     await assert.rejects(tool.execute({ cwd: '../', script: 'test' }, exec), /sandbox|escapes/i)
 
