@@ -14,7 +14,7 @@ describe('optional ddgs guidance without an installer', () => {
     assert.match(adapter, /missing-ddgs/)
     assert.match(adapter, /state: 'ready'/)
     assert.match(adapter, /importlib\.util\.find_spec/)
-    assert.doesNotMatch(adapter.slice(adapter.indexOf('export async function detectDdgsDependencies')), /pip', 'install'/)
+    assert.doesNotMatch(adapter.slice(adapter.indexOf('export async function detectDdgsDependencies')), /spawn\(|shell: true/)
   })
   it('exposes only a read-only status route, not an installation endpoint', () => {
     assert.match(routes, /route\('\/dsh-ui-delta\/ddgs-status'/)
