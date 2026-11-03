@@ -57,7 +57,7 @@ describe('cross-language validation command boundaries', () => {
     }
   })
 
-  it('rejects a manifest symlink escaping the workspace', async () => {
+  it('rejects a manifest symlink escaping the workspace', { skip: process.platform === 'win32' }, async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-verify-root-'))
     const outside = await mkdtemp(join(tmpdir(), 'dsh-verify-outside-'))
     try {
