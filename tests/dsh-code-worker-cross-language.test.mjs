@@ -46,7 +46,7 @@ describe('cross-language validation command boundaries', () => {
       assert.deepEqual(seen.argv, ['cargo', 'test'])
       assert.equal(seen.cwd, root)
       assert.equal(seen.stdio.stdin, 'ignore')
-      await assert.rejects(tool.execute({ script: 'rm', project: 'rust' }, exec), /not allowlisted/)
+      await assert.rejects(tool.execute({ script: 'rm', project: 'rust' }, exec), /must be one of|not allowlisted/)
       await writeFile(join(root, 'package.json'), '{"scripts":{"test":"echo ok"}}')
       await assert.rejects(tool.execute({ script: 'test', project: 'auto' }, exec), /multiple project types/)
       const explicit = await tool.execute({ script: 'test', project: 'node' }, exec)
