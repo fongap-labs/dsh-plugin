@@ -68,7 +68,7 @@ describe("dsh-code-worker", () => {
 
   it("注册了预期的工具集合", () => {
     const names = [...ctx.registered.keys()].sort();
-    assert.deepEqual(names, ["code_git_diff", "code_git_status", "code_git_worktree", "code_lsp_probe", "code_multi_edit", "code_verify", "code_workspace_map"]);
+    assert.deepEqual(names, ["code_git_diff", "code_git_status", "code_git_worktree", "code_lsp_probe", "code_multi_edit", "code_project_profile", "code_verify", "code_workspace_map"]);
   });
 
   it("code_multi_edit: dryRun 不写盘", async () => {
@@ -81,6 +81,34 @@ describe("dsh-code-worker", () => {
     assert.equal(result.applied, 1);
     assert.equal(result.results[0].action, "overwrite");
     await assert.rejects(readFile(join(workspace, "a.txt"), "utf8"));
+  });
+
+  it("code_multi_edit: empty content is a valid overwrite", async () => {
+    await writeFile(join(workspace, "empty.txt"), "before", "utf8");
+    const tool = ctx.registered.get("code_multi_edit");
+    const result = await tool.execute({ edits: [{ path: "empty.txt", content: "" }] }, { signal: new AbortController().signal });
+    assert.equal(result.applied, 1);
+    assert.equal(await readFile(join(workspace, "empty.txt"), "utf8"), "");
+  });
+
+  it("code_multi_edit: rejects empty find without modifying content", async () => {
+    await writeFile(join(workspace, "empty-find.txt"), "before", "utf8");
+    const tool = ctx.registered.get("code_multi_edit");
+    const result = await tool.execute({ edits: [{ path: "empty-find.txt", find: "", replace: "x" }] }, { signal: new AbortController().signal });
+    assert.equal(result.applied, 0);
+    assert.equal(result.results[0].ok, false);
+    assert.equal(await readFile(join(workspace, "empty-find.txt"), "utf8"), "before");
+  });
+
+  it("code_project_profile: reports project files without reading their contents", async () => {
+    await writeFile(join(workspace, "package.json"), JSON.stringify({scripts:{test:"node --test",lint:"eslint ."}}), "utf8");
+    await writeFile(join(workspace, "AGENTS.md"), "Read me first", "utf8");
+    const tool = ctx.registered.get("code_project_profile");
+    const result = await tool.execute({}, { signal: new AbortController().signal });
+    assert.ok(result.technologies.includes("node"));
+    assert.deepEqual(result.scripts, ["test", "lint"]);
+    assert.deepEqual(result.guidance, ["AGENTS.md"]);
+    assert.equal(JSON.stringify(result).includes("node --test"), false);
   });
 
   it("code_multi_edit: 实际写入文件内容", async () => {
@@ -187,7 +215,7 @@ describe("dsh-code-worker", () => {
       enabled: true,
       workspaceRoot: workspace,
     });
-    assert.equal(unregisterCtx.registered.size, 7);
+    assert.equal(unregisterCtx.registered.size, 8);
     disposer();
     assert.equal(unregisterCtx.registered.size, 0);
   });
