@@ -10,6 +10,7 @@ import { mainModelView } from './main-model.js'
 import { searchWeb, researchWeb } from './search.js'
 import { collectEvidence, type HostFetch } from './research-fetch.js'
 import { deleteColdSession } from './session-delete.js'
+import { registerMemoryRoutes } from './memory-routes.js'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -128,6 +129,8 @@ export function registerRoutes(ctx: Context): void {
       throw error
     }
   }
+
+  registerMemoryRoutes(route)
 
   const configView = async () => ({ ...publicView(), mainModel: await mainModelView(modelContext) })
 
