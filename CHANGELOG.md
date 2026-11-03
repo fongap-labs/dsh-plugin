@@ -2,6 +2,50 @@
 
 ## [Unreleased]
 
+## [0.1.0-beta.1](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-suite-delta-v0.1.0-beta.1) - 2026-11-03
+
+### 新增
+
+- 为 Code Worker 增加原生插件配置界面，支持 GitHub 多账号、工作区、执行权限及语言服务器设置。
+- Delta UI 复用 Harness 上下文计量、原生压缩命令与跨会话引用入口。
+- 本地 SQLite 长期记忆、全局／项目／会话范围、来源追溯、记忆编辑删除与 JSON 备份导入。
+- Agent 按需记忆搜索和授权写入、FTS5 检索与中文子字符串匹配。
+- Delta Suite 在本地 Python ddgs 兜底不可用时，按需检测缺少 Python 或 ddgs 的情况，并在搜索失败提示中提供安装指引。
+- 集成自定义搜索优先、公共 SearXNG 节点其次、Python ddgs 最终兜底的搜索调度。
+- 三个公共 SearXNG 搜索源及失败冷却、响应上限和自定义搜索回退授权控制。
+- 记忆备份恢复、重复导入和决策冲突的回归测试。
+- Delta UI 支持有限多查询深度检索、去重排序和部分结果保留。
+- Delta 套件技能管理支持从 GitHub 链接或 ZIP 文件安全预览 SKILL.md，需用户审核后确认创建，不会直接执行外部脚本。
+- Delta 自建技能更新时保留最近十个历史版本，支持查看版本历史与恢复。
+- Delta Suite 集成 Harness 原生技能目录，展示技能来源、提供方及状态诊断。
+- 在 Delta 套件设置页管理 Delta 自建用户技能，支持创建、编辑、启用、禁用、删除及 SKILL.md 导入预览；宿主、项目与第三方技能保持只读。
+
+### 变更
+
+- DeepSeek 自带模型默认显示；Delta 配置改为默认关闭的“关闭 DeepSeek 自带模型”开关，避免旧版选项语义反转。
+- 增加头像事件隔离、设置导航文案及模型默认显示的回归检查。
+- Agent 自动写入默认关闭，服务端拒绝未启用时的自动保存。
+- 不新增安装界面、不自动安装依赖，沿用自定义 Provider、公共搜索节点和 ddgs 的搜索优先级。
+- 开启 SQLite secure_delete，增强本地删除记录的数据残留保护。
+- 扩展搜索结果数量并增加本地 Python 搜索依赖检测。
+- [breaking, migration] 将 Delta UI 更名为 Delta Suite（Delta 套件），统一 npm 包名及发布标识，并单独改用 MIT 许可证；升级需要安装新包，历史版本保留。
+
+### 修复
+
+- GitHub 凭据不在配置页面回显，配置保存保留已有令牌并限制敏感字段的读取。
+- 将侧栏账户头像调整为仅展示，保留设置及登录/退出登录按钮的独立交互与宿主确认流程。
+- 将设置导航中的“账户与余额”改为“账户详情”，兼容嵌套文本节点而不破坏原有图标及事件。
+- 过期与冲突决策过滤，阻断常见密钥、密码与私钥存储。
+- 深度研究支持长文章分段、来源引用及跨来源重复内容标记，避免把相同文字误称为独立核实。
+- Delta 长期记忆备份超过单次导入限制时，浏览器自动按 200 条及请求大小分批恢复。
+- 导入旧记忆时保留现有有效的同名概念决策，避免备份回滚覆盖新记录。
+- 修正联网搜索设置中的过期搜索引擎说明。
+
+### 安全
+
+- [security] 限制远程来源、压缩包体积及内容解析，拒绝路径穿越、符号链接与压缩异常数据。
+- [security] 技能文件操作限定于受控用户目录，防止覆盖现有非 Delta 管理的技能。
+
 ## [0.1.0-beta.2](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-code-worker-v0.1.0-beta.2) - 2026-11-02
 
 ### 变更
@@ -172,6 +216,7 @@
 - 三个发布清单（`projects/*/release.manifest.json`）的 `builds[].target` 由 `windows-x64` 改为合法 rustup target triple `x86_64-pc-windows-msvc`，修复 Action Worker 直接把它传给 `rustup toolchain install --target` 时下载 `rust-std` 失败导致的发布构建中断。
 - 打包产物现在始终包含 `package.json`（与 `npm pack` 行为一致），此前注入的发布版本只存在于工作区、不会出现在 zip 中，产物因此没有版本信息。
 - `scripts/build-release.ps1` 解析包管理器时把 `Get-Command` 的多个匹配结果当作单个路径，导致发布构建直接失败（`The term 'C:\hostedtoolcache\...\npm.cmd C:\Program Files\nodejs\npm.cmd' is not recognized`）。Windows runner 的 `npm.cmd` 同时存在于 hosted toolcache 与 `C:\Program Files\nodejs`，`$found.Source` 因此是数组，传给调用运算符后被拼成 `"<路径> <路径>"`；现改为逐个候选解析成唯一真实文件路径。
+
 
 
 
