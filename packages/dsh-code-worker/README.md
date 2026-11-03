@@ -9,7 +9,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 | `code_multi_edit` | 在工作区内逐项批量修改文件（非跨文件事务）：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
-| `code_workflow_route` | 按任务类型、风险和规模确定执行路径，只推荐宿主已具备的能力，不自动启动 Agent。 |
+| `code_workflow_route` | 在中大型任务中按类型、风险和规模选择轻量或完整开发路径；纯只读，不启动 Agent。 |
 | `code_project_profile` | 只读检测项目技术栈、规则文件和项目现有测试脚本；不加载大段源码。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
 
@@ -121,7 +121,7 @@ github:
 | --- | --- |
 | `code_workspace_map` | 用查询关键词对 Git 已跟踪的文件排序，只返回有限数量的文件名，避免整仓库占用上下文 |
 | `code_git_worktree` | 查看工作树或为新任务创建隔离工作树和功能分支 |
-| `code_verify` | 通过宿主子进程运行 Node 声明的脚本或 Rust、Go、Python 的固定验证命令，返回实际退出码和有界输出 |
+| `code_verify` | 在 Harness 子进程服务中运行项目声明的测试、检查、构建脚本并返回有界证据 |
 
 写入和执行操作需要在用户 Profile 中分别显式启用，默认为关闭：
 
@@ -131,9 +131,7 @@ execution:
   allowCommands: false
 ```
 
-启用 `allowCommands` 后，Node 项目只允许调用 `package.json` 中已声明的 `test/typecheck/build/lint/check` 脚本；Rust 使用 `cargo test/check/build/clippy`，Go 使用 `go test/vet/build`，Python 使用已安装的 `pytest/mypy/ruff/build` 或标准库 `compileall`。所有命令通过 DSH 原生子进程服务执行，传入固定参数而非任意 Shell 片段；不自动下载依赖。缺少工具链或测试失败时，如实报告失败。Go 的 `typecheck` 只编译、不运行测试，Python 的 `check` 是语法编译检查（会生成缓存），不等于静态类型检查。运行项目代码有副作用风险，仅对可信工作区开启。
-
-`code_verify` 默认 `ecosystem: auto`；单项目目录自动识别，混合语言根目录明确报错，需指定 `ecosystem` 或使用 `cwd` 进入子项目。单次执行默认超时 120 秒，可在 10–600 秒之间配置，输出上限约 32 KiB。宿主没有子进程服务时拒绝执行，不进行无权限回退。
+启用 `allowCommands` 后，仅可调用上述允许的脚本类型：Node 运行项目已声明的脚本，Rust/Python/Go 运行固定命令预设。运行项目脚本可能执行该仓库中的任意代码，应仅对可信工作区开启。没有 Harness 子进程服务时，这两项高权限工具拒绝执行，不绕过宿主执行能力与审批边界。
 
 ## 原生图形配置页面
 
@@ -144,13 +142,55 @@ execution:
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
 
 
+## 编程请求自动加载
+
+**安装并启用一次即可**：通过 DSH「插件」将 Code Worker 加入当前使用的 Profile。DSH 在该 Profile 启动时加载插件，注册工具和原生 Skills；不是在每条消息到来时下载安装插件。未安装、未启用或未选中该 Profile 时，插件无法自行激活。
+
+启用后，配置项 `autoRouting: true`（默认开启）使用 DSH 原生的 `agent/inbox/claimed` 与 `systemPrompt.context`：只识别用户亲自发送的编程请求，在当前 Agent 的上下文中自动加入**一个**最相关的编程流程。不需要手动输入技能名称、启动第二个 Agent 或调用额外模型做分类。
+
+- CI/PR 红叉自动进入 `code-ci-repair`；Debug 进入根因定位；代码审查进入 review；小范围修改走快速路径；功能开发走完整路径。
+- 简短的「继续」继承该 Agent 上一次编程任务；普通聊天或明确说「不要使用 Code Worker」会清除自动选择。
+- 路由只影响指导内容，不扩大文件、命令或 GitHub 权限。执行脚本仍需明确打开 `execution.allowCommands`。
+- 可以在 DSH「插件 → Code Worker → 配置」将 `autoRouting` 改成 `false`，保留工具与 Skills 手动使用。
+- 若所用 DSH 版本没有上述原生事件或动态上下文接口，插件不会伪称已经自动路由；回退为原有工具、Skills 与系统提示指引。
+
+这不是强制的对话分类器。判断基于高置信度编程意图，不会因为用户提及 Python、Rust 或 GitHub，就把普通科普问题变成编码任务。模型仍须遵循用户目标与工作区规则。
+
+### 自动路由配置
+
+```yaml
+- id: dsh-code-worker
+  name: '@fongap-labs/dsh-code-worker'
+  config:
+    enabled: true
+    autoRouting: true
+    execution:
+      allowCommands: false
+      allowWorktreeWrites: false
+```
+
+## 多语言工程验证
+
+`code_verify` 支持可选 `timeoutMs`（10–600 秒，默认 120 秒）；Rust 检测到 `Cargo.lock` 时，为 test/check/build 添加 `--locked`；Go 的 `typecheck` 只编译测试包而不运行测试；Python 的 build 使用已安装的 `python -m build`。这些均需要宿主授权和已安装的工具链。
+
+`code_verify` 的 `script` 保持 `test / typecheck / build / lint / check`，新增可选 `project: auto / node / rust / python / go`。默认 `auto` 只在同一目录检测到唯一工程类型时执行；混合工程必须显式指定 `project` 或使用 `cwd` 切到子项目。无法检测或没有安全预设时明确报错。
+
+| 工程类型 | 测试 | 类型/静态检查 | 构建 |
+| --- | --- | --- | --- |
+| Node | `package.json` 已声明的脚本 | `typecheck/lint/check` 已声明的脚本 | `build` 已声明的脚本 |
+| Rust | `cargo test` | `cargo check`、`cargo clippy` | `cargo build` |
+| Python | `python -m pytest` | `python -m mypy`、`python -m ruff`、`compileall` | `python -m build`（需要已安装 build 包） |
+| Go | `go test ./...` | `go vet ./...` | `go build ./...` |
+
+验证始终通过 Host 子进程服务，`execution.allowCommands` 默认关闭。项目构建、测试命令本身可能执行不可信源码，只在可信工作区启用。若语言工具链、pytest/mypy/ruff 等缺失，返回实际失败，不自动下载或安装依赖，也不把失败当作通过。
+
 ## 内置端到端 Coding 工作流
 
 本插件通过 DSH 原生 `ctx.skills.register` 挂载 **21 个按需调用的技能**。这不是另一个 Agent Runtime：DSH 负责执行、会话、权限、子 Agent、Workflow、LSP、终端与 Skills 加载；Code Worker 提供工程方法、项目预检、Git/GitHub 集成及验证门禁指引。无需另行安装 Superpowers 或其他 Coding Skill 插件。
 
 **按任务选择路径，而不是所有任务都跑完整流程：**
 
-`code_workflow_route` 为中大型任务提供可测试的确定性路由：输入任务类型、范围、风险和是否已确认 DSH 原生子 Agent 可用，输出技能顺序、并行候选与必须核实的证据。小修改直接使用 `code-fast-change`，无需为一次简单编辑多调用路由工具。此工具本身只读，不执行操作或绕过审批。
+`code_workflow_route` 可在中大型任务中根据任务类型、风险、变更规模、经确认的原生子 Agent 能力给出确定性的技能顺序和验证要求。它与默认自动路由互补，不替代 DSH 的 Agent 调度，也不强制小改动增加工具调用。
 
 | 任务类型 | 工作路径 |
 | --- | --- |
@@ -173,5 +213,5 @@ execution:
 - `code_multi_edit` 是逐文件、逐项执行，**没有跨文件事务回滚**，单次返回结果不能替代检查最终 diff。
 - 技能是按需加载的操作指导；不能仅凭安装保证自动执行完整流程、拥有某个原生 Agent 能力，或宣称未实际跑过的测试通过。
 
-**参考项目与取舍：** [GSD](https://github.com/gsd-build/get-shit-done)（按依赖分批与上下文隔离）、[OpenSpec](https://github.com/Fission-AI/OpenSpec)（可验收的变更规格）、[BMAD](https://github.com/bmad-code-org/BMAD-METHOD)（按复杂度调节交付流程）、[Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin)（多视角审查与复盘）、[gstack](https://github.com/garrytan/gstack)（角色化审查）；以及 [Superpowers](https://github.com/obra/superpowers)（端到端流程与 TDD）、[Aider Repo Map](https://aider.chat/docs/repomap.html)（聚焦上下文）、[OpenCode](https://opencode.ai/docs/skills)（Skills 按需加载及原生权限）、[SWE-agent](https://github.com/SWE-agent/SWE-agent)（工具反馈与真实验证）、[Anthropic Skills](https://github.com/anthropics/skills)（渐进披露）。借鉴公开方法而非复制这些项目的 Runtime、依赖或原文。
+**参考项目与取舍：** [Superpowers](https://github.com/obra/superpowers)（端到端流程与 TDD）、[Aider Repo Map](https://aider.chat/docs/repomap.html)（聚焦上下文）、[OpenCode](https://opencode.ai/docs/skills)（Skills 按需加载及原生权限）、[SWE-agent](https://github.com/SWE-agent/SWE-agent)（工具反馈与真实验证）、[Anthropic Skills](https://github.com/anthropics/skills)（渐进披露）。另按需吸收 [GSD Core](https://github.com/open-gsd/gsd-core) 的依赖执行波次与断点恢复、[OpenSpec](https://github.com/Fission-AI/OpenSpec) 的行为变更规格、[Compound Engineering](https://github.com/EveryInc/compound-engineering-plugin) 的多视角审查和知识反馈、[BMAD](https://github.com/bmad-code-org/BMAD-METHOD) 的流程规模适配。这些都基于 DSH 原生任务、Skills 与 Agent 实现；不额外安装框架，也不新增独立状态账本。借鉴公开方法而非复制这些项目的 Runtime、依赖或原文。
 

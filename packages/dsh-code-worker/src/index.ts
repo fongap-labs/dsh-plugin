@@ -18,6 +18,7 @@ import { createGitHubTools } from './tools/github.js'
 import { createProjectProfileTool } from './tools/profile.js'
 import { createWorkflowRouteTool } from './workflow-route.js'
 import { registerCodingSkills } from './skills.js'
+import { registerAutomaticCodingRouter } from './auto-routing.js'
 
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 const PROMPT_SECTION_NAME = 'dsh-code-worker:guidance'
@@ -55,6 +56,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   }
   register()
   cleanup.push(registerCodingSkills(ctx))
+  cleanup.push(registerAutomaticCodingRouter(ctx, () => settings))
 
   ctx.inject(['systemPrompt'], (child) => {
     try {

@@ -21,6 +21,7 @@ const Server = Schema.object({
 // Schemastery / cosmokit types through the generated declaration.
 export const Config: Schema<Record<string, unknown>> = Schema.object({
   enabled: Schema.boolean().default(true).volatile(),
+  autoRouting: Schema.boolean().default(true).volatile(),
   workspaceRoot: Schema.string().default('').volatile(),
   git: Schema.object({
     enabled: Schema.boolean().default(true),

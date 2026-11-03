@@ -18,7 +18,7 @@ export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
   'Start coding tasks with code_project_profile to identify project rules, stack and verification commands. Read applicable AGENTS.md / CLAUDE.md with the Host file reader.',
   'Use native Harness search, editor, terminal, LSP, Skills, subagents and task tracking rather than duplicating them.',
-  'For nontrivial coding work, use code_workflow_route to select a lean verified path, then load the matching native code-* skills (especially code-workflow). A tiny clear edit uses code-fast-change directly; do not force long planning rituals.',
+  'When autoRouting is enabled, coding requests select a procedure automatically. For substantial tasks use the read-only code_workflow_route to refine risk and scope; load other native code-* Skills only as needed. Keep small changes lightweight.',
   'Use code_workspace_map for compact tracked-file discovery and code_multi_edit only for carefully scoped batch edits.',
   'Check code_git_status and code_git_diff around edits; preserve unrelated user changes.',
   'Use code_verify for explicit project scripts only if execution is enabled. Report actual evidence and never represent unrun checks as passes.',
@@ -83,6 +83,7 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
     Array.isArray(lsp.servers) && lsp.servers.length > 0 ? lsp.servers : DEFAULT_LSP_SERVERS
   return {
     enabled: cfg.enabled !== false,
+    autoRoutingEnabled: cfg.autoRouting !== false,
     workspaceRoot: typeof cfg.workspaceRoot === 'string' ? cfg.workspaceRoot.trim() : '',
     gitEnabled: git.enabled !== false,
     gitCommand:

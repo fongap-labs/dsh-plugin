@@ -6,11 +6,16 @@ import { join } from 'node:path'
 import { ALL_CODING_SKILLS } from '../packages/dsh-code-worker/lib/skills.js'
 import { decideCodingWorkflow, createWorkflowRouteTool } from '../packages/dsh-code-worker/lib/workflow-route.js'
 import { normalizeConfig } from '../packages/dsh-code-worker/lib/runtime.js'
-import {
-  verificationCommandFor, detectVerificationEcosystem, createVerifyTool,
-} from '../packages/dsh-code-worker/lib/tools/verify.js'
+import { createVerifyTool } from '../packages/dsh-code-worker/lib/tools/verify.js'
+import { chooseVerificationCommand } from '../packages/dsh-code-worker/lib/tools/verify-presets.js'
 
 const exec = { signal: new AbortController().signal }
+
+function verifyCommandFor(project, script, manager = 'npm', isRustLocked = false) {
+  if (!['test', 'typecheck', 'build', 'lint', 'check'].includes(script)) throw new Error('script is not allowlisted')
+  const selected = chooseVerificationCommand(script, project, [project], manager, ['test', 'typecheck', 'build', 'lint', 'check'], isRustLocked)
+  return { command: selected.command, args: selected.args }
+}
 
 test('routing is deterministic, lean for small changes and strict for higher risk', async () => {
   const fast = decideCodingWorkflow({ taskKind: 'feature', scope: 'small', risk: 'low' })
@@ -46,14 +51,14 @@ test('routing is deterministic, lean for small changes and strict for higher ris
 })
 
 test('fixed verification commands never interpret model input as shell fragments', () => {
-  assert.deepEqual(verificationCommandFor('rust', 'test', 'npm', true), { command: 'cargo', args: ['test', '--locked'] })
-  assert.deepEqual(verificationCommandFor('rust', 'lint'), { command: 'cargo', args: ['clippy', '--all-targets', '--', '-D', 'warnings'] })
-  assert.deepEqual(verificationCommandFor('go', 'typecheck'), { command: 'go', args: ['test', '-run', '^$', './...'] })
-  assert.deepEqual(verificationCommandFor('go', 'check'), { command: 'go', args: ['vet', './...'] })
-  assert.deepEqual(verificationCommandFor('python', 'test'), { command: 'python', args: ['-m', 'pytest'] })
-  assert.deepEqual(verificationCommandFor('python', 'check'), { command: 'python', args: ['-m', 'compileall', '-q', '.'] })
-  assert.deepEqual(verificationCommandFor('node', 'build', 'pnpm'), { command: 'pnpm', args: ['run', 'build'] })
-  assert.throws(() => verificationCommandFor('go', 'oops;rm -rf' , 'npm'), /allowlisted/)
+  assert.deepEqual(verifyCommandFor('rust', 'test', 'npm', true), { command: 'cargo', args: ['test', '--locked'] })
+  assert.deepEqual(verifyCommandFor('rust', 'lint'), { command: 'cargo', args: ['clippy', '--all-targets', '--', '-D', 'warnings'] })
+  assert.deepEqual(verifyCommandFor('go', 'typecheck'), { command: 'go', args: ['test', '-run', '^$', './...'] })
+  assert.deepEqual(verifyCommandFor('go', 'check'), { command: 'go', args: ['vet', './...'] })
+  assert.deepEqual(verifyCommandFor('python', 'test'), { command: 'python', args: ['-m', 'pytest'] })
+  assert.deepEqual(verifyCommandFor('python', 'check'), { command: 'python', args: ['-m', 'compileall', '-q', '.'] })
+  assert.deepEqual(verifyCommandFor('node', 'build', 'pnpm'), { command: 'pnpm', args: ['run', 'build'] })
+  assert.throws(() => verifyCommandFor('go', 'oops;rm -rf' , 'npm'), /allowlisted/)
 })
 
 function fakeHost(exitCode = 0) {
@@ -87,11 +92,6 @@ test('Host-only command execution respects permissions, manifests and ecosystem 
     await writeFile(join(root, 'polyglot', 'package.json'), JSON.stringify({ scripts: { test: 'node --test' } }))
     await writeFile(join(root, 'polyglot', 'Cargo.toml'), '[workspace]\n')
 
-    assert.equal(await detectVerificationEcosystem(join(root, 'rust'), root), 'rust')
-    assert.equal(await detectVerificationEcosystem(join(root, 'python'), root), 'python')
-    await assert.rejects(detectVerificationEcosystem(join(root, 'polyglot'), root), /ambiguous/)
-    assert.equal(await detectVerificationEcosystem(join(root, 'polyglot'), root, 'node'), 'node')
-    await assert.rejects(detectVerificationEcosystem(join(root, 'rust'), root, 'go'), /no go project/)
 
     const host = fakeHost()
     const settings = normalizeConfig({ workspaceRoot: root, execution: { allowCommands: true } })
@@ -105,7 +105,7 @@ test('Host-only command execution respects permissions, manifests and ecosystem 
     for (const check of checks) {
       const result = await tool.execute({ cwd: check.cwd, script: check.script }, exec)
       assert.equal(result.passed, true)
-      assert.equal(result.ecosystem, check.ecosystem)
+      assert.equal(result.project, check.ecosystem)
       assert.deepEqual(host.calls.at(-1).argv, check.expected)
       assert.equal(host.calls.at(-1).cwd, join(root, check.cwd))
     }

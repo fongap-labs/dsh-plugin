@@ -63,6 +63,7 @@ export interface GitHubAccountConfig {
 /** Plugin configuration as accepted from the Cordis patch file. */
 export interface CodeWorkerConfig {
   enabled?: boolean
+  autoRouting?: boolean
   workspaceRoot?: string
   git?: {
     enabled?: boolean
@@ -86,6 +87,7 @@ export interface CodeWorkerConfig {
 /** Normalized settings with every default resolved. */
 export interface Settings {
   enabled: boolean
+  autoRoutingEnabled: boolean
   workspaceRoot: string
   gitEnabled: boolean
   gitCommand: string
