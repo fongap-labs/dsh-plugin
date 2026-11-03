@@ -8,11 +8,11 @@ export type CodingRoute = 'code-ci-repair' | 'code-root-cause-debugging' | 'code
 const CONTINUE = /^(?:继续|接着|继续做|继续执行|继续修|go on|continue|proceed|keep going)[。.!！\s]*$/i
 const OPT_OUT = /(?:不要|别|停止|关闭|禁用)(?:使用|加载|启用)?\s*(?:code[\s-]?worker|编程模式|coding\s*mode)|(?:disable|don't use|do not use)\s+(?:code[\s-]?worker|coding\s*mode)/i
 const CODE_OBJECT = /(?:代码|源码|编程|程序|脚本|仓库|项目|插件|组件|接口|函数|模块|依赖|单元测试|构建|编译|部署|工作流|工单|PR\b|CI\b|GitHub|TypeScript|JavaScript|Python|Rust|Cargo|Go\b|React|Vue|API\b|bug\b|repo(?:sitory)?\b|code\b|test(?:s|ing)?\b|workflow\b|commit\b|pull request\b|\.tsx?\b|\.jsx?\b|\.py\b|\.rs\b|\.go\b)/i
-const CODE_ACTION = /(?:修复|修正|改进|改造|实现|开发|编写|写一个|添加|新增|增加|删除|重构|优化|升级|审查|排查|调试|检测|测试|检查|合并|提交|运行|搭建|集成|落地|补齐|完善|处理|复现|定位|设计|规划|扫描|分析|评估|fix\b|implement\b|build\b|code\b|debug\b|refactor\b|review\b|test\b|run\b|add\b|remove\b|update\b|integrate\b|create\b)/i
+const CODE_ACTION = /(?:修复|修正|修改|改进|改造|实现|开发|编写|写一个|添加|新增|增加|删除|重构|优化|升级|审查|排查|调试|检测|测试|检查|合并|提交|运行|搭建|集成|落地|补齐|完善|处理|复现|定位|设计|规划|扫描|分析|评估|fix\b|implement\b|build\b|code\b|debug\b|refactor\b|review\b|test\b|run\b|add\b|remove\b|update\b|integrate\b|create\b)/i
 const CI_FAILURE = /(?:CI\b|PR\b|GitHub|actions?|workflow|工作流|检查|构建).{0,28}(?:红叉|失败|报错|不通过|failed|failure|error|red\b)|(?:红叉|失败|报错|不通过|failed|failure).{0,28}(?:CI\b|PR\b|checks?|workflow|工作流)/i
 const DEBUG = /(?:bug|错误|异常|报错|崩溃|失败|无法|不工作|闪退|失效|回归|修复|定位|排查|debug|broken|crash|failing|fix)/i
 const REVIEW = /(?:审查|审计|code\s*review|review\b|安全检查|检查\s*(?:diff|PR|代码))|(?:评审|分析).{0,12}(?:PR|diff|源码|代码)/i
-const PLAN = /(?:设计方案|架构设计|实施方案|施工方案|技术方案|规划|制定计划|design\s+(?:a|the)\s+(?:system|architecture)|write\s+(?:an?\s+)?plan)/i
+const PLAN = /(?:设计方案|架构设计|架构方案|实施方案|施工方案|技术方案|规划|制定计划|design\s+(?:a|the)\s+(?:system|architecture)|write\s+(?:an?\s+)?plan)/i
 const SMALL = /(?:只|仅|就|简单|小改|微调|一处|单个|一行|改名|重命名|文案|typo|small|tiny|single|one.line|rename)/i
 
 /**
