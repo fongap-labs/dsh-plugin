@@ -77,14 +77,14 @@ function validation(draft: Draft, value: any): string | undefined {
   const owners = new Set<string>()
   for (const account of draft.accounts) {
     const owner = account.owner.trim().toLowerCase()
-    if (!OWNER.test(owner)) return 'GitHub owner 必须是有效的用户名或组织名。'
+    if (!OWNER.test(owner)) return 'GitHub owner must be a valid username or organization.'
     if (owners.has(owner)) return 'GitHub owner 不允许重复：' + owner
     owners.add(owner)
     const old = account.sourceIndex >= 0 ? value?.github?.accounts?.[account.sourceIndex] : undefined
     const hasOldSecret = !!old && !old.tokenEnv // read-only projection never includes token
     if (account.token && account.tokenEnv) return owner + '：Token 和环境变量只能填写一个。'
     if (!account.token && !account.tokenEnv && !hasOldSecret) return owner + '：需要 Token 或 Token 环境变量。'
-    if (account.tokenEnv && !ENV.test(account.tokenEnv)) return owner + '：环境变量格式不正确。'
+    if (account.tokenEnv && !ENV.test(account.tokenEnv)) return owner + ': invalid token environment variable name.'
   }
   if (!draft.gitCommand.trim()) return 'Git 命令不能为空。'
   for (const server of draft.servers) {
