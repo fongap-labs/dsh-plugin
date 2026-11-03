@@ -92,6 +92,12 @@ Delta 仅管理用户 DSH 目录 `$DSH_HOME/skills`（默认 `~/.dsh/skills`）�
 
 操作限制：名称必须为 kebab-case；描述不得换行；单条正文最多 128 KB。只允许编辑带 Delta 所有权标记的普通文件，拒绝符号链接、覆写现有同名技能和无效操作。外部 SKILL.md 的资源引用、附带脚本和资产不会被安装；不承诺从 GitHub/ZIP 自动安装或自动更新。
 
+## 技能管理扩展：安全导入与回滚
+
+在「设置 → Delta 套件 → 技能管理」可粘贴公开 GitHub 仓库根目录、树目录或 `SKILL.md` 文件的链接，也可以选择本地 ZIP。两种方式只提取并**预览**唯一的 `SKILL.md`，填入待审核表单；必须再次手动点击「创建技能」，不会自动运行脚本或安装 ZIP 内其他资产。GitHub 只接受 `github.com`、`raw.githubusercontent.com` 的 HTTPS 地址，不允许鉴权信息、端口或重定向；浏览器与服务端均限制导入大小。ZIP 最大 2 MB，仅接收一个 `SKILL.md`，拒绝路径穿越、符号链接及异常压缩数据。
+
+Delta 管理技能更新前会保存上一版，最多保留最近 10 个历史版本；可在技能操作栏点击「版本历史」选择恢复，恢复前还会备份当前版本。历史位于 `$DSH_HOME/skills/.delta-skill-history/`，不会复制宿主、项目或第三方技能，且不会执行内容。技能删除目前不自动删除历史快照；它们不会参与 Harness 的技能发现。GitHub 与 ZIP 导入仅支持单个 Markdown 指令文件，不含其引用的 scripts、assets 或 requirements，也不提供自动远程版本检查。
+
 ## 许可证与迁移
 
 本插件现使用 [MIT 许可证](LICENSE)，不同于仓库其他包的 Apache-2.0 默认许可证。安装新包 `@fongap-labs/dsh-suite-delta` 前请卸载旧包 `@fongap-labs/dsh-ui-delta`，避免两个插件同时启用。旧 GitHub Release 及其历史标签保留，用于回滚和追溯。配置存储位置、现有 `/dsh-ui-delta/` HTTP 路由、Provider ID 等内部兼容标识暂不调整，以免迁移时丢失数据或破坏已有设置。
