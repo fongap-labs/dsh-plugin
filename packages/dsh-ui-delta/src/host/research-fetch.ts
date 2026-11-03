@@ -97,9 +97,9 @@ function publishedDate(html: string): string | undefined {
     ? value.slice(0, 35) : undefined
 }
 export function extractReadablePage(
-  html: string, kind: 'html' | 'text', limit = 6000
+  html: string, kind: 'html' | 'text', limit = 80_000
 ): { title?: string; text: string; publishedAt?: string } {
-  const cap = Math.max(100, Math.min(12_000, limit))
+  const cap = Math.max(100, Math.min(100_000, limit))
   if (kind === 'text') return { text: html.replace(/\s+/g, ' ').trim().slice(0, cap) }
   const rawTitle = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1]
   const title = rawTitle ? decodeEntities(rawTitle.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim().slice(0, 300) : undefined
@@ -108,7 +108,7 @@ export function extractReadablePage(
   const chosen = article && article.length > 200 ? article : html
   const text = decodeEntities(chosen
     .replace(/<!--[\s\S]*?-->/g, ' ')
-    .replace(/<(?:script|style|noscript|svg|template|form|nav|footer|header)\b[^>]*>[\s\S]*?<\/(?:script|style|noscript|svg|template|form|nav|footer|header)\s*>/gi, ' ')
+    .replace(/<(?:script|style|noscript|svg|template|form|nav|footer|header|aside|iframe|button|dialog)\b[^>]*>[\s\S]*?<\/(?:script|style|noscript|svg|template|form|nav|footer|header)\s*>/gi, ' ')
     .replace(/<\/(?:p|h[1-6]|div|li|tr|section|br)\s*>/gi, '\n')
     .replace(/<[^>]*>/g, ' ')
   ).replace(/[ \t]+/g, ' ').replace(/\n[\s\n]+/g, '\n').trim().slice(0, cap)
@@ -123,7 +123,7 @@ export async function collectEvidence(
   const evidence: Evidence[] = []
   const failures: string[] = []
   if (!fetchPage) return { evidence, failures: ['Host Web Fetch service is not available'] }
-  for (const row of rows.slice(0, Math.min(5, Math.max(0, maxPages)))) {
+  for (const row of rows.slice(0, Math.min(8, Math.max(0, maxPages)))) {
     signal?.throwIfAborted()
     try {
       const url = await validate(row.url)
@@ -142,7 +142,7 @@ export async function collectEvidence(
         url: finalUrl,
         title: page.title || row.title,
         excerpt: page.text,
-        truncated: response.truncated || page.text.length >= 6000,
+        truncated: response.truncated || page.text.length >= 80_000,
         ...(page.publishedAt ? { publishedAt: page.publishedAt } : {}),
       })
     } catch (error) {
