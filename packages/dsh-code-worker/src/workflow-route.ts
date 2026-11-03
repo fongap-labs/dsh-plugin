@@ -105,6 +105,6 @@ export function createWorkflowRouteTool(): ToolDefinition {
         ...value.stopConditions.map(line => 'Stop: ' + line),
       ].join('\n') }]
     } },
-    execute: async (args) => decideCodingWorkflow(args),
+    execute: async (args) => decideCodingWorkflow(args as RouteInput),
   })
 }
