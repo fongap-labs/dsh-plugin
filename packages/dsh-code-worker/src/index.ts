@@ -23,27 +23,27 @@ export const inject = ['tools']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   let settings = normalizeConfig(config)
-  const disposers: Array<() => void> = []
+  const toolDisposers: Array<() => void> = []
+  const promptDisposers: Array<() => void> = []
   const cleanup: Array<() => void> = []
 
   const register = () => {
-  for (const tool of createTools(ctx, settings)) {
+    for (const tool of createTools(ctx, settings)) {
     const result = registerTool(ctx, tool)
     if (result.registered && typeof result.disposer === 'function') {
-      disposers.push(result.disposer)
+      toolDisposers.push(result.disposer)
     } else if (result.error) {
       ctx.logger?.warn?.(
         `dsh-code-worker: tool "${tool.name}" was not registered: ${result.error.message}`,
       )
     }
-  }
-
+    }
   }
   // Hot changes replace tool definitions; unload the old registrations first.
   // Snapshot the configuration for each tool generation.
   if (typeof (ctx as any).on === 'function') {
     const unsubscribe = (ctx as any).on('loader/volatile-update', () => {
-      for (const disposer of disposers.splice(0)) { try { disposer() } catch {} }
+      for (const disposer of toolDisposers.splice(0)) { try { disposer() } catch {} }
       settings = normalizeConfig(config)
       register()
     })
@@ -60,7 +60,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
         order: Number.isFinite(order) ? (order as number) : 1300,
         text: settings.systemPromptText || DEFAULT_GUIDANCE,
       })
-      if (typeof disposer === 'function') disposers.push(disposer)
+      if (typeof disposer === 'function') promptDisposers.push(disposer)
     } catch (error) {
       ctx.logger?.warn?.(
         `dsh-code-worker: failed to register system prompt section: ${errorMessage(error)}`,
@@ -70,9 +70,12 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
 
   return () => {
     for (const dispose of cleanup) { try { dispose() } catch {} }
-    for (let i = disposers.length - 1; i >= 0; i -= 1) {
+    for (let i = promptDisposers.length - 1; i >= 0; i -= 1) {
+      try { promptDisposers[i]!() } catch {}
+    }
+    for (let i = toolDisposers.length - 1; i >= 0; i -= 1) {
       try {
-        disposers[i]!()
+        toolDisposers[i]!()
       } catch {
         /* best-effort cleanup */
       }
