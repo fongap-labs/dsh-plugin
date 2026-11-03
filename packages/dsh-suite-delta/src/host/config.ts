@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -83,6 +83,23 @@ const CONFIG_DIR = join(homedir(), '.dsh-ui-delta')
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json')
 const memoryKeys = new Map<string, string>()
 
+/**
+ * A config file that cannot be parsed must never be overwritten in place: the
+ * next write would drop every setting, including DPAPI-sealed API keys. Move
+ * the broken file aside so it stays inspectable, then continue from empty.
+ */
+const preserveUnreadableConfig = (): void => {
+  try {
+    if (!existsSync(CONFIG_FILE)) return
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const backup = join(CONFIG_DIR, `config.json.unreadable-${stamp}`)
+    renameSync(CONFIG_FILE, backup)
+    console.warn(`[dsh-ui-delta] unreadable config file preserved as ${backup}`)
+  } catch (error) {
+    console.warn('[dsh-ui-delta] unreadable config file could not be preserved:', error)
+  }
+}
+
 export const readConfig = (): ConfigFile => {
   try {
     const config: ConfigFile = JSON.parse(readFileSync(CONFIG_FILE, 'utf8')) || {}
@@ -92,18 +109,36 @@ export const readConfig = (): ConfigFile => {
         || legacy?.providers?.[0]?.model || legacy?.model || ''
     }
     return config
-  } catch {
+  } catch (error) {
+    // A missing file is the normal first-run state; only a broken one needs care.
+    const code = (error as NodeJS.ErrnoException).code
+    if (code !== 'ENOENT') preserveUnreadableConfig()
     return {}
   }
 }
 
+/**
+ * Write through a temporary file and rename it into place, so a crash or a
+ * full disk can never leave a half-written config behind.
+ */
 const writeConfig = (config: ConfigFile): void => {
   mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 })
-  writeFileSync(CONFIG_FILE, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+  const temp = `${CONFIG_FILE}.${process.pid}.${Date.now()}.tmp`
   try {
-    chmodSync(CONFIG_FILE, 0o600)
-  } catch {
-    /* filesystem without POSIX modes */
+    writeFileSync(temp, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+    try {
+      chmodSync(temp, 0o600)
+    } catch {
+      /* filesystem without POSIX modes */
+    }
+    renameSync(temp, CONFIG_FILE)
+  } catch (error) {
+    try {
+      if (existsSync(temp)) unlinkSync(temp)
+    } catch {
+      /* best effort cleanup */
+    }
+    throw error
   }
 }
 
