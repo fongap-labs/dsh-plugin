@@ -13,7 +13,7 @@ const validName = (value: unknown): string => {
   if (typeof value !== 'string' || value.length > 80 || !NAME.test(value)) throw new Error('Invalid kebab-case skill name')
   return value
 }
-const pathOf = (name: string, disabled = false) => join(ROOT(), name + (disabled ? '.md.disabled' : '.md'))
+const pathOf = (name: string, isDisabled = false) => join(ROOT(), name + (isDisabled ? '.md.disabled' : '.md'))
 const managedMarker = '# delta-suite-managed: true'
 const metadata = (name: string, description: string, body: string) => {
   if (typeof description !== 'string' || !description.trim() || description.length > 500 || /[\r\n]/.test(description)) throw new Error('Invalid skill description')
