@@ -162,15 +162,15 @@ function installClient(require: (id: string) => unknown) {
     if (props.view === 'summary') return t('编程工具与 GitHub 多账号配置', 'Coding tools and GitHub accounts')
     if (!props.form || state?.status !== 'ready') return hint(t('当前配置尚未由 Host 加载。', 'Host configuration is not available.'))
     const disabled = !state.writable || saving
-    const field = (label: string, value: string, change: (v: string) => void, secret = false, placeholder = '') =>
+    const field = (label: string, value: string, change: (v: string) => void, isSecret = false, placeholder = '') =>
       h('label', { style: { display: 'grid', gap: '5px', fontSize: '13px', minWidth: 0 } },
         h('span', null, label),
-        h('input', { style: inputStyle, type: secret ? 'password' : 'text', value,
-          autoComplete: secret ? 'new-password' : 'off', placeholder, disabled,
+        h('input', { style: inputStyle, type: isSecret ? 'password' : 'text', value,
+          autoComplete: isSecret ? 'new-password' : 'off', placeholder, disabled,
           onChange: (event: any) => change(event.target.value) }))
-    const toggle = (label: string, checked: boolean, change: (v: boolean) => void) =>
+    const toggle = (label: string, isChecked: boolean, change: (v: boolean) => void) =>
       h('label', { style: { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' } },
-        h('input', { type: 'checkbox', checked, disabled, onChange: (e: any) => change(e.target.checked) }), label)
+        h('input', { type: 'checkbox', checked: isChecked, disabled, onChange: (e: any) => change(e.target.checked) }), label)
     const patch = (value: Partial<Draft>) => setDraft(old => ({ ...old, ...value }))
     const updateAccount = (idx: number, prop: keyof Account, value: string) => setDraft(old => ({
       ...old, accounts: old.accounts.map((a, i) => i === idx ? { ...a, [prop]: value } : a),
