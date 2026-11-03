@@ -3631,6 +3631,7 @@ const MODULES: ModuleDef[] = [
             });
             const [memoryForm, setMemoryForm] = React.useState(emptyMemoryForm);
             const [memoryRows, setMemoryRows] = React.useState<LocalMemory[]>([]);
+            const [memoryScopes, setMemoryScopes] = React.useState<Array<{ scope: string; scopeId: string; count: number }>>([]);
             const [memoryQuery, setMemoryQuery] = React.useState('');
             const [memoryScope, setMemoryScope] = React.useState('global');
             const [memoryScopeId, setMemoryScopeId] = React.useState('');
@@ -3651,9 +3652,14 @@ const MODULES: ModuleDef[] = [
               if (memoryQuery.trim()) params.set('q', memoryQuery.trim());
               const result = await requestMemory('?' + params.toString());
               setMemoryRows(Array.isArray(result.items) ? result.items : []);
+              const known = await requestMemory('/scopes');
+              setMemoryScopes(Array.isArray(known.scopes) ? known.scopes : []);
             };
             React.useEffect(() => {
               let alive = true;
+              requestMemory('/scopes').then((data) => {
+                if (alive) setMemoryScopes(Array.isArray(data.scopes) ? data.scopes : []);
+              }).catch(() => {});
               requestMemory('/settings').then((data) => {
                 if (alive && data.settings) setMemorySettings(data.settings);
               }).catch((error) => { if (alive) setMemoryStatus(String(error)); });
@@ -3750,13 +3756,17 @@ const MODULES: ModuleDef[] = [
                     updateMemorySettings('recall', ev.target.checked) }),
                 pick('允许 Agent 按需召回记忆', 'Allow on-demand memory recall by Agent'),
               ]),
+              h('datalist', { key: 'scope-hints', id: 'delta-memory-scope-ids' },
+                memoryScopes.filter(item => item.scope === memoryScope && item.scopeId).map(item =>
+                  h('option', { key: item.scopeId, value: item.scopeId },
+                    item.scopeId + ' (' + item.count + ')'))),
               h('div', { key: 'search', className: 'ens-memory-toolbar' }, [
                 h('select', { key: 'scope', className: 'jrmgQW_input', value: memoryScope,
                   onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) => setMemoryScope(ev.target.value) },
                 ['global','project','session'].map(item =>
                   h('option', { key: item, value: item }, item))),
                 memoryScope !== 'global' ? h('input', { key: 'id', className: 'jrmgQW_input',
-                  placeholder: pick('作用域 ID', 'Scope ID'), value: memoryScopeId,
+                  placeholder: pick('作用域 ID', 'Scope ID'), list: 'delta-memory-scope-ids', value: memoryScopeId,
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setMemoryScopeId(ev.target.value) }) : null,
                 h('input', { key: 'query', className: 'jrmgQW_input', value: memoryQuery,
                   placeholder: pick('搜索已保存的记忆', 'Search saved memories'),
