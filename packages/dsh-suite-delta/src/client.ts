@@ -2081,6 +2081,12 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                   const bonus = balance.bonusWallets?.map(w => formatAccountBalance(w.balance, w.currency)).filter(Boolean) || [];
                   if (recharge.length) walletLines.push(`${t('账户余额', 'Account balance')}: ${recharge.join(' + ')}`);
                   if (bonus.length) walletLines.push(`${t('赠送余额', 'Bonus balance')}: ${bonus.join(' + ')}`);
+                  // Today's consumption is optional: the host account snapshot does not
+                  // always carry it. Show it only when the host exposes a ready value,
+                  // never inventing a zero.
+                  const today = (balance as unknown as { todayConsumption?: { amount?: string | number; currency?: string } | null }).todayConsumption;
+                  const todayText = today ? formatAccountBalance(today.amount, today.currency) : '';
+                  if (todayText) walletLines.push(`${t('今日消费', "Today's usage")}: ${todayText}`);
                 }
               } catch { /* Unavailable balance must never be shown as zero. */ }
               if (walletLines.length) account.setAttribute('data-ens-balance', walletLines.join('\n'));
@@ -2111,6 +2117,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               '新会话': '开始对话',
               '插件': '插件管理',
               ['账户与余额']: '账户详情',
+              ['账号与余额']: '账户详情',
               'Account & Balance': 'Account details',
               'Account and Balance': 'Account details',
               '自动化任务': '定时任务',

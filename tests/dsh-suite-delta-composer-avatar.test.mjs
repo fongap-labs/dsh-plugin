@@ -25,13 +25,13 @@ it('shows only ready balance data and clears stale hints', () => {
   const attributes = new Map()
   const trigger = { removeAttribute() {}, setAttribute: (key, value) => attributes.set('trigger:' + key, value) }
   const account = { removeAttribute: key => attributes.delete(key), setAttribute: (key, value) => attributes.set(key, value), querySelector: () => trigger, querySelectorAll: () => [] }
-  let balance = { status: 'ready', value: [{ balance: '14.36', currency: 'CNY' }], bonusWallets: [{ balance: '0.09', currency: 'CNY' }] }
+  let balance = { status: 'ready', value: [{ balance: '14.36', currency: 'CNY' }], bonusWallets: [{ balance: '0.09', currency: 'CNY' }], todayConsumption: { amount: '1.23', currency: 'CNY' } }
   const context = { document: { querySelector: () => account }, signedIn: () => true, t: text => text,
     launcherOps: () => ({ hooks: { account: { getSnapshot: () => ({ details: { balance } }) } } }) }
   runInNewContext(extract('const formatAccountBalance =', 'const onAvatarActivate =') + ';globalThis.sync = syncBalance;', context)
   context.sync()
   assert.match(attributes.get('data-ens-balance'), /14\.36/)
-  assert.match(attributes.get('data-ens-balance'), /0\.09/)
+  assert.match(attributes.get('data-ens-balance'), /0\.09/); assert.match(attributes.get('data-ens-balance'), /1\.23/)
   balance = { status: 'loading' }
   context.sync()
   assert.equal(attributes.has('data-ens-balance'), false)

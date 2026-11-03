@@ -6,7 +6,7 @@ const src = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', im
 
 describe('Delta account settings and footer regressions', () => {
   it('renames the actual nested account navigation text without replacing its host cell', () => {
-    assert.match(src, /\['账户与余额'\]: '账户详情'/)
+    assert.match(src, /\['账户与余额'\]: '账户详情'/); assert.match(src, /\['账号与余额'\]: '账户详情'/)
     assert.match(src, /document\.createTreeWalker\(el, NodeFilter\.SHOW_TEXT\)/)
     assert.match(src, /node\.nodeValue = \(node\.nodeValue \|\| ''\)\.replace\(value, next\)/)
   })
