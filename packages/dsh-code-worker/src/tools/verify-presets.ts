@@ -27,7 +27,7 @@ const PRESETS: Record<Exclude<VerificationProject, 'auto' | 'node'>, Partial<Rec
     check: ['go', 'vet', './...'],
     lint: ['go', 'vet', './...'],
     build: ['go', 'build', './...'],
-    typecheck: ['go', 'test', '-run', '^
+    typecheck: ['go', 'test', '-run', '^$', './...'],
   },
 }
 
@@ -59,34 +59,4 @@ export function chooseVerificationCommand(
   const args = preset.slice(1)
   if (selected === 'rust' && isRustLocked && script !== 'lint') args.push('--locked')
   return { project: selected, command: preset[0], args }
-}
-, './...'],
-  },
-}
-
-/** Select only a known command: never execute raw model-supplied shell strings. */
-export function chooseVerificationCommand(
-  script: VerificationScript,
-  project: VerificationProject,
-  present: readonly Exclude<VerificationProject, 'auto'>[],
-  manager: 'npm' | 'pnpm' | 'bun' | 'yarn' = 'npm',
-  nodeScripts: readonly string[] = [],
-): VerificationCommand {
-  const discovered = [...new Set(present)]
-  if (project !== 'auto' && !discovered.includes(project)) {
-    throw new Error(project + ' project manifest not found in the selected directory')
-  }
-  if (project === 'auto' && discovered.length !== 1) {
-    throw new Error(discovered.length === 0
-      ? 'no supported project manifest in the selected directory'
-      : 'multiple project types detected; select project=node, rust, python or go explicitly')
-  }
-  const selected = project === 'auto' ? discovered[0]! : project
-  if (selected === 'node') {
-    if (!nodeScripts.includes(script)) throw new Error('package.json does not declare script ' + script)
-    return { project: 'node', command: manager, args: ['run', script] }
-  }
-  const preset = PRESETS[selected]?.[script]
-  if (!preset) throw new Error(selected + ' does not provide a safe preset for ' + script)
-  return { project: selected, command: preset[0], args: preset.slice(1) }
 }
