@@ -178,3 +178,36 @@ export async function checkPythonDdgs(
   if (execute === launchPython) cachedProbe = { until: Date.now() + 60_000, ok: isReady }
   return isReady
 }
+
+/**
+ * Passive dependency check used only for guidance in Delta settings.
+ * Never downloads, installs, or changes a Python environment.
+ */
+export interface DdgsDependencyStatus {
+  state: 'ready' | 'missing-python' | 'missing-ddgs'
+  installCommand?: string
+}
+
+const DEPENDENCY_PROBE = 'import json,sys,importlib.util; print(json.dumps({"supported": sys.version_info >= (3,10), "installed": importlib.util.find_spec("ddgs") is not None}))'
+
+export async function detectDdgsDependencies(): Promise<DdgsDependencyStatus> {
+  let installCommand: string | undefined
+  for (const { command, args } of pythonCandidates()) {
+    try {
+      const probeArgs = [...args]
+      probeArgs[probeArgs.length - 1] = DEPENDENCY_PROBE
+      const result = await launchPython(command, probeArgs, '', AbortSignal.timeout(5_000))
+      if (!result || typeof result !== 'object') continue
+      const { supported, installed } = result as { supported?: boolean; installed?: boolean }
+      if (!supported) continue
+      if (installed) return { state: 'ready' }
+      const quotedCommand = /\s/.test(command) ? JSON.stringify(command) : command
+      installCommand ||= [quotedCommand, ...args.slice(0, -2), '-m', 'pip', 'install', 'ddgs==9.16.1'].join(' ')
+    } catch {
+      // Missing, unsupported, or non-responsive interpreter: try next candidate.
+    }
+  }
+  return installCommand
+    ? { state: 'missing-ddgs', installCommand }
+    : { state: 'missing-python' }
+}
