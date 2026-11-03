@@ -1,0 +1,2 @@
+- 新增: Delta Suite 在本地 Python ddgs 兜底不可用时，按需检测缺少 Python 或 ddgs 的情况，并在搜索失败提示中提供安装指引。
+- 变更: 不新增安装界面、不自动安装依赖，沿用自定义 Provider、公共搜索节点和 ddgs 的搜索优先级。
