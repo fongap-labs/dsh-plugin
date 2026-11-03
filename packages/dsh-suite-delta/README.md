@@ -35,7 +35,7 @@ Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表�
 
 默认搜索依赖宿主进程可调用 Python 3.10+ 和 `ddgs`，并要求 Python 运行环境可访问搜索引擎。Windows 在终端执行 `py -3 -m pip install ddgs==9.16.1`；macOS/Linux 执行 `python3 -m pip install ddgs==9.16.1`。若宿主使用其他 Python 解释器，可设置环境变量 `DSH_DDGS_PYTHON` 为该解释器的完整路径，再重启 Harness。插件不会静默安装第三方依赖，也不会偷偷回退到官方付费搜索。Python 或依赖缺失、网络不可达时，搜索会返回可定位的错误；也可在 Delta 套件中指定独立搜索接口。
 
-Delta Suite 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx.web` 注册一个 Provider。普通对话的自动搜索取决于所选 Agent preset 是否实际加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用 Harness `web-fetch-http` 的安全规则。Exa、Tavily、Brave 等 API 型服务商仍可按各自 Host 提供方或独立接口配置使用，费用与密钥由服务商决定。
+当搜索已回退到本地 `ddgs`、但环境缺少 Python 或 `ddgs` 时，Delta Suite 在搜索失败提示中给出 Python 官网地址或对应系统的 `pip install ddgs==9.16.1` 命令。用户自行安装后，下一次搜索会重新调用本地环境，无需单独配置安装页面，也不会由插件执行安装命令。前面的自定义 Provider 和公共 SearXNG 节点不依赖 Python；仅当搜索失败且错误涉及 `ddgs` 时才按需检查依赖。\n\nDelta Suite 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx.web` 注册一个 Provider。普通对话的自动搜索取决于所选 Agent preset 是否实际加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用 Harness `web-fetch-http` 的安全规则。Exa、Tavily、Brave 等 API 型服务商仍可按各自 Host 提供方或独立接口配置使用，费用与密钥由服务商决定。
 
 ## 搜索质量与深度检索
 

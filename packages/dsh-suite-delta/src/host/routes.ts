@@ -8,6 +8,7 @@ import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
 import { searchWeb, researchWeb } from './search.js'
+import { detectDdgsDependencies } from './python-ddgs.js'
 import { collectEvidence, type HostFetch } from './research-fetch.js'
 import { digestEvidence } from './evidence-analysis.js'
 import { deleteColdSession } from './session-delete.js'
@@ -201,6 +202,12 @@ export function registerRoutes(ctx: Context): void {
     const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : ''
     if (!prompt) return sendJson(res, 400, { error: 'prompt required' })
     return sendJson(res, 200, await generateImage(prompt, body.size, modelContext))
+  })
+
+  // Read-only dependency guidance. Never triggers installs or downloads.
+  route('/dsh-ui-delta/ddgs-status', async (req, res) => {
+    if (req.method !== 'GET') return sendJson(res, 405, { error: 'method not allowed' })
+    return sendJson(res, 200, await detectDdgsDependencies())
   })
 
   route('/dsh-ui-delta/search', async (req, res) => {
