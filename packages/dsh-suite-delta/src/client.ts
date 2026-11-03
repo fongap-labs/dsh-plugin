@@ -3074,10 +3074,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             }
             const searchMessageText = (record: HistoryRecord) => {
               const event = record.event;
-              if (!event || (event.type !== 'user/message' && event.type !== 'assistant/message')) return '';
-              if (!event.data || typeof event.data !== 'object') return '';
+              if (!event || !event.data || typeof event.data !== 'object') return '';
+              // Body text covers user messages, assistant replies, and tool results.
+              // Tool output is part of the conversation body and should be searchable,
+              // not only the user/assistant turns the host word index already covers.
+              if (event.type !== 'user/message' && event.type !== 'assistant/message' && event.type !== 'tool/result') return '';
               const data = event.data as { content?: unknown; message?: { content?: unknown } };
-              const content = event.type === 'user/message' ? data.content : data.message?.content;
+              const content = event.type === 'assistant/message' ? data.message?.content : data.content;
               if (typeof content === 'string') return content;
               if (!Array.isArray(content)) return '';
               return content.map((block: unknown) => {
