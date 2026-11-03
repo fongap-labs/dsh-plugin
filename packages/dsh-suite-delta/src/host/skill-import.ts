@@ -40,6 +40,8 @@ export const parseSkillMarkdown = (markdown: string, source: string): SkillPrevi
 /** Fixed GitHub hosts only; no arbitrary URL fetch, credentials, ports, query, or redirects. */
 export const githubSkillEndpoint = (input: string): string => {
   if (typeof input !== 'string' || input.length > 700) throw new Error('Invalid GitHub URL')
+  // Reject encoded path segments before URL normalization can erase traversal components.
+  if (/%[0-9a-f]{2}/i.test(input) || /\/(?:\.|\.\.)\//.test(input)) throw new Error('Encoded or traversal GitHub path is not allowed')
   let url: URL
   try { url = new URL(input) } catch { throw new Error('Invalid GitHub URL') }
   if (url.protocol !== 'https:' || url.username || url.password || url.port || url.search || url.hash) throw new Error('Only plain HTTPS GitHub URLs are allowed')
