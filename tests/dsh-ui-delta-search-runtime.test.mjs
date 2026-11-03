@@ -41,7 +41,8 @@ it('does not hide missing Python/ddgs or service failures behind fabricated resu
   config()
   await assert.rejects(() => searchWeb('news', undefined, async () => {
     throw new Error('Python ddgs is unavailable: install ddgs')
-  }), error => error.code === 'KEYLESS_SEARCH_UNAVAILABLE' && /Python ddgs/.test(error.message))
+  }, 5, async () => ({ results: [], source: '', failures: ['public nodes unavailable'] })),
+    error => error.code === 'KEYLESS_SEARCH_UNAVAILABLE' && /Python ddgs/.test(error.message))
 })
 it('respects the configured independent provider without invoking Python ddgs', async () => {
   config({ search: { providers: [{ id: 'custom', active: true, endpoint: 'https://search.example/query' }] } })
@@ -98,4 +99,23 @@ it('only uses keyless failover after explicit consent', async () => {
   })
   assert.equal(count, 1)
   assert.equal(hits[0].title, 'Keyless')
+})
+
+
+it('uses public instances after ddgs fails when no custom source is configured', async () => {
+  config()
+  const hits = await searchWeb('news', undefined, async () => { throw new Error('ddgs unavailable') }, 5,
+    async () => ({ source: 'https://search.utilibre.org', failures: [],
+      results: [{ title: 'Free fallback', url: 'https://example.com/free', content: 'ok' }] }))
+  assert.equal(hits[0].title, 'Free fallback')
+})
+
+it('does not leak custom-provider queries to public nodes without explicit opt-in', async () => {
+  config({ search: { providers: [{ id: 'custom', active: true, endpoint: 'https://search.example/query' }] } })
+  mock.method(globalThis, 'fetch', async () => new Response('offline', { status: 503 }))
+  let calls = 0
+  await assert.rejects(() => searchWeb('confidential research', undefined,
+    async () => { calls++; return [] }, 5,
+    async () => { calls++; return { results: [], source: '', failures: [] } }))
+  assert.equal(calls, 0)
 })
