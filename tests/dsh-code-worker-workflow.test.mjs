@@ -17,12 +17,12 @@ const exec = { signal: new AbortController().signal }
 
 describe('dsh-code-worker integrated workflow helpers', () => {
   it('parses ahead and behind from git porcelain headers independently', () => {
-    const ahead = parseGitStatus('## feature...origin/feature [ahead 3, behind 2]\\0 M src/a.ts\\0')
+    const ahead = parseGitStatus('## feature...origin/feature [ahead 3, behind 2]\0 M src/a.ts\0')
     assert.equal(ahead.branch, 'feature')
     assert.equal(ahead.ahead, 3)
     assert.equal(ahead.behind, 2)
     assert.deepEqual(ahead.unstaged, ['M src/a.ts'])
-    const behind = parseGitStatus('## branch...origin/branch [behind 5]\\0')
+    const behind = parseGitStatus('## branch...origin/branch [behind 5]\0')
     assert.equal(behind.ahead, 0)
     assert.equal(behind.behind, 5)
   })
