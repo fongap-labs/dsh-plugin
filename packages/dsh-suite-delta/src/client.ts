@@ -3901,6 +3901,134 @@ const MODULES: ModuleDef[] = [
               h('div', { key: 'status', className: 'ens-memory-status', role: 'status' }, memoryStatus),
             ]);
 
+
+            // Skill management reuses Harness filesystem discovery. Only Delta-owned
+            // user skills can be modified; other sources remain visible/read-only.
+            interface DeltaSkill {
+              name: string; description: string; source: string; provider: string;
+              enabled: boolean; managed: boolean; path?: string; diagnostics?: string;
+            }
+            const [skillRows, setSkillRows] = React.useState<DeltaSkill[]>([]);
+            const [skillDiagnostics, setSkillDiagnostics] = React.useState<string[]>([]);
+            const [skillSearch, setSkillSearch] = React.useState('');
+            const [skillName, setSkillName] = React.useState('');
+            const [skillDescription, setSkillDescription] = React.useState('');
+            const [skillBody, setSkillBody] = React.useState('');
+            const [skillEditing, setSkillEditing] = React.useState(false);
+            const [skillBusy, setSkillBusy] = React.useState(false);
+            const [skillStatus, setSkillStatus] = React.useState('');
+            const skillRequest = async (input?: Record<string, unknown>) => {
+              const response = await fetch('/dsh-ui-delta/skills', input ? {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+              } : undefined);
+              const data = await response.json();
+              if (!response.ok || data.error) throw new Error(data.error || 'HTTP ' + response.status);
+              return data;
+            };
+            const refreshSkills = async () => {
+              const data = await skillRequest();
+              setSkillRows(Array.isArray(data.items) ? data.items : []);
+              setSkillDiagnostics(Array.isArray(data.diagnostics) ? data.diagnostics : []);
+            };
+            React.useEffect(() => {
+              let isActive = true;
+              skillRequest().then(data => {
+                if (!isActive) return;
+                setSkillRows(Array.isArray(data.items) ? data.items : []);
+                setSkillDiagnostics(Array.isArray(data.diagnostics) ? data.diagnostics : []);
+              }).catch(error => { if (isActive) setSkillStatus(String(error)); });
+              return () => { isActive = false; };
+            }, []);
+            const skillAction = async (action: Record<string, unknown>) => {
+              if (skillBusy) return;
+              setSkillBusy(true);
+              setSkillStatus('');
+              try { await skillRequest(action); await refreshSkills(); setSkillStatus(pick('操作已完成', 'Operation completed')); }
+              catch (error) { setSkillStatus(pick('操作失败：', 'Operation failed: ') + String(error)); }
+              finally { setSkillBusy(false); }
+            };
+            const skillRow = h('div', { key: 'delta-skills', className: 'ens-privacy' }, [
+              h('div', { key: 'title', className: 'ens-privacy-title' }, pick('技能管理', 'Skill management')),
+              h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
+                '复用 Harness 原生技能注册表。项目、内置及第三方技能只读；只有 Delta 在用户目录创建的技能可以启停、编辑或删除。导入第三方技能前请自行检查内容。',
+                'Uses the native Harness skill registry. Project, bundled and third-party skills are read-only; only Delta-managed user skills can be edited, disabled or removed. Review external skill contents before import.',
+              )),
+              h('div', { key: 'toolbar', className: 'ens-memory-toolbar' }, [
+                h('input', { key: 'query', className: 'jrmgQW_input', value: skillSearch,
+                  placeholder: pick('搜索技能、来源', 'Search skills and sources'),
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillSearch(ev.target.value) }),
+                h('button', { key: 'refresh', type: 'button', className: 'ens-pill-btn', disabled: skillBusy,
+                  onClick: () => { void refreshSkills().catch(error => setSkillStatus(String(error))); } }, pick('刷新', 'Refresh')),
+              ]),
+              h('div', { key: 'list', className: 'ens-memory-list' },
+                skillRows.filter(item => [item.name,item.description,item.source,item.provider].join(' ').toLowerCase().includes(skillSearch.toLowerCase()))
+                  .map(item => h('div', { key: item.name + ':' + item.source, className: 'ens-memory-item' }, [
+                    h('div', { key: 'name', className: 'ens-set-name' }, item.name + (item.enabled ? '' : pick('（已禁用）', ' (disabled)'))),
+                    h('div', { key: 'desc', className: 'ens-memory-item-text' }, item.description),
+                    h('div', { key: 'source', className: 'ens-memory-meta' },
+                      [item.source, item.provider, item.managed ? pick('Delta 管理', 'Delta managed') : pick('只读', 'Read-only'), item.diagnostics].filter(Boolean).join(' · ')),
+                    item.managed ? h('div', { key: 'actions', className: 'ens-memory-actions' }, [
+                      h('button', { key: 'toggle', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                        onClick: () => { void skillAction({ action: 'toggle', name: item.name, enabled: !item.enabled }); } },
+                        item.enabled ? pick('禁用', 'Disable') : pick('启用', 'Enable')),
+                      h('button', { key: 'edit', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                        onClick: () => {
+                          void skillRequest({ action: 'read', name: item.name }).then(data => {
+                            setSkillName(data.name); setSkillDescription(data.description); setSkillBody(data.body); setSkillEditing(true);
+                          }).catch(error => setSkillStatus(String(error)));
+                        } }, pick('编辑', 'Edit')),
+                      h('button', { key: 'delete', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                        onClick: () => {
+                          if (window.confirm(pick('删除 Delta 管理的技能？此操作不可撤销。', 'Permanently delete this Delta-managed skill?')))
+                            void skillAction({ action: 'delete', name: item.name });
+                        } }, pick('删除', 'Delete')),
+                    ]) : null,
+                  ]))),
+              ...skillDiagnostics.map((message, index) => h('div', { key: 'diagnostic-' + index, className: 'ens-set-desc' }, message)),
+              h('div', { key: 'editor', className: 'ens-memory-form' }, [
+                h('label', { key: 'name' }, [fieldLabel(pick('技能名称（小写字母与连字符）', 'Skill name (lowercase kebab-case)')),
+                  h('input', { className: 'jrmgQW_input', value: skillName, disabled: skillEditing, maxLength: 80,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillName(ev.target.value) })]),
+                h('label', { key: 'description' }, [fieldLabel(pick('技能描述', 'Skill description')),
+                  h('input', { className: 'jrmgQW_input', value: skillDescription, maxLength: 500,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillDescription(ev.target.value) })]),
+                h('label', { key: 'body', className: 'ens-memory-wide' }, [fieldLabel(pick('技能指令（Markdown）', 'Skill instructions (Markdown)')),
+                  h('textarea', { className: 'jrmgQW_input', rows: 7, value: skillBody, maxLength: 128000,
+                    onChange: (ev: HarnessReactChangeEvent<HTMLTextAreaElement>) => setSkillBody(ev.target.value) })]),
+                h('div', { key: 'actions', className: 'ens-memory-actions ens-memory-wide' }, [
+                  h('button', { key: 'save', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
+                    disabled: skillBusy || !skillName.trim() || !skillDescription.trim() || !skillBody.trim(),
+                    onClick: () => { void skillAction({
+                      action: skillEditing ? 'update' : 'create', name: skillName, description: skillDescription, body: skillBody,
+                    }); } }, skillEditing ? pick('更新技能', 'Update skill') : pick('创建技能', 'Create skill')),
+                  h('button', { key: 'clear', type: 'button', className: 'ens-pill-btn',
+                    onClick: () => { setSkillEditing(false); setSkillName(''); setSkillDescription(''); setSkillBody(''); } },
+                    pick('新建 / 清空', 'New / Clear')),
+                  h('label', { key: 'import', className: 'ens-pill-btn' }, [
+                    pick('导入 SKILL.md', 'Import SKILL.md'),
+                    h('input', { type: 'file', accept: '.md,text/markdown', style: { display: 'none' },
+                      onChange: (ev: { target: HTMLInputElement }) => {
+                        const file = ev.target.files?.[0];
+                        ev.target.value = '';
+                        if (!file) return;
+                        if (file.size > 128000) { setSkillStatus('Skill file exceeds 128 KB'); return; }
+                        void file.text().then(text => {
+                          const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(text);
+                          const front = match?.[1] || '';
+                          const name = /^name:\s*['"]?([a-z0-9-]+)/m.exec(front)?.[1] || '';
+                          const description = /^description:\s*['"]?([^\r\n]+)/m.exec(front)?.[1]?.replace(/['"]$/, '') || '';
+                          if (!name || !description || !match) throw new Error('Invalid SKILL.md frontmatter');
+                          setSkillEditing(false); setSkillName(name); setSkillDescription(description);
+                          setSkillBody(text.slice(match[0].length).trim());
+                          setSkillStatus(pick('已载入预览，请检查后点击创建技能。', 'Loaded for review; check before creating.'));
+                        }).catch(error => setSkillStatus(String(error)));
+                      } }),
+                  ]),
+                ]),
+              ]),
+              h('div', { key: 'status', className: 'ens-memory-status', role: 'status' }, skillStatus),
+            ]);
+
             const exportRow = h('div', { key: 'exp', className: 'ens-set-row' }, [
               h('span', { key: 't', className: 'ens-set-text' }, [
                 h('span', { key: 'n', className: 'ens-set-name' }, pick('导出当前对话', 'Export this conversation')),
@@ -3928,6 +4056,7 @@ const MODULES: ModuleDef[] = [
               searchRow,
               contextRow,
               memoryRow,
+              skillRow,
               exportRow,
               h('div', { key: 'p', className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, pick('隐私', 'Privacy')),
