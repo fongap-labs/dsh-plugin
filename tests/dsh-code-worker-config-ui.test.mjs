@@ -15,9 +15,10 @@ describe('code worker native settings contract', () => {
     assert.match(client, /Delta Code Worker/)
   })
 
-  it('ships Host Config with volatile paths and secret token role', () => {
+  it('ships Host Config with volatile paths and tokenEnv-only credentials', () => {
     assert.match(read('src/config.ts'), /volatile\(\)/)
-    assert.match(read('src/config.ts'), /role\('secret'\)/)
+    assert.match(read('src/config.ts'), /tokenEnv: Schema\.string\(\)\.required\(\)/)
+    assert.doesNotMatch(read('src/config.ts'), /role\('secret'\)/)
   })
   it('ships a proper client entry, not an HTML/DOM overlay', () => {
     const pkg = JSON.parse(read('package.json'))
@@ -31,10 +32,11 @@ describe('code worker native settings contract', () => {
     assert.match(read('src/client.ts'), /plugins\.row\.config/)
     assert.match(read('src/client.ts'), /mutate\(ops, state\.revision\)/)
   })
-  it('keeps existing token as path-level updates, never puts it on the wire', () => {
+  it('stores only tokenEnv references with path-level updates', () => {
     const source=read('src/client.ts')
     assert.match(source, /sourceIndex/)
-    assert.match(source,/path: \[\.\.\.prefix, 'token'\]/)
-    assert.match(source,/token: ''/)
+    assert.match(source,/set\(\[\.\.\.prefix, 'tokenEnv'\], a\.tokenEnv\)/)
+    assert.doesNotMatch(source,/set\(\[\.\.\.prefix, 'token'\]/)
+    assert.doesNotMatch(source,/type: 'password'/)
   })
 })
