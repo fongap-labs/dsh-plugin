@@ -226,3 +226,27 @@ export const forgetDeletedSession = (sessionId: string): boolean => {
     return true
   })
 }
+
+export const countMissingAssignments = (knownSessionIds: ReadonlySet<string>): number => {
+  const state = readFolderView()
+  return Object.keys(state.assignments).filter(id => !knownSessionIds.has(id)).length
+}
+
+export const pruneMissingAssignments = (
+  knownSessionIds: ReadonlySet<string>, expectedRevision: string,
+): { view: FolderView; removedCount: number } => withFolderLock(() => {
+  const view = readFolderView()
+  if (view.revision !== expectedRevision) {
+    throw new FolderConflictError('Folder state changed; refresh and retry')
+  }
+  const assignments = { ...view.assignments }
+  let removedCount = 0
+  for (const sessionId of Object.keys(assignments)) {
+    if (knownSessionIds.has(sessionId)) continue
+    delete assignments[sessionId]
+    removedCount += 1
+  }
+  if (removedCount === 0) return { view, removedCount }
+  writeFolders({ folders: view.folders, assignments })
+  return { view: readFolderView(), removedCount }
+}
