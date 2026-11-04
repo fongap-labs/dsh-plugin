@@ -1,0 +1,4 @@
+- 变更: Delta Suite 许可协议由 MIT 调整为 Apache-2.0，包级 LICENSE 与仓库根目录 Apache License 2.0 全文保持一致。
+- 变更: 同步更新 npm package.json 的 SPDX 许可证、发布清单 license_expression 和仓库及插件 README 的说明。
+- 说明: 仅对本次变更之后的源码与新发布包生效；此前已按 MIT 许可证发布的版本与标签保持不变，第三方依赖仍适用其各自许可证。
+- 验证: 增加 Delta Suite 专项许可证契约测试，防止独立包许可证、根 LICENSE 与发布元数据出现漂移。
