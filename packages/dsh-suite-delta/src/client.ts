@@ -4357,18 +4357,18 @@ const MODULES: ModuleDef[] = [
               setFolderView(data as FolderView);
             };
             React.useEffect(() => {
-              let alive = true;
+              let isAlive = true;
               const refresh = () => {
                 void fetch('/dsh-ui-delta/folders').then(async response => {
                   const data = await response.json();
                   if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
-                  if (alive) setFolderView(data as FolderView);
-                }).catch(error => { if (alive) setFolderStatus(String(error)); });
+                  if (isAlive) setFolderView(data as FolderView);
+                }).catch(error => { if (isAlive) setFolderStatus(String(error)); });
               };
               window.addEventListener('dsh-ui-delta:folders-changed', refresh);
               refresh();
               return () => {
-                alive = false;
+                isAlive = false;
                 window.removeEventListener('dsh-ui-delta:folders-changed', refresh);
               };
             }, []);
@@ -4385,6 +4385,7 @@ const MODULES: ModuleDef[] = [
                 const data = await response.json();
                 if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
                 setFolderView(data as FolderView);
+                if (payload.action === 'create') setFolderNameInput('');
                 window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
               } catch (error) {
                 setFolderStatus(String(error));
@@ -4408,8 +4409,7 @@ const MODULES: ModuleDef[] = [
                 }),
                 h(UiButton, { key: 'create', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
                   disabled: folderBusy || !folderNameInput.trim(),
-                  onClick: () => { void folderAction({ action: 'create', name: folderNameInput.trim() })
-                    .then(() => setFolderNameInput('')); },
+                  onClick: () => { void folderAction({ action: 'create', name: folderNameInput.trim() }); },
                 }, pick('新建文件夹', 'Create folder')),
                 h(UiButton, { key: 'refresh', type: 'button', className: 'ens-pill-btn',
                   disabled: folderBusy,
