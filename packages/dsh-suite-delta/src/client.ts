@@ -79,7 +79,7 @@ window.__ModuleLoader__.load({
       '--dsw-alias-bg-skeleton': { light: '#E8EAED', dark: '#26292F' },
       '--dsw-alias-bg-mask-drop': { light: 'rgba(255,255,255,0.70)', dark: 'rgba(39,39,48,0.70)' },
       '--dsw-alias-bg-document-preview': { light: '#FFFFFF', dark: '#17181C' },
-      '--dsw-alias-bg-document-selection': { light: 'rgba(40,111,120,0.18)', dark: 'rgba(92,166,176,0.22)' },
+      '--dsw-alias-bg-document-selection': { light: 'rgba(40,111,120,0.18)', dark: 'rgba(96,180,191,0.22)' },
       '--dsw-alias-bg-multi-select': { light: '#E8EAED', dark: '#2C2F35' },
       '--dsw-alias-bg-module-platform': { light: '#E8EAED', dark: '#2C2F35' },
       // ===== hairline borders =====
@@ -94,7 +94,7 @@ window.__ModuleLoader__.load({
       // ===== focus ring =====
       // 规范焦点环：2px 纯品牌青 teal-500，浅底 #4E929C（3.5:1），
       // 深底 #5CA6B0（6.1:1）。仅焦点环用青，不复用为按钮底色。
-      '--ens-focus-ring': { light: '#4E929C', dark: '#5CA6B0' },
+      '--ens-focus-ring': { light: '#4E929C', dark: '#60B4BF' },
       // ===== labels — ink ladder（AAA 7:1 on every surface）=====
       '--dsw-alias-label-primary': { light: '#17191C', dark: '#E8EAED' },
       '--dsw-alias-label-secondary': { light: '#5B616B', dark: '#C3C8D0' },
@@ -107,19 +107,19 @@ window.__ModuleLoader__.load({
       '--dsw-alias-label-primary-bluish': { light: '#17191C', dark: '#E8EAED' },
       '--dsw-alias-label-primary-dimmed': { light: '#2A2E33', dark: '#C8CCD2' },
       '--dsw-alias-label-dimmed': { light: '#E9ECF2', dark: '#2C2C2E' },
-      '--dsw-alias-label-deep-diving': { light: '#286F78', dark: '#5CA6B0' },
+      '--dsw-alias-label-deep-diving': { light: '#286F78', dark: '#60B4BF' },
       '--dsw-alias-label-document-preview': { light: '#17191C', dark: '#E8EAED' },
       '--dsw-alias-label-shimmer': { light: 'rgba(23,25,28,0.30)', dark: 'rgba(232,234,237,0.45)' },
-      '--dsw-alias-label-deep-diving-shimmer': { light: 'rgba(40,111,120,0.18)', dark: 'rgba(92,166,176,0.22)' },
-      '--dsw-alias-link': { light: '#286F78', dark: '#5CA6B0' },
+      '--dsw-alias-label-deep-diving-shimmer': { light: 'rgba(40,111,120,0.18)', dark: 'rgba(96,180,191,0.22)' },
+      '--dsw-alias-link': { light: '#286F78', dark: '#60B4BF' },
       // ===== brand / accent — one Delta teal, blue family retired =====
-      '--dsw-alias-brand-primary': { light: '#286F78', dark: '#5CA6B0' },
+      '--dsw-alias-brand-primary': { light: '#286F78', dark: '#60B4BF' },
       '--dsw-alias-brand-primary-invert': { light: '#70B1BA', dark: '#286F78' },
-      '--dsw-alias-brand-primary-new-colorprimary-new-color': { light: '#286F78', dark: '#5CA6B0' },
-      '--dsw-alias-state-business-primary': { light: '#286F78', dark: '#5CA6B0' },
+      '--dsw-alias-brand-primary-new-colorprimary-new-color': { light: '#286F78', dark: '#60B4BF' },
+      '--dsw-alias-state-business-primary': { light: '#286F78', dark: '#60B4BF' },
       '--dsw-alias-state-business-tertiary': { light: '#E7F0F2', dark: '#1C3B40' },
       // 选中文案在 selected 底上的高对比青：浅 #286F78（4.94:1），深 teal-300 #8CC4CC（6.18:1）
-      '--ens-accent-strong': { light: '#286F78', dark: '#8CC4CC' },
+      '--ens-accent-strong': { light: '#286F78', dark: '#60B4BF' },
       // ===== semantic states (4.5:1+, text-friendly) =====
       '--dsw-alias-state-success-primary': { light: '#2F7D57', dark: '#6FBF9A' },
       '--dsw-alias-state-success-secondary': { light: '#2F7D57', dark: '#6FBF9A' },
@@ -132,10 +132,10 @@ window.__ModuleLoader__.load({
       '--dsw-alias-state-error-secondary': { light: '#B91C1C', dark: '#F07067' },
       '--dsw-alias-state-idle-primary': { light: '#5B616B', dark: '#9AA1AA' },
       // ===== buttons (fills) =====
-      '--dsw-alias-button-primary-fill': { light: '#286F78', dark: '#5CA6B0' },
+      '--dsw-alias-button-primary-fill': { light: '#286F78', dark: '#60B4BF' },
       '--dsw-alias-button-primary-hover': { light: '#1D5E66', dark: '#70B1BA' },
       '--dsw-alias-button-primary-dimmed': { light: '#3D808A', dark: '#4E929C' },
-      '--dsw-alias-button-info-fill': { light: '#286F78', dark: '#5CA6B0' },
+      '--dsw-alias-button-info-fill': { light: '#286F78', dark: '#60B4BF' },
       '--dsw-alias-button-info-hover': { light: '#1D5E66', dark: '#70B1BA' },
       '--dsw-alias-button-contrast-fill': { light: '#17191C', dark: '#E8EAED' },
       '--dsw-alias-button-elevated-fill': { light: '#FFFFFF', dark: '#1C1E22' },
@@ -151,13 +151,13 @@ window.__ModuleLoader__.load({
       '--dsw-alias-interactive-bg-hover': { light: '#E5E8EB', dark: '#282C34' },
       '--dsw-alias-interactive-bg-hover-solid': { light: '#E2E5E9', dark: '#2C3038' },
       '--dsw-alias-interactive-bg-active': { light: '#D8DCE2', dark: '#353A44' },
-      '--dsw-alias-interactive-bg-hover-accent': { light: 'rgba(40,111,120,0.10)', dark: 'rgba(92,166,176,0.16)' },
+      '--dsw-alias-interactive-bg-hover-accent': { light: 'rgba(40,111,120,0.10)', dark: 'rgba(96,180,191,0.16)' },
       '--dsw-alias-interactive-bg-hover-danger': { light: 'rgba(185,28,28,0.10)', dark: 'rgba(240,112,103,0.16)' },
       // ===== code & markdown =====
       '--dsw-alias-markdown-code-block': { light: '#EEF0F2', dark: '#191B1F' },
       '--dsw-alias-markdown-code-block-banner': { light: '#E8EAED', dark: '#22252A' },
       '--dsw-alias-markdown-inline-code': { light: '#EEF0F2', dark: '#262A30' },
-      '--dsw-alias-markdown-citation': { light: '#286F78', dark: '#5CA6B0' },
+      '--dsw-alias-markdown-citation': { light: '#286F78', dark: '#60B4BF' },
       '--dsw-alias-markdown-tag': { light: '#E7F0F2', dark: '#1C3B40' },
       // ===== menus, scrollbars, tooltips/toasts =====
       '--dsw-menu-surface-fill': { light: 'rgba(255,255,255,0.94)', dark: 'rgba(28,30,34,0.94)' },
@@ -177,10 +177,10 @@ window.__ModuleLoader__.load({
       '--dsw-specific-sidebar-fill': { light: '#F5F6F7', dark: '#17181C' },
       '--dsw-specific-sidebar-nav-item-active': { light: '#E7F0F2', dark: '#1C3B40' },
       '--dsw-specific-sidebar-nav-item-hover': { light: '#E4E7EB', dark: '#262930' },
-      '--dsw-specific-sidebar-nav-item-active-accent': { light: 'rgba(40,111,120,0.10)', dark: 'rgba(92,166,176,0.18)' },
+      '--dsw-specific-sidebar-nav-item-active-accent': { light: 'rgba(40,111,120,0.10)', dark: 'rgba(96,180,191,0.18)' },
       // ===== conversation =====
       '--dsw-specific-bubble': { light: '#EEF0F2', dark: '#22252A' },
-      '--dsw-specific-bubble-highlight': { light: 'rgba(40,111,120,0.10)', dark: 'rgba(92,166,176,0.16)' },
+      '--dsw-specific-bubble-highlight': { light: 'rgba(40,111,120,0.10)', dark: 'rgba(96,180,191,0.16)' },
       '--dsw-specific-input-major': { light: '#FFFFFF', dark: '#1C1E22' },
       '--dsw-specific-login-input': { light: '#FFFFFF', dark: '#1C1E22' },
       '--dsw-specific-menu': { light: 'rgba(255,255,255,0.94)', dark: 'rgba(28,30,34,0.94)' },
@@ -197,7 +197,7 @@ window.__ModuleLoader__.load({
       '--dsw-alias-file-diff-deleted-marker': { light: '#B91C1C', dark: '#F07067' },
       // ===== DeltaSuite-only roles (no Harness alias exists) =====
       // 选中文案落在 selected 底上的高对比青
-      '--ens-selected-ink': { light: '#286F78', dark: '#8CC4CC' },
+      '--ens-selected-ink': { light: '#286F78', dark: '#60B4BF' },
       // 控件边界（非文字 ≥3:1）
       '--ens-control-border': { light: '#838B92', dark: '#6B7079' },
       // 主按钮按下态
@@ -212,6 +212,28 @@ window.__ModuleLoader__.load({
       '--ens-warn-line': { light: '#F3D9A4', dark: '#5A4318' },
       '--ens-danger-soft': { light: '#F9E7E5', dark: '#3D2422' },
       '--ens-danger-line': { light: '#EFC6C1', dark: '#5E3330' },
+      // ===== shadcn-style semantic layer =====
+      // One role per token; components reference roles, never raw values.
+      // primary = brand teal (#286F78 light / #60B4BF dark, unchanged by request)
+      '--ens-color-primary': { light: '#286F78', dark: '#60B4BF' },
+      '--ens-color-primary-foreground': { light: '#FFFFFF', dark: '#0E1A1C' },
+      '--ens-color-secondary': { light: '#EEF0F2', dark: '#2C2F35' },
+      '--ens-color-secondary-foreground': { light: '#17191C', dark: '#E8EAED' },
+      '--ens-color-destructive': { light: '#B91C1C', dark: '#F07067' },
+      '--ens-color-destructive-foreground': { light: '#FFFFFF', dark: '#0E1A1C' },
+      '--ens-color-muted': { light: '#E8EAED', dark: '#26292F' },
+      '--ens-color-muted-foreground': { light: '#6B7079', dark: '#9AA1AA' },
+      '--ens-color-accent': { light: '#E7F0F2', dark: '#1C3B40' },
+      '--ens-color-accent-foreground': { light: '#286F78', dark: '#60B4BF' },
+      '--ens-color-popover': { light: '#FFFFFF', dark: '#1C1E22' },
+      '--ens-color-popover-foreground': { light: '#17191C', dark: '#E8EAED' },
+      '--ens-color-card': { light: '#FFFFFF', dark: '#1C1E22' },
+      '--ens-color-card-foreground': { light: '#17191C', dark: '#E8EAED' },
+      '--ens-color-border': { light: '#D9DDE2', dark: '#35393F' },
+      '--ens-color-input': { light: '#D9DDE2', dark: '#35393F' },
+      '--ens-color-ring': { light: '#4E929C', dark: '#60B4BF' },
+      '--ens-color-background': { light: '#F5F6F7', dark: '#131417' },
+      '--ens-color-foreground': { light: '#17191C', dark: '#E8EAED' },
     };
 
     /** A consistent 2px-stroke icon set for the two global nav cells. */
@@ -273,18 +295,24 @@ html[data-theme="dark"] {
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTime"] { grid-column: 2; grid-row: 2; white-space: nowrap; }
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverPath"] { grid-column: 1 / -1; grid-row: auto; width: 100%; }
 
-/* 顶栏操作区：后台任务与创造模式对调位置（后台任务居左，创造模式居右） */
+/* Header: keep background tasks left of creation mode. Normalize badge spacing across titleCluster, headerActions, and headerUtilities to --ens-space-sm (8px), overriding mismatched host container gaps. */
+.an3WzG_titleCluster,
 .an3WzG_headerActions,
-[class*="headerActions"] {
+.an3WzG_headerUtilities,
+[class*="titleCluster"],
+[class*="headerActions"],
+[class*="headerUtilities"] {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: var(--ens-space-sm) !important;
 }
-.an3WzG_headerActions > :has(.Ag-ohG_count),
-.an3WzG_headerActions > :has([class*="count"]),
-[class*="headerActions"] > :has(.Ag-ohG_count),
-[class*="headerActions"] > :has([class*="count"]) {
-  order: -10 !important;
+.an3WzG_headerUtilities,
+[class*="headerUtilities"] {
+  margin-left: var(--ens-space-sm) !important;
+}
+.an3WzG_headerCorner,
+[class*="headerCorner"] {
+  margin-left: var(--ens-space-sm) !important;
 }
 /* ===== DeltaSuite — design layer ===== */
 
@@ -297,6 +325,22 @@ body {
   --dsw-radius-xl: 20px;
   --dsw-radius-panel: 20px;
   --dsh-scrollbar-width: 6px;
+  /* Spacing scale: preserve current values, and use semantic tokens in new rules. */
+  --ens-space-3xs: 2px;
+  --ens-space-2xs: 4px;
+  --ens-space-xs: 6px;
+  --ens-space-sm: 8px;
+  --ens-space-md: 10px;
+  --ens-space-lg: 12px;
+  --ens-space-xl: 16px;
+  --ens-space-2xl: 20px;
+  --ens-space-3xl: 24px;
+  /* Stacking scale: account 20, tooltip 30, hover 50, modal 20000; annotations remain above overlays. */
+  --ens-z-anchor: 20;
+  --ens-z-notify: 30;
+  --ens-z-hover: 50;
+  --ens-z-modal: 20000;
+  --ens-z-float: 2147483000;
   /* 动效规范：150/200/250ms，enter 快起慢停、exit 慢起快收 */
   --ens-dur-fast: 150ms;
   --ens-dur-base: 200ms;
@@ -359,7 +403,7 @@ body {
 ._5Qcc8a_root[data-ens-balance]::after {
   content: attr(data-ens-balance);
   position: absolute; left: 0; bottom: calc(100% + 10px);
-  z-index: 50; pointer-events: none; max-width: min(320px, 85vw);
+  z-index: var(--ens-z-hover); pointer-events: none; max-width: min(320px, 85vw);
   padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1);
   color: var(--dsw-alias-label-primary); box-shadow: var(--dsw-elevation-soft);
@@ -390,7 +434,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
    规范：列表/导航项默认无底色，悬停 surface-2，选中 selected 底 + 高对比青文字。 */
 .wtg9ga_panelList { gap: 2px; }
 .wtg9ga_panelRow {
-  min-height: 36px; padding: 0 10px; gap: 9px; border-radius: var(--dsw-radius-md);
+  min-height: 36px; padding: 0 10px; gap: var(--ens-space-sm); border-radius: var(--dsw-radius-md);
   color: var(--dsw-alias-label-secondary);
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
@@ -498,13 +542,13 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
   align-items: center;
   gap: 8px;
   margin-left: auto;          /* push to far right inside footerActions */
-  z-index: 20;                /* above the avatar's click layer (z:10) but below modal */
+  z-index: var(--ens-z-anchor);  /* above the avatar's click layer (z:10) but below modal */
   flex-shrink: 0;
 }
 .ens-foot-action {
   height: 28px; padding: 0 8px; border: 0; border-radius: var(--dsw-radius-md);
   background: transparent; color: var(--dsw-alias-label-secondary);
-  font: inherit; font-size: 12.5px; line-height: 18px; cursor: pointer; white-space: nowrap;
+  font: inherit; font-size: 12px; line-height: 18px; cursor: pointer; white-space: nowrap;
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
 .ens-foot-action:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
@@ -530,11 +574,11 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_collapsed .ens-foot-actions [data-ens="share"] { display: none; }
 .wtg9ga_collapsed .ens-foot-action { padding: 0 6px; font-size: 12px; }
 .ens-foot-notify {
-  position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 30;
+  position: absolute; right: 0; bottom: calc(100% + 8px); z-index: var(--ens-z-notify);
   width: max-content; max-width: 100%; min-height: 32px; padding: 6px 10px;
   box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; line-height: 18px;
+  color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; line-height: 18px;
   cursor: default; white-space: normal; display: none; align-items: center; gap: 6px;
   box-shadow: var(--dsw-elevation-soft);
 }
@@ -543,7 +587,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .ens-foot-notify.error { border-color: var(--dsw-alias-state-error-primary); color: var(--dsw-alias-state-error-primary); }
 .ens-foot-notify.warn { border-color: var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-state-warn-primary); }
 .ens-foot-notify.info { border-color: var(--dsw-alias-state-business-primary); color: var(--dsw-alias-state-business-primary); }
-.ens-foot-notify .ens-foot-notify-close { flex: none; width: 16px; height: 16px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+.ens-foot-notify .ens-foot-notify-close { flex: none; width: 16px; height: 16px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: var(--dsw-radius-xs); }
 .ens-foot-notify .ens-foot-notify-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .wtg9ga_collapsed .ens-foot-notify { position: fixed; left: 12px; right: auto; bottom: 60px; max-width: min(320px, calc(100vw - 24px)); }
 .ens-foot-icon[data-ens="settings"] { order: 1; }
@@ -602,14 +646,14 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .wtg9ga_newSession {
   height: auto; min-height: 36px; margin: 0 2px; border: 0; border-radius: var(--dsw-radius-md);
   background: transparent; color: var(--dsw-alias-label-secondary);
-  justify-content: flex-start; align-items: center; gap: 9px;
+  justify-content: flex-start; align-items: center; gap: var(--ens-space-sm);
   padding: 0 10px; font: inherit; font-weight: 400; text-align: left; position: relative;
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
 [data-windows-titlebar] .wtg9ga_root:not(.wtg9ga_collapsed) .wtg9ga_newSession { margin: 0 2px 8px; }
 .wtg9ga_newSession:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .wtg9ga_newSessionLabelMask { flex: none; min-width: 0; mask-image: none !important; -webkit-mask-image: none !important; }
-.wtg9ga_newSessionContent { justify-content: flex-start; align-items: center; gap: 9px; width: auto; }
+.wtg9ga_newSessionContent { justify-content: flex-start; align-items: center; gap: var(--ens-space-sm); width: auto; }
 .wtg9ga_newSession svg { width: 16px; height: 16px; flex: none; }
 .wtg9ga_newSessionLabel { font-size: 13px; font-weight: 400; max-width: none; white-space: nowrap; }
 .wtg9ga_newSessionShortcut { display: none !important; }
@@ -814,7 +858,7 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 /* design-layer dropdown list (rows 34px, radius 10 for list items / 16 for panel,
    per spec 06.6). Menus mounted by JS open on the host's native selects. */
 .ens-menu {
-  position: fixed; z-index: 2147483000; box-sizing: border-box; padding: 4px;
+  position: fixed; z-index: var(--ens-z-float); box-sizing: border-box; padding: 4px;
   max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
   border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-layer-1); box-shadow: var(--ens-shadow-overlay);
@@ -856,7 +900,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-resize {
   position: absolute; right: 6px; bottom: 6px; width: 20px; height: 20px;
   cursor: nwse-resize; display: flex; align-items: center; justify-content: center;
-  border-radius: 4px; color: var(--dsw-alias-label-tertiary);
+  border-radius: var(--dsw-radius-xs); color: var(--dsw-alias-label-tertiary);
 }
 .ens-resize:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .ens-resize svg { width: 14px; height: 14px; display: block; }
@@ -878,7 +922,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-set-row-planned { opacity: .74; }
 .ens-set-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ens-set-name { font-size: 13px; font-weight: 500; color: var(--dsw-alias-label-primary); }
-.ens-set-en { font-size: 11.5px; color: var(--dsw-alias-label-caption); }
+.ens-set-en { font-size: 11px; color: var(--dsw-alias-label-caption); }
 .ens-set-desc { font-size: 12.5px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .ens-set-side { display: flex; flex: none; align-items: center; gap: 8px; }
 /* 规范 06.4 开关：44×24，开启品牌青，关闭 #D9DDE2（control 描边色），拇指 18px */
@@ -892,35 +936,35 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-switch-on { background: var(--dsw-alias-state-business-primary); }
 .ens-switch-knob {
   width: 18px; height: 18px; border-radius: 50%; background: var(--dsw-alias-switch-thumb);
-  box-shadow: 0 1px 2px rgba(0,0,0,.18);
+  box-shadow: var(--ens-shadow-sm);
   transition: transform var(--ens-dur-fast) var(--ens-ease-standard);
 }
 .ens-switch-on .ens-switch-knob { transform: translateX(20px); }
-.ens-plan-tag { font-size: 10.5px; line-height: 16px; color: var(--dsw-alias-label-caption); white-space: nowrap; }
+.ens-plan-tag { font-size: 11px; line-height: 16px; color: var(--dsw-alias-label-caption); white-space: nowrap; }
 .ens-privacy {
   display: flex; flex-direction: column; gap: 4px; padding: 12px 14px;
   border-radius: var(--dsw-radius-lg); border: 1px dashed var(--dsw-alias-border-l3);
 }
 .ens-privacy-title { font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }
-.ens-privacy-body { font-size: 12.5px; line-height: 19px; color: var(--dsw-alias-label-tertiary); }
+.ens-privacy-body { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .ens-provider-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .ens-provider { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--dsw-radius-md); border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
 .ens-provider-head { display: flex; align-items: center; gap: 8px; }
 .ens-provider-name { flex: 1; min-width: 0; }
-.ens-provider .ens-set-name { font-size: 12.5px; font-weight: 500; color: var(--dsw-alias-label-secondary); margin-bottom: 2px; }
+.ens-provider .ens-set-name { font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); margin-bottom: 2px; }
 
 /* 16 — #20 selectionAnnotation: a floating 批注 pill on a text selection, and a
       compact composer popover. Both opt into the soft ring, never a hard frame. */
 .ens-anno-btn {
-  position: fixed; z-index: 2147483000; display: inline-flex; align-items: center; gap: 5px;
+  position: fixed; z-index: var(--ens-z-float); display: inline-flex; align-items: center; gap: 5px;
   height: 32px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 999px; background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; line-height: 18px;
+  color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; line-height: 18px;
   box-shadow: var(--dsw-elevation-soft); cursor: pointer;
 }
 .ens-anno-btn:hover { border-color: var(--dsw-alias-border-l3); background: var(--dsw-alias-interactive-bg-hover); }
 .ens-anno-panel {
-  position: fixed; z-index: 2147483000; width: 300px; padding: 10px;
+  position: fixed; z-index: var(--ens-z-float); width: 300px; padding: 10px;
   display: flex; flex-direction: column; gap: 8px;
   border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg);
   background: var(--dsw-alias-bg-layer-1); box-shadow: var(--dsw-elevation-prominent);
@@ -953,25 +997,25 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-anno-ghost:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .ens-anno-ghost:active { background: var(--dsw-alias-interactive-bg-active); }
 .ens-anno-chip {
-  position: fixed; z-index: 2147483000; left: 50%; transform: translateX(-50%); bottom: 150px;
+  position: fixed; z-index: var(--ens-z-float); left: 50%; transform: translateX(-50%); bottom: 150px;
   height: 32px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 999px;
   background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary);
-  font: inherit; font-size: 12.5px; box-shadow: var(--dsw-elevation-soft); cursor: pointer;
+  font: inherit; font-size: 12px; box-shadow: var(--dsw-elevation-soft); cursor: pointer;
 }
 
 /* ===== v1.0.2 — standalone settings modal (the guaranteed fallback) ===== */
 .ens-foot-action-busy { opacity: .55; }
 .ens-modal-backdrop {
-  position: fixed; inset: 0; z-index: 20000;
-  background: rgba(15, 20, 25, 0.52);
+  position: fixed; inset: 0; z-index: var(--ens-z-modal);
+  background: var(--ens-scrim);
   display: flex; align-items: center; justify-content: center; padding: 24px;
 }
 .ens-modal-card {
   width: min(720px, 94vw); max-height: 88vh;
   display: flex; flex-direction: column;
-  border-radius: 16px; border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-lg); border: 1px solid var(--dsw-alias-border-l2);
   background: var(--dsw-alias-bg-layer-1);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.24); overflow: hidden;
+  box-shadow: var(--dsw-elevation-prominent); overflow: hidden;
 }
 .ens-modal-card .ens-settings { max-width: none; padding: 4px 24px 12px; overflow-y: auto; }
 .ens-modal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 24px 12px; }
@@ -980,7 +1024,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-modal-banner {
   margin: 0 24px; padding: 10px 12px; border-radius: var(--dsw-radius-md);
   background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-label-secondary);
-  font-size: 12.5px; line-height: 19px;
+  font-size: 12px; line-height: 18px;
 }
 .ens-pill-btn {
   height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-sm); flex: none;
@@ -1004,7 +1048,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-diag-box {
   margin: 0 24px 16px; padding: 10px 12px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 10px;
   background: var(--dsw-alias-bg-layer-2);
-  font: 11.5px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font: 11px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--dsw-alias-label-secondary); white-space: pre-wrap; word-break: break-all;
   max-height: 168px; overflow: auto;
 }
@@ -3074,10 +3118,13 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             }
             const searchMessageText = (record: HistoryRecord) => {
               const event = record.event;
-              if (!event || (event.type !== 'user/message' && event.type !== 'assistant/message')) return '';
-              if (!event.data || typeof event.data !== 'object') return '';
+              if (!event || !event.data || typeof event.data !== 'object') return '';
+              // Body text covers user messages, assistant replies, and tool results.
+              // Tool output is part of the conversation body and should be searchable,
+              // not only the user/assistant turns the host word index already covers.
+              if (event.type !== 'user/message' && event.type !== 'assistant/message' && event.type !== 'tool/result') return '';
               const data = event.data as { content?: unknown; message?: { content?: unknown } };
-              const content = event.type === 'user/message' ? data.content : data.message?.content;
+              const content = event.type === 'assistant/message' ? data.message?.content : data.content;
               if (typeof content === 'string') return content;
               if (!Array.isArray(content)) return '';
               return content.map((block: unknown) => {

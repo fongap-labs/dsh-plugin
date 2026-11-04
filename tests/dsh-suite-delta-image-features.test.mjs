@@ -22,9 +22,18 @@ const ctx = {
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aJd8AAAAASUVORK5CYII='
 function configStore(initial = {}) {
   let config = initial
+  let pending = null
   const read = fs.readFileSync
   mock.method(fs, 'readFileSync', (path, ...args) => String(path).endsWith('config.json') ? JSON.stringify(config) : read(path, ...args))
-  mock.method(fs, 'writeFileSync', (_path, text) => { config = JSON.parse(text) })
+  // The host writes through a temp file and renames it into place; mirror that
+  // so the in-memory config still reflects the committed state.
+  mock.method(fs, 'writeFileSync', (path, text) => {
+    if (String(path).endsWith('.tmp')) { pending = JSON.parse(text); return }
+    config = JSON.parse(text)
+  })
+  mock.method(fs, 'renameSync', (_from, to) => {
+    if (pending !== null && String(to).endsWith('config.json')) { config = pending; pending = null }
+  })
   mock.method(fs, 'mkdirSync', () => {})
   mock.method(fs, 'chmodSync', () => {})
   syncBuiltinESMExports()

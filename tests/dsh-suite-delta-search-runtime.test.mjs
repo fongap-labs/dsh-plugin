@@ -86,6 +86,44 @@ it('does not switch provider on authentication failure', async () => {
   assert.equal(count, 1)
 })
 
+it('treats an empty provider response as a soft failure and keeps trying other candidates', async () => {
+  config({ search: { providers: [
+    { id: 'primary', active: true, endpoint: 'https://search.example/primary' },
+    { id: 'secondary', active: false, endpoint: 'https://search.example/secondary' },
+  ] } })
+  const calls = []
+  mock.method(globalThis, 'fetch', async url => {
+    calls.push(String(url))
+    if (String(url).endsWith('/primary')) return Response.json({ results: [] })
+    return Response.json({ results: [{ title: 'Recovered', url: 'https://example.com/a', content: 'ok' }] })
+  })
+  const hits = await searchWeb('news', undefined, async () => { throw new Error('should not run Python') })
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].title, 'Recovered')
+  assert.equal(calls.filter(url => url.endsWith('/primary')).length, 1)
+  assert.equal(calls.filter(url => url.endsWith('/secondary')).length, 1)
+})
+
+it('reports an empty result set when every configured provider returns nothing', async () => {
+  config({ search: { providers: [{ id: 'primary', active: true, endpoint: 'https://search.example/primary' }] } })
+  mock.method(globalThis, 'fetch', async () => Response.json({ results: [] }))
+  const hits = await searchWeb('news', undefined, async () => { throw new Error('should not run Python') })
+  assert.deepEqual(hits, [])
+})
+
+it('falls through to keyless sources when a configured provider returns no rows', async () => {
+  config({ search: {
+    fallbackToKeyless: true,
+    providers: [{ id: 'primary', active: true, endpoint: 'https://search.example/primary' }],
+  } })
+  mock.method(globalThis, 'fetch', async () => Response.json({ results: [] }))
+  const hits = await searchWeb('news', undefined, async () => [
+    { title: 'Keyless', url: 'https://example.com/ok', content: 'ok' },
+  ], 5, async () => ({ results: [], source: '', failures: [] }))
+  assert.equal(hits.length, 1)
+  assert.equal(hits[0].title, 'Keyless')
+})
+
 it('only uses keyless failover after explicit consent', async () => {
   config({ search: {
     fallbackToKeyless: true,
