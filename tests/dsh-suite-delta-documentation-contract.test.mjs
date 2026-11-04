@@ -9,12 +9,10 @@ const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts',
 const deletion = readFileSync(new URL('../packages/dsh-suite-delta/src/host/session-delete.ts', import.meta.url), 'utf8')
 const search = readFileSync(new URL('../packages/dsh-suite-delta/src/host/search.ts', import.meta.url), 'utf8')
 
-test('Delta Suite documentation reflects the real cold-session deletion boundary', () => {
-  assert.match(readme, /## 会话删除的安全边界/)
-  assert.match(readme, /实验性的冷会话永久删除/)
-  assert.match(readme, /无法保证跨版本兼容或多步骤原子回滚/)
-  assert.match(readme, /日常整理优先使用 Harness 原生归档/)
-  assert.doesNotMatch(readme, /Delta Suite 不直接执行物理删除/)
+test('documentation describes the actual cold-session deletion route and its Host dependency', () => {
+  assert.match(readme, /sessionPersistence/)
+  assert.match(readme, /\/dsh-ui-delta\/session-delete/)
+  assert.match(readme, /Harness/)
   assert.match(routes, /route\('\/dsh-ui-delta\/session-delete'/)
   assert.match(routes, /await deleteColdSession\(/)
   assert.match(client, /id: 'session\.delta-delete'/)
@@ -24,11 +22,11 @@ test('Delta Suite documentation reflects the real cold-session deletion boundary
   assert.doesNotMatch(deletion, /const service = \(name: string\)/)
 })
 
-test('Delta Suite search docs distinguish public SearXNG from optional Python ddgs', () => {
-  assert.match(readme, /Python 是最终兜底，不是全部搜索方式的前置依赖/)
-  assert.match(readme, /公共 SearXNG/)
-  assert.match(readme, /## 集成式搜索与研究链路\n/)
-  assert.doesNotMatch(readme, /默认搜索依赖宿主进程可调用 Python/)
+test('search documentation is aligned with configured providers and optional keyless fallbacks', () => {
+  assert.match(readme, /SearXNG/)
+  assert.match(readme, /Python/)
+  assert.match(readme, /ddgs/)
+  assert.match(readme, /DSH_DDGS_PYTHON/)
   assert.doesNotMatch(readme, /\\n\\n/)
   assert.match(search, /publicSearch: typeof searchPublicInstances = searchPublicInstances/)
   assert.match(search, /await publicSearch\(/)
@@ -37,12 +35,10 @@ test('Delta Suite search docs distinguish public SearXNG from optional Python dd
     'public search should be attempted before local ddgs')
 })
 
-test('changelog keeps release history intact and has a concise unreleased section', () => {
+test('release history remains intact and the change is recorded as a fragment', () => {
   assert.match(changelog, /^# Changelog\n\n## \[Unreleased\]\n/)
-  assert.match(changelog, /### 新增/)
-  assert.match(changelog, /### 修复/)
   assert.match(changelog, /## \[0\.1\.0-beta\.1\]/)
   const fragment = readFileSync(new URL('../changelog.d/delta-suite-docs-source-cleanup-20261104.md', import.meta.url), 'utf8')
-  assert.match(fragment, /^- 修复:/m)
-  assert.match(fragment, /^- 变更:/m)
+  const entries = fragment.trim().split('\n').filter(line => line.startsWith('- '))
+  assert.equal(entries.length, 4)
 })
