@@ -109,6 +109,7 @@ async function main() {
       ? context.pages().find(item => item.url().startsWith(target.origin)) || await context.newPage()
       : await context.newPage()
     await page.goto(target.href, { waitUntil: 'domcontentloaded', timeout: 20000 })
+    if (new URL(page.url()).origin !== target.origin) throw new Error('Host page redirected away from local origin')
     await page.waitForFunction(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--ens-color-primary').trim().length > 0,
       undefined, { timeout: 15000 })
@@ -120,7 +121,7 @@ async function main() {
     record('brand-tokens', 'PASS')
 
     const endpoint = new URL('/dsh-ui-delta/folders', target.origin)
-    const response = await context.request.get(endpoint.href, { timeout: 12000 })
+    const response = await context.request.get(endpoint.href, { timeout: 12000, maxRedirects: 0 })
     assert.equal(response.status(), 200, 'Folder API must return HTTP 200')
     const folderData = await response.json()
     assert.ok(Array.isArray(folderData.folders), 'Invalid folder API response')
