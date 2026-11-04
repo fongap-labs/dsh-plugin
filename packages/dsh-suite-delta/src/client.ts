@@ -254,6 +254,7 @@ html[data-theme="dark"] {
 
 /* 会话列表项高品质交互：强化 Hover 与 Selected 视觉层级 */
 .wnFoaW_sessionRow {
+  height: 34px; border-radius: var(--dsw-radius-sm);
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
 .wnFoaW_sessionRow:hover {
@@ -394,7 +395,7 @@ body {
 .wtg9ga_root { font-size: 13px; padding: 8px 10px; }
 .wtg9ga_topStrip { height: 44px; }
 /* v0.1.0: the logo row was a 50px empty strip, pushing the search far down. */
-.wtg9ga_logoRow { height: 6px; margin-bottom: 0; }
+.wtg9ga_logoRow { height: 6px; margin-bottom: 0; display: flex; align-items: center; order: 1; }
 [data-windows-titlebar] .wtg9ga_root .wtg9ga_logoRow { height: 6px; margin: 0; }
 /* The account tooltip belongs to Delta alone; suppress conflicting native title hints. */
 ._5Qcc8a_root[data-ens-balance] [title] { pointer-events: auto; }
@@ -402,7 +403,7 @@ body {
    so both tabs keep the same left and right gutter. */
 /* v0.1.0: account balance beside the avatar, shown only when signed in. */
 /* Account balances are transient avatar hints, not permanent footer text. */
-._5Qcc8a_root { position: relative; }
+._5Qcc8a_root { position: relative; flex: none; min-width: 0; }
 ._5Qcc8a_root[data-ens-balance]::after {
   content: attr(data-ens-balance);
   position: absolute; left: 0; bottom: calc(100% + 10px);
@@ -451,10 +452,9 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_panelGlyph svg { display: block; }
 
 /* 4 — session list & search (sidebar.workspaces) */
-.GAkraW_sectionHeader { height: 30px; }
-.GAkraW_sectionLabel { font-size: 12px; font-weight: 600; letter-spacing: 0.03em; color: var(--dsw-alias-label-caption); }
+.GAkraW_sectionHeader { height: 30px; justify-content: flex-start; padding-left: 6px; margin-right: 0; }
+.GAkraW_sectionLabel { font-size: 12px; font-weight: 600; letter-spacing: 0.03em; color: var(--dsw-alias-label-caption); margin-right: auto; }
 .GAkraW_iconButton { transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard); }
-.wnFoaW_sessionRow { height: 34px; border-radius: var(--dsw-radius-sm); }
 .wnFoaW_sessionRow:not(.wnFoaW_selected):hover { background: var(--dsw-alias-interactive-bg-hover); }
 .wnFoaW_title { font-size: 13px; }
 .GAkraW_search { border-radius: var(--dsw-radius-md); transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), box-shadow var(--ens-dur-fast) var(--ens-ease-standard); }
@@ -497,7 +497,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .hSzSIW_root { border-radius: var(--dsw-radius-xl); }
 
 /* 7 — settings & plugin-manager cards */
-.AnXs9G_panel { box-shadow: var(--dsw-elevation-prominent); }
+.AnXs9G_panel { box-shadow: var(--dsw-elevation-prominent); will-change: opacity; animation: ensFade 140ms ease-out both; }
 .AnXs9G_header { padding: 20px 14px 8px 12px; }
 .AnXs9G_navCell { transition: background-color var(--ens-dur-fast) var(--ens-ease-standard); }
 .AnXs9G_navCell.AnXs9G_active { box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2); }
@@ -506,40 +506,30 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .V7pFBG_pageTitle { font-weight: 600; }
 
 /* 8 — reduced motion safety net */
-@media (prefers-reduced-motion: reduce) {
-  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
-}
-
 /* 9 — DeltaSuite chrome: compact account seat, models cleanup */
 /* The brand row keeps the native 应用｜编辑 affordance out of DOM reach; it
    stays an empty drag strip, so only its layout is tuned here. */
-.wtg9ga_logoRow { display: flex; align-items: center; }
 .wtg9ga_toggle { order: 10; }
 
 /* Account seat at the sidebar foot (#30): the launcher collapses to a single
    32px glyph — the host avatar when signed in, the DeepSeek Harness whale
    mark when signed out — and a right-aligned 设置 button joins it on the same
    row. The launcher row stays a React-owned node; only the button is added. */
-._5Qcc8a_root { flex: none; min-width: 0; }
 /* The host keeps the account launcher and footer actions in separate seats. */
-.wtg9ga_footArea { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.wtg9ga_footArea { display: flex; flex-direction: row; align-items: center; gap: 8px; position: relative; order: 6; }
 .wtg9ga_settingsArea { order: 0; flex: 1 1 auto; min-width: 0; width: auto; }
 .wtg9ga_settingsArea [class*="_triggerRow"] { margin: 0; }
 .wtg9ga_footerActions { order: 1; display: flex; align-items: center; gap: 8px; width: auto; flex: none; }
 ._5Qcc8a_trigger { width: 32px !important; height: 32px !important; min-height: 32px; padding: 0 !important; justify-content: center; gap: 0; }
 ._5Qcc8a_label { display: none; }
 ._5Qcc8a_trigger[data-signed-out='true'] > svg { display: none; }
-.ens-account-glyph { display: none; color: var(--dsw-alias-label-secondary); align-items: center; justify-content: center; }
+.ens-account-glyph { display: none; color: var(--dsw-alias-label-secondary); align-items: center; justify-content: center; pointer-events: none; }
 /* v0.1.0: the whale mark is sized to the same 20px box as the 设置 / 登录 icons. */
 .ens-account-glyph svg { width: 20px; height: 20px; display: block; }
 ._5Qcc8a_trigger[data-signed-out='true'] .ens-account-glyph { display: inline-flex; }
-._5Qcc8a_trigger[data-signed-out=true] > svg { display: none; }
-._5Qcc8a_trigger[data-signed-out=true] .ens-account-glyph { display: inline-flex; }
 /* The avatar is display only; the account action lives in the footer. */
 ._5Qcc8a_root, ._5Qcc8a_anchor, ._5Qcc8a_trigger { pointer-events: auto !important; cursor: default !important; }
-.ens-account-glyph { pointer-events: none; }
 /* Keep the two host seats aligned without positioning the actions individually. */
-.wtg9ga_footArea { position: relative; }
 .ens-foot-actions {
   display: flex;
   align-items: center;
@@ -603,7 +593,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 /* #2/#26 column order: the native session search sits directly ABOVE 插件管理
    (the latest placement), then 插件管理·定时任务 → 开始对话 → 工作区.
    Every block keeps one vertical rhythm. */
-.wtg9ga_logoRow { order: 1; }
 /* The dock reserves the room the focus ring needs: 2px ring + 2px gap on each
    side (outline-offset +2px), so a focused field can never paint over the
    工作区 row below it. 34px field + 2×(2px ring + 2px gap) + 6px breathing
@@ -631,7 +620,6 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
    the input zero-width until the field expands. */
 .ens-search-dock .GAkraW_searchInput { font-size: 13px; flex: none; width: 0; }
 .wtg9ga_regionArea { order: 5; }
-.wtg9ga_footArea { order: 6; }
 
 /* #2/#13 restyle 新会话 (→开始对话) as a panel row identical to 定时任务:
       same box (min-height/padding/gap), same inset, flush-left content. The
@@ -665,6 +653,7 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
       as the field fixes both the collapsed look and the expansion. */
 .ens-search-dock .GAkraW_searchSlot {
   width: 100%; max-width: none; flex: none; margin-left: 0; padding-left: 0; transition: none;
+  opacity: 1; pointer-events: auto;
 }
 /* 规范：搜索/输入字段高 36px、圆角 12px（md），描边 control 色 */
 .ens-search-dock .GAkraW_search {
@@ -724,13 +713,10 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 /* #14 the 工作区 label stays flush-left while 视图选项 / 添加工作区 stay
       flush-right. With the search slot moved out, the header is just label +
       actions; pin them to opposite edges and match the panel-row inset. */
-.GAkraW_sectionHeader { justify-content: flex-start; padding-left: 6px; margin-right: 0; }
-.GAkraW_sectionLabel { margin-right: auto; }
 .GAkraW_headerActions { margin-left: auto; flex: none; }
 /* the host's search slot is relocated into the dock above 插件管理; while it
    still sits in the workspace header (before the observer moves it, or when
    React re-creates it there) it stays invisible — the dock shows the real one. */
-.ens-search-dock .GAkraW_searchSlot { opacity: 1; pointer-events: auto; }
 .GAkraW_sectionHeader .GAkraW_searchSlot { opacity: 0 !important; pointer-events: none !important; }
 
 /* #10 the center column shares bg-base with the rightbar; give the side panels a
@@ -882,7 +868,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 /* settings window: keep the dim, drop the host's full-page mask blur (it re-samples
    the whole page on every open frame); the panel fades in without moving. */
 .AnXs9G_mask { backdrop-filter: none !important; }
-.AnXs9G_panel { will-change: opacity; animation: ensFade 140ms ease-out both; }
 /* settings panel resizable from its bottom-right corner (host fixes it at 800px) */
 .ens-resize {
   position: absolute; right: 6px; bottom: 6px; width: 20px; height: 20px;
@@ -1180,6 +1165,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   .ens-memory-form { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
   .ens-ui-button, .ens-ui-card, .ens-ui-input, .ens-ui-select,
   .ens-ui-textarea, .ens-ui-badge { animation: none !important; transition: none !important; }
 }
