@@ -4895,6 +4895,7 @@ const MODULES: ModuleDef[] = [
           interface FolderPanelState {
             folders: Array<{ id: string; name: string; order: number }>;
             assignments: Record<string, string>;
+            revision: string;
           }
           interface ListedSession {
             id: string; displayTitle: string; blank?: boolean; origin?: string;
@@ -4910,35 +4911,47 @@ const MODULES: ModuleDef[] = [
           }
           const sessions = (ctx.get?.('sessions') || ctx.sessions) as SessionListFace | undefined;
           const navigation = (ctx.get?.('uiWorkspace') || ctx.uiWorkspace) as FolderNavigationFace | undefined;
-          const initialFolders: FolderPanelState = { folders: [], assignments: {} };
+          const initialFolders: FolderPanelState = { folders: [], assignments: {}, revision: '' };
           let folderSnapshot = initialFolders;
           const listeners = new Set<() => void>();
           let isRequesting = false;
+          let needsReload = false;
+          let folderReadId = 0;
           let errorText = '';
           const notify = () => { for (const listener of listeners) listener(); };
           const reload = async (): Promise<void> => {
-            if (isRequesting || typeof fetch !== 'function') return;
+            if (typeof fetch !== 'function') return;
+            if (isRequesting) { needsReload = true; return; }
             isRequesting = true;
+            const requestId = ++folderReadId;
             try {
               const response = await fetch('/dsh-ui-delta/folders');
               const data = await response.json();
-              if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
-              folderSnapshot = data as FolderPanelState;
-              errorText = '';
+              if (!response.ok || data.error || typeof data.revision !== 'string')
+                throw new Error(data.error || 'Folder loading failed');
+              if (requestId === folderReadId) {
+                folderSnapshot = data as FolderPanelState;
+                errorText = '';
+              }
             } catch (error) {
-              errorText = String(error);
+              if (requestId === folderReadId) errorText = String(error);
             } finally {
               isRequesting = false;
               notify();
+              if (needsReload) { needsReload = false; void reload(); }
             }
           };
           const mutate = async (payload: Record<string, unknown>): Promise<void> => {
+            ++folderReadId; // Supersede GETs started before this POST.
             const response = await fetch('/dsh-ui-delta/folders', {
               method: 'POST', headers: { 'content-type': 'application/json' },
-              body: JSON.stringify(payload),
+              body: JSON.stringify({ ...payload, expectedRevision: folderSnapshot.revision }),
             });
             const data = await response.json();
-            if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
+            if (!response.ok || data.error || typeof data.revision !== 'string') {
+              void reload();
+              throw new Error(data.error || 'Folder update failed');
+            }
             folderSnapshot = data as FolderPanelState;
             errorText = '';
             notify();
