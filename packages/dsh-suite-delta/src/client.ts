@@ -3540,6 +3540,103 @@ const MODULES: ModuleDef[] = [
         // Exposed so feature code can gate itself on the user's switches.
         window.__deltaModules = { list: MODULES, enabled: moduleOn };
 
+        // One versioned folder snapshot is shared by settings, menus and sidebar.
+        // The Host remains authoritative; browser state is never persisted here.
+        interface FolderStoreView {
+          folders: Array<{ id: string; name: string; order: number }>;
+          assignments: Record<string, string>;
+          revision: string;
+        }
+        const folderStore = (() => {
+          let view: FolderStoreView = { folders: [], assignments: {}, revision: '' };
+          let errorText = '';
+          let requestSeq = 0;
+          let isDisposed = false;
+          let isBroadcasting = false;
+          let mutationQueue: Promise<unknown> = Promise.resolve();
+          const listeners = new Set<() => void>();
+          const notify = () => { if (!isDisposed) for (const listener of listeners) listener(); };
+          const decode = async (response: Response, fallback: string): Promise<FolderStoreView> => {
+            const data = await response.json();
+            if (!response.ok || !data || typeof data.revision !== 'string'
+              || !Array.isArray(data.folders) || !data.assignments) {
+              throw new Error(data?.error || fallback);
+            }
+            return data as FolderStoreView;
+          };
+          const publish = (next: FolderStoreView, broadcast = false): void => {
+            if (isDisposed) return;
+            ++requestSeq; // Discard every GET started before this commit.
+            view = next;
+            errorText = '';
+            notify();
+            if (broadcast) {
+              isBroadcasting = true;
+              try { window.dispatchEvent(new Event('dsh-ui-delta:folders-changed')); }
+              finally { isBroadcasting = false; }
+            }
+          };
+          const refresh = async (): Promise<void> => {
+            if (isDisposed) return;
+            const seq = ++requestSeq;
+            try {
+              const next = await decode(await fetch('/dsh-ui-delta/folders'), 'Folder loading failed');
+              if (seq === requestSeq) publish(next);
+            } catch (error) {
+              if (seq === requestSeq && !isDisposed) {
+                errorText = String(error);
+                notify();
+              }
+              throw error;
+            }
+          };
+          const mutate = (payload: Record<string, unknown>): Promise<FolderStoreView> => {
+            const pending = mutationQueue.then(async () => {
+              if (isDisposed) throw new Error('Folder store unavailable');
+              ++requestSeq;
+              try {
+                const next = await decode(await fetch('/dsh-ui-delta/folders', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ ...payload, expectedRevision: view.revision }),
+                }), 'Folder update failed');
+                publish(next, true);
+                return next;
+              } catch (error) {
+                await refresh().catch(() => { /* Preserve the original write error. */ });
+                throw error;
+              }
+            });
+            // Failed writes must not poison the queue for later operations.
+            mutationQueue = pending.then(() => undefined, () => undefined);
+            return pending;
+          };
+          return {
+            view: () => view,
+            error: () => errorText,
+            subscribe: (listener: () => void) => {
+              listeners.add(listener);
+              return () => { listeners.delete(listener); };
+            },
+            refresh,
+            mutate,
+            publish: (next: FolderStoreView) => publish(next, true),
+            isBroadcasting: () => isBroadcasting,
+            dispose: () => { isDisposed = true; ++requestSeq; listeners.clear(); },
+          };
+        })();
+        ctx.effect(() => {
+          const onFolderChange = () => {
+            if (!folderStore.isBroadcasting()) void folderStore.refresh().catch(() => {});
+          };
+          window.addEventListener('dsh-ui-delta:folders-changed', onFolderChange);
+          void folderStore.refresh().catch(() => {});
+          return () => {
+            window.removeEventListener('dsh-ui-delta:folders-changed', onFolderChange);
+            folderStore.dispose();
+          };
+        }, 'dsh-ui-delta: shared folder state');
+
         try {
           const React = require('react');
           const h = React.createElement;
