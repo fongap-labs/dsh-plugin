@@ -1208,6 +1208,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-browser-group-head:focus-visible { background: var(--ens-color-accent); }
 .ens-folder-browser-count { margin-left: auto; color: var(--ens-color-muted-foreground); font-size: 12px; }
 .ens-folder-browser-items { display: grid; padding: 0 var(--ens-space-sm) var(--ens-space-sm); gap: var(--ens-space-3xs); }
+.ens-folder-browser-items[hidden] { display: none; }
 .ens-folder-browser-session {
   min-width: 0; display: flex; align-items: center; gap: var(--ens-space-sm);
   border: 1px solid transparent; border-radius: var(--dsw-radius-sm);
@@ -4613,16 +4614,17 @@ const MODULES: ModuleDef[] = [
                     h('div', { key: 'actions', className: 'ens-folder-actions' }, [
                       h(UiButton, { key: 'up', type: 'button', size: 'sm', variant: 'outline',
                         disabled: folderBusy || index === 0,
-                        'aria-label': pick('上移文件夹', 'Move folder up'),
+                        'aria-label': pick('上移文件夹', 'Move folder up') + ': ' + folder.name,
                         onClick: () => { void folderAction({ action: 'move', id: folder.id, direction: 'up' }); },
                       }, '↑'),
                       h(UiButton, { key: 'down', type: 'button', size: 'sm', variant: 'outline',
                         disabled: folderBusy || index === folderView.folders.length - 1,
-                        'aria-label': pick('下移文件夹', 'Move folder down'),
+                        'aria-label': pick('下移文件夹', 'Move folder down') + ': ' + folder.name,
                         onClick: () => { void folderAction({ action: 'move', id: folder.id, direction: 'down' }); },
                       }, '↓'),
                       h(UiButton, { key: 'rename', type: 'button', size: 'sm', variant: 'outline',
                         disabled: folderBusy,
+                        'aria-label': pick('重命名', 'Rename') + ': ' + folder.name,
                         onClick: () => {
                           const name = window.prompt(pick('重命名文件夹', 'Rename folder'), folder.name);
                           if (name !== null && name.trim() && name.trim() !== folder.name)
@@ -4631,6 +4633,7 @@ const MODULES: ModuleDef[] = [
                       }, pick('重命名', 'Rename')),
                       h(UiButton, { key: 'delete', type: 'button', size: 'sm', variant: 'destructive',
                         disabled: folderBusy,
+                        'aria-label': pick('删除', 'Delete') + ': ' + folder.name,
                         onClick: () => {
                           if (!window.confirm(pick(
                             `删除文件夹「${folder.name}」？其中 ${count} 个会话将变为未分类，原会话不会删除。`,
@@ -5070,7 +5073,7 @@ const MODULES: ModuleDef[] = [
               }, item.displayTitle || item.id),
               node('select', {
                 key: 'folder', className: 'ens-ui-select ens-folder-browser-select',
-                'aria-label': t('选择会话文件夹', 'Choose session folder'),
+                'aria-label': t('选择会话文件夹', 'Choose session folder') + ': ' + (item.displayTitle || item.id),
                 value: folderSnapshot.assignments[item.id] || '', disabled: isBusy,
                 onChange: (event: { target: HTMLSelectElement }) => {
                   const folderId = event.target.value;
@@ -5088,6 +5091,7 @@ const MODULES: ModuleDef[] = [
               const items = available.filter(item =>
                 (folderSnapshot.assignments[item.id] || '') === group.id);
               const isCollapsed = collapsed[group.id] === true;
+              const groupItemsId = `delta-folder-items-${group.id || 'unfiled'}`;
               const isDropTarget = activeDrop === (group.id || 'unfiled');
               return node('section', {
                 key: group.id || 'unfiled',
@@ -5118,12 +5122,14 @@ const MODULES: ModuleDef[] = [
                 node('button', {
                   key: 'header', type: 'button', className: 'ens-folder-browser-group-head',
                   'aria-expanded': !isCollapsed,
+                  'aria-controls': groupItemsId,
                   onClick: () => setCollapsed(prev => ({ ...prev, [group.id]: !prev[group.id] })),
                 }, [
                   node('span', { key: 'name' }, group.label),
                   node('span', { key: 'count', className: 'ens-folder-browser-count' }, String(items.length)),
                 ]),
-                isCollapsed ? null : node('div', { key: 'rows', className: 'ens-folder-browser-items' },
+                node('div', { key: 'rows', id: groupItemsId,
+                  className: 'ens-folder-browser-items', hidden: isCollapsed }, isCollapsed ? null :
                   items.length
                     ? [...items.slice(0, visibleLimit).map(sessionRow),
                       items.length > visibleLimit ? node('button', {

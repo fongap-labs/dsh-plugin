@@ -53,3 +53,35 @@ test('text-bearing semantic theme pairs retain WCAG AA 4.5:1 contrast', () => {
       `Contrast below WCAG AA: ${foreground} on ${background}`)
   }
 })
+
+
+test('settings action labels identify individual folders to assist screen readers', () => {
+  const start = client.indexOf('const folderRow = h(UiCard,')
+  const end = client.indexOf('const exportRow =', start)
+  assert.ok(start > 0 && end > start)
+  const settings = client.slice(start, end)
+  for (const key of ['up', 'down', 'rename', 'delete']) {
+    const index = settings.indexOf("key: '" + key + "', type: 'button'")
+    assert.ok(index > 0, "missing folder action: " + key)
+    assert.match(settings.slice(index, index + 360),
+      /'aria-label': pick\([^\n]+\) \+ ': ' \+ folder\.name,/)
+  }
+})
+
+test('folder disclosure buttons control stable hidden content regions', () => {
+  assert.match(browser, /const groupItemsId = /)
+  assert.match(browser, /'aria-expanded': !isCollapsed,/)
+  assert.match(browser, /'aria-controls': groupItemsId,/)
+  assert.match(browser, /node\('div', \{ key: 'rows', id: groupItemsId,/)
+  assert.match(browser, /className: 'ens-folder-browser-items', hidden: isCollapsed \}, isCollapsed \? null :/)
+  assert.match(stylesheet, /\.ens-folder-browser-items\[hidden\] \{ display: none; \}/)
+})
+
+test('each keyboard assignment selector describes its session', () => {
+  assert.match(browser,
+    /'aria-label': t\([^\n]+\) \+ ': ' \+ \(item\.displayTitle \|\| item\.id\),/)
+  assert.match(browser, /node\('select', \{/)
+  assert.match(browser, /onChange: \(event: \{ target: HTMLSelectElement \}\) => \{/)
+  assert.match(browser, /action: 'assign', sessionId: item\.id, folderId/)
+  assert.match(browser, /action: 'unassign', sessionId: item\.id/)
+})

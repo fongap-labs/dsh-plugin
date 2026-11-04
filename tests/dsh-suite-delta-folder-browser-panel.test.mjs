@@ -35,7 +35,7 @@ test('drag classification is bounded to the visible catalog and has a keyboard a
   assert.match(client, /if \(!knownIds\.has\(sessionId\)\) return/)
   assert.match(client, /onDragOver:/)
   assert.match(client, /onDrop:/)
-  assert.match(client, /'aria-label': t\('选择会话文件夹', 'Choose session folder'\)/)
+  assert.match(client, /'aria-label': t\('选择会话文件夹', 'Choose session folder'\) \+ ': ' \+ \(item\.displayTitle \|\| item\.id\)/)
   assert.match(client, /action: 'unassign', sessionId: item\.id/)
   assert.match(client, /action: 'assign', sessionId: item\.id, folderId/)
 })
