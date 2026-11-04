@@ -1210,6 +1210,15 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   outline-offset: -2px;
 }
 .ens-folder-browser-group-head:focus-visible { background: var(--ens-color-accent); }
+.ens-folder-browser-group-head:focus-visible,
+.ens-folder-browser-open:focus-visible {
+  outline: 2px solid var(--ens-color-ring);
+  outline-offset: -2px;
+  border-radius: var(--dsw-radius-sm);
+}
+.ens-folder-browser-session:focus-within {
+  border-color: var(--ens-color-ring);
+}
 .ens-folder-browser-count { margin-left: auto; color: var(--ens-color-muted-foreground); font-size: 12px; }
 .ens-folder-browser-items { display: grid; padding: 0 var(--ens-space-sm) var(--ens-space-sm); gap: var(--ens-space-3xs); }
 .ens-folder-browser-session {
