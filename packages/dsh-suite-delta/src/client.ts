@@ -3555,7 +3555,7 @@ const MODULES: ModuleDef[] = [
                 STATUS_TAG[m.status]
                   ? h(UiBadge, { key: 'p', className: 'ens-plan-tag', variant: 'outline' }, pick(STATUS_TAG[m.status], STATUS_TAG_EN[m.status]))
                   : null,
-                h(UiButton, {
+                h('button', {
                   key: 'b',
                   type: 'button',
                   role: 'switch',
