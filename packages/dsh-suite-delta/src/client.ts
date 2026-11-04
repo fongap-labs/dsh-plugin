@@ -207,6 +207,9 @@ window.__ModuleLoader__.load({
       // 遮罩与浮层阴影
       '--ens-scrim': { light: 'rgba(23,25,28,0.32)', dark: 'rgba(0,0,0,0.50)' },
       '--ens-shadow-overlay': { light: '0 8px 24px rgba(17,19,22,0.08)', dark: 'none' },
+      '--ens-shadow-sm': { light: '0 1px 2px rgba(17,19,22,0.06)', dark: '0 1px 2px rgba(0,0,0,0.20)' },
+      '--ens-shadow-md': { light: '0 4px 12px rgba(17,19,22,0.08)', dark: '0 4px 12px rgba(0,0,0,0.28)' },
+      '--ens-shadow-lg': { light: '0 16px 48px rgba(17,19,22,0.14)', dark: '0 16px 48px rgba(0,0,0,0.44)' },
       // 语义色描边（浅底提示条用）
       '--ens-ok-line': { light: '#CFE6D6', dark: '#2C4736' },
       '--ens-warn-line': { light: '#F3D9A4', dark: '#5A4318' },
@@ -316,7 +319,7 @@ html[data-theme="dark"] {
 }
 /* ===== DeltaSuite — design layer ===== */
 
-/* 1 — foundation: Delta 圆角阶梯（4/8/12/16/20/28）、动效时长与缓动、焦点环 */
+/* 1 — foundation: Delta radius scale (4/8/12/16/20), motion and focus. */
 body {
   --dsw-radius-xs: 4px;
   --dsw-radius-sm: 8px;
@@ -1066,6 +1069,79 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-memory-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
 .ens-memory-toolbar input { min-width:120px; flex:1; }
 .ens-memory-status { color:var(--dsw-alias-label-secondary); font-size:12px; }
+
+/* Delta-owned shadcn/ui-inspired primitives. The Harness host controls its
+   own React tree; this adapter deliberately styles only Delta components. */
+.ens-ui-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--ens-space-sm);
+  box-sizing: border-box; min-height: 36px; padding: 0 12px; border: 1px solid transparent;
+  border-radius: var(--dsw-radius-sm); font: inherit; font-size: 13px; font-weight: 500; line-height: 20px;
+  white-space: nowrap; cursor: pointer; text-decoration: none;
+  transition: background-color var(--ens-dur-fast) var(--ens-ease-standard),
+    border-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
+}
+.ens-ui-button--default,
+.ens-pill-btn-primary {
+  background: var(--ens-color-primary); border-color: var(--ens-color-primary);
+  color: var(--ens-color-primary-foreground);
+}
+.ens-ui-button--default:hover:not(:disabled),
+.ens-pill-btn-primary:hover:not(:disabled) { background: var(--dsw-alias-button-primary-hover); color: var(--ens-color-primary-foreground); }
+.ens-ui-button--secondary { background: var(--ens-color-secondary); color: var(--ens-color-secondary-foreground); }
+.ens-ui-button--secondary:hover:not(:disabled) { background: var(--ens-color-muted); }
+.ens-ui-button--outline, .ens-pill-btn:not(.ens-pill-btn-primary) {
+  border-color: var(--ens-color-border); background: var(--ens-color-card); color: var(--ens-color-card-foreground);
+}
+.ens-ui-button--outline:hover:not(:disabled), .ens-pill-btn:not(.ens-pill-btn-primary):hover:not(:disabled) {
+  background: var(--ens-color-accent); color: var(--ens-color-accent-foreground);
+}
+.ens-ui-button--ghost { border-color: transparent; background: transparent; color: var(--ens-color-foreground); }
+.ens-ui-button--ghost:hover:not(:disabled) { background: var(--ens-color-accent); color: var(--ens-color-accent-foreground); }
+.ens-ui-button--destructive {
+  background: var(--ens-color-destructive); border-color: var(--ens-color-destructive);
+  color: var(--ens-color-destructive-foreground);
+}
+.ens-ui-button--destructive:hover:not(:disabled) { filter: brightness(0.91); }
+.ens-ui-button--sm { min-height: 32px; padding-inline: 10px; font-size: 12px; }
+.ens-ui-button--lg { min-height: 40px; padding-inline: 16px; }
+.ens-ui-button--icon { width: 36px; min-width: 36px; padding: 0; }
+.ens-ui-button:disabled, .ens-pill-btn:disabled { pointer-events: none; opacity: 0.5; cursor: not-allowed; }
+.ens-ui-card {
+  box-sizing: border-box; min-width: 0; border: 1px solid var(--ens-color-border);
+  border-radius: var(--dsw-radius-lg); background: var(--ens-color-card);
+  color: var(--ens-color-card-foreground); box-shadow: var(--ens-shadow-sm);
+}
+.ens-ui-card.ens-provider { border-style: solid; }
+.ens-ui-card.ens-privacy { border-style: solid; }
+.ens-ui-badge {
+  display: inline-flex; align-items: center; justify-content: center; width: fit-content;
+  min-height: 20px; padding: 1px 7px; box-sizing: border-box; border-radius: 999px;
+  border: 1px solid transparent; font-size: 11px; font-weight: 500; line-height: 16px; white-space: nowrap;
+}
+.ens-ui-badge--secondary { background: var(--ens-color-secondary); color: var(--ens-color-secondary-foreground); }
+.ens-ui-badge--outline { border-color: var(--ens-color-border); color: var(--ens-color-muted-foreground); }
+.ens-ui-badge--default { background: var(--ens-color-primary); color: var(--ens-color-primary-foreground); }
+.ens-ui-input, .ens-ui-select, .ens-ui-textarea {
+  box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid var(--ens-control-border);
+  border-radius: var(--dsw-radius-sm); background: var(--ens-color-card);
+  color: var(--ens-color-card-foreground); font: inherit; font-size: 13px; line-height: 20px;
+}
+.ens-ui-input, .ens-ui-select { min-height: 36px; padding: 6px 10px; }
+.ens-ui-textarea { min-height: 80px; padding: 8px 10px; resize: vertical; }
+.ens-ui-input::placeholder, .ens-ui-textarea::placeholder { color: var(--ens-color-muted-foreground); }
+.ens-ui-input:disabled, .ens-ui-select:disabled, .ens-ui-textarea:disabled {
+  opacity: 0.5; cursor: not-allowed; background: var(--ens-color-muted);
+}
+.ens-ui-button:focus-visible, .ens-ui-input:focus-visible, .ens-ui-select:focus-visible,
+.ens-ui-textarea:focus-visible, .ens-ui-badge:focus-visible, .ens-switch:focus-visible,
+.ens-pill-btn:focus-visible {
+  outline: 2px solid var(--ens-color-ring) !important; outline-offset: 2px;
+}
+.ens-ui-card.ens-memory-item { box-shadow: var(--ens-shadow-sm); }
+.ens-modal-card { background: var(--ens-color-card); border-color: var(--ens-color-border); box-shadow: var(--ens-shadow-lg); }
+.ens-menu { background: var(--ens-color-popover); border-color: var(--ens-color-border); box-shadow: var(--ens-shadow-md); }
+.ens-menu-item:focus-visible { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
+
 `;
 
     return {
@@ -3354,6 +3430,43 @@ const MODULES: ModuleDef[] = [
         try {
           const React = require('react');
           const h = React.createElement;
+
+          // shadcn/ui-compatible local React primitives: no extra bundler or
+          // host-owned component replacements. Props are forwarded verbatim.
+          type UiProps = Record<string, unknown> & {
+            className?: string;
+            children?: unknown;
+            variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive';
+            size?: 'default' | 'sm' | 'lg' | 'icon';
+          };
+          const UiButton = (props: UiProps) => {
+            const { className = '', children, variant, size = 'default', ...rest } = props;
+            const style = variant ?? (className.includes('ens-pill-btn-primary') ? 'default' : 'outline');
+            return h('button', { ...rest, className: `ens-ui-button ens-ui-button--${style} ens-ui-button--${size} ${className}`.trim() }, children);
+          };
+          const UiCard = (props: UiProps) => {
+            const { className = '', children, ...rest } = props;
+            return h('div', { ...rest, className: `ens-ui-card ${className}`.trim() }, children);
+          };
+          const UiBadge = (props: UiProps) => {
+            const { className = '', children, variant = 'secondary', ...rest } = props;
+            return h('span', { ...rest, className: `ens-ui-badge ens-ui-badge--${variant} ${className}`.trim() }, children);
+          };
+          const UiInput = (props: UiProps) => {
+            const { className = '', children: _children, ...rest } = props;
+            const type = typeof rest.type === 'string' ? rest.type : 'text';
+            const rawTypes = ['checkbox', 'radio', 'range', 'hidden', 'file'];
+            const prefix = rawTypes.includes(type) ? '' : 'ens-ui-input ';
+            return h('input', { ...rest, className: `${prefix}${className}`.trim() });
+          };
+          const UiTextarea = (props: UiProps) => {
+            const { className = '', children, ...rest } = props;
+            return h('textarea', { ...rest, className: `ens-ui-textarea ${className}`.trim() }, children);
+          };
+          const UiSelect = (props: UiProps) => {
+            const { className = '', children, ...rest } = props;
+            return h('select', { ...rest, className: `ens-ui-select ${className}`.trim() }, children);
+          };
           function DeltaSettings() {
             const [flags, setFlags] = React.useState(readFlags);
             const enabled = (m: ModuleDef) => flags[m.id] ?? m.defaultOn;
@@ -3375,9 +3488,9 @@ const MODULES: ModuleDef[] = [
               ]),
               h('span', { key: 's', className: 'ens-set-side' }, [
                 STATUS_TAG[m.status]
-                  ? h('span', { key: 'p', className: 'ens-plan-tag' }, pick(STATUS_TAG[m.status], STATUS_TAG_EN[m.status]))
+                  ? h(UiBadge, { key: 'p', className: 'ens-plan-tag', variant: 'outline' }, pick(STATUS_TAG[m.status], STATUS_TAG_EN[m.status]))
                   : null,
-                h('button', {
+                h(UiButton, {
                   key: 'b',
                   type: 'button',
                   role: 'switch',
@@ -3399,7 +3512,7 @@ const MODULES: ModuleDef[] = [
                   'Enter model names, comma-separated. Only the list changes; the models stay callable.',
                 )),
               ]),
-              h('input', {
+              h(UiInput, {
                 key: 'i',
                 className: 'jrmgQW_input',
                 value: hiddenText,
@@ -3477,34 +3590,34 @@ const MODULES: ModuleDef[] = [
             const fieldLabel = (text: string) => h('div', { key: 'l', className: 'ens-set-name' }, text);
             const providerCard = (section: string, p: ProviderDef, index: number) => {
               const named = (p.label || '').trim() !== '';
-              return h('div', { key: p.id || index, className: 'ens-provider' }, [
+              return h(UiCard, { key: p.id || index, className: 'ens-provider' }, [
                 h('div', { key: 'hd', className: 'ens-provider-head' }, [
-                  h('input', {
+                  h(UiInput, {
                     key: 'nm', className: 'jrmgQW_input ens-provider-name', type: 'text',
                     placeholder: pick('服务商名称（如 硅基流动）', 'Provider name (e.g. SiliconFlow)'),
                     defaultValue: p.label || '',
                     'data-provider-field': 'label',
                   }),
-                  h('button', {
+                  h(UiButton, {
                     key: 'del', type: 'button', className: 'ens-pill-btn',
                     onClick: () => { saveHost(section, { removeProvider: p.id }).catch((error) => setSaveStatus(prev => ({ ...prev, [p.id || '']: String(error) }))); },
                   }, pick('删除', 'Remove')),
                 ]),
                 fieldLabel(pick('搜索接口地址', 'Search endpoint')),
-                h('input', {
+                h(UiInput, {
                   key: 'url', className: 'jrmgQW_input', type: 'text',
                   placeholder: 'https://api.tavily.com/search',
                   defaultValue: p.endpoint || '',
                   'data-provider-field': 'endpoint',
                 }),
                 fieldLabel(pick('API 密钥', 'API key')),
-                h('input', {
+                h(UiInput, {
                   key: 'key', className: 'jrmgQW_input', type: 'password',
                   placeholder: p.keyHint ? pick(`已保存 ${p.keyHint}，输入新值可替换`, `Saved ${p.keyHint}; type to replace`) : '',
                   'data-provider-field': 'apiKey',
                 }),
                 h('div', { key: 'saveRow' }, [
-                  h('button', {
+                  h(UiButton, {
                     key: 'save', type: 'button', className: 'ens-pill-btn',
                     onClick: async (ev: { currentTarget: HTMLElement }) => {
                       const card = ev.currentTarget.closest('.ens-provider');
@@ -3532,18 +3645,18 @@ const MODULES: ModuleDef[] = [
             };
             const featureBlock = (section: string, title: string, desc: string) => {
               const list = providerList(section);
-              return h('div', { key: section, className: 'ens-privacy' }, [
+              return h(UiCard, { key: section, className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, title),
                 h('div', { key: 'd', className: 'ens-privacy-body' }, desc),
                 list.length
                   ? h('div', { key: 'list', className: 'ens-provider-list' }, list.map((p, i) => providerCard(section, p, i)))
                   : h('div', { key: 'empty', className: 'ens-privacy-body' }, pick('尚未配置服务商。', 'No provider configured yet.')),
-                h('button', {
+                h(UiButton, {
                   key: 'add', type: 'button', className: 'ens-pill-btn',
                   onClick: () => { saveHost(section, { addProvider: true }).catch((error) => setSaveStatus(prev => ({ ...prev, [section]: String(error) }))); },
                 }, pick('添加服务商', 'Add provider')),
                 section === 'search' ? h('label', { key: 'fallback', className: 'ens-set-row' }, [
-                  h('input', {
+                  h(UiInput, {
                     key: 'enabled', type: 'checkbox',
                     checked: hostCfg?.search && typeof hostCfg.search === 'object' ? !!hostCfg.search.fallbackToKeyless : false,
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => {
@@ -3568,7 +3681,7 @@ const MODULES: ModuleDef[] = [
             const mainModelLabel = mainModelInfo?.provider && mainModelInfo.model
               ? `${mainModelInfo.provider} / ${mainModelInfo.model}`
               : pick('主配置模型不可用', 'Main model unavailable');
-            const visionRow = visionOn ? h('div', { key: 'vision', className: 'ens-privacy' }, [
+            const visionRow = visionOn ? h(UiCard, { key: 'vision', className: 'ens-privacy' }, [
               h('div', { key: 'title', className: 'ens-privacy-title' }, pick('视觉识别', 'Vision bridge')),
               h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
                 '粘贴图片识别时自动复用主配置的模型账号、接口地址和 API Key，不需要为 Delta 再配置一套。可指定支持图片输入的视觉模型，留空跟随主模型。',
@@ -3578,25 +3691,25 @@ const MODULES: ModuleDef[] = [
               !mainModelInfo?.ready ? h('div', { key: 'unready', role: 'status', className: 'ens-set-desc' }, pick('请先在主配置中设置模型账号。', 'Configure a model account in the main settings first.')) : null,
               mainModelInfo?.openAICompatible === false ? h('div', { key: 'protocol', role: 'status', className: 'ens-set-desc' }, pick('当前账号接口不兼容 Delta 的图文识别请求。', 'The current provider protocol is not compatible with Delta image-recognition requests.')) : null,
               !visionModelForm.model.trim() && mainModelInfo?.imageInputSupported === false ? h('div', { key: 'no-image', role: 'status', className: 'ens-set-desc' }, pick('当前模型不支持图片输入。', 'The current model does not accept image input.')) : null,
-              h('div', { key: 'override', className: 'ens-provider' }, [
+              h(UiCard, { key: 'override', className: 'ens-provider' }, [
                 fieldLabel(pick('视觉模型名称（留空跟随主模型）', 'Vision model name (blank follows the main model)')),
-                h('input', {
+                h(UiInput, {
                   key: 'model-input', className: 'jrmgQW_input', type: 'text', value: visionModelForm.model,
                   placeholder: mainModelInfo?.model || pick('使用主配置模型', 'Use the main model'),
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setVisionModelForm(prev => ({ ...prev, model: ev.target.value })),
                 }),
                 h('label', { key: 'temperature' }, [
                   pick('温度（0–2，留空使用默认值）', 'Temperature (0–2; blank uses default)'),
-                  h('input', { key: 'input', className: 'jrmgQW_input', type: 'number', min: 0, max: 2, step: 0.1, value: visionModelForm.temperature,
+                  h(UiInput, { key: 'input', className: 'jrmgQW_input', type: 'number', min: 0, max: 2, step: 0.1, value: visionModelForm.temperature,
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setVisionModelForm(prev => ({ ...prev, temperature: ev.target.value })) }),
                 ]),
                 h('label', { key: 'tokens' }, [
                   pick('最大输出长度（留空使用默认值）', 'Maximum output tokens (blank uses default)'),
-                  h('input', { key: 'input', className: 'jrmgQW_input', type: 'number', min: 1, max: 65536, step: 1, value: visionModelForm.maxTokens,
+                  h(UiInput, { key: 'input', className: 'jrmgQW_input', type: 'number', min: 1, max: 65536, step: 1, value: visionModelForm.maxTokens,
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setVisionModelForm(prev => ({ ...prev, maxTokens: ev.target.value })) }),
                 ]),
                 h('div', { key: 'save', className: 'ens-set-row' }, [
-                  h('button', { key: 'button', type: 'button', className: 'ens-pill-btn', onClick: async () => {
+                  h(UiButton, { key: 'button', type: 'button', className: 'ens-pill-btn', onClick: async () => {
                     setVisionModelStatus(pick('保存中…', 'Saving…'));
                     try {
                       await saveHost('visionModel', { model: visionModelForm.model,
@@ -3652,7 +3765,7 @@ const MODULES: ModuleDef[] = [
               }
             };
             const imageGenOn = moduleOn('imageGen');
-            const imageGenRow = imageGenOn ? h('div', { key: 'image-gen', id: 'delta-image-generation', className: 'ens-privacy' }, [
+            const imageGenRow = imageGenOn ? h(UiCard, { key: 'image-gen', id: 'delta-image-generation', className: 'ens-privacy' }, [
               h('div', { key: 'title', className: 'ens-privacy-title' }, pick('在线生图', 'Online image generation')),
               h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
                 '自动复用主配置的服务商、接口地址和 API Key。生图模型留空时跟随主模型；如该服务商需要专用生图模型，可在下方填写模型 ID。服务商需要提供 OpenAI 兼容的图片生成接口。生成结果暂存在此页面，可下载到本机。',
@@ -3661,26 +3774,26 @@ const MODULES: ModuleDef[] = [
               h('div', { key: 'account', className: 'ens-set-name' }, mainModelLabel),
               !mainModelInfo?.ready ? h('div', { key: 'unready', role: 'status', className: 'ens-set-desc' }, pick('请先在主配置中设置模型账号。', 'Configure a model account in the main settings first.')) : null,
               mainModelInfo?.openAICompatible === false ? h('div', { key: 'protocol', role: 'status', className: 'ens-set-desc' }, pick('当前服务商未声明 OpenAI 兼容接口，图片生成可能不可用。', 'The provider has not declared an OpenAI-compatible API; image generation may be unavailable.')) : null,
-              h('div', { key: 'form', className: 'ens-provider' }, [
+              h(UiCard, { key: 'form', className: 'ens-provider' }, [
                 fieldLabel(pick('生图模型 ID（留空跟随主模型）', 'Image model ID (blank follows the main model)')),
-                h('input', {
+                h(UiInput, {
                   key: 'model', className: 'jrmgQW_input', type: 'text', value: imageGenForm.model,
                   placeholder: mainModelInfo?.model || pick('使用主配置模型', 'Use the main model'),
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setImageGenForm(prev => ({ ...prev, model: ev.target.value })),
                 }),
                 h('div', { key: 'save', className: 'ens-set-row' }, [
-                  h('button', { key: 'button', type: 'button', className: 'ens-pill-btn', onClick: () => { void saveImageGen(); } }, pick('保存生图配置', 'Save image settings')),
+                  h(UiButton, { key: 'button', type: 'button', className: 'ens-pill-btn', onClick: () => { void saveImageGen(); } }, pick('保存生图配置', 'Save image settings')),
                   imageGenConfig?.model ? h('span', { key: 'override', className: 'ens-set-desc' }, pick('使用生图模型覆写', 'Image model override enabled')) : null,
                 ]),
               ]),
               h('label', { key: 'prompt-label', className: 'ens-set-name' }, pick('图片描述', 'Image prompt')),
-              h('textarea', {
+              h(UiTextarea, {
                 key: 'prompt', className: 'jrmgQW_input', value: imagePrompt, rows: 4, maxLength: 4000,
                 placeholder: pick('描述你想生成的图片…', 'Describe the image you want…'),
                 onChange: (ev: HarnessReactChangeEvent<HTMLTextAreaElement>) => setImagePrompt(ev.target.value),
               }),
               h('div', { key: 'generate-row', className: 'ens-set-row' }, [
-                h('select', {
+                h(UiSelect, {
                   key: 'size', className: 'jrmgQW_input', value: imageSize,
                   onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) => setImageSize(ev.target.value),
                 }, [
@@ -3688,13 +3801,13 @@ const MODULES: ModuleDef[] = [
                   h('option', { key: 'landscape', value: '1536x1024' }, '1536 × 1024'),
                   h('option', { key: 'portrait', value: '1024x1536' }, '1024 × 1536'),
                 ]),
-                h('button', {
+                h(UiButton, {
                   key: 'generate', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
                   disabled: imageGenBusy, onClick: () => { void createImage(); },
                 }, imageGenBusy ? pick('生成中…', 'Generating…') : pick('生成图片', 'Generate image')),
                 h('span', { key: 'status', role: 'status', className: 'ens-set-desc' }, imageGenStatus),
               ]),
-              generatedImage ? h('div', { key: 'result', className: 'ens-provider' }, [
+              generatedImage ? h(UiCard, { key: 'result', className: 'ens-provider' }, [
                 h('img', {
                   key: 'preview', src: generatedImage, alt: pick('生成的图片', 'Generated image'),
                   style: { display: 'block', maxWidth: '100%', maxHeight: '480px', objectFit: 'contain', margin: '0 auto 12px' },
@@ -3708,7 +3821,7 @@ const MODULES: ModuleDef[] = [
 
             // P0: Harness's ContextMeter and /compact own token accounting and
             // compression. Delta provides a discoverable control surface only.
-            const contextRow = h('div', { key: 'delta-context', className: 'ens-privacy' }, [
+            const contextRow = h(UiCard, { key: 'delta-context', className: 'ens-privacy' }, [
               h('div', { key: 't', className: 'ens-privacy-title' }, pick('上下文管理', 'Context management')),
               h('div', { key: 'd', className: 'ens-privacy-body' }, pick(
                 '上下文占用率由对话输入栏旁的 Harness 原生计量器提供，压缩由 Harness 原生引擎处理。输入 /compact 可手动压缩；使用 @ 引用其他会话。Delta 不修改模型历史或覆盖压缩事件。',
@@ -3852,30 +3965,30 @@ const MODULES: ModuleDef[] = [
             const memoryInput = (label: string, name: keyof ReturnType<typeof emptyMemoryForm>, placeholder = '') =>
               h('label', { key: name, className: name === 'content' ? 'ens-memory-wide' : '' }, [
                 fieldLabel(label),
-                name === 'content' ? h('textarea', {
+                name === 'content' ? h(UiTextarea, {
                   key: 'i', className: 'jrmgQW_input', value: String(memoryForm[name]), maxLength: 4000,
                   placeholder, onChange: (ev: HarnessReactChangeEvent<HTMLTextAreaElement>) =>
                     setMemoryForm(prev => ({ ...prev, [name]: ev.target.value })),
-                }) : h('input', {
+                }) : h(UiInput, {
                   key: 'i', className: 'jrmgQW_input', value: String(memoryForm[name]), maxLength: 160,
                   placeholder, onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
                     setMemoryForm(prev => ({ ...prev, [name]: ev.target.value })),
                 }),
               ]);
-            const memoryRow = h('div', { key: 'delta-memory', className: 'ens-privacy' }, [
+            const memoryRow = h(UiCard, { key: 'delta-memory', className: 'ens-privacy' }, [
               h('div', { key: 'title', className: 'ens-privacy-title' }, pick('长期记忆', 'Long-term memory')),
               h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
                 '本地 SQLite 存储，不等于会话历史。支持分层作用域、来源、覆盖旧决策、过期过滤与按需召回。自动提取默认关闭；不要保存凭据。需 Node.js 22.13 或更高版本。',
                 'Local SQLite storage, separate from session logs. Supports scope, provenance, superseding decisions, expiry and on-demand recall. Automatic capture is off by default. Never store credentials. Requires Node.js 22.13 or newer.',
               )),
               h('label', { key: 'auto', className: 'ens-set-row' }, [
-                h('input', { key: 'input', type: 'checkbox', checked: memorySettings.autoCapture,
+                h(UiInput, { key: 'input', type: 'checkbox', checked: memorySettings.autoCapture,
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
                     updateMemorySettings('autoCapture', ev.target.checked) }),
                 pick('允许 Agent 自动提取长期记忆', 'Allow automatic memory capture by Agent'),
               ]),
               h('label', { key: 'recall', className: 'ens-set-row' }, [
-                h('input', { key: 'input', type: 'checkbox', checked: memorySettings.recall,
+                h(UiInput, { key: 'input', type: 'checkbox', checked: memorySettings.recall,
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
                     updateMemorySettings('recall', ev.target.checked) }),
                 pick('允许 Agent 按需召回记忆', 'Allow on-demand memory recall by Agent'),
@@ -3885,17 +3998,17 @@ const MODULES: ModuleDef[] = [
                   h('option', { key: item.scopeId, value: item.scopeId },
                     item.scopeId + ' (' + item.count + ')'))),
               h('div', { key: 'search', className: 'ens-memory-toolbar' }, [
-                h('select', { key: 'scope', className: 'jrmgQW_input', value: memoryScope,
+                h(UiSelect, { key: 'scope', className: 'jrmgQW_input', value: memoryScope,
                   onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) => setMemoryScope(ev.target.value) },
                 ['global','project','session'].map(item =>
                   h('option', { key: item, value: item }, item))),
-                memoryScope !== 'global' ? h('input', { key: 'id', className: 'jrmgQW_input',
+                memoryScope !== 'global' ? h(UiInput, { key: 'id', className: 'jrmgQW_input',
                   placeholder: pick('作用域 ID', 'Scope ID'), list: 'delta-memory-scope-ids', value: memoryScopeId,
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setMemoryScopeId(ev.target.value) }) : null,
-                h('input', { key: 'query', className: 'jrmgQW_input', value: memoryQuery,
+                h(UiInput, { key: 'query', className: 'jrmgQW_input', value: memoryQuery,
                   placeholder: pick('搜索已保存的记忆', 'Search saved memories'),
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setMemoryQuery(ev.target.value) }),
-                h('button', { key: 'refresh', type: 'button', disabled: memoryBusy,
+                h(UiButton, { key: 'refresh', type: 'button', disabled: memoryBusy,
                   className: 'ens-pill-btn', onClick: () => void actMemory(async () => {}) },
                   pick('刷新', 'Refresh')),
               ]),
@@ -3907,14 +4020,14 @@ const MODULES: ModuleDef[] = [
                     item.sourceSession ? ('session: ' + item.sourceSession) : '',
                     new Date(item.updatedAt).toLocaleDateString()].filter(Boolean).join(' · ')),
                   h('div', { key: 'buttons', className: 'ens-memory-actions' }, [
-                    h('button', { key: 'edit', type: 'button', className: 'ens-pill-btn',
+                    h(UiButton, { key: 'edit', type: 'button', className: 'ens-pill-btn',
                       onClick: () => setMemoryForm({
                         id: item.id, scope: item.scope, scopeId: item.scopeId,
                         key: item.key, category: item.category, content: item.content,
                         sourceSession: item.sourceSession, pinned: item.pinned,
                         expiresAt: item.expiresAt ? new Date(item.expiresAt).toISOString().slice(0,16) : '',
                       }) }, pick('编辑', 'Edit')),
-                    h('button', { key: 'remove', type: 'button', className: 'ens-pill-btn',
+                    h(UiButton, { key: 'remove', type: 'button', className: 'ens-pill-btn',
                       disabled: memoryBusy,
                       onClick: () => {
                         if (!window.confirm(pick('永久删除这条记忆？', 'Delete this memory permanently?'))) return;
@@ -3931,7 +4044,7 @@ const MODULES: ModuleDef[] = [
                 memoryInput(pick('记忆内容', 'Memory content'), 'content', pick('记录一条可独立理解的事实或决策', 'Enter one durable fact or decision')),
                 h('label', { key: 'scope' }, [
                   fieldLabel(pick('作用域', 'Scope')),
-                  h('select', { className: 'jrmgQW_input', value: memoryForm.scope,
+                  h(UiSelect, { className: 'jrmgQW_input', value: memoryForm.scope,
                     onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) =>
                       setMemoryForm(prev => ({ ...prev, scope: ev.target.value, scopeId: '' })) },
                     ['global','project','session'].map(item => h('option', { key: item, value: item }, item))),
@@ -3940,7 +4053,7 @@ const MODULES: ModuleDef[] = [
                 memoryInput(pick('概念键（更新同一决策）', 'Concept key (supersedes prior decision)'), 'key'),
                 h('label', { key: 'cat' }, [
                   fieldLabel(pick('类别', 'Category')),
-                  h('select', { className: 'jrmgQW_input', value: memoryForm.category,
+                  h(UiSelect, { className: 'jrmgQW_input', value: memoryForm.category,
                     onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) =>
                       setMemoryForm(prev => ({ ...prev, category: ev.target.value })) },
                     ['other','preference','fact','decision','task'].map(item =>
@@ -3949,30 +4062,30 @@ const MODULES: ModuleDef[] = [
                 memoryInput(pick('来源会话（可选）', 'Source session (optional)'), 'sourceSession'),
                 h('label', { key: 'expires' }, [
                   fieldLabel(pick('过期时间（可选）', 'Expiry (optional)')),
-                  h('input', { type: 'datetime-local', className: 'jrmgQW_input', value: memoryForm.expiresAt,
+                  h(UiInput, { type: 'datetime-local', className: 'jrmgQW_input', value: memoryForm.expiresAt,
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
                       setMemoryForm(prev => ({ ...prev, expiresAt: ev.target.value })) }),
                 ]),
                 h('label', { key: 'pinned', className: 'ens-memory-wide' }, [
-                  h('input', { type: 'checkbox', checked: memoryForm.pinned,
+                  h(UiInput, { type: 'checkbox', checked: memoryForm.pinned,
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) =>
                       setMemoryForm(prev => ({ ...prev, pinned: ev.target.checked })) }),
                   pick('置顶记忆', 'Pin memory'),
                 ]),
                 h('div', { key: 'actions', className: 'ens-memory-actions ens-memory-wide' }, [
-                  h('button', { key: 'save', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
+                  h(UiButton, { key: 'save', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
                     disabled: memoryBusy || !memoryForm.content.trim(), onClick: saveMemory },
                     memoryForm.id ? pick('更新记忆', 'Update memory') : pick('保存记忆', 'Save memory')),
-                  h('button', { key: 'clear', type: 'button', className: 'ens-pill-btn',
+                  h(UiButton, { key: 'clear', type: 'button', className: 'ens-pill-btn',
                     onClick: () => setMemoryForm(emptyMemoryForm()) }, pick('清空表单', 'Clear form')),
                 ]),
               ]),
               h('div', { key: 'backup', className: 'ens-memory-toolbar' }, [
-                h('button', { key: 'export', type: 'button', className: 'ens-pill-btn',
+                h(UiButton, { key: 'export', type: 'button', className: 'ens-pill-btn',
                   disabled: memoryBusy, onClick: exportMemories }, pick('导出 JSON', 'Export JSON')),
                 h('label', { key: 'import', className: 'ens-pill-btn' }, [
                   pick('导入 JSON', 'Import JSON'),
-                  h('input', { type: 'file', accept: 'application/json,.json',
+                  h(UiInput, { type: 'file', accept: 'application/json,.json',
                     style: { display: 'none' },
                     onChange: (ev: { target: HTMLInputElement }) => {
                       importMemories(ev.target.files?.[0]);
@@ -4060,17 +4173,17 @@ const MODULES: ModuleDef[] = [
               catch (error) { setSkillStatus(pick('操作失败：', 'Operation failed: ') + String(error)); }
               finally { setSkillBusy(false); }
             };
-            const skillRow = h('div', { key: 'delta-skills', className: 'ens-privacy' }, [
+            const skillRow = h(UiCard, { key: 'delta-skills', className: 'ens-privacy' }, [
               h('div', { key: 'title', className: 'ens-privacy-title' }, pick('技能管理', 'Skill management')),
               h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
                 '复用 Harness 原生技能注册表。项目、内置及第三方技能只读；只有 Delta 在用户目录创建的技能可以启停、编辑或删除。导入第三方技能前请自行检查内容。',
                 'Uses the native Harness skill registry. Project, bundled and third-party skills are read-only; only Delta-managed user skills can be edited, disabled or removed. Review external skill contents before import.',
               )),
               h('div', { key: 'toolbar', className: 'ens-memory-toolbar' }, [
-                h('input', { key: 'query', className: 'jrmgQW_input', value: skillSearch,
+                h(UiInput, { key: 'query', className: 'jrmgQW_input', value: skillSearch,
                   placeholder: pick('搜索技能、来源', 'Search skills and sources'),
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillSearch(ev.target.value) }),
-                h('button', { key: 'refresh', type: 'button', className: 'ens-pill-btn', disabled: skillBusy,
+                h(UiButton, { key: 'refresh', type: 'button', className: 'ens-pill-btn', disabled: skillBusy,
                   onClick: () => { void refreshSkills().catch(error => setSkillStatus(String(error))); } }, pick('刷新', 'Refresh')),
               ]),
               h('div', { key: 'list', className: 'ens-memory-list' },
@@ -4081,19 +4194,19 @@ const MODULES: ModuleDef[] = [
                     h('div', { key: 'source', className: 'ens-memory-meta' },
                       [item.source, item.provider, item.managed ? pick('Delta 管理', 'Delta managed') : pick('只读', 'Read-only'), item.diagnostics].filter(Boolean).join(' · ')),
                     item.managed ? h('div', { key: 'actions', className: 'ens-memory-actions' }, [
-                      h('button', { key: 'toggle', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                      h(UiButton, { key: 'toggle', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
                         onClick: () => { void skillAction({ action: 'toggle', name: item.name, enabled: !item.enabled }); } },
                         item.enabled ? pick('禁用', 'Disable') : pick('启用', 'Enable')),
-                      h('button', { key: 'edit', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                      h(UiButton, { key: 'edit', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
                         onClick: () => {
                           void skillRequest({ action: 'read', name: item.name }).then(data => {
                             setSkillName(data.name); setSkillDescription(data.description); setSkillBody(data.body); setSkillEditing(true);
                           }).catch(error => setSkillStatus(String(error)));
                         } }, pick('编辑', 'Edit')),
-                      h('button', { key: 'revisions', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                      h(UiButton, { key: 'revisions', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
                         onClick: () => { void loadSkillRevisions(item.name).catch(error => setSkillStatus(String(error))); } },
                         pick('版本历史', 'History')),
-                      h('button', { key: 'delete', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
+                      h(UiButton, { key: 'delete', type: 'button', disabled: skillBusy, className: 'ens-pill-btn',
                         onClick: () => {
                           if (window.confirm(pick('删除 Delta 管理的技能？此操作不可撤销。', 'Permanently delete this Delta-managed skill?')))
                             void skillAction({ action: 'delete', name: item.name });
@@ -4105,7 +4218,7 @@ const MODULES: ModuleDef[] = [
                 h('div', { key: 'title', className: 'ens-set-name' }, pick('版本历史：', 'Revision history: ') + skillRevisionName),
                 ...skillRevisions.map(revision => h('div', { key: revision.id, className: 'ens-memory-item' }, [
                   h('span', { key: 'date' }, revision.date),
-                  h('button', { key: 'restore', type: 'button', className: 'ens-pill-btn', disabled: skillBusy,
+                  h(UiButton, { key: 'restore', type: 'button', className: 'ens-pill-btn', disabled: skillBusy,
                     onClick: () => {
                       if (!window.confirm(pick('确认恢复此版本？当前内容将自动保存为历史版本。', 'Restore this revision? Current content will be archived.'))) return;
                       setSkillBusy(true);
@@ -4126,33 +4239,33 @@ const MODULES: ModuleDef[] = [
               ]) : null,
               h('div', { key: 'editor', className: 'ens-memory-form' }, [
                 h('label', { key: 'name' }, [fieldLabel(pick('技能名称（小写字母与连字符）', 'Skill name (lowercase kebab-case)')),
-                  h('input', { className: 'jrmgQW_input', value: skillName, disabled: skillEditing, maxLength: 80,
+                  h(UiInput, { className: 'jrmgQW_input', value: skillName, disabled: skillEditing, maxLength: 80,
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillName(ev.target.value) })]),
                 h('label', { key: 'description' }, [fieldLabel(pick('技能描述', 'Skill description')),
-                  h('input', { className: 'jrmgQW_input', value: skillDescription, maxLength: 500,
+                  h(UiInput, { className: 'jrmgQW_input', value: skillDescription, maxLength: 500,
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillDescription(ev.target.value) })]),
                 h('label', { key: 'body', className: 'ens-memory-wide' }, [fieldLabel(pick('技能指令（Markdown）', 'Skill instructions (Markdown)')),
-                  h('textarea', { className: 'jrmgQW_input', rows: 7, value: skillBody, maxLength: 128000,
+                  h(UiTextarea, { className: 'jrmgQW_input', rows: 7, value: skillBody, maxLength: 128000,
                     onChange: (ev: HarnessReactChangeEvent<HTMLTextAreaElement>) => setSkillBody(ev.target.value) })]),
                 h('div', { key: 'actions', className: 'ens-memory-actions ens-memory-wide' }, [
-                  h('button', { key: 'save', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
+                  h(UiButton, { key: 'save', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
                     disabled: skillBusy || !skillName.trim() || !skillDescription.trim() || !skillBody.trim(),
                     onClick: () => { void skillAction({
                       action: skillEditing ? 'update' : 'create', name: skillName, description: skillDescription, body: skillBody,
                     }); } }, skillEditing ? pick('更新技能', 'Update skill') : pick('创建技能', 'Create skill')),
-                  h('button', { key: 'clear', type: 'button', className: 'ens-pill-btn',
+                  h(UiButton, { key: 'clear', type: 'button', className: 'ens-pill-btn',
                     onClick: () => { setSkillEditing(false); setSkillName(''); setSkillDescription(''); setSkillBody(''); } },
                     pick('新建 / 清空', 'New / Clear')),
-                  h('input', { key: 'github-url', className: 'jrmgQW_input', value: skillGithubUrl,
+                  h(UiInput, { key: 'github-url', className: 'jrmgQW_input', value: skillGithubUrl,
                     placeholder: 'https://github.com/owner/repo/blob/main/SKILL.md',
                     onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setSkillGithubUrl(ev.target.value) }),
-                  h('button', { key: 'github-preview', type: 'button', className: 'ens-pill-btn',
+                  h(UiButton, { key: 'github-preview', type: 'button', className: 'ens-pill-btn',
                     disabled: skillBusy || !skillGithubUrl.trim(),
                     onClick: () => { void previewSkillImport(JSON.stringify({ githubUrl: skillGithubUrl.trim() }), false); } },
                     pick('预览 GitHub 技能', 'Preview GitHub skill')),
                   h('label', { key: 'zip-import', className: 'ens-pill-btn' }, [
                     pick('导入 ZIP（预览）', 'Preview ZIP'),
-                    h('input', { type: 'file', accept: '.zip,application/zip', style: { display: 'none' },
+                    h(UiInput, { type: 'file', accept: '.zip,application/zip', style: { display: 'none' },
                       onChange: (ev: { target: HTMLInputElement }) => {
                         const file = ev.target.files?.[0];
                         ev.target.value = '';
@@ -4164,7 +4277,7 @@ const MODULES: ModuleDef[] = [
                   ]),
                   h('label', { key: 'import', className: 'ens-pill-btn' }, [
                     pick('导入 SKILL.md', 'Import SKILL.md'),
-                    h('input', { type: 'file', accept: '.md,text/markdown', style: { display: 'none' },
+                    h(UiInput, { type: 'file', accept: '.md,text/markdown', style: { display: 'none' },
                       onChange: (ev: { target: HTMLInputElement }) => {
                         const file = ev.target.files?.[0];
                         ev.target.value = '';
@@ -4195,7 +4308,7 @@ const MODULES: ModuleDef[] = [
                   'Downloads a Markdown file; everything happens on this machine.',
                 )),
               ]),
-              h('button', {
+              h(UiButton, {
                 key: 'b', type: 'button', className: 'ens-pill-btn',
                 onClick: () => window.__deltaExportConversation?.(),
               }, pick('导出 .md', 'Export .md')),
@@ -4216,7 +4329,7 @@ const MODULES: ModuleDef[] = [
               memoryRow,
               skillRow,
               exportRow,
-              h('div', { key: 'p', className: 'ens-privacy' }, [
+              h(UiCard, { key: 'p', className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, pick('隐私', 'Privacy')),
                 h('div', { key: 'b', className: 'ens-privacy-body' }, pick(
                   '本插件不会主动上传会话日志；官方 DeepSeek 上传功能仍须在宿主配置中关闭。视觉识别和生图使用主配置服务商；搜索关键词发送到所选搜索源。',
