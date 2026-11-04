@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -128,6 +128,10 @@ const recoverDeadOwnerLock = (): boolean => {
     return false
   }
   try {
+    // Do not follow a symlink masquerading as a lock directory or owner.
+    if (!lstatSync(FOLDER_LOCK).isDirectory() || !lstatSync(FOLDER_LOCK_OWNER).isFile()) {
+      return false
+    }
     const owner = JSON.parse(readFileSync(FOLDER_LOCK_OWNER, 'utf8')) as {
       pid?: unknown
       token?: unknown
