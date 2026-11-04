@@ -1183,6 +1183,51 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-actions { display: flex; flex-wrap: wrap; gap: var(--ens-space-3xs); }
 .ens-folder-actions .ens-ui-button { min-height: 32px; }
 
+
+/* Folder navigator uses public Host panel and row-decoration slots only. */
+.ens-folder-browser {
+  box-sizing: border-box; min-width: 0; height: 100%; overflow: auto;
+  padding: var(--ens-space-2xl); background: var(--ens-color-background);
+  color: var(--ens-color-foreground);
+}
+.ens-folder-browser-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ens-space-sm); margin-bottom: var(--ens-space-xl); }
+.ens-folder-browser-title { font-size: 19px; font-weight: 600; line-height: 28px; flex: 1 1 180px; }
+.ens-folder-browser-status { color: var(--ens-color-muted-foreground); font-size: 12px; margin-bottom: var(--ens-space-md); }
+.ens-folder-browser-group {
+  border: 1px solid var(--ens-color-border); border-radius: var(--dsw-radius-lg);
+  background: var(--ens-color-card); margin-bottom: var(--ens-space-md); overflow: hidden;
+}
+.ens-folder-browser-group[data-drop-active="true"] { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
+.ens-folder-browser-group-head {
+  width: 100%; display: flex; align-items: center; gap: var(--ens-space-sm);
+  padding: var(--ens-space-md); background: transparent; border: 0;
+  color: var(--ens-color-card-foreground); font: inherit; font-weight: 500; cursor: pointer; text-align: left;
+}
+.ens-folder-browser-group-head:hover { background: var(--ens-color-accent); }
+.ens-folder-browser-count { margin-left: auto; color: var(--ens-color-muted-foreground); font-size: 12px; }
+.ens-folder-browser-items { display: grid; padding: 0 var(--ens-space-sm) var(--ens-space-sm); gap: var(--ens-space-3xs); }
+.ens-folder-browser-session {
+  min-width: 0; display: flex; align-items: center; gap: var(--ens-space-sm);
+  border: 1px solid transparent; border-radius: var(--dsw-radius-sm);
+  padding: var(--ens-space-sm); background: transparent;
+}
+.ens-folder-browser-session:hover, .ens-folder-browser-session:focus-within { background: var(--ens-color-accent); }
+.ens-folder-browser-session[draggable="true"] { cursor: grab; }
+.ens-folder-browser-open {
+  flex: 1 1 140px; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; text-align: left; border: 0; padding: var(--ens-space-sm);
+  background: transparent; color: var(--ens-color-foreground); font: inherit; cursor: pointer;
+}
+.ens-folder-browser-select { max-width: 180px; flex: 0 1 180px; }
+.ens-folder-browser-empty { padding: var(--ens-space-lg); color: var(--ens-color-muted-foreground); font-size: 12px; }
+.ens-folder-browser-row-tag { display: inline-flex; align-items: center; max-width: 88px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ens-color-muted-foreground); }
+@media (max-width: 720px) {
+  .ens-folder-browser { padding: var(--ens-space-md); }
+  .ens-folder-browser-session { flex-wrap: wrap; }
+  .ens-folder-browser-select { max-width: none; flex: 1 1 100%; }
+}
+
 `;
 
     return {
@@ -4789,6 +4834,248 @@ const MODULES: ModuleDef[] = [
           else registerMenu(ctx);
         } catch (error) {
           console.warn('[dsh-ui-delta] delete session menu unavailable:', error);
+        }
+
+
+        // Official public extension points: a left-sidebar launcher, matching
+        // root main panel, and a passive Session-row trailing decoration.
+        // The Host retains ownership of Workspace grouping and drag ordering.
+        try {
+          const folderReact = require('react');
+          const node = folderReact.createElement;
+          const PANEL_ID = 'delta.session-folders';
+          const DRAG_TYPE = 'application/x-delta-session-id';
+          interface FolderPanelState {
+            folders: Array<{ id: string; name: string; order: number }>;
+            assignments: Record<string, string>;
+          }
+          interface ListedSession {
+            id: string; displayTitle: string; blank?: boolean; origin?: string;
+          }
+          interface SessionListFace {
+            list: {
+              getSnapshot(): { ids: string[]; byId: Record<string, ListedSession> };
+              subscribe(listener: () => void): () => void;
+            };
+          }
+          interface FolderNavigationFace {
+            openSession(id: string): void | Promise<void>;
+          }
+          const sessions = (ctx.get?.('sessions') || ctx.sessions) as SessionListFace | undefined;
+          const navigation = (ctx.get?.('uiWorkspace') || ctx.uiWorkspace) as FolderNavigationFace | undefined;
+          const initialFolders: FolderPanelState = { folders: [], assignments: {} };
+          let folderSnapshot = initialFolders;
+          const listeners = new Set<() => void>();
+          let isRequesting = false;
+          let errorText = '';
+          const notify = () => { for (const listener of listeners) listener(); };
+          const reload = async (): Promise<void> => {
+            if (isRequesting || typeof fetch !== 'function') return;
+            isRequesting = true;
+            try {
+              const response = await fetch('/dsh-ui-delta/folders');
+              const data = await response.json();
+              if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
+              folderSnapshot = data as FolderPanelState;
+              errorText = '';
+            } catch (error) {
+              errorText = String(error);
+            } finally {
+              isRequesting = false;
+              notify();
+            }
+          };
+          const mutate = async (payload: Record<string, unknown>): Promise<void> => {
+            const response = await fetch('/dsh-ui-delta/folders', {
+              method: 'POST', headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
+            folderSnapshot = data as FolderPanelState;
+            errorText = '';
+            notify();
+            window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
+          };
+          const subscribe = (listener: () => void) => {
+            listeners.add(listener);
+            return () => { listeners.delete(listener); };
+          };
+          ctx.effect(() => {
+            const onChange = () => { void reload(); };
+            window.addEventListener('dsh-ui-delta:folders-changed', onChange);
+            void reload();
+            return () => {
+              window.removeEventListener('dsh-ui-delta:folders-changed', onChange);
+              listeners.clear();
+            };
+          }, 'dsh-ui-delta: folder browser data');
+
+          function FolderPanelIcon(props: { size?: number; active?: boolean }) {
+            const size = props.size || 18;
+            return node('svg', {
+              width: size, height: size, viewBox: '0 0 24 24',
+              fill: 'none', stroke: 'currentColor', strokeWidth: 1.7,
+              strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+            }, node('path', { d: 'M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z' }));
+          }
+
+          function FolderSessionMarker(props: { sessionId: string }) {
+            const [, setRevision] = folderReact.useState(0);
+            folderReact.useEffect(() => subscribe(() => setRevision(value => value + 1)), []);
+            const folderId = folderSnapshot.assignments[props.sessionId];
+            const folder = folderSnapshot.folders.find(item => item.id === folderId);
+            return folder ? node('span', {
+              className: 'ens-folder-browser-row-tag',
+              title: t('文件夹：', 'Folder: ') + folder.name,
+            }, folder.name) : null;
+          }
+
+          function FolderBrowserPanel() {
+            const [, setRevision] = folderReact.useState(0);
+            const [isBusy, setIsBusy] = folderReact.useState(false);
+            const [feedback, setFeedback] = folderReact.useState('');
+            const [collapsed, setCollapsed] = folderReact.useState<Record<string, boolean>>({});
+            const [visibleLimit, setVisibleLimit] = folderReact.useState(80);
+            const [activeDrop, setActiveDrop] = folderReact.useState('');
+            const sessionList = sessions?.list;
+            const [catalog, setCatalog] = folderReact.useState(() =>
+              sessionList?.getSnapshot() || { ids: [], byId: {} as Record<string, ListedSession> });
+            folderReact.useEffect(() => {
+              const disposeFolder = subscribe(() => setRevision(value => value + 1));
+              const disposeSessions = sessionList?.subscribe(() => setCatalog(sessionList.getSnapshot()));
+              void reload();
+              return () => { disposeFolder(); disposeSessions?.(); };
+            }, []);
+            const available = catalog.ids
+              .map(id => catalog.byId[id])
+              .filter((item): item is ListedSession => !!item && !item.blank && item.origin !== 'subagent');
+            const knownIds = new Set(available.map(item => item.id));
+            const groups = [
+              ...folderSnapshot.folders.map(folder => ({ id: folder.id, label: folder.name })),
+              { id: '', label: t('未分类', 'Unfiled') },
+            ];
+            const run = (request: Record<string, unknown>) => {
+              if (isBusy) return;
+              setIsBusy(true);
+              setFeedback('');
+              void mutate(request).catch(error => setFeedback(String(error)))
+                .finally(() => setIsBusy(false));
+            };
+            const open = (id: string) => {
+              if (!navigation?.openSession) {
+                setFeedback(t('宿主会话导航不可用', 'Host session navigation unavailable'));
+                return;
+              }
+              void Promise.resolve(navigation.openSession(id)).catch(error => setFeedback(String(error)));
+            };
+            const sessionRow = (item: ListedSession) => node('div', {
+              key: item.id, className: 'ens-folder-browser-session',
+              draggable: !isBusy,
+              onDragStart: (event: { dataTransfer: DataTransfer }) => {
+                if (!event.dataTransfer) return;
+                event.dataTransfer.setData(DRAG_TYPE, item.id);
+                event.dataTransfer.effectAllowed = 'move';
+              },
+            }, [
+              node('button', {
+                key: 'open', type: 'button', className: 'ens-folder-browser-open',
+                title: item.displayTitle, onClick: () => open(item.id),
+              }, item.displayTitle || item.id),
+              node('select', {
+                key: 'folder', className: 'ens-ui-select ens-folder-browser-select',
+                'aria-label': t('选择会话文件夹', 'Choose session folder'),
+                value: folderSnapshot.assignments[item.id] || '', disabled: isBusy,
+                onChange: (event: { target: HTMLSelectElement }) => {
+                  const folderId = event.target.value;
+                  run(folderId
+                    ? { action: 'assign', sessionId: item.id, folderId }
+                    : { action: 'unassign', sessionId: item.id });
+                },
+              }, [
+                node('option', { key: 'none', value: '' }, t('未分类', 'Unfiled')),
+                ...folderSnapshot.folders.map(folder =>
+                  node('option', { key: folder.id, value: folder.id }, folder.name)),
+              ]),
+            ]);
+            const sections = groups.map(group => {
+              const items = available.filter(item =>
+                (folderSnapshot.assignments[item.id] || '') === group.id);
+              const isCollapsed = collapsed[group.id] === true;
+              const isDropTarget = activeDrop === (group.id || 'unfiled');
+              return node('section', {
+                key: group.id || 'unfiled',
+                className: 'ens-folder-browser-group',
+                'data-drop-active': isDropTarget ? 'true' : 'false',
+                onDragOver: (event: { dataTransfer: DataTransfer; preventDefault(): void }) => {
+                  if (!event.dataTransfer || !Array.from(event.dataTransfer.types).includes(DRAG_TYPE)) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  setActiveDrop(group.id || 'unfiled');
+                },
+                onDragLeave: () => setActiveDrop(''),
+                onDrop: (event: { dataTransfer: DataTransfer; preventDefault(): void }) => {
+                  setActiveDrop('');
+                  if (!event.dataTransfer || !Array.from(event.dataTransfer.types).includes(DRAG_TYPE)) return;
+                  event.preventDefault();
+                  const sessionId = event.dataTransfer.getData(DRAG_TYPE);
+                  if (!knownIds.has(sessionId)) return;
+                  run(group.id
+                    ? { action: 'assign', sessionId, folderId: group.id }
+                    : { action: 'unassign', sessionId });
+                },
+              }, [
+                node('button', {
+                  key: 'header', type: 'button', className: 'ens-folder-browser-group-head',
+                  'aria-expanded': !isCollapsed,
+                  onClick: () => setCollapsed(prev => ({ ...prev, [group.id]: !prev[group.id] })),
+                }, [
+                  node('span', { key: 'name' }, group.label),
+                  node('span', { key: 'count', className: 'ens-folder-browser-count' }, String(items.length)),
+                ]),
+                isCollapsed ? null : node('div', { key: 'rows', className: 'ens-folder-browser-items' },
+                  items.length
+                    ? [...items.slice(0, visibleLimit).map(sessionRow),
+                      items.length > visibleLimit ? node('button', {
+                        key: 'more', type: 'button', className: 'ens-ui-button ens-ui-button--outline',
+                        onClick: () => setVisibleLimit(prev => prev + 80),
+                      }, t('显示更多', 'Show more')) : null]
+                    : node('div', { className: 'ens-folder-browser-empty' }, t('拖入会话，或在右侧选择文件夹', 'Drag a session here, or select a folder on a session row'))),
+              ]);
+            });
+            return node('section', {
+              className: 'ens-folder-browser', role: 'region',
+              'aria-label': t('会话文件夹', 'Session folders'),
+            }, [
+              node('header', { key: 'header', className: 'ens-folder-browser-header' }, [
+                node('h2', { key: 'title', className: 'ens-folder-browser-title' },
+                  t('会话文件夹', 'Session folders')),
+                node('button', {
+                  key: 'refresh', className: 'ens-ui-button ens-ui-button--outline',
+                  type: 'button', onClick: () => { void reload(); },
+                }, t('刷新', 'Refresh')),
+              ]),
+              node('div', { key: 'message', className: 'ens-folder-browser-status', role: 'status' },
+                feedback || errorText || t('拖动会话到文件夹；也可以使用选择框操作。', 'Drag a session into a folder, or use its dropdown.')),
+              ...sections,
+            ]);
+          }
+          ctx.effect(() => ctx.slots.inject('main', () =>
+            (ctx.slots.register as unknown as (meta: Record<string, unknown>, component: unknown) => unknown)(
+              { name: 'main', key: PANEL_ID }, FolderBrowserPanel,
+            )), 'dsh-ui-delta: folder browser panel');
+          ctx.effect(() => ctx.slots.inject('sidebar.panellist', () =>
+            (ctx.slots.register as unknown as (meta: Record<string, unknown>, component: unknown) => unknown)(
+              { name: 'sidebar.panellist', id: PANEL_ID, order: 430, label: t('会话文件夹', 'Session folders') },
+              FolderPanelIcon,
+            )), 'dsh-ui-delta: folder browser launcher');
+          ctx.effect(() => ctx.slots.inject('sidebar.session.row.trailing', () =>
+            (ctx.slots.register as unknown as (meta: Record<string, unknown>, component: unknown) => unknown)(
+              { name: 'sidebar.session.row.trailing', id: 'delta.session-folder-indicator', order: 550 },
+              FolderSessionMarker,
+            )), 'dsh-ui-delta: folder membership badge');
+        } catch (error) {
+          console.warn('[dsh-ui-delta] native folder browser integration unavailable:', error);
         }
 
         // NOTE: the shipped global-panel cells ('plugins', 'schedules') are NOT
