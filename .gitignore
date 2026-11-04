@@ -16,3 +16,4 @@ Thumbs.db
 .dsh-code-worker/
 .env.*
 !.env.example
+.delta-ui-acceptance/
