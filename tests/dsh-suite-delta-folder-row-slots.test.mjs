@@ -13,7 +13,7 @@ test('reuses the native folder browser snapshot rather than registering a second
   assert.match(client, /name: 'sidebar\.session\.row\.hover'/)
   assert.match(client, /folderSnapshot\.assignments\[props\.sessionId\]/)
   assert.match(client, /folderSnapshot\.folders\.find\(item => item\.id === folderId\)/)
-  assert.match(client, /folderReact\.useEffect\(\(\) => subscribe\(\(\) => setRevision\(value => value \+ 1\)\), \[\]\)/)
+  assert.match(client, /folderReact\.useEffect\(\(\) => folderStore\.subscribe\(\(\) => setRevision\(value => value \+ 1\)\), \[\]\)/)
 })
 
 test('hover detail remains presentation-only and does not reparent native session rows', () => {

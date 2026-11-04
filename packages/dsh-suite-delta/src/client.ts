@@ -3540,6 +3540,103 @@ const MODULES: ModuleDef[] = [
         // Exposed so feature code can gate itself on the user's switches.
         window.__deltaModules = { list: MODULES, enabled: moduleOn };
 
+        // One versioned folder snapshot is shared by settings, menus and sidebar.
+        // The Host remains authoritative; browser state is never persisted here.
+        interface FolderStoreView {
+          folders: Array<{ id: string; name: string; order: number }>;
+          assignments: Record<string, string>;
+          revision: string;
+        }
+        const folderStore = (() => {
+          let view: FolderStoreView = { folders: [], assignments: {}, revision: '' };
+          let errorText = '';
+          let requestSeq = 0;
+          let isDisposed = false;
+          let isBroadcasting = false;
+          let mutationQueue: Promise<unknown> = Promise.resolve();
+          const listeners = new Set<() => void>();
+          const notify = () => { if (!isDisposed) for (const listener of listeners) listener(); };
+          const decode = async (response: Response, fallback: string): Promise<FolderStoreView> => {
+            const data = await response.json();
+            if (!response.ok || !data || typeof data.revision !== 'string'
+              || !Array.isArray(data.folders) || !data.assignments) {
+              throw new Error(data?.error || fallback);
+            }
+            return data as FolderStoreView;
+          };
+          const publish = (next: FolderStoreView, isBroadcast = false): void => {
+            if (isDisposed) return;
+            ++requestSeq; // Discard every GET started before this commit.
+            view = next;
+            errorText = '';
+            notify();
+            if (isBroadcast) {
+              isBroadcasting = true;
+              try { window.dispatchEvent(new Event('dsh-ui-delta:folders-changed')); }
+              finally { isBroadcasting = false; }
+            }
+          };
+          const refresh = async (): Promise<void> => {
+            if (isDisposed) return;
+            const seq = ++requestSeq;
+            try {
+              const next = await decode(await fetch('/dsh-ui-delta/folders'), 'Folder loading failed');
+              if (seq === requestSeq) publish(next);
+            } catch (error) {
+              if (seq === requestSeq && !isDisposed) {
+                errorText = String(error);
+                notify();
+              }
+              throw error;
+            }
+          };
+          const mutate = (payload: Record<string, unknown>): Promise<FolderStoreView> => {
+            const pending = mutationQueue.then(async () => {
+              if (isDisposed) throw new Error('Folder store unavailable');
+              ++requestSeq;
+              try {
+                const next = await decode(await fetch('/dsh-ui-delta/folders', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ ...payload, expectedRevision: view.revision }),
+                }), 'Folder update failed');
+                publish(next, true);
+                return next;
+              } catch (error) {
+                await refresh().catch(() => { /* Preserve the original write error. */ });
+                throw error;
+              }
+            });
+            // Failed writes must not poison the queue for later operations.
+            mutationQueue = pending.then(() => undefined, () => undefined);
+            return pending;
+          };
+          return {
+            view: () => view,
+            error: () => errorText,
+            subscribe: (listener: () => void) => {
+              listeners.add(listener);
+              return () => { listeners.delete(listener); };
+            },
+            refresh,
+            mutate,
+            publish: (next: FolderStoreView) => publish(next, true),
+            isBroadcasting: () => isBroadcasting,
+            dispose: () => { isDisposed = true; ++requestSeq; listeners.clear(); },
+          };
+        })();
+        ctx.effect(() => {
+          const onFolderChange = () => {
+            if (!folderStore.isBroadcasting()) void folderStore.refresh().catch(() => {});
+          };
+          window.addEventListener('dsh-ui-delta:folders-changed', onFolderChange);
+          void folderStore.refresh().catch(() => {});
+          return () => {
+            window.removeEventListener('dsh-ui-delta:folders-changed', onFolderChange);
+            folderStore.dispose();
+          };
+        }, 'dsh-ui-delta: shared folder state');
+
         try {
           const React = require('react');
           const h = React.createElement;
@@ -4414,63 +4511,25 @@ const MODULES: ModuleDef[] = [
             ]);
 
 
-            interface FolderView {
-              folders: Array<{ id: string; name: string; order: number }>;
-              assignments: Record<string, string>;
-              revision: string;
-            }
-            const [folderView, setFolderView] = React.useState<FolderView>({
-              folders: [], assignments: {}, revision: '',
-            });
+            const [folderView, setFolderView] = React.useState(folderStore.view);
             const [folderNameInput, setFolderNameInput] = React.useState('');
             const [folderBusy, setFolderBusy] = React.useState(false);
             const [folderStatus, setFolderStatus] = React.useState('');
-            const folderRequestId = React.useRef(0);
             const folderPending = React.useRef(false);
+            React.useEffect(() => folderStore.subscribe(() => setFolderView(folderStore.view())), []);
             const loadFolders = async (): Promise<void> => {
-              const requestId = ++folderRequestId.current;
-              const response = await fetch('/dsh-ui-delta/folders');
-              const data = await response.json();
-              if (!response.ok || data.error || typeof data.revision !== 'string')
-                throw new Error(data.error || 'Folder loading failed');
-              if (requestId === folderRequestId.current) setFolderView(data as FolderView);
+              await folderStore.refresh();
             };
-            React.useEffect(() => {
-              let isAlive = true;
-              const refresh = () => {
-                void loadFolders().catch(error => {
-                  if (isAlive) setFolderStatus(String(error));
-                });
-              };
-              window.addEventListener('dsh-ui-delta:folders-changed', refresh);
-              refresh();
-              return () => {
-                isAlive = false;
-                ++folderRequestId.current;
-                window.removeEventListener('dsh-ui-delta:folders-changed', refresh);
-              };
-            }, []);
             const folderAction = async (payload: Record<string, unknown>): Promise<void> => {
               if (folderPending.current) return;
               folderPending.current = true;
               setFolderBusy(true);
               setFolderStatus('');
-              ++folderRequestId.current; // Ignore any GET started before mutation.
               try {
-                const response = await fetch('/dsh-ui-delta/folders', {
-                  method: 'POST',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ ...payload, expectedRevision: folderView.revision }),
-                });
-                const data = await response.json();
-                if (!response.ok || data.error || typeof data.revision !== 'string')
-                  throw new Error(data.error || 'Folder update failed');
-                setFolderView(data as FolderView);
+                await folderStore.mutate(payload);
                 if (payload.action === 'create') setFolderNameInput('');
-                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
               } catch (error) {
                 setFolderStatus(String(error));
-                void loadFolders().catch(() => { /* Preserve update error. */ });
               } finally {
                 folderPending.current = false;
                 setFolderBusy(false);
@@ -4499,7 +4558,6 @@ const MODULES: ModuleDef[] = [
                   `清理 ${preview.missingCount} 项不再存在的会话归属？文件夹和现存会话不会删除。`,
                   `Remove ${preview.missingCount} assignments whose sessions no longer exist? Existing sessions and folders will remain.`,
                 ))) return;
-                ++folderRequestId.current;
                 const response = await fetch('/dsh-ui-delta/folder-cleanup', {
                   method: 'POST',
                   headers: { 'content-type': 'application/json' },
@@ -4508,15 +4566,14 @@ const MODULES: ModuleDef[] = [
                 const data = await response.json();
                 if (!response.ok || data.error || typeof data.revision !== 'string')
                   throw new Error(data.error || 'Folder cleanup failed');
-                setFolderView(data as FolderView);
+                folderStore.publish(data as FolderStoreView);
                 setFolderStatus(pick(
                   `已清理 ${data.removedCount} 项失效归属。`,
                   `Removed ${data.removedCount} orphan assignments.`,
                 ));
-                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
               } catch (error) {
                 setFolderStatus(String(error));
-                void loadFolders().catch(() => { /* Preserve cleanup error. */ });
+                void folderStore.refresh().catch(() => { /* Preserve cleanup error. */ });
               } finally {
                 folderPending.current = false;
                 setFolderBusy(false);
@@ -4815,53 +4872,17 @@ const MODULES: ModuleDef[] = [
             } | undefined;
             if (!menus?.register) return;
 
-            type FolderMenuView = {
-              folders: Array<{ id: string; name: string; order: number }>;
-              assignments: Record<string, string>;
-              revision: string;
-            };
-            let folderCache: FolderMenuView = { folders: [], assignments: {}, revision: '' };
-            let folderRequestId = 0;
-            let folderMutationQueue: Promise<unknown> = Promise.resolve();
-            const reloadFolders = () => {
-              if (typeof fetch !== 'function') return;
-              const requestId = ++folderRequestId;
-              void fetch('/dsh-ui-delta/folders')
-                .then(async response => {
-                  const data = await response.json();
-                  if (!response.ok || data.error || typeof data.revision !== 'string')
-                    throw new Error(data.error || 'Folder loading failed');
-                  if (requestId === folderRequestId) folderCache = data as FolderMenuView;
-                }).catch(() => { /* Keep the last valid menu snapshot. */ });
-            };
-            const updateFolder = (payload: Record<string, unknown>): Promise<FolderMenuView> => {
-              const operation = folderMutationQueue.then(async () => {
-                ++folderRequestId;
-                const response = await fetch('/dsh-ui-delta/folders', {
-                  method: 'POST', headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ ...payload, expectedRevision: folderCache.revision }),
-                });
-                const data = await response.json();
-                if (!response.ok || data.error || typeof data.revision !== 'string')
-                  throw new Error(data.error || 'Folder update failed');
-                folderCache = data as FolderMenuView;
-                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
-                return folderCache;
-              });
-              folderMutationQueue = operation.catch(() => { reloadFolders(); });
-              return operation;
-            };
+            const updateFolder = (payload: Record<string, unknown>) => folderStore.mutate(payload);
             const reportFolderError = (error: unknown) => window.alert(
               t('文件夹操作失败：', 'Folder operation failed: ') + String(error));
             child.effect(() => {
-              reloadFolders();
-              window.addEventListener('dsh-ui-delta:folders-changed', reloadFolders);
               const dispose = menus.register!({
                 id: 'session.delta-folder', target: 'session', order: 650,
                 observe: () => [],
                 resolve: target => {
                   const sessionId = target.sessionId;
                   if (!sessionId) return [];
+                  const folderCache = folderStore.view();
                   const actions = folderCache.folders.map(folder => ({
                     id: 'delta-folder-' + folder.id,
                     label: t('归入：', 'Move to: ') + folder.name,
@@ -4892,10 +4913,7 @@ const MODULES: ModuleDef[] = [
                   return actions;
                 },
               });
-              return () => {
-                window.removeEventListener?.('dsh-ui-delta:folders-changed', reloadFolders);
-                dispose();
-              };
+              return () => { dispose(); };
             }, 'dsh-ui-delta: session folder menu');
             child.effect(() => menus.register!({
               id: 'session.delta-delete', target: 'session', order: 700,
@@ -4946,11 +4964,6 @@ const MODULES: ModuleDef[] = [
           const node = folderReact.createElement;
           const PANEL_ID = 'delta.session-folders';
           const DRAG_TYPE = 'application/x-delta-session-id';
-          interface FolderPanelState {
-            folders: Array<{ id: string; name: string; order: number }>;
-            assignments: Record<string, string>;
-            revision: string;
-          }
           interface ListedSession {
             id: string; displayTitle: string; blank?: boolean; origin?: string;
           }
@@ -4965,65 +4978,8 @@ const MODULES: ModuleDef[] = [
           }
           const sessions = (ctx.get?.('sessions') || ctx.sessions) as SessionListFace | undefined;
           const navigation = (ctx.get?.('uiWorkspace') || ctx.uiWorkspace) as FolderNavigationFace | undefined;
-          const initialFolders: FolderPanelState = { folders: [], assignments: {}, revision: '' };
-          let folderSnapshot = initialFolders;
-          const listeners = new Set<() => void>();
-          let isRequesting = false;
-          let isReloadNeeded = false;
-          let folderReadId = 0;
-          let errorText = '';
-          const notify = () => { for (const listener of listeners) listener(); };
-          const reload = async (): Promise<void> => {
-            if (typeof fetch !== 'function') return;
-            if (isRequesting) { isReloadNeeded = true; return; }
-            isRequesting = true;
-            const requestId = ++folderReadId;
-            try {
-              const response = await fetch('/dsh-ui-delta/folders');
-              const data = await response.json();
-              if (!response.ok || data.error || typeof data.revision !== 'string')
-                throw new Error(data.error || 'Folder loading failed');
-              if (requestId === folderReadId) {
-                folderSnapshot = data as FolderPanelState;
-                errorText = '';
-              }
-            } catch (error) {
-              if (requestId === folderReadId) errorText = String(error);
-            } finally {
-              isRequesting = false;
-              notify();
-              if (isReloadNeeded) { isReloadNeeded = false; void reload(); }
-            }
-          };
-          const mutate = async (payload: Record<string, unknown>): Promise<void> => {
-            ++folderReadId; // Supersede GETs started before this POST.
-            const response = await fetch('/dsh-ui-delta/folders', {
-              method: 'POST', headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ ...payload, expectedRevision: folderSnapshot.revision }),
-            });
-            const data = await response.json();
-            if (!response.ok || data.error || typeof data.revision !== 'string') {
-              void reload();
-              throw new Error(data.error || 'Folder update failed');
-            }
-            folderSnapshot = data as FolderPanelState;
-            errorText = '';
-            notify();
-            window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
-          };
-          const subscribe = (listener: () => void) => {
-            listeners.add(listener);
-            return () => { listeners.delete(listener); };
-          };
-          ctx.effect(() => {
-            const onChange = () => { void reload(); };
-            window.addEventListener('dsh-ui-delta:folders-changed', onChange);
-            void reload();
-            return () => {
-              window.removeEventListener('dsh-ui-delta:folders-changed', onChange);
-              listeners.clear();
-            };
-          }, 'dsh-ui-delta: folder browser data');
+          const reload = () => folderStore.refresh();
+          const mutate = (payload: Record<string, unknown>) => folderStore.mutate(payload);
 
           function FolderPanelIcon(props: { size?: number; active?: boolean }) {
             const size = props.size || 18;
@@ -5036,7 +4992,8 @@ const MODULES: ModuleDef[] = [
 
           function FolderHoverDetail(props: { sessionId: string }) {
             const [, setRevision] = folderReact.useState(0);
-            folderReact.useEffect(() => subscribe(() => setRevision(value => value + 1)), []);
+            folderReact.useEffect(() => folderStore.subscribe(() => setRevision(value => value + 1)), []);
+            const folderSnapshot = folderStore.view();
             const folderId = folderSnapshot.assignments[props.sessionId];
             const folder = folderSnapshot.folders.find(item => item.id === folderId);
             if (!folder) return null;
@@ -5048,7 +5005,8 @@ const MODULES: ModuleDef[] = [
 
           function FolderSessionMarker(props: { sessionId: string }) {
             const [, setRevision] = folderReact.useState(0);
-            folderReact.useEffect(() => subscribe(() => setRevision(value => value + 1)), []);
+            folderReact.useEffect(() => folderStore.subscribe(() => setRevision(value => value + 1)), []);
+            const folderSnapshot = folderStore.view();
             const folderId = folderSnapshot.assignments[props.sessionId];
             const folder = folderSnapshot.folders.find(item => item.id === folderId);
             return folder ? node('span', {
@@ -5064,13 +5022,13 @@ const MODULES: ModuleDef[] = [
             const [collapsed, setCollapsed] = folderReact.useState<Record<string, boolean>>({});
             const [visibleLimit, setVisibleLimit] = folderReact.useState(80);
             const [activeDrop, setActiveDrop] = folderReact.useState('');
+            const folderSnapshot = folderStore.view();
             const sessionList = sessions?.list;
             const [catalog, setCatalog] = folderReact.useState(() =>
               sessionList?.getSnapshot() || { ids: [], byId: {} as Record<string, ListedSession> });
             folderReact.useEffect(() => {
-              const disposeFolder = subscribe(() => setRevision(value => value + 1));
+              const disposeFolder = folderStore.subscribe(() => setRevision(value => value + 1));
               const disposeSessions = sessionList?.subscribe(() => setCatalog(sessionList.getSnapshot()));
-              void reload();
               return () => { disposeFolder(); disposeSessions?.(); };
             }, []);
             const available = catalog.ids
@@ -5188,7 +5146,7 @@ const MODULES: ModuleDef[] = [
                 }, t('刷新', 'Refresh')),
               ]),
               node('div', { key: 'message', className: 'ens-folder-browser-status', role: 'status' },
-                feedback || errorText || t('拖动会话到文件夹；也可以使用选择框操作。', 'Drag a session into a folder, or use its dropdown.')),
+                feedback || folderStore.error() || t('拖动会话到文件夹；也可以使用选择框操作。', 'Drag a session into a folder, or use its dropdown.')),
               ...sections,
             ]);
           }
