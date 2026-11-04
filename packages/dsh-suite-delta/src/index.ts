@@ -6,11 +6,16 @@ import type { Context } from '@deepseek-ai/cordis'
 import { registerRoutes } from './host/routes.js'
 import { makeWebSearchProvider } from './host/search.js'
 import { registerMemoryTools } from './host/memory-tools.js'
+import { registerGatewayReliability } from './host/gateway-reliability.js'
+import type { GatewayReliabilityConfig } from './host/gateway-reliability.js'
 
 export const name = '@fongap-labs/dsh-suite-delta'
 export const inject = ['webServer']
 
-export function apply(ctx: Context): void {
+export interface Config { gatewayReliability?: GatewayReliabilityConfig }
+
+export function apply(ctx: Context, config: Config = {}): void {
+  registerGatewayReliability(ctx, config.gatewayReliability)
   registerRoutes(ctx)
   registerMemoryTools(ctx)
   // The official DeepSeek extension enables Session Log contribution by default.
