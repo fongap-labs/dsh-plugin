@@ -26,12 +26,11 @@ const validId = (id: string): boolean => /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.te
  */
 export async function deleteColdSession(host: SessionHost, id: string): Promise<void> {
   if (!validId(id)) throw new Error('Invalid session identifier')
-  const service = (name: string): unknown => host.get?.(name)
-  const agents = service('agents') as Agents | undefined
-  const sessions = service('sessions') as SessionStore | undefined
+  const agents = host.get?.('agents') as Agents | undefined
+  const sessions = host.get?.('sessions') as SessionStore | undefined
   if (agents?.get(id)?.status === 'running') throw new Error('Session is running. Stop it first.')
   if (sessions?.get(id) !== undefined) throw new Error('Session remains active in Host memory. Restart Harness before deleting.')
-  const persistence = service('sessionPersistence') as SessionPersistence | undefined
+  const persistence = host.get?.('sessionPersistence') as SessionPersistence | undefined
   if (!persistence?.list || !persistence.locate) throw new Error('Host session persistence locator is unavailable.')
   const entries = await persistence.list()
   const header = entries.map(row => row.header || row).find(row => row?.id === id) as SessionHeader | undefined
@@ -56,7 +55,7 @@ export async function deleteColdSession(host: SessionHost, id: string): Promise<
     throw new Error('Session became active again. Delete cancelled.')
   }
   await rm(actual, { recursive: true, force: false })
-  const registry = service('workspaceRegistry') as WorkspaceRegistry | undefined
+  const registry = host.get?.('workspaceRegistry') as WorkspaceRegistry | undefined
   for (const workspace of registry?.list?.() || []) {
     if (workspace.sessionIds?.includes(id)) await workspace.detachSession?.(id)
   }

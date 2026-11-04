@@ -23,7 +23,7 @@ Delta Suite 的 Bundle 默认将「在使用官方模型 API 时上传 Session L
 
 ## 搜索与账户展示
 
-插件的 `/search 查询词` 功能不是模型调用的 `web_search` 工具：它只把搜索结果填入输入框，等待用户确认和发送。它与模型的 `web_search` 共用搜索实现：优先使用 Delta 套件中的独立搜索接口；未配置时在宿主本机运行 Python 的 [`ddgs`](https://pypi.org/project/ddgs/) 包，先尝试 DuckDuckGo，失败后由 `ddgs` 自身自动选择其他搜索引擎。无需额外运行 API 或 MCP 服务，但需要安装 Python 3.10+ 和 `ddgs`。搜索过程中保留原草稿，期间编辑或切换输入框不会被异步结果覆盖。网页读取仍使用原生 HTTP 抓取。
+输入 `/search 查询词` 会将搜索结果回填输入框，等待用户确认发送；它不等同于模型调用 `web_search` 工具，但两者复用 Delta 的宿主搜索实现。搜索先使用已配置的独立服务商；允许免密钥搜索时依次尝试公共 SearXNG 节点和本地 Python `ddgs`。**Python 是最终兜底，不是全部搜索方式的前置依赖。** 搜索过程中保留用户草稿，切换输入框或继续编辑不会被过期结果覆盖。
 
 **模型密钥不能代替搜索密钥。** Harness 未安装 Delta Suite 时默认使用 `deepseek-official` 进行搜索，需单独具备官方认证。安装 Delta Suite 的 Bundle 后默认选择 `delta-duckduckgo`，不需要官方搜索 API Key。使用其他模型网关时，建议为宿主指定独立搜索服务商（例如 Exa），或在 Delta 套件中提供 Tavily 兼容接口。若没有可用搜索服务，插件将明确说明配置失败原因；不会伪造新闻。
 
@@ -31,15 +31,21 @@ Delta Suite 的 Bundle 默认将「在使用官方模型 API 时上传 Session L
 
 ## 会话删除的安全边界
 
-Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表、刷新，并没有受支持的永久删除事务。第三方 `dsh-plugin-session-delete` 通过移除物理目录、缓存、工作区记录与宿主内部生命周期完成删除，但该操作依赖宿主内部实现；不能将它视为官方兼容 API。在没有可验证的一致性删除接口前，Delta Suite 不直接执行物理删除。当前请使用 Harness 原生**归档**（可恢复）清理侧栏；切勿把归档称为永久删除。
+Harness 的 `sessionPersistence` 尚未提供受支持的永久删除事务。Delta Suite 当前**确实提供了实验性的冷会话永久删除**：在会话右键菜单选择「删除会话」并确认后，插件通过 `/dsh-ui-delta/session-delete` 删除对应的持久化会话目录，并尝试解除工作区关联及文件夹归属。正在运行、仍在宿主内存中、存储路径不符合隔离规则或无法安全定位的会话会被拒绝。此操作依赖宿主内部结构，无法保证跨版本兼容或多步骤原子回滚；物理删除不可撤销，若后续清理失败可能留下工作区或文件夹残余记录。**日常整理优先使用 Harness 原生归档**，只有明确需要永久移除冷会话时才使用这一入口。归档不等于删除。
+
+## 会话文件夹
+
+Delta Suite 提供本地文件夹管理、会话归类、独立的文件夹浏览面板和面板内拖放。宿主原生侧栏的工作区树仍由 Harness 管理，插件不会重排其会话节点。文件夹归属使用本地状态文件保存，支持修订版本冲突保护；清理已删除会话的失效归属需要用户先预览、确认。具体边界见[锁恢复说明](docs/folder-lock-recovery.md)和[原生侧栏扩展契约](docs/native-sidebar-grouping-contract.md)。
 
 ## 免密钥搜索与原生工具
 
 安装本 Bundle 后，`web.searchProvider` 默认设为 `delta-duckduckgo`，并禁用 Harness 自带的 DeepSeek Messages Search provider 和 Search/Fetch API package，避免它们发起搜索请求。若用户 Profile 显式覆盖了 `web.searchProvider`，需改为 `delta-duckduckgo` 才能使用模型搜索；旧值不会回退调用已禁用的 DeepSeek provider。所有搜索源均不可用时返回明确错误，不会改用 DeepSeek，也不会编造结果。
 
-默认搜索依赖宿主进程可调用 Python 3.10+ 和 `ddgs`，并要求 Python 运行环境可访问搜索引擎。Windows 在终端执行 `py -3 -m pip install ddgs==9.16.1`；macOS/Linux 执行 `python3 -m pip install ddgs==9.16.1`。若宿主使用其他 Python 解释器，可设置环境变量 `DSH_DDGS_PYTHON` 为该解释器的完整路径，再重启 Harness。插件不会静默安装第三方依赖，也不会偷偷回退到官方付费搜索。Python 或依赖缺失、网络不可达时，搜索会返回可定位的错误；也可在 Delta 套件中指定独立搜索接口。
+仅在使用最终的本地 `ddgs` 搜索兜底时需要 Python 3.10+ 和 [`ddgs`](https://pypi.org/project/ddgs/)。Windows 可执行 `py -3 -m pip install ddgs==9.16.1`；macOS/Linux 可执行 `python3 -m pip install ddgs==9.16.1`。可用 `DSH_DDGS_PYTHON` 指定宿主调用的解释器，修改后重启 Harness。插件不会自行安装依赖，也不会静默切换到官方付费搜索。
 
-当搜索已回退到本地 `ddgs`、但环境缺少 Python 或 `ddgs` 时，Delta Suite 在搜索失败提示中给出 Python 官网地址或对应系统的 `pip install ddgs==9.16.1` 命令。用户自行安装后，下一次搜索会重新调用本地环境，无需单独配置安装页面，也不会由插件执行安装命令。前面的自定义 Provider 和公共 SearXNG 节点不依赖 Python；仅当搜索失败且错误涉及 `ddgs` 时才按需检查依赖。\n\nDelta Suite 不再单独注册第二套模型搜索工具，而是向宿主的 `ctx.web` 注册一个 Provider。普通对话的自动搜索取决于所选 Agent preset 是否实际加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用 Harness `web-fetch-http` 的安全规则。Exa、Tavily、Brave 等 API 型服务商仍可按各自 Host 提供方或独立接口配置使用，费用与密钥由服务商决定。
+缺少 Python 或 `ddgs` 时，插件在搜索失败提示中给出安装指引，用户安装后下次搜索可重新尝试。前置的自定义 Provider 和公共 SearXNG 节点均不依赖 Python。
+
+Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模型搜索工具。普通对话的自动搜索还取决于所选 Agent preset 是否加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用宿主的 `web-fetch-http` 安全规则。其他搜索服务商的密钥和费用由各自服务商负责。
 
 ## 搜索质量与深度检索
 
@@ -78,7 +84,7 @@ Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表�
 授权只在当前 Delta Suite 页面内存中持有，刷新页面、卸载插件或宿主连接重新建立后自动失效；**不提供永久允许**，也不把会话授权等同于“对全部操作取消审批”。目前未提供单独的授权列表；如需立即撤销已授权的重复操作，可刷新页面。真实桌面端仍需验证宿主审批区域是否按预期显示第三个按钮。
 
 
-## 集成式搜索与研究链路（开发分支）
+## 集成式搜索与研究链路
 
 无需额外安装独立插件。普通 `web_search` 和 `/search` 复用 Delta Host 搜索实现；`/research` 增加长文章分段和跨来源重复内容标记。
 
@@ -86,7 +92,7 @@ Harness 当前 `sessionPersistence` 官方接口提供读取、打开、列表�
 
 内置公共实例按顺序尝试 `search.utilibre.org`、`libresearch.space`、`baresearch.org`；失败时自动冷却，无后台轮询，不需要 API Key。公共实例由第三方运维，可能关闭 JSON API、返回访问挑战、限制频率或随时不可用；任何实例失败不得冒充搜索成功。自定义 Provider 的查询默认不转给公共节点，只有在 Delta 设置中明确开启“允许回退到免密钥搜索”时才会切换。认证失败（401/403）不会静默换源。启用回退后，查询可能发往公共实例，请不要用它查询内部机密。
 
-研究路线基于 Harness 原生 Web Fetch，最多尝试 5 个候选网页，保留单页最多约 80,000 字符用于分段，并输出最多 12 段有 URL 的相关证据。跨来源相同语句仅标记“重复陈述”，**不能当作独立的事实核验**。网页抓取有网络风险和内容缺失风险；保留安全 URL 校验、限制正文大小，最终结论仍需验证原始来源。该分支未安装额外第三方框架或独立运行服务。
+研究路线基于 Harness 原生 Web Fetch，最多尝试 5 个候选网页，保留单页最多约 80,000 字符用于分段，并输出最多 12 段有 URL 的相关证据。跨来源相同语句仅标记“重复陈述”，**不能当作独立的事实核验**。网页抓取有网络风险和内容缺失风险；保留安全 URL 校验、限制正文大小，最终结论仍需验证原始来源。此功能不需额外安装独立插件或服务。
 
 ## 技能管理（P0 / P1 基础版）
 
