@@ -1170,6 +1170,19 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   .ens-ui-textarea, .ens-ui-badge { animation: none !important; transition: none !important; }
 }
 
+
+.ens-folder-toolbar { display: flex; flex-wrap: wrap; gap: var(--ens-space-sm); align-items: center; }
+.ens-folder-toolbar .ens-ui-input { flex: 1 1 180px; }
+.ens-folder-list { display: grid; gap: var(--ens-space-sm); margin-top: var(--ens-space-sm); }
+.ens-folder-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: var(--ens-space-sm);
+  border: 1px solid var(--ens-color-border); border-radius: var(--dsw-radius-md);
+  padding: var(--ens-space-sm); color: var(--ens-color-card-foreground);
+}
+.ens-folder-name { flex: 1 1 150px; min-width: 0; font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.ens-folder-actions { display: flex; flex-wrap: wrap; gap: var(--ens-space-3xs); }
+.ens-folder-actions .ens-ui-button { min-height: 32px; }
+
 `;
 
     return {
@@ -4328,6 +4341,121 @@ const MODULES: ModuleDef[] = [
               h('div', { key: 'status', className: 'ens-memory-status', role: 'status' }, skillStatus),
             ]);
 
+
+            interface FolderView {
+              folders: Array<{ id: string; name: string; order: number }>;
+              assignments: Record<string, string>;
+            }
+            const [folderView, setFolderView] = React.useState<FolderView>({ folders: [], assignments: {} });
+            const [folderNameInput, setFolderNameInput] = React.useState('');
+            const [folderBusy, setFolderBusy] = React.useState(false);
+            const [folderStatus, setFolderStatus] = React.useState('');
+            const loadFolders = async (): Promise<void> => {
+              const response = await fetch('/dsh-ui-delta/folders');
+              const data = await response.json();
+              if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
+              setFolderView(data as FolderView);
+            };
+            React.useEffect(() => {
+              let isAlive = true;
+              const refresh = () => {
+                void fetch('/dsh-ui-delta/folders').then(async response => {
+                  const data = await response.json();
+                  if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
+                  if (isAlive) setFolderView(data as FolderView);
+                }).catch(error => { if (isAlive) setFolderStatus(String(error)); });
+              };
+              window.addEventListener('dsh-ui-delta:folders-changed', refresh);
+              refresh();
+              return () => {
+                isAlive = false;
+                window.removeEventListener('dsh-ui-delta:folders-changed', refresh);
+              };
+            }, []);
+            const folderAction = async (payload: Record<string, unknown>): Promise<void> => {
+              if (folderBusy) return;
+              setFolderBusy(true);
+              setFolderStatus('');
+              try {
+                const response = await fetch('/dsh-ui-delta/folders', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify(payload),
+                });
+                const data = await response.json();
+                if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
+                setFolderView(data as FolderView);
+                if (payload.action === 'create') setFolderNameInput('');
+                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
+              } catch (error) {
+                setFolderStatus(String(error));
+              } finally {
+                setFolderBusy(false);
+              }
+            };
+
+
+            const folderRow = h(UiCard, { key: 'session-folders', className: 'ens-privacy' }, [
+              h('div', { key: 'title', className: 'ens-privacy-title' }, pick('会话文件夹', 'Session folders')),
+              h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
+                '右键单击侧栏会话，将其归入文件夹或移出文件夹。文件夹顺序与归属保存在本机；不会重排宿主会话列表。',
+                'Use the session context menu to assign or remove a folder. Folder order and assignments persist locally; the Host session list is not rearranged.',
+              )),
+              h('div', { key: 'toolbar', className: 'ens-folder-toolbar' }, [
+                h(UiInput, { key: 'name', type: 'text', value: folderNameInput, maxLength: 80,
+                  placeholder: pick('新文件夹名称', 'New folder name'),
+                  'aria-label': pick('新文件夹名称', 'New folder name'),
+                  onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setFolderNameInput(ev.target.value),
+                }),
+                h(UiButton, { key: 'create', type: 'button', className: 'ens-pill-btn ens-pill-btn-primary',
+                  disabled: folderBusy || !folderNameInput.trim(),
+                  onClick: () => { void folderAction({ action: 'create', name: folderNameInput.trim() }); },
+                }, pick('新建文件夹', 'Create folder')),
+                h(UiButton, { key: 'refresh', type: 'button', className: 'ens-pill-btn',
+                  disabled: folderBusy,
+                  onClick: () => { void loadFolders().catch(error => setFolderStatus(String(error))); },
+                }, pick('刷新', 'Refresh')),
+              ]),
+              h('div', { key: 'folders', className: 'ens-folder-list' },
+                folderView.folders.length ? folderView.folders.map((folder, index) => {
+                  const count = Object.values(folderView.assignments).filter(id => id === folder.id).length;
+                  return h('div', { key: folder.id, className: 'ens-folder-row' }, [
+                    h('span', { key: 'name', className: 'ens-folder-name' }, folder.name),
+                    h(UiBadge, { key: 'count', variant: 'outline' }, pick(`${count} 个会话`, `${count} sessions`)),
+                    h('div', { key: 'actions', className: 'ens-folder-actions' }, [
+                      h(UiButton, { key: 'up', type: 'button', size: 'sm', variant: 'outline',
+                        disabled: folderBusy || index === 0,
+                        'aria-label': pick('上移文件夹', 'Move folder up'),
+                        onClick: () => { void folderAction({ action: 'move', id: folder.id, direction: 'up' }); },
+                      }, '↑'),
+                      h(UiButton, { key: 'down', type: 'button', size: 'sm', variant: 'outline',
+                        disabled: folderBusy || index === folderView.folders.length - 1,
+                        'aria-label': pick('下移文件夹', 'Move folder down'),
+                        onClick: () => { void folderAction({ action: 'move', id: folder.id, direction: 'down' }); },
+                      }, '↓'),
+                      h(UiButton, { key: 'rename', type: 'button', size: 'sm', variant: 'outline',
+                        disabled: folderBusy,
+                        onClick: () => {
+                          const name = window.prompt(pick('重命名文件夹', 'Rename folder'), folder.name);
+                          if (name !== null && name.trim() && name.trim() !== folder.name)
+                            void folderAction({ action: 'rename', id: folder.id, name: name.trim() });
+                        },
+                      }, pick('重命名', 'Rename')),
+                      h(UiButton, { key: 'delete', type: 'button', size: 'sm', variant: 'destructive',
+                        disabled: folderBusy,
+                        onClick: () => {
+                          if (!window.confirm(pick(
+                            `删除文件夹「${folder.name}」？其中 ${count} 个会话将变为未分类，原会话不会删除。`,
+                            `Delete folder "${folder.name}"? Its ${count} sessions become unfiled; sessions are not deleted.`,
+                          ))) return;
+                          void folderAction({ action: 'delete', id: folder.id });
+                        },
+                      }, pick('删除', 'Delete')),
+                    ]),
+                  ]);
+                }) : h('div', { key: 'empty', className: 'ens-set-desc' }, pick('暂无文件夹。', 'No folders yet.'))),
+              h('div', { key: 'status', className: 'ens-set-desc', role: 'status' }, folderStatus),
+            ]);
             const exportRow = h('div', { key: 'exp', className: 'ens-set-row' }, [
               h('span', { key: 't', className: 'ens-set-text' }, [
                 h('span', { key: 'n', className: 'ens-set-name' }, pick('导出当前对话', 'Export this conversation')),
@@ -4356,6 +4484,7 @@ const MODULES: ModuleDef[] = [
               contextRow,
               memoryRow,
               skillRow,
+              folderRow,
               exportRow,
               h(UiCard, { key: 'p', className: 'ens-privacy' }, [
                 h('div', { key: 't', className: 'ens-privacy-title' }, pick('隐私', 'Privacy')),
@@ -4554,6 +4683,79 @@ const MODULES: ModuleDef[] = [
               register?: (definition: MenuDef) => (() => void)
             } | undefined;
             if (!menus?.register) return;
+
+            type FolderMenuView = {
+              folders: Array<{ id: string; name: string; order: number }>;
+              assignments: Record<string, string>;
+            };
+            let folderCache: FolderMenuView = { folders: [], assignments: {} };
+            const reloadFolders = () => {
+              if (typeof fetch !== 'function') return;
+              void fetch('/dsh-ui-delta/folders')
+                .then(async response => {
+                  const data = await response.json();
+                  if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
+                  folderCache = data as FolderMenuView;
+                }).catch(() => { /* No menu actions depend on an unavailable service. */ });
+            };
+            const updateFolder = (payload: Record<string, unknown>) => {
+              void fetch('/dsh-ui-delta/folders', {
+                method: 'POST', headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload),
+              }).then(async response => {
+                const data = await response.json();
+                if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
+                folderCache = data as FolderMenuView;
+                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
+              }).catch(error => window.alert(t('文件夹操作失败：', 'Folder operation failed: ') + String(error)));
+            };
+            child.effect(() => {
+              reloadFolders();
+              window.addEventListener('dsh-ui-delta:folders-changed', reloadFolders);
+              const dispose = menus.register!({
+                id: 'session.delta-folder', target: 'session', order: 650,
+                observe: () => [],
+                resolve: target => {
+                  const sessionId = target.sessionId;
+                  if (!sessionId) return [];
+                  const actions = folderCache.folders.map(folder => ({
+                    id: 'delta-folder-' + folder.id,
+                    label: t('归入：', 'Move to: ') + folder.name,
+                    separatorBefore: false,
+                    run: () => updateFolder({ action: 'assign', sessionId, folderId: folder.id }),
+                  }));
+                  if (folderCache.assignments[sessionId]) actions.push({
+                    id: 'delta-folder-unassign', label: t('移出文件夹', 'Remove from folder'),
+                    separatorBefore: true,
+                    run: () => updateFolder({ action: 'unassign', sessionId }),
+                  });
+                  actions.push({
+                    id: 'delta-folder-create', label: t('新建文件夹并归入', 'Create folder and assign'),
+                    separatorBefore: true,
+                    run: () => {
+                      const name = window.prompt(t('新文件夹名称', 'New folder name'));
+                      if (name === null || !name.trim()) return;
+                      void fetch('/dsh-ui-delta/folders', {
+                        method: 'POST', headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ action: 'create', name: name.trim() }),
+                      }).then(async response => {
+                        const data = await response.json();
+                        if (!response.ok || data.error) throw new Error(data.error || 'Folder creation failed');
+                        const folder = (data as FolderMenuView).folders.find(item => item.name === name.trim());
+                        if (!folder) throw new Error('Folder creation did not return a folder');
+                        updateFolder({ action: 'assign', sessionId, folderId: folder.id });
+                      }).catch(error => window.alert(t('文件夹操作失败：', 'Folder operation failed: ') + String(error)));
+                    },
+                  });
+                  if (actions.length > 0) actions[0]!.separatorBefore = true;
+                  return actions;
+                },
+              });
+              return () => {
+                window.removeEventListener?.('dsh-ui-delta:folders-changed', reloadFolders);
+                dispose();
+              };
+            }, 'dsh-ui-delta: session folder menu');
             child.effect(() => menus.register!({
               id: 'session.delta-delete', target: 'session', order: 700,
               observe: () => [],
