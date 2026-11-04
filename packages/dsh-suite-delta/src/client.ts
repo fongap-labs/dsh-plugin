@@ -583,6 +583,42 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .ens-foot-notify .ens-foot-notify-close { flex: none; width: 16px; height: 16px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: var(--dsw-radius-xs); }
 .ens-foot-notify .ens-foot-notify-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .wtg9ga_collapsed .ens-foot-notify { position: fixed; left: 12px; right: auto; bottom: 60px; max-width: min(320px, calc(100vw - 24px)); }
+
+/* Resilience only: do not replace the host's sidebar or its session store. */
+.ens-sidebar-recovery {
+  z-index: 24; box-sizing: border-box; min-width: 0; padding: 8px;
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary);
+  box-shadow: var(--dsw-elevation-soft); font-size: 12px;
+}
+.ens-sidebar-recovery[data-mode="missing"] {
+  position: fixed; overflow: hidden; display: flex; flex-direction: column;
+}
+.ens-sidebar-recovery[data-mode="offer"] { margin: 8px 6px; }
+.ens-sidebar-recovery button {
+  font: inherit; color: inherit; cursor: pointer; border-radius: var(--dsw-radius-sm);
+}
+.ens-sidebar-recovery-toggle {
+  width: 100%; text-align: left; background: transparent;
+  border: 1px solid var(--dsw-alias-border-l2); padding: 8px 10px;
+}
+.ens-sidebar-recovery-toggle:hover, .ens-sidebar-recovery-item:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+.ens-sidebar-recovery-toggle:focus-visible, .ens-sidebar-recovery-item:focus-visible {
+  outline: 2px solid var(--ens-color-ring); outline-offset: 2px;
+}
+.ens-sidebar-recovery-hint { color: var(--dsw-alias-label-tertiary); margin: 8px 4px; line-height: 1.5; }
+.ens-sidebar-recovery-items { min-height: 0; overflow-y: auto; max-height: 320px; display: flex; flex-direction: column; gap: 2px; }
+.ens-sidebar-recovery[data-mode="missing"] .ens-sidebar-recovery-items { max-height: none; flex: 1; }
+.ens-sidebar-recovery-item {
+  background: transparent; border: 0; text-align: left; width: 100%;
+  padding: 8px 10px; overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .ens-sidebar-recovery { max-width: calc(100vw - 16px); }
+}
+
 /* 10 — structure: drop the brand, reorder the sidebar, field-style search,
       legible three-column dividers, discoverable resize handles */
 /* #1 the "DeepSeek Harness" brand identity is removed; the top row becomes a
@@ -3474,6 +3510,9 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
   enDesc: string;
 }
 const MODULES: ModuleDef[] = [
+          { id: 'sessionListRecovery', zh: '会话列表恢复', en: 'Recover session list', status: 'ready', defaultOn: true,
+            zhDesc: '当原生侧栏未挂载或未显示时，提供可关闭的会话恢复入口；不修改宿主数据。',
+            enDesc: 'Offer a reversible fallback when the native sidebar is missing; Host data is never altered.' },
           { id: 'conversationShare', zh: '对话分享', en: 'Share conversations', status: 'ready', defaultOn: true,
             zhDesc: '把当前对话复制为 Markdown 文本。',
             enDesc: 'Copy the current conversation as Markdown.' },
@@ -5177,6 +5216,158 @@ const MODULES: ModuleDef[] = [
             )), 'dsh-ui-delta: folder membership hover');
         } catch (error) {
           console.warn('[dsh-ui-delta] native folder browser integration unavailable:', error);
+        }
+
+
+        // The native WorkspaceBrowser occasionally unmounts its list. Keep the
+        // Host session catalog authoritative and expose a reversible fallback,
+        // never a second session store or an automatic Host reset.
+        try {
+          interface RecoverySession { id: string; displayTitle?: string; blank?: boolean; origin?: string }
+          interface RecoveryCatalog {
+            phase?: string;
+            ids: string[];
+            byId: Record<string, RecoverySession>;
+          }
+          interface RecoveryServices {
+            sessions?: { list?: {
+              getSnapshot(): RecoveryCatalog;
+              subscribe(listener: () => void): () => void;
+            } };
+            uiWorkspace?: { openSession(id: string): void | Promise<void> };
+          }
+          const attachRecovery = (child: HarnessClientContext) => {
+            const api = child as HarnessClientContext & RecoveryServices;
+            const sessions = (child.get?.('sessions') || api.sessions) as RecoveryServices['sessions'];
+            const navigation = (child.get?.('uiWorkspace') || api.uiWorkspace) as RecoveryServices['uiWorkspace'];
+            const sessionList = sessions?.list;
+            if (!sessionList?.subscribe || !navigation?.openSession) return;
+            child.effect(() => {
+              if (typeof document === 'undefined' || !document.body) return;
+              const key = 'dsh-ui-delta.modules';
+              const isEnabled = () => {
+                try {
+                  const flags = JSON.parse(localStorage.getItem(key) || '{}');
+                  return flags?.sessionListRecovery !== false;
+                } catch { return true; }
+              };
+              let holder: HTMLElement | null = null;
+              let timer: ReturnType<typeof setTimeout> | null = null;
+              let hasUserOpened = false;
+              let renderKey = '';
+              const clear = () => { holder?.remove(); holder = null; renderKey = ''; };
+              const sync = () => {
+                timer = null;
+                if (!isEnabled()) { clear(); return; }
+                const sidebar = document.querySelector<HTMLElement>('.mP3x-q_sidebarCol');
+                const snapshot = sessionList.getSnapshot();
+                if (!sidebar || snapshot.phase !== 'ready' || sidebar.getBoundingClientRect().width < 175) {
+                  clear(); return;
+                }
+                const eligible = snapshot.ids.filter(id => {
+                  const entry = snapshot.byId[id];
+                  return !!entry && !entry.blank && entry.origin !== 'subagent';
+                });
+                if (!eligible.length) { clear(); return; }
+                const nativeArea = sidebar.querySelector<HTMLElement>('[data-sidebar-list-area]');
+                // An empty rendered list may be a deliberate search/filter/fold.
+                // Offer manual recovery in that case; only missing mount is
+                // considered sufficiently strong evidence to show the list.
+                const nativeRows = nativeArea?.querySelector('.wnFoaW_sessionRow, [class*="sessionRow"]');
+                if (nativeRows) { hasUserOpened = false; clear(); return; }
+                const missing = !nativeArea;
+                const mode = missing ? 'missing' : 'offer';
+                const parent = missing ? sidebar : nativeArea!.parentElement;
+                if (!parent) { clear(); return; }
+                if (holder?.parentElement !== parent) { clear(); hasUserOpened = false; }
+                if (!holder) {
+                  holder = document.createElement('section');
+                  holder.className = 'ens-sidebar-recovery';
+                  holder.dataset.deltaSidebarRecovery = '';
+                  holder.setAttribute('aria-label', t('会话列表恢复', 'Session list recovery'));
+                  if (missing) sidebar.appendChild(holder);
+                  else nativeArea!.insertAdjacentElement('afterend', holder);
+                }
+                const rect = sidebar.getBoundingClientRect();
+                if (missing) {
+                  holder.style.left = Math.round(rect.left + 8) + 'px';
+                  holder.style.top = Math.round(rect.top + 165) + 'px';
+                  holder.style.width = Math.max(180, Math.round(rect.width - 16)) + 'px';
+                  holder.style.height = Math.max(100, Math.round(rect.height - 250)) + 'px';
+                } else {
+                  holder.style.left = holder.style.top = holder.style.width = holder.style.height = '';
+                }
+                holder.dataset.mode = mode;
+                const show = missing || hasUserOpened;
+                const titles = show ? eligible.slice(0, 80).map(id => snapshot.byId[id]?.displayTitle || id) : [];
+                const nextKey = JSON.stringify([mode, show, eligible.length, eligible.slice(0, 80), titles]);
+                if (renderKey === nextKey) return;
+                renderKey = nextKey;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'ens-sidebar-recovery-toggle';
+                button.textContent = show
+                  ? t('恢复的对话列表（点击收起）', 'Recovered sessions (collapse)')
+                  : t('会话未显示？查看对话', 'Sessions missing? Show conversations');
+                button.setAttribute('aria-expanded', String(show));
+                button.addEventListener('click', () => { hasUserOpened = !show; renderKey = ''; sync(); });
+                holder.replaceChildren(button);
+                if (!show) return;
+                const hint = document.createElement('div');
+                hint.className = 'ens-sidebar-recovery-hint';
+                hint.textContent = t('仅显示本机已加载的会话。官方侧栏恢复后会自动隐藏。',
+                  'Showing sessions already loaded by the Host. This panel closes when the native list returns.');
+                holder.appendChild(hint);
+                const list = document.createElement('div');
+                list.className = 'ens-sidebar-recovery-items';
+                for (const id of eligible.slice(0, 80)) {
+                  const row = document.createElement('button');
+                  row.type = 'button';
+                  row.className = 'ens-sidebar-recovery-item';
+                  row.textContent = snapshot.byId[id]?.displayTitle || id;
+                  row.title = row.textContent;
+                  row.addEventListener('click', () => {
+                    void Promise.resolve(navigation.openSession(id)).then(() => {
+                      hasUserOpened = false; schedule();
+                    }).catch(() => { /* Host navigation stays authoritative. */ });
+                  });
+                  list.appendChild(row);
+                }
+                holder.appendChild(list);
+              };
+              const schedule = () => {
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(sync, 250);
+              };
+              const observer = new MutationObserver(records => {
+                // Ignore our own render; otherwise the observer would wake itself.
+                if (records.every(record => (record.target as Element).parentElement
+                  ?.closest?.('[data-delta-sidebar-recovery]') || (record.target as Element)
+                  .closest?.('[data-delta-sidebar-recovery]'))) return;
+                schedule();
+              });
+              observer.observe(document.body, { childList: true, subtree: true });
+              const unsubscribe = sessionList.subscribe(schedule);
+              window.addEventListener('resize', schedule);
+              window.addEventListener('dsh-ui-delta:flags-changed', schedule);
+              sync();
+              return () => {
+                observer.disconnect();
+                unsubscribe();
+                window.removeEventListener('resize', schedule);
+                window.removeEventListener('dsh-ui-delta:flags-changed', schedule);
+                if (timer) clearTimeout(timer);
+                clear();
+              };
+            }, 'dsh-ui-delta: session list recovery');
+          };
+          const optional = ctx as HarnessClientContext & { inject?: (
+            dependencies: string[], callback: (child: HarnessClientContext) => void
+          ) => unknown };
+          if (optional.inject) optional.inject(['sessions', 'uiWorkspace'], attachRecovery);
+          else attachRecovery(ctx);
+        } catch (error) {
+          console.warn('[dsh-ui-delta] session list recovery unavailable:', error);
         }
 
         // NOTE: the shipped global-panel cells ('plugins', 'schedules') are NOT
