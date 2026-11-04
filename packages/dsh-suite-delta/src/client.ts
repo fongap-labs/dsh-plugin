@@ -4412,55 +4412,65 @@ const MODULES: ModuleDef[] = [
             interface FolderView {
               folders: Array<{ id: string; name: string; order: number }>;
               assignments: Record<string, string>;
+              revision: string;
             }
-            const [folderView, setFolderView] = React.useState<FolderView>({ folders: [], assignments: {} });
+            const [folderView, setFolderView] = React.useState<FolderView>({
+              folders: [], assignments: {}, revision: '',
+            });
             const [folderNameInput, setFolderNameInput] = React.useState('');
             const [folderBusy, setFolderBusy] = React.useState(false);
             const [folderStatus, setFolderStatus] = React.useState('');
+            const folderRequestId = React.useRef(0);
+            const folderPending = React.useRef(false);
             const loadFolders = async (): Promise<void> => {
+              const requestId = ++folderRequestId.current;
               const response = await fetch('/dsh-ui-delta/folders');
               const data = await response.json();
-              if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
-              setFolderView(data as FolderView);
+              if (!response.ok || data.error || typeof data.revision !== 'string')
+                throw new Error(data.error || 'Folder loading failed');
+              if (requestId === folderRequestId.current) setFolderView(data as FolderView);
             };
             React.useEffect(() => {
               let isAlive = true;
               const refresh = () => {
-                void fetch('/dsh-ui-delta/folders').then(async response => {
-                  const data = await response.json();
-                  if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
-                  if (isAlive) setFolderView(data as FolderView);
-                }).catch(error => { if (isAlive) setFolderStatus(String(error)); });
+                void loadFolders().catch(error => {
+                  if (isAlive) setFolderStatus(String(error));
+                });
               };
               window.addEventListener('dsh-ui-delta:folders-changed', refresh);
               refresh();
               return () => {
                 isAlive = false;
+                ++folderRequestId.current;
                 window.removeEventListener('dsh-ui-delta:folders-changed', refresh);
               };
             }, []);
             const folderAction = async (payload: Record<string, unknown>): Promise<void> => {
-              if (folderBusy) return;
+              if (folderPending.current) return;
+              folderPending.current = true;
               setFolderBusy(true);
               setFolderStatus('');
+              ++folderRequestId.current; // Ignore any GET started before mutation.
               try {
                 const response = await fetch('/dsh-ui-delta/folders', {
                   method: 'POST',
                   headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify(payload),
+                  body: JSON.stringify({ ...payload, expectedRevision: folderView.revision }),
                 });
                 const data = await response.json();
-                if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
+                if (!response.ok || data.error || typeof data.revision !== 'string')
+                  throw new Error(data.error || 'Folder update failed');
                 setFolderView(data as FolderView);
                 if (payload.action === 'create') setFolderNameInput('');
                 window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
               } catch (error) {
                 setFolderStatus(String(error));
+                void loadFolders().catch(() => { /* Preserve update error. */ });
               } finally {
+                folderPending.current = false;
                 setFolderBusy(false);
               }
             };
-
 
             const folderRow = h(UiCard, { key: 'session-folders', className: 'ens-privacy' }, [
               h('div', { key: 'title', className: 'ens-privacy-title' }, pick('会话文件夹', 'Session folders')),
