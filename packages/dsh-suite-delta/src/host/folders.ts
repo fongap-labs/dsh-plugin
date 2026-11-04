@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -24,6 +24,8 @@ export type FolderAction =
 
 const FOLDER_FILE = join(homedir(), '.dsh-ui-delta', 'folders.json')
 const FOLDER_LOCK = `${FOLDER_FILE}.lock`
+const FOLDER_LOCK_OWNER = join(FOLDER_LOCK, 'owner.json')
+const FOLDER_RECOVERY_LOCK = `${FOLDER_LOCK}.recovery`
 const MAX_FOLDERS = 100
 const MAX_ASSIGNMENTS = 10000
 const ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
@@ -106,21 +108,76 @@ export const readFolders = (): FolderState => {
   return { folders, assignments }
 }
 
+// A crashed process leaves an owned lock directory behind. Recover only when
+// its recorded process is demonstrably gone; never expire a live writer by age.
+const isDefinitelyDead = (pid: unknown): boolean => {
+  if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) return false
+  try {
+    process.kill(pid, 0)
+    return false
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ESRCH'
+  }
+}
+
+const recoverDeadOwnerLock = (): boolean => {
+  // Only one contender may inspect/remove the abandoned lock at a time.
+  try {
+    mkdirSync(FOLDER_RECOVERY_LOCK, { mode: 0o700 })
+  } catch {
+    return false
+  }
+  try {
+    // Do not follow a symlink masquerading as a lock directory or owner.
+    if (!lstatSync(FOLDER_LOCK).isDirectory() || !lstatSync(FOLDER_LOCK_OWNER).isFile()) {
+      return false
+    }
+    const owner = JSON.parse(readFileSync(FOLDER_LOCK_OWNER, 'utf8')) as {
+      pid?: unknown
+      token?: unknown
+    }
+    if (!owner || typeof owner.token !== 'string' || owner.token.length !== 36
+      || !isDefinitelyDead(owner.pid)) return false
+    // Unknown contents, absent or corrupt owner metadata require manual
+    // inspection instead of potentially stealing another writer's lock.
+    if (readdirSync(FOLDER_LOCK).some(name => name !== 'owner.json')) return false
+    unlinkSync(FOLDER_LOCK_OWNER)
+    rmdirSync(FOLDER_LOCK)
+    return true
+  } catch {
+    return false
+  } finally {
+    rmdirSync(FOLDER_RECOVERY_LOCK)
+  }
+}
+
 const withFolderLock = <T>(operation: () => T): T => {
   mkdirSync(join(homedir(), '.dsh-ui-delta'), { recursive: true, mode: 0o700 })
   try {
     mkdirSync(FOLDER_LOCK, { mode: 0o700 })
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
-      // Never steal a potentially active cross-process lock: callers retry.
-      throw new FolderConflictError('Folder store busy; refresh and retry')
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    if (!recoverDeadOwnerLock()) {
+      throw new FolderConflictError('Folder store busy or owner unknown; refresh and retry')
     }
-    throw error
+    try {
+      mkdirSync(FOLDER_LOCK, { mode: 0o700 })
+    } catch (retryError) {
+      if ((retryError as NodeJS.ErrnoException).code === 'EEXIST') {
+        throw new FolderConflictError('Folder store busy; refresh and retry')
+      }
+      throw retryError
+    }
   }
   try {
+    writeFileSync(FOLDER_LOCK_OWNER, JSON.stringify({
+      pid: process.pid, token: randomUUID(),
+    }), { flag: 'wx', mode: 0o600 })
     return operation()
   } finally {
-    rmdirSync(FOLDER_LOCK)
+    // Both normal failures and successful writes release our own lock.
+    try { if (existsSync(FOLDER_LOCK_OWNER)) unlinkSync(FOLDER_LOCK_OWNER) }
+    finally { rmdirSync(FOLDER_LOCK) }
   }
 }
 
