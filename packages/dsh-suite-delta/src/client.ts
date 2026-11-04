@@ -1222,6 +1222,13 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-browser-empty { padding: var(--ens-space-lg); color: var(--ens-color-muted-foreground); font-size: 12px; }
 .ens-folder-browser-row-tag { display: inline-flex; align-items: center; max-width: 88px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ens-color-muted-foreground); }
+.ens-folder-hover-detail {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--ens-space-sm);
+  color: var(--ens-color-muted-foreground); font-size: 12px; line-height: 18px;
+}
+.ens-folder-hover-detail strong {
+  color: var(--ens-color-foreground); font-weight: 500; overflow-wrap: anywhere;
+}
 @media (max-width: 720px) {
   .ens-folder-browser { padding: var(--ens-space-md); }
   .ens-folder-browser-session { flex-wrap: wrap; }
@@ -4920,6 +4927,18 @@ const MODULES: ModuleDef[] = [
             }, node('path', { d: 'M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z' }));
           }
 
+          function FolderHoverDetail(props: { sessionId: string }) {
+            const [, setRevision] = folderReact.useState(0);
+            folderReact.useEffect(() => subscribe(() => setRevision(value => value + 1)), []);
+            const folderId = folderSnapshot.assignments[props.sessionId];
+            const folder = folderSnapshot.folders.find(item => item.id === folderId);
+            if (!folder) return null;
+            return node('div', { className: 'ens-folder-hover-detail' }, [
+              node('span', { key: 'label' }, t('文件夹', 'Folder')),
+              node('strong', { key: 'value' }, folder.name),
+            ]);
+          }
+
           function FolderSessionMarker(props: { sessionId: string }) {
             const [, setRevision] = folderReact.useState(0);
             folderReact.useEffect(() => subscribe(() => setRevision(value => value + 1)), []);
@@ -5074,6 +5093,11 @@ const MODULES: ModuleDef[] = [
               { name: 'sidebar.session.row.trailing', id: 'delta.session-folder-indicator', order: 550 },
               FolderSessionMarker,
             )), 'dsh-ui-delta: folder membership badge');
+          ctx.effect(() => ctx.slots.inject('sidebar.session.row.hover', () =>
+            (ctx.slots.register as unknown as (meta: Record<string, unknown>, component: unknown) => unknown)(
+              { name: 'sidebar.session.row.hover', id: 'delta.session-folder-hover', order: 550 },
+              FolderHoverDetail,
+            )), 'dsh-ui-delta: folder membership hover');
         } catch (error) {
           console.warn('[dsh-ui-delta] native folder browser integration unavailable:', error);
         }
