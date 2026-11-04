@@ -75,7 +75,7 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
   })
 }
 
-function parseGitStatus(raw: string): GitStatusResult {
+export function parseGitStatus(raw: string): GitStatusResult {
   const parts = raw.split('\0').filter((part) => part.length > 0)
   const staged: string[] = []
   const unstaged: string[] = []
@@ -86,16 +86,13 @@ function parseGitStatus(raw: string): GitStatusResult {
   for (const part of parts) {
     if (part.startsWith('## ')) {
       const head = part.slice(3)
-      const match = head.match(
-        /^(\S+?)(?:\.\.\.(\S+))?(?:\s+\[(ahead|behind|ahead \d+, behind \d+|behind \d+, ahead \d+)\])?/,
-      )
-      if (match) branch = match[1]!
-      if (match && match[4]) {
-        const aheadMatch = match[4].match(/ahead (\d+)/)
-        const behindMatch = match[4].match(/behind (\d+)/)
-        if (aheadMatch) ahead = Number(aheadMatch[1])
-        if (behindMatch) behind = Number(behindMatch[1])
-      }
+      // Porcelain -z emits a single branch header, optionally followed by
+      // '[ahead N, behind M]'. Parse counts independently of their order.
+      branch = head.split('...')[0]!.split(' [')[0]!.trim()
+      const aheadMatch = head.match(/\bahead (\d+)\b/)
+      const behindMatch = head.match(/\bbehind (\d+)\b/)
+      if (aheadMatch) ahead = Number(aheadMatch[1])
+      if (behindMatch) behind = Number(behindMatch[1])
       continue
     }
     if (part.length < 3) continue

@@ -4,16 +4,19 @@ import { normalizeConfig, validateGitHubAccounts } from '../packages/dsh-code-wo
 import { repositoryFromRemote, selectGitHubAccount, createGitHubTools } from '../packages/dsh-code-worker/lib/tools/github.js'
 
 const accounts = [
-  { owner: 'fongap-labs', token: 'github_pat_local_test_team' },
-  { owner: 'another-user', token: 'github_pat_local_test_personal' },
+  { owner: 'fongap-labs', tokenEnv: 'DSH_TEST_GITHUB_TEAM_TOKEN' },
+  { owner: 'another-user', tokenEnv: 'DSH_TEST_GITHUB_PERSONAL_TOKEN' },
   { owner: 'third-org', tokenEnv: 'GITHUB_TOKEN_THIRD' },
 ]
+process.env.DSH_TEST_GITHUB_TEAM_TOKEN = 'teamtest'
+process.env.DSH_TEST_GITHUB_PERSONAL_TOKEN = 'persontest'
+
 
 describe('GitHub account configuration and automatic routing', () => {
   it('accepts one or arbitrarily many accounts without IDs or repository lists', () => {
     assert.equal(validateGitHubAccounts(accounts.slice(0, 1)).length, 1)
     assert.equal(validateGitHubAccounts(accounts).length, 3)
-    assert.equal(validateGitHubAccounts([...accounts, { owner: 'fourth-user', token: 'not-a-real-token' }]).length, 4)
+    assert.equal(validateGitHubAccounts([...accounts, { owner: 'fourth-user', tokenEnv: 'DSH_TEST_FOURTH_TOKEN' }]).length, 4)
   })
   it('matches the owner in owner/repo, ignoring case', () => {
     assert.equal(selectGitHubAccount(accounts, 'FONGAP-LABS/DELTA').owner, 'fongap-labs')
@@ -23,18 +26,18 @@ describe('GitHub account configuration and automatic routing', () => {
   })
   it('rejects missing or ambiguous owners without guessing a token', () => {
     assert.throws(() => selectGitHubAccount(accounts, 'unknown/repository'), /no GitHub account/)
-    assert.throws(() => selectGitHubAccount([...accounts, { owner: 'fongap-labs', token: 'other' }], 'fongap-labs/other'), /ambiguous/)
+    assert.throws(() => selectGitHubAccount([...accounts, { owner: 'fongap-labs', tokenEnv: 'DSH_TEST_OTHER_TOKEN' }], 'fongap-labs/other'), /ambiguous/)
     assert.throws(() => selectGitHubAccount(accounts, '../repo'), /invalid/)
     assert.throws(() => selectGitHubAccount(accounts, 'fongap-labs/..'), /invalid/)
     assert.throws(() => selectGitHubAccount(accounts, 'fongap-labs/.'), /invalid/)
     assert.throws(() => selectGitHubAccount(accounts, '-owner/repository'), /invalid/)
     assert.throws(() => selectGitHubAccount(accounts, 'owner/name/extra'), /invalid/)
   })
-  it('rejects duplicate owners and invalid/missing tokens', () => {
-    assert.throws(() => validateGitHubAccounts([{ owner: 'owner', token: 'value' }, { owner: 'OWNER', token: 'second' }]), /duplicate/)
-    assert.throws(() => validateGitHubAccounts([{ owner: 'owner' }]), /exactly one/)
-    assert.throws(() => validateGitHubAccounts([{ owner: 'owner', token: 'value', tokenEnv: 'GH_TOKEN' }]), /exactly one/)
-    assert.throws(() => validateGitHubAccounts([{ owner: 'a/b', token: 'value' }]), /username or organization/)
+  it('rejects duplicate owners, inline tokens and invalid/missing env references', () => {
+    assert.throws(() => validateGitHubAccounts([{ owner: 'owner', tokenEnv: 'TEST_TOKEN_ONE' }, { owner: 'OWNER', tokenEnv: 'TEST_TOKEN_TWO' }]), /duplicate/)
+    assert.throws(() => validateGitHubAccounts([{ owner: 'owner' }]), /tokenEnv is required/)
+    assert.throws(() => validateGitHubAccounts([{ owner: 'owner', token: 'value', tokenEnv: 'GH_TOKEN' }]), /token is not supported/)
+    assert.throws(() => validateGitHubAccounts([{ owner: 'a/b', tokenEnv: 'TEST_TOKEN' }]), /username or organization/)
     assert.throws(() => validateGitHubAccounts([{ owner: 'owner', tokenEnv: 'invalid-name' }]), /tokenEnv/)
   })
   it('parses GitHub origins but rejects unrelated hosts', () => {
@@ -77,7 +80,7 @@ describe('GitHub account configuration and automatic routing', () => {
       await connection.execute({ repository: 'fongap-labs/delta' }, exec)
       await connection.execute({ repository: 'another-user/project' }, exec)
       assert.deepEqual(seen.map((value) => value.authorization),
-        ['Bearer github_pat_local_test_team', 'Bearer github_pat_local_test_personal'])
+        ['Bearer teamtest', 'Bearer persontest'])
     } finally {
       globalThis.fetch = previousFetch
     }
@@ -104,8 +107,8 @@ describe('GitHub account configuration and automatic routing', () => {
       assert.equal(data.checks[0].conclusion, 'failure')
       assert.equal(data.statuses[0].context, 'CI Evidence')
       assert.equal(requests.length, 3)
-      assert.ok(requests.every((request) => request.authorization === 'Bearer github_pat_local_test_team'))
-      assert.doesNotMatch(JSON.stringify(output), /github_pat_local_test_team/)
+      assert.ok(requests.every((request) => request.authorization === 'Bearer teamtest'))
+      assert.doesNotMatch(JSON.stringify(output), /teamtest/)
     } finally {
       globalThis.fetch = previousFetch
     }
@@ -123,8 +126,8 @@ describe('GitHub account configuration and automatic routing', () => {
       }
       const result = await tool.execute({ repository: 'fongap-labs/delta' }, { signal: new AbortController().signal })
       assert.equal(result.account, 'fongap-labs')
-      assert.equal(seen[0], 'Bearer github_pat_local_test_team')
-      assert.doesNotMatch(JSON.stringify(result), /github_pat_local_test_team/)
+      assert.equal(seen[0], 'Bearer teamtest')
+      assert.doesNotMatch(JSON.stringify(result), /teamtest/)
     } finally {
       globalThis.fetch = previousFetch
     }

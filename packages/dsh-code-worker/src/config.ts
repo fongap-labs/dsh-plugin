@@ -1,13 +1,12 @@
 /**
  * The Host projects volatile fields into the native Plugins configuration form.
- * GitHub tokens are write-only: the settings wire reports secret presence, not values.
+ * GitHub tokens are never persisted: only the tokenEnv variable name is stored.
  */
 import Schema from '@deepseek-ai/schemastery'
 
 const Account = Schema.object({
   owner: Schema.string().required(),
-  token: Schema.string().role('secret'),
-  tokenEnv: Schema.string(),
+  tokenEnv: Schema.string().required(),
 })
 const Server = Schema.object({
   language: Schema.string().required(),
@@ -21,6 +20,7 @@ const Server = Schema.object({
 // Schemastery / cosmokit types through the generated declaration.
 export const Config: Schema<Record<string, unknown>> = Schema.object({
   enabled: Schema.boolean().default(true).volatile(),
+  autoRouting: Schema.boolean().default(true).volatile(),
   workspaceRoot: Schema.string().default('').volatile(),
   git: Schema.object({
     enabled: Schema.boolean().default(true),

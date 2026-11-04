@@ -8,7 +8,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
   return defineTool({
     name: `${TOOL_PREFIX}multi_edit`,
     description:
-      'Apply a batch of file edits atomically within the workspace. Each edit either overwrites a file with `content` or performs a `find`/`replace` substitution. Set `dryRun` to validate paths and inputs without writing.',
+      'Apply a bounded sequence of workspace file edits, reporting each outcome separately (not a filesystem transaction). Each edit either overwrites a file with `content` or performs a `find`/`replace` substitution. Set `dryRun` to validate paths and inputs without writing.',
     parameters: {
       edits: {
         type: 'array',
@@ -74,7 +74,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       for (const edit of edits) {
         const rel = String(edit.path ?? '')
         try {
-          if (!edit.content && edit.find === undefined) {
+          if (edit.content === undefined && edit.find === undefined) {
             results.push({
               path: rel,
               action: 'skipped',
@@ -86,6 +86,9 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
           let action: EditResult['action'] = 'overwrite'
           let note: string | undefined
           if (edit.find !== undefined) {
+            if (typeof edit.find !== 'string' || edit.find.length === 0 || typeof edit.replace !== 'string') {
+              throw new Error('find must be non-empty and replace must be a string')
+            }
             const original = await readTextSafe(ctx, exec, root, rel)
             const index = original.indexOf(String(edit.find))
             if (index === -1) {
@@ -105,7 +108,8 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, next)
             note = 'replaced 1 occurrence'
           } else {
-            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, String(edit.content ?? ''))
+            if (typeof edit.content !== 'string') throw new Error('content must be a string')
+            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, edit.content)
             note = `${String(edit.content ?? '').length} bytes`
           }
           applied += 1

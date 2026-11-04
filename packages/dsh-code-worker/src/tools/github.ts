@@ -7,7 +7,7 @@ import { resolveRoot } from '../runtime.js'
 const API = 'https://api.github.com'
 const REPOSITORY = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?\/(?!\.{1,2}$)[a-zA-Z0-9_.-]{1,100}$/
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\x00-\x1f]+$/
-const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*\\\[\x00-\x20])[^/]+(?:\/[^/]+)*$/
+const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*[\\\x00-\x20])[^/]+(?:\/[^/]+)*$/
 
 export function selectGitHubAccount(accounts: GitHubAccountConfig[], repository: string): GitHubAccountConfig {
   if (!REPOSITORY.test(repository)) throw new Error('invalid owner/repository')
@@ -52,8 +52,8 @@ async function githubRequest(
 ): Promise<{ repository: string; account: string; data: any }> {
   const repo = await resolveRepository(ctx, exec, settings, repository)
   const account = selectGitHubAccount(settings.githubAccounts, repo)
-  const token = account.token || (account.tokenEnv ? process.env[account.tokenEnv] : undefined)
-  if (!token?.trim()) throw new Error('GitHub credential unavailable for repository owner ' + account.owner)
+  const token = account.tokenEnv ? process.env[account.tokenEnv] : undefined
+  if (!token?.trim()) throw new Error('GitHub credential unavailable for repository owner ' + account.owner + ' (set env ' + account.tokenEnv + ')')
   const url = API + path(repo)
   if (!url.startsWith(API + '/') || !new URL(url).hostname.endsWith('github.com')) throw new Error('invalid GitHub API URL')
   const response = await fetch(url, {

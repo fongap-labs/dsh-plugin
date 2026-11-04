@@ -9,10 +9,11 @@ interface ReactApi {
   useEffect(fn: () => void | (() => void), deps?: readonly unknown[]): void
 }
 type Op = { op: 'set'; path: string[]; value: unknown } | { op: 'unset'; path: string[] }
-type Account = { owner: string; token: string; tokenEnv: string; sourceIndex: number }
+type Account = { owner: string; tokenEnv: string; sourceIndex: number }
 type Server = { language: string; command: string; args: string }
 interface Draft {
   enabled: boolean
+  autoRouting: boolean
   workspaceRoot: string
   gitEnabled: boolean
   gitCommand: string
@@ -57,13 +58,14 @@ function readDraft(value: any): Draft {
   ]
   return {
     enabled: value?.enabled !== false,
+    autoRouting: value?.autoRouting !== false,
     workspaceRoot: value?.workspaceRoot ?? '',
     gitEnabled: git.enabled !== false, gitCommand: git.command ?? 'git',
     githubEnabled: github.enabled !== false, githubAllowWrites: github.allowWrites === true,
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
     allowCommands: execution.allowCommands === true, systemPromptText: value?.systemPromptText ?? '',
     accounts: (github.accounts ?? []).map((item: any, index: number) => ({
-      owner: item.owner ?? '', token: '', tokenEnv: item.tokenEnv ?? '', sourceIndex: index,
+      owner: item.owner ?? '', tokenEnv: item.tokenEnv ?? '', sourceIndex: index,
     })),
     servers: Array.isArray(lsp.servers)
       ? lsp.servers.map((server: any) => ({
@@ -81,10 +83,8 @@ function validation(draft: Draft, value: any): string | undefined {
     if (owners.has(owner)) return 'GitHub owner 不允许重复：' + owner
     owners.add(owner)
     const old = account.sourceIndex >= 0 ? value?.github?.accounts?.[account.sourceIndex] : undefined
-    const hasOldSecret = !!old && !old.tokenEnv // read-only projection never includes token
-    if (account.token && account.tokenEnv) return owner + '：Token 和环境变量只能填写一个。'
-    if (!account.token && !account.tokenEnv && !hasOldSecret) return owner + '：需要 Token 或 Token 环境变量。'
-    if (account.tokenEnv && !ENV.test(account.tokenEnv)) return owner + ': invalid token environment variable name.'
+    if (!account.tokenEnv) return owner + '：需要 Token 环境变量。'
+    if (!ENV.test(account.tokenEnv)) return owner + ': invalid token environment variable name.'
   }
   if (!draft.gitCommand.trim()) return 'Git 命令不能为空。'
   for (const server of draft.servers) {
@@ -97,7 +97,7 @@ function operations(draft: Draft, value: any): Op[] {
   const ops: Op[] = []
   const set = (path: string[], val: unknown) => { ops.push({ op: 'set', path, value: val }) }
   const scalars: Array<[keyof Draft, string[]]> = [
-    ['enabled', ['enabled']], ['workspaceRoot', ['workspaceRoot']],
+    ['enabled', ['enabled']], ['autoRouting', ['autoRouting']], ['workspaceRoot', ['workspaceRoot']],
     ['gitEnabled', ['git', 'enabled']], ['gitCommand', ['git', 'command']],
     ['githubEnabled', ['github', 'enabled']], ['githubAllowWrites', ['github', 'allowWrites']],
     ['allowWorktreeWrites', ['execution', 'allowWorktreeWrites']],
@@ -113,13 +113,8 @@ function operations(draft: Draft, value: any): Op[] {
     const prior = current[a.sourceIndex]
     const prefix = ['github', 'accounts', String(a.sourceIndex)]
     if (a.owner.trim() !== prior?.owner) set([...prefix, 'owner'], a.owner.trim())
-    if (a.token) {
-      if (prior?.tokenEnv) ops.push({ op: 'unset', path: [...prefix, 'tokenEnv'] })
-      set([...prefix, 'token'], a.token)
-    } else if (a.tokenEnv !== (prior?.tokenEnv ?? '')) {
+    if (a.tokenEnv !== (prior?.tokenEnv ?? '')) {
       if (a.tokenEnv) {
-        // Replacing a secret token with an env reference must remove the old token.
-        ops.push({ op: 'unset', path: [...prefix, 'token'] })
         set([...prefix, 'tokenEnv'], a.tokenEnv)
       } else {
         ops.push({ op: 'unset', path: [...prefix, 'tokenEnv'] })
@@ -131,7 +126,7 @@ function operations(draft: Draft, value: any): Op[] {
   let index = current.length - removed.length
   for (const account of draft.accounts.filter(a => a.sourceIndex < 0)) {
     set(['github', 'accounts', String(index++)], {
-      owner: account.owner.trim(), ...(account.token ? { token: account.token } : { tokenEnv: account.tokenEnv }),
+      owner: account.owner.trim(), tokenEnv: account.tokenEnv,
     })
   }
   const servers = draft.servers.map(server => ({
@@ -159,7 +154,7 @@ function installClient(require: (id: string) => unknown) {
     const [saving, setSaving] = React.useState(false)
     const [notice, setNotice] = React.useState('')
     React.useEffect(() => { setDraft(readDraft(state?.value)); setNotice('') }, [state?.revision])
-    if (props.view === 'summary') return t('编程工具与 GitHub 多账号配置', 'Coding tools and GitHub accounts')
+    if (props.view === 'summary') return t('Delta 编程助手 · 编程工具与 GitHub 多账号配置', 'Delta Code Worker · Coding tools and GitHub accounts')
     if (!props.form || state?.status !== 'ready') return hint(t('当前配置尚未由 Host 加载。', 'Host configuration is not available.'))
     const disabled = !state.writable || saving
     const field = (label: string, value: string, change: (v: string) => void, isSecret = false, placeholder = '') =>
@@ -189,7 +184,6 @@ function installClient(require: (id: string) => unknown) {
         const ok = await props.form!.mutate(ops, state.revision)
         setNotice(ok ? t('配置已保存。Token 不会回显。', 'Saved. Tokens are never displayed.')
           : t('保存被 Host 拒绝，可能已有其他位置修改配置。请刷新后重试。', 'Host rejected the save. Refresh and retry.'))
-        if (ok) setDraft(old => ({ ...old, accounts: old.accounts.map(a => ({ ...a, token: '' })) }))
       } catch {
         setNotice(t('保存失败，请检查 Host 连接及日志。', 'Save failed. Check the Host connection.'))
       } finally { setSaving(false) }
@@ -199,6 +193,7 @@ function installClient(require: (id: string) => unknown) {
         'Saved through the native DSH configuration service. Changes are staged; execution is off by default.')),
       section(t('基本与 Git', 'General & Git'),
         toggle(t('启用编程工具', 'Enable coding tools'), draft.enabled, v => patch({ enabled: v })),
+        toggle(t('自动路由编程请求', 'Auto-route coding requests'), draft.autoRouting, v => patch({ autoRouting: v })),
         h('div', { style: inset },
           field(t('工作区路径（留空跟随 Host）', 'Workspace root (blank = Host)'), draft.workspaceRoot, v => patch({ workspaceRoot: v })),
           toggle(t('启用 Git', 'Enable Git'), draft.gitEnabled, v => patch({ gitEnabled: v })),
@@ -212,20 +207,18 @@ function installClient(require: (id: string) => unknown) {
         toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
         toggle(t('允许远程写入（默认关闭）', 'Allow remote writes (off by default)'), draft.githubAllowWrites,
           v => patch({ githubAllowWrites: v })),
-        hint(t('一个 owner 对应一个 Token。Token 留空表示保留已有凭据；不会从 Host 读取已保存的 Token。',
-          'One token per owner. Leave an existing token blank to retain it; stored tokens are never returned by the Host.')),
+        hint(t('一个 owner 对应一个 Token。通过 Token 环境变量名引用凭据；Token 不会写入配置，也不会从 Host 回显。',
+          'One token per owner. Reference the credential by a Token environment variable name; tokens are never written to config or returned by the Host.')),
         ...draft.accounts.map((a, i) => h('div', { key: a.sourceIndex >= 0 ? 'existing-' + a.sourceIndex : 'new-' + i,
           style: { ...inset, padding: '12px', border: '1px solid var(--dsw-alias-border-l2, #ddd)', borderRadius: '10px' } },
           field(t('用户名或组织名', 'Username or organization'), a.owner, v => updateAccount(i, 'owner', v)),
-          field(t('访问令牌（留空保留旧值）', 'Access token (blank keeps existing)'), a.token,
-            v => updateAccount(i, 'token', v), true, t('不回显', 'Write-only')),
-          field(t('Token 环境变量（与令牌二选一）', 'Token environment variable (alternative)'), a.tokenEnv,
+          field(t('Token 环境变量名称', 'Token environment variable name'), a.tokenEnv,
             v => updateAccount(i, 'tokenEnv', v), false, 'GITHUB_TOKEN_NAME'),
           h('button', { type: 'button', disabled, style: actionStyle,
             onClick: () => patch({ accounts: draft.accounts.filter((_, j) => j !== i) }) },
             t('删除账号', 'Remove account')))),
         h('button', { type: 'button', disabled, style: actionStyle,
-          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', token: '', tokenEnv: '', sourceIndex: -1 }] }) },
+          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', tokenEnv: '', sourceIndex: -1 }] }) },
           t('添加 GitHub 账号', 'Add GitHub account'))),
       section(t('语言服务器', 'Language servers'),
         ...draft.servers.map((s, i) => h('div', { key: 'server-' + i,

@@ -52,15 +52,17 @@ export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[]
     }
     if (owners.has(owner)) throw new Error('duplicate GitHub owner mapping: ' + owner)
     owners.add(owner)
-    const token = typeof account.token === 'string' ? account.token.trim() : ''
-    const tokenEnv = typeof account.tokenEnv === 'string' ? account.tokenEnv.trim() : ''
-    if ((token !== '' && tokenEnv !== '') || (token === '' && tokenEnv === '')) {
-      throw new Error('configure exactly one of token or tokenEnv for GitHub owner ' + owner)
+    if (Object.prototype.hasOwnProperty.call(entry, 'token')) {
+      throw new Error('github.accounts[].token is not supported; migrate the credential to tokenEnv')
     }
-    if (tokenEnv && !/^[A-Z_][A-Z0-9_]*$/.test(tokenEnv)) {
+    const tokenEnv = typeof account.tokenEnv === 'string' ? account.tokenEnv.trim() : ''
+    if (!tokenEnv) {
+      throw new Error('github.accounts[].tokenEnv is required for GitHub owner ' + owner)
+    }
+    if (!/^[A-Z_][A-Z0-9_]*$/.test(tokenEnv)) {
       throw new Error('github.accounts[].tokenEnv must name an uppercase environment variable')
     }
-    result.push({ owner, ...(token ? { token } : { tokenEnv }) })
+    result.push({ owner, tokenEnv })
   }
   return result
 }
@@ -84,6 +86,7 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
     Array.isArray(lsp.servers) && lsp.servers.length > 0 ? lsp.servers : DEFAULT_LSP_SERVERS
   return {
     enabled: cfg.enabled !== false,
+    autoRoutingEnabled: cfg.autoRouting !== false,
     workspaceRoot: typeof cfg.workspaceRoot === 'string' ? cfg.workspaceRoot.trim() : '',
     gitEnabled: git.enabled !== false,
     gitCommand:
@@ -156,4 +159,3 @@ export async function writeTextSafe(
   await mkdir(dirname(absolute), { recursive: true })
   await writeFile(absolute, content, 'utf8')
 }
-

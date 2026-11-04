@@ -54,15 +54,14 @@ export interface LspServerConfig {
 export interface GitHubAccountConfig {
   /** GitHub username or organization name (left side of owner/repository). */
   owner: string
-  /** Personal access token. Set only in a local, untracked user profile. */
-  token?: string
-  /** Optional environment-variable alternative to a literal token. */
-  tokenEnv?: string
+  /** Environment variable name that holds the GitHub personal access token. */
+  tokenEnv: string
 }
 
 /** Plugin configuration as accepted from the Cordis patch file. */
 export interface CodeWorkerConfig {
   enabled?: boolean
+  autoRouting?: boolean
   workspaceRoot?: string
   git?: {
     enabled?: boolean
@@ -86,6 +85,7 @@ export interface CodeWorkerConfig {
 /** Normalized settings with every default resolved. */
 export interface Settings {
   enabled: boolean
+  autoRoutingEnabled: boolean
   workspaceRoot: string
   gitEnabled: boolean
   gitCommand: string

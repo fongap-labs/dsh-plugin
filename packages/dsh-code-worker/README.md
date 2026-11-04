@@ -77,7 +77,7 @@ pnpm test
 
 ## GitHub 多账号连接
 
-在本机 **用户 Profile** 的 `cordis.patch.yml` 中，对 `dsh-code-worker` 配置 `github.accounts`。每个 GitHub 账号只需填写 **用户名或组织名 `owner` 与访问令牌 `token`**。账号数量不限：
+在本机 **用户 Profile** 的 `cordis.patch.yml` 中，对 `dsh-code-worker` 配置 `github.accounts`。每个 GitHub 账号需填写 **用户名或组织名 `owner` 与 Token 环境变量名 `tokenEnv`**。Token 真实值**永不写入配置文件**，而是由运行环境在启动前注入对应环境变量。账号数量不限：
 
 ```yaml
 github:
@@ -85,18 +85,18 @@ github:
   allowWrites: false
   accounts:
     - owner: fongap-labs
-      token: "<此处填写该组织仓库可用的 Token>"
+      tokenEnv: GITHUB_TOKEN_FONGAP
     - owner: my-personal-name
-      token: "<此处填写个人 Token>"
+      tokenEnv: GITHUB_TOKEN_PERSONAL
     - owner: third-organization
-      token: "<此处填写另一个组织的 Token>"
+      tokenEnv: GITHUB_TOKEN_THIRD
 ```
 
 支持只配置 1 个、2 个或者多个账号。实际授权来源是 Token 持有者，组织名不意味着组织有自己的 Token：填写组织名时，需要使用已获授权访问该组织仓库的 GitHub 账号的 Token。推荐细粒度个人访问令牌，并仅授权必要仓库及最小权限。
 
-调用 GitHub 工具时，插件自动读取当前 Git 工作区 `origin` 仓库地址（或显式传入 `repository: owner/repo`），使用 `owner` 匹配对应 Token：例如 `fongap-labs/delta` 和 `fongap-labs/dsh-plugin` 都选择 `owner: fongap-labs`，不需要手动绑定仓库。不区分大小写，同一 `owner` 不允许重复，未匹配时拒绝操作，不会使用其他账号的 Token。
+调用 GitHub 工具时，插件自动读取当前 Git 工作区 `origin` 仓库地址（或显式传入 `repository: owner/repo`），使用 `owner` 匹配对应账号的 `tokenEnv` 环境变量：例如 `fongap-labs/delta` 和 `fongap-labs/dsh-plugin` 都选择 `owner: fongap-labs`，不需要手动绑定仓库。不区分大小写，同一 `owner` 不允许重复，未匹配时拒绝操作，不会使用其他账号的 Token。
 
-**安全要求：** Token 只应填写在本机未纳入版本控制的用户 Profile 中。不要将真实 Token 提交到公开仓库、Bundle 默认配置、PR、Issue 或聊天。不要启用 Profile 文件的云端明文同步。如果需要避免在配置文件中保存明文 Token，可以在每个账号使用 `tokenEnv: GITHUB_TOKEN_NAME` 代替 `token`，两者只能选一个，并在启动 Harness 前注入对应环境变量。Token 不会返回给模型，但本地 Profile 仍应限制文件访问权限。
+**安全要求：** 配置文件**不保存任何 Token**，只记录环境变量名。Token 必须在启动 Harness 前注入对应环境变量。不要将 Token 环境变量值提交到公开仓库、Bundle 默认配置、PR、Issue 或聊天。不要启用 Profile 文件的云端明文同步。Token 不会返回给模型，但本地 Profile 仍应限制文件访问权限。
 
 | GitHub 工具 | 用途 |
 | --- | --- |
@@ -136,5 +136,5 @@ execution:
 在 DSH **插件 → Code Worker → 组件 dsh-code-worker → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
 
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
-- Token 为 Schema `role('secret')`，Host 不会回显。已有账号留空 Token 即保留；新账号必须填 Token 或 tokenEnv。
+- GitHub 多账号只通过 `tokenEnv` 环境变量名引用凭据；Token 永不写入配置，页面也不会回显。
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
