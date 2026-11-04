@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import { publicView, updateConfig } from './config.js'
+import { readFolders, mutateFolders, type FolderAction } from './folders.js'
 import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
@@ -184,6 +185,20 @@ export function registerRoutes(ctx: Context): void {
       return sendJson(res, 200, await configView())
     }
     return sendJson(res, 405, { error: 'method not allowed' })
+  })
+
+  route('/dsh-ui-delta/folders', async (req, res) => {
+    if (req.method === 'GET') {
+      try { return sendJson(res, 200, readFolders()) }
+      catch (error) { return sendJson(res, 409, { error: errorMessage(error) }) }
+    }
+    if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    try {
+      const payload = JSON.parse((await readBody(req, 16 * 1024)).toString('utf8') || '{}') as FolderAction
+      return sendJson(res, 200, mutateFolders(payload))
+    } catch (error) {
+      return sendJson(res, 400, { error: errorMessage(error) })
+    }
   })
 
   route('/dsh-ui-delta/vision', async (req, res) => {
