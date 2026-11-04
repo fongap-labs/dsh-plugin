@@ -4477,6 +4477,51 @@ const MODULES: ModuleDef[] = [
               }
             };
 
+            const cleanupMissingFolderAssignments = async (): Promise<void> => {
+              if (folderPending.current) return;
+              folderPending.current = true;
+              setFolderBusy(true);
+              setFolderStatus('');
+              try {
+                const previewResponse = await fetch('/dsh-ui-delta/folder-cleanup');
+                const preview = await previewResponse.json();
+                if (!previewResponse.ok || preview.error) throw new Error(
+                  preview.error || 'Unable to inspect Host session persistence');
+                if (!Number.isSafeInteger(preview.missingCount) || preview.missingCount < 0 ||
+                    typeof preview.revision !== 'string') {
+                  throw new Error('Invalid folder cleanup preview');
+                }
+                if (preview.missingCount === 0) {
+                  setFolderStatus(pick('没有失效归属。', 'No orphan assignments.'));
+                  return;
+                }
+                if (!window.confirm(pick(
+                  `清理 ${preview.missingCount} 项不再存在的会话归属？文件夹和现存会话不会删除。`,
+                  `Remove ${preview.missingCount} assignments whose sessions no longer exist? Existing sessions and folders will remain.`,
+                ))) return;
+                ++folderRequestId.current;
+                const response = await fetch('/dsh-ui-delta/folder-cleanup', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ expectedRevision: preview.revision }),
+                });
+                const data = await response.json();
+                if (!response.ok || data.error || typeof data.revision !== 'string')
+                  throw new Error(data.error || 'Folder cleanup failed');
+                setFolderView(data as FolderView);
+                setFolderStatus(pick(
+                  `已清理 ${data.removedCount} 项失效归属。`,
+                  `Removed ${data.removedCount} orphan assignments.`,
+                ));
+                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
+              } catch (error) {
+                setFolderStatus(String(error));
+                void loadFolders().catch(() => { /* Preserve cleanup error. */ });
+              } finally {
+                folderPending.current = false;
+                setFolderBusy(false);
+              }
+            };
             const folderRow = h(UiCard, { key: 'session-folders', className: 'ens-privacy' }, [
               h('div', { key: 'title', className: 'ens-privacy-title' }, pick('会话文件夹', 'Session folders')),
               h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
@@ -4497,6 +4542,10 @@ const MODULES: ModuleDef[] = [
                   disabled: folderBusy,
                   onClick: () => { void loadFolders().catch(error => setFolderStatus(String(error))); },
                 }, pick('刷新', 'Refresh')),
+                h(UiButton, { key: 'cleanup', type: 'button', variant: 'outline', size: 'sm',
+                  disabled: folderBusy,
+                  onClick: () => { void cleanupMissingFolderAssignments(); },
+                }, pick('清理失效归属', 'Clean up orphan assignments')),
               ]),
               h('div', { key: 'folders', className: 'ens-folder-list' },
                 folderView.folders.length ? folderView.folders.map((folder, index) => {
