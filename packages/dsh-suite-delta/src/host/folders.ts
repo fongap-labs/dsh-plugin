@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -23,11 +23,18 @@ export type FolderAction =
   | { action: 'unassign'; sessionId: string }
 
 const FOLDER_FILE = join(homedir(), '.dsh-ui-delta', 'folders.json')
+const FOLDER_LOCK = `${FOLDER_FILE}.lock`
 const MAX_FOLDERS = 100
 const MAX_ASSIGNMENTS = 10000
 const ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/
 
+export interface FolderView extends FolderState { revision: string }
+export class FolderConflictError extends Error {}
+
+type Mutation = FolderAction & { expectedRevision?: string }
 const emptyState = (): FolderState => ({ folders: [], assignments: {} })
+const revisionOf = (content: string): string =>
+  createHash('sha256').update(content).digest('hex')
 
 const safeId = (value: unknown): value is string =>
   typeof value === 'string' && ID_PATTERN.test(value) && value !== '__proto__'
@@ -75,19 +82,45 @@ const validateState = (input: unknown): FolderState => {
   return { folders, assignments }
 }
 
-export const readFolders = (): FolderState => {
+export const readFolderView = (): FolderView => {
   let content: string
   try {
     content = readFileSync(FOLDER_FILE, 'utf8')
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return emptyState()
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return { ...emptyState(), revision: revisionOf('') }
+    }
     throw error
   }
-  // Fail closed on a corrupt file: never replace it with an empty state.
+  // Read the content and revision from one snapshot; a concurrent atomic
+  // rename cannot pair an old revision with the new folders.
   try {
-    return validateState(JSON.parse(content))
+    return { ...validateState(JSON.parse(content)), revision: revisionOf(content) }
   } catch {
     throw new Error('Folder state is unreadable; the original file was preserved')
+  }
+}
+
+export const readFolders = (): FolderState => {
+  const { folders, assignments } = readFolderView()
+  return { folders, assignments }
+}
+
+const withFolderLock = <T>(operation: () => T): T => {
+  mkdirSync(join(homedir(), '.dsh-ui-delta'), { recursive: true, mode: 0o700 })
+  try {
+    mkdirSync(FOLDER_LOCK, { mode: 0o700 })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      // Never steal a potentially active cross-process lock: callers retry.
+      throw new FolderConflictError('Folder store busy; refresh and retry')
+    }
+    throw error
+  }
+  try {
+    return operation()
+  } finally {
+    rmdirSync(FOLDER_LOCK)
   }
 }
 
@@ -108,9 +141,12 @@ const writeFolders = (state: FolderState): void => {
 const ordered = (folders: SessionFolder[]): SessionFolder[] =>
   folders.map((item, index) => ({ ...item, order: index }))
 
-export const mutateFolders = (request: FolderAction): FolderState => {
+export const mutateFolderView = (request: Mutation): FolderView => withFolderLock(() => {
   if (!request || typeof request !== 'object') throw new Error('Folder action required')
-  const state = readFolders()
+  const state = readFolderView()
+  if (request.expectedRevision !== undefined && request.expectedRevision !== state.revision) {
+    throw new FolderConflictError('Folder state changed; refresh and retry')
+  }
   const folders = [...state.folders]
   const assignments = { ...state.assignments }
   switch (request.action) {
@@ -172,5 +208,21 @@ export const mutateFolders = (request: FolderAction): FolderState => {
   }
   const next = { folders: ordered(folders), assignments }
   writeFolders(next)
-  return next
+  return readFolderView()
+})
+
+export const mutateFolders = (request: FolderAction): FolderState => {
+  const { folders, assignments } = mutateFolderView(request)
+  return { folders, assignments }
+}
+
+export const forgetDeletedSession = (sessionId: string): boolean => {
+  if (!safeId(sessionId)) throw new Error('Invalid session ID')
+  return withFolderLock(() => {
+    const state = readFolders()
+    if (!Object.hasOwn(state.assignments, sessionId)) return false
+    delete state.assignments[sessionId]
+    writeFolders(state)
+    return true
+  })
 }

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import { publicView, updateConfig } from './config.js'
-import { readFolders, mutateFolders, type FolderAction } from './folders.js'
+import { readFolderView, mutateFolderView, forgetDeletedSession, FolderConflictError, type FolderAction } from './folders.js'
 import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
@@ -189,15 +189,15 @@ export function registerRoutes(ctx: Context): void {
 
   route('/dsh-ui-delta/folders', async (req, res) => {
     if (req.method === 'GET') {
-      try { return sendJson(res, 200, readFolders()) }
+      try { return sendJson(res, 200, readFolderView()) }
       catch (error) { return sendJson(res, 409, { error: errorMessage(error) }) }
     }
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
     try {
-      const payload = JSON.parse((await readBody(req, 16 * 1024)).toString('utf8') || '{}') as FolderAction
-      return sendJson(res, 200, mutateFolders(payload))
+      const payload = JSON.parse((await readBody(req, 16 * 1024)).toString('utf8') || '{}') as FolderAction & { expectedRevision?: string }
+      return sendJson(res, 200, mutateFolderView(payload))
     } catch (error) {
-      return sendJson(res, 400, { error: errorMessage(error) })
+      return sendJson(res, error instanceof FolderConflictError ? 409 : 400, { error: errorMessage(error) })
     }
   })
 
@@ -251,7 +251,15 @@ export function registerRoutes(ctx: Context): void {
     const id = typeof body.sessionId === 'string' ? body.sessionId : ''
     try {
       await deleteColdSession(ctx as unknown as Parameters<typeof deleteColdSession>[0], id)
-      return sendJson(res, 200, { ok: true })
+      // Session deletion has committed. Folder cleanup is best effort and must
+      // not claim that the deleted Session still exists if its folder lock is busy.
+      let isFolderCleanupComplete = true
+      try { forgetDeletedSession(id) }
+      catch (error) {
+        isFolderCleanupComplete = false
+        console.warn('[dsh-ui-delta] session folder cleanup deferred:', errorMessage(error))
+      }
+      return sendJson(res, 200, { ok: true, folderCleanup: isFolderCleanupComplete })
     } catch (error) {
       return sendJson(res, 409, { error: errorMessage(error) })
     }
