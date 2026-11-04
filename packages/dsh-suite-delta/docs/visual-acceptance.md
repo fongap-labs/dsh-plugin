@@ -7,10 +7,25 @@
 从仓库根目录运行。在本地隔离的 DeepSeek Harness 测试配置上启用 Delta Suite，确保页面可通过 loopback HTTP(S) 访问：
 
 ```bash
-npm install --no-save playwright-core
+npm install --no-save playwright-core pngjs
 node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme light --chromium /path/to/chromium --output .delta-ui-acceptance/light
 node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark --chromium /path/to/chromium --output .delta-ui-acceptance/dark
 ```
+
+## 本地截图基线对比
+
+先在**隔离测试账号、固定 Chromium/DSH/操作系统字体和缩放**的条件下运行上述命令，生成浅色和深色各四张截图。经人工核对后，将截图复制到独立的私有基线目录，例如 `C:\\private\\delta-ui-baseline`（该目录必须在仓库外）。
+
+随后执行：
+
+```bash
+node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme light --baseline /private/delta-ui-baseline --max-diff-pct 0.5 --pixel-tolerance 16
+node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark --baseline /private/delta-ui-baseline --max-diff-pct 0.5 --pixel-tolerance 16
+```
+
+脚本在本机进程中使用 `pngjs` 解码屏幕截图，对比同主题和同窗口尺寸的 RGB 像素；任何截图缺失、尺寸不一致或超过差异阈值均返回非零退出码。未指定 `--baseline` 时只做原有的布局/键盘/颜色检查。
+
+基线只读，**不会自动更新或提交截图**。不要使用包含真实工作会话或隐私数据的基线。字体渲染、设备缩放与动态内容都会影响像素差异；自动化通过不是人工验收的替代品。
 
 在两次运行之间，**必须在宿主设置中实际切换主题**。参数 `--theme` 是验证期望值，不会篡改宿主主题或伪造颜色。若 DSH 依赖现有桌面浏览器登录态，可用 `--cdp http://127.0.0.1:9222` 连接本地已启用远程调试的浏览器；此模式可能导航已有页面，仅能在隔离测试实例使用。
 
