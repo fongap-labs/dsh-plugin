@@ -41,6 +41,7 @@ test('visual acceptance requires a theme and rejects invalid or duplicate option
     ['--url', 'http://localhost:4000', '--theme', 'light', '--theme', 'dark'],
     ['--url', 'http://localhost:4000', '--theme', 'light', '--write'],
     ['--url', 'http://localhost:4000', '--theme', 'light', '--require-sessions', '--require-sessions'],
+    ['--url', 'http://localhost:4000', '--theme', 'light', '--accessibility', '--accessibility'],
   ]) {
     const result = run(args)
     assert.equal(result.status, 2)
