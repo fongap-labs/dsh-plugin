@@ -227,10 +227,9 @@ export const forgetDeletedSession = (sessionId: string): boolean => {
   })
 }
 
-export const countMissingAssignments = (knownSessionIds: ReadonlySet<string>): number => {
-  const state = readFolderView()
-  return Object.keys(state.assignments).filter(id => !knownSessionIds.has(id)).length
-}
+export const countMissingAssignments = (
+  knownSessionIds: ReadonlySet<string>, state: FolderState = readFolders(),
+): number => Object.keys(state.assignments).filter(id => !knownSessionIds.has(id)).length
 
 export const pruneMissingAssignments = (
   knownSessionIds: ReadonlySet<string>, expectedRevision: string,
