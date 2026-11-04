@@ -204,11 +204,11 @@ export function registerRoutes(ctx: Context): void {
   // Session disposal is not durable deletion. Only confirmed persisted IDs
   // plus currently active sessions can authorize a manual orphan cleanup.
   const knownSessionIds = async (): Promise<Set<string>> => {
-    const service = (ctx as unknown as { get?: (name: string) => unknown }).get
-    const persistence = service?.('sessionPersistence') as {
+    const host = ctx as unknown as { get?: (name: string) => unknown }
+    const persistence = host.get?.('sessionPersistence') as {
       list?: () => Promise<Array<{ id?: string; header?: { id?: string } }>>
     } | undefined
-    const sessions = service?.('sessions') as { get?: (id: string) => unknown } | undefined
+    const sessions = host.get?.('sessions') as { get?: (id: string) => unknown } | undefined
     if (!persistence?.list || !sessions?.get) {
       throw new Error('Host session persistence and live session registry required')
     }
