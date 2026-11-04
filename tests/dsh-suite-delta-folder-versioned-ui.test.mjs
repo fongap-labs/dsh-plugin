@@ -17,15 +17,32 @@ test('mutations are versioned, serialized, and return HTTP 409 on conflicts', ()
   assert.match(route, /error instanceof FolderConflictError \? 409 : 400/)
 })
 
-test('all browser mutation entry points transmit current revision and discard outdated reads', () => {
-  const count = (client.match(/expectedRevision:/g) || []).length
-  assert.equal(count, 4) // settings, native menu, browser panel and explicit cleanup
-  assert.match(client, /folderRequestId\.current/)
-  assert.match(client, /folderMutationQueue/)
-  assert.match(client, /requestId === folderRequestId/)
-  assert.match(client, /requestId === folderReadId/)
-  assert.match(client, /if \(isReloadNeeded\)/)
-  assert.match(client, /folderSnapshot = data as FolderPanelState/)
+test('one shared store serializes folder mutations and discards outdated reads', () => {
+  const storeStart = client.indexOf('const folderStore = (() => {')
+  const storeEnd = client.indexOf("}, 'dsh-ui-delta: shared folder state')", storeStart)
+  assert.ok(storeStart > 0 && storeEnd > storeStart)
+  const store = client.slice(storeStart, storeEnd)
+  assert.equal((client.match(/fetch\('\/dsh-ui-delta\/folders'/g) || []).length, 2)
+  assert.equal((store.match(/expectedRevision:/g) || []).length, 1)
+  assert.match(store, /let mutationQueue: Promise<unknown> = Promise.resolve\(\)/)
+  assert.match(store, /const pending = mutationQueue\.then\(async \(\) => \{/)
+  assert.match(store, /mutationQueue = pending\.then\(\(\) => undefined, \(\) => undefined\)/)
+  assert.match(store, /const seq = \+\+requestSeq/)
+  assert.match(store, /if \(seq === requestSeq\) publish\(next\)/)
+  assert.match(store, /if \(!folderStore\.isBroadcasting\(\)\)/)
+  assert.match(store, /folderStore\.dispose\(\)/)
+  assert.doesNotMatch(client, /FolderMenuView|FolderPanelState|folderMutationQueue|folderReadId|folderRequestId/)
+})
+
+test('settings, native menus and sidebar use the same cache and revision contract', () => {
+  assert.match(client, /React\.useEffect\(\(\) => folderStore\.subscribe\(\(\) => setFolderView\(folderStore\.view\(\)\)\), \[\]\)/)
+  assert.match(client, /await folderStore\.mutate\(payload\)/)
+  assert.match(client, /const folderCache = folderStore\.view\(\)/)
+  assert.match(client, /const updateFolder = \(payload: Record<string, unknown>\) => folderStore\.mutate\(payload\)/)
+  assert.match(client, /const mutate = \(payload: Record<string, unknown>\) => folderStore\.mutate\(payload\)/)
+  assert.match(client, /folderStore\.publish\(data as FolderStoreView\)/)
+  assert.equal((client.match(/window\.addEventListener\('dsh-ui-delta:folders-changed'/g) || []).length, 1)
+  assert.equal((client.match(/window\.removeEventListener\('dsh-ui-delta:folders-changed'/g) || []).length, 1)
 })
 
 test('deleting a cold session only cleans assignments after committed deletion', () => {
