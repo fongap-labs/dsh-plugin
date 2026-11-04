@@ -8,6 +8,8 @@ const near = (actual, expected, tolerance = 0.02) =>
 
 test('WCAG contrast calculation covers the preserved Delta light and dark brand pairs', () => {
   near(contrastRatio('#FFFFFF', '#286F78'), 5.7768)
+  near(contrastRatio('rgb(255, 255, 255)', '#286F78'), 5.7768)
+  near(contrastRatio('rgba(255, 255, 255, 1)', '#286F78'), 5.7768)
   near(contrastRatio('#0E1A1C', '#60B4BF'), 7.4190)
   near(contrastRatio('#17191C', '#F5F6F7'), 16.2783)
   near(contrastRatio('#E8EAED', '#131417'), 15.2818)
