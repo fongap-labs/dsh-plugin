@@ -15,8 +15,8 @@ it('keeps one canonical selector for duplicate footer and menu rules', () => {
   assert.equal(occurrences(/^\.wtg9ga_collapsed \.ens-foot-actions\s*\{/gm), 1)
   assert.equal(occurrences(/^\.ens-menu\s*\{/gm), 1)
   assert.equal(occurrences(/^\.ens-menu-item\[aria-selected="true"\]\s*\{/gm), 1)
-  assert.equal(occurrences(/^\.ens-modal-backdrop\s*\{/gm), 2)
-  assert.equal(occurrences(/^\.ens-modal-card\s*\{/gm), 2)
+  assert.equal(occurrences(/^\.ens-modal-backdrop\s*\{/gm), 1)
+  assert.equal(occurrences(/^\.ens-modal-card\s*\{/gm), 1)
 })
 
 it('uses semantic colors and elevations on canonical surfaces', () => {
