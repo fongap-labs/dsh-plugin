@@ -29,7 +29,7 @@ interface HarnessReactChangeEvent<T = Element> {
 
 interface HarnessReact {
   createElement(
-    type: string,
+    type: string | ((props: Record<string, unknown>) => HarnessReactElement),
     props?: Record<string, unknown> | null,
     ...children: unknown[]
   ): HarnessReactElement;
