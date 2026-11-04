@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+以下变更已合并到 `main`，并不代表已发布到 GitHub Releases 或 npm。
+
+### 新增
+
+- Delta Suite 增加本地会话文件夹、独立分组面板、面板内拖放、会话行归属提示及失效归属清理。
+- 增加可选的本机私有截图基线比对，用于浅深色主题和多窗口尺寸回归验收。
+
+### 变更
+
+- 统一文件夹设置、会话菜单和浏览面板的版本化客户端状态与刷新机制。
+- 统一组件样式、窄窗口布局及高对比度和键盘焦点反馈。
+
+### 修复
+
+- 加固文件夹跨进程写入锁、异常退出后的保守恢复、版本冲突保护和无效操作幂等性。
+- 修复会话删除后的文件夹归属清理，并对异常持久化记录采用只读核实后再执行失效归属清理。
+
 ## [0.1.0-beta.1](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-suite-delta-v0.1.0-beta.1) - 2026-11-03
 
 ### 新增
@@ -216,16 +233,3 @@
 - 三个发布清单（`projects/*/release.manifest.json`）的 `builds[].target` 由 `windows-x64` 改为合法 rustup target triple `x86_64-pc-windows-msvc`，修复 Action Worker 直接把它传给 `rustup toolchain install --target` 时下载 `rust-std` 失败导致的发布构建中断。
 - 打包产物现在始终包含 `package.json`（与 `npm pack` 行为一致），此前注入的发布版本只存在于工作区、不会出现在 zip 中，产物因此没有版本信息。
 - `scripts/build-release.ps1` 解析包管理器时把 `Get-Command` 的多个匹配结果当作单个路径，导致发布构建直接失败（`The term 'C:\hostedtoolcache\...\npm.cmd C:\Program Files\nodejs\npm.cmd' is not recognized`）。Windows runner 的 `npm.cmd` 同时存在于 hosted toolcache 与 `C:\Program Files\nodejs`，`$found.Source` 因此是数组，传给调用运算符后被拼成 `"<路径> <路径>"`；现改为逐个候选解析成唯一真实文件路径。
-
-
-
-
-
-
-
-
-
-
-
-
-
