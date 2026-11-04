@@ -88,7 +88,7 @@ pnpm link:dev dsh-suite-delta --profile desktop --unlink
 
 ## 许可证
 
-除非在具体插件中另有明确声明，本仓库自有插件、共享库和插件模板默认采用 [Apache-2.0](LICENSE) 许可证；**Delta Suite（Delta 套件）单独采用 MIT 许可证**；第三方依赖遵循各自的许可证。此规则不追溯修改已经发布的历史安装包。
+本仓库自有插件（包括 Delta Suite）、共享库与插件模板统一采用 [Apache-2.0](LICENSE) 许可证；第三方依赖继续遵循各自的许可证。此前已发布的 MIT 许可版本及历史安装包不追溯变更。
 
 相关文档：[架构与边界](docs/ARCHITECTURE.md) · [开发指南](docs/DEVELOPMENT.md) · [构建与发布](docs/OPERATIONS.md) · [变更记录](CHANGELOG.md) · [许可证](LICENSE) · [问题反馈](https://github.com/fongap-labs/dsh-plugin/issues)
 

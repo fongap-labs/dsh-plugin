@@ -110,4 +110,4 @@ Delta 管理技能更新前会保存上一版，最多保留最近 10 个历史�
 
 ## 许可证与迁移
 
-本插件现使用 [MIT 许可证](LICENSE)，不同于仓库其他包的 Apache-2.0 默认许可证。安装新包 `@fongap-labs/dsh-suite-delta` 前请卸载旧包 `@fongap-labs/dsh-ui-delta`，避免两个插件同时启用。旧 GitHub Release 及其历史标签保留，用于回滚和追溯。配置存储位置、现有 `/dsh-ui-delta/` HTTP 路由、Provider ID 等内部兼容标识暂不调整，以免迁移时丢失数据或破坏已有设置。
+本插件自本次变更起采用与仓库根目录一致的 [Apache-2.0 许可证](LICENSE)。此前按 MIT 许可证发布的历史版本不追溯变更。安装新包 `@fongap-labs/dsh-suite-delta` 前请卸载旧包 `@fongap-labs/dsh-ui-delta`，避免两个插件同时启用。旧 GitHub Release 及其历史标签保留，用于回滚和追溯。配置存储位置、现有 `/dsh-ui-delta/` HTTP 路由、Provider ID 等内部兼容标识暂不调整，以免迁移时丢失数据或破坏已有设置。
