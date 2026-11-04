@@ -14,6 +14,7 @@ const usage = [
   '  --baseline /private/path      Compare screenshots to a local, read-only baseline directory',
   '  --max-diff-pct 0.5           Maximum percentage of pixels different (requires --baseline)',
   '  --pixel-tolerance 16        Per-channel RGB tolerance, from 0 through 255',
+  '  --require-sessions          Fail if no disposable sessions expose keyboard selectors',
   'Baselines are never updated automatically. Use only anonymized test sessions.',
   '  --help                        Show this message',
   'Install the optional local runner: npm install --no-save playwright-core',
@@ -22,10 +23,16 @@ const usage = [
 
 function parseArgs(args) {
   const flags = new Set(['--url', '--theme', '--chromium', '--cdp', '--output', '--baseline', '--max-diff-pct', '--pixel-tolerance'])
+  const switches = new Set(['--require-sessions'])
   const values = Object.create(null)
   for (let index = 0; index < args.length; index++) {
     const key = args[index]
     if (key === '--help') return { help: true }
+    if (switches.has(key)) {
+      if (values[key] !== undefined) throw new Error('Duplicate option: ' + key)
+      values[key] = true
+      continue
+    }
     if (!flags.has(key)) throw new Error('Unknown option: ' + key)
     if (values[key] !== undefined) throw new Error('Duplicate option: ' + key)
     const value = args[++index]
@@ -74,6 +81,7 @@ function safeError(error) {
   // Do not write browser URLs, session titles, network payloads or credentials.
   const value = error instanceof Error ? error.message : String(error)
   if (/Host brand token/.test(value)) return 'Theme mismatch or theme token missing'
+  if (/no disposable sessions/i.test(value)) return 'Disposable sessions required for full keyboard acceptance'
   if (/folder panel/i.test(value)) return 'Folder panel unavailable in Host UI'
   if (/horizontal overflow/i.test(value)) return 'Folder panel horizontal overflow'
   if (/folder API/i.test(value)) return 'Local folder API unavailable'
@@ -195,18 +203,51 @@ async function main() {
     const groupToggle = panel.locator('.ens-folder-browser-group-head').first()
     const before = await groupToggle.getAttribute('aria-expanded')
     assert.ok(before === 'true' || before === 'false', 'Folder group must expose aria-expanded')
+    const controlledId = await groupToggle.getAttribute('aria-controls')
+    assert.ok(controlledId && /^delta-folder-items-[a-z0-9-]+$/.test(controlledId),
+      'Folder disclosure must reference a stable content region')
+    const groupContent = groupToggle.locator('..').locator('.ens-folder-browser-items').first()
+    assert.equal(await groupContent.getAttribute('id'), controlledId,
+      'Disclosure control and content region must have matching IDs')
+    assert.equal(await groupContent.isVisible(), before === 'true',
+      'Expanded state must agree with controlled content visibility')
+    record('folder-disclosure-semantics', 'PASS')
     await groupToggle.focus()
+    assert.ok(await groupToggle.evaluate(el => document.activeElement === el),
+      'Folder disclosure must be keyboard focusable')
     await groupToggle.press('Space')
     assert.notEqual(await groupToggle.getAttribute('aria-expanded'), before, 'Space must toggle folder group')
+    assert.equal(await groupContent.isVisible(), before !== 'true',
+      'Collapsed content must be hidden from focus and layout')
     await groupToggle.press('Space')
     assert.equal(await groupToggle.getAttribute('aria-expanded'), before, 'Second Space must restore state')
+    assert.equal(await groupContent.isVisible(), before === 'true',
+      'Second Space must restore controlled content visibility')
     record('keyboard-collapse-and-restore', 'PASS')
 
-    const selectCount = await panel.locator('.ens-folder-browser-select').count()
-    if (selectCount === 0) record('keyboard-folder-select', 'SKIP', 'No test sessions')
-    else {
-      assert.ok(await panel.locator('.ens-folder-browser-select').first().isEnabled())
+    const selects = panel.locator('.ens-folder-browser-select')
+    const selectCount = await selects.count()
+    if (selectCount === 0) {
+      if (args['--require-sessions']) {
+        throw new Error('Folder panel has no disposable sessions for keyboard acceptance')
+      }
+      record('keyboard-folder-select', 'SKIP', 'No disposable sessions')
+    } else {
+      // Verify a bounded sample without changing any Session folder assignments.
+      for (let index = 0; index < Math.min(selectCount, 5); index++) {
+        const select = selects.nth(index)
+        assert.ok(await select.isEnabled(), 'Folder selector must be enabled')
+        const row = select.locator('..')
+        const sessionTitle = (await row.locator('.ens-folder-browser-open').textContent() || '').trim()
+        const label = await select.getAttribute('aria-label') || ''
+        assert.ok(sessionTitle && label.endsWith(': ' + sessionTitle),
+          'Folder selector accessible name must identify its Session')
+        await select.focus()
+        assert.ok(await select.evaluate(el => document.activeElement === el),
+          'Folder selector must accept keyboard focus')
+      }
       record('keyboard-folder-select', 'PASS')
+      record('session-specific-accessible-names', 'PASS')
     }
 
     const viewports = [

@@ -17,6 +17,7 @@ test('visual acceptance runner advertises its opt-in local-only prerequisites', 
   assert.equal(result.status, 0)
   assert.match(result.stdout, /--theme light\|dark/)
   assert.match(result.stdout, /playwright-core/)
+  assert.match(result.stdout, /--require-sessions/)
   assert.match(result.stdout, /disposable, locally accessible DSH test profile/)
   assert.doesNotMatch(result.stdout, /PASS brand-tokens/)
 })
@@ -38,6 +39,7 @@ test('visual acceptance requires a theme and rejects invalid or duplicate option
     [], ['--url', 'http://127.0.0.1:4000'], ['--url', 'http://localhost:4000', '--theme', 'auto'],
     ['--url', 'http://localhost:4000', '--theme', 'light', '--theme', 'dark'],
     ['--url', 'http://localhost:4000', '--theme', 'light', '--write'],
+    ['--url', 'http://localhost:4000', '--theme', 'light', '--require-sessions', '--require-sessions'],
   ]) {
     const result = run(args)
     assert.equal(result.status, 2)
@@ -56,6 +58,8 @@ test('runner never mutates folder assignments and only captures explicit private
   assert.match(source, /writeFileSync\(file, JSON\.stringify\(results, null, 2\)/)
   assert.match(source, /SafeError|safeError/)
   assert.match(source, /keyboard-collapse-and-restore/)
+  assert.match(source, /folder-disclosure-semantics/)
+  assert.match(source, /session-specific-accessible-names/)
   assert.match(source, /responsive-.*width/)
 })
 
@@ -87,4 +91,24 @@ test('visual regression requires explicit local baseline and valid tolerances', 
   assert.match(source, /visual-baseline-/)
   assert.match(source, /Visual difference exceeds baseline threshold/)
   assert.doesNotMatch(source, /writeFileSync\(baseline/)
+})
+
+
+test('real-host runner requires a matching disclosure target and reversible keyboard state', () => {
+  assert.match(source, /const controlledId = await groupToggle\.getAttribute\('aria-controls'\)/)
+  assert.match(source, /await groupContent\.getAttribute\('id'\), controlledId/)
+  assert.match(source, /await groupContent\.isVisible\(\), before === 'true'/)
+  assert.match(source, /await groupToggle\.press\('Space'\)/)
+  assert.match(source, /await groupContent\.isVisible\(\), before !== 'true'/)
+  assert.match(source, /record\('folder-disclosure-semantics', 'PASS'\)/)
+})
+
+test('full keyboard acceptance fails closed without test sessions, without writing folders', () => {
+  assert.match(source, /if \(args\['--require-sessions'\]\)/)
+  assert.match(source, /throw new Error\('Folder panel has no disposable sessions for keyboard acceptance'\)/)
+  assert.match(source, /Math\.min\(selectCount, 5\)/)
+  assert.match(source, /label\.endsWith\(': ' \+ sessionTitle\)/)
+  assert.match(source, /document\.activeElement === el/)
+  assert.match(source, /record\('session-specific-accessible-names', 'PASS'\)/)
+  assert.doesNotMatch(source, /context\.request\.(?:post|patch|put|delete)\(/)
 })
