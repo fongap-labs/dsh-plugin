@@ -1,4 +1,4 @@
-# dsh-code-worker
+# Delta 编程助手（Delta Code Worker）
 
 DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
@@ -9,6 +9,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 | `code_multi_edit` | 在工作区内逐项批量修改文件（非跨文件事务）：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
+| `code_workflow_route` | 在中大型任务中按类型、风险和规模选择轻量或完整开发路径；纯只读，不启动 Agent。 |
 | `code_project_profile` | 只读检测项目技术栈、规则文件和项目现有测试脚本；不加载大段源码。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
 
@@ -134,7 +135,7 @@ execution:
 
 ## 原生图形配置页面
 
-在 DSH **插件 → Code Worker → 组件 dsh-code-worker → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
+在 DSH **插件 → Delta 编程助手 → 组件 dsh-code-worker → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
 
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - Token 为 Schema `role('secret')`，Host 不会回显。已有账号留空 Token 即保留；新账号必须填 Token 或 tokenEnv。
@@ -150,7 +151,7 @@ execution:
 - CI/PR 红叉自动进入 `code-ci-repair`；Debug 进入根因定位；代码审查进入 review；小范围修改走快速路径；功能开发走完整路径。
 - 简短的「继续」继承该 Agent 上一次编程任务；普通聊天或明确说「不要使用 Code Worker」会清除自动选择。
 - 路由只影响指导内容，不扩大文件、命令或 GitHub 权限。执行脚本仍需明确打开 `execution.allowCommands`。
-- 可以在 DSH「插件 → Code Worker → 配置」将 `autoRouting` 改成 `false`，保留工具与 Skills 手动使用。
+- 可以在 DSH「插件 → Delta 编程助手 → 配置」将 `autoRouting` 改成 `false`，保留工具与 Skills 手动使用。
 - 若所用 DSH 版本没有上述原生事件或动态上下文接口，插件不会伪称已经自动路由；回退为原有工具、Skills 与系统提示指引。
 
 这不是强制的对话分类器。判断基于高置信度编程意图，不会因为用户提及 Python、Rust 或 GitHub，就把普通科普问题变成编码任务。模型仍须遵循用户目标与工作区规则。
@@ -170,13 +171,15 @@ execution:
 
 ## 多语言工程验证
 
+`code_verify` 支持可选 `timeoutMs`（10–600 秒，默认 120 秒）；Rust 检测到 `Cargo.lock` 时，为 test/check/build 添加 `--locked`；Go 的 `typecheck` 只编译测试包而不运行测试；Python 的 build 使用已安装的 `python -m build`。这些均需要宿主授权和已安装的工具链。
+
 `code_verify` 的 `script` 保持 `test / typecheck / build / lint / check`，新增可选 `project: auto / node / rust / python / go`。默认 `auto` 只在同一目录检测到唯一工程类型时执行；混合工程必须显式指定 `project` 或使用 `cwd` 切到子项目。无法检测或没有安全预设时明确报错。
 
 | 工程类型 | 测试 | 类型/静态检查 | 构建 |
 | --- | --- | --- | --- |
 | Node | `package.json` 已声明的脚本 | `typecheck/lint/check` 已声明的脚本 | `build` 已声明的脚本 |
 | Rust | `cargo test` | `cargo check`、`cargo clippy` | `cargo build` |
-| Python | `python -m pytest` | `python -m mypy`、`python -m ruff`、`compileall` | 不提供未声明的构建预设 |
+| Python | `python -m pytest` | `python -m mypy`、`python -m ruff`、`compileall` | `python -m build`（需要已安装 build 包） |
 | Go | `go test ./...` | `go vet ./...` | `go build ./...` |
 
 验证始终通过 Host 子进程服务，`execution.allowCommands` 默认关闭。项目构建、测试命令本身可能执行不可信源码，只在可信工作区启用。若语言工具链、pytest/mypy/ruff 等缺失，返回实际失败，不自动下载或安装依赖，也不把失败当作通过。
@@ -186,6 +189,8 @@ execution:
 本插件通过 DSH 原生 `ctx.skills.register` 挂载 **21 个按需调用的技能**。这不是另一个 Agent Runtime：DSH 负责执行、会话、权限、子 Agent、Workflow、LSP、终端与 Skills 加载；Code Worker 提供工程方法、项目预检、Git/GitHub 集成及验证门禁指引。无需另行安装 Superpowers 或其他 Coding Skill 插件。
 
 **按任务选择路径，而不是所有任务都跑完整流程：**
+
+`code_workflow_route` 可在中大型任务中根据任务类型、风险、变更规模、经确认的原生子 Agent 能力给出确定性的技能顺序和验证要求。它与默认自动路由互补，不替代 DSH 的 Agent 调度，也不强制小改动增加工具调用。
 
 | 任务类型 | 工作路径 |
 | --- | --- |

@@ -38,6 +38,7 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       script: { type: 'string', required: true, enum: ['test', 'typecheck', 'build', 'lint', 'check'] },
       cwd: { type: 'string', description: 'Optional relative workspace subdirectory.' },
       project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'], description: 'Project type; auto requires exactly one manifest type.' },
+      timeoutMs: { type: 'integer', description: 'Host subprocess timeout in ms, 10000..600000; default 120000.' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       script: { type: 'string', required: true },
@@ -55,6 +56,10 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       if (!settings.allowCommands) throw new Error('script execution disabled; set execution.allowCommands=true')
       if (!isSubprocessAvailable(ctx)) throw new Error('host subprocess service is required for script execution')
       if (!SCRIPTS.has(args.script)) throw new Error('script is not allowlisted')
+      const timeoutMs = args.timeoutMs ?? 120_000
+      if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 600_000) {
+        throw new Error('timeoutMs must be between 10000 and 600000')
+      }
       const root = await resolveRoot(ctx, exec, settings)
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
       const canonicalRoot = await realpath(root)
@@ -90,14 +95,17 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
         }
       }
       const manager = found.has('node') ? await choosePackageManager(canonicalCwd) : 'npm'
+      const hasRustLock = found.has('rust') && await realpath(join(canonicalCwd, 'Cargo.lock'))
+        .then(path => isPathInside(canonicalRoot, path), () => false)
       const plan = chooseVerificationCommand(
-        args.script, project as VerificationProject, [...found], manager, nodeScripts,
+        args.script, project as VerificationProject, [...found], manager, nodeScripts, hasRustLock,
       )
       const result = await runCommand(ctx, {
         command: plan.command, args: plan.args, cwd: canonicalCwd, signal: exec.signal,
-        timeoutMs: 120_000, maxOutputBytes: MAX_OUTPUT, hostOnly: true,
+        timeoutMs, maxOutputBytes: MAX_OUTPUT, hostOnly: true,
       })
       const exitCode = result.exitCode ?? -1
+      const combined = result.stdout + '\n' + result.stderr
       return {
         script: args.script,
         project: plan.project,
@@ -105,8 +113,8 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
         exitCode,
         passed: exitCode === 0 && !result.timedOut && !result.lossy,
         timedOut: result.timedOut,
-        output: redactKnownTokens((result.stdout + '\n' + result.stderr).slice(0, MAX_OUTPUT), settings),
-        truncated: result.lossy,
+        output: redactKnownTokens(combined.slice(0, MAX_OUTPUT), settings),
+        truncated: result.lossy || combined.length > MAX_OUTPUT,
       }
     },
   })

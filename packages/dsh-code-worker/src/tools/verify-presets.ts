@@ -20,13 +20,14 @@ const PRESETS: Record<Exclude<VerificationProject, 'auto' | 'node'>, Partial<Rec
     check: ['python', '-m', 'compileall', '-q', '.'],
     lint: ['python', '-m', 'ruff', 'check', '.'],
     typecheck: ['python', '-m', 'mypy', '.'],
+    build: ['python', '-m', 'build'],
   },
   go: {
     test: ['go', 'test', './...'],
     check: ['go', 'vet', './...'],
     lint: ['go', 'vet', './...'],
     build: ['go', 'build', './...'],
-    typecheck: ['go', 'test', './...'],
+    typecheck: ['go', 'test', '-run', '^$', './...'],
   },
 }
 
@@ -37,6 +38,7 @@ export function chooseVerificationCommand(
   present: readonly Exclude<VerificationProject, 'auto'>[],
   manager: 'npm' | 'pnpm' | 'bun' | 'yarn' = 'npm',
   nodeScripts: readonly string[] = [],
+  isRustLocked = false,
 ): VerificationCommand {
   const discovered = [...new Set(present)]
   if (project !== 'auto' && !discovered.includes(project)) {
@@ -54,5 +56,7 @@ export function chooseVerificationCommand(
   }
   const preset = PRESETS[selected]?.[script]
   if (!preset) throw new Error(selected + ' does not provide a safe preset for ' + script)
-  return { project: selected, command: preset[0], args: preset.slice(1) }
+  const args = preset.slice(1)
+  if (selected === 'rust' && isRustLocked && script !== 'lint') args.push('--locked')
+  return { project: selected, command: preset[0], args }
 }

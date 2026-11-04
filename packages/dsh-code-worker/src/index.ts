@@ -16,6 +16,7 @@ import { createWorktreeTool } from './tools/worktree.js'
 import { createVerifyTool } from './tools/verify.js'
 import { createGitHubTools } from './tools/github.js'
 import { createProjectProfileTool } from './tools/profile.js'
+import { createWorkflowRouteTool } from './workflow-route.js'
 import { registerCodingSkills } from './skills.js'
 import { registerAutomaticCodingRouter } from './auto-routing.js'
 
@@ -94,6 +95,7 @@ function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     createMultiEditTool(ctx, settings),
     createProjectProfileTool(ctx, settings),
+    createWorkflowRouteTool(),
     createWorkspaceMapTool(ctx, settings),
     createWorktreeTool(ctx, settings),
     createVerifyTool(ctx, settings),

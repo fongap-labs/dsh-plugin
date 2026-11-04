@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": false,
   "type": "module",
-  "description": "DSH 编程插件：仓库分析、文件编辑、Git/Worktree、多 GitHub 账号、PR/CI 诊断和工程验证",
+  "description": "Delta 编程助手（Delta Code Worker）：自动编程工作流、源码分析、文件编辑、Git、PR/CI 诊断与工程验证",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {

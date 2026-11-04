@@ -159,7 +159,7 @@ function installClient(require: (id: string) => unknown) {
     const [saving, setSaving] = React.useState(false)
     const [notice, setNotice] = React.useState('')
     React.useEffect(() => { setDraft(readDraft(state?.value)); setNotice('') }, [state?.revision])
-    if (props.view === 'summary') return t('编程工具与 GitHub 多账号配置', 'Coding tools and GitHub accounts')
+    if (props.view === 'summary') return t('Delta 编程助手 · 编程工具与 GitHub 多账号配置', 'Delta Code Worker · Coding tools and GitHub accounts')
     if (!props.form || state?.status !== 'ready') return hint(t('当前配置尚未由 Host 加载。', 'Host configuration is not available.'))
     const disabled = !state.writable || saving
     const field = (label: string, value: string, change: (v: string) => void, isSecret = false, placeholder = '') =>
