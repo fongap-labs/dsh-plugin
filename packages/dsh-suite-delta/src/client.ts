@@ -5252,7 +5252,7 @@ const MODULES: ModuleDef[] = [
               };
               let holder: HTMLElement | null = null;
               let timer: ReturnType<typeof setTimeout> | null = null;
-              let userOpened = false;
+              let hasUserOpened = false;
               let renderKey = '';
               const clear = () => { holder?.remove(); holder = null; renderKey = ''; };
               const sync = () => {
@@ -5273,12 +5273,12 @@ const MODULES: ModuleDef[] = [
                 // Offer manual recovery in that case; only missing mount is
                 // considered sufficiently strong evidence to show the list.
                 const nativeRows = nativeArea?.querySelector('.wnFoaW_sessionRow, [class*="sessionRow"]');
-                if (nativeRows) { userOpened = false; clear(); return; }
+                if (nativeRows) { hasUserOpened = false; clear(); return; }
                 const missing = !nativeArea;
                 const mode = missing ? 'missing' : 'offer';
                 const parent = missing ? sidebar : nativeArea!.parentElement;
                 if (!parent) { clear(); return; }
-                if (holder?.parentElement !== parent) { clear(); userOpened = false; }
+                if (holder?.parentElement !== parent) { clear(); hasUserOpened = false; }
                 if (!holder) {
                   holder = document.createElement('section');
                   holder.className = 'ens-sidebar-recovery';
@@ -5297,7 +5297,7 @@ const MODULES: ModuleDef[] = [
                   holder.style.left = holder.style.top = holder.style.width = holder.style.height = '';
                 }
                 holder.dataset.mode = mode;
-                const show = missing || userOpened;
+                const show = missing || hasUserOpened;
                 const titles = show ? eligible.slice(0, 80).map(id => snapshot.byId[id]?.displayTitle || id) : [];
                 const nextKey = JSON.stringify([mode, show, eligible.length, eligible.slice(0, 80), titles]);
                 if (renderKey === nextKey) return;
@@ -5309,7 +5309,7 @@ const MODULES: ModuleDef[] = [
                   ? t('恢复的对话列表（点击收起）', 'Recovered sessions (collapse)')
                   : t('会话未显示？查看对话', 'Sessions missing? Show conversations');
                 button.setAttribute('aria-expanded', String(show));
-                button.addEventListener('click', () => { userOpened = !show; renderKey = ''; sync(); });
+                button.addEventListener('click', () => { hasUserOpened = !show; renderKey = ''; sync(); });
                 holder.replaceChildren(button);
                 if (!show) return;
                 const hint = document.createElement('div');
@@ -5327,7 +5327,7 @@ const MODULES: ModuleDef[] = [
                   row.title = row.textContent;
                   row.addEventListener('click', () => {
                     void Promise.resolve(navigation.openSession(id)).then(() => {
-                      userOpened = false; schedule();
+                      hasUserOpened = false; schedule();
                     }).catch(() => { /* Host navigation stays authoritative. */ });
                   });
                   list.appendChild(row);
