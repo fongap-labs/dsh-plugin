@@ -4938,11 +4938,12 @@ const MODULES: ModuleDef[] = [
             const [collapsed, setCollapsed] = folderReact.useState<Record<string, boolean>>({});
             const [visibleLimit, setVisibleLimit] = folderReact.useState(80);
             const [activeDrop, setActiveDrop] = folderReact.useState('');
+            const sessionList = sessions?.list;
             const [catalog, setCatalog] = folderReact.useState(() =>
-              sessions?.list?.getSnapshot() || { ids: [], byId: {} as Record<string, ListedSession> });
+              sessionList?.getSnapshot() || { ids: [], byId: {} as Record<string, ListedSession> });
             folderReact.useEffect(() => {
               const disposeFolder = subscribe(() => setRevision(value => value + 1));
-              const disposeSessions = sessions?.list?.subscribe(() => setCatalog(sessions.list.getSnapshot()));
+              const disposeSessions = sessionList?.subscribe(() => setCatalog(sessionList.getSnapshot()));
               void reload();
               return () => { disposeFolder(); disposeSessions?.(); };
             }, []);
