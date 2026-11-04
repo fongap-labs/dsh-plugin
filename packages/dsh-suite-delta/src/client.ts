@@ -3564,13 +3564,13 @@ const MODULES: ModuleDef[] = [
             }
             return data as FolderStoreView;
           };
-          const publish = (next: FolderStoreView, broadcast = false): void => {
+          const publish = (next: FolderStoreView, isBroadcast = false): void => {
             if (isDisposed) return;
             ++requestSeq; // Discard every GET started before this commit.
             view = next;
             errorText = '';
             notify();
-            if (broadcast) {
+            if (isBroadcast) {
               isBroadcasting = true;
               try { window.dispatchEvent(new Event('dsh-ui-delta:folders-changed')); }
               finally { isBroadcasting = false; }
