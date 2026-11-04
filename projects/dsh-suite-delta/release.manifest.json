@@ -6,7 +6,7 @@
   "release_key": "dsh-suite-delta",
   "release_name": "Delta Suite",
   "release_notes": "",
-  "license_expression": "MIT",
+  "license_expression": "Apache-2.0",
   "node_version_file": ".nvmrc",
   "python_version_file": "",
   "sbom_asset": "dsh-suite-delta-sbom.cdx.json",
