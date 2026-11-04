@@ -33,6 +33,10 @@ Delta Suite 的 Bundle 默认将「在使用官方模型 API 时上传 Session L
 
 Harness 的 `sessionPersistence` 尚未提供受支持的永久删除事务。Delta Suite 当前**确实提供了实验性的冷会话永久删除**：在会话右键菜单选择「删除会话」并确认后，插件通过 `/dsh-ui-delta/session-delete` 删除对应的持久化会话目录，并尝试解除工作区关联及文件夹归属。正在运行、仍在宿主内存中、存储路径不符合隔离规则或无法安全定位的会话会被拒绝。此操作依赖宿主内部结构，无法保证跨版本兼容或多步骤原子回滚；物理删除不可撤销，若后续清理失败可能留下工作区或文件夹残余记录。**日常整理优先使用 Harness 原生归档**，只有明确需要永久移除冷会话时才使用这一入口。归档不等于删除。
 
+## 会话文件夹
+
+Delta Suite 提供本地文件夹管理、会话归类、独立的文件夹浏览面板和面板内拖放。宿主原生侧栏的工作区树仍由 Harness 管理，插件不会重排其会话节点。文件夹归属使用本地状态文件保存，支持修订版本冲突保护；清理已删除会话的失效归属需要用户先预览、确认。具体边界见[锁恢复说明](docs/folder-lock-recovery.md)和[原生侧栏扩展契约](docs/native-sidebar-grouping-contract.md)。
+
 ## 免密钥搜索与原生工具
 
 安装本 Bundle 后，`web.searchProvider` 默认设为 `delta-duckduckgo`，并禁用 Harness 自带的 DeepSeek Messages Search provider 和 Search/Fetch API package，避免它们发起搜索请求。若用户 Profile 显式覆盖了 `web.searchProvider`，需改为 `delta-duckduckgo` 才能使用模型搜索；旧值不会回退调用已禁用的 DeepSeek provider。所有搜索源均不可用时返回明确错误，不会改用 DeepSeek，也不会编造结果。
