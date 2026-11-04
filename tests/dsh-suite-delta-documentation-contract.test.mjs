@@ -30,7 +30,8 @@ test('Delta Suite search docs distinguish public SearXNG from optional Python dd
   assert.match(readme, /## 集成式搜索与研究链路\n/)
   assert.doesNotMatch(readme, /默认搜索依赖宿主进程可调用 Python/)
   assert.doesNotMatch(readme, /\\n\\n/)
-  assert.match(search, /searchPublicInstances\(/)
+  assert.match(search, /publicSearch: typeof searchPublicInstances = searchPublicInstances/)
+  assert.match(search, /await publicSearch\(/)
   assert.match(search, /searchPythonDdgs/)
   assert.ok(search.indexOf('await publicSearch(') < search.indexOf('await keyless('),
     'public search should be attempted before local ddgs')
