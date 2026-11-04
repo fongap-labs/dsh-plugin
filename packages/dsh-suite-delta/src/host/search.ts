@@ -84,7 +84,7 @@ export const searchWeb = async (
   const candidates = [active, ...providers.filter(provider => provider !== active)]
     .filter((provider): provider is ProviderRecord => !!provider?.endpoint)
   const errors: string[] = []
-  let sawEmpty = false
+  let hasEmptyResults = false
   for (const provider of candidates) {
     for (let attempt = 0; attempt < 2; attempt++) {
       signal?.throwIfAborted()
@@ -93,7 +93,7 @@ export const searchWeb = async (
         if (results.length) return results
         // An empty array is not success: a broken or quota-exhausted provider can
         // silently return zero rows, and that used to short-circuit every fallback.
-        sawEmpty = true
+        hasEmptyResults = true
         break
       } catch (error) {
         signal?.throwIfAborted()
@@ -109,7 +109,7 @@ export const searchWeb = async (
     if (errors.length) throw new SearchUnavailableError(errors)
     // Every configured provider returned an empty array: the query genuinely has
     // no results, not an outage, so surface it as an empty result set.
-    if (sawEmpty) return []
+    if (hasEmptyResults) return []
     throw new SearchUnavailableError(errors)
   }
   // Public nodes are attempted before local ddgs, with no extra setup.
