@@ -223,6 +223,7 @@ export const mutateFolderView = (request: Mutation): FolderView => withFolderLoc
       if (folders.some(item => item.id !== folder.id && item.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
         throw new Error('Folder name already exists')
       }
+      if (folder.name === name) return state
       folder.name = name
       break
     }
@@ -240,16 +241,16 @@ export const mutateFolderView = (request: Mutation): FolderView => withFolderLoc
       if (index < 0) throw new Error('Folder not found')
       if (request.direction !== 'up' && request.direction !== 'down') throw new Error('Invalid folder direction')
       const target = index + (request.direction === 'up' ? -1 : 1)
-      if (target >= 0 && target < folders.length) {
-        const swapped = folders[target]!
-        folders[target] = folders[index]!
-        folders[index] = swapped
-      }
+      if (target < 0 || target >= folders.length) return state
+      const swapped = folders[target]!
+      folders[target] = folders[index]!
+      folders[index] = swapped
       break
     }
     case 'assign': {
       if (!safeId(request.sessionId)) throw new Error('Invalid session ID')
       if (!folders.some(item => item.id === request.folderId)) throw new Error('Folder not found')
+      if (assignments[request.sessionId] === request.folderId) return state
       if (!Object.hasOwn(assignments, request.sessionId)
         && Object.keys(assignments).length >= MAX_ASSIGNMENTS) throw new Error('Assignment limit reached')
       assignments[request.sessionId] = request.folderId
@@ -257,6 +258,7 @@ export const mutateFolderView = (request: Mutation): FolderView => withFolderLoc
     }
     case 'unassign': {
       if (!safeId(request.sessionId)) throw new Error('Invalid session ID')
+      if (!Object.hasOwn(assignments, request.sessionId)) return state
       delete assignments[request.sessionId]
       break
     }
