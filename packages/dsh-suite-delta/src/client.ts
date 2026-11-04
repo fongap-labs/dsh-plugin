@@ -4683,6 +4683,79 @@ const MODULES: ModuleDef[] = [
               register?: (definition: MenuDef) => (() => void)
             } | undefined;
             if (!menus?.register) return;
+
+            type FolderMenuView = {
+              folders: Array<{ id: string; name: string; order: number }>;
+              assignments: Record<string, string>;
+            };
+            let folderCache: FolderMenuView = { folders: [], assignments: {} };
+            const reloadFolders = () => {
+              if (typeof fetch !== 'function') return;
+              void fetch('/dsh-ui-delta/folders')
+                .then(async response => {
+                  const data = await response.json();
+                  if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
+                  folderCache = data as FolderMenuView;
+                }).catch(() => { /* No menu actions depend on an unavailable service. */ });
+            };
+            const updateFolder = (payload: Record<string, unknown>) => {
+              void fetch('/dsh-ui-delta/folders', {
+                method: 'POST', headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload),
+              }).then(async response => {
+                const data = await response.json();
+                if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
+                folderCache = data as FolderMenuView;
+                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
+              }).catch(error => window.alert(t('文件夹操作失败：', 'Folder operation failed: ') + String(error)));
+            };
+            child.effect(() => {
+              reloadFolders();
+              window.addEventListener('dsh-ui-delta:folders-changed', reloadFolders);
+              const dispose = menus.register!({
+                id: 'session.delta-folder', target: 'session', order: 650,
+                observe: () => [],
+                resolve: target => {
+                  const sessionId = target.sessionId;
+                  if (!sessionId) return [];
+                  const actions = folderCache.folders.map(folder => ({
+                    id: 'delta-folder-' + folder.id,
+                    label: t('归入：', 'Move to: ') + folder.name,
+                    separatorBefore: false,
+                    run: () => updateFolder({ action: 'assign', sessionId, folderId: folder.id }),
+                  }));
+                  if (folderCache.assignments[sessionId]) actions.push({
+                    id: 'delta-folder-unassign', label: t('移出文件夹', 'Remove from folder'),
+                    separatorBefore: true,
+                    run: () => updateFolder({ action: 'unassign', sessionId }),
+                  });
+                  actions.push({
+                    id: 'delta-folder-create', label: t('新建文件夹并归入', 'Create folder and assign'),
+                    separatorBefore: true,
+                    run: () => {
+                      const name = window.prompt(t('新文件夹名称', 'New folder name'));
+                      if (name === null || !name.trim()) return;
+                      void fetch('/dsh-ui-delta/folders', {
+                        method: 'POST', headers: { 'content-type': 'application/json' },
+                        body: JSON.stringify({ action: 'create', name: name.trim() }),
+                      }).then(async response => {
+                        const data = await response.json();
+                        if (!response.ok || data.error) throw new Error(data.error || 'Folder creation failed');
+                        const folder = (data as FolderMenuView).folders.find(item => item.name === name.trim());
+                        if (!folder) throw new Error('Folder creation did not return a folder');
+                        updateFolder({ action: 'assign', sessionId, folderId: folder.id });
+                      }).catch(error => window.alert(t('文件夹操作失败：', 'Folder operation failed: ') + String(error)));
+                    },
+                  });
+                  if (actions.length > 0) actions[0]!.separatorBefore = true;
+                  return actions;
+                },
+              });
+              return () => {
+                window.removeEventListener?.('dsh-ui-delta:folders-changed', reloadFolders);
+                dispose();
+              };
+            }, 'dsh-ui-delta: session folder menu');
             child.effect(() => menus.register!({
               id: 'session.delta-delete', target: 'session', order: 700,
               observe: () => [],
