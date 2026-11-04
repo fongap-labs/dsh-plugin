@@ -26,5 +26,6 @@ test('recovery is reversible and event listeners are disposed on unloading the p
   assert.match(source, /observer\.disconnect\(\)/);
   assert.match(source, /unsubscribe\(\)/);
   assert.match(source, /window\.removeEventListener\('resize', schedule\)/);
-  assert.match(source, /clear\(\);\s*\}\s*, 'dsh-ui-delta: session list recovery'\)/);
+  assert.match(source, /return \(\) => \{\s*observer\.disconnect\(\)/);
+  assert.match(source, /clear\(\);\s*\};\s*\}, 'dsh-ui-delta: session list recovery'\)/);
 });
