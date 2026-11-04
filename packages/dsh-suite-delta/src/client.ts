@@ -4915,13 +4915,13 @@ const MODULES: ModuleDef[] = [
           let folderSnapshot = initialFolders;
           const listeners = new Set<() => void>();
           let isRequesting = false;
-          let needsReload = false;
+          let isReloadNeeded = false;
           let folderReadId = 0;
           let errorText = '';
           const notify = () => { for (const listener of listeners) listener(); };
           const reload = async (): Promise<void> => {
             if (typeof fetch !== 'function') return;
-            if (isRequesting) { needsReload = true; return; }
+            if (isRequesting) { isReloadNeeded = true; return; }
             isRequesting = true;
             const requestId = ++folderReadId;
             try {
@@ -4938,7 +4938,7 @@ const MODULES: ModuleDef[] = [
             } finally {
               isRequesting = false;
               notify();
-              if (needsReload) { needsReload = false; void reload(); }
+              if (isReloadNeeded) { isReloadNeeded = false; void reload(); }
             }
           };
           const mutate = async (payload: Record<string, unknown>): Promise<void> => {
