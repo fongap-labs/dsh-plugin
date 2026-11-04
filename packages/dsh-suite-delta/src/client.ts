@@ -4764,28 +4764,41 @@ const MODULES: ModuleDef[] = [
             type FolderMenuView = {
               folders: Array<{ id: string; name: string; order: number }>;
               assignments: Record<string, string>;
+              revision: string;
             };
-            let folderCache: FolderMenuView = { folders: [], assignments: {} };
+            let folderCache: FolderMenuView = { folders: [], assignments: {}, revision: '' };
+            let folderRequestId = 0;
+            let folderMutationQueue: Promise<unknown> = Promise.resolve();
             const reloadFolders = () => {
               if (typeof fetch !== 'function') return;
+              const requestId = ++folderRequestId;
               void fetch('/dsh-ui-delta/folders')
                 .then(async response => {
                   const data = await response.json();
-                  if (!response.ok || data.error) throw new Error(data.error || 'Folder loading failed');
-                  folderCache = data as FolderMenuView;
-                }).catch(() => { /* No menu actions depend on an unavailable service. */ });
+                  if (!response.ok || data.error || typeof data.revision !== 'string')
+                    throw new Error(data.error || 'Folder loading failed');
+                  if (requestId === folderRequestId) folderCache = data as FolderMenuView;
+                }).catch(() => { /* Keep the last valid menu snapshot. */ });
             };
-            const updateFolder = (payload: Record<string, unknown>) => {
-              void fetch('/dsh-ui-delta/folders', {
-                method: 'POST', headers: { 'content-type': 'application/json' },
-                body: JSON.stringify(payload),
-              }).then(async response => {
+            const updateFolder = (payload: Record<string, unknown>): Promise<FolderMenuView> => {
+              const operation = folderMutationQueue.then(async () => {
+                ++folderRequestId;
+                const response = await fetch('/dsh-ui-delta/folders', {
+                  method: 'POST', headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ ...payload, expectedRevision: folderCache.revision }),
+                });
                 const data = await response.json();
-                if (!response.ok || data.error) throw new Error(data.error || 'Folder update failed');
+                if (!response.ok || data.error || typeof data.revision !== 'string')
+                  throw new Error(data.error || 'Folder update failed');
                 folderCache = data as FolderMenuView;
                 window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
-              }).catch(error => window.alert(t('文件夹操作失败：', 'Folder operation failed: ') + String(error)));
+                return folderCache;
+              });
+              folderMutationQueue = operation.catch(() => { reloadFolders(); });
+              return operation;
             };
+            const reportFolderError = (error: unknown) => window.alert(
+              t('文件夹操作失败：', 'Folder operation failed: ') + String(error));
             child.effect(() => {
               reloadFolders();
               window.addEventListener('dsh-ui-delta:folders-changed', reloadFolders);
@@ -4799,12 +4812,12 @@ const MODULES: ModuleDef[] = [
                     id: 'delta-folder-' + folder.id,
                     label: t('归入：', 'Move to: ') + folder.name,
                     separatorBefore: false,
-                    run: () => updateFolder({ action: 'assign', sessionId, folderId: folder.id }),
+                    run: () => { void updateFolder({ action: 'assign', sessionId, folderId: folder.id }).catch(reportFolderError); },
                   }));
                   if (folderCache.assignments[sessionId]) actions.push({
                     id: 'delta-folder-unassign', label: t('移出文件夹', 'Remove from folder'),
                     separatorBefore: true,
-                    run: () => updateFolder({ action: 'unassign', sessionId }),
+                    run: () => { void updateFolder({ action: 'unassign', sessionId }).catch(reportFolderError); },
                   });
                   actions.push({
                     id: 'delta-folder-create', label: t('新建文件夹并归入', 'Create folder and assign'),
@@ -4812,16 +4825,13 @@ const MODULES: ModuleDef[] = [
                     run: () => {
                       const name = window.prompt(t('新文件夹名称', 'New folder name'));
                       if (name === null || !name.trim()) return;
-                      void fetch('/dsh-ui-delta/folders', {
-                        method: 'POST', headers: { 'content-type': 'application/json' },
-                        body: JSON.stringify({ action: 'create', name: name.trim() }),
-                      }).then(async response => {
-                        const data = await response.json();
-                        if (!response.ok || data.error) throw new Error(data.error || 'Folder creation failed');
-                        const folder = (data as FolderMenuView).folders.find(item => item.name === name.trim());
-                        if (!folder) throw new Error('Folder creation did not return a folder');
-                        updateFolder({ action: 'assign', sessionId, folderId: folder.id });
-                      }).catch(error => window.alert(t('文件夹操作失败：', 'Folder operation failed: ') + String(error)));
+                      void updateFolder({ action: 'create', name: name.trim() })
+                        .then(data => {
+                          const folder = data.folders.find(item => item.name === name.trim());
+                          if (!folder) throw new Error('Folder creation did not return a folder');
+                          return updateFolder({ action: 'assign', sessionId, folderId: folder.id });
+                        })
+                        .catch(reportFolderError);
                     },
                   });
                   if (actions.length > 0) actions[0]!.separatorBefore = true;
@@ -4854,6 +4864,11 @@ const MODULES: ModuleDef[] = [
                   }).then(async response => {
                     const result = await response.json();
                     if (!response.ok || !result.ok) throw new Error(result.error || 'Delete rejected');
+                    window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
+                    if (result.folderCleanup === false) {
+                      window.alert(t('会话已删除，但文件夹归属清理未完成。',
+                        'Session deleted, but its folder assignment cleanup is pending.'));
+                    }
                   }).catch(error => window.alert(t('删除失败：', 'Delete failed: ') + String(error.message || error)));
                 },
               }],
