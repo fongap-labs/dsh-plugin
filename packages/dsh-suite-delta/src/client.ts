@@ -998,19 +998,8 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-label-secondary);
   font-size: 12px; line-height: 18px;
 }
-.ens-pill-btn {
-  height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-sm); flex: none;
-  border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-secondary); font: inherit; font-size: 13px; font-weight: 500;
-  cursor: pointer; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-  transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), border-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
-}
-.ens-pill-btn:hover {
-  border-color: var(--dsw-alias-border-l3);
-  background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary);
-}
-.ens-pill-btn:active { background: var(--dsw-alias-interactive-bg-active); }
-.ens-pill-btn:disabled { opacity: .5; cursor: not-allowed; }
+/* Compatibility hook only; the semantic button owns control appearance. */
+.ens-pill-btn { flex: none; }
 .ens-session-approval-button { display: block; margin: 8px auto 0; padding: 9px 16px; }
 .ens-session-approval { width: 100%; min-width: 0; }
 
@@ -1040,7 +1029,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 
 /* Delta-owned shadcn/ui-inspired primitives. The Harness host controls its
    own React tree; this adapter deliberately styles only Delta components. */
-.ens-ui-button {
+.ens-ui-button, .ens-pill-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--ens-space-sm);
   box-sizing: border-box; min-height: 36px; padding: 0 12px; border: 1px solid transparent;
   border-radius: var(--dsw-radius-sm); font: inherit; font-size: 13px; font-weight: 500; line-height: 20px;
@@ -1165,7 +1154,9 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   .ens-memory-form { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
-  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  :is(.ens-settings, .ens-standalone-settings-modal, .ens-folder-browser) * {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+  }
   .ens-ui-button, .ens-ui-card, .ens-ui-input, .ens-ui-select,
   .ens-ui-textarea, .ens-ui-badge { animation: none !important; transition: none !important; }
 }
@@ -1208,17 +1199,13 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-browser-open:focus-visible {
   outline: 2px solid var(--ens-color-ring);
   outline-offset: -2px;
-}
-.ens-folder-browser-group-head:focus-visible { background: var(--ens-color-accent); }
-.ens-folder-browser-group-head:focus-visible,
-.ens-folder-browser-open:focus-visible {
-  outline: 2px solid var(--ens-color-ring);
-  outline-offset: -2px;
   border-radius: var(--dsw-radius-sm);
 }
 .ens-folder-browser-session:focus-within {
   border-color: var(--ens-color-ring);
+  background: var(--ens-color-accent);
 }
+.ens-folder-browser-group-head:focus-visible { background: var(--ens-color-accent); }
 .ens-folder-browser-count { margin-left: auto; color: var(--ens-color-muted-foreground); font-size: 12px; }
 .ens-folder-browser-items { display: grid; padding: 0 var(--ens-space-sm) var(--ens-space-sm); gap: var(--ens-space-3xs); }
 .ens-folder-browser-session {
@@ -1248,6 +1235,24 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   .ens-folder-browser { padding: var(--ens-space-md); }
   .ens-folder-browser-session { flex-wrap: wrap; }
   .ens-folder-browser-select { max-width: none; flex: 1 1 100%; }
+}
+@media (max-width: 480px) {
+  .ens-folder-browser { padding: var(--ens-space-sm); }
+  .ens-folder-browser-title { font-size: 16px; line-height: 24px; }
+  .ens-folder-toolbar .ens-ui-input { flex-basis: 100%; }
+  .ens-folder-row { align-items: stretch; }
+  .ens-folder-actions { flex: 1 1 100%; }
+  .ens-folder-actions .ens-ui-button { flex: 1 1 auto; }
+  .ens-modal-top { gap: var(--ens-space-sm); }
+  .ens-modal-card { width: 100%; max-height: calc(100dvh - 8px); }
+}
+@media (forced-colors: active) {
+  .ens-ui-button:focus-visible, .ens-pill-btn:focus-visible,
+  .ens-ui-input:focus-visible, .ens-ui-select:focus-visible,
+  .ens-folder-browser-group-head:focus-visible, .ens-folder-browser-open:focus-visible {
+    outline-color: Highlight !important;
+  }
+  .ens-folder-browser-group[data-drop-active="true"] { outline-color: Highlight; }
 }
 
 `;
@@ -3585,7 +3590,7 @@ const MODULES: ModuleDef[] = [
               writeFlag(m.id, next);
               setFlags({ ...flags, [m.id]: next });
             };
-            const row = (m: ModuleDef) => h('label', {
+            const row = (m: ModuleDef) => h('div', {
               key: m.id,
               className: 'ens-set-row' + (isReady(m) ? '' : ' ens-set-row-planned'),
             }, [
