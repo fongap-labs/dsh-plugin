@@ -50,17 +50,17 @@ test('a not-found response for a different session cannot authorize cleanup', as
 })
 
 test('sessions live before or after the inventory scan remain protected', async () => {
-  let active = true
+  let isActive = true
   const reader = {
     list: async () => [],
     open: async () => {
       throw new Error('read should not be needed for session active at inventory start')
     },
   }
-  const ids = await verifiedKnownSessionIds(reader, { get: () => active ? {} : undefined }, {
+  const ids = await verifiedKnownSessionIds(reader, { get: () => isActive ? {} : undefined }, {
     'live-before-scan': 'folder',
   })
-  active = false
+  isActive = false
   assert.equal(ids.has('live-before-scan'), true)
 })
 
