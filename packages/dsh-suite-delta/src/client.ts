@@ -1208,6 +1208,12 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-browser-open:focus-visible {
   outline: 2px solid var(--ens-color-ring);
   outline-offset: -2px;
+}
+.ens-folder-browser-group-head:focus-visible { background: var(--ens-color-accent); }
+.ens-folder-browser-group-head:focus-visible,
+.ens-folder-browser-open:focus-visible {
+  outline: 2px solid var(--ens-color-ring);
+  outline-offset: -2px;
   border-radius: var(--dsw-radius-sm);
 }
 .ens-folder-browser-session:focus-within {
@@ -5002,9 +5008,11 @@ const MODULES: ModuleDef[] = [
               draggable: !isBusy,
               onDragStart: (event: { dataTransfer: DataTransfer }) => {
                 if (!event.dataTransfer) return;
+                setActiveDrop('');
                 event.dataTransfer.setData(DRAG_TYPE, item.id);
                 event.dataTransfer.effectAllowed = 'move';
               },
+              onDragEnd: () => setActiveDrop(''),
             }, [
               node('button', {
                 key: 'open', type: 'button', className: 'ens-folder-browser-open',
@@ -5041,7 +5049,11 @@ const MODULES: ModuleDef[] = [
                   event.dataTransfer.dropEffect = 'move';
                   setActiveDrop(group.id || 'unfiled');
                 },
-                onDragLeave: () => setActiveDrop(''),
+                onDragLeave: (event: { currentTarget: HTMLElement; relatedTarget: EventTarget | null }) => {
+                  const related = event.relatedTarget;
+                  if (related instanceof Node && event.currentTarget.contains(related)) return;
+                  setActiveDrop('');
+                },
                 onDrop: (event: { dataTransfer: DataTransfer; preventDefault(): void }) => {
                   setActiveDrop('');
                   if (!event.dataTransfer || !Array.from(event.dataTransfer.types).includes(DRAG_TYPE)) return;
