@@ -126,8 +126,8 @@ test('accessibility mode checks foreground/background pairs and focus indicator 
   assert.match(source, /'--ens-color-accent-foreground'/)
   assert.match(source, /'--ens-color-destructive-foreground'/)
   assert.match(source, /'--ens-color-ring'/)
-  assert.match(source, /\\['focus-ring',[^\n]+, 3\\]/)
-  assert.match(source, /\\['primary',[^\n]+, 4\\.5\\]/)
+  assert.match(source, /\['focus-ring',[^\n]+, 3\]/)
+  assert.match(source, /\['primary',[^\n]+, 4\.5\]/)
   assert.match(source, /--accessibility/)
 })
 
@@ -135,6 +135,6 @@ test('accessibility mode restores normal motion preference after its reduced-mot
   const reduced = source.indexOf("await page.emulateMedia({ reducedMotion: 'reduce' })")
   const restored = source.indexOf("await page.emulateMedia({ reducedMotion: 'no-preference' })", reduced)
   assert.ok(reduced > 0 && restored > reduced)
-  assert.match(source.slice(reduced, restored), /transitionDurationMs <= 0\\.01/)
+  assert.match(source.slice(reduced, restored), /transitionDurationMs <= 0\.01/)
   assert.match(source.slice(reduced, restored), /animationName === 'none'/)
 })
