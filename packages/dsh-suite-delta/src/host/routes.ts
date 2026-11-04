@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import { publicView, updateConfig } from './config.js'
-import { readFolderView, mutateFolderView, forgetDeletedSession, FolderConflictError, type FolderAction } from './folders.js'
+import { readFolderView, mutateFolderView, forgetDeletedSession, countMissingAssignments, pruneMissingAssignments, FolderConflictError, type FolderAction } from './folders.js'
 import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
@@ -198,6 +198,61 @@ export function registerRoutes(ctx: Context): void {
       return sendJson(res, 200, mutateFolderView(payload))
     } catch (error) {
       return sendJson(res, error instanceof FolderConflictError ? 409 : 400, { error: errorMessage(error) })
+    }
+  })
+
+  // Session disposal is not durable deletion. Only confirmed persisted IDs
+  // plus currently active sessions can authorize a manual orphan cleanup.
+  const knownSessionIds = async (): Promise<Set<string>> => {
+    const service = (ctx as unknown as { get?: (name: string) => unknown }).get
+    const persistence = service?.('sessionPersistence') as {
+      list?: () => Promise<Array<{ id?: string; header?: { id?: string } }>>
+    } | undefined
+    const sessions = service?.('sessions') as { get?: (id: string) => unknown } | undefined
+    if (!persistence?.list || !sessions?.get) {
+      throw new Error('Host session persistence and live session registry required')
+    }
+    const rows = await persistence.list()
+    if (!Array.isArray(rows)) throw new Error('Host session persistence listing unavailable')
+    const ids = new Set<string>()
+    for (const row of rows) {
+      const id = row?.header?.id || row?.id
+      if (typeof id !== 'string' || id.length === 0) {
+        throw new Error('Host session persistence listing incomplete')
+      }
+      ids.add(id)
+    }
+    // Include sessions that exist in Host memory but are not yet persisted.
+    for (const id of Object.keys(readFolderView().assignments)) {
+      if (sessions.get(id) !== undefined) ids.add(id)
+    }
+    return ids
+  }
+
+  route('/dsh-ui-delta/folder-cleanup', async (req, res) => {
+    if (req.method !== 'GET' && req.method !== 'POST') {
+      return sendJson(res, 405, { error: 'method not allowed' })
+    }
+    try {
+      const known = await knownSessionIds()
+      if (req.method === 'GET') {
+        const view = readFolderView()
+        return sendJson(res, 200, {
+          missingCount: countMissingAssignments(known, view),
+          revision: view.revision,
+        })
+      }
+      const body = JSON.parse((await readBody(req, 2048)).toString('utf8') || '{}') as {
+        expectedRevision?: string
+      }
+      if (typeof body.expectedRevision !== 'string' || body.expectedRevision.length !== 64) {
+        return sendJson(res, 400, { error: 'Folder revision is required' })
+      }
+      const result = pruneMissingAssignments(known, body.expectedRevision)
+      return sendJson(res, 200, { ...result.view, removedCount: result.removedCount })
+    } catch (error) {
+      const status = error instanceof FolderConflictError ? 409 : 503
+      return sendJson(res, status, { error: errorMessage(error) })
     }
   })
 
