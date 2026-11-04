@@ -15,16 +15,17 @@ const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
 ]
 
 export const DEFAULT_GUIDANCE = [
-  '## Delta Code Worker',
-  'Start coding tasks with code_project_profile to identify project rules, stack and verification commands. Read applicable AGENTS.md / CLAUDE.md with the Host file reader.',
-  'Use native Harness search, editor, terminal, LSP, Skills, subagents and task tracking rather than duplicating them.',
-  'When autoRouting is enabled, coding requests select a procedure automatically. For substantial tasks use the read-only code_workflow_route to refine risk and scope; load other native code-* Skills only as needed. Keep small changes lightweight.',
-  'Use code_workspace_map for compact tracked-file discovery and code_multi_edit only for carefully scoped batch edits.',
-  'Check code_git_status and code_git_diff around edits; preserve unrelated user changes.',
-  'Use code_verify for explicit project scripts only if execution is enabled. Report actual evidence and never represent unrun checks as passes.',
-  'Use code_git_worktree only when isolation is enabled, and do not bypass the Harness permissions or GitHub CI gates.',
-  'GitHub account tokens stay private. Push only feature branches; CI, release and merge authority remain external.',
-  'Apply code-verification-gate before claiming success. A red/pending required check or an unrun test is not a pass; obey all Host permissions and project rules.',
+  '## DSH Code Worker',
+  'Use the `code_multi_edit` tool for batch file edits instead of repeated single edits.',
+  'Use `code_git_status` and `code_git_diff` to inspect repository state before and after changes.',
+  'Use `code_workspace_map` to find relevant tracked files before opening large source trees.',
+  'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
+  'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
+  'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
+  'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',
+  'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
+  'Use `code_lsp_probe` to detect available language servers in the current workspace.',
+  'Always pass paths relative to the workspace root; absolute paths outside the workspace are rejected by the sandbox.',
 ].join('\n')
 
 /** Render an unknown thrown value the way the JavaScript implementation did. */
@@ -51,15 +52,17 @@ export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[]
     }
     if (owners.has(owner)) throw new Error('duplicate GitHub owner mapping: ' + owner)
     owners.add(owner)
-    const token = typeof account.token === 'string' ? account.token.trim() : ''
-    const tokenEnv = typeof account.tokenEnv === 'string' ? account.tokenEnv.trim() : ''
-    if ((token !== '' && tokenEnv !== '') || (token === '' && tokenEnv === '')) {
-      throw new Error('configure exactly one of token or tokenEnv for GitHub owner ' + owner)
+    if (Object.prototype.hasOwnProperty.call(entry, 'token')) {
+      throw new Error('github.accounts[].token is not supported; migrate the credential to tokenEnv')
     }
-    if (tokenEnv && !/^[A-Z_][A-Z0-9_]*$/.test(tokenEnv)) {
+    const tokenEnv = typeof account.tokenEnv === 'string' ? account.tokenEnv.trim() : ''
+    if (!tokenEnv) {
+      throw new Error('github.accounts[].tokenEnv is required for GitHub owner ' + owner)
+    }
+    if (!/^[A-Z_][A-Z0-9_]*$/.test(tokenEnv)) {
       throw new Error('github.accounts[].tokenEnv must name an uppercase environment variable')
     }
-    result.push({ owner, ...(token ? { token } : { tokenEnv }) })
+    result.push({ owner, tokenEnv })
   }
   return result
 }
@@ -156,4 +159,3 @@ export async function writeTextSafe(
   await mkdir(dirname(absolute), { recursive: true })
   await writeFile(absolute, content, 'utf8')
 }
-

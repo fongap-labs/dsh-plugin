@@ -38,12 +38,19 @@ describe('dsh-code-worker integrated workflow helpers', () => {
     assert.throws(() => validateWorktreeName('safe', 'main~1'), /invalid/)
     assert.throws(() => validateWorktreeName('safe', '--help'), /invalid/)
   })
-  it('redacts inline and environment-sourced GitHub tokens in command output', () => {
-    const settings = normalizeConfig({ github: { accounts: [
-      { owner: 'group', token: 'abcdefgh1234' },
-      { owner: 'personal', tokenEnv: 'DSH_TEST_TOKEN_NOT_SET' },
-    ] } })
-    assert.equal(redactKnownTokens('abc abcdefgh1234 xyz', settings), 'abc [REDACTED] xyz')
+  it('redacts environment-sourced GitHub tokens in command output', () => {
+    const previous = process.env.DSH_TEST_GROUP_TOKEN
+    process.env.DSH_TEST_GROUP_TOKEN = 'abc12345'
+    try {
+      const settings = normalizeConfig({ github: { accounts: [
+        { owner: 'group', tokenEnv: 'DSH_TEST_GROUP_TOKEN' },
+        { owner: 'personal', tokenEnv: 'DSH_TEST_TOKEN_NOT_SET' },
+      ] } })
+      assert.equal(redactKnownTokens('abc abc12345 xyz', settings), 'abc [REDACTED] xyz')
+    } finally {
+      if (previous === undefined) delete process.env.DSH_TEST_GROUP_TOKEN
+      else process.env.DSH_TEST_GROUP_TOKEN = previous
+    }
   })
   it('does not allow command execution and worktree creation by default', async () => {
     const settings = normalizeConfig({})
