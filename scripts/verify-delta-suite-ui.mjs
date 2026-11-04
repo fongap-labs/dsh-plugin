@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, chmodSync, writeFileSync, readFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import process from 'node:process'
+import { contrastRatio } from './lib/wcag-contrast.mjs'
 
 const usage = [
   'Usage: node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT --theme light|dark [options]',
@@ -15,6 +16,7 @@ const usage = [
   '  --max-diff-pct 0.5           Maximum percentage of pixels different (requires --baseline)',
   '  --pixel-tolerance 16        Per-channel RGB tolerance, from 0 through 255',
   '  --require-sessions          Fail if no disposable sessions expose keyboard selectors',
+  '  --accessibility              Check semantic color contrast and reduced motion',
   'Baselines are never updated automatically. Use only anonymized test sessions.',
   '  --help                        Show this message',
   'Install the optional local runner: npm install --no-save playwright-core',
@@ -23,7 +25,7 @@ const usage = [
 
 function parseArgs(args) {
   const flags = new Set(['--url', '--theme', '--chromium', '--cdp', '--output', '--baseline', '--max-diff-pct', '--pixel-tolerance'])
-  const switches = new Set(['--require-sessions'])
+  const switches = new Set(['--require-sessions', '--accessibility'])
   const values = Object.create(null)
   for (let index = 0; index < args.length; index++) {
     const key = args[index]
@@ -89,6 +91,23 @@ function safeError(error) {
   return 'UI smoke check failed; inspect local console'
 }
 
+
+async function panelMotionProbe(page) {
+  return page.locator('.ens-folder-browser-header .ens-ui-button').first().evaluate(element => {
+    const style = getComputedStyle(element)
+    const toMilliseconds = value => {
+      const duration = value.split(',')[0].trim()
+      if (duration.endsWith('ms')) return Number.parseFloat(duration)
+      if (duration.endsWith('s')) return Number.parseFloat(duration) * 1000
+      return Number.POSITIVE_INFINITY
+    }
+    return {
+      transitionDurationMs: toMilliseconds(style.transitionDuration),
+      animationDurationMs: toMilliseconds(style.animationDuration),
+      animationName: style.animationName,
+    }
+  })
+}
 
 async function createPixelComparator() {
   let PNG
@@ -169,6 +188,36 @@ async function main() {
     checkColors(expected, brand)
     record('brand-tokens', 'PASS')
 
+    if (args['--accessibility']) {
+      const tokens = await page.evaluate(() => {
+        const style = getComputedStyle(document.documentElement)
+        const names = [
+          '--ens-color-primary', '--ens-color-primary-foreground',
+          '--ens-color-foreground', '--ens-color-background',
+          '--ens-color-muted-foreground', '--ens-color-accent',
+          '--ens-color-accent-foreground', '--ens-color-destructive',
+          '--ens-color-destructive-foreground', '--ens-color-ring',
+        ]
+        return Object.fromEntries(names.map(name => [name, style.getPropertyValue(name).trim()]))
+      })
+      const checks = [
+        ['primary', tokens['--ens-color-primary-foreground'], tokens['--ens-color-primary'], 4.5],
+        ['body', tokens['--ens-color-foreground'], tokens['--ens-color-background'], 4.5],
+        ['muted', tokens['--ens-color-muted-foreground'], tokens['--ens-color-background'], 4.5],
+        ['accent', tokens['--ens-color-accent-foreground'], tokens['--ens-color-accent'], 4.5],
+        ['destructive', tokens['--ens-color-destructive-foreground'], tokens['--ens-color-destructive'], 4.5],
+        ['focus-ring', tokens['--ens-color-ring'], tokens['--ens-color-background'], 3],
+      ]
+      const ratios = checks.map(([name, foreground, background, minimum]) => {
+        const ratio = contrastRatio(foreground, background)
+        assert.ok(ratio >= minimum,
+          name + ' contrast is below ' + minimum + ':1 (actual ' + ratio.toFixed(2) + ':1)')
+        return name + '=' + ratio.toFixed(2) + ':1'
+      })
+      record('wcag-semantic-contrast', 'PASS', ratios.join(', '))
+
+    }
+
     const endpoint = new URL('/dsh-ui-delta/folders', target.origin)
     const response = await context.request.get(endpoint.href, { timeout: 12000, maxRedirects: 0 })
     assert.equal(response.status(), 200, 'Folder API must return HTTP 200')
@@ -195,6 +244,17 @@ async function main() {
       throw new Error('Folder panel unavailable in Host UI')
     }
     record('native-folder-panel', 'PASS')
+
+    if (args['--accessibility']) {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      const motion = await panelMotionProbe(page)
+      assert.ok(motion.transitionDurationMs <= 0.01,
+        'Reduced-motion transition duration must not exceed 0.01ms')
+      assert.ok(motion.animationName === 'none' || motion.animationDurationMs <= 0.01,
+        'Reduced-motion animation must be disabled or near-instant')
+      record('reduced-motion', 'PASS')
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+    }
 
     const groupCount = await panel.locator('.ens-folder-browser-group').count()
     assert.equal(groupCount, folderData.folders.length + 1, 'Folder API and browser groups disagree')
@@ -251,7 +311,7 @@ async function main() {
     }
 
     const viewports = [
-      [1440, 900], [960, 768], [720, 900], [480, 800],
+      [1440, 900], [960, 768], [720, 900], [480, 800], [360, 800], [320, 720],
     ]
     for (const [width, height] of viewports) {
       await page.setViewportSize({ width, height })

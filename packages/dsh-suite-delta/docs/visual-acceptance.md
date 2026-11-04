@@ -14,7 +14,7 @@ node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark
 
 ## 本地截图基线对比
 
-先在**隔离测试账号、固定 Chromium/DSH/操作系统字体和缩放**的条件下运行上述命令，生成浅色和深色各四张截图。经人工核对后，将截图复制到独立的私有基线目录，例如 `C:\\private\\delta-ui-baseline`（该目录必须在仓库外）。
+先在**隔离测试账号、固定 Chromium/DSH/操作系统字体和缩放**的条件下运行上述命令，生成浅色和深色各六张截图。经人工核对后，将截图复制到独立的私有基线目录，例如 `C:\\private\\delta-ui-baseline`（该目录必须在仓库外）。
 
 随后执行：
 
@@ -29,18 +29,30 @@ node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark
 
 在两次运行之间，**必须在宿主设置中实际切换主题**。参数 `--theme` 是验证期望值，不会篡改宿主主题或伪造颜色。若 DSH 依赖现有桌面浏览器登录态，可用 `--cdp http://127.0.0.1:9222` 连接本地已启用远程调试的浏览器；此模式可能导航已有页面，仅能在隔离测试实例使用。
 
-脚本验证品牌主色、只读文件夹接口、文件夹数量、分组按钮与稳定内容区域的 `aria-controls` 关联、空格键折叠/恢复后的实际可见性、会话归属下拉框的会话专属辅助阅读名称及键盘聚焦，以及 1440/960/720/480 px 四档窗口的水平溢出。默认情况下无可用会话时，下拉交互标记 `SKIP`；任何必要验收失败将以非零退出码报告。未安装 `playwright-core` 时脚本明确退出，不会伪造成功。
+脚本验证品牌主色、只读文件夹接口、文件夹数量、分组按钮与稳定内容区域的 `aria-controls` 关联、空格键折叠/恢复后的实际可见性、会话归属下拉框的会话专属辅助阅读名称及键盘聚焦，以及 1440/960/720/480/360/320 px 六档窗口的水平溢出。默认情况下无可用会话时，下拉交互标记 `SKIP`；任何必要验收失败将以非零退出码报告。未安装 `playwright-core` 时脚本明确退出，不会伪造成功。
 
 **正式验收必须包含隔离测试会话。** 测试账号中创建至少一个非子 Agent、未标记空白的会话，然后为浅色和深色主题分别运行：
 
 ```bash
-node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme light --require-sessions --output .delta-ui-acceptance/light
-node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark --require-sessions --output .delta-ui-acceptance/dark
+node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme light --require-sessions --accessibility --output .delta-ui-acceptance/light
+node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark --require-sessions --accessibility --output .delta-ui-acceptance/dark
 ```
 
 `--require-sessions` 会把本来可跳过的“无会话供键盘测试”升级为失败，避免出现没有测试会话却误判全面通过的结果。脚本只读取下拉框标签并测试聚焦，不会更改会话所属文件夹；归类和拖放的**真实写入行为**仍须按下方人工写入测试在隔离环境执行。
 
 `--output` 可省略。指定该选项时，截图和删减敏感上下文的 JSON 结果只写到本地，不自动上传。截图可能包含私人会话信息；只能使用隔离测试账号，**不要上传截图或将它们提交到 Git**（默认目录已列入 `.gitignore`）。此脚本不会创建、重命名、删除文件夹，也不会修改会话归属。
+
+
+## 可选无障碍质量门禁
+
+正式验收命令增加 `--accessibility` 后，会读取当前主题实际发布的语义令牌，并按 WCAG 2.1 计算对比度：
+
+- 主按钮、正文、弱化文字、强调色文字、危险操作文字：至少 4.5:1。
+- 焦点环相对基础背景：至少 3:1。
+- 对已打开的文件夹面板模拟 `prefers-reduced-motion: reduce`，确认面板刷新按钮的过渡时长不超过 0.01 ms，动画已禁用或近乎瞬时；检查后恢复 `no-preference`。
+- 对比度计算只接受不透明 sRGB 颜色，透明或带 alpha 的颜色不会被错误地当作纯色通过。
+
+该检查验证语义令牌配对，不代表对所有宿主控件、图片文字或动态状态完成了完整 WCAG 审计。系统级 125%/150% DPI、Windows 高对比度与真实屏幕阅读器仍需人工验收。
 
 ## 验收范围
 
@@ -48,12 +60,13 @@ node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark
 | --- | --- | --- | --- | --- |
 | 主界面三栏与原生侧栏 | 否 | 待验收 | 待验收 | 会话点击、置顶、归档、展开收起 |
 | 文件夹浏览面板和分组数量 | 是 | 待验收 | 待验收 | 不应出现空白分组、重复标签 |
-| 480/720/960/1440 px 响应式 | 是 | 待验收 | 待验收 | 无溢出、文字不覆盖控件 |
+| 320/360/480/720/960/1440 px 响应式 | 是 | 待验收 | 待验收 | 无溢出、文字不覆盖控件 |
 | 分组折叠及键盘操作 | 是 | 待验收 | 待验收 | Space/Tab 焦点，`aria-controls` 关联、折叠后隐藏及恢复 |
 | 文件夹拖放与选择框归类 | 部分 | 待验收 | 待验收 | 自动核查会话专属标签和可聚焦性；真实归类、失败恢复及撤销需人工隔离测试 |
 | 会话行尾标记与 hover 详情 | 否 | 待验收 | 待验收 | 原生状态点、时间、图标排列保持正确 |
 | 设置面板和对话审批三模式 | 否 | 待验收 | 待验收 | 不能改变原生审批与会话操作 |
-| 减少动态效果、125%/150% 缩放 | 否 | 待验收 | 待验收 | 无视觉抖动，弹窗与按钮可用 |
+| 减少动态效果 | 是（`--accessibility`） | 待验收 | 待验收 | `prefers-reduced-motion` 下无明显过渡或动画 |
+| 125%/150% DPI 缩放 | 否 | 待验收 | 待验收 | 真实 Windows 显示缩放下弹窗与按钮可用 |
 
 ## 人工写入测试（必须隔离）
 

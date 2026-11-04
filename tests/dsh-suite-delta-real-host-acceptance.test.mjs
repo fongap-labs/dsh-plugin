@@ -18,6 +18,7 @@ test('visual acceptance runner advertises its opt-in local-only prerequisites', 
   assert.match(result.stdout, /--theme light\|dark/)
   assert.match(result.stdout, /playwright-core/)
   assert.match(result.stdout, /--require-sessions/)
+  assert.match(result.stdout, /--accessibility/)
   assert.match(result.stdout, /disposable, locally accessible DSH test profile/)
   assert.doesNotMatch(result.stdout, /PASS brand-tokens/)
 })
@@ -40,6 +41,7 @@ test('visual acceptance requires a theme and rejects invalid or duplicate option
     ['--url', 'http://localhost:4000', '--theme', 'light', '--theme', 'dark'],
     ['--url', 'http://localhost:4000', '--theme', 'light', '--write'],
     ['--url', 'http://localhost:4000', '--theme', 'light', '--require-sessions', '--require-sessions'],
+    ['--url', 'http://localhost:4000', '--theme', 'light', '--accessibility', '--accessibility'],
   ]) {
     const result = run(args)
     assert.equal(result.status, 2)
@@ -61,6 +63,11 @@ test('runner never mutates folder assignments and only captures explicit private
   assert.match(source, /folder-disclosure-semantics/)
   assert.match(source, /session-specific-accessible-names/)
   assert.match(source, /responsive-.*width/)
+  assert.match(source, /wcag-semantic-contrast/)
+  assert.match(source, /contrastRatio\(foreground, background\)/)
+  assert.match(source, /reducedMotion: 'reduce'/)
+  assert.match(source, /record\('reduced-motion', 'PASS'\)/)
+  assert.match(source, /\[360, 800\], \[320, 720\]/)
 })
 
 test('folder buttons have visible keyboard focus and semantic light-dark tokens', () => {
@@ -111,4 +118,24 @@ test('full keyboard acceptance fails closed without test sessions, without writi
   assert.match(source, /document\.activeElement === el/)
   assert.match(source, /record\('session-specific-accessible-names', 'PASS'\)/)
   assert.doesNotMatch(source, /context\.request\.(?:post|patch|put|delete)\(/)
+})
+
+
+test('accessibility mode checks foreground/background pairs and focus indicator contrast', () => {
+  assert.match(source, /'--ens-color-primary-foreground'/)
+  assert.match(source, /'--ens-color-muted-foreground'/)
+  assert.match(source, /'--ens-color-accent-foreground'/)
+  assert.match(source, /'--ens-color-destructive-foreground'/)
+  assert.match(source, /'--ens-color-ring'/)
+  assert.match(source, /\['focus-ring',[^\n]+, 3\]/)
+  assert.match(source, /\['primary',[^\n]+, 4\.5\]/)
+  assert.match(source, /--accessibility/)
+})
+
+test('accessibility mode restores normal motion preference after its reduced-motion check', () => {
+  const reduced = source.indexOf("await page.emulateMedia({ reducedMotion: 'reduce' })")
+  const restored = source.indexOf("await page.emulateMedia({ reducedMotion: 'no-preference' })", reduced)
+  assert.ok(reduced > 0 && restored > reduced)
+  assert.match(source.slice(reduced, restored), /transitionDurationMs <= 0\.01/)
+  assert.match(source.slice(reduced, restored), /animationName === 'none'/)
 })
