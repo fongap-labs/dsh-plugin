@@ -23,7 +23,7 @@ test('drag cancellations and nested dragleave keep drop targets synchronized', (
   assert.match(browser, /related instanceof Node && event\.currentTarget\.contains\(related\)/)
   assert.match(browser, /onDrop: \(event: \{ dataTransfer: DataTransfer; preventDefault\(\): void \}\) => \{/)
   assert.match(browser, /setActiveDrop\(''\)/)
-  assert.match(browser, /const DRAG_TYPE = 'application\/x-delta-session-id'/)
+  assert.match(client, /const DRAG_TYPE = 'application\/x-delta-session-id'/)
   assert.match(browser, /if \(!knownIds\.has\(sessionId\)\) return/)
   assert.match(browser, /'aria-expanded': !isCollapsed/)
   assert.match(browser, /node\('select', \{/)
