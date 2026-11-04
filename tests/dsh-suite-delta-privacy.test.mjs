@@ -46,6 +46,6 @@ describe('Delta Suite data exit privacy safeguards', () => {
     assert.throws(() => assertOutboundTextSafe('x'.repeat(501), 'search', 500), /Privacy guard/)
     assert.throws(() => assertOutboundTextSafe('', 'search', 500), /Privacy guard/)
     assert.throws(() => assertOutboundTextSafe({ query: 'safe' }, 'search', 500), /Privacy guard/)
-    assert.throws(() => assertOutboundTextSafe('hello\\u0000world', 'search', 500), /Privacy guard/)
+    assert.throws(() => assertOutboundTextSafe('hello' + String.fromCharCode(0) + 'world', 'search', 500), /Privacy guard/)
   })
 })
