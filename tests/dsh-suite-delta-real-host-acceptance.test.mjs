@@ -2,13 +2,14 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 
-const script = new URL('../scripts/verify-delta-suite-ui.mjs', import.meta.url)
+const script = fileURLToPath(new URL('../scripts/verify-delta-suite-ui.mjs', import.meta.url))
 const source = readFileSync(script, 'utf8')
 const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
 
 function run(args) {
-  return spawnSync(process.execPath, [script.pathname, ...args], { encoding: 'utf8' })
+  return spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' })
 }
 
 test('visual acceptance runner advertises its opt-in local-only prerequisites', () => {
@@ -46,6 +47,8 @@ test('visual acceptance requires a theme and rejects invalid or duplicate option
 
 test('runner never mutates folder assignments and only captures explicit private evidence', () => {
   assert.match(source, /context\.request\.get\(endpoint\.href/)
+  assert.match(source, /maxRedirects: 0/)
+  assert.match(source, /new URL\(page\.url\(\)\)\.origin !== target\.origin/)
   assert.doesNotMatch(source, /context\.request\.(?:post|patch|put|delete)\(/)
   assert.doesNotMatch(source, /page\.request\.(?:post|patch|put|delete)\(/)
   assert.match(source, /const output = args\['--output'\] \? resolve/)
