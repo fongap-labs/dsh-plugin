@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Read-only smoke checks against a running DSH instance. No folder mutations.
 import assert from 'node:assert/strict'
-import { mkdirSync, chmodSync, writeFileSync } from 'node:fs'
+import { mkdirSync, chmodSync, writeFileSync, readFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
 import process from 'node:process'
 
@@ -11,13 +11,17 @@ const usage = [
   '  --chromium /path/to/chromium   Chromium executable (optional if Playwright installed browsers)',
   '  --cdp http://127.0.0.1:9222   Attach to a local DSH/Chromium debugging port',
   '  --output /private/path        Save local screenshots and a redacted JSON report',
+  '  --baseline /private/path      Compare screenshots to a local, read-only baseline directory',
+  '  --max-diff-pct 0.5           Maximum percentage of pixels different (requires --baseline)',
+  '  --pixel-tolerance 16        Per-channel RGB tolerance, from 0 through 255',
+  'Baselines are never updated automatically. Use only anonymized test sessions.',
   '  --help                        Show this message',
   'Install the optional local runner: npm install --no-save playwright-core',
   'Use only a disposable, locally accessible DSH test profile. Never commit screenshots.',
 ].join('\n')
 
 function parseArgs(args) {
-  const flags = new Set(['--url', '--theme', '--chromium', '--cdp', '--output'])
+  const flags = new Set(['--url', '--theme', '--chromium', '--cdp', '--output', '--baseline', '--max-diff-pct', '--pixel-tolerance'])
   const values = Object.create(null)
   for (let index = 0; index < args.length; index++) {
     const key = args[index]
@@ -31,7 +35,16 @@ function parseArgs(args) {
   if (!values['--url'] || !['light', 'dark'].includes(values['--theme'])) {
     throw new Error('--url and --theme light|dark are required')
   }
-  return values
+  if ((values['--max-diff-pct'] || values['--pixel-tolerance']) && !values['--baseline']) {
+    throw new Error('--baseline required when setting comparison thresholds')
+  }
+  const percent = Number(values['--max-diff-pct'] ?? '0.5')
+  const tolerance = Number(values['--pixel-tolerance'] ?? '16')
+  if (!Number.isFinite(percent) || percent < 0 || percent > 100 ||
+      !Number.isInteger(tolerance) || tolerance < 0 || tolerance > 255) {
+    throw new Error('Invalid visual regression threshold')
+  }
+  return { ...values, maxDiffPct: percent, pixelTolerance: tolerance }
 }
 
 function loopbackUrl(value, description) {
@@ -64,7 +77,33 @@ function safeError(error) {
   if (/folder panel/i.test(value)) return 'Folder panel unavailable in Host UI'
   if (/horizontal overflow/i.test(value)) return 'Folder panel horizontal overflow'
   if (/folder API/i.test(value)) return 'Local folder API unavailable'
+  if (/baseline|visual difference|screenshot dimensions/i.test(value)) return 'Local visual baseline regression'
   return 'UI smoke check failed; inspect local console'
+}
+
+
+async function createPixelComparator() {
+  let PNG
+  try { ({ PNG } = await import('pngjs')) }
+  catch { throw new Error('Visual baseline comparison requires local pngjs') }
+  return (currentBuffer, baselineFile, maxDiffPct, pixelTolerance) => {
+    // Decode locally in Node, never expose the baseline to Host page JavaScript.
+    const current = PNG.sync.read(currentBuffer)
+    const baseline = PNG.sync.read(readFileSync(baselineFile))
+    assert.equal(current.width, baseline.width, 'Screenshot dimensions differ from baseline')
+    assert.equal(current.height, baseline.height, 'Screenshot dimensions differ from baseline')
+    const pixels = current.width * current.height
+    let different = 0
+    for (let i = 0; i < pixels * 4; i += 4) {
+      const r = Math.abs(current.data[i] - baseline.data[i])
+      const g = Math.abs(current.data[i + 1] - baseline.data[i + 1])
+      const b = Math.abs(current.data[i + 2] - baseline.data[i + 2])
+      if (Math.max(r, g, b) > pixelTolerance) different++
+    }
+    const diffPct = (different / pixels) * 100
+    assert.ok(diffPct <= maxDiffPct, 'Visual difference exceeds baseline threshold')
+    return diffPct
+  }
 }
 
 async function main() {
@@ -86,6 +125,8 @@ async function main() {
   }
 
   const output = args['--output'] ? resolve(args['--output']) : null
+  const baseline = args['--baseline'] ? resolve(args['--baseline']) : null
+  const comparePixels = baseline ? await createPixelComparator() : null
   if (output) mkdirSync(output, { recursive: true, mode: 0o700 })
   const results = { theme: args['--theme'], cases: [], screenshots: false, host: 'local-only' }
   const record = (name, status, detail = '') => {
@@ -183,11 +224,18 @@ async function main() {
       assert.ok(measurement.document <= measurement.viewport + 2,
         'Folder panel horizontal overflow')
       record('responsive-' + width, 'PASS')
-      if (output) {
-        const path = join(output, args['--theme'] + '-' + width + '.png')
-        await page.screenshot({ path, fullPage: false, animations: 'disabled' })
-        chmodSync(path, 0o600)
-        results.screenshots = true
+      if (output || baseline) {
+        const name = args['--theme'] + '-' + width + '.png'
+        const path = output ? join(output, name) : undefined
+        const pixels = await page.screenshot({ ...(path ? { path } : {}), fullPage: false, animations: 'disabled' })
+        if (path) {
+          chmodSync(path, 0o600)
+          results.screenshots = true
+        }
+        if (baseline) {
+          const difference = comparePixels(pixels, join(baseline, name), args.maxDiffPct, args.pixelTolerance)
+          record('visual-baseline-' + width, 'PASS', difference.toFixed(3) + '% pixels changed')
+        }
       }
     }
   } catch (error) {
