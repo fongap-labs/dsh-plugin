@@ -1,7 +1,7 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { syncBuiltinESMExports } from 'node:module'
@@ -87,5 +87,24 @@ test('unexpected lock contents or concurrent recovery contender prevent lock ste
   } finally {
     rmSync(recovery, { recursive: true, force: true })
     clearLock()
+  }
+})
+
+test('a symlink masquerading as a lock directory is not followed or removed', {
+  skip: process.platform === 'win32',
+}, () => {
+  const target = join(HOME, 'unrelated-owner-directory')
+  mkdirSync(target)
+  writeFileSync(join(target, 'owner.json'), JSON.stringify({ pid: 2147483647, token: randomUUID() }))
+  symlinkSync(target, lock, 'dir')
+  try {
+    const before = readFolderView().revision
+    assert.throws(() => mutateFolderView({ action: 'create', name: 'Reject link' }),
+      FolderConflictError)
+    assert.equal(readFolderView().revision, before)
+    assert.equal(existsSync(join(target, 'owner.json')), true)
+  } finally {
+    clearLock()
+    rmSync(target, { recursive: true, force: true })
   }
 })
