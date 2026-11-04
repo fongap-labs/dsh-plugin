@@ -38,6 +38,17 @@ test('corrupt, unreadable or unsupported sessions abort the entire cleanup', asy
   }
 })
 
+test('a not-found response for a different session cannot authorize cleanup', async () => {
+  const reader = {
+    list: async () => [],
+    open: async () => { throw notFound('another-session') },
+  }
+  await assert.rejects(
+    () => verifiedKnownSessionIds(reader, { get: () => undefined }, { 'expected-session': 'folder' }),
+    /cleanup refused/,
+  )
+})
+
 test('sessions live before or after the inventory scan remain protected', async () => {
   let active = true
   const reader = {
