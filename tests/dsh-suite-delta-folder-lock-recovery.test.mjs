@@ -1,6 +1,7 @@
 import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import os, { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -13,6 +14,13 @@ syncBuiltinESMExports()
 const { mutateFolderView, readFolderView, FolderConflictError } =
   await import('../packages/dsh-suite-delta/lib/host/folders.js')
 
+// Verify recovery using a real exited process, not an arbitrary invalid PID.
+const child = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], {
+  encoding: 'utf8',
+})
+assert.equal(child.status, 0)
+const departedPid = Number(child.stdout.trim())
+assert.ok(Number.isSafeInteger(departedPid) && departedPid > 0)
 const lock = join(HOME, '.dsh-ui-delta', 'folders.json.lock')
 const recovery = lock + '.recovery'
 after(() => {
@@ -32,7 +40,7 @@ const clearLock = () => rmSync(lock, { recursive: true, force: true })
 test('a dead owner can be recovered without losing persisted folder data', () => {
   const first = mutateFolderView({ action: 'create', name: 'Research' })
   assert.equal(existsSync(lock), false, 'normal owner and lock should be released')
-  seedLock({ pid: 2147483647, token: randomUUID() })
+  seedLock({ pid: departedPid, token: randomUUID() })
   const second = mutateFolderView({
     action: 'create', name: 'Code', expectedRevision: first.revision,
   })
@@ -56,7 +64,7 @@ test('live process owner cannot be evicted even if writer wants to mutate', () =
 
 test('missing, malformed, or unrecognized lock owner fails closed', () => {
   for (const owner of [undefined, '{bad-json', { pid: -1, token: randomUUID() },
-    { pid: 2147483647, token: 'unrecognized' }]) {
+    { pid: departedPid, token: 'unrecognized' }]) {
     const before = readFolderView()
     seedLock(owner)
     try {
@@ -71,7 +79,7 @@ test('missing, malformed, or unrecognized lock owner fails closed', () => {
 })
 
 test('unexpected lock contents or concurrent recovery contender prevent lock stealing', () => {
-  seedLock({ pid: 2147483647, token: randomUUID() })
+  seedLock({ pid: departedPid, token: randomUUID() })
   writeFileSync(join(lock, 'unexpected.txt'), 'do not remove')
   try {
     assert.throws(() => mutateFolderView({ action: 'create', name: 'Unsafe' }), FolderConflictError)
@@ -79,7 +87,7 @@ test('unexpected lock contents or concurrent recovery contender prevent lock ste
   } finally {
     clearLock()
   }
-  seedLock({ pid: 2147483647, token: randomUUID() })
+  seedLock({ pid: departedPid, token: randomUUID() })
   mkdirSync(recovery)
   try {
     assert.throws(() => mutateFolderView({ action: 'create', name: 'Contested' }), FolderConflictError)
@@ -95,7 +103,7 @@ test('a symlink masquerading as a lock directory is not followed or removed', {
 }, () => {
   const target = join(HOME, 'unrelated-owner-directory')
   mkdirSync(target)
-  writeFileSync(join(target, 'owner.json'), JSON.stringify({ pid: 2147483647, token: randomUUID() }))
+  writeFileSync(join(target, 'owner.json'), JSON.stringify({ pid: departedPid, token: randomUUID() }))
   symlinkSync(target, lock, 'dir')
   try {
     const before = readFolderView().revision
