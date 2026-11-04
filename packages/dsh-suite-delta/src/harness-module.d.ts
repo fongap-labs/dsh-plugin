@@ -34,6 +34,7 @@ interface HarnessReact {
     ...children: unknown[]
   ): HarnessReactElement;
   useState<S>(initial: S | (() => S)): [S, (value: S | ((prev: S) => S)) => void];
+  useRef<T>(initial: T): { current: T };
   useEffect(effect: () => void | (() => void), deps?: readonly unknown[]): void;
 }
 

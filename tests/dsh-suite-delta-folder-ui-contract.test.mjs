@@ -10,8 +10,8 @@ test('folder mutations stay on the trusted localhost route', () => {
   assert.match(host, /route\('\/dsh-ui-delta\/folders'/)
   assert.match(host, /if \(!isTrustedRequest\(req\)\)/)
   assert.match(host, /readBody\(req, 16 \* 1024\)/)
-  assert.match(host, /readFolders\(\)/)
-  assert.match(host, /mutateFolders\(payload\)/)
+  assert.match(host, /readFolderView\(\)/)
+  assert.match(host, /mutateFolderView\(payload\)/)
 })
 
 test('folder actions use the host context menu and settings slot without DOM reshuffling', () => {
