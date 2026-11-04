@@ -248,4 +248,4 @@ export const pruneMissingAssignments = (
   if (removedCount === 0) return { view, removedCount }
   writeFolders({ folders: view.folders, assignments })
   return { view: readFolderView(), removedCount }
-}
+})
