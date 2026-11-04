@@ -1183,11 +1183,108 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-actions { display: flex; flex-wrap: wrap; gap: var(--ens-space-3xs); }
 .ens-folder-actions .ens-ui-button { min-height: 32px; }
 
+/* Native row-slot decorations: no session row replacement or event interception. */
+.ens-folder-row-marker {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; flex: 0 0 16px;
+  color: var(--ens-color-muted-foreground); pointer-events: none;
+}
+.ens-folder-row-marker svg { display: block; width: 14px; height: 14px; }
+.ens-folder-hover-detail {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--ens-space-sm);
+  color: var(--ens-color-muted-foreground); font-size: 12px; line-height: 18px;
+}
+.ens-folder-hover-detail strong { color: var(--ens-color-foreground); font-weight: 500; overflow-wrap: anywhere; }
+
+
 `;
 
     return {
       inject: ['theme', 'slots'],
       apply(ctx: HarnessClientContext) {
+
+        // One passive folder snapshot for all mounted row slots. A Session binding
+        // would activate every listed Session, so row components only use its id.
+        type FolderDecorationState = {
+          folders: Array<{ id: string; name: string; order: number }>;
+          assignments: Record<string, string>;
+        };
+        let folderDecorationState: FolderDecorationState = { folders: [], assignments: {} };
+        const folderDecorationListeners = new Set<() => void>();
+        let pendingFolderRefresh: Promise<void> | undefined;
+        const refreshFolderDecorations = (): Promise<void> => {
+          if (pendingFolderRefresh) return pendingFolderRefresh;
+          pendingFolderRefresh = fetch('/dsh-ui-delta/folders')
+            .then(async response => {
+              const data: unknown = await response.json();
+              if (!response.ok || !data || typeof data !== 'object'
+                || !Array.isArray((data as FolderDecorationState).folders)
+                || !(data as FolderDecorationState).assignments) {
+                throw new Error('Folder decoration data unavailable');
+              }
+              folderDecorationState = data as FolderDecorationState;
+              for (const listener of folderDecorationListeners) listener();
+            })
+            .catch(() => { /* Keep the last valid snapshot; never affect Host navigation. */ })
+            .finally(() => { pendingFolderRefresh = undefined; });
+          return pendingFolderRefresh;
+        };
+        ctx.effect(() => {
+          const onFoldersChanged = () => { void refreshFolderDecorations(); };
+          window.addEventListener('dsh-ui-delta:folders-changed', onFoldersChanged);
+          void refreshFolderDecorations();
+          return () => {
+            window.removeEventListener('dsh-ui-delta:folders-changed', onFoldersChanged);
+            folderDecorationListeners.clear();
+          };
+        }, 'dsh-ui-delta: folder decoration state');
+        try {
+          const folderReact = require('react');
+          const createFolderElement = folderReact.createElement;
+          const useFolderSnapshot = (): FolderDecorationState => {
+            const [snapshot, setSnapshot] = folderReact.useState<FolderDecorationState>(folderDecorationState);
+            folderReact.useEffect(() => {
+              const update = () => setSnapshot(folderDecorationState);
+              folderDecorationListeners.add(update);
+              update();
+              return () => { folderDecorationListeners.delete(update); };
+            }, []);
+            return snapshot;
+          };
+          const folderForSession = (view: FolderDecorationState, sessionId: string) =>
+            view.folders.find(folder => folder.id === view.assignments[sessionId]);
+          function FolderRowMarker({ sessionId }: { sessionId: string }) {
+            const view = useFolderSnapshot();
+            const folder = folderForSession(view, sessionId);
+            if (!folder) return null;
+            const label = t('归属文件夹：', 'Folder: ') + folder.name;
+            return createFolderElement('span', {
+              className: 'ens-folder-row-marker', role: 'img', title: label, 'aria-label': label,
+            }, createFolderElement('svg', {
+              viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2,
+              strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+            }, createFolderElement('path', { d: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10H3z' })));
+          }
+          function FolderHoverDetail({ sessionId }: { sessionId: string }) {
+            const view = useFolderSnapshot();
+            const folder = folderForSession(view, sessionId);
+            if (!folder) return null;
+            return createFolderElement('div', { className: 'ens-folder-hover-detail' },
+              createFolderElement('span', {}, t('文件夹', 'Folder')),
+              createFolderElement('strong', {}, folder.name));
+          }
+          ctx.effect(() => ctx.slots.inject('sidebar.session.row.trailing', () => ctx.slots.register({
+            name: 'sidebar.session.row.trailing', id: 'delta.session-folder-marker',
+            order: 420, label: t('会话文件夹', 'Session folder'),
+          }, FolderRowMarker)), 'dsh-ui-delta: sidebar folder marker');
+          ctx.effect(() => ctx.slots.inject('sidebar.session.row.hover', () => ctx.slots.register({
+            name: 'sidebar.session.row.hover', id: 'delta.session-folder-detail',
+            order: 420, label: t('会话文件夹', 'Session folder'),
+          }, FolderHoverDetail)), 'dsh-ui-delta: sidebar folder hover');
+        } catch (error) {
+          console.warn('[dsh-ui-delta] session folder row slots unavailable:', error);
+        }
+
         // Every contribution is defensive: a failure here degrades the refresh
         // (no palette / no stylesheet) and must never abort the web boot.
         try { console.info('[dsh-ui-delta] Delta Suite loaded'); } catch { /* ignore */ }
