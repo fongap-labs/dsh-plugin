@@ -68,3 +68,23 @@ test('folder buttons have visible keyboard focus and semantic light-dark tokens'
   assert.match(client, /ctx\.slots\.inject\('sidebar\.session\.row\.trailing'/)
   assert.match(client, /ctx\.slots\.inject\('sidebar\.session\.row\.hover'/)
 })
+
+test('visual regression requires explicit local baseline and valid tolerances', () => {
+  const base = ['--url', 'http://127.0.0.1:4000', '--theme', 'light']
+  for (const options of [
+    ['--max-diff-pct', '0.5'],
+    ['--pixel-tolerance', '16'],
+    ['--baseline', '/tmp/private', '--max-diff-pct', '-1'],
+    ['--baseline', '/tmp/private', '--max-diff-pct', 'NaN'],
+    ['--baseline', '/tmp/private', '--pixel-tolerance', '256'],
+  ]) {
+    const result = run([...base, ...options])
+    assert.equal(result.status, 2, options.join(' '))
+    assert.match(result.stderr, /required|Invalid visual regression threshold/)
+  }
+  assert.match(source, /await import\('pngjs'\)/)
+  assert.match(source, /PNG\.sync\.read\(readFileSync\(baselineFile\)\)/)
+  assert.match(source, /visual-baseline-/)
+  assert.match(source, /Visual difference exceeds baseline threshold/)
+  assert.doesNotMatch(source, /writeFileSync\(baseline/)
+})
