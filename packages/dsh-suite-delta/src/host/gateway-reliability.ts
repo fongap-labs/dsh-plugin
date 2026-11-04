@@ -244,10 +244,10 @@ export class GatewayQueue {
   }
 
   private release(): () => void {
-    let released = false
+    let hasReleased = false
     return () => {
-      if (!released) {
-        released = true
+      if (!hasReleased) {
+        hasReleased = true
         this.active--
         this.drain()
       }
@@ -342,7 +342,7 @@ export function registerGatewayReliability(ctx: Context, input?: GatewayReliabil
         const deadline = state?.deadline ?? Date.now() + config.auxiliaryBudgetMs
         let release: (() => void) | undefined
         let iterator: AsyncIterator<StreamChunk> | undefined
-        let partial = false
+        let hasPartialOutput = false
         try {
           if (queue.isBusy)
             host.logger?.info(
@@ -383,12 +383,12 @@ export function registerGatewayReliability(ctx: Context, input?: GatewayReliabil
               ((chunk.type === 'text-delta' || chunk.type === 'reasoning-delta') && chunk.text.length > 0) ||
               chunk.type === 'tool-call-delta'
             )
-              partial = true
-            if (state) state.partial = partial
+              hasPartialOutput = true
+            if (state) state.partial = hasPartialOutput
             if (chunk.type === 'finish' && chunk.reason.kind === 'error') {
               let failure = classifyGatewayFailure(chunk.reason.failure)
               if (!TERMINAL_CODES.has(failure.code)) {
-                if (partial)
+                if (hasPartialOutput)
                   failure = {
                     ...failure,
                     code: 'GATEWAY_PARTIAL_RESPONSE',
