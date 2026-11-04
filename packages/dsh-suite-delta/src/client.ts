@@ -4511,63 +4511,25 @@ const MODULES: ModuleDef[] = [
             ]);
 
 
-            interface FolderView {
-              folders: Array<{ id: string; name: string; order: number }>;
-              assignments: Record<string, string>;
-              revision: string;
-            }
-            const [folderView, setFolderView] = React.useState<FolderView>({
-              folders: [], assignments: {}, revision: '',
-            });
+            const [folderView, setFolderView] = React.useState(folderStore.view);
             const [folderNameInput, setFolderNameInput] = React.useState('');
             const [folderBusy, setFolderBusy] = React.useState(false);
             const [folderStatus, setFolderStatus] = React.useState('');
-            const folderRequestId = React.useRef(0);
             const folderPending = React.useRef(false);
+            React.useEffect(() => folderStore.subscribe(() => setFolderView(folderStore.view())), []);
             const loadFolders = async (): Promise<void> => {
-              const requestId = ++folderRequestId.current;
-              const response = await fetch('/dsh-ui-delta/folders');
-              const data = await response.json();
-              if (!response.ok || data.error || typeof data.revision !== 'string')
-                throw new Error(data.error || 'Folder loading failed');
-              if (requestId === folderRequestId.current) setFolderView(data as FolderView);
+              await folderStore.refresh();
             };
-            React.useEffect(() => {
-              let isAlive = true;
-              const refresh = () => {
-                void loadFolders().catch(error => {
-                  if (isAlive) setFolderStatus(String(error));
-                });
-              };
-              window.addEventListener('dsh-ui-delta:folders-changed', refresh);
-              refresh();
-              return () => {
-                isAlive = false;
-                ++folderRequestId.current;
-                window.removeEventListener('dsh-ui-delta:folders-changed', refresh);
-              };
-            }, []);
             const folderAction = async (payload: Record<string, unknown>): Promise<void> => {
               if (folderPending.current) return;
               folderPending.current = true;
               setFolderBusy(true);
               setFolderStatus('');
-              ++folderRequestId.current; // Ignore any GET started before mutation.
               try {
-                const response = await fetch('/dsh-ui-delta/folders', {
-                  method: 'POST',
-                  headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ ...payload, expectedRevision: folderView.revision }),
-                });
-                const data = await response.json();
-                if (!response.ok || data.error || typeof data.revision !== 'string')
-                  throw new Error(data.error || 'Folder update failed');
-                setFolderView(data as FolderView);
+                await folderStore.mutate(payload);
                 if (payload.action === 'create') setFolderNameInput('');
-                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
               } catch (error) {
                 setFolderStatus(String(error));
-                void loadFolders().catch(() => { /* Preserve update error. */ });
               } finally {
                 folderPending.current = false;
                 setFolderBusy(false);
@@ -4596,7 +4558,6 @@ const MODULES: ModuleDef[] = [
                   `清理 ${preview.missingCount} 项不再存在的会话归属？文件夹和现存会话不会删除。`,
                   `Remove ${preview.missingCount} assignments whose sessions no longer exist? Existing sessions and folders will remain.`,
                 ))) return;
-                ++folderRequestId.current;
                 const response = await fetch('/dsh-ui-delta/folder-cleanup', {
                   method: 'POST',
                   headers: { 'content-type': 'application/json' },
@@ -4605,15 +4566,14 @@ const MODULES: ModuleDef[] = [
                 const data = await response.json();
                 if (!response.ok || data.error || typeof data.revision !== 'string')
                   throw new Error(data.error || 'Folder cleanup failed');
-                setFolderView(data as FolderView);
+                folderStore.publish(data as FolderStoreView);
                 setFolderStatus(pick(
                   `已清理 ${data.removedCount} 项失效归属。`,
                   `Removed ${data.removedCount} orphan assignments.`,
                 ));
-                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
               } catch (error) {
                 setFolderStatus(String(error));
-                void loadFolders().catch(() => { /* Preserve cleanup error. */ });
+                void folderStore.refresh().catch(() => { /* Preserve cleanup error. */ });
               } finally {
                 folderPending.current = false;
                 setFolderBusy(false);
