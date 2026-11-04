@@ -19,12 +19,12 @@
   config:
     enabled: true
 
-# Default the official-API Session Log upload ("在使用官方模型 API 时上传 Session Log")
-# OFF. The host schema defaults enabled to true; the suite opts out by default.
-# Users can still re-enable it in Settings → General.
+# Remove the official Session Log contributor entirely, not just its
+# enabled config. The upstream General settings switch appears only while
+# this Host setting is served; disabling the plugin removes the setting row
+# and prevents re-enablement from the UI. Do not mount or create upload state.
 - id: session-log-deepseek
-  config:
-    enabled: false
+  disabled: true
 
 # Disable the independent OTel feedback/session channel. Keep the registered
 # service in DISABLED mode so feedback callers retain their expected interface.
