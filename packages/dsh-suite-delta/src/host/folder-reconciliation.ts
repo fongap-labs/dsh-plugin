@@ -41,7 +41,8 @@ export async function verifiedKnownSessionIds(
       handle = await persistence.open(id, 'read')
       ids.add(id)
     } catch (error) {
-      if (!(error instanceof Error && error.name === 'SessionPersistenceNotFoundError')) {
+      if (!(error instanceof Error && error.name === 'SessionPersistenceNotFoundError'
+        && 'sessionId' in error && error.sessionId === id)) {
         throw new Error('Host could not verify an absent session; cleanup refused')
       }
     } finally {
