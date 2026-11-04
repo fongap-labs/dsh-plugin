@@ -998,8 +998,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-label-secondary);
   font-size: 12px; line-height: 18px;
 }
-/* Legacy class is a compatibility hook; the semantic button owns dimensions,
-   colors, focus and disabled states in both React and fallback DOM paths. */
+/* Compatibility hook only; the semantic button owns control appearance. */
 .ens-pill-btn { flex: none; }
 .ens-session-approval-button { display: block; margin: 8px auto 0; padding: 9px 16px; }
 .ens-session-approval { width: 100%; min-width: 0; }
