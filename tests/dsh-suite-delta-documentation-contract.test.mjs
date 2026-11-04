@@ -12,7 +12,7 @@ const search = readFileSync(new URL('../packages/dsh-suite-delta/src/host/search
 test('Delta Suite documentation reflects the real cold-session deletion boundary', () => {
   assert.match(readme, /## 会话删除的安全边界/)
   assert.match(readme, /实验性的冷会话永久删除/)
-  assert.match(readme, /不能保证跨版本兼容或多步骤原子回滚/)
+  assert.match(readme, /无法保证跨版本兼容或多步骤原子回滚/)
   assert.match(readme, /日常整理优先使用 Harness 原生归档/)
   assert.doesNotMatch(readme, /Delta Suite 不直接执行物理删除/)
   assert.match(routes, /route\('\/dsh-ui-delta\/session-delete'/)
