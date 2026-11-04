@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import { publicView, updateConfig } from './config.js'
-import { readFolderView, mutateFolderView, forgetDeletedSession, FolderConflictError, type FolderAction } from './folders.js'
+import { readFolderView, mutateFolderView, forgetDeletedSession, countMissingAssignments, pruneMissingAssignments, FolderConflictError, type FolderAction } from './folders.js'
+import { verifiedKnownSessionIds, type PersistedSessionReader, type LiveSessionReader } from './folder-reconciliation.js'
 import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
@@ -198,6 +199,47 @@ export function registerRoutes(ctx: Context): void {
       return sendJson(res, 200, mutateFolderView(payload))
     } catch (error) {
       return sendJson(res, error instanceof FolderConflictError ? 409 : 400, { error: errorMessage(error) })
+    }
+  })
+
+  const knownSessionIds = async (view: { assignments: Record<string, string> }): Promise<Set<string>> => {
+    const host = ctx as unknown as { get?: (name: string) => unknown }
+    const persistence = host.get?.('sessionPersistence') as PersistedSessionReader | undefined
+    const sessions = host.get?.('sessions') as LiveSessionReader | undefined
+    if (!persistence?.list || !persistence.open || !sessions?.get) {
+      throw new Error('Host durable session verification is unavailable; cleanup refused')
+    }
+    return verifiedKnownSessionIds(persistence, sessions, view.assignments)
+  }
+
+  route('/dsh-ui-delta/folder-cleanup', async (req, res) => {
+    if (req.method !== 'GET' && req.method !== 'POST') {
+      return sendJson(res, 405, { error: 'method not allowed' })
+    }
+    try {
+      const view = readFolderView()
+      if (req.method === 'GET') {
+        const known = await knownSessionIds(view)
+        return sendJson(res, 200, {
+          missingCount: countMissingAssignments(known, view),
+          revision: view.revision,
+        })
+      }
+      const body = JSON.parse((await readBody(req, 2048)).toString('utf8') || '{}') as {
+        expectedRevision?: string
+      }
+      if (typeof body.expectedRevision !== 'string' || body.expectedRevision.length !== 64) {
+        return sendJson(res, 400, { error: 'Folder revision is required' })
+      }
+      if (body.expectedRevision !== view.revision) {
+        throw new FolderConflictError('Folder state changed; refresh and retry')
+      }
+      const known = await knownSessionIds(view)
+      const result = pruneMissingAssignments(known, body.expectedRevision)
+      return sendJson(res, 200, { ...result.view, removedCount: result.removedCount })
+    } catch (error) {
+      const status = error instanceof FolderConflictError ? 409 : 503
+      return sendJson(res, status, { error: errorMessage(error) })
     }
   })
 

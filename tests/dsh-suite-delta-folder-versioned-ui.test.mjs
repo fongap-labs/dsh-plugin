@@ -19,7 +19,7 @@ test('mutations are versioned, serialized, and return HTTP 409 on conflicts', ()
 
 test('all browser mutation entry points transmit current revision and discard outdated reads', () => {
   const count = (client.match(/expectedRevision:/g) || []).length
-  assert.equal(count, 3)
+  assert.equal(count, 4) // settings, native menu, browser panel and explicit cleanup
   assert.match(client, /folderRequestId\.current/)
   assert.match(client, /folderMutationQueue/)
   assert.match(client, /requestId === folderRequestId/)
