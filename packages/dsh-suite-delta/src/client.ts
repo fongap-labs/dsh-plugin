@@ -4964,11 +4964,6 @@ const MODULES: ModuleDef[] = [
           const node = folderReact.createElement;
           const PANEL_ID = 'delta.session-folders';
           const DRAG_TYPE = 'application/x-delta-session-id';
-          interface FolderPanelState {
-            folders: Array<{ id: string; name: string; order: number }>;
-            assignments: Record<string, string>;
-            revision: string;
-          }
           interface ListedSession {
             id: string; displayTitle: string; blank?: boolean; origin?: string;
           }
@@ -4983,65 +4978,8 @@ const MODULES: ModuleDef[] = [
           }
           const sessions = (ctx.get?.('sessions') || ctx.sessions) as SessionListFace | undefined;
           const navigation = (ctx.get?.('uiWorkspace') || ctx.uiWorkspace) as FolderNavigationFace | undefined;
-          const initialFolders: FolderPanelState = { folders: [], assignments: {}, revision: '' };
-          let folderSnapshot = initialFolders;
-          const listeners = new Set<() => void>();
-          let isRequesting = false;
-          let isReloadNeeded = false;
-          let folderReadId = 0;
-          let errorText = '';
-          const notify = () => { for (const listener of listeners) listener(); };
-          const reload = async (): Promise<void> => {
-            if (typeof fetch !== 'function') return;
-            if (isRequesting) { isReloadNeeded = true; return; }
-            isRequesting = true;
-            const requestId = ++folderReadId;
-            try {
-              const response = await fetch('/dsh-ui-delta/folders');
-              const data = await response.json();
-              if (!response.ok || data.error || typeof data.revision !== 'string')
-                throw new Error(data.error || 'Folder loading failed');
-              if (requestId === folderReadId) {
-                folderSnapshot = data as FolderPanelState;
-                errorText = '';
-              }
-            } catch (error) {
-              if (requestId === folderReadId) errorText = String(error);
-            } finally {
-              isRequesting = false;
-              notify();
-              if (isReloadNeeded) { isReloadNeeded = false; void reload(); }
-            }
-          };
-          const mutate = async (payload: Record<string, unknown>): Promise<void> => {
-            ++folderReadId; // Supersede GETs started before this POST.
-            const response = await fetch('/dsh-ui-delta/folders', {
-              method: 'POST', headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ ...payload, expectedRevision: folderSnapshot.revision }),
-            });
-            const data = await response.json();
-            if (!response.ok || data.error || typeof data.revision !== 'string') {
-              void reload();
-              throw new Error(data.error || 'Folder update failed');
-            }
-            folderSnapshot = data as FolderPanelState;
-            errorText = '';
-            notify();
-            window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
-          };
-          const subscribe = (listener: () => void) => {
-            listeners.add(listener);
-            return () => { listeners.delete(listener); };
-          };
-          ctx.effect(() => {
-            const onChange = () => { void reload(); };
-            window.addEventListener('dsh-ui-delta:folders-changed', onChange);
-            void reload();
-            return () => {
-              window.removeEventListener('dsh-ui-delta:folders-changed', onChange);
-              listeners.clear();
-            };
-          }, 'dsh-ui-delta: folder browser data');
+          const reload = () => folderStore.refresh();
+          const mutate = (payload: Record<string, unknown>) => folderStore.mutate(payload);
 
           function FolderPanelIcon(props: { size?: number; active?: boolean }) {
             const size = props.size || 18;
@@ -5054,7 +4992,8 @@ const MODULES: ModuleDef[] = [
 
           function FolderHoverDetail(props: { sessionId: string }) {
             const [, setRevision] = folderReact.useState(0);
-            folderReact.useEffect(() => subscribe(() => setRevision(value => value + 1)), []);
+            folderReact.useEffect(() => folderStore.subscribe(() => setRevision(value => value + 1)), []);
+            const folderSnapshot = folderStore.view();
             const folderId = folderSnapshot.assignments[props.sessionId];
             const folder = folderSnapshot.folders.find(item => item.id === folderId);
             if (!folder) return null;
@@ -5066,7 +5005,8 @@ const MODULES: ModuleDef[] = [
 
           function FolderSessionMarker(props: { sessionId: string }) {
             const [, setRevision] = folderReact.useState(0);
-            folderReact.useEffect(() => subscribe(() => setRevision(value => value + 1)), []);
+            folderReact.useEffect(() => folderStore.subscribe(() => setRevision(value => value + 1)), []);
+            const folderSnapshot = folderStore.view();
             const folderId = folderSnapshot.assignments[props.sessionId];
             const folder = folderSnapshot.folders.find(item => item.id === folderId);
             return folder ? node('span', {
@@ -5082,13 +5022,13 @@ const MODULES: ModuleDef[] = [
             const [collapsed, setCollapsed] = folderReact.useState<Record<string, boolean>>({});
             const [visibleLimit, setVisibleLimit] = folderReact.useState(80);
             const [activeDrop, setActiveDrop] = folderReact.useState('');
+            const folderSnapshot = folderStore.view();
             const sessionList = sessions?.list;
             const [catalog, setCatalog] = folderReact.useState(() =>
               sessionList?.getSnapshot() || { ids: [], byId: {} as Record<string, ListedSession> });
             folderReact.useEffect(() => {
-              const disposeFolder = subscribe(() => setRevision(value => value + 1));
+              const disposeFolder = folderStore.subscribe(() => setRevision(value => value + 1));
               const disposeSessions = sessionList?.subscribe(() => setCatalog(sessionList.getSnapshot()));
-              void reload();
               return () => { disposeFolder(); disposeSessions?.(); };
             }, []);
             const available = catalog.ids
@@ -5206,7 +5146,7 @@ const MODULES: ModuleDef[] = [
                 }, t('刷新', 'Refresh')),
               ]),
               node('div', { key: 'message', className: 'ens-folder-browser-status', role: 'status' },
-                feedback || errorText || t('拖动会话到文件夹；也可以使用选择框操作。', 'Drag a session into a folder, or use its dropdown.')),
+                feedback || folderStore.error() || t('拖动会话到文件夹；也可以使用选择框操作。', 'Drag a session into a folder, or use its dropdown.')),
               ...sections,
             ]);
           }
