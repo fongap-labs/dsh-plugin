@@ -5240,7 +5240,8 @@ const MODULES: ModuleDef[] = [
             const api = child as HarnessClientContext & RecoveryServices;
             const sessions = (child.get?.('sessions') || api.sessions) as RecoveryServices['sessions'];
             const navigation = (child.get?.('uiWorkspace') || api.uiWorkspace) as RecoveryServices['uiWorkspace'];
-            if (!sessions?.list?.subscribe || !navigation?.openSession) return;
+            const sessionList = sessions?.list;
+            if (!sessionList?.subscribe || !navigation?.openSession) return;
             child.effect(() => {
               if (typeof document === 'undefined' || !document.body) return;
               const key = 'dsh-ui-delta.modules';
@@ -5259,7 +5260,7 @@ const MODULES: ModuleDef[] = [
                 timer = null;
                 if (!isEnabled()) { clear(); return; }
                 const sidebar = document.querySelector<HTMLElement>('.mP3x-q_sidebarCol');
-                const snapshot = sessions.list!.getSnapshot();
+                const snapshot = sessionList.getSnapshot();
                 if (!sidebar || snapshot.phase !== 'ready' || sidebar.getBoundingClientRect().width < 175) {
                   clear(); return;
                 }
@@ -5346,7 +5347,7 @@ const MODULES: ModuleDef[] = [
                 schedule();
               });
               observer.observe(document.body, { childList: true, subtree: true });
-              const unsubscribe = sessions.list.subscribe(schedule);
+              const unsubscribe = sessionList.subscribe(schedule);
               window.addEventListener('resize', schedule);
               window.addEventListener('dsh-ui-delta:flags-changed', schedule);
               sync();
