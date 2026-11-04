@@ -32,3 +32,35 @@ it('preserves theming, responsive overrides, and reduced motion behavior', () =>
   assert.match(css, /\.wtg9ga_collapsed \.ens-foot-actions\s*\{[^}]*margin-left: 0/)
   assert.doesNotMatch(css, /@media \(prefers-reduced-motion: no-preference\)/)
 })
+
+it('keeps the native host selectors in one canonical rule per surface', () => {
+  const canonical = [
+    '.wnFoaW_sessionRow',
+    '.wtg9ga_logoRow',
+    '._5Qcc8a_root',
+    '.wtg9ga_footArea',
+    '.GAkraW_sectionHeader',
+    '.GAkraW_sectionLabel',
+    '.AnXs9G_panel',
+    '.ens-account-glyph',
+    '.ens-search-dock .GAkraW_searchSlot',
+  ]
+  for (const selector of canonical) {
+    const escaped = selector.replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&')
+    assert.equal(occurrences(new RegExp('^' + escaped + '\\s*\\{', 'gm')), 1, selector)
+  }
+  assert.equal(occurrences(/^@media \(prefers-reduced-motion: reduce\)\s*\{/gm), 1)
+})
+
+it('retains canonical host behavior and light-dark contrast tokens', () => {
+  assert.match(css, /\.wnFoaW_sessionRow\s*\{[^}]*height: 34px; border-radius: var\(--dsw-radius-sm\)/)
+  assert.match(css, /\.wtg9ga_logoRow\s*\{[^}]*height: 6px;[^}]*order: 1/)
+  assert.match(css, /\.wtg9ga_footArea\s*\{[^}]*position: relative; order: 6/)
+  assert.match(css, /\.GAkraW_sectionHeader\s*\{[^}]*justify-content: flex-start/)
+  assert.match(css, /\.ens-search-dock \.GAkraW_searchSlot\s*\{[^}]*opacity: 1; pointer-events: auto/)
+  assert.match(css, /\.AnXs9G_panel\s*\{[^}]*animation: ensFade/)
+  assert.match(css, /\.ens-account-glyph\s*\{[^}]*pointer-events: none/)
+  assert.match(css, /\.wtg9ga_collapsed \.ens-foot-actions\s*\{[^}]*margin-left: 0/)
+  assert.ok(client.includes("'--ens-color-primary': { light: '#286F78', dark: '#60B4BF' }"))
+  assert.ok(client.includes("'--ens-color-primary-foreground': { light: '#FFFFFF', dark: '#0E1A1C' }"))
+})
