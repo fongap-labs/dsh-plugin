@@ -573,7 +573,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 /* collapsed rail: the host hides the whole foot area, but 设置 must stay
    reachable (the account menu no longer offers it). Keep only that button. */
 .wtg9ga_collapsed .wtg9ga_footArea { display: flex; flex-direction: column; align-items: center; }
-.wtg9ga_collapsed .ens-foot-actions { flex-direction: column; align-items: center; }
+.wtg9ga_collapsed .ens-foot-actions { flex-direction: column; align-items: center; margin-left: 0; }
 .wtg9ga_collapsed .ens-foot-actions [data-ens="share"] { display: none; }
 .wtg9ga_collapsed .ens-foot-action { padding: 0 6px; font-size: 12px; }
 .ens-foot-notify {
@@ -593,15 +593,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .ens-foot-notify .ens-foot-notify-close { flex: none; width: 16px; height: 16px; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 0; line-height: 1; display: flex; align-items: center; justify-content: center; border-radius: var(--dsw-radius-xs); }
 .ens-foot-notify .ens-foot-notify-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .wtg9ga_collapsed .ens-foot-notify { position: fixed; left: 12px; right: auto; bottom: 60px; max-width: min(320px, calc(100vw - 24px)); }
-.ens-foot-icon[data-ens="settings"] { order: 1; }
-.ens-foot-icon[data-ens="account"] { order: 2; }
-/* collapsed rail: the host hides the whole foot area, but 设置 must stay
-   reachable (the account menu no longer offers it). Keep only that button. */
-.wtg9ga_collapsed .wtg9ga_footArea { display: flex; flex-direction: column; align-items: center; }
-.wtg9ga_collapsed .ens-foot-actions { flex-direction: column; align-items: center; margin-left: 0; }
-.wtg9ga_collapsed .ens-foot-actions [data-ens="share"] { display: none; }
-.wtg9ga_collapsed .ens-foot-action { padding: 0 6px; font-size: 12px; }
-
 /* 10 — structure: drop the brand, reorder the sidebar, field-style search,
       legible three-column dividers, discoverable resize handles */
 /* #1 the "DeepSeek Harness" brand identity is removed; the top row becomes a
@@ -863,8 +854,8 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .ens-menu {
   position: fixed; z-index: var(--ens-z-float); box-sizing: border-box; padding: 4px;
   max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px;
-  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg);
-  background: var(--dsw-alias-bg-layer-1); box-shadow: var(--ens-shadow-overlay);
+  border: 1px solid var(--ens-color-border); border-radius: var(--dsw-radius-lg);
+  background: var(--ens-color-popover); box-shadow: var(--ens-shadow-md);
 }
 .ens-menu-item {
   flex: none; display: flex; align-items: center; height: 34px; padding: 0 10px; box-sizing: border-box;
@@ -873,7 +864,7 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
 .ens-menu-active { background: var(--dsw-alias-interactive-bg-hover-solid); }
-.ens-menu-item[aria-selected="true"] { background: var(--ens-selected); color: var(--ens-selected-ink); font-weight: 500; }
+.ens-menu-item[aria-selected="true"] { background: var(--ens-selected); color: var(--ens-color-accent-foreground); font-weight: 500; }
 .ens-menu-item[aria-selected="true"].ens-menu-active { background: var(--dsw-alias-state-business-tertiary); }
 
 /* motion: surfaces ease in (fade only, no rise — keeps weight equal to a page
@@ -883,13 +874,6 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 [data-radix-popper-content-wrapper] > *, [role="menu"], [role="listbox"], [class*="_card_38jqx_"] {
   animation: ensFade var(--ens-dur-fast) var(--ens-ease-standard) both;
 }
-@media (prefers-reduced-motion: no-preference) {
-  /* bubble card rise-in for the workbench card class when present */
-  [data-radix-popper-content-wrapper] > *, [role="menu"], [role="listbox"], [class*="_card_38jqx_"] {
-    animation: ensFade var(--ens-dur-fast) var(--ens-ease-standard) both;
-  }
-}
-
 /* segmented controls (工作/常规) — replace the host's stroke+shadow indicator
    with a Delta hairline; pointer focus shows no ring on the tabs. */
 [class*="_indicator_d62eq_"] { box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2) !important; }
@@ -1016,9 +1000,9 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-modal-card {
   width: min(720px, 94vw); max-height: 88vh;
   display: flex; flex-direction: column;
-  border-radius: var(--dsw-radius-lg); border: 1px solid var(--dsw-alias-border-l2);
-  background: var(--dsw-alias-bg-layer-1);
-  box-shadow: var(--dsw-elevation-prominent); overflow: hidden;
+  border-radius: var(--dsw-radius-lg); border: 1px solid var(--ens-color-border);
+  background: var(--ens-color-card);
+  box-shadow: var(--ens-shadow-lg); overflow: hidden;
 }
 .ens-modal-card .ens-settings { max-width: none; padding: 4px 24px 12px; overflow-y: auto; }
 .ens-modal-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 24px 12px; }
@@ -1047,7 +1031,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 
 /* a pill button inside a column keeps its own width, not the full row */
 .ens-privacy > .ens-pill-btn { align-self: flex-start; margin-top: 4px; }
-.ens-pill-btn-primary { border-color: var(--dsw-alias-state-business-primary); color: var(--dsw-alias-state-business-primary); }
 .ens-diag-box {
   margin: 0 24px 16px; padding: 10px 12px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 10px;
   background: var(--dsw-alias-bg-layer-2);
@@ -1137,9 +1120,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-pill-btn:focus-visible {
   outline: 2px solid var(--ens-color-ring) !important; outline-offset: 2px;
 }
-.ens-ui-card.ens-memory-item { box-shadow: var(--ens-shadow-sm); }
-.ens-modal-card { background: var(--ens-color-card); border-color: var(--ens-color-border); box-shadow: var(--ens-shadow-lg); }
-.ens-menu { background: var(--ens-color-popover); border-color: var(--ens-color-border); box-shadow: var(--ens-shadow-md); }
 .ens-menu-item:focus-visible { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
 
 
@@ -1181,7 +1161,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 }
 .ens-ui-button--default:active:not(:disabled),
 .ens-anno-primary:active:not(:disabled) { background: var(--ens-primary-pressed); }
-.ens-ui-card.ens-modal-card { border-color: var(--ens-color-border); }
 .ens-ui-card.ens-memory-item { border-radius: var(--dsw-radius-lg); }
 .ens-ui-card.ens-provider, .ens-ui-card.ens-privacy {
   padding: var(--ens-space-lg) var(--ens-space-xl);
@@ -1192,8 +1171,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 }
 .ens-ui-badge.ens-anno-chip { min-height: 32px; padding-inline: var(--ens-space-lg); }
 .ens-anno-panel.ens-ui-card { box-shadow: var(--ens-shadow-lg); }
-.ens-menu-item[aria-selected="true"] { color: var(--ens-color-accent-foreground); }
-.ens-modal-backdrop { background: var(--ens-scrim); }
 @media (max-width: 720px) {
   .ens-modal-backdrop { padding: var(--ens-space-sm); }
   .ens-modal-card { width: min(100%, 720px); max-height: calc(100dvh - 16px); }
