@@ -42,5 +42,7 @@ test('changelog keeps release history intact and has a concise unreleased sectio
   assert.match(changelog, /### 新增/)
   assert.match(changelog, /### 修复/)
   assert.match(changelog, /## \[0\.1\.0-beta\.1\]/)
-  assert.ok(!changelog.endsWith('\n\n'), 'avoid excessive blank lines at EOF')
+  const fragment = readFileSync(new URL('../changelog.d/delta-suite-docs-source-cleanup-20261104.md', import.meta.url), 'utf8')
+  assert.match(fragment, /^- 修复:/m)
+  assert.match(fragment, /^- 变更:/m)
 })
