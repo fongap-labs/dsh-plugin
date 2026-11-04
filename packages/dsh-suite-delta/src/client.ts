@@ -295,7 +295,7 @@ html[data-theme="dark"] {
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverTime"] { grid-column: 2; grid-row: 2; white-space: nowrap; }
 [style*="--dsh-hover-preview-fade"] [class*="_hoverContent"]:has(> [class*="_hoverStatus"]) > [class*="_hoverPath"] { grid-column: 1 / -1; grid-row: auto; width: 100%; }
 
-/* 顶栏操作区：后台任务与创造模式对调位置（后台任务居左，创造模式居右）。模型名、智能体数、后台任务数等徽章可能落在不同的顶栏容器里——宿主给 titleCluster 用 10px、headerActions 用 8px、headerUtilities 再外加 20px 边距，导致相邻徽章之间的间距不恒定。这里把三个容器的内间距与容器间边距统一为 --ens-space-sm（8px），让徽章间距恒定，不受容器归属影响。 */
+/* Header: keep background tasks left of creation mode. Normalize badge spacing across titleCluster, headerActions, and headerUtilities to --ens-space-sm (8px), overriding mismatched host container gaps. */
 .an3WzG_titleCluster,
 .an3WzG_headerActions,
 .an3WzG_headerUtilities,
@@ -325,7 +325,7 @@ body {
   --dsw-radius-xl: 20px;
   --dsw-radius-panel: 20px;
   --dsh-scrollbar-width: 6px;
-  /* 间距阶梯：与既有取值一致，仅做语义化，新规则一律引用令牌 */
+  /* Spacing scale: preserve current values, and use semantic tokens in new rules. */
   --ens-space-3xs: 2px;
   --ens-space-2xs: 4px;
   --ens-space-xs: 6px;
@@ -335,7 +335,7 @@ body {
   --ens-space-xl: 16px;
   --ens-space-2xl: 20px;
   --ens-space-3xl: 24px;
-  /* 层级阶梯：账号浮层 20 / 提示 30 / 悬停 50 / 模态 20000 / 批注浮层置顶 */
+  /* Stacking scale: account 20, tooltip 30, hover 50, modal 20000; annotations remain above overlays. */
   --ens-z-anchor: 20;
   --ens-z-notify: 30;
   --ens-z-hover: 50;
