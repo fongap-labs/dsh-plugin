@@ -1142,6 +1142,71 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-menu { background: var(--ens-color-popover); border-color: var(--ens-color-border); box-shadow: var(--ens-shadow-md); }
 .ens-menu-item:focus-visible { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
 
+
+/* Unified Delta surface and control contract across React and fallback DOM.
+   Legacy ens-* hooks remain for the host integration and regression tests. */
+.ens-settings, .ens-standalone-settings-modal {
+  --ens-ui-control-height: 36px;
+  --ens-ui-gap: var(--ens-space-sm);
+  color: var(--ens-color-foreground);
+}
+.ens-settings :is(.ens-set-title, .ens-modal-title, .ens-privacy-title, .ens-set-name),
+.ens-standalone-settings-modal :is(.ens-set-title, .ens-modal-title, .ens-privacy-title, .ens-set-name) {
+  color: var(--ens-color-foreground);
+}
+.ens-settings :is(.ens-set-sub, .ens-set-desc, .ens-modal-sub, .ens-privacy-body, .ens-memory-meta),
+.ens-standalone-settings-modal :is(.ens-set-sub, .ens-set-desc, .ens-modal-sub, .ens-privacy-body) {
+  color: var(--ens-color-muted-foreground);
+}
+.ens-settings .ens-set-row,
+.ens-standalone-settings-modal .ens-set-row {
+  border: 1px solid var(--ens-color-border);
+  background: var(--ens-color-card);
+  color: var(--ens-color-card-foreground);
+  border-radius: var(--dsw-radius-md);
+}
+.ens-settings .ens-set-row:hover,
+.ens-standalone-settings-modal .ens-set-row:hover {
+  border-color: var(--ens-control-border);
+}
+.ens-settings .ens-switch, .ens-standalone-settings-modal .ens-switch {
+  background: var(--ens-color-input);
+}
+.ens-settings .ens-switch-on, .ens-standalone-settings-modal .ens-switch-on {
+  background: var(--ens-color-primary);
+}
+.ens-settings .ens-switch:focus-visible, .ens-standalone-settings-modal .ens-switch:focus-visible {
+  outline: 2px solid var(--ens-color-ring) !important;
+  outline-offset: 3px;
+}
+.ens-ui-button--default:active:not(:disabled),
+.ens-anno-primary:active:not(:disabled) { background: var(--ens-primary-pressed); }
+.ens-ui-card.ens-modal-card { border-color: var(--ens-color-border); }
+.ens-ui-card.ens-memory-item { border-radius: var(--dsw-radius-lg); }
+.ens-ui-card.ens-provider, .ens-ui-card.ens-privacy {
+  padding: var(--ens-space-lg) var(--ens-space-xl);
+}
+.ens-ui-input:focus-visible, .ens-ui-select:focus-visible, .ens-ui-textarea:focus-visible {
+  border-color: var(--ens-color-ring);
+  box-shadow: 0 0 0 1px var(--ens-color-ring);
+}
+.ens-ui-badge.ens-anno-chip { min-height: 32px; padding-inline: var(--ens-space-lg); }
+.ens-anno-panel.ens-ui-card { box-shadow: var(--ens-shadow-lg); }
+.ens-menu-item[aria-selected="true"] { color: var(--ens-color-accent-foreground); }
+.ens-modal-backdrop { background: var(--ens-scrim); }
+@media (max-width: 720px) {
+  .ens-modal-backdrop { padding: var(--ens-space-sm); }
+  .ens-modal-card { width: min(100%, 720px); max-height: calc(100dvh - 16px); }
+  .ens-modal-card .ens-settings { padding-inline: var(--ens-space-xl); }
+  .ens-modal-top { padding-inline: var(--ens-space-xl); }
+  .ens-settings .ens-set-row { gap: var(--ens-space-sm); }
+  .ens-memory-form { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ens-ui-button, .ens-ui-card, .ens-ui-input, .ens-ui-select,
+  .ens-ui-textarea, .ens-ui-badge { animation: none !important; transition: none !important; }
+}
+
 `;
 
     return {
@@ -1820,14 +1885,14 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               );
               hiddenText.append(hiddenName, hiddenDesc);
               const hiddenInput = document.createElement('input');
-              hiddenInput.className = 'jrmgQW_input';
+              hiddenInput.className = 'jrmgQW_input ens-ui-input';
               hiddenInput.placeholder = 'Omni';
               hiddenInput.value = readHidden();
               hiddenInput.addEventListener('input', () => writeHidden(hiddenInput.value));
               hiddenRow.append(hiddenText, hiddenInput);
               list.appendChild(hiddenRow);
               const privacy = document.createElement('div');
-              privacy.className = 'ens-privacy';
+              privacy.className = 'ens-privacy ens-ui-card';
               const privacyTitle = document.createElement('div');
               privacyTitle.className = 'ens-privacy-title';
               privacyTitle.textContent = pick('隐私', 'Privacy');
@@ -1863,7 +1928,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               backdrop.setAttribute('aria-modal', 'true');
               backdrop.setAttribute('aria-label', pick('设置 · Delta Suite', 'Settings · Delta Suite'));
               const card = document.createElement('div');
-              card.className = 'ens-modal-card';
+              card.className = 'ens-modal-card ens-ui-card';
               const top = document.createElement('div');
               top.className = 'ens-modal-top';
               const headBox = document.createElement('div');
@@ -1879,7 +1944,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const mkBtn = (label: string, isPrimary: boolean) => {
                 const b = document.createElement('button');
                 b.type = 'button';
-                b.className = 'ens-pill-btn' + (isPrimary ? ' ens-pill-btn-primary' : '');
+                b.className = 'ens-ui-button ens-ui-button--sm ' + (isPrimary ? 'ens-ui-button--default ens-pill-btn ens-pill-btn-primary' : 'ens-ui-button--outline ens-pill-btn');
                 b.textContent = label;
                 return b;
               };
@@ -2475,7 +2540,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 if (!chip) {
                   chip = document.createElement('button');
                   chip.type = 'button';
-                  chip.className = 'ens-anno-chip';
+                  chip.className = 'ens-anno-chip ens-ui-badge ens-ui-badge--outline';
                   chip.addEventListener('click', () => { pendingNotes.length = 0; renderChip(); });
                   document.body.appendChild(chip);
                 }
@@ -2485,21 +2550,21 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const openPanel = (quoted: string, rect: DOMRect) => {
                 if (btn) { btn.remove(); btn = null; }
                 panel = document.createElement('div');
-                panel.className = 'ens-anno-panel';
+                panel.className = 'ens-anno-panel ens-ui-card';
                 panel.style.left = Math.min(window.innerWidth - 316, Math.max(8, rect.left)) + 'px';
                 panel.style.top = Math.min(window.innerHeight - 220, rect.bottom + 8) + 'px';
                 const quote = document.createElement('div');
                 quote.className = 'ens-anno-quote';
                 quote.textContent = quoted;
                 const input = document.createElement('textarea');
-                input.className = 'ens-anno-input';
+                input.className = 'ens-anno-input ens-ui-textarea';
                 input.placeholder = '写下你的批注…';
                 const actions = document.createElement('div');
                 actions.className = 'ens-anno-actions';
                 const ghost = document.createElement('button');
-                ghost.type = 'button'; ghost.className = 'ens-anno-ghost'; ghost.textContent = '取消';
+                ghost.type = 'button'; ghost.className = 'ens-anno-ghost ens-ui-button ens-ui-button--sm ens-ui-button--outline'; ghost.textContent = '取消';
                 const primary = document.createElement('button');
-                primary.type = 'button'; primary.className = 'ens-anno-primary'; primary.textContent = '加入批注';
+                primary.type = 'button'; primary.className = 'ens-anno-primary ens-ui-button ens-ui-button--sm ens-ui-button--default'; primary.textContent = '加入批注';
                 ghost.addEventListener('click', clear);
                 primary.addEventListener('click', () => {
                   const note = (input.value || '').trim();
@@ -4013,7 +4078,7 @@ const MODULES: ModuleDef[] = [
                   pick('刷新', 'Refresh')),
               ]),
               h('div', { key: 'rows', className: 'ens-memory-list' }, [
-                ...memoryRows.map(item => h('div', { key: item.id, className: 'ens-memory-item' }, [
+                ...memoryRows.map(item => h(UiCard, { key: item.id, className: 'ens-memory-item' }, [
                   h('div', { key: 'body', className: 'ens-memory-item-text' }, item.content),
                   h('div', { key: 'meta', className: 'ens-memory-meta' },
                     [item.scope, item.scopeId, item.category, item.key,
@@ -4216,7 +4281,7 @@ const MODULES: ModuleDef[] = [
               ...skillDiagnostics.map((message, index) => h('div', { key: 'diagnostic-' + index, className: 'ens-set-desc' }, message)),
               skillRevisionName ? h('div', { key: 'revisions', className: 'ens-memory-list' }, [
                 h('div', { key: 'title', className: 'ens-set-name' }, pick('版本历史：', 'Revision history: ') + skillRevisionName),
-                ...skillRevisions.map(revision => h('div', { key: revision.id, className: 'ens-memory-item' }, [
+                ...skillRevisions.map(revision => h(UiCard, { key: revision.id, className: 'ens-memory-item' }, [
                   h('span', { key: 'date' }, revision.date),
                   h(UiButton, { key: 'restore', type: 'button', className: 'ens-pill-btn', disabled: skillBusy,
                     onClick: () => {
