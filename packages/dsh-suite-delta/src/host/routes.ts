@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import { publicView, updateConfig } from './config.js'
 import { readFolderView, mutateFolderView, forgetDeletedSession, countMissingAssignments, pruneMissingAssignments, FolderConflictError, type FolderAction } from './folders.js'
+import { verifiedKnownSessionIds, type PersistedSessionReader, type LiveSessionReader } from './folder-reconciliation.js'
 import { generateImage } from './image-gen.js'
 import { recognizeImage } from './vision.js'
 import { mainModelView } from './main-model.js'
@@ -201,57 +202,14 @@ export function registerRoutes(ctx: Context): void {
     }
   })
 
-  // Host disposal is not durable deletion. list() may omit corrupt headers,
-  // so absence from a listing alone must never authorize assignment removal.
-  const knownSessionIds = async (
-    view: { assignments: Record<string, string> },
-  ): Promise<Set<string>> => {
+  const knownSessionIds = async (view: { assignments: Record<string, string> }): Promise<Set<string>> => {
     const host = ctx as unknown as { get?: (name: string) => unknown }
-    const persistence = host.get?.('sessionPersistence') as {
-      list?: () => Promise<ReadonlyArray<{ id?: string; header?: { id?: string } }>>
-      open?: (id: string, access: 'read') => Promise<{ close: () => Promise<void> | void }>
-    } | undefined
-    const sessions = host.get?.('sessions') as { get?: (id: string) => unknown } | undefined
+    const persistence = host.get?.('sessionPersistence') as PersistedSessionReader | undefined
+    const sessions = host.get?.('sessions') as LiveSessionReader | undefined
     if (!persistence?.list || !persistence.open || !sessions?.get) {
       throw new Error('Host durable session verification is unavailable; cleanup refused')
     }
-    const rows = await persistence.list()
-    if (!Array.isArray(rows)) throw new Error('Host session persistence listing unavailable')
-    const ids = new Set<string>()
-    for (const row of rows) {
-      const id = row?.header?.id || row?.id
-      if (typeof id !== 'string' || id.length === 0) {
-        throw new Error('Host session persistence listing incomplete')
-      }
-      ids.add(id)
-    }
-    const missing = Object.keys(view.assignments).filter(id =>
-      !ids.has(id) && sessions.get?.(id) === undefined)
-    // A bounded, explicit reconciliation avoids accidentally reading
-    // thousands of full logs in a single interactive HTTP request.
-    if (missing.length > 100) {
-      throw new Error('Too many unverified sessions; cleanup refused')
-    }
-    // open(read) validates storage more strictly than list/stat. Corruption,
-    // unsupported formats, permission failures and I/O errors all fail closed.
-    // Only an explicit not-found result proves the assignment is an orphan.
-    for (const id of missing) {
-      let handle: { close: () => Promise<void> | void } | undefined
-      try {
-        handle = await persistence.open(id, 'read')
-        ids.add(id)
-      } catch (error) {
-        if (!(error instanceof Error && error.name === 'SessionPersistenceNotFoundError')) {
-          throw new Error('Host could not verify an absent session; cleanup refused')
-        }
-      } finally {
-        if (handle) await handle.close()
-      }
-    }
-    for (const id of Object.keys(view.assignments)) {
-      if (sessions.get(id) !== undefined) ids.add(id)
-    }
-    return ids
+    return verifiedKnownSessionIds(persistence, sessions, view.assignments)
   }
 
   route('/dsh-ui-delta/folder-cleanup', async (req, res) => {
