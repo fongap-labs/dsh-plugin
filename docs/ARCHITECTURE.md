@@ -34,6 +34,7 @@ Host 入口位于 `packages/dsh-suite-delta/src/index.ts`，导出 `name`、`inj
 - `host/routes.ts`：本地 HTTP 路由、请求来源校验、请求体限制和版本查询。
 - `host/vision.ts`：视觉识别 Provider 调用。
 - `host/search.ts`：联网搜索 Provider 调用。
+- `host/gateway-reliability.ts`：可选的网关并发队列、步骤截止时间、错误归类与重试上限；只使用公开宿主事件，授权仍由原生组件负责。
 
 Host 源码由 TypeScript 编译为 `lib/` 下的 ESM。包的公开入口仍是 `lib/index.js`；拆分内部文件不得改变插件包名、导出接口、路由路径、配置格式或已发布行为。
 
