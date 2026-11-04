@@ -216,14 +216,6 @@ async function main() {
       })
       record('wcag-semantic-contrast', 'PASS', ratios.join(', '))
 
-      await page.emulateMedia({ reducedMotion: 'reduce' })
-      const motion = await panelMotionProbe(page)
-      assert.ok(motion.transitionDurationMs <= 0.01,
-        'Reduced-motion transition duration must not exceed 0.01ms')
-      assert.ok(motion.animationName === 'none' || motion.animationDurationMs <= 0.01,
-        'Reduced-motion animation must be disabled or near-instant')
-      record('reduced-motion', 'PASS')
-      await page.emulateMedia({ reducedMotion: 'no-preference' })
     }
 
     const endpoint = new URL('/dsh-ui-delta/folders', target.origin)
@@ -252,6 +244,17 @@ async function main() {
       throw new Error('Folder panel unavailable in Host UI')
     }
     record('native-folder-panel', 'PASS')
+
+    if (args['--accessibility']) {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      const motion = await panelMotionProbe(page)
+      assert.ok(motion.transitionDurationMs <= 0.01,
+        'Reduced-motion transition duration must not exceed 0.01ms')
+      assert.ok(motion.animationName === 'none' || motion.animationDurationMs <= 0.01,
+        'Reduced-motion animation must be disabled or near-instant')
+      record('reduced-motion', 'PASS')
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+    }
 
     const groupCount = await panel.locator('.ens-folder-browser-group').count()
     assert.equal(groupCount, folderData.folders.length + 1, 'Folder API and browser groups disagree')
