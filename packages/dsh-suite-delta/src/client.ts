@@ -4872,53 +4872,17 @@ const MODULES: ModuleDef[] = [
             } | undefined;
             if (!menus?.register) return;
 
-            type FolderMenuView = {
-              folders: Array<{ id: string; name: string; order: number }>;
-              assignments: Record<string, string>;
-              revision: string;
-            };
-            let folderCache: FolderMenuView = { folders: [], assignments: {}, revision: '' };
-            let folderRequestId = 0;
-            let folderMutationQueue: Promise<unknown> = Promise.resolve();
-            const reloadFolders = () => {
-              if (typeof fetch !== 'function') return;
-              const requestId = ++folderRequestId;
-              void fetch('/dsh-ui-delta/folders')
-                .then(async response => {
-                  const data = await response.json();
-                  if (!response.ok || data.error || typeof data.revision !== 'string')
-                    throw new Error(data.error || 'Folder loading failed');
-                  if (requestId === folderRequestId) folderCache = data as FolderMenuView;
-                }).catch(() => { /* Keep the last valid menu snapshot. */ });
-            };
-            const updateFolder = (payload: Record<string, unknown>): Promise<FolderMenuView> => {
-              const operation = folderMutationQueue.then(async () => {
-                ++folderRequestId;
-                const response = await fetch('/dsh-ui-delta/folders', {
-                  method: 'POST', headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ ...payload, expectedRevision: folderCache.revision }),
-                });
-                const data = await response.json();
-                if (!response.ok || data.error || typeof data.revision !== 'string')
-                  throw new Error(data.error || 'Folder update failed');
-                folderCache = data as FolderMenuView;
-                window.dispatchEvent(new Event('dsh-ui-delta:folders-changed'));
-                return folderCache;
-              });
-              folderMutationQueue = operation.catch(() => { reloadFolders(); });
-              return operation;
-            };
+            const updateFolder = (payload: Record<string, unknown>) => folderStore.mutate(payload);
             const reportFolderError = (error: unknown) => window.alert(
               t('文件夹操作失败：', 'Folder operation failed: ') + String(error));
             child.effect(() => {
-              reloadFolders();
-              window.addEventListener('dsh-ui-delta:folders-changed', reloadFolders);
               const dispose = menus.register!({
                 id: 'session.delta-folder', target: 'session', order: 650,
                 observe: () => [],
                 resolve: target => {
                   const sessionId = target.sessionId;
                   if (!sessionId) return [];
+                  const folderCache = folderStore.view();
                   const actions = folderCache.folders.map(folder => ({
                     id: 'delta-folder-' + folder.id,
                     label: t('归入：', 'Move to: ') + folder.name,
@@ -4949,10 +4913,7 @@ const MODULES: ModuleDef[] = [
                   return actions;
                 },
               });
-              return () => {
-                window.removeEventListener?.('dsh-ui-delta:folders-changed', reloadFolders);
-                dispose();
-              };
+              return () => { dispose(); };
             }, 'dsh-ui-delta: session folder menu');
             child.effect(() => menus.register!({
               id: 'session.delta-delete', target: 'session', order: 700,
