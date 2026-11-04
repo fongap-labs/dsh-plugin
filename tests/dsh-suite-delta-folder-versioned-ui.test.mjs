@@ -24,7 +24,7 @@ test('all browser mutation entry points transmit current revision and discard ou
   assert.match(client, /folderMutationQueue/)
   assert.match(client, /requestId === folderRequestId/)
   assert.match(client, /requestId === folderReadId/)
-  assert.match(client, /if \(needsReload\)/)
+  assert.match(client, /if \(isReloadNeeded\)/)
   assert.match(client, /folderSnapshot = data as FolderPanelState/)
 })
 
@@ -32,7 +32,7 @@ test('deleting a cold session only cleans assignments after committed deletion',
   const deleted = route.indexOf('await deleteColdSession(')
   const cleaned = route.indexOf('forgetDeletedSession(id)', deleted)
   assert.ok(deleted >= 0 && cleaned > deleted)
-  assert.match(route, /return sendJson\(res, 200, \{ ok: true, folderCleanup \}\)/)
+  assert.match(route, /return sendJson\(res, 200, \{ ok: true, folderCleanup: isFolderCleanupComplete \}\)/)
   assert.match(client, /if \(result\.folderCleanup === false\)/)
   assert.match(client, /new Event\('dsh-ui-delta:folders-changed'\)/)
 })
