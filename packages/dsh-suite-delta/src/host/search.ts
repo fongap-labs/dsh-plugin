@@ -1,4 +1,5 @@
 import { openKey, normalizeProviders, readConfig, type ProviderRecord } from './config.js'
+import { assertOutboundTextSafe } from './privacy.js'
 import { DUCKDUCKGO_PROVIDER_ID, type SearchRequest } from './duckduckgo.js'
 import { searchPythonDdgs } from './python-ddgs.js'
 import { searchPublicInstances } from './searxng.js'
@@ -75,8 +76,7 @@ export const searchWeb = async (
   maxResults = 5, publicSearch: typeof searchPublicInstances = searchPublicInstances
 ): Promise<SearchRow[]> => {
   signal?.throwIfAborted()
-  query = query.trim().slice(0, 500)
-  if (!query) throw new Error('search query required')
+  query = assertOutboundTextSafe(query, 'search query', 500)
   const limit = limitOf(maxResults)
   const cfg = readConfig().search || {}
   const providers = normalizeProviders('search', cfg)
@@ -162,6 +162,7 @@ export async function researchWeb(
   query: string, signal?: AbortSignal,
   search: typeof searchWeb = searchWeb
 ): Promise<ResearchReport> {
+  query = assertOutboundTextSafe(query, 'research query', 500)
   const queries = researchQueries(query)
   if (!queries.length) throw new Error('search query required')
   const collected: SearchRow[] = []
