@@ -253,13 +253,13 @@ export function registerRoutes(ctx: Context): void {
       await deleteColdSession(ctx as unknown as Parameters<typeof deleteColdSession>[0], id)
       // Session deletion has committed. Folder cleanup is best effort and must
       // not claim that the deleted Session still exists if its folder lock is busy.
-      let folderCleanup = true
+      let isFolderCleanupComplete = true
       try { forgetDeletedSession(id) }
       catch (error) {
-        folderCleanup = false
+        isFolderCleanupComplete = false
         console.warn('[dsh-ui-delta] session folder cleanup deferred:', errorMessage(error))
       }
-      return sendJson(res, 200, { ok: true, folderCleanup })
+      return sendJson(res, 200, { ok: true, folderCleanup: isFolderCleanupComplete })
     } catch (error) {
       return sendJson(res, 409, { error: errorMessage(error) })
     }
