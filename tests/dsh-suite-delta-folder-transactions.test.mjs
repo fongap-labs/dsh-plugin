@@ -2,7 +2,7 @@ import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdirSync, mkdtempSync, readFileSync, rmdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import * as os from 'node:os'
+import os from 'node:os'
 import { join } from 'node:path'
 import { syncBuiltinESMExports } from 'node:module'
 
