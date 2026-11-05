@@ -12,6 +12,7 @@ import {
   CircleHelp,
   Command,
   Copy,
+  Download,
   FileSearch,
   FolderKanban,
   History,
@@ -25,6 +26,7 @@ import {
   Settings2,
   Sparkles,
   Sun,
+  Upload,
   Workflow,
   X,
   Zap,
@@ -61,8 +63,9 @@ type HostQuestion = {
   options?: QuestionOption[]
   multiSelect?: boolean
 }
-type LocalSession = { id: string; title: string; updatedAt: number; customTitle?: boolean }
+type LocalSession = { id: string; title: string; updatedAt: number; customTitle?: boolean; localOnly?: boolean }
 type ActivityItem = { id: string; callId: string; sessionId: string; toolName: string; summary: string; outcome: 'running' | 'success' | 'error' | 'cancelled' | 'interrupted' }
+type HistoryBackupEntry = { session: LocalSession; messages: ChatMessage[] }
 
 const defaultRuntimeConfig: RuntimeConfig = {
   nodePath: 'node',
@@ -77,6 +80,7 @@ const defaultRuntimeConfig: RuntimeConfig = {
 const supportedImageTypes = new Set<ImageMimeType>(['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
 const maxImageSize = 8 * 1024 * 1024
 const maxImageCount = 4
+const maxHistoryBackupBytes = 20 * 1024 * 1024
 
 const navItems: Array<{ id: View; label: string; icon: typeof MessageSquarePlus }> = [
   { id: 'chat', label: '对话', icon: MessageSquarePlus },
@@ -205,6 +209,55 @@ function isDeltaSessionId(sessionId: string) {
   return /^(?:delta-session|session)-[0-9a-f]{32}$/i.test(sessionId)
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && (value.role === 'user' || value.role === 'assistant')
+    && typeof value.text === 'string'
+}
+
+function isLocalSession(value: unknown): value is LocalSession {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && isDeltaSessionId(value.id)
+    && typeof value.title === 'string'
+    && typeof value.updatedAt === 'number'
+    && Number.isFinite(value.updatedAt)
+    && (value.customTitle === undefined || typeof value.customTitle === 'boolean')
+    && (value.localOnly === undefined || typeof value.localOnly === 'boolean')
+}
+
+function parseHistoryBackup(value: unknown): HistoryBackupEntry[] | null {
+  if (!isRecord(value)
+    || value.format !== 'dsh-desktop-delta-history'
+    || value.version !== 1
+    || !Array.isArray(value.sessions)
+    || value.sessions.length > 50) return null
+
+  const entries: HistoryBackupEntry[] = []
+  for (const item of value.sessions) {
+    if (!isRecord(item) || !isLocalSession(item.session) || !Array.isArray(item.messages)) return null
+    const messages = item.messages.filter(isChatMessage)
+    if (messages.length !== item.messages.length) return null
+    const session = item.session
+    entries.push({
+      session: {
+        id: session.id,
+        title: session.title,
+        updatedAt: session.updatedAt,
+        ...(session.customTitle === true ? { customTitle: true } : {}),
+        ...(session.localOnly === true ? { localOnly: true } : {}),
+      },
+      messages: messages.map(message => ({ id: message.id, role: message.role, text: message.text })),
+    })
+  }
+  return entries
+}
+
 function initialSessionId() {
   try {
     const stored = localStorage.getItem('delta-active-session')
@@ -254,11 +307,7 @@ function loadMessages(sessionId: string): ChatMessage[] {
     if (!messages) return []
     const parsed: unknown = JSON.parse(messages)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter((message: unknown): message is ChatMessage => message !== null
-      && typeof message === 'object'
-      && 'id' in message && typeof message.id === 'string'
-      && 'role' in message && (message.role === 'user' || message.role === 'assistant')
-      && 'text' in message && typeof message.text === 'string')
+    return parsed.filter(isChatMessage)
   } catch {
     return []
   }
@@ -268,11 +317,7 @@ function loadSessions(activeSessionId: string): LocalSession[] {
   try {
     const stored = localStorage.getItem('delta-sessions')
     const parsed: unknown = stored ? JSON.parse(stored) : []
-    const sessions = Array.isArray(parsed) ? parsed.filter((session: unknown): session is LocalSession => session !== null
-      && typeof session === 'object'
-      && 'id' in session && typeof session.id === 'string' && isDeltaSessionId(session.id)
-      && 'title' in session && typeof session.title === 'string'
-      && 'updatedAt' in session && typeof session.updatedAt === 'number') : []
+    const sessions = Array.isArray(parsed) ? parsed.filter(isLocalSession) : []
     if (sessions.some(session => session.id === activeSessionId)) return sessions
     return [{ id: activeSessionId, title: '新对话', updatedAt: Date.now() }, ...sessions].slice(0, 50)
   } catch {
@@ -290,6 +335,8 @@ function App() {
   const [isConnectionOpen, setConnectionOpen] = useState(true)
   const [connectionError, setConnectionError] = useState('')
   const [hasStorageError, setHasStorageError] = useState(false)
+  const [historyNotice, setHistoryNotice] = useState<{ text: string; isError: boolean } | null>(null)
+  const [isImportingHistory, setIsImportingHistory] = useState(false)
   const [isHelpOpen, setHelpOpen] = useState(false)
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -310,6 +357,7 @@ function App() {
   const [isSending, setIsSending] = useState(false)
   const previousRuntimeState = useRef<RuntimeStatus['state']>(runtime.state)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const historyBackupInputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const connectionSettingsRef = useRef<HTMLElement>(null)
@@ -323,6 +371,7 @@ function App() {
     return loadMessages(session.id).some(message => message.text.toLocaleLowerCase().includes(searchTerm))
   })
   const activeSessionTitle = sessions.find(session => session.id === sessionId)?.title ?? '新对话'
+  const isImportedHistory = sessions.find(session => session.id === sessionId)?.localOnly === true
 
   useEffect(() => {
     const previousState = previousRuntimeState.current
@@ -489,6 +538,7 @@ function App() {
   }
 
   async function sendMessage() {
+    if (isImportedHistory) return
     const text = draft.trim()
     const images = attachments
     if ((!text && images.length === 0) || !isOnline || isReadingImages) return
@@ -552,6 +602,97 @@ function App() {
     setIsReadingImages(false)
   }
 
+  function exportHistoryBackup() {
+    try {
+      const backup = {
+        format: 'dsh-desktop-delta-history',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        sessions: sessions.map(session => ({
+          session,
+          messages: session.id === sessionId ? messages : loadMessages(session.id),
+        })),
+      }
+      const serialized = JSON.stringify(backup, null, 2)
+      if (new Blob([serialized]).size > maxHistoryBackupBytes) {
+        setHistoryNotice({ text: zhCN.historyBackupTooLarge, isError: true })
+        return
+      }
+      const blob = new Blob([serialized], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `delta-history-${new Date().toISOString().slice(0, 10)}.json`
+      link.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setHistoryNotice({ text: zhCN.historyBackupExported, isError: false })
+    } catch {
+      setHistoryNotice({ text: zhCN.historyBackupExportFailed, isError: true })
+    }
+  }
+
+  async function importHistoryBackup(file: File | undefined) {
+    if (!file) return
+    setHistoryNotice(null)
+    if (file.size > maxHistoryBackupBytes) {
+      setHistoryNotice({ text: zhCN.historyBackupTooLarge, isError: true })
+      return
+    }
+
+    setIsImportingHistory(true)
+    try {
+      const parsed = parseHistoryBackup(JSON.parse(await file.text()) as unknown)
+      if (!parsed) {
+        setHistoryNotice({ text: zhCN.historyBackupInvalid, isError: true })
+        return
+      }
+
+      const currentSessions = sessionsRef.current
+      const knownIds = new Set(currentSessions.map(session => session.id))
+      const additions: HistoryBackupEntry[] = []
+      for (const entry of parsed) {
+        if (knownIds.has(entry.session.id) || localStorage.getItem(`delta-messages:${entry.session.id}`) !== null) continue
+        knownIds.add(entry.session.id)
+        additions.push(entry)
+      }
+      if (currentSessions.length + additions.length > 50) {
+        setHistoryNotice({ text: zhCN.historyBackupTooMany, isError: true })
+        return
+      }
+      if (additions.length === 0) {
+        setHistoryNotice({ text: zhCN.historyBackupNoNewSessions, isError: false })
+        return
+      }
+
+      const previousSessions = localStorage.getItem('delta-sessions')
+      try {
+        for (const entry of additions) {
+          localStorage.setItem(`delta-messages:${entry.session.id}`, JSON.stringify(entry.messages))
+        }
+        const restoredSessions = additions.map(entry => ({ ...entry.session, localOnly: true }))
+        const updatedSessions = [...restoredSessions, ...currentSessions]
+        localStorage.setItem('delta-sessions', JSON.stringify(updatedSessions))
+        setSessions(updatedSessions)
+      } catch {
+        for (const entry of additions) {
+          try { localStorage.removeItem(`delta-messages:${entry.session.id}`) } catch { /* Best effort rollback after a storage failure. */ }
+        }
+        try {
+          if (previousSessions === null) localStorage.removeItem('delta-sessions')
+          else localStorage.setItem('delta-sessions', previousSessions)
+        } catch { /* The storage warning below covers an incomplete rollback. */ }
+        setHasStorageError(true)
+        setHistoryNotice({ text: zhCN.historyBackupSaveFailed, isError: true })
+        return
+      }
+      setHistoryNotice({ text: zhCN.historyBackupImported(additions.length), isError: false })
+    } catch {
+      setHistoryNotice({ text: zhCN.historyBackupReadFailed, isError: true })
+    } finally {
+      setIsImportingHistory(false)
+    }
+  }
+
   function startNewSession() {
     const id = newSessionId()
     setSessionId(id)
@@ -589,7 +730,7 @@ function App() {
       return
     }
     setConnectionError('')
-    if (isOnline && loadMessages(session.id).length > 0 && !readySessionIds.has(session.id)) {
+    if (isOnline && !session.localOnly && loadMessages(session.id).length > 0 && !readySessionIds.has(session.id)) {
       try {
         await desktopHost.resume(session.id)
         setReadySessionIds(current => new Set(current).add(session.id))
@@ -892,8 +1033,32 @@ function App() {
           <div className="w-full max-w-[760px]">
             {view === 'history' ? (
               <section className="rounded-2xl border border-border bg-card p-5">
-                <h1 className="text-xl font-semibold">{zhCN.history}</h1>
-                <p className="mt-1 text-xs text-muted-foreground">{zhCN.historyDescription}</p>
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                  <div>
+                    <h1 className="text-xl font-semibold">{zhCN.history}</h1>
+                    <p className="mt-1 text-xs text-muted-foreground">{zhCN.historyDescription}</p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Button className="text-xs" size="sm" variant="outline" onClick={exportHistoryBackup}>
+                      <Download size={14} />{zhCN.exportHistoryBackup}
+                    </Button>
+                    <Button className="text-xs" disabled={isImportingHistory} size="sm" variant="outline" onClick={() => historyBackupInputRef.current?.click()}>
+                      <Upload size={14} />{isImportingHistory ? zhCN.importingHistoryBackup : zhCN.importHistoryBackup}
+                    </Button>
+                    <input
+                      accept=".json,application/json"
+                      className="hidden"
+                      onChange={event => {
+                        const file = event.currentTarget.files?.[0]
+                        event.currentTarget.value = ''
+                        void importHistoryBackup(file)
+                      }}
+                      ref={historyBackupInputRef}
+                      type="file"
+                    />
+                  </div>
+                </div>
+                {historyNotice && <p className={`mt-3 rounded-lg px-3 py-2 text-xs ${historyNotice.isError ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`} role={historyNotice.isError ? 'alert' : 'status'}>{historyNotice.text}</p>}
                 <div className="mt-4 space-y-2">
                   {filteredSessions.length === 0 ? <p className="py-8 text-center text-xs text-muted-foreground">{zhCN.emptyHistory}</p> : filteredSessions.map(session => (
                     <div className="flex items-center gap-2 rounded-xl border border-border px-2 hover:border-primary/40 hover:bg-accent/30" key={session.id}>
@@ -1041,7 +1206,7 @@ function App() {
               <textarea
                 aria-label="输入消息"
                 className="min-h-[82px] w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
-                disabled={!isOnline}
+                disabled={!isOnline || isImportedHistory}
                 ref={composerRef}
                 onChange={event => setDraft(event.target.value)}
                 onKeyDown={event => {
@@ -1050,19 +1215,19 @@ function App() {
                     void sendMessage()
                   }
                 }}
-                placeholder={isOnline ? zhCN.promptHarness : zhCN.connectHarnessFirst}
+                placeholder={isImportedHistory ? zhCN.importedHistoryReadOnly : isOnline ? zhCN.promptHarness : zhCN.connectHarnessFirst}
                 value={draft}
               />
               <div className="flex items-center justify-between border-t border-border/70 px-2 pt-3">
                 <div className="flex items-center gap-1">
-                  <Button aria-label="添加图片" className="size-8" size="icon" title="支持 PNG、JPEG、WebP、GIF；单张不超过 8 MB，最多 4 张" variant="ghost" disabled={!isOnline || attachments.length >= maxImageCount || isReadingImages} onClick={() => imageInputRef.current?.click()}><Plus size={16} /></Button>
+                  <Button aria-label="添加图片" className="size-8" size="icon" title="支持 PNG、JPEG、WebP、GIF；单张不超过 8 MB，最多 4 张" variant="ghost" disabled={!isOnline || isImportedHistory || attachments.length >= maxImageCount || isReadingImages} onClick={() => imageInputRef.current?.click()}><Plus size={16} /></Button>
                   <Button className="h-8 gap-1.5 text-xs" size="sm" variant="ghost" disabled={!isOnline} onClick={openConnectionSettings}>
                     <Zap size={14} />
                     {zhCN.modelSettings}
                     <ChevronDown size={12} />
                   </Button>
                 </div>
-                <Button aria-label="发送消息" className="size-8 rounded-lg" size="icon" variant="primary" disabled={!isOnline || (!draft.trim() && attachments.length === 0) || isReadingImages} onClick={() => void sendMessage()}>
+                <Button aria-label="发送消息" className="size-8 rounded-lg" size="icon" variant="primary" disabled={!isOnline || isImportedHistory || (!draft.trim() && attachments.length === 0) || isReadingImages} onClick={() => void sendMessage()}>
                   {isOnline ? <ArrowUp size={16} /> : <ArrowDown size={15} />}
                 </Button>
               </div>
