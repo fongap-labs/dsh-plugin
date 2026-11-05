@@ -93,7 +93,7 @@ function safeError(error) {
 
 
 async function panelMotionProbe(page) {
-  return page.locator('.ens-sidebar-search').first().evaluate(element => {
+  return page.locator('.ens-sidebar-search-input').first().evaluate(element => {
     const style = getComputedStyle(element)
     const toMilliseconds = value => {
       const duration = value.split(',')[0].trim()
@@ -232,7 +232,7 @@ async function main() {
     assert.equal(await extraPanel.count(), 0, 'Duplicate folder browser must not exist')
     record('single-native-session-browser', 'PASS')
 
-    const search = page.locator('.ens-sidebar-search').first()
+    const search = page.locator('.ens-sidebar-search-input').first()
     assert.ok(await search.count() > 0 && await search.isVisible(), 'Search launcher must be visible')
     const searchLabel = await search.getAttribute('aria-label') || ''
     assert.ok(searchLabel === '搜索会话' || searchLabel === 'Search conversations',
