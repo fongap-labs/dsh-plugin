@@ -269,15 +269,15 @@ function App() {
   const runtime = useSyncExternalStore(desktopHostStatus.subscribe, desktopHostStatus.getSnapshot, desktopHostStatus.getSnapshot)
   const [theme, setTheme] = useState<Theme>(initialTheme)
   const [view, setView] = useState<View>('chat')
-  const [searchOpen, setSearchOpen] = useState(false)
+  const [isSearchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(initialRuntimeConfig)
-  const [connectionOpen, setConnectionOpen] = useState(true)
+  const [isConnectionOpen, setConnectionOpen] = useState(true)
   const [connectionError, setConnectionError] = useState('')
-  const [helpOpen, setHelpOpen] = useState(false)
+  const [isHelpOpen, setHelpOpen] = useState(false)
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
-  const [workspacePickerOpen, setWorkspacePickerOpen] = useState(false)
+  const [isWorkspacePickerOpen, setWorkspacePickerOpen] = useState(false)
   const [workspaceDraft, setWorkspaceDraft] = useState('')
   const [workspaceError, setWorkspaceError] = useState('')
   const [sessionId, setSessionId] = useState(initialSessionId)
@@ -324,7 +324,7 @@ function App() {
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return
-      if (helpOpen || workspacePickerOpen || renamingSessionId || activeHostRequest) return
+      if (isHelpOpen || isWorkspacePickerOpen || renamingSessionId || activeHostRequest) return
       const target = event.target
       const isTyping = target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 
@@ -340,7 +340,7 @@ function App() {
     }
     window.addEventListener('keydown', handleShortcut)
     return () => window.removeEventListener('keydown', handleShortcut)
-  }, [startNewSession, helpOpen, workspacePickerOpen, renamingSessionId, activeHostRequest])
+  }, [startNewSession, isHelpOpen, isWorkspacePickerOpen, renamingSessionId, activeHostRequest])
 
   useEffect(() => {
     try {
@@ -354,7 +354,7 @@ function App() {
   }, [runtimeConfig, sessionId, messages, sessions])
 
   useEffect(() => {
-    let disposed = false
+    let isDisposed = false
     let unlistenSession: (() => void) | undefined
     let unlistenStatus: (() => void) | undefined
     let unlistenRequest: (() => void) | undefined
@@ -408,11 +408,11 @@ function App() {
           ].slice(0, 50)
         })
       }
-    }).then(stop => { if (disposed) stop(); else unlistenSession = stop }).catch(() => {})
+    }).then(stop => { if (isDisposed) stop(); else unlistenSession = stop }).catch(() => {})
 
     void listen<DesktopSessionStatus>('desktop:session-status', event => {
       if (event.payload.sessionId === sessionId) setIsSending(event.payload.status === 'running')
-    }).then(stop => { if (disposed) stop(); else unlistenStatus = stop }).catch(() => {})
+    }).then(stop => { if (isDisposed) stop(); else unlistenStatus = stop }).catch(() => {})
 
     void listen<DesktopHostRequest>('desktop:host-request', event => {
       const request = event.payload
@@ -428,14 +428,14 @@ function App() {
         return
       }
       setHostRequests(current => current.some(item => item.id === request.id) ? current : [...current, request])
-    }).then(stop => { if (disposed) stop(); else unlistenRequest = stop }).catch(() => {})
+    }).then(stop => { if (isDisposed) stop(); else unlistenRequest = stop }).catch(() => {})
 
     void listen<{ requestId: string }>('desktop:host-request-cancelled', event => {
       setHostRequests(current => current.filter(item => item.params.requestId !== event.payload.requestId))
-    }).then(stop => { if (disposed) stop(); else unlistenRequestCancelled = stop }).catch(() => {})
+    }).then(stop => { if (isDisposed) stop(); else unlistenRequestCancelled = stop }).catch(() => {})
 
     return () => {
-      disposed = true
+      isDisposed = true
       unlistenSession?.()
       unlistenStatus?.()
       unlistenRequest?.()
@@ -628,14 +628,14 @@ function App() {
     setWorkspacePickerOpen(true)
   }
 
-  async function chooseHarnessPath(directory: boolean) {
+  async function chooseHarnessPath(isDirectory: boolean) {
     try {
       const path = await openDialog({
-        title: directory ? zhCN.selectHarnessFolder : zhCN.selectDshStartupFile,
+        title: isDirectory ? zhCN.selectHarnessFolder : zhCN.selectDshStartupFile,
         defaultPath: runtimeConfig.dshPath || undefined,
-        directory,
+        directory: isDirectory,
         multiple: false,
-        filters: directory ? undefined : [{ name: 'Node.js 启动文件', extensions: ['js', 'mjs', 'cjs'] }],
+        filters: isDirectory ? undefined : [{ name: 'Node.js 启动文件', extensions: ['js', 'mjs', 'cjs'] }],
       })
       if (typeof path === 'string') {
         setRuntimeConfig(config => ({ ...config, dshPath: path }))
@@ -734,7 +734,7 @@ function App() {
         </Button>
 
         <Button
-          aria-expanded={searchOpen}
+          aria-expanded={isSearchOpen}
           className="mb-5 w-full justify-start"
           variant="outline"
           onClick={() => setSearchOpen(value => !value)}
@@ -744,7 +744,7 @@ function App() {
           <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">{shortcutModifier === '⌘' && <Command size={10} />}{shortcutModifier === 'Ctrl' && 'Ctrl ' }F</span>
         </Button>
 
-        {searchOpen && (
+        {isSearchOpen && (
           <div className="mb-4 px-1">
             <input
               autoFocus
@@ -938,7 +938,7 @@ function App() {
               </div>
             )}
 
-            {view === 'chat' && connectionOpen && (
+            {view === 'chat' && isConnectionOpen && (
               <section ref={connectionSettingsRef} className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <div className="mb-4">
                   <h2 className="text-sm font-semibold">{isOnline ? zhCN.connectionSettings : zhCN.connectExistingHarness}</h2>
@@ -1058,7 +1058,7 @@ function App() {
         />
       )}
 
-      {helpOpen && (
+      {isHelpOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" onMouseDown={event => { if (event.target === event.currentTarget) setHelpOpen(false) }} role="presentation">
           <section aria-labelledby="help-title" aria-modal="true" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl" onKeyDown={event => { if (event.key === 'Escape') setHelpOpen(false) }} role="dialog" tabIndex={-1}>
             <h2 className="text-base font-semibold" id="help-title">{zhCN.helpTitle}</h2>
@@ -1096,7 +1096,7 @@ function App() {
         </div>
       )}
 
-      {workspacePickerOpen && (
+      {isWorkspacePickerOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" role="presentation">
           <section aria-labelledby="workspace-title" aria-modal="true" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl" role="dialog">
             <h2 className="text-base font-semibold" id="workspace-title">{zhCN.setWorkspace}</h2>
@@ -1239,7 +1239,7 @@ function HostRequestDialog({ request, onResolve }: {
   request: DesktopHostRequest
   onResolve(result: Record<string, unknown>): Promise<void>
 }) {
-  const [submitting, setSubmitting] = useState(false)
+  const [isSubmitting, setSubmitting] = useState(false)
   const [selected, setSelected] = useState<Record<string, string[]>>({})
   const [custom, setCustom] = useState<Record<string, string>>({})
   const questions = Array.isArray(request.params.questions) ? request.params.questions as HostQuestion[] : []
@@ -1264,8 +1264,8 @@ function HostRequestDialog({ request, onResolve }: {
           <p className="mt-2 text-sm font-medium">{toolName}</p>
           <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{reason}</p>
           <div className="mt-6 flex justify-end gap-2">
-            <Button disabled={submitting} variant="outline" onClick={() => void resolve({ outcome: 'rejected' })}>{zhCN.reject}</Button>
-            <Button disabled={submitting} variant="primary" onClick={() => void resolve({ outcome: 'allowed-once' })}>{submitting ? zhCN.processing : zhCN.allowOnce}</Button>
+            <Button disabled={isSubmitting} variant="outline" onClick={() => void resolve({ outcome: 'rejected' })}>{zhCN.reject}</Button>
+            <Button disabled={isSubmitting} variant="primary" onClick={() => void resolve({ outcome: 'allowed-once' })}>{isSubmitting ? zhCN.processing : zhCN.allowOnce}</Button>
           </div>
         </section>
       </div>
@@ -1334,8 +1334,8 @@ function HostRequestDialog({ request, onResolve }: {
           ))}
         </div>
         <div className="mt-5 flex justify-end gap-2">
-          <Button disabled={submitting} variant="outline" onClick={() => void resolve({ cancelled: true })}>{zhCN.cancel}</Button>
-          <Button disabled={submitting || !canSubmit || questions.length === 0} variant="primary" onClick={() => void resolve({ answers })}>{submitting ? zhCN.submitting : zhCN.submitAnswers}</Button>
+          <Button disabled={isSubmitting} variant="outline" onClick={() => void resolve({ cancelled: true })}>{zhCN.cancel}</Button>
+          <Button disabled={isSubmitting || !canSubmit || questions.length === 0} variant="primary" onClick={() => void resolve({ answers })}>{isSubmitting ? zhCN.submitting : zhCN.submitAnswers}</Button>
         </div>
       </section>
     </div>

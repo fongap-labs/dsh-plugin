@@ -8,7 +8,7 @@ const disconnectedStatus: RuntimeStatus = {
 }
 
 let status: RuntimeStatus = disconnectedStatus
-let bootstrapped = false
+let isBootstrapped = false
 const listeners = new Set<() => void>()
 
 function publish(next: RuntimeStatus) {
@@ -17,8 +17,8 @@ function publish(next: RuntimeStatus) {
 }
 
 async function bootstrap() {
-  if (bootstrapped) return
-  bootstrapped = true
+  if (isBootstrapped) return
+  isBootstrapped = true
 
   try {
     await listen<RuntimeStatus>('desktop:runtime-status', event => publish(event.payload))
