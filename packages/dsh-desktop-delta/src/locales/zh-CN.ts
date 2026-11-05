@@ -30,6 +30,7 @@ export const zhCN = {
   selectDshStartupFile: "选择 dsh 启动文件",
   moreConnectionSettings: "更多连接设置",
   browseNodeProgram: "浏览 Node.js 程序",
+  nodeProgramFilterName: "Node.js 程序",
   pluginConfigFile: "dsh-suite-delta 配置文件（可留空）",
   browseConfigFile: "浏览配置文件",
   pluginInstallNote: "要同时使用 dsh-suite-delta，请先在 Harness 安装它。这里仅选择插件配置，不会安装插件或复制插件代码。",

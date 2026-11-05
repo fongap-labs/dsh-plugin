@@ -651,7 +651,7 @@ function App() {
       const path = await openDialog({
         title: '选择 Node.js 程序',
         multiple: false,
-        filters: /Win/.test(navigator.platform) ? [{ name: 'Node.js 程序', extensions: ['exe'] }] : undefined,
+        filters: /Win/.test(navigator.platform) ? [{ name: zhCN.nodeProgramFilterName, extensions: ['exe'] }] : undefined,
       })
       if (typeof path === 'string') {
         setRuntimeConfig(config => ({ ...config, nodePath: path }))
