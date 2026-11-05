@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 维护: 增加 Windows、Linux、macOS 安装包构建检查与草稿发布流程。
+- 维护: 补充 Windows、Linux、macOS 本机构建和手动发布说明。
 
 - 修复: Harness SDK 输出通道关闭后回收进程并清理旧连接，未完成任务仍标为结果未知。
 
