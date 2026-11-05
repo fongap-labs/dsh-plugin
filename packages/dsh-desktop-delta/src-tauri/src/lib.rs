@@ -2,7 +2,7 @@ use serde_json::{json, Value};
 use std::{
     collections::HashMap,
     fs,
-    io::{BufRead, BufReader, Write},
+    io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
     sync::{
@@ -56,6 +56,7 @@ struct RuntimeManager {
     status: Arc<Mutex<RuntimeStatus>>,
     connection: Arc<Mutex<Option<Arc<RuntimeConnection>>>>,
     generation: Arc<AtomicU64>,
+    workspace_root: Arc<Mutex<Option<PathBuf>>>,
 }
 
 struct RuntimeConnection {
@@ -73,6 +74,7 @@ impl Default for RuntimeManager {
             })),
             connection: Arc::new(Mutex::new(None)),
             generation: Arc::new(AtomicU64::new(0)),
+            workspace_root: Arc::new(Mutex::new(None)),
         }
     }
 }
@@ -111,6 +113,7 @@ impl RuntimeManager {
         let generation = self.generation.fetch_add(1, Ordering::AcqRel) + 1;
         current.take();
         drop(current);
+        *self.workspace_root.lock().map_err(|_| "Workspace state unavailable".to_string())? = None;
 
         self.publish_status(
             &app,
@@ -179,6 +182,7 @@ impl RuntimeManager {
         }
 
         let dsh_bin = resolve_dsh_entry(Path::new(dsh_path.trim()))?;
+        let is_workspace_explicit = workspace.as_deref().is_some_and(|value| !value.trim().is_empty());
         let workspace = resolve_workspace(workspace.as_deref())?;
         let patch_path = resolve_patch_path(patch_path.as_deref(), &workspace)?;
         let mut command = Command::new(node_path);
@@ -251,6 +255,14 @@ impl RuntimeManager {
             .and_then(Value::as_str)
             .unwrap_or("未知版本")
             .to_string();
+        if is_workspace_explicit {
+            let mut root = self.workspace_root.lock()
+                .map_err(|_| "Workspace state unavailable".to_string())?;
+            if self.generation.load(Ordering::Acquire) != generation {
+                return Err("Runtime connection changed".into());
+            }
+            *root = Some(workspace.clone());
+        }
 
         Ok(RuntimeStatus::Ready {
             version,
@@ -259,6 +271,9 @@ impl RuntimeManager {
     }
 
     fn disconnect(&self, app: &AppHandle) {
+        if let Ok(mut root) = self.workspace_root.lock() {
+            *root = None;
+        }
         if let Ok(mut connection) = self.connection.lock() {
             self.generation.fetch_add(1, Ordering::AcqRel);
             if let Some(connection) = connection.take() {
@@ -666,20 +681,27 @@ fn desktop_host_handshake(
     let RuntimeStatus::Ready { version, .. } = &*status else {
         return Err(DesktopCommandError::new("runtime_unavailable", "请先连接 Harness"));
     };
-    // Return only methods implemented by this adapter and documented by the public SDK.
+    // SDK methods and locally authorized read-only workspace access.
+    let mut capabilities = vec![
+        "sessions.resume",
+        "sessions.prompt",
+        "sessions.wait",
+        "sessions.events",
+        "approvals.respond",
+        "questions.respond",
+        "workspace.cwd",
+    ];
+    if state.workspace_root.lock()
+        .map_err(|_| DesktopCommandError::new("runtime_unavailable", "Workspace state unavailable"))?
+        .is_some()
+    {
+        capabilities.push("workspace.files");
+    }
     // Harness SDK itself does not expose version or capability negotiation.
     Ok(json!({
         "protocolVersion": {"major": 1, "minor": 1},
         "runtime": {"name": "deepseek-harness", "version": version},
-        "capabilities": [
-            "sessions.resume",
-            "sessions.prompt",
-            "sessions.wait",
-            "sessions.events",
-            "approvals.respond",
-            "questions.respond",
-            "workspace.cwd"
-        ],
+        "capabilities": capabilities,
         "upstream": {
             "protocol": "sdk-stdio-unversioned",
             "capabilitySource": "adapter-supported-methods",
@@ -819,11 +841,167 @@ fn set_working_directory(
         json!({"sessionId": session_id, "path": path}),
         Duration::from_secs(15),
     )?;
-    result
+    let cwd = result
         .get("cwd")
         .and_then(Value::as_str)
-        .map(str::to_string)
-        .ok_or_else(|| "Harness 没有返回工作文件夹".into())
+        .ok_or_else(|| "Harness 没有返回工作文件夹".to_string())?;
+    let selected_root = resolve_workspace(Some(cwd))?;
+    *state.workspace_root.lock()
+        .map_err(|_| "Workspace state unavailable".to_string())? = Some(selected_root);
+    Ok(cwd.to_string())
+}
+
+
+const MAX_WORKSPACE_ENTRIES: usize = 200;
+const MAX_WORKSPACE_SCAN: usize = 3000;
+const MAX_WORKSPACE_PREVIEW_BYTES: u64 = 64 * 1024;
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceFileEntry {
+    name: String,
+    relative_path: String,
+    kind: &'static str,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceListing {
+    root_name: String,
+    relative_path: String,
+    entries: Vec<WorkspaceFileEntry>,
+    is_truncated: bool,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspacePreview {
+    relative_path: String,
+    text: String,
+}
+
+fn is_restricted_workspace_name(name: &str) -> bool {
+    if name.starts_with('.') { return true; }
+    matches!(name.to_ascii_lowercase().as_str(),
+        "node_modules" | "target" | "secrets" | "credentials" | "keys"
+        | "private-keys" | "private_keys" | "vendor")
+}
+
+fn selected_workspace_root(state: &RuntimeManager) -> Result<PathBuf, String> {
+    let status = state.status.lock().map_err(|_| "Runtime status unavailable".to_string())?;
+    if !matches!(&*status, RuntimeStatus::Ready { .. }) {
+        return Err("Harness is not connected".into());
+    }
+    drop(status);
+    state.workspace_root.lock()
+        .map_err(|_| "Workspace state unavailable".to_string())?
+        .clone()
+        .ok_or_else(|| "Select a workspace folder before browsing files".to_string())
+}
+
+// No renderer-supplied absolute path is accepted, even when it points inside
+// the selected workspace. Symlink components and outside canonical targets
+// are always rejected; local preview is never a Harness tool invocation.
+fn workspace_path(root: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    if relative_path.len() > 512 || relative_path.contains('\0') {
+        return Err("Invalid workspace path".into());
+    }
+    let mut candidate = root.to_path_buf();
+    if !relative_path.is_empty() {
+        for segment in relative_path.split('/') {
+            if segment.is_empty()
+                || segment == "." || segment == ".."
+                || segment.contains('\\') || segment.contains(':')
+                || segment.len() > 255
+                || is_restricted_workspace_name(segment)
+            {
+                return Err("Workspace path is not permitted".into());
+            }
+            candidate.push(segment);
+            let metadata = fs::symlink_metadata(&candidate).map_err(|_| "Workspace path not found".to_string())?;
+            if metadata.file_type().is_symlink() {
+                return Err("Workspace links cannot be followed".into());
+            }
+        }
+    }
+    let canonical = candidate.canonicalize().map_err(|_| "Workspace path not found".to_string())?;
+    if !canonical.starts_with(root) {
+        return Err("Workspace path escapes the selected folder".into());
+    }
+    Ok(canonical)
+}
+
+fn is_text_preview_allowed(path: &Path) -> bool {
+    let Some(extension) = path.extension().and_then(|ext| ext.to_str()) else { return false; };
+    matches!(extension.to_ascii_lowercase().as_str(),
+        "md" | "txt" | "json" | "jsonc" | "ts" | "tsx" | "js" | "jsx" | "mjs"
+        | "cjs" | "rs" | "py" | "toml" | "yaml" | "yml" | "css" | "scss"
+        | "html" | "htm" | "xml" | "go" | "java" | "sql" | "sh" | "ps1"
+        | "c" | "h" | "cpp" | "hpp" | "ini" | "csv" | "log")
+}
+
+#[tauri::command]
+fn list_workspace_files(state: State<'_, RuntimeManager>, relative_path: String) -> Result<WorkspaceListing, String> {
+    let root = selected_workspace_root(&state)?;
+    let path = workspace_path(&root, &relative_path)?;
+    if !path.is_dir() { return Err("Workspace path is not a directory".into()); }
+    let mut entries = Vec::new();
+    let mut is_truncated = false;
+    for (index, item) in fs::read_dir(&path)
+        .map_err(|_| "Cannot list workspace directory".to_string())?
+        .enumerate()
+    {
+        if index >= MAX_WORKSPACE_SCAN {
+            is_truncated = true;
+            break;
+        }
+        let item = item.map_err(|_| "Cannot read workspace entry".to_string())?;
+        let Ok(name) = item.file_name().into_string() else { continue; };
+        if is_restricted_workspace_name(&name) { continue; }
+        let kind = item.file_type().map_err(|_| "Cannot inspect workspace entry".to_string())?;
+        // Never expose symlinks, junctions or special files.
+        let kind = if kind.is_dir() { "directory" }
+            else if kind.is_file() { "file" }
+            else { continue };
+        let entry_path = if relative_path.is_empty() { name.clone() }
+            else { format!("{relative_path}/{name}") };
+        entries.push(WorkspaceFileEntry { name, relative_path: entry_path, kind });
+    }
+    entries.sort_by(|a, b| {
+        (a.kind != "directory").cmp(&(b.kind != "directory"))
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    if entries.len() > MAX_WORKSPACE_ENTRIES {
+        entries.truncate(MAX_WORKSPACE_ENTRIES);
+        is_truncated = true;
+    }
+    let root_name = root.file_name().and_then(|name| name.to_str())
+        .unwrap_or("workspace").to_string();
+    Ok(WorkspaceListing { root_name, relative_path, entries, is_truncated })
+}
+
+#[tauri::command]
+fn preview_workspace_file(state: State<'_, RuntimeManager>, relative_path: String) -> Result<WorkspacePreview, String> {
+    if relative_path.is_empty() { return Err("Select a file to preview".into()); }
+    let root = selected_workspace_root(&state)?;
+    let path = workspace_path(&root, &relative_path)?;
+    if !path.is_file() { return Err("Workspace path is not a file".into()); }
+    if !is_text_preview_allowed(&path) {
+        return Err("This file type is not available for text preview".into());
+    }
+    if fs::metadata(&path).map_err(|_| "Cannot inspect workspace file".to_string())?.len() > MAX_WORKSPACE_PREVIEW_BYTES {
+        return Err("File exceeds the 64 KiB preview limit".into());
+    }
+    let mut bytes = Vec::new();
+    fs::File::open(&path).map_err(|_| "Cannot open workspace file".to_string())?
+        .take(MAX_WORKSPACE_PREVIEW_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "Cannot read workspace file".to_string())?;
+    if bytes.len() as u64 > MAX_WORKSPACE_PREVIEW_BYTES || bytes.contains(&0) {
+        return Err("Workspace file is too large or binary".into());
+    }
+    let text = String::from_utf8(bytes).map_err(|_| "Workspace preview requires UTF-8 text".to_string())?;
+    Ok(WorkspacePreview { relative_path, text })
 }
 
 #[tauri::command]
@@ -853,6 +1031,8 @@ pub fn run() {
             wait_session,
             resume_session,
             set_working_directory,
+            list_workspace_files,
+            preview_workspace_file,
             respond_host_request,
             disconnect_runtime
         ])
