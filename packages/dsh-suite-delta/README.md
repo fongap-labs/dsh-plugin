@@ -13,7 +13,9 @@ DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Suite)。
 
 ## 隐私与配置
 
-Delta Suite 的 Bundle 默认将「在使用官方模型 API 时上传 Session Log」设为关闭，即宿主 `session-log-deepseek` 的 `enabled` 为 `false`；需要上传时可在宿主「设置 → 通用」中重新开启。Delta Suite 同时在宿主提供 `sessionLogDeepSeek` 服务时注册全局请求排除规则，作为第二层保护；禁用或卸载 Delta Suite 后，这层保护不再存在。已经准备的在途请求不会被追溯取消。普通模型推理仍会发送必需的消息内容，关闭 Session Log 不等于完全离线。
+Delta Suite 的 Bundle **禁用** 宿主 `session-log-deepseek` 插件，而不是仅将 `enabled` 设为 `false`。因此在此 Bundle 生效且没有更高优先级覆盖时，宿主「设置 → 通用」中的「在使用官方模型 API 时上传 Session Log」开关将不再显示，用户无法从该开关重新开启上传。此机制不是全局不可变安全策略：若其他 Profile、Home 配置或命令行覆盖重新启用插件，依然可能恢复该功能；Delta Suite 在宿主提供 `sessionLogDeepSeek` 服务时仍注册全局上传排除规则作为额外防护。禁用或卸载 Delta Suite 后，防护不再存在；已准备的在途请求不会被追溯取消。
+
+同时默认关闭 `session-telemetry-otel` 的 OTel 会话/反馈上传（`DISABLED`）、`plugin-package-inventory-deepseek` 插件清单附加上传及桌面 `product-analytics` 事件采集。以上是宿主 Bundle 默认值，不是操作系统级网络隔离；宿主原生模型调用、登录、更新和第三方插件/子进程可能另有网络请求。**普通模型推理仍会发送必需消息；脱敏扫描无法保证识别所有隐私内容。** Delta 自有的搜索和图片生成文本请求执行本地敏感信息预检查，检测到疑似凭据、邮箱、手机号或个人路径时拒绝外传，用户需先自行处理后重试。
 
 联网搜索的独立服务商配置需要按「保存配置」才会写入宿主。视觉识别与生图复用「模型配置」中当前默认模型的账号、接口地址和 API Key，不再单独添加视觉服务商；各自可指定模型 ID。API 密钥在提交成功后从输入框清除。Windows 下使用当前用户的 DPAPI 加密；其他系统当前仅在进程内保存密钥，重启后需要重新输入。
 
