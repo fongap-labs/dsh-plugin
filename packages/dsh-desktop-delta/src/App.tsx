@@ -62,7 +62,7 @@ type HostQuestion = {
   multiSelect?: boolean
 }
 type LocalSession = { id: string; title: string; updatedAt: number; customTitle?: boolean }
-type ActivityItem = { id: string; callId: string; sessionId: string; toolName: string; summary: string; outcome: 'running' | 'success' | 'error' | 'cancelled' }
+type ActivityItem = { id: string; callId: string; sessionId: string; toolName: string; summary: string; outcome: 'running' | 'success' | 'error' | 'cancelled' | 'interrupted' }
 
 const defaultRuntimeConfig: RuntimeConfig = {
   nodePath: 'node',
@@ -289,6 +289,7 @@ function App() {
   const [hostRequests, setHostRequests] = useState<DesktopHostRequest[]>([])
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const previousRuntimeState = useRef<RuntimeStatus['state']>(runtime.state)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const composerRef = useRef<HTMLTextAreaElement>(null)
@@ -305,8 +306,21 @@ function App() {
   const activeSessionTitle = sessions.find(session => session.id === sessionId)?.title ?? '新对话'
 
   useEffect(() => {
-    if (runtime.state === 'ready') setConnectionOpen(false)
-    if (runtime.state !== 'ready') setHostRequests([])
+    const previousState = previousRuntimeState.current
+    previousRuntimeState.current = runtime.state
+    if (runtime.state === 'ready') {
+      setConnectionOpen(false)
+      return
+    }
+    setHostRequests([])
+    if (previousState === 'ready') {
+      setIsSending(false)
+      setReadySessionIds(new Set())
+      setActivities(current => current.map(item => item.outcome === 'running'
+        ? { ...item, outcome: 'interrupted' }
+        : item))
+      setConnectionOpen(true)
+    }
   }, [runtime.state])
 
   useEffect(() => {
@@ -358,6 +372,7 @@ function App() {
     let unlistenRequestCancelled: (() => void) | undefined
 
     void desktopHost.onSessionEvent(item => {
+      if (desktopHostStatus.getSnapshot().state !== 'ready') return
       if (!isDeltaSessionId(item.sessionId) || !sessionsRef.current.some(session => session.id === item.sessionId)) return
       if (item.type === 'tool.started') {
         if (item.sessionId !== sessionId) return
@@ -369,7 +384,7 @@ function App() {
       }
       if (item.type === 'tool.completed') {
         if (item.sessionId !== sessionId) return
-        setActivities(current => current.map(activity => activity.callId === item.payload.callId
+        setActivities(current => current.map(activity => activity.outcome === 'running' && activity.callId === item.payload.callId
           ? { ...activity, outcome: item.payload.outcome, summary: item.payload.summary ?? activity.summary }
           : activity))
         return
@@ -407,6 +422,7 @@ function App() {
     }).then(stop => { if (isDisposed) stop(); else unlistenSession = stop }).catch(() => {})
 
     void desktopHost.onSessionStatus(status => {
+      if (desktopHostStatus.getSnapshot().state !== 'ready') return
       if (status.sessionId === sessionId) setIsSending(status.status === 'running')
     }).then(stop => { if (isDisposed) stop(); else unlistenStatus = stop }).catch(() => {})
 
@@ -881,11 +897,12 @@ function App() {
                     <article className="rounded-xl border border-border px-3 py-3" key={item.id}>
                       <div className="flex items-center justify-between gap-3">
                         <p className="truncate text-xs font-medium">{item.toolName}</p>
-                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] ${item.outcome === 'success' ? 'bg-success/10 text-success' : item.outcome === 'error' ? 'bg-destructive/10 text-destructive' : item.outcome === 'cancelled' ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
-                          {item.outcome === 'success' ? zhCN.completed : item.outcome === 'error' ? zhCN.failedStatus : item.outcome === 'cancelled' ? zhCN.cancelled : zhCN.inProgress}
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] ${item.outcome === 'success' ? 'bg-success/10 text-success' : item.outcome === 'error' ? 'bg-destructive/10 text-destructive' : item.outcome === 'cancelled' || item.outcome === 'interrupted' ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
+                          {item.outcome === 'success' ? zhCN.completed : item.outcome === 'error' ? zhCN.failedStatus : item.outcome === 'cancelled' ? zhCN.cancelled : item.outcome === 'interrupted' ? zhCN.interrupted : zhCN.inProgress}
                         </span>
                       </div>
                       {item.summary && <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-4 text-muted-foreground">{item.summary}</pre>}
+                      {item.outcome === 'interrupted' && <p className="mt-2 text-[10px] text-muted-foreground">{zhCN.interruptedResult}</p>}
                     </article>
                   ))}
                 </div>

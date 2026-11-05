@@ -73,6 +73,8 @@ export const zhCN = {
   switchToLightMode: "切换到浅色模式",
   completed: "已完成",
   cancelled: "已取消",
+  interrupted: "连接中断",
+  interruptedResult: "连接已断开，工具的最终结果未知。",
   inProgress: "进行中",
   connecting: "正在连接…",
   saveAndReconnect: "保存并重新连接",
