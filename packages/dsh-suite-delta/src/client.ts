@@ -1903,7 +1903,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               head.className = 'ens-set-head';
               const title = document.createElement('div');
               title.className = 'ens-set-title';
-              title.textContent = 'Delta Suite';
+              title.textContent = 'Delta Suite for DSH';
               const sub = document.createElement('div');
               sub.className = 'ens-set-sub';
               sub.textContent = pick(
@@ -2011,7 +2011,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               backdrop.className = 'ens-modal-backdrop ens-standalone-settings-modal';
               backdrop.setAttribute('role', 'dialog');
               backdrop.setAttribute('aria-modal', 'true');
-              backdrop.setAttribute('aria-label', pick('设置 · Delta Suite', 'Settings · Delta Suite'));
+              backdrop.setAttribute('aria-label', pick('设置 · Delta 套件（DSH 版）', 'Settings · Delta Suite for DSH'));
               const card = document.createElement('div');
               card.className = 'ens-modal-card ens-ui-card';
               const top = document.createElement('div');
@@ -2019,10 +2019,10 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const headBox = document.createElement('div');
               const titleEl = document.createElement('div');
               titleEl.className = 'ens-modal-title';
-              titleEl.textContent = pick('设置 · Delta Suite', 'Settings · Delta Suite');
+              titleEl.textContent = pick('设置 · Delta 套件（DSH 版）', 'Settings · Delta Suite for DSH');
               const subEl = document.createElement('div');
               subEl.className = 'ens-modal-sub';
-              subEl.textContent = 'Delta Suite';
+              subEl.textContent = 'Delta Suite for DSH';
               headBox.append(titleEl, subEl);
               const btns = document.createElement('div');
               btns.style.cssText = 'display:flex;gap:8px;flex:none;';
@@ -4701,7 +4701,7 @@ const MODULES: ModuleDef[] = [
             ]);
             return h('div', { className: 'ens-settings' }, [
               h('div', { key: 'h', className: 'ens-set-head' }, [
-                h('div', { key: 't', className: 'ens-set-title' }, pick('Delta 套件', 'Delta Suite settings')),
+                h('div', { key: 't', className: 'ens-set-title' }, pick('Delta 套件（DSH 版）', 'Delta Suite for DSH settings')),
                 h('div', { key: 'd', className: 'ens-set-sub' }, pick(
                   '外观与功能模块。仅「可用」的开关可操作，其余标注其真实状态。',
                   'Appearance and feature modules. Only available switches are operable; the rest state their real status.',
@@ -4726,7 +4726,7 @@ const MODULES: ModuleDef[] = [
             ]);
           }
           ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register(
-            { name: 'settings.section', id: '@fongap-labs/dsh-suite-delta', order: 20, label: t('Delta 套件', 'Delta Suite settings') },
+            { name: 'settings.section', id: '@fongap-labs/dsh-suite-delta', order: 20, label: t('Delta 套件（DSH 版）', 'Delta Suite for DSH settings') },
             DeltaSettings,
           )), 'dsh-ui-delta: settings module');
         } catch (error) {
