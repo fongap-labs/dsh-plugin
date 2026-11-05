@@ -4,7 +4,7 @@ use std::{
     fs,
     io::{BufRead, BufReader, Read, Write},
     path::{Path, PathBuf},
-    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    process::{Child, ChildStdin, ChildStdout, Command, ExitStatus, Stdio},
     sync::{
         atomic::{AtomicU64, Ordering},
         mpsc::{self, SyncSender},
@@ -61,7 +61,7 @@ struct RuntimeManager {
 
 struct RuntimeConnection {
     stdin: Arc<Mutex<ChildStdin>>,
-    child: Mutex<Child>,
+    child: Arc<Mutex<Child>>,
     pending: Arc<Mutex<HashMap<String, SyncSender<Result<Value, String>>>>>,
     next_id: AtomicU64,
 }
@@ -143,6 +143,9 @@ impl RuntimeManager {
                 if self.generation.load(Ordering::Acquire) != generation {
                     return Err("连接已被新的操作替换".into());
                 }
+                if current.is_none() {
+                    return Err("Harness 连接已关闭".into());
+                }
                 self.publish_status(&app, status.clone());
                 Ok(status)
             }
@@ -217,7 +220,7 @@ impl RuntimeManager {
         let pending = Arc::new(Mutex::new(HashMap::new()));
         let connection = Arc::new(RuntimeConnection {
             stdin: Arc::new(Mutex::new(stdin)),
-            child: Mutex::new(child),
+            child: Arc::new(Mutex::new(child)),
             pending: pending.clone(),
             next_id: AtomicU64::new(1),
         });
@@ -235,8 +238,13 @@ impl RuntimeManager {
         let status = self.status.clone();
         let generation_state = self.generation.clone();
         let request_stdin = connection.stdin.clone();
+        let child_for_reader = connection.child.clone();
+        let connection_state = Arc::downgrade(&self.connection);
         let app_for_reader = app.clone();
-        thread::spawn(move || read_runtime_output(stdout, pending, status, generation_state, generation, request_stdin, app_for_reader));
+        thread::spawn(move || read_runtime_output(
+            stdout, pending, status, generation_state, generation, request_stdin,
+            child_for_reader, connection_state, app_for_reader,
+        ));
 
         let init = connection.request(
             "initialize",
@@ -353,10 +361,7 @@ impl RuntimeConnection {
 
 impl Drop for RuntimeConnection {
     fn drop(&mut self) {
-        if let Ok(child) = self.child.get_mut() {
-            let _ = child.kill();
-            let _ = child.wait();
-        }
+        let _ = reap_runtime_child(&self.child);
     }
 }
 
@@ -433,6 +438,8 @@ fn read_runtime_output(
     active_generation: Arc<AtomicU64>,
     generation: u64,
     stdin: Arc<Mutex<ChildStdin>>,
+    child: Arc<Mutex<Child>>,
+    connection_state: std::sync::Weak<Mutex<Option<Arc<RuntimeConnection>>>>,
     app: AppHandle,
 ) {
     let reader = BufReader::new(stdout);
@@ -512,17 +519,83 @@ fn read_runtime_output(
         }
     }
 
-    if active_generation.load(Ordering::Acquire) == generation {
-        if let Ok(mut status) = status.lock() {
-            *status = RuntimeStatus::Offline {
-                message: "Harness 连接已关闭".into(),
+    let (exit_message, is_faulted) = match reap_runtime_child(&child) {
+        Ok((exit_status, was_terminated)) => {
+            let exit_code = exit_status.code()
+                .map(|code| format!("（退出码 {code}）"))
+                .unwrap_or_default();
+            let is_faulted = was_terminated || !exit_status.success();
+            let description = if was_terminated {
+                "输出通道关闭，已结束遗留进程"
+            } else if exit_status.success() {
+                "进程已退出"
+            } else {
+                "进程异常退出"
             };
-            let _ = app.emit("desktop:runtime-status", status.clone());
+            (
+                format!("Harness {description}{exit_code}；未完成任务的结果可能未知。"),
+                is_faulted,
+            )
+        }
+        Err(error) => (
+            format!("Harness 连接关闭，回收进程失败：{error}；任务结果可能未知。"),
+            true,
+        ),
+    };
+
+    if active_generation.load(Ordering::Acquire) == generation {
+        let stale_connection = connection_state.upgrade().and_then(|connections| {
+            let Ok(mut current) = connections.lock() else { return None };
+            if current.as_ref().is_some_and(|connection| Arc::ptr_eq(&connection.child, &child)) {
+                current.take()
+            } else {
+                None
+            }
+        });
+        drop(stale_connection);
+
+        if active_generation.load(Ordering::Acquire) == generation {
+            if let Ok(mut status) = status.lock() {
+                if active_generation.load(Ordering::Acquire) == generation {
+                    *status = if is_faulted {
+                        RuntimeStatus::Faulted { message: exit_message }
+                    } else {
+                        RuntimeStatus::Offline { message: exit_message }
+                    };
+                    let _ = app.emit("desktop:runtime-status", status.clone());
+                }
+            }
         }
     }
+
     if let Ok(mut pending) = pending.lock() {
         for (_, sender) in pending.drain() {
             let _ = sender.send(Err("Harness 连接已关闭".into()));
+        }
+    }
+}
+
+fn reap_runtime_child(child: &Mutex<Child>) -> Result<(ExitStatus, bool), String> {
+    let mut child = child.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    match child.try_wait() {
+        Ok(Some(status)) => Ok((status, false)),
+        Ok(None) => {
+            if let Err(kill_error) = child.kill() {
+                if let Ok(Some(status)) = child.try_wait() {
+                    return Ok((status, false));
+                }
+                return Err(format!("无法结束 Harness 进程：{kill_error}"));
+            }
+            child.wait()
+                .map(|status| (status, true))
+                .map_err(|error| format!("无法等待 Harness 进程退出：{error}"))
+        }
+        Err(error) => {
+            let _ = child.kill();
+            child.wait()
+                .map(|status| (status, true))
+                .map_err(|wait_error| format!("无法确认 Harness 进程状态：{error}; {wait_error}"))
         }
     }
 }
@@ -1057,3 +1130,36 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running dsh-desktop-delta");
 }
+
+#[cfg(test)]
+mod runtime_child_tests {
+    use super::*;
+
+    #[test]
+    fn reaps_a_child_that_already_exited_without_terminating_it() {
+        let mut child = Command::new("node")
+            .args(["-e", "process.exit(0)"])
+            .spawn()
+            .expect("Node.js must be available to the desktop build");
+        let original_status = child.wait().expect("wait for the child");
+        assert!(original_status.success());
+
+        let (status, was_terminated) =
+            reap_runtime_child(&Mutex::new(child)).expect("reap the exited child");
+        assert!(status.success());
+        assert!(!was_terminated);
+    }
+
+    #[test]
+    fn terminates_and_waits_for_a_child_left_open_after_stdout_closes() {
+        let child = Command::new("node")
+            .args(["-e", "setTimeout(() => {}, 60000)"])
+            .spawn()
+            .expect("Node.js must be available to the desktop build");
+
+        let (_status, was_terminated) =
+            reap_runtime_child(&Mutex::new(child)).expect("stop and reap the child");
+        assert!(was_terminated);
+    }
+}
+
