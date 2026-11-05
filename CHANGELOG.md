@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 修复: 移除独立桌面打包工作流，改用中央 CI 和手动发布。
+
+- 维护: 补充 Windows、Linux、macOS 本机构建和手动发布说明。
+
 - 维护: 增加 Windows、Linux、macOS 安装包构建检查与草稿发布流程。
 
 - 修复: Harness SDK 输出通道关闭后回收进程并清理旧连接，未完成任务仍标为结果未知。
