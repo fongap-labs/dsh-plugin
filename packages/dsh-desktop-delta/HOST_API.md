@@ -32,7 +32,7 @@ Harness 已有受支持的长期运行 `sdk` profile。Tauri 启动 `dsh --profi
 
 **Harness 上游 SDK 目前没有协议版本协商或完整 capability 握手。** Tauri 返回的能力来自当前 adapter 已实现、且官方 SDK 文档声明的功能子集；`upstream.protocol=sdk-stdio-unversioned`、`capabilitySource=adapter-supported-methods` 明确来源，不代表 Harness 运行时逐项协商完成。
 
-当前只返回 `sessions.resume`、`sessions.prompt`、`sessions.wait`、`sessions.events`、`approvals.respond`、`questions.respond`、`workspace.cwd`。Delta 本机目录不是 Harness 全量会话目录，不能因此返回 `sessions.list`。Harness 公开的 Session Controller Remote API 虽有 `session.list`、`session.search`、`session.create`，但当前官方 `sdk` stdio profile 未提供 API Gateway 的远程传输入口，不能由当前 adapter 调用；未返回的 capability 不启用 UI 功能。当前不返回 `sessions.cancel`，且 `upstream.runCancellation=false`；`AbortSignal` 与 `shutdown` 不能模拟单次运行取消。
+默认返回 `sessions.resume`、`sessions.prompt`、`sessions.wait`、`sessions.events`、`approvals.respond`、`questions.respond`、`workspace.cwd`。用户明确指定本机文件夹且 Harness 已连接时，Tauri 才额外提供本地 `workspace.files` 只读浏览能力；这不是 Harness SDK 的工作区文件接口。Delta 本机目录不是 Harness 全量会话目录，不能因此返回 `sessions.list`。Harness 公开的 Session Controller Remote API 虽有 `session.list`、`session.search`、`session.create`，但当前官方 `sdk` stdio profile 未提供 API Gateway 的远程传输入口，不能由当前 adapter 调用；未返回的 capability 不启用 UI 功能。当前不返回 `sessions.cancel`，且 `upstream.runCancellation=false`；`AbortSignal` 与 `shutdown` 不能模拟单次运行取消。
 
 
 Host 在任何会话操作前执行握手，返回 `DesktopHostHandshake`：
@@ -51,7 +51,7 @@ UI 对每项操作先检查对应 capability。缺少能力返回 `unsupported_c
 |---|---|---|
 | 会话 | 列表分页、搜索、创建、恢复、提示、等待完成、取消、事件订阅和历史回放 | 当前 SDK stdio 仅接通提示、恢复、等待和实时通知；Session Controller 的公开 Remote API 有列表、搜索和创建，但未通过当前 `sdk` profile 暴露；列表分页、目录变更订阅和 SDK 历史回放仍缺可用合同 |
 | 审批与提问 | 回复工具审批、回答用户问题 | 取消与拒绝分开表达；任何断线或超时都不能隐式批准 |
-| 工作区 | 列出、选择工作区，浏览相对路径文件 | 当前已支持 SDK 会话实际工作目录读取和切换 `workspace.cwd`；正式工作区列表、文件树与内容仍缺 SDK stdio 接口 |
+| 工作区 | 列出、选择工作区，浏览相对路径文件 | SDK 支持读取与切换会话工作目录 `workspace.cwd`；用户选定本机目录后，Tauri 另外提供受限只读文件浏览；Harness 正式工作区列表和文件树仍缺 SDK stdio 合同 |
 | 设置 | 获取和更新设置 | 更新携带 revision；过期 revision 返回冲突，不能静默覆盖 |
 | 模型与扩展 | 查询模型、插件、技能目录 | 修改技能等写操作必须单独协商 capability 与权限 |
 | 终端 | 创建、输入、调整尺寸、关闭和订阅输出 | 终端进程由受支持的 Host 服务管理；Delta 不实现第二套工具运行器 |
@@ -74,6 +74,16 @@ Harness 的官方 SDK stdio 公开 `session/working-directory/get` 与 `session/
 官方 `@deepseek-ai/dsh-api-workspace-controller` 的 `workspace` Remote namespace 提供工作区注册、重命名、移除、排序和状态跟随；`@deepseek-ai/dsh-api-workspace-files` 的 `workspaceFiles` Remote namespace 提供 `stat`、`read`、`readBytes`、`list` 和 `changes`，属于只读文件预览。两者通过 API Gateway 提供，尚未接入当前无 Web GUI 的 SDK stdio；不能把本机文件读取、猜测 `cwd` 或扫描 Harness 私有目录当作替代。
 
 详细接口与安全边界见[工作区与文件接口提案](WORKSPACE_FILES_API_PROPOSAL.md)。
+
+### 本机工作区只读浏览
+
+作为 **Tauri 本机能力**，`workspace.files` 仅在 Harness 连接就绪、用户明确选择并授权本机工作文件夹时返回。它不代表 Harness 提供了 `workspaceFiles.list` / `workspaceFiles.read`。工作目录变更后重新握手；断线则撤销能力。
+
+- `list_workspace_files({ relativePath })` 和 `preview_workspace_file({ relativePath })` 只接受选定目录下的相对路径。
+- 拒绝绝对路径、父目录穿越、隐藏和受限制的目录、符号链接以及规范化后越界的路径；不会尝试读取 Harness 私有会话、设置、数据库、凭据或安装目录。
+- 最多展示 200 项，每次扫描上限 3000；预览仅允许常见文本扩展名、UTF-8 且最多 64 KiB。不会发送到 Harness，不支持修改或执行文件。
+- 文件名、文件内容仅供本机展示；该功能不授予任意绝对路径读取或独立的 Harness 文件工具权限。
+- 文件系统可被其他程序并发修改时，路径检查和读取之间存在 TOCTOU 风险。对不可信工作区和高度敏感数据，应禁用本地预览，并等待 Harness 上游提供更强的受支持文件授权合同。
 
 ## 当前 SDK 覆盖与缺口
 

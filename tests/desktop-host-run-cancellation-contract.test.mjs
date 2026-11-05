@@ -9,7 +9,7 @@ const readme = read('../packages/dsh-desktop-delta/README.md')
 const proposal = read('../packages/dsh-desktop-delta/RUN_CANCELLATION_API_PROPOSAL.md')
 
 test('Tauri does not advertise unsupported run cancellation', () => {
-  const match = rust.match(/"capabilities":\s*\[([\s\S]*?)\]/)
+  const match = rust.match(/let mut capabilities = vec!\[([\s\S]*?)\]/)
   assert.ok(match, 'capability list must exist')
   const caps = [...match[1].matchAll(/"([^"]+)"/g)].map(item => item[1])
   assert.equal(caps.includes('sessions.cancel'), false)

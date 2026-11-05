@@ -28,11 +28,13 @@ test('renderer reads known sessions and discards stale directory replies', () =>
 })
 
 test('unavailable workspace and file APIs are not falsely advertised', () => {
-  const match = rust.match(/"capabilities":\s*\[([\s\S]*?)\]/)
+  const match = rust.match(/let mut capabilities = vec!\[([\s\S]*?)\]/)
   assert.ok(match)
   const caps = [...match[1].matchAll(/"([^"]+)"/g)].map(item => item[1])
   assert.ok(caps.includes('workspace.cwd'))
-  for (const missing of ['workspace.list', 'workspace.files', 'workspace.files.list', 'workspace.files.read']) {
+  assert.match(rust, /capabilities\.push\("workspace\.files"\)/)
+  assert.match(rust, /if state\.workspace_root\.lock\(\)/)
+  for (const missing of ['workspace.list', 'workspace.files.list', 'workspace.files.read']) {
     assert.equal(caps.includes(missing), false, missing)
   }
   assert.match(host, /\]\(WORKSPACE_FILES_API_PROPOSAL\.md\)/)
