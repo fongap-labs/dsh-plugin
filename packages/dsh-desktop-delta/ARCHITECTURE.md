@@ -38,7 +38,7 @@ dsh --profile sdk
 
 Harness 的公开 SDK 协议采用 stdio JSON-RPC，当前包含提示、查询、恢复、等待、工作目录读写及实时通知，但没有会话目录分页、搜索或显式创建方法。Harness 另有公开的 `@deepseek-ai/dsh-api-session-controller` Remote API，提供 `session.list`、`session.search` 和 `session.create`，但它通过 API Gateway 暴露，当前 `sdk` profile 未提供对应的远程传输入口。Delta 不直接调用其 Host Context 服务或 Web UI 内部模块。
 
-完整替换原生前端前，Harness 必须通过现有 SDK stdio 或受支持的本机 API-only profile 暴露稳定、可版本协商的桌面 Host API。Delta adapter 只实现该公开合同。会话目录所需的上游方法和事件合同见 [会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)；单次运行精确取消合同见 [精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)；工作区列表与文件接口见 [工作区与文件接口提案](WORKSPACE_FILES_API_PROPOSAL.md)。若能力尚未通过当前运行通道暴露，界面明确显示不可用；不得用以下方式绕过：
+完整替换原生前端前，Harness 必须通过现有 SDK stdio 或受支持的本机 API-only profile 暴露稳定、可版本协商的桌面 Host API。Delta adapter 只实现该公开合同。会话目录所需的上游方法和事件合同见 [会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)；单次运行精确取消合同见 [精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)；工作区列表与文件接口见 [工作区与文件接口提案](WORKSPACE_FILES_API_PROPOSAL.md)。Harness 设置与凭据接口见 [设置接口提案](SETTINGS_API_PROPOSAL.md)。若能力尚未通过当前运行通道暴露，界面明确显示不可用；不得用以下方式绕过：
 
 - 依赖 Harness Web UI 的 DOM、CSS 类名、模块加载器或 UI slot。
 - 直接依赖 Harness 的私有 `ctx` 服务、内部 Remote 包或非公开 TypeScript 导出。
