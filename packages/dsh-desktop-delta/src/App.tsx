@@ -379,6 +379,16 @@ function deleteLocalSessionRecord(
   return { sessions: nextSessions, activeSessionId: nextSessionId, wasActive }
 }
 
+function markPendingSessionWait(counts: Map<string, number>, sessionId: string) {
+  counts.set(sessionId, (counts.get(sessionId) ?? 0) + 1)
+}
+
+function settlePendingSessionWait(counts: Map<string, number>, sessionId: string) {
+  const count = counts.get(sessionId) ?? 0
+  if (count <= 1) counts.delete(sessionId)
+  else counts.set(sessionId, count - 1)
+}
+
 function App() {
   const runtime = useSyncExternalStore(desktopHostStatus.subscribe, desktopHostStatus.getSnapshot, desktopHostStatus.getSnapshot)
   const negotiatedHost = useSyncExternalStore(desktopHostCapabilities.subscribe, desktopHostCapabilities.getSnapshot, desktopHostCapabilities.getSnapshot)
@@ -413,7 +423,7 @@ function App() {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [hostRequests, setHostRequests] = useState<DesktopHostRequest[]>([])
   const eventOrderRef = useRef(new DesktopSessionEventOrder())
-  const pendingWaitSessionIdsRef = useRef(new Set<string>())
+  const pendingWaitCountsRef = useRef(new Map<string, number>())
   const [eventGaps, setEventGaps] = useState<Set<string>>(() => new Set())
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -449,7 +459,7 @@ function App() {
       return
     }
     setHostRequests([])
-    pendingWaitSessionIdsRef.current.clear()
+    pendingWaitCountsRef.current.clear()
     if (previousState === 'ready') {
       setIsSending(false)
       setReadySessionIds(new Set())
@@ -568,7 +578,7 @@ function App() {
       if (desktopHostStatus.getSnapshot().state !== 'ready') return
       if (status.sessionId !== sessionId) return
       if (status.status === 'running') setIsSending(true)
-      else if (!pendingWaitSessionIdsRef.current.has(status.sessionId)) setIsSending(false)
+      else if (!pendingWaitCountsRef.current.has(status.sessionId)) setIsSending(false)
     }).then(stop => { if (isDisposed) stop(); else unlistenStatus = stop }).catch(() => {})
 
     void desktopHost.onHostRequest(request => {
@@ -636,7 +646,7 @@ function App() {
         await desktopHost.setWorkingDirectory(sendingSessionId, runtimeConfig.workspace.trim())
       }
       if (!sessionsRef.current.some(session => session.id === sendingSessionId)) return
-      if (canWaitForCompletion) pendingWaitSessionIdsRef.current.add(sendingSessionId)
+      if (canWaitForCompletion) markPendingSessionWait(pendingWaitCountsRef.current, sendingSessionId)
       await desktopHost.query(sendingSessionId, contentBlocks)
       hasAcceptedPrompt = true
       if (sessionsRef.current.some(session => session.id === sendingSessionId)) {
@@ -644,21 +654,17 @@ function App() {
       }
       if (canWaitForCompletion) {
         await desktopHost.waitForCompletion(sendingSessionId)
-        pendingWaitSessionIdsRef.current.delete(sendingSessionId)
-        if (activeSessionIdRef.current === sendingSessionId) setIsSending(false)
+        settlePendingSessionWait(pendingWaitCountsRef.current, sendingSessionId)
+        if (activeSessionIdRef.current === sendingSessionId && !pendingWaitCountsRef.current.has(sendingSessionId)) setIsSending(false)
       }
     } catch (error) {
       const isKnownRuntimeFailure = error instanceof DesktopHostError && !error.outcomeUnknown
       const outcomeUnknown = error instanceof DesktopHostError ? error.outcomeUnknown : true
       if (hasAcceptedPrompt && isKnownRuntimeFailure) {
-        pendingWaitSessionIdsRef.current.delete(sendingSessionId)
-        if (activeSessionIdRef.current === sendingSessionId) setIsSending(false)
-      } else if (outcomeUnknown) {
-        if (canWaitForCompletion && desktopHostStatus.getSnapshot().state === 'ready') {
-          pendingWaitSessionIdsRef.current.add(sendingSessionId)
-        }
-      } else {
-        pendingWaitSessionIdsRef.current.delete(sendingSessionId)
+        settlePendingSessionWait(pendingWaitCountsRef.current, sendingSessionId)
+        if (activeSessionIdRef.current === sendingSessionId && !pendingWaitCountsRef.current.has(sendingSessionId)) setIsSending(false)
+      } else if (!outcomeUnknown) {
+        settlePendingSessionWait(pendingWaitCountsRef.current, sendingSessionId)
       }
       if (activeSessionIdRef.current !== sendingSessionId) return
       setConnectionError(displayHostError(error))
@@ -818,7 +824,7 @@ function App() {
         return updated
       })
       setHostRequests(current => current.filter(request => request.params.sessionId !== targetId))
-      pendingWaitSessionIdsRef.current.delete(targetId)
+      pendingWaitCountsRef.current.delete(targetId)
       eventOrderRef.current.clear(targetId)
       setEventGaps(current => { const next = new Set(current); next.delete(targetId); return next })
       if (result.wasActive) {
@@ -897,7 +903,7 @@ function App() {
     setAttachments([])
     setActivities([])
     setDraft('')
-    setIsSending(pendingWaitSessionIdsRef.current.has(session.id))
+    setIsSending(pendingWaitCountsRef.current.has(session.id))
     setView('chat')
   }
 
