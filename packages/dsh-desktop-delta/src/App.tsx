@@ -37,8 +37,7 @@ import { zhCN } from './locales/zh-CN'
 import { desktopHost, desktopHostCapabilities } from './lib/desktop-host-client'
 import { DesktopSessionEventOrder } from './lib/session-event-order'
 import { desktopHostStatus } from './lib/desktop-host-status'
-import type {
-  DesktopHostCapability,
+import { DesktopHostError, type DesktopHostCapability,
   DesktopHostRequest,
   RuntimeStatus,
 } from './lib/desktop-host-contract'
@@ -113,6 +112,16 @@ const viewCopy: Record<View, { title: string; eyebrow: string; description: stri
     eyebrow: 'HISTORY',
     description: '查看 Delta 在这台电脑上保存的对话。',
   },
+}
+
+function displayHostError(error: unknown): string {
+  if (!(error instanceof DesktopHostError)) return String(error)
+  if (error.code === 'protocol_mismatch') return zhCN.hostProtocolMismatch
+  if (error.code === 'unsupported_capability') return zhCN.hostUnsupportedFeature
+  if (error.code === 'cancelled') return error.outcomeUnknown ? zhCN.hostCancelledUnknown : zhCN.hostCancelled
+  if (error.code === 'timeout') return zhCN.hostTimeoutUnknown
+  if (error.code === 'runtime_unavailable') return zhCN.hostNotReady
+  return error.message
 }
 
 function extractNodeText(node: ReactNode): string {
@@ -596,7 +605,7 @@ function App() {
         setReadySessionIds(new Set([sessionId]))
       }
     } catch (error) {
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
     }
   }
 
@@ -625,7 +634,7 @@ function App() {
       }
     } catch (error) {
       if (activeSessionIdRef.current !== sendingSessionId) return
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
       setDraft(current => current.trim() ? current : text)
       setAttachments(current => current.length > 0 ? current : images)
       setIsSending(false)
@@ -849,7 +858,7 @@ function App() {
         await desktopHost.resume(session.id)
         setReadySessionIds(current => new Set(current).add(session.id))
       } catch (error) {
-        setConnectionError(`无法恢复这条对话：${String(error)}`)
+        setConnectionError(`无法恢复这条对话：${displayHostError(error)}`)
         return
       }
     }
@@ -874,7 +883,7 @@ function App() {
         setWorkspaceError('')
         setWorkspacePickerOpen(false)
       } catch (error) {
-        setWorkspaceError(`无法切换工作文件夹：${String(error)}`)
+        setWorkspaceError(`无法切换工作文件夹：${displayHostError(error)}`)
       }
     } else {
       setRuntimeConfig(config => ({ ...config, workspace: path }))
@@ -963,7 +972,7 @@ function App() {
       setReadySessionIds(new Set())
       setIsSending(false)
     } catch (error) {
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
     }
   }
 
@@ -973,7 +982,7 @@ function App() {
       setHostRequests(current => current.filter(item => item.id !== request.id))
       setConnectionError('')
     } catch (error) {
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
       throw error
     }
   }

@@ -55,7 +55,7 @@ function normalizeError(error: unknown): DesktopHostError {
   }
   const message = typeof error === 'string' ? error : error instanceof Error ? error.message : String(error)
   if (message.startsWith('Harness 请求超时：')) {
-    return new DesktopHostError('timeout', message + '；运行时是否执行成功未知。', false, true)
+    return new DesktopHostError('timeout', message + '; runtime outcome is unknown.', false, true)
   }
   if (message === '请先连接 Harness' || message === 'Harness 连接已关闭') {
     return new DesktopHostError('runtime_unavailable', message, true, true)
@@ -66,7 +66,7 @@ function normalizeError(error: unknown): DesktopHostError {
 
 function requireCapability(capability: DesktopHostCapability) {
   if (!negotiation?.capabilities.includes(capability)) {
-    throw new DesktopHostError('unsupported_capability', `当前 Host 未提供 ${capability} 能力；请先连接支持的 Harness。`)
+    throw new DesktopHostError('unsupported_capability', `Desktop Host capability ${capability} is unavailable.`)
   }
 }
 
@@ -80,7 +80,7 @@ function callHost<T>(command: string, args: Record<string, unknown> | undefined,
   if (options.capability) {
     try { requireCapability(options.capability) } catch (error) { return Promise.reject(error) }
   }
-  if (options.signal?.aborted) return Promise.reject(new DesktopHostError('cancelled', '已取消本地请求。'))
+  if (options.signal?.aborted) return Promise.reject(new DesktopHostError('cancelled', 'Local request was cancelled.'))
   return new Promise<T>((resolve, reject) => {
     let settled = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -92,9 +92,9 @@ function callHost<T>(command: string, args: Record<string, unknown> | undefined,
       if (result.ok) resolve(result.value)
       else reject(normalizeError(result.error))
     }
-    const onAbort = () => finish({ ok: false, error: new DesktopHostError('cancelled', '已停止等待；Harness 操作结果未知。', false, true) })
+    const onAbort = () => finish({ ok: false, error: new DesktopHostError('cancelled', 'Local wait cancelled; Harness operation outcome is unknown.', false, true) })
     options.signal?.addEventListener('abort', onAbort, { once: true })
-    timer = setTimeout(() => finish({ ok: false, error: new DesktopHostError('timeout', '桌面 Host 请求超时；Harness 操作结果未知。', false, true) }), options.timeoutMs)
+    timer = setTimeout(() => finish({ ok: false, error: new DesktopHostError('timeout', 'Desktop Host request timed out; Harness operation outcome is unknown.', false, true) }), options.timeoutMs)
     // Local abort/timeout never means that the SDK run was cancelled.
     void invoke<T>(command, args).then(value => finish({ ok: true, value }), error => finish({ ok: false, error }))
   })
@@ -108,12 +108,12 @@ export const desktopHost = {
       protocolVersion: DESKTOP_HOST_API_VERSION,
     }, { timeoutMs: 5000, signal })
     if (result.protocolVersion?.major !== DESKTOP_HOST_API_VERSION.major) {
-      throw new DesktopHostError('protocol_mismatch', '桌面 Host 协议主版本不兼容，请更新桌面程序。')
+      throw new DesktopHostError('protocol_mismatch', 'Desktop Host major protocol version is incompatible.')
     }
     if (!Array.isArray(result.capabilities)) {
-      throw new DesktopHostError('protocol_mismatch', '桌面 Host 未提供有效的能力清单。')
+      throw new DesktopHostError('protocol_mismatch', 'Desktop Host did not provide a valid capability list.')
     }
-    if (epoch !== negotiationEpoch) throw new DesktopHostError('runtime_unavailable', '连接状态已发生变化，请重新连接。')
+    if (epoch !== negotiationEpoch) throw new DesktopHostError('runtime_unavailable', 'Runtime connection changed during negotiation.')
     updateNegotiation(result)
     return result
   },
