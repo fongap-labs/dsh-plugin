@@ -11,6 +11,7 @@
 - 在历史记录页导出或恢复本机对话备份；导入会跳过已有对话，不覆盖现有记录。
 - 重命名或删除 Delta 在这台电脑上保存的对话；删除前需要确认。
 - 更换当前对话使用的工作文件夹。
+- 在“工作区文件”页只读浏览用户明确选择的本机工作目录，可预览不超过 64 KiB 的 UTF-8 文本文件；隐藏路径、符号链接和受限目录不会展示。
 - 在运行活动页查看当前对话中的工具执行进度和结果。
 - 连接后与 Tauri Host 协商协议版本和能力，未返回的能力不可操作；序号缺口会显示事件不完整的提醒。
 - 用 Delta 自己的弹窗回答工具审批和 Harness 提问。
@@ -44,7 +45,9 @@ Delta 通过 Harness 官方 `sdk` profile 运行：Tauri 启动 `dsh --profile s
 
 ## 还不能完全替代 Harness 网页界面
 
-Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前 SDK stdio 接口尚未提供完整会话目录所需的列表分页、搜索、显式创建和目录变更订阅；Harness 的公开 Session Controller API 目前通过 API Gateway 提供，尚未接入当前桌面运行通道。单独停止一条对话、Harness 设置、工作区文件浏览、插件和技能管理、终端控制等桌面接口也仍未接通。具体上游缺口和所需合同见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。
+文件浏览由 Tauri 原生 Host 在用户选择的本机工作文件夹内完成，仅展示相对路径和短文本预览；它不代表 Harness 的工作区目录接口，也不支持文件修改、全文搜索或任意路径读取。工作区目录中可能有敏感内容，请勿选择 Harness 私有数据目录、凭据目录或软件安装目录。若工作区被其他程序同时修改，文件浏览结果可能发生变化。
+
+Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前 SDK stdio 接口尚未提供完整会话目录所需的列表分页、搜索、显式创建和目录变更订阅；Harness 的公开 Session Controller API 目前通过 API Gateway 提供，尚未接入当前桌面运行通道。单独停止一条对话、Harness 设置、完整的 Harness 工作区目录与文件修改、插件和技能管理、终端控制等桌面接口仍未接通。具体上游缺口和所需合同见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。
 
 单条任务停止尚未接通：Harness 公开 Session Controller Remote API 已提供 `session.cancel`，但当前 `sdk` stdio 协议尚未暴露该方法。本地停止等待、删除本机记录或断开连接均不等于精确停止一条任务。所需上游合同见[精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)。
 
