@@ -18,6 +18,14 @@ DeepSeek Harness（唯一运行内核）
 
 Renderer 不依赖 Harness SDK 类型、Cordis 服务或私有文件。Tauri adapter 只转换类型和管理桌面进程，不实现 Agent 循环、模型选择、工具执行、审批策略或会话存储。`dsh-suite-delta` 可继续作为 Harness 插件并行运行；桌面包不需要加载 Harness Web UI。
 
+## 无 Web GUI 运行方式
+
+Harness 已有受支持的长期运行 `sdk` profile。Tauri 启动 `dsh --profile sdk`，通过 stdin/stdout 连接 JSON-RPC；官方 SDK profile 不启动 Web Server，也不打开 Harness 浏览器界面。Delta 自己的界面仍由 Tauri WebView 提供。
+
+`headless` 是另一种单次任务 profile：运行一个新任务、输出最终答案后退出，不适用于持续会话和桌面交互。当前 adapter 已使用 `sdk`，不需要新增或私有化启动入口。
+
+官方依据：[SDK profile](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/bundle/sdk-app/README.md)、[CLI profile 说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/cli/README.md)、[headless profile](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/bundle/headless/README.md)。
+
 ## 握手与版本
 
 本次实现的是 **Delta renderer ↔ Tauri Host** 协议 v1.1。连接 Harness SDK 的 `initialize` 成功后，renderer 调用 `desktop_host_handshake({ protocolVersion: {major:1,minor:1} })`；主版本不同拒绝，次版本按可选字段和 capability 兼容。断线、重新连接和桌面刷新后清除旧协商结果，重新握手。
@@ -55,7 +63,7 @@ Tauri 调用在 TypeScript adapter 统一收敛为 `DesktopHostError`，保留 `
 Tauri 为未映射的 SDK 会话事件发出不包含原始载荷的 `session.advanced` 序号标记，避免正常忽略的 SDK 事件造成误报警。renderer 按稳定会话 ID 丢弃重复/旧序号，对真实跳号显示缺口提醒。**Harness `session/resume` 不会回放旧事件**，SDK 暂无 `events.replay` 或状态快照接口，不能完整重同步；`sessions.events.resync` 不在当前协商能力中。断线后运行中任务结果仍为未知，界面不得显示“已恢复全部事件”。未来需要 Harness 增加按稳定 session ID 和事件序号分页回放/快照、游标缺口处理与重新订阅的公开接口。
 
 
-会话事件包含 `eventId`、`sessionId`、每个会话单调递增的 `sequence`、`occurredAt`、类型与类型化 payload。重复事件可用 `eventId` 去重；序号间断时 UI 请求重新同步，不猜测丢失内容。
+会话事件包含 `eventId`、`sessionId`、每个会话单调递增的 `sequence`、`occurredAt`、类型与类型化 payload。重复事件可用 `eventId` 去重；序号间断时 UI 显示缺口警告，不执行尚未实现的历史事件重新同步。
 
 Host 将错误归一为 `DesktopHostError`：`protocol_mismatch`、`unsupported_capability`、`permission_denied`、`not_found`、`conflict`、`invalid_request`、`runtime_unavailable`、`timeout`、`cancelled`、`runtime_error`。错误可标记 `retryable`；重试必须由操作语义决定，不能假定请求超时代表 Harness 没有执行。
 
@@ -65,11 +73,11 @@ Harness 已公开的 [SDK client](https://github.com/deepseek-ai/deepseek-harnes
 
 SDK 的会话事件通知会覆盖同一运行时中的所有会话。Delta 只处理本机记录里存在、且符合 Delta 会话 ID 格式的会话事件与审批／提问请求；未知会话事件不会加入历史记录，未知会话的审批会被拒绝，提问会被取消，以免外部会话等待 Delta 回答。
 
-公开 SDK 尚未提供完整桌面需要的会话目录查询、单独取消会话、设置 CRUD、工作区与文件清单、插件／技能管理和终端控制，也未定义统一的桌面能力协商。SDK 没有单会话取消请求；关闭 SDK 运行进程会影响该进程承载的所有活动，因此 Delta 不提供单条对话的停止按钮。要补齐这些功能，Harness 需要扩展官方 SDK 或提供受支持的 Desktop Host API，并提供跳过原生 Web GUI 的启动 profile。Delta 不修改 `app.asar`、Harness 私有目录或全局用户设置来填补缺口。
+公开 SDK 尚未提供完整桌面需要的会话目录查询、单独取消会话、设置 CRUD、工作区与文件清单、插件／技能管理和终端控制，也未定义统一的桌面能力协商。SDK 没有单会话取消请求；关闭 SDK 运行进程会影响该进程承载的所有活动，因此 Delta 不提供单条对话的停止按钮。补齐这些功能需要扩展官方 SDK 或提供受支持的 Desktop Host API；无 Web GUI 启动方式已由官方 `sdk` profile 提供。Delta 不修改 `app.asar`、Harness 私有目录或全局用户设置来填补缺口。
 
 ## 接入顺序
 
-1. Harness 发布可版本协商的公开 API 与无 Web GUI 启动 profile。
-2. Tauri adapter 连接该公开接口并实现 `DesktopHostPort`；先接入会话和事件，再接入工作区、设置与其他 capability。
+1. Harness 扩展公开 SDK：补充协议版本协商、事件历史回放／快照和单会话取消等缺失合同。
+2. Tauri adapter 继续通过官方 `sdk` profile 连接公开接口并实现 `DesktopHostPort`；先接入会话和事件，再接入工作区、设置与其他 capability。
 3. UI 按握手能力启用功能，并对不支持的能力显示明确状态。
 4. 集成验证通过后，桌面 profile 才作为默认前端入口；Harness Web UI 仍可由维护者的诊断 profile 显式启动。
