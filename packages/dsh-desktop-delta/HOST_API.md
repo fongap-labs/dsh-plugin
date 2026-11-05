@@ -2,7 +2,7 @@
 
 ## 状态
 
-这是 Delta 前端与桌面 Host 之间的目标接口合同，不是对 Harness 当前全部能力的描述。完整会话目录的上游现状、传输缺口和接口要求见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)；精确停止任务的接口见[精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)。`src/lib/desktop-host-contract.ts` 定义 renderer 使用的产品 DTO。当前 Tauri adapter 已通过用户指定的 Node.js 与 Harness CLI 启动官方 `sdk` profile，并接通文本和编码图片输入、消息／状态／工具事件、一次性工具审批、用户提问、会话恢复和工作目录切换；用户可选提供配置补丁路径，adapter 通过 Harness 官方 `--patch` 参数传递；其他接口仍未实现。
+这是 Delta 前端与桌面 Host 之间的目标接口合同，不是对 Harness 当前全部能力的描述。完整会话目录的上游现状、传输缺口和接口要求见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)；精确停止任务的接口见[精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)；设置与凭据接口的缺口见[设置接口提案](SETTINGS_API_PROPOSAL.md)。`src/lib/desktop-host-contract.ts` 定义 renderer 使用的产品 DTO。当前 Tauri adapter 已通过用户指定的 Node.js 与 Harness CLI 启动官方 `sdk` profile，并接通文本和编码图片输入、消息／状态／工具事件、一次性工具审批、用户提问、会话恢复和工作目录切换；用户可选提供配置补丁路径，adapter 通过 Harness 官方 `--patch` 参数传递；其他接口仍未实现。
 
 桌面端不得用模拟会话填充界面。运行时不支持某项能力时，Host 应省略相应 capability，UI 显示不可用原因。
 
@@ -52,7 +52,7 @@ UI 对每项操作先检查对应 capability。缺少能力返回 `unsupported_c
 | 会话 | 列表分页、搜索、创建、恢复、提示、等待完成、取消、事件订阅和历史回放 | 当前 SDK stdio 仅接通提示、恢复、等待和实时通知；Session Controller 的公开 Remote API 有列表、搜索和创建，但未通过当前 `sdk` profile 暴露；列表分页、目录变更订阅和 SDK 历史回放仍缺可用合同 |
 | 审批与提问 | 回复工具审批、回答用户问题 | 取消与拒绝分开表达；任何断线或超时都不能隐式批准 |
 | 工作区 | 列出、选择工作区，浏览相对路径文件 | SDK 支持读取与切换会话工作目录 `workspace.cwd`；用户选定本机目录后，Tauri 另外提供受限只读文件浏览；Harness 正式工作区列表和文件树仍缺 SDK stdio 合同 |
-| 设置 | 获取和更新设置 | 更新携带 revision；过期 revision 返回冲突，不能静默覆盖 |
+| 设置 | 获取和更新设置 | 这是目标合同；当前 sdk stdio 未提供 Settings Controller 传输，Delta 不启用读写能力。缺口见[设置接口提案](SETTINGS_API_PROPOSAL.md) |
 | 模型与扩展 | 查询模型、插件、技能目录 | 修改技能等写操作必须单独协商 capability 与权限 |
 | 终端 | 创建、输入、调整尺寸、关闭和订阅输出 | 终端进程由受支持的 Host 服务管理；Delta 不实现第二套工具运行器 |
 
