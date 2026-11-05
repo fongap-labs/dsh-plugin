@@ -9,7 +9,7 @@ const proposal = read('../packages/dsh-desktop-delta/SESSION_DIRECTORY_API_PROPO
 const rust = read('../packages/dsh-desktop-delta/src-tauri/src/lib.rs')
 
 test('the Tauri handshake only advertises implemented SDK capabilities', () => {
-  const handshake = rust.match(/"capabilities":\s*\[([\s\S]*?)\]/)
+  const handshake = rust.match(/let mut capabilities = vec!\[([\s\S]*?)\]/)
   assert.ok(handshake, 'the Tauri handshake must include a capability list')
   const capabilities = [...handshake[1].matchAll(/"([^"]+)"/g)].map(match => match[1])
   assert.ok(capabilities.includes('sessions.resume'))
