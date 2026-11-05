@@ -1371,6 +1371,23 @@ function App() {
                   <h2 className="text-sm font-semibold">{isOnline ? zhCN.connectionSettings : zhCN.connectExistingHarness}</h2>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{zhCN.runtimeOwnership}</p>
                 </div>
+                <p className="mb-4 text-xs leading-5 text-muted-foreground">{zhCN.localSettingsScope}</p>
+                <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                  <section className="rounded-xl border border-border bg-background/70 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-semibold">{zhCN.harnessRuntimeSettings}</h3>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{zhCN.settingsUnavailable}</span>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{zhCN.harnessRuntimeSettingsUnavailable}</p>
+                  </section>
+                  <section className="rounded-xl border border-border bg-background/70 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-semibold">{zhCN.sensitiveCredentials}</h3>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{zhCN.settingsUnavailable}</span>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{zhCN.sensitiveCredentialsUnavailable}</p>
+                  </section>
+                </div>
                 <label className="block text-xs font-medium">
                   {zhCN.harnessPath}
                   <input
@@ -1408,6 +1425,7 @@ function App() {
                     </div>
                     <RuntimeField label="模型提供商" value={runtimeConfig.provider} onChange={value => setRuntimeConfig(config => ({ ...config, provider: value }))} />
                     <RuntimeField label="模型名称" value={runtimeConfig.model} onChange={value => setRuntimeConfig(config => ({ ...config, model: value }))} />
+                    <p className="sm:col-span-2 text-[10px] leading-4 text-muted-foreground">{zhCN.modelProviderSettingsScope}</p>
                   </div>
                 </details>
                 {connectionError && <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{connectionError}</p>}
