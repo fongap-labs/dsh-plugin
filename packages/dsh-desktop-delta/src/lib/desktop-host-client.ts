@@ -82,11 +82,11 @@ function callHost<T>(command: string, args: Record<string, unknown> | undefined,
   }
   if (options.signal?.aborted) return Promise.reject(new DesktopHostError('cancelled', 'Local request was cancelled.'))
   return new Promise<T>((resolve, reject) => {
-    let settled = false
+    let isSettled = false
     let timer: ReturnType<typeof setTimeout> | undefined
     const finish = (result: { ok: true; value: T } | { ok: false; error: unknown }) => {
-      if (settled) return
-      settled = true
+      if (isSettled) return
+      isSettled = true
       if (timer) clearTimeout(timer)
       options.signal?.removeEventListener('abort', onAbort)
       if (result.ok) resolve(result.value)
