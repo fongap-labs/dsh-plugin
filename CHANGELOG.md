@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: 等待根 Agent 与受管子 Agent 完成后再结束运行状态。
+
 - 维护: 明确 Delta 使用官方 SDK profile 无 Web GUI 运行。
 
 - 新增: Desktop Host v1.1 协议、能力协商及事件缺口提醒。

@@ -673,6 +673,7 @@ fn desktop_host_handshake(
         "capabilities": [
             "sessions.resume",
             "sessions.prompt",
+            "sessions.wait",
             "sessions.events",
             "approvals.respond",
             "questions.respond",
@@ -774,6 +775,20 @@ fn session_query(
 }
 
 #[tauri::command]
+fn wait_session(state: State<'_, RuntimeManager>, session_id: String) -> Result<(), String> {
+    let result = state.current_connection()?.request(
+        "session/wait",
+        json!({"sessionId": session_id}),
+        Duration::from_secs(24 * 60 * 60),
+    )?;
+    if result.is_object() {
+        Ok(())
+    } else {
+        Err("Harness returned an invalid session wait result".into())
+    }
+}
+
+#[tauri::command]
 fn resume_session(state: State<'_, RuntimeManager>, session_id: String) -> Result<(), String> {
     let result = state.current_connection()?.request(
         "session/resume",
@@ -829,6 +844,7 @@ pub fn run() {
             desktop_host_handshake,
             connect_runtime,
             session_query,
+            wait_session,
             resume_session,
             set_working_directory,
             respond_host_request,

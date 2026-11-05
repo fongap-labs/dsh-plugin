@@ -140,6 +140,8 @@ export const desktopHost = {
   },
   query: (sessionId: string, contentBlocks: readonly PromptContentBlock[], signal?: AbortSignal) =>
     callHost<void>('session_query', { sessionId, contentBlocks }, { timeoutMs: 20000, signal, capability: 'sessions.prompt' }),
+  waitForCompletion: (sessionId: string, signal?: AbortSignal) =>
+    callHost<void>('wait_session', { sessionId }, { timeoutMs: 24 * 60 * 60 * 1000, signal, capability: 'sessions.wait' }),
   resume: (sessionId: string, signal?: AbortSignal) =>
     callHost<void>('resume_session', { sessionId }, { timeoutMs: 20000, signal, capability: 'sessions.resume' }),
   setWorkingDirectory: (sessionId: string, path: string, signal?: AbortSignal) =>
