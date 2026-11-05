@@ -254,7 +254,7 @@ html[data-theme="dark"] {
 
 /* 会话列表项高品质交互：强化 Hover 与 Selected 视觉层级 */
 .wnFoaW_sessionRow {
-  height: 34px; border-radius: var(--dsw-radius-sm);
+  height: 34px; border-radius: var(--dsw-radius-sm); min-width: 0; padding-inline: 10px;
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
 .wnFoaW_sessionRow:hover {
@@ -579,7 +579,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_regionArea { min-height: 0; }
 .GAkraW_sectionHeader { margin-block: 8px 4px; }
 .GAkraW_headerActions { gap: 4px; }
-.wnFoaW_sessionRow { min-width: 0; padding-inline: 10px; }
 .wnFoaW_title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .an3WzG_header { min-height: 60px; padding-inline: clamp(16px, 2.5vw, 32px); }
 .an3WzG_headerActions { gap: 8px !important; }
@@ -1147,6 +1146,12 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 @media (forced-colors: active) {
   .ens-ui-button:focus-visible, .ens-pill-btn:focus-visible,
   .ens-ui-input:focus-visible, .ens-ui-select:focus-visible,
+  .ens-sidebar-search-input:focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-color: Highlight !important;
+    outline-offset: 2px;
+  }
+  .ens-sidebar-search:focus-within { border-color: Highlight; }
 }
 
 `;
