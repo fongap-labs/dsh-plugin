@@ -57,6 +57,8 @@ SDK 已支持读取已加载会话的实际工作目录，桌面端在成功提�
 
 Delta 不读取 Harness 私有文件，不依赖 Harness 网页界面的内部代码，也不在桌面包里安装或复制 Harness 内核。两者的职责和待补接口见[架构说明](ARCHITECTURE.md)和[接口说明](HOST_API.md)。
 
+构建安装包和发布流程见[桌面端打包与发布说明](DESKTOP_RELEASE.md)。
+
 ## 品牌颜色
 
 - 浅色模式：`#286F78`
