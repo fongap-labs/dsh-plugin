@@ -107,7 +107,7 @@ test('real-host runner checks native sidebar, search placement and input compose
   assert.match(source, /native-session-row/)
   assert.match(source, /conversation-composer/)
   assert.match(source, /Native session list has no disposable sessions for keyboard acceptance/)
-  assert.match(source, /document\.DOCUMENT_POSITION_FOLLOWING/)
+  assert.match(source, /Node\.DOCUMENT_POSITION_FOLLOWING/)
   assert.doesNotMatch(source, /Folder panel has no disposable sessions/)
 })
 
