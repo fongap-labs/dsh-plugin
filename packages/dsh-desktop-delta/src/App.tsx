@@ -37,9 +37,11 @@ import { zhCN } from './locales/zh-CN'
 import { desktopHost, desktopHostCapabilities } from './lib/desktop-host-client'
 import { DesktopSessionEventOrder } from './lib/session-event-order'
 import { desktopHostStatus } from './lib/desktop-host-status'
-import { DesktopHostError, type DesktopHostCapability,
-  DesktopHostRequest,
-  RuntimeStatus,
+import {
+  DesktopHostError,
+  type DesktopHostCapability,
+  type DesktopHostRequest,
+  type RuntimeStatus,
 } from './lib/desktop-host-contract'
 
 type Theme = 'light' | 'dark'
