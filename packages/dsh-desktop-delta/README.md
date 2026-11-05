@@ -19,7 +19,7 @@
 
 键盘快捷键：`Ctrl/⌘ + K` 新建对话，`Ctrl/⌘ + F` 搜索 Delta 本机保存的对话标题和文字内容。
 
-最近对话记录保存在这台电脑的 Delta 应用数据中。它只列出由 Delta 创建的对话，不会展示 Harness 的其他入口或其他设备上的全部记录。历史记录页可导出和导入 JSON 备份，文件上限为 20 MB，本机最多保存 50 条对话；导入只添加本机尚未存在的对话，恢复的记录仅供查看，无法在 Harness 中接续运行。备份只包含 Delta 本机的文字记录，不含 Harness 配置、凭据或图片原件。图片原件交给 Harness 处理；Delta 本地历史只记下“图片”标记，不另存图片文件。
+最近对话记录保存在这台电脑的 Delta 应用数据中。它只列出由 Delta 创建的对话，不会展示 Harness 的其他入口或其他设备上的全部记录。Harness 虽然另有公开的 Session Controller 会话目录 API，但它通过 API Gateway 提供，当前无 Web GUI 的 `sdk` profile 没有把该接口暴露给桌面端；在官方 SDK 提供受支持的目录传输前，Delta 不会把本机列表冒充 Harness 全量会话目录。历史记录页可导出和导入 JSON 备份，文件上限为 20 MB，本机最多保存 50 条对话；导入只添加本机尚未存在的对话，恢复的记录仅供查看，无法在 Harness 中接续运行。备份只包含 Delta 本机的文字记录，不含 Harness 配置、凭据或图片原件。图片原件交给 Harness 处理；Delta 本地历史只记下“图片”标记，不另存图片文件。
 
 遇到损坏的本机记录时，Delta 会跳过无法读取的内容，继续打开界面。若本机保存失败，界面会提示复制重要内容。
 
@@ -44,7 +44,7 @@ Delta 通过 Harness 官方 `sdk` profile 运行：Tauri 启动 `dsh --profile s
 
 ## 还不能完全替代 Harness 网页界面
 
-Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前仍缺少全量会话列表、单独停止一条对话、Harness 设置、工作区文件浏览、插件和技能管理、终端控制等桌面接口；这些才是完成接管的主要阻塞项。
+Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前 SDK stdio 接口尚未提供完整会话目录所需的列表分页、搜索、显式创建和目录变更订阅；Harness 的公开 Session Controller API 目前通过 API Gateway 提供，尚未接入当前桌面运行通道。单独停止一条对话、Harness 设置、工作区文件浏览、插件和技能管理、终端控制等桌面接口也仍未接通。具体上游缺口和所需合同见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。
 
 当前协议 v1.1 的协商仅发生在 Delta 与 Tauri Host 之间。Harness 官方 SDK 尚不提供自身的版本/能力协商和历史事件回放；检测到序号缺失不能自动补齐。调用超时或本地取消也不意味着 Harness 已停止实际任务，结果可能未知。
 

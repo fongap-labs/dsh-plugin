@@ -36,9 +36,9 @@ dsh --profile sdk
 
 ## Host API 缺口
 
-Harness 的公开 SDK 协议采用 stdio JSON-RPC。当前文档化能力包括初始化、提交提示词、查询、恢复、等待、设置工作目录、审批和用户提问，以及会话事件与状态通知。SDK 使用已有的 session ID，不提供完整桌面所需的会话目录查询，也不提供设置、插件管理、工作区文件列表和终端控制 API。
+Harness 的公开 SDK 协议采用 stdio JSON-RPC，当前包含提示、查询、恢复、等待、工作目录读写及实时通知，但没有会话目录分页、搜索或显式创建方法。Harness 另有公开的 `@deepseek-ai/dsh-api-session-controller` Remote API，提供 `session.list`、`session.search` 和 `session.create`，但它通过 API Gateway 暴露，当前 `sdk` profile 未提供对应的远程传输入口。Delta 不直接调用其 Host Context 服务或 Web UI 内部模块。
 
-完整替换原生前端前，Harness 必须提供稳定、可版本协商的桌面 Host API，或扩展现有公开 SDK。Delta adapter 只实现该公开合同。若能力尚不存在，界面明确显示不可用；不得用以下方式绕过：
+完整替换原生前端前，Harness 必须通过现有 SDK stdio 或受支持的本机 API-only profile 暴露稳定、可版本协商的桌面 Host API。Delta adapter 只实现该公开合同。会话目录所需的上游方法和事件合同见 [会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。若能力尚未通过当前运行通道暴露，界面明确显示不可用；不得用以下方式绕过：
 
 - 依赖 Harness Web UI 的 DOM、CSS 类名、模块加载器或 UI slot。
 - 直接依赖 Harness 的私有 `ctx` 服务、内部 Remote 包或非公开 TypeScript 导出。
