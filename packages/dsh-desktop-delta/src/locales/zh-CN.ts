@@ -98,5 +98,6 @@ export const zhCN = {
   imageUnreadable: "无法读取这张图片",
   imageFormatUnknown: "图片格式无法识别",
   imageReadFailed: "读取图片失败",
+  localSaveFailed: "本机记录保存失败。关闭应用后，最近的对话或设置可能丢失；请先复制重要内容。",
   maximumImages: (count: number) => `最多添加 ${count} 张图片`,
 } as const

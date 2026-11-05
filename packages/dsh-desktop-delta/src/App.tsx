@@ -179,7 +179,19 @@ function initialTheme(): Theme {
 function initialRuntimeConfig(): RuntimeConfig {
   try {
     const stored = localStorage.getItem('delta-runtime-config')
-    return stored ? { ...defaultRuntimeConfig, ...JSON.parse(stored) as Partial<RuntimeConfig> } : defaultRuntimeConfig
+    if (!stored) return defaultRuntimeConfig
+    const parsed: unknown = JSON.parse(stored)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return defaultRuntimeConfig
+    const config = parsed as Record<string, unknown>
+    return {
+      nodePath: typeof config.nodePath === 'string' ? config.nodePath : defaultRuntimeConfig.nodePath,
+      dshPath: typeof config.dshPath === 'string' ? config.dshPath : defaultRuntimeConfig.dshPath,
+      dshHome: typeof config.dshHome === 'string' ? config.dshHome : defaultRuntimeConfig.dshHome,
+      harnessPatchPath: typeof config.harnessPatchPath === 'string' ? config.harnessPatchPath : defaultRuntimeConfig.harnessPatchPath,
+      workspace: typeof config.workspace === 'string' ? config.workspace : defaultRuntimeConfig.workspace,
+      provider: typeof config.provider === 'string' ? config.provider : defaultRuntimeConfig.provider,
+      model: typeof config.model === 'string' ? config.model : defaultRuntimeConfig.model,
+    }
   } catch {
     return defaultRuntimeConfig
   }
@@ -239,7 +251,14 @@ function imageReadErrorMessage(error: unknown): string {
 function loadMessages(sessionId: string): ChatMessage[] {
   try {
     const messages = localStorage.getItem(`delta-messages:${sessionId}`)
-    return messages ? JSON.parse(messages) as ChatMessage[] : []
+    if (!messages) return []
+    const parsed: unknown = JSON.parse(messages)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((message: unknown): message is ChatMessage => message !== null
+      && typeof message === 'object'
+      && 'id' in message && typeof message.id === 'string'
+      && 'role' in message && (message.role === 'user' || message.role === 'assistant')
+      && 'text' in message && typeof message.text === 'string')
   } catch {
     return []
   }
@@ -248,13 +267,12 @@ function loadMessages(sessionId: string): ChatMessage[] {
 function loadSessions(activeSessionId: string): LocalSession[] {
   try {
     const stored = localStorage.getItem('delta-sessions')
-    const sessions = stored
-      ? (JSON.parse(stored) as LocalSession[]).filter(session => Boolean(session)
-        && typeof session.id === 'string'
-        && isDeltaSessionId(session.id)
-        && typeof session.title === 'string'
-        && typeof session.updatedAt === 'number')
-      : []
+    const parsed: unknown = stored ? JSON.parse(stored) : []
+    const sessions = Array.isArray(parsed) ? parsed.filter((session: unknown): session is LocalSession => session !== null
+      && typeof session === 'object'
+      && 'id' in session && typeof session.id === 'string' && isDeltaSessionId(session.id)
+      && 'title' in session && typeof session.title === 'string'
+      && 'updatedAt' in session && typeof session.updatedAt === 'number') : []
     if (sessions.some(session => session.id === activeSessionId)) return sessions
     return [{ id: activeSessionId, title: '新对话', updatedAt: Date.now() }, ...sessions].slice(0, 50)
   } catch {
@@ -271,6 +289,7 @@ function App() {
   const [runtimeConfig, setRuntimeConfig] = useState<RuntimeConfig>(initialRuntimeConfig)
   const [isConnectionOpen, setConnectionOpen] = useState(true)
   const [connectionError, setConnectionError] = useState('')
+  const [hasStorageError, setHasStorageError] = useState(false)
   const [isHelpOpen, setHelpOpen] = useState(false)
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
@@ -360,7 +379,7 @@ function App() {
       localStorage.setItem(`delta-messages:${sessionId}`, JSON.stringify(messages))
       localStorage.setItem('delta-sessions', JSON.stringify(sessions))
     } catch {
-      // The current window still retains settings if local storage is unavailable.
+      setHasStorageError(true)
     }
   }, [runtimeConfig, sessionId, messages, sessions])
 
@@ -398,7 +417,7 @@ function App() {
             { id: item.payload.messageId, role: item.payload.role, text: item.payload.text },
           ]))
         } catch {
-          // The active chat still receives events even if local storage is unavailable.
+          setHasStorageError(true)
         }
       }
       if (item.sessionId === sessionId) {
@@ -866,6 +885,8 @@ function App() {
             </Button>
           </div>
         </header>
+
+        {hasStorageError && <p className="mx-6 mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{zhCN.localSaveFailed}</p>}
 
         <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pb-8 pt-[clamp(64px,12vh,142px)]">
           <div className="w-full max-w-[760px]">
