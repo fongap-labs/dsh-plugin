@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 新增: 独立桌面前端 `dsh-desktop-delta`（Tauri 2）与 `dsh-suite-delta` 并行运行，通过 Harness 官方 SDK profile 支持文本／图片对话、本机会话记录、Markdown 回复、工具审批、用户提问和工作目录切换。
+- 新增: 新增 Tauri 2 桌面前端 dsh-desktop-delta，与 dsh-suite-delta 并行。
 - 修复 [security]: Delta Suite 默认禁用 Session Log 上传入口及其设置开关，关闭可选遥测和插件清单上传，并增加对外发送文本的隐私预检查。
 - 新增: Code Worker 按编程请求自动选择工作流，支持手动关闭自动路由。
 - 新增: Code Worker 内置设计、测试、编码、审查和持续集成修复技能。
