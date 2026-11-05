@@ -237,11 +237,11 @@ async function main() {
     const searchLabel = await search.getAttribute('aria-label') || ''
     assert.ok(searchLabel === '搜索会话' || searchLabel === 'Search conversations',
       'Search launcher must have an accessible name')
-    const plugin = page.locator('.wtg9ga_panelRow').filter({ hasText: /插件管理|Plugin Management|Plugins/ }).first()
+    const plugin = page.locator('.wtg9ga_panelRow').filter({ hasText: /\u63d2\u4ef6\u7ba1\u7406|Plugin Management|Plugins/ }).first()
     if (await plugin.count() && await plugin.isVisible()) {
       const beforePlugin = await search.evaluate((element, pluginSelector) => {
         const candidate = [...document.querySelectorAll(pluginSelector)]
-          .find(node => /插件管理|Plugin Management|Plugins/.test(node.textContent || ''))
+          .find(node => /\u63d2\u4ef6\u7ba1\u7406|Plugin Management|Plugins/.test(node.textContent || ''))
         return Boolean(candidate && element.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING)
       }, '.wtg9ga_panelRow')
       assert.ok(beforePlugin, 'Search launcher must precede Plugin Manager in DOM order')
