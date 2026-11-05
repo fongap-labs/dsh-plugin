@@ -71,9 +71,9 @@ test('runner never mutates folder assignments and only captures explicit private
 })
 
 test('the unified page has keyboard focus and preserves native session slots', () => {
-  assert.match(client, /\.ens-sidebar-search:focus-visible/)
+  assert.match(client, /\.ens-sidebar-search-input:focus-visible/)
   assert.match(client, /outline: 2px solid var\(--ens-color-ring\)/)
-  assert.match(client, /\.ens-sidebar-search \{/)
+  assert.match(client, /\.ens-sidebar-search-input \{/)
   assert.match(client, /'--ens-color-primary': \{ light: '#286F78', dark: '#60B4BF' \}/)
   assert.match(client, /ctx\.slots\.inject\('sidebar\.session\.row\.trailing'/)
   assert.match(client, /ctx\.slots\.inject\('sidebar\.session\.row\.hover'/)
