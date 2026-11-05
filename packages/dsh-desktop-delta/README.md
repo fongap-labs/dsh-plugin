@@ -36,11 +36,15 @@ pnpm dev:dsh-desktop-delta
 
 首次连接时，需要指定 Node.js 和 Harness 的位置；也可以点“浏览 Node.js 程序”“浏览 Harness 文件夹”或“选择 dsh 启动文件”，不用手动抄路径。工作文件夹和插件配置同样可以用“浏览”选择。连接设置会保存在本机。开发版需要 Node.js 22+、Rust 1.90+，以及带有“使用 C++ 的桌面开发”工作负载的 Microsoft C++ Build Tools。Tauri 在 Windows 上还需要 WebView2；Windows 10 及更新版本通常已预装。
 
+Delta 通过 Harness 官方 `sdk` profile 运行：Tauri 启动 `dsh --profile sdk`，使用标准输入输出连接长期运行的 JSON-RPC 服务。该 profile 不启动 Harness Web Server，也不打开 Harness 原生网页界面；Delta 自己的窗口仍由 Tauri WebView 渲染。
+
+不要将它与 `dsh --profile headless "<task>"` 混淆。headless 每次只执行一个新任务，输出结果后退出，不适用于桌面持续会话。
+
 如果还要让 Harness 同时加载 `dsh-suite-delta`，请先按原方式在 Harness 中安装这个插件，再展开“更多连接设置”，点“浏览配置文件”选择它的 `cordis.patch.yml`。桌面端只把该配置交给 Harness 官方启动参数读取，不会安装插件或复制插件代码。这个步骤可以跳过。
 
 ## 还不能完全替代 Harness 网页界面
 
-Harness 当前公开的连接接口没有提供全量会话列表、单独停止一条对话、Harness 设置、工作区文件浏览、插件和技能管理、终端控制等桌面功能。因此 Delta 还不能称为完整替代品。完成接管还需要 Harness 提供受支持的桌面接口，并提供不启动原生网页界面的运行方式。
+Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前仍缺少全量会话列表、单独停止一条对话、Harness 设置、工作区文件浏览、插件和技能管理、终端控制等桌面接口；这些才是完成接管的主要阻塞项。
 
 当前协议 v1.1 的协商仅发生在 Delta 与 Tauri Host 之间。Harness 官方 SDK 尚不提供自身的版本/能力协商和历史事件回放；检测到序号缺失不能自动补齐。调用超时或本地取消也不意味着 Harness 已停止实际任务，结果可能未知。
 
