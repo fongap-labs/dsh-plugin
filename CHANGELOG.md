@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- 修复: 损坏的本机记录不再使桌面界面空白，保存失败时显示提醒。
 - 修复: Harness 断线后结束等待状态，并标记未完成工具的结果未知。
 - 新增: 新增 Tauri 2 桌面前端 dsh-desktop-delta，与 dsh-suite-delta 并行。
 - 修复 [security]: Delta Suite 默认禁用 Session Log 上传入口及其设置开关，关闭可选遥测和插件清单上传，并增加对外发送文本的隐私预检查。
