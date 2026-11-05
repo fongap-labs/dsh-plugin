@@ -15,7 +15,7 @@ const usage = [
   '  --baseline /private/path      Compare screenshots to a local, read-only baseline directory',
   '  --max-diff-pct 0.5           Maximum percentage of pixels different (requires --baseline)',
   '  --pixel-tolerance 16        Per-channel RGB tolerance, from 0 through 255',
-  '  --require-sessions          Fail if no disposable sessions expose keyboard selectors',
+  '  --require-sessions          Fail if the native Host session list has no sessions',
   '  --accessibility              Check semantic color contrast and reduced motion',
   'Baselines are never updated automatically. Use only anonymized test sessions.',
   '  --help                        Show this message',
@@ -84,8 +84,8 @@ function safeError(error) {
   const value = error instanceof Error ? error.message : String(error)
   if (/Host brand token/.test(value)) return 'Theme mismatch or theme token missing'
   if (/no disposable sessions/i.test(value)) return 'Disposable sessions required for full keyboard acceptance'
-  if (/folder panel/i.test(value)) return 'Folder panel unavailable in Host UI'
-  if (/horizontal overflow/i.test(value)) return 'Folder panel horizontal overflow'
+  if (/folder panel/i.test(value)) return 'Native sidebar unavailable in Host UI'
+  if (/horizontal overflow/i.test(value)) return 'Full-page horizontal overflow'
   if (/folder API/i.test(value)) return 'Local folder API unavailable'
   if (/baseline|visual difference|screenshot dimensions/i.test(value)) return 'Local visual baseline regression'
   return 'UI smoke check failed; inspect local console'
@@ -93,7 +93,7 @@ function safeError(error) {
 
 
 async function panelMotionProbe(page) {
-  return page.locator('.ens-folder-browser-header .ens-ui-button').first().evaluate(element => {
+  return page.locator('.ens-sidebar-search').first().evaluate(element => {
     const style = getComputedStyle(element)
     const toMilliseconds = value => {
       const duration = value.split(',')[0].trim()
@@ -226,24 +226,44 @@ async function main() {
     assert.ok(folderData.assignments && typeof folderData.assignments === 'object', 'Invalid folder assignments')
     record('folder-api-readonly', 'PASS')
 
-    const panel = page.locator('.ens-folder-browser').first()
-    if (!(await panel.isVisible())) {
-      const selectors = [
-        '[title="会话文件夹"]', '[title="Session folders"]',
-        '[aria-label="会话文件夹"]', '[aria-label="Session folders"]',
-      ]
-      for (const selector of selectors) {
-        const launcher = page.locator(selector).first()
-        if (await launcher.count() > 0 && await launcher.isVisible()) {
-          await launcher.click()
-          if (await panel.isVisible()) break
-        }
-      }
+    // The native workspace/session list is the single source of truth.
+    // Delta contributes only a search launcher, row decoration, and context menu.
+    const extraPanel = page.locator('.ens-folder-browser, [aria-label="会话文件夹"], [aria-label="Session folders"]')
+    assert.equal(await extraPanel.count(), 0, 'Duplicate folder browser must not exist')
+    record('single-native-session-browser', 'PASS')
+
+    const search = page.locator('.ens-sidebar-search').first()
+    assert.ok(await search.count() > 0 && await search.isVisible(), 'Search launcher must be visible')
+    const searchLabel = await search.getAttribute('aria-label') || ''
+    assert.ok(searchLabel === '搜索会话' || searchLabel === 'Search conversations',
+      'Search launcher must have an accessible name')
+    const plugin = page.locator('.wtg9ga_panelRow').filter({ hasText: /插件管理|Plugin Management|Plugins/ }).first()
+    if (await plugin.count() && await plugin.isVisible()) {
+      const beforePlugin = await search.evaluate((element, pluginSelector) => {
+        const candidate = [...document.querySelectorAll(pluginSelector)]
+          .find(node => /插件管理|Plugin Management|Plugins/.test(node.textContent || ''))
+        return Boolean(candidate && element.compareDocumentPosition(candidate) & Node.DOCUMENT_POSITION_FOLLOWING)
+      }, '.wtg9ga_panelRow')
+      assert.ok(beforePlugin, 'Search launcher must precede Plugin Manager in DOM order')
     }
-    if (!(await panel.isVisible())) {
-      throw new Error('Folder panel unavailable in Host UI')
+    record('search-above-plugin-manager', 'PASS')
+
+    const nativeRows = page.locator('.wnFoaW_sessionRow')
+    const sessionCount = await nativeRows.count()
+    if (args['--require-sessions'] && sessionCount === 0) {
+      throw new Error('Native session list has no disposable sessions for keyboard acceptance')
     }
-    record('native-folder-panel', 'PASS')
+    if (sessionCount > 0) {
+      const sample = nativeRows.first()
+      const title = sample.locator('.wnFoaW_title').first()
+      assert.ok(await title.count() > 0, 'Native session row must retain its title')
+      record('native-session-row', 'PASS')
+    } else {
+      record('native-session-row', 'SKIP', 'No sessions in test profile')
+    }
+    const composer = page.locator('.GRgSLq_card').first()
+    assert.ok(await composer.isVisible(), 'Conversation composer must be visible')
+    record('conversation-composer', 'PASS')
 
     if (args['--accessibility']) {
       await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -256,74 +276,22 @@ async function main() {
       await page.emulateMedia({ reducedMotion: 'no-preference' })
     }
 
-    const groupCount = await panel.locator('.ens-folder-browser-group').count()
-    assert.equal(groupCount, folderData.folders.length + 1, 'Folder API and browser groups disagree')
-    record('folder-count-and-unfiled', 'PASS')
-
-    const groupToggle = panel.locator('.ens-folder-browser-group-head').first()
-    const before = await groupToggle.getAttribute('aria-expanded')
-    assert.ok(before === 'true' || before === 'false', 'Folder group must expose aria-expanded')
-    const controlledId = await groupToggle.getAttribute('aria-controls')
-    assert.ok(controlledId && /^delta-folder-items-[a-z0-9-]+$/.test(controlledId),
-      'Folder disclosure must reference a stable content region')
-    const groupContent = groupToggle.locator('..').locator('.ens-folder-browser-items').first()
-    assert.equal(await groupContent.getAttribute('id'), controlledId,
-      'Disclosure control and content region must have matching IDs')
-    assert.equal(await groupContent.isVisible(), before === 'true',
-      'Expanded state must agree with controlled content visibility')
-    record('folder-disclosure-semantics', 'PASS')
-    await groupToggle.focus()
-    assert.ok(await groupToggle.evaluate(el => document.activeElement === el),
-      'Folder disclosure must be keyboard focusable')
-    await groupToggle.press('Space')
-    assert.notEqual(await groupToggle.getAttribute('aria-expanded'), before, 'Space must toggle folder group')
-    assert.equal(await groupContent.isVisible(), before !== 'true',
-      'Collapsed content must be hidden from focus and layout')
-    await groupToggle.press('Space')
-    assert.equal(await groupToggle.getAttribute('aria-expanded'), before, 'Second Space must restore state')
-    assert.equal(await groupContent.isVisible(), before === 'true',
-      'Second Space must restore controlled content visibility')
-    record('keyboard-collapse-and-restore', 'PASS')
-
-    const selects = panel.locator('.ens-folder-browser-select')
-    const selectCount = await selects.count()
-    if (selectCount === 0) {
-      if (args['--require-sessions']) {
-        throw new Error('Folder panel has no disposable sessions for keyboard acceptance')
-      }
-      record('keyboard-folder-select', 'SKIP', 'No disposable sessions')
-    } else {
-      // Verify a bounded sample without changing any Session folder assignments.
-      for (let index = 0; index < Math.min(selectCount, 5); index++) {
-        const select = selects.nth(index)
-        assert.ok(await select.isEnabled(), 'Folder selector must be enabled')
-        const row = select.locator('..')
-        const sessionTitle = (await row.locator('.ens-folder-browser-open').textContent() || '').trim()
-        const label = await select.getAttribute('aria-label') || ''
-        assert.ok(sessionTitle && label.endsWith(': ' + sessionTitle),
-          'Folder selector accessible name must identify its Session')
-        await select.focus()
-        assert.ok(await select.evaluate(el => document.activeElement === el),
-          'Folder selector must accept keyboard focus')
-      }
-      record('keyboard-folder-select', 'PASS')
-      record('session-specific-accessible-names', 'PASS')
-    }
-
     const viewports = [
       [1440, 900], [960, 768], [720, 900], [480, 800], [360, 800], [320, 720],
     ]
     for (const [width, height] of viewports) {
       await page.setViewportSize({ width, height })
       await page.waitForTimeout(120)
-      const measurement = await panel.evaluate(el => ({
-        content: el.scrollWidth, width: el.clientWidth, document: document.documentElement.scrollWidth,
+      const measurement = await page.evaluate(() => ({
+        content: document.documentElement.scrollWidth,
+        width: document.documentElement.clientWidth,
+        document: document.documentElement.scrollWidth,
         viewport: document.documentElement.clientWidth,
       }))
       assert.ok(measurement.content <= measurement.width + 2,
-        'Folder panel horizontal overflow')
+        'Full-page horizontal overflow')
       assert.ok(measurement.document <= measurement.viewport + 2,
-        'Folder panel horizontal overflow')
+        'Full-page horizontal overflow')
       record('responsive-' + width, 'PASS')
       if (output || baseline) {
         const name = args['--theme'] + '-' + width + '.png'
