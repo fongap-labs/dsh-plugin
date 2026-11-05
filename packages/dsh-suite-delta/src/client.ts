@@ -365,28 +365,10 @@ body {
   --ens-selected: var(--dsw-alias-state-business-tertiary);
 }
 
-/* 2 — focus, selection, motion */
-/* Focus follows the reference frame: a crisp 2px ring in brand teal with a
-   generous 2px gap (offset). The accent teal stays for selected / active state.
-   Transition durations follow Delta motion tokens (150/200/250ms). */
-
-:root {
-  --dsw-focus-ring-width: 2px;
-  --dsw-focus-ring-offset: 2px;
-}
-:focus-visible {
-  outline-color: var(--dsw-focus-ring-color) !important;
-  transition: outline-color var(--ens-dur-fast) var(--ens-ease-standard) !important;
-}
-/* Large containers get NO outline so a focused composer/chat never gains a
-   drawn border. Small controls (inputs, buttons, search) keep the 2px teal ring
-   via the global longhands above plus per-control offsets below. */
+/* Preserve the Host focus system; scope overrides to Delta controls. */
 .GRgSLq_card:focus-visible,
 .LOmM4q_bubble:focus-visible,
-.LOmM4q_userRow:focus-visible,
-.V4vHZW_column :focus-visible:not(input):not(textarea):not(button):not(select):not(a) {
-  outline: none !important;
-}
+.LOmM4q_userRow:focus-visible { outline: none !important; }
 ::selection { background: var(--ens-accent-soft); }
 [data-platform=darwin] .mP3x-q_sidebarCol,
 [data-windows-titlebar] .mP3x-q_sidebarCol { border-right-color: var(--dsw-alias-border-l2); }
@@ -584,41 +566,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .ens-foot-notify .ens-foot-notify-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .wtg9ga_collapsed .ens-foot-notify { position: fixed; left: 12px; right: auto; bottom: 60px; max-width: min(320px, calc(100vw - 24px)); }
 
-/* Resilience only: do not replace the host's sidebar or its session store. */
-.ens-sidebar-recovery {
-  z-index: 24; box-sizing: border-box; min-width: 0; padding: 8px;
-  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg);
-  background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary);
-  box-shadow: var(--dsw-elevation-soft); font-size: 12px;
-}
-.ens-sidebar-recovery[data-mode="missing"] {
-  position: fixed; overflow: hidden; display: flex; flex-direction: column;
-}
-.ens-sidebar-recovery[data-mode="offer"] { margin: 8px 6px; }
-.ens-sidebar-recovery button {
-  font: inherit; color: inherit; cursor: pointer; border-radius: var(--dsw-radius-sm);
-}
-.ens-sidebar-recovery-toggle {
-  width: 100%; text-align: left; background: transparent;
-  border: 1px solid var(--dsw-alias-border-l2); padding: 8px 10px;
-}
-.ens-sidebar-recovery-toggle:hover, .ens-sidebar-recovery-item:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-.ens-sidebar-recovery-toggle:focus-visible, .ens-sidebar-recovery-item:focus-visible {
-  outline: 2px solid var(--ens-color-ring); outline-offset: 2px;
-}
-.ens-sidebar-recovery-hint { color: var(--dsw-alias-label-tertiary); margin: 8px 4px; line-height: 1.5; }
-.ens-sidebar-recovery-items { min-height: 0; overflow-y: auto; max-height: 320px; display: flex; flex-direction: column; gap: 2px; }
-.ens-sidebar-recovery[data-mode="missing"] .ens-sidebar-recovery-items { max-height: none; flex: 1; }
-.ens-sidebar-recovery-item {
-  background: transparent; border: 0; text-align: left; width: 100%;
-  padding: 8px 10px; overflow-wrap: anywhere;
-}
-@media (max-width: 480px) {
-  .ens-sidebar-recovery { max-width: calc(100vw - 16px); }
-}
-
 /* 10 — structure: drop the brand, reorder the sidebar, field-style search,
       legible three-column dividers, discoverable resize handles */
 /* #1 the "DeepSeek Harness" brand identity is removed; the top row becomes a
@@ -626,35 +573,10 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
       bar above it is out of DOM reach). */
 .wtg9ga_brand { display: none !important; }
 
-/* #2/#26 column order: the native session search sits directly ABOVE 插件管理
-   (the latest placement), then 插件管理·定时任务 → 开始对话 → 工作区.
-   Every block keeps one vertical rhythm. */
-/* The dock reserves the room the focus ring needs: 2px ring + 2px gap on each
-   side (outline-offset +2px), so a focused field can never paint over the
-   工作区 row below it. 34px field + 2×(2px ring + 2px gap) + 6px breathing
-   room = 46px of content, 50px of dock. */
-.ens-search-dock {
-  order: 2; flex: none; padding: 3px 12px 8px;
-  height: 50px; max-height: 50px; box-sizing: border-box;
-  overflow: hidden; isolation: isolate;
-}
+/* Host React owns the workspace and session list; keep its DOM intact. */
 nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .wtg9ga_root > .wtg9ga_newSession,
 .wtg9ga_root > *:has(> .wtg9ga_newSession) { order: 4; }
-/* the host also draws its own 搜索 Ctrl+K affordance inside the section header;
-   the dock owns the only search entry now. */
-/* the dock owns its own focus treatment: the ring is drawn *inside* the field
-   (outline-offset -2px), so a focused search can never paint over the row
-   below it — and the dock clips anything that tries. */
-.ens-search-dock .GAkraW_clearButton:focus-visible { outline: none; }
-.ens-search-dock .GAkraW_clearButton {
-  border-radius: 50%; width: 18px; height: 18px; color: var(--dsw-alias-label-tertiary);
-}
-.ens-search-dock .GAkraW_clearButton:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
-/* collapsed: the host gives the input flex:1, which in a full-width field
-   would stretch it and push our ::after label to the far right edge — keep
-   the input zero-width until the field expands. */
-.ens-search-dock .GAkraW_searchInput { font-size: 13px; flex: none; width: 0; }
 .wtg9ga_regionArea { order: 5; }
 
 /* #2/#13 restyle 新会话 (→开始对话) as a panel row identical to 定时任务:
@@ -676,76 +598,10 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .wtg9ga_newSessionLabel { font-size: 13px; font-weight: 400; max-width: none; white-space: nowrap; }
 .wtg9ga_newSessionShortcut { display: none !important; }
 
-/* #4/#15 the workspace search slot is relocated into a dock above 插件管理 and
-      presented as a full-width field. The shipped slot is clamped at
-      max-width:28px (icon-only) — remove the clamp so it fills the dock.
-
-      KEY: the FIELD is the host's .GAkraW_search container (it owns the click
-      handler and the expansion state); the .GAkraW_searchButton inside it is
-      only the magnifier glyph. The previous version styled the button as the
-      field (width:100% + a ::after label), which squeezed the expanded
-      .GAkraW_searchInput to zero width — so a click expanded the state but
-      showed nothing, reading as "click does nothing". Styling the container
-      as the field fixes both the collapsed look and the expansion. */
-.ens-search-dock .GAkraW_searchSlot {
-  width: 100%; max-width: none; flex: none; margin-left: 0; padding-left: 0; transition: none;
-  opacity: 1; pointer-events: auto;
+/* Only the Host renders the workspace search field. */
+.GAkraW_sectionHeader .GAkraW_search:focus-within {
+  outline: none !important; border-color: var(--ens-focus-ring); box-shadow: none !important;
 }
-/* 规范：搜索/输入字段高 36px、圆角 12px（md），描边 control 色 */
-.ens-search-dock .GAkraW_search {
-  width: 100%; height: 36px; border-radius: var(--dsw-radius-md); gap: 8px; padding: 0 10px;
-  border: 1px solid var(--dsw-alias-border-l3); background: var(--dsw-alias-bg-layer-1);
-  color: var(--dsw-alias-label-tertiary);
-  transition: border-color var(--ens-dur-fast) var(--ens-ease-standard), background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
-}
-.ens-search-dock .GAkraW_search:hover {
-  border-color: var(--dsw-alias-border-l3); background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-secondary);
-}
-/* the placeholder label lives on the container so the expanded input has
-   room next to the glyph; drop it the moment the field expands. The text comes
-   from data-ens-placeholder, which JS writes per document language — the same
-   string also lands on the real input, so focus and expansion agree. */
-.ens-search-dock .GAkraW_search::after {
-  content: attr(data-ens-placeholder); font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-caption);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.ens-search-dock .GAkraW_searchButton {
-  width: 16px; height: 16px; flex: none; border-radius: 0;
-}
-.ens-search-dock .GAkraW_searchButton:hover { background: transparent; }
-/* Focus: 规范输入框聚焦 = 描边换焦点环色。参考帧把环画在字段外侧并留 2px 间隙，
-   dock 已预留该空间（padding + 高度），否则 overflow:hidden 会切断环。 */
-/* v0.2.0: 聚焦为字段上 1px 品牌青描边（规范参考外观），无外环；轨迹搜索同处理。 */
-.ens-search-dock .GAkraW_search:focus-visible,
-.ens-search-dock .GAkraW_search:focus-within,
-.ens-search-dock .GAkraW_searchExpanded:focus-within,
-.Wd4N7W_search:focus-visible,
-.Wd4N7W_search:focus-within {
-  outline: none !important;
-  border-color: var(--ens-focus-ring) !important;
-  box-shadow: none;
-}
-/* the host hides 工作区 and its header actions while the search is expanded;
-   keep them visible so the expanded field never blanks the header row. */
-.GAkraW_sectionLabelHidden,
-.GAkraW_headerActionsHidden {
-  opacity: 1 !important; visibility: visible !important; max-width: none !important;
-  transform: none !important; pointer-events: auto !important; transition: none !important;
-}
-/* expanded: the host swaps .GAkraW_search for .GAkraW_searchExpanded (same
-   node, added class). Normalise width/height/margins so it fills the dock,
-   drop our placeholder label, and let the input take the remaining flex. */
-.ens-search-dock .GAkraW_searchExpanded {
-  width: 100%; height: 36px; margin-inline: 0; border-radius: var(--dsw-radius-md);
-  border: 1px solid var(--dsw-alias-border-l3); background: var(--dsw-alias-bg-layer-1);
-  padding: 0 10px; gap: 8px;
-}
-.ens-search-dock .GAkraW_searchExpanded::after { content: none; }
-.ens-search-dock .GAkraW_searchExpanded .GAkraW_searchButton { width: 16px; height: 16px; }
-.ens-search-dock .GAkraW_searchExpanded .GAkraW_searchInput {
-  opacity: 1; pointer-events: auto; flex: 1 1 auto; width: auto; min-width: 0;
-}
-
 /* #14 the 工作区 label stays flush-left while 视图选项 / 添加工作区 stay
       flush-right. With the search slot moved out, the header is just label +
       actions; pin them to opposite edges and match the panel-row inset. */
@@ -753,7 +609,6 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 /* the host's search slot is relocated into the dock above 插件管理; while it
    still sits in the workspace header (before the observer moves it, or when
    React re-creates it there) it stays invisible — the dock shows the real one. */
-.GAkraW_sectionHeader .GAkraW_searchSlot { opacity: 0 !important; pointer-events: none !important; }
 
 /* #10 the center column shares bg-base with the rightbar; give the side panels a
       shared "panel" surface and a crisp hairline so the three columns read. */
@@ -781,16 +636,6 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 
 /* Native Workbench owns the file tree, tabs and previews. Theme it through
        Harness tokens without styling optional third-party sidebar internals. */
-/* ModLens vision card uses the native plugin-card chrome and ui.Input, so it
-      already follows Delta tokens; give its focus state the DeltaSuite accent. */
-.V7pFBG_card input:focus-visible,
-.V7pFBG_card select:focus-visible,
-.V7pFBG_card button:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color) !important;
-  outline-offset: var(--dsw-focus-ring-offset) !important;
-  box-shadow: none;
-}
-
 /* Reserve the live indicator's slot even when no job is running. */
 .Ag-ohG_trigger:not(:has(.Ag-ohG_triggerDot))::before { content: ''; width: 10px; height: 10px; flex: none; }
 .Ag-ohG_count {
@@ -826,10 +671,9 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .jrmgQW_input:focus-visible,
 .jrmgQW_selectInput:focus-visible,
 .jrmgQW_keyInput:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color) !important;
-  outline-offset: var(--dsw-focus-ring-offset) !important;
-  border-color: var(--dsw-alias-border-l3);
-  box-shadow: none;
+  outline: none !important;
+  border-color: var(--ens-focus-ring); border-width: 2px;
+  box-shadow: none !important;
 }
 .jrmgQW_primaryButton,
 .jrmgQW_secondaryButton,
@@ -960,6 +804,14 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-provider-head { display: flex; align-items: center; gap: 8px; }
 .ens-provider-name { flex: 1; min-width: 0; }
 .ens-provider .ens-set-name { font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); margin-bottom: 2px; }
+/* Image generation is a flat form, not multiple nested bordered cards. */
+.ens-image-generation { gap: 12px; }
+.ens-image-config { display: flex; flex-direction: column; gap: 8px; }
+.ens-image-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.ens-image-generate-row .ens-ui-select { width: min(210px, 100%); flex: none; }
+.ens-image-generation > .ens-ui-textarea { min-height: 112px; }
+.ens-image-generation .ens-set-name { margin: 0; }
+
 
 /* 16 — #20 selectionAnnotation: a floating 批注 pill on a text selection, and a
       compact composer popover. Both opt into the soft ring, never a hard frame. */
@@ -988,10 +840,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   font: inherit; font-size: 13px; line-height: 20px;
 }
 .ens-anno-input:focus-visible {
-  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color) !important;
-  outline-offset: var(--dsw-focus-ring-offset) !important;
-  border-color: var(--dsw-alias-border-l3);
-  box-shadow: none;
+  outline: none !important; border: 2px solid var(--ens-focus-ring); box-shadow: none !important;
 }
 .ens-anno-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .ens-anno-primary, .ens-anno-ghost {
@@ -1125,8 +974,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-ui-input:disabled, .ens-ui-select:disabled, .ens-ui-textarea:disabled {
   opacity: 0.5; cursor: not-allowed; background: var(--ens-color-muted);
 }
-.ens-ui-button:focus-visible, .ens-ui-input:focus-visible, .ens-ui-select:focus-visible,
-.ens-ui-textarea:focus-visible, .ens-ui-badge:focus-visible, .ens-switch:focus-visible,
+.ens-ui-button:focus-visible, .ens-ui-badge:focus-visible, .ens-switch:focus-visible,
 .ens-pill-btn:focus-visible {
   outline: 2px solid var(--ens-color-ring) !important; outline-offset: 2px;
 }
@@ -1176,8 +1024,8 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   padding: var(--ens-space-lg) var(--ens-space-xl);
 }
 .ens-ui-input:focus-visible, .ens-ui-select:focus-visible, .ens-ui-textarea:focus-visible {
-  border-color: var(--ens-color-ring);
-  box-shadow: 0 0 0 1px var(--ens-color-ring);
+  border-color: var(--ens-color-ring); border-width: 2px;
+  outline: none !important; box-shadow: none !important;
 }
 .ens-ui-badge.ens-anno-chip { min-height: 32px; padding-inline: var(--ens-space-lg); }
 .ens-anno-panel.ens-ui-card { box-shadow: var(--ens-shadow-lg); }
@@ -1578,7 +1426,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             };
             const isDeltaOwnElement = (el: Element) => {
               try {
-                return !!(el.closest('[data-ens], .ens-foot-actions, .ens-search-dock, .ens-anno-panel, .ens-anno-btn, .ens-standalone-settings-modal, .ens-modal-card'));
+                return !!(el.closest('[data-ens], .ens-foot-actions, .ens-anno-panel, .ens-anno-btn, .ens-standalone-settings-modal, .ens-modal-card'));
               } catch { return false; }
             };
             // Snapshot of what the host actually exposes, taken when the user
@@ -2011,7 +1859,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               backdrop.className = 'ens-modal-backdrop ens-standalone-settings-modal';
               backdrop.setAttribute('role', 'dialog');
               backdrop.setAttribute('aria-modal', 'true');
-              backdrop.setAttribute('aria-label', pick('设置 · Delta 套件（DSH 版）', 'Settings · Delta Suite for DSH'));
+              backdrop.setAttribute('aria-label', pick('设置 · Delta 套件', 'Settings · Delta Suite'));
               const card = document.createElement('div');
               card.className = 'ens-modal-card ens-ui-card';
               const top = document.createElement('div');
@@ -2019,7 +1867,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               const headBox = document.createElement('div');
               const titleEl = document.createElement('div');
               titleEl.className = 'ens-modal-title';
-              titleEl.textContent = pick('设置 · Delta 套件（DSH 版）', 'Settings · Delta Suite for DSH');
+              titleEl.textContent = pick('设置 · Delta 套件', 'Settings · Delta Suite');
               const subEl = document.createElement('div');
               subEl.className = 'ens-modal-sub';
               subEl.textContent = 'Delta Suite for DSH';
@@ -2440,51 +2288,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
             }
 
-            const restoreNativeSearch = () => {
-              const dock = document.querySelector<HTMLElement>('.ens-search-dock');
-              if (!dock) return;
-              const host = document.querySelector<HTMLElement>('.GAkraW_sectionHeader');
-              const slot = dock.querySelector<HTMLElement>('.GAkraW_searchSlot');
-              if (slot && !host) return;
-              if (slot && host && !host.querySelector('.GAkraW_searchSlot')) host.appendChild(slot);
-              dock.remove();
-            };
-
-            // #4 relocate the workspace search slot into a dock above 插件管理.
-            // The host's `.GAkraW_searchSlot` is a React-owned node inside the
-            // workspace header; we move the live one into the dock and drop the
-            // stale duplicates React may orphan there after a re-render. The
-            // dock clips everything to 44px, so the field can never paint over
-            // the 工作区 row.
-            function mountSearchDock() {
-              const root = document.querySelector<HTMLElement>('.wtg9ga_root');
-              if (!root) return;
-              let dock = root.querySelector<HTMLElement>(':scope > .ens-search-dock');
-              if (!dock) {
-                dock = document.createElement('div');
-                dock.className = 'ens-search-dock';
-                root.insertBefore(dock, root.firstChild);
-              }
-              // the live slot is the one React currently manages in the header
-              const live = document.querySelector<HTMLElement>('.GAkraW_sectionHeader .GAkraW_searchSlot');
-              if (live && live.parentElement !== dock) dock.appendChild(live);
-              // drop stale duplicates React may have orphaned in the dock
-              const dups = [...dock.querySelectorAll<HTMLElement>('.GAkraW_searchSlot')];
-              if (dups.length > 1) dups.slice(0, -1).forEach(el => el.remove());
-              // v0.2.2: the hint text is ours to own. The dock carries it in
-              // data-ens-placeholder (the CSS ::after reads it) and the real input
-              // gets the same string, so the collapsed hint and the focused field
-              // never disagree in either language. Re-stamped every run because
-              // React re-renders the input and would restore its own placeholder.
-              const hint = t('请输入搜索关键词', 'Type keywords to search');
-              const search = dock.querySelector<HTMLElement>('.GAkraW_search');
-              if (search && search.getAttribute('data-ens-placeholder') !== hint) {
-                search.setAttribute('data-ens-placeholder', hint);
-              }
-              const input = dock.querySelector<HTMLElement>('.GAkraW_searchInput');
-              if (input && input.getAttribute('placeholder') !== hint) input.setAttribute('placeholder', hint);
-            }
-
+            // Never reparent, clone or remove Host-owned React search/session nodes.
             const hostVisibilityOrigins = new Map<HTMLElement, { display: string; hidden: HTMLElement['hidden']; ariaHidden: string | null }>();
             const setHostNodeVisible = (el: HTMLElement, isVisible: boolean) => {
               if (isVisible) {
@@ -2955,8 +2759,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 initAnnotations();
                 mountFootSettings();
                 mountVersionAction();
-                mountSearchDock();
-                hideHostOptions();
+                  hideHostOptions();
                 hideThirdPartyProviders();
                 renameLabels();
                 document.querySelectorAll<HTMLElement>('._5Qcc8a_trigger').forEach(injectAccountGlyph);
@@ -3489,7 +3292,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { pendingSearch?.abort(); avatarActivationEvents.forEach(type => document.removeEventListener(type, onAvatarActivate, true)); mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreNativeSearch(); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
+            return () => { pendingSearch?.abort(); avatarActivationEvents.forEach(type => document.removeEventListener(type, onAvatarActivate, true)); mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
@@ -3510,9 +3313,6 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
   enDesc: string;
 }
 const MODULES: ModuleDef[] = [
-          { id: 'sessionListRecovery', zh: '会话列表恢复', en: 'Recover session list', status: 'ready', defaultOn: true,
-            zhDesc: '当原生侧栏未挂载或未显示时，提供可关闭的会话恢复入口；不修改宿主数据。',
-            enDesc: 'Offer a reversible fallback when the native sidebar is missing; Host data is never altered.' },
           { id: 'conversationShare', zh: '对话分享', en: 'Share conversations', status: 'ready', defaultOn: true,
             zhDesc: '把当前对话复制为 Markdown 文本。',
             enDesc: 'Copy the current conversation as Markdown.' },
@@ -4015,7 +3815,7 @@ const MODULES: ModuleDef[] = [
               }
             };
             const imageGenOn = moduleOn('imageGen');
-            const imageGenRow = imageGenOn ? h(UiCard, { key: 'image-gen', id: 'delta-image-generation', className: 'ens-privacy' }, [
+            const imageGenRow = imageGenOn ? h(UiCard, { key: 'image-gen', id: 'delta-image-generation', className: 'ens-privacy ens-image-generation' }, [
               h('div', { key: 'title', className: 'ens-privacy-title' }, pick('在线生图', 'Online image generation')),
               h('div', { key: 'desc', className: 'ens-privacy-body' }, pick(
                 '自动复用主配置的服务商、接口地址和 API Key。生图模型留空时跟随主模型；如该服务商需要专用生图模型，可在下方填写模型 ID。服务商需要提供 OpenAI 兼容的图片生成接口。生成结果暂存在此页面，可下载到本机。',
@@ -4024,14 +3824,14 @@ const MODULES: ModuleDef[] = [
               h('div', { key: 'account', className: 'ens-set-name' }, mainModelLabel),
               !mainModelInfo?.ready ? h('div', { key: 'unready', role: 'status', className: 'ens-set-desc' }, pick('请先在主配置中设置模型账号。', 'Configure a model account in the main settings first.')) : null,
               mainModelInfo?.openAICompatible === false ? h('div', { key: 'protocol', role: 'status', className: 'ens-set-desc' }, pick('当前服务商未声明 OpenAI 兼容接口，图片生成可能不可用。', 'The provider has not declared an OpenAI-compatible API; image generation may be unavailable.')) : null,
-              h(UiCard, { key: 'form', className: 'ens-provider' }, [
+              h('div', { key: 'form', className: 'ens-image-config' }, [
                 fieldLabel(pick('生图模型 ID（留空跟随主模型）', 'Image model ID (blank follows the main model)')),
                 h(UiInput, {
                   key: 'model', className: 'jrmgQW_input', type: 'text', value: imageGenForm.model,
                   placeholder: mainModelInfo?.model || pick('使用主配置模型', 'Use the main model'),
                   onChange: (ev: HarnessReactChangeEvent<HTMLInputElement>) => setImageGenForm(prev => ({ ...prev, model: ev.target.value })),
                 }),
-                h('div', { key: 'save', className: 'ens-set-row' }, [
+                h('div', { key: 'save', className: 'ens-image-actions' }, [
                   h(UiButton, { key: 'button', type: 'button', className: 'ens-pill-btn', onClick: () => { void saveImageGen(); } }, pick('保存生图配置', 'Save image settings')),
                   imageGenConfig?.model ? h('span', { key: 'override', className: 'ens-set-desc' }, pick('使用生图模型覆写', 'Image model override enabled')) : null,
                 ]),
@@ -4042,7 +3842,7 @@ const MODULES: ModuleDef[] = [
                 placeholder: pick('描述你想生成的图片…', 'Describe the image you want…'),
                 onChange: (ev: HarnessReactChangeEvent<HTMLTextAreaElement>) => setImagePrompt(ev.target.value),
               }),
-              h('div', { key: 'generate-row', className: 'ens-set-row' }, [
+              h('div', { key: 'generate-row', className: 'ens-image-actions ens-image-generate-row' }, [
                 h(UiSelect, {
                   key: 'size', className: 'jrmgQW_input', value: imageSize,
                   onChange: (ev: HarnessReactChangeEvent<HTMLSelectElement>) => setImageSize(ev.target.value),
@@ -4701,7 +4501,7 @@ const MODULES: ModuleDef[] = [
             ]);
             return h('div', { className: 'ens-settings' }, [
               h('div', { key: 'h', className: 'ens-set-head' }, [
-                h('div', { key: 't', className: 'ens-set-title' }, pick('Delta 套件（DSH 版）', 'Delta Suite for DSH settings')),
+                h('div', { key: 't', className: 'ens-set-title' }, pick('Delta 套件', 'Delta Suite')),
                 h('div', { key: 'd', className: 'ens-set-sub' }, pick(
                   '外观与功能模块。仅「可用」的开关可操作，其余标注其真实状态。',
                   'Appearance and feature modules. Only available switches are operable; the rest state their real status.',
@@ -4726,7 +4526,7 @@ const MODULES: ModuleDef[] = [
             ]);
           }
           ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register(
-            { name: 'settings.section', id: '@fongap-labs/dsh-suite-delta', order: 20, label: t('Delta 套件（DSH 版）', 'Delta Suite for DSH settings') },
+            { name: 'settings.section', id: '@fongap-labs/dsh-suite-delta', order: 20, label: t('Delta 套件', 'Delta Suite') },
             DeltaSettings,
           )), 'dsh-ui-delta: settings module');
         } catch (error) {
@@ -5219,156 +5019,8 @@ const MODULES: ModuleDef[] = [
         }
 
 
-        // The native WorkspaceBrowser occasionally unmounts its list. Keep the
-        // Host session catalog authoritative and expose a reversible fallback,
-        // never a second session store or an automatic Host reset.
-        try {
-          interface RecoverySession { id: string; displayTitle?: string; blank?: boolean; origin?: string }
-          interface RecoveryCatalog {
-            phase?: string;
-            ids: string[];
-            byId: Record<string, RecoverySession>;
-          }
-          interface RecoveryServices {
-            sessions?: { list?: {
-              getSnapshot(): RecoveryCatalog;
-              subscribe(listener: () => void): () => void;
-            } };
-            uiWorkspace?: { openSession(id: string): void | Promise<void> };
-          }
-          const attachRecovery = (child: HarnessClientContext) => {
-            const api = child as HarnessClientContext & RecoveryServices;
-            const sessions = (child.get?.('sessions') || api.sessions) as RecoveryServices['sessions'];
-            const navigation = (child.get?.('uiWorkspace') || api.uiWorkspace) as RecoveryServices['uiWorkspace'];
-            const sessionList = sessions?.list;
-            if (!sessionList?.subscribe || !navigation?.openSession) return;
-            child.effect(() => {
-              if (typeof document === 'undefined' || !document.body) return;
-              const key = 'dsh-ui-delta.modules';
-              const isEnabled = () => {
-                try {
-                  const flags = JSON.parse(localStorage.getItem(key) || '{}');
-                  return flags?.sessionListRecovery !== false;
-                } catch { return true; }
-              };
-              let holder: HTMLElement | null = null;
-              let timer: ReturnType<typeof setTimeout> | null = null;
-              let hasUserOpened = false;
-              let renderKey = '';
-              const clear = () => { holder?.remove(); holder = null; renderKey = ''; };
-              const sync = () => {
-                timer = null;
-                if (!isEnabled()) { clear(); return; }
-                const sidebar = document.querySelector<HTMLElement>('.mP3x-q_sidebarCol');
-                const snapshot = sessionList.getSnapshot();
-                if (!sidebar || snapshot.phase !== 'ready' || sidebar.getBoundingClientRect().width < 175) {
-                  clear(); return;
-                }
-                const eligible = snapshot.ids.filter(id => {
-                  const entry = snapshot.byId[id];
-                  return !!entry && !entry.blank && entry.origin !== 'subagent';
-                });
-                if (!eligible.length) { clear(); return; }
-                const nativeArea = sidebar.querySelector<HTMLElement>('[data-sidebar-list-area]');
-                // An empty rendered list may be a deliberate search/filter/fold.
-                // Offer manual recovery in that case; only missing mount is
-                // considered sufficiently strong evidence to show the list.
-                const nativeRows = nativeArea?.querySelector('.wnFoaW_sessionRow, [class*="sessionRow"]');
-                if (nativeRows) { hasUserOpened = false; clear(); return; }
-                const missing = !nativeArea;
-                const mode = missing ? 'missing' : 'offer';
-                const parent = missing ? sidebar : nativeArea!.parentElement;
-                if (!parent) { clear(); return; }
-                if (holder?.parentElement !== parent) { clear(); hasUserOpened = false; }
-                if (!holder) {
-                  holder = document.createElement('section');
-                  holder.className = 'ens-sidebar-recovery';
-                  holder.dataset.deltaSidebarRecovery = '';
-                  holder.setAttribute('aria-label', t('会话列表恢复', 'Session list recovery'));
-                  if (missing) sidebar.appendChild(holder);
-                  else nativeArea!.insertAdjacentElement('afterend', holder);
-                }
-                const rect = sidebar.getBoundingClientRect();
-                if (missing) {
-                  holder.style.left = Math.round(rect.left + 8) + 'px';
-                  holder.style.top = Math.round(rect.top + 165) + 'px';
-                  holder.style.width = Math.max(180, Math.round(rect.width - 16)) + 'px';
-                  holder.style.height = Math.max(100, Math.round(rect.height - 250)) + 'px';
-                } else {
-                  holder.style.left = holder.style.top = holder.style.width = holder.style.height = '';
-                }
-                holder.dataset.mode = mode;
-                const show = missing || hasUserOpened;
-                const titles = show ? eligible.slice(0, 80).map(id => snapshot.byId[id]?.displayTitle || id) : [];
-                const nextKey = JSON.stringify([mode, show, eligible.length, eligible.slice(0, 80), titles]);
-                if (renderKey === nextKey) return;
-                renderKey = nextKey;
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'ens-sidebar-recovery-toggle';
-                button.textContent = show
-                  ? t('恢复的对话列表（点击收起）', 'Recovered sessions (collapse)')
-                  : t('会话未显示？查看对话', 'Sessions missing? Show conversations');
-                button.setAttribute('aria-expanded', String(show));
-                button.addEventListener('click', () => { hasUserOpened = !show; renderKey = ''; sync(); });
-                holder.replaceChildren(button);
-                if (!show) return;
-                const hint = document.createElement('div');
-                hint.className = 'ens-sidebar-recovery-hint';
-                hint.textContent = t('仅显示本机已加载的会话。官方侧栏恢复后会自动隐藏。',
-                  'Showing sessions already loaded by the Host. This panel closes when the native list returns.');
-                holder.appendChild(hint);
-                const list = document.createElement('div');
-                list.className = 'ens-sidebar-recovery-items';
-                for (const id of eligible.slice(0, 80)) {
-                  const row = document.createElement('button');
-                  row.type = 'button';
-                  row.className = 'ens-sidebar-recovery-item';
-                  row.textContent = snapshot.byId[id]?.displayTitle || id;
-                  row.title = row.textContent;
-                  row.addEventListener('click', () => {
-                    void Promise.resolve(navigation.openSession(id)).then(() => {
-                      hasUserOpened = false; schedule();
-                    }).catch(() => { /* Host navigation stays authoritative. */ });
-                  });
-                  list.appendChild(row);
-                }
-                holder.appendChild(list);
-              };
-              const schedule = () => {
-                if (timer) clearTimeout(timer);
-                timer = setTimeout(sync, 250);
-              };
-              const observer = new MutationObserver(records => {
-                // Ignore our own render; otherwise the observer would wake itself.
-                if (records.every(record => (record.target as Element).parentElement
-                  ?.closest?.('[data-delta-sidebar-recovery]') || (record.target as Element)
-                  .closest?.('[data-delta-sidebar-recovery]'))) return;
-                schedule();
-              });
-              observer.observe(document.body, { childList: true, subtree: true });
-              const unsubscribe = sessionList.subscribe(schedule);
-              window.addEventListener('resize', schedule);
-              window.addEventListener('dsh-ui-delta:flags-changed', schedule);
-              sync();
-              return () => {
-                observer.disconnect();
-                unsubscribe();
-                window.removeEventListener('resize', schedule);
-                window.removeEventListener('dsh-ui-delta:flags-changed', schedule);
-                if (timer) clearTimeout(timer);
-                clear();
-              };
-            }, 'dsh-ui-delta: session list recovery');
-          };
-          const optional = ctx as HarnessClientContext & { inject?: (
-            dependencies: string[], callback: (child: HarnessClientContext) => void
-          ) => unknown };
-          if (optional.inject) optional.inject(['sessions', 'uiWorkspace'], attachRecovery);
-          else attachRecovery(ctx);
-        } catch (error) {
-          console.warn('[dsh-ui-delta] session list recovery unavailable:', error);
-        }
+        // The Host renders and reconciles its original session list.
+        // Delta decorates the Host session rows only through public slots.
 
         // NOTE: the shipped global-panel cells ('plugins', 'schedules') are NOT
         // re-registered here. Reusing a shipped cell id collides with the owning

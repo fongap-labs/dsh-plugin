@@ -37,8 +37,8 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.match(client, /function hideHostOptions\(\)/);
     assert.match(client, /hideHostOptions\(\);/);
     assert.match(client, /hideThirdPartyProviders\(\);/);
-    assert.match(client, /mountSearchDock\(\);/);
-    assert.match(client, /restoreNativeSearch\(\);/);
+    assert.doesNotMatch(client, /mountSearchDock\(\);/);
+    assert.doesNotMatch(client, /restoreNativeSearch\(\);/);
     assert.match(client, /hideAccountModels\(\);/);
     assert.match(client, /hideListedModels\(\);/);
   });
@@ -90,7 +90,7 @@ describe('Delta Suite settings privacy and usability', () => {
     assert.match(client, /if \(signal\.aborted \|\| !needle\) return base/);
   });
   it('keeps privacy copy precise and labels the settings section correctly', () => {
-    assert.match(client, /Delta Suite settings/);
+    assert.match(client, /label: t\('Delta \u5957\u4ef6', 'Delta Suite'\)/);
     assert.match(client, /Model configuration/);
     assert.doesNotMatch(client, /This plugin collects and uploads nothing/);
   });

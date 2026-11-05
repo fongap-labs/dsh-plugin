@@ -43,7 +43,6 @@ it('keeps the native host selectors in one canonical rule per surface', () => {
     '.GAkraW_sectionLabel',
     '.AnXs9G_panel',
     '.ens-account-glyph',
-    '.ens-search-dock .GAkraW_searchSlot',
   ]
   for (const selector of canonical) {
     const escaped = selector.replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&')
@@ -57,7 +56,8 @@ it('retains canonical host behavior and light-dark contrast tokens', () => {
   assert.match(css, /\.wtg9ga_logoRow\s*\{[^}]*height: 6px;[^}]*order: 1/)
   assert.match(css, /\.wtg9ga_footArea\s*\{[^}]*position: relative; order: 6/)
   assert.match(css, /\.GAkraW_sectionHeader\s*\{[^}]*justify-content: flex-start/)
-  assert.match(css, /\.ens-search-dock \.GAkraW_searchSlot\s*\{[^}]*opacity: 1; pointer-events: auto/)
+  assert.match(css, /\.GAkraW_sectionHeader \.GAkraW_search:focus-within/)
+  assert.doesNotMatch(css, /\.ens-search-dock/)
   assert.match(css, /\.AnXs9G_panel\s*\{[^}]*animation: ensFade/)
   assert.match(css, /\.ens-account-glyph\s*\{[^}]*pointer-events: none/)
   assert.match(css, /\.wtg9ga_collapsed \.ens-foot-actions\s*\{[^}]*margin-left: 0/)
