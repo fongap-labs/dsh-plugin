@@ -10,7 +10,7 @@ projects/<plugin>/release.manifest.json
 
 清单负责声明发布目标、Release Key、许可证表达式、Node 版本文件、SBOM 名称、构建矩阵和产物名称。不要在业务代码、脚本和工作流中重复维护仓库到产品的映射。
 
-## 2. Action Worker 发布流程
+## 2. 中央发布流程
 
 生产发布由 `fongap-labs/action-worker` 执行：
 
