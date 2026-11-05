@@ -36,13 +36,13 @@ test('search documentation is aligned with configured providers and optional key
 })
 
 test('released history remains intact and pending entries use a single Chinese changelog', () => {
-  assert.match(changelog, /^# 更新日志\n\n## \[Unreleased\]\n/)
+  assert.match(changelog, /^# \u66f4\u65b0\u65e5\u5fd7\n\n## \[Unreleased\]\n/)
   assert.match(changelog, /## \[0\.1\.0-beta\.1\]/)
   assert.equal(existsSync(new URL('../changelog.d', import.meta.url)), false)
   const unreleased = changelog.split(/\n## \[0\.1\.0-beta\.1\]/)[0]
   const entries = unreleased.split('\n').filter(line => line.startsWith('- '))
   assert.ok(entries.length > 0, 'pending release entries must be retained')
-  assert.ok(entries.every(line => /^- (?:新增|修复|维护)(?: \[[a-z, ]+\])?: .+/.test(line)))
-  assert.match(unreleased, /修复: 配置文件采用原子写入/)
-  assert.match(unreleased, /维护: 更新文件夹、搜索、会话删除及隐私设置说明/)
+  assert.ok(entries.every(line => /^- (?:\u65b0\u589e|\u4fee\u590d|\u7ef4\u62a4)(?: \[[a-z, ]+\])?: .+/.test(line)))
+  assert.match(unreleased, /\u4fee\u590d: \u914d\u7f6e\u6587\u4ef6\u91c7\u7528\u539f\u5b50\u5199\u5165/)
+  assert.match(unreleased, /\u7ef4\u62a4: \u66f4\u65b0\u6587\u4ef6\u5939、\u641c\u7d22、\u4f1a\u8bdd\u5220\u9664\u53ca\u9690\u79c1\u8bbe\u7f6e\u8bf4\u660e/)
 })
