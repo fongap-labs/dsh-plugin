@@ -32,6 +32,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { Button } from './components/ui/button'
+import { zhCN } from './locales/zh-CN'
 import { desktopHostStatus } from './lib/desktop-host-status'
 import type {
   DesktopHostRequest,
@@ -131,9 +132,9 @@ function CopyCodeButton({ text }: { text: string }) {
   }
 
   return (
-    <button aria-label={copyState === 'copied' ? '代码已复制' : copyState === 'failed' ? '复制失败' : '复制代码'} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => void copyCode()} type="button">
+    <button aria-label={copyState === 'copied' ? zhCN.copiedCodeStatus : copyState === 'failed' ? zhCN.copyFailedStatus : zhCN.copyCodeLabel} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => void copyCode()} type="button">
       {copyState === 'copied' ? <Check size={12} /> : <Copy size={12} />}
-      {copyState === 'copied' ? '已复制' : copyState === 'failed' ? '失败' : '复制'}
+      {copyState === 'copied' ? zhCN.copiedStatus : copyState === 'failed' ? zhCN.failedStatus : zhCN.copyLabel}
     </button>
   )
 }
@@ -142,7 +143,7 @@ function MarkdownPre({ children, ...props }: ComponentProps<'pre'>) {
   return (
     <div className="my-3 overflow-hidden rounded-xl border border-border bg-background/70">
       <div className="flex h-8 items-center justify-between border-b border-border/70 px-2.5">
-        <span className="text-[10px] text-muted-foreground">代码</span>
+        <span className="text-[10px] text-muted-foreground">{zhCN.codeLabel}</span>
         <CopyCodeButton text={extractNodeText(children)} />
       </div>
       <pre {...props} className="max-h-[32rem] overflow-auto px-3 py-3 text-[12px] leading-5">{children}</pre>
@@ -209,19 +210,33 @@ function readImageAsBase64(file: File): Promise<string> {
     const reader = new FileReader()
     reader.onload = () => {
       if (typeof reader.result !== 'string') {
-        reject(new Error('无法读取这张图片'))
+        reject(new Error("Unable to read image"))
         return
       }
       const separator = reader.result.indexOf(',')
       if (separator < 0) {
-        reject(new Error('图片格式无法识别'))
+        reject(new Error("Unrecognized image format"))
         return
       }
       resolve(reader.result.slice(separator + 1))
     }
-    reader.onerror = () => reject(reader.error ?? new Error('读取图片失败'))
+    reader.onerror = () => reject(reader.error ?? new Error("Image read failed"))
     reader.readAsDataURL(file)
   })
+}
+
+function imageReadErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  switch (message) {
+    case 'Unable to read image':
+      return zhCN.imageUnreadable
+    case 'Unrecognized image format':
+      return zhCN.imageFormatUnknown
+    case 'Image read failed':
+      return zhCN.imageReadFailed
+    default:
+      return message
+  }
 }
 
 function loadMessages(sessionId: string): ChatMessage[] {
@@ -486,7 +501,8 @@ function App() {
     setIsReadingImages(true)
     const remaining = maxImageCount - attachments.length
     const filesToRead = selected.slice(0, Math.max(remaining, 0))
-    let errorMessage = selected.length > filesToRead.length ? `最多添加 ${maxImageCount} 张图片` : ''
+    let errorMessage = ''
+    if (selected.length > filesToRead.length) errorMessage = zhCN.maximumImages(maxImageCount)
     const loaded: PendingImage[] = []
     for (const file of filesToRead) {
       const mimeType = file.type.toLowerCase()
@@ -506,7 +522,7 @@ function App() {
           data: await readImageAsBase64(file),
         })
       } catch (error) {
-        errorMessage ||= `${file.name} 读取失败：${String(error)}`
+        errorMessage ||= `${file.name} 读取失败：${imageReadErrorMessage(error)}`
       }
     }
     if (loaded.length > 0) setAttachments(current => [...current, ...loaded].slice(0, maxImageCount))
@@ -615,7 +631,7 @@ function App() {
   async function chooseHarnessPath(directory: boolean) {
     try {
       const path = await openDialog({
-        title: directory ? '选择 Harness 文件夹' : '选择 dsh 启动文件',
+        title: directory ? zhCN.selectHarnessFolder : zhCN.selectDshStartupFile,
         defaultPath: runtimeConfig.dshPath || undefined,
         directory,
         multiple: false,
@@ -704,7 +720,7 @@ function App() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold tracking-tight">Delta Suite</div>
-            <div className="text-[11px] text-muted-foreground">AI 工作台</div>
+            <div className="text-[11px] text-muted-foreground">{zhCN.aiWorkbench}</div>
           </div>
           <Button aria-label="连接设置" className="text-muted-foreground" size="icon" variant="ghost" onClick={openConnectionSettings}>
             <MoreHorizontal size={17} />
@@ -713,7 +729,7 @@ function App() {
 
         <Button className="mb-2 w-full justify-start shadow-sm" variant="primary" onClick={startNewSession}>
           <Plus size={16} />
-          新建对话
+          {zhCN.createConversation}
           <span className="ml-auto rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-medium">{shortcutModifier} K</span>
         </Button>
 
@@ -724,7 +740,7 @@ function App() {
           onClick={() => setSearchOpen(value => !value)}
         >
           <Search size={15} />
-          搜索
+          {zhCN.search}
           <span className="ml-auto flex items-center gap-1 text-[10px] text-muted-foreground">{shortcutModifier === '⌘' && <Command size={10} />}{shortcutModifier === 'Ctrl' && 'Ctrl ' }F</span>
         </Button>
 
@@ -740,7 +756,7 @@ function App() {
               value={query}
             />
             <p className="px-1 pt-2 text-[11px] leading-5 text-muted-foreground">
-              搜索 Delta 在这台电脑保存的对话标题和文字内容。
+              {zhCN.searchDescription}
             </p>
           </div>
         )}
@@ -766,7 +782,7 @@ function App() {
         </div>
 
         <div className="mt-8 flex items-center justify-between px-2 pb-2">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">最近会话</span>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">{zhCN.recentConversations}</span>
           <Button aria-label="新建会话" size="icon" variant="ghost" className="size-7" onClick={startNewSession}>
             <Plus size={14} />
           </Button>
@@ -789,8 +805,8 @@ function App() {
             <div className="mb-2 flex size-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
               <MessageSquarePlus size={17} strokeWidth={1.7} />
             </div>
-            <p className="text-xs font-medium">还没有对话</p>
-            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">新对话会出现在这里。</p>
+            <p className="text-xs font-medium">{zhCN.emptyConversationsTitle}</p>
+            <p className="mt-1 text-[11px] leading-5 text-muted-foreground">{zhCN.emptyConversationsDescription}</p>
           </div>
         )}
 
@@ -798,17 +814,17 @@ function App() {
           <div className="flex items-center gap-2 rounded-lg px-2 py-2">
             <div className="flex size-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">D</div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium">本地工作区</div>
+              <div className="truncate text-xs font-medium">{zhCN.localWorkspace}</div>
               <div className="truncate text-[10px] text-muted-foreground">Delta Desktop</div>
             </div>
             <ChevronDown size={14} className="text-muted-foreground" />
           </div>
           <div className="flex items-center gap-1 border-t border-border/70 pt-2">
             <Button className="flex-1 justify-start text-xs" size="sm" variant="ghost" onClick={openConnectionSettings}>
-              <Settings2 size={14} /> 设置
+              <Settings2 size={14} /> {zhCN.settings}
             </Button>
             <Button
-              aria-label={theme === 'light' ? '切换到深色模式' : '切换到浅色模式'}
+              aria-label={theme === 'light' ? zhCN.switchToDarkMode : zhCN.switchToLightMode}
               size="icon"
               variant="ghost"
               className="size-8"
@@ -826,7 +842,7 @@ function App() {
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[58px] shrink-0 items-center justify-between border-b border-border/80 px-7">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">工作区</span>
+            <span className="font-medium text-foreground">{zhCN.workspace}</span>
             <span className="text-border">/</span>
             <span>{copy.eyebrow === 'DELTA SUITE' ? activeSessionTitle : itemLabel(view)}</span>
           </div>
@@ -834,16 +850,16 @@ function App() {
             <RuntimeBadge state={runtime.state} />
             {!isOnline ? (
               <Button className="text-xs" size="sm" variant="primary" onClick={() => setConnectionOpen(value => !value)}>
-                连接 Harness
+                {zhCN.connectHarness}
               </Button>
             ) : (
               <Button className="text-xs" size="sm" title="断开会结束本桌面连接启动的整个 Harness 进程" variant="outline" onClick={() => void disconnectRuntime()}>
-                断开
+                {zhCN.disconnect}
               </Button>
             )}
             <Button className="text-xs" size="sm" variant="outline" onClick={openWorkspacePicker}>
               <FolderKanban size={14} />
-              选择工作文件夹
+              {zhCN.chooseWorkspace}
             </Button>
           </div>
         </header>
@@ -852,10 +868,10 @@ function App() {
           <div className="w-full max-w-[760px]">
             {view === 'history' ? (
               <section className="rounded-2xl border border-border bg-card p-5">
-                <h1 className="text-xl font-semibold">历史记录</h1>
-                <p className="mt-1 text-xs text-muted-foreground">这里列出 Delta 在这台电脑上创建的对话。</p>
+                <h1 className="text-xl font-semibold">{zhCN.history}</h1>
+                <p className="mt-1 text-xs text-muted-foreground">{zhCN.historyDescription}</p>
                 <div className="mt-4 space-y-2">
-                  {filteredSessions.length === 0 ? <p className="py-8 text-center text-xs text-muted-foreground">没有找到对话记录。</p> : filteredSessions.map(session => (
+                  {filteredSessions.length === 0 ? <p className="py-8 text-center text-xs text-muted-foreground">{zhCN.emptyHistory}</p> : filteredSessions.map(session => (
                     <div className="flex items-center gap-2 rounded-xl border border-border px-2 hover:border-primary/40 hover:bg-accent/30" key={session.id}>
                       <button className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-1 text-left" onClick={() => void openSession(session)}>
                         <MessageSquarePlus className="shrink-0 text-primary" size={16} />
@@ -871,15 +887,15 @@ function App() {
               </section>
             ) : view === 'activity' ? (
               <section className="rounded-2xl border border-border bg-card p-5">
-                <h1 className="text-xl font-semibold">运行活动</h1>
-                <p className="mt-1 text-xs text-muted-foreground">当前对话中 Harness 已报告的工具调用。</p>
+                <h1 className="text-xl font-semibold">{zhCN.activity}</h1>
+                <p className="mt-1 text-xs text-muted-foreground">{zhCN.activityDescription}</p>
                 <div className="mt-4 space-y-2">
-                  {activities.filter(item => item.sessionId === sessionId).length === 0 ? <p className="py-8 text-center text-xs text-muted-foreground">当前对话还没有工具活动。</p> : activities.filter(item => item.sessionId === sessionId).map(item => (
+                  {activities.filter(item => item.sessionId === sessionId).length === 0 ? <p className="py-8 text-center text-xs text-muted-foreground">{zhCN.emptyActivity}</p> : activities.filter(item => item.sessionId === sessionId).map(item => (
                     <article className="rounded-xl border border-border px-3 py-3" key={item.id}>
                       <div className="flex items-center justify-between gap-3">
                         <p className="truncate text-xs font-medium">{item.toolName}</p>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] ${item.outcome === 'success' ? 'bg-success/10 text-success' : item.outcome === 'error' ? 'bg-destructive/10 text-destructive' : item.outcome === 'cancelled' ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
-                          {item.outcome === 'success' ? '已完成' : item.outcome === 'error' ? '失败' : item.outcome === 'cancelled' ? '已取消' : '进行中'}
+                          {item.outcome === 'success' ? zhCN.completed : item.outcome === 'error' ? zhCN.failedStatus : item.outcome === 'cancelled' ? zhCN.cancelled : zhCN.inProgress}
                         </span>
                       </div>
                       {item.summary && <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all text-[10px] leading-4 text-muted-foreground">{item.summary}</pre>}
@@ -889,8 +905,8 @@ function App() {
               </section>
             ) : view === 'skills' ? (
               <section className="rounded-2xl border border-border bg-card p-5">
-                <h1 className="text-xl font-semibold">技能库</h1>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">Harness 目前没有向桌面端开放技能管理接口，所以这里暂时不能查看或修改技能。现有技能仍由 Harness 内核加载。</p>
+                <h1 className="text-xl font-semibold">{zhCN.skills}</h1>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{zhCN.skillsUnavailable}</p>
               </section>
             ) : messages.length === 0 ? (
               <>
@@ -914,22 +930,22 @@ function App() {
                     <div className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'whitespace-pre-wrap bg-primary text-primary-foreground' : 'min-w-0 bg-card text-card-foreground'}`}>
                       {message.role === 'assistant' && message.text
                         ? <ReactMarkdown components={markdownComponents} remarkPlugins={[remarkGfm]}>{message.text}</ReactMarkdown>
-                        : message.text || (message.role === 'assistant' ? '（没有文字内容）' : '')}
+                        : message.text || (message.role === 'assistant' ? zhCN.noTextMessage : '')}
                     </div>
                   </article>
                 ))}
-                {isSending && <p className="text-xs text-muted-foreground">Harness 正在回复…</p>}
+                {isSending && <p className="text-xs text-muted-foreground">{zhCN.harnessReplying}</p>}
               </div>
             )}
 
             {view === 'chat' && connectionOpen && (
               <section ref={connectionSettingsRef} className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <div className="mb-4">
-                  <h2 className="text-sm font-semibold">{isOnline ? '连接设置' : '连接已有的 Harness'}</h2>
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">Delta 只连接并使用 Harness，不会复制或安装运行内核。</p>
+                  <h2 className="text-sm font-semibold">{isOnline ? zhCN.connectionSettings : zhCN.connectExistingHarness}</h2>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{zhCN.runtimeOwnership}</p>
                 </div>
                 <label className="block text-xs font-medium">
-                  Harness 程序位置
+                  {zhCN.harnessPath}
                   <input
                     className="mt-1.5 h-10 w-full rounded-lg border border-input bg-background px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onChange={event => setRuntimeConfig(config => ({ ...config, dshPath: event.target.value }))}
@@ -938,21 +954,21 @@ function App() {
                   />
                 </label>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => void chooseHarnessPath(true)}>浏览 Harness 文件夹</Button>
-                  <Button size="sm" variant="outline" onClick={() => void chooseHarnessPath(false)}>选择 dsh 启动文件</Button>
+                  <Button size="sm" variant="outline" onClick={() => void chooseHarnessPath(true)}>{zhCN.browseHarnessFolder}</Button>
+                  <Button size="sm" variant="outline" onClick={() => void chooseHarnessPath(false)}>{zhCN.selectDshStartupFile}</Button>
                 </div>
                 <details className="mt-3 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer select-none">更多连接设置</summary>
+                  <summary className="cursor-pointer select-none">{zhCN.moreConnectionSettings}</summary>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <div>
                       <RuntimeField label="Node.js 命令或程序路径" value={runtimeConfig.nodePath} onChange={value => setRuntimeConfig(config => ({ ...config, nodePath: value }))} />
-                      <Button className="mt-2" size="sm" variant="outline" onClick={() => void chooseNodeProgram()}>浏览 Node.js 程序</Button>
+                      <Button className="mt-2" size="sm" variant="outline" onClick={() => void chooseNodeProgram()}>{zhCN.browseNodeProgram}</Button>
                     </div>
                     <RuntimeField label="工作文件夹（可留空）" value={runtimeConfig.workspace} onChange={value => setRuntimeConfig(config => ({ ...config, workspace: value }))} />
                     <RuntimeField label="Harness 数据文件夹（可留空）" value={runtimeConfig.dshHome} onChange={value => setRuntimeConfig(config => ({ ...config, dshHome: value }))} />
                     <div className="sm:col-span-2">
                       <label className="block text-[11px] font-medium text-foreground">
-                        dsh-suite-delta 配置文件（可留空）
+                        {zhCN.pluginConfigFile}
                         <input
                           className="mt-1.5 h-9 w-full rounded-lg border border-input bg-background px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           onChange={event => setRuntimeConfig(config => ({ ...config, harnessPatchPath: event.target.value }))}
@@ -960,8 +976,8 @@ function App() {
                           value={runtimeConfig.harnessPatchPath}
                         />
                       </label>
-                      <Button className="mt-2" size="sm" variant="outline" onClick={() => void chooseHarnessPatch()}>浏览配置文件</Button>
-                      <p className="mt-1 text-[10px] font-normal leading-4 text-muted-foreground">要同时使用 dsh-suite-delta，请先在 Harness 安装它。这里仅选择插件配置，不会安装插件或复制插件代码。</p>
+                      <Button className="mt-2" size="sm" variant="outline" onClick={() => void chooseHarnessPatch()}>{zhCN.browseConfigFile}</Button>
+                      <p className="mt-1 text-[10px] font-normal leading-4 text-muted-foreground">{zhCN.pluginInstallNote}</p>
                     </div>
                     <RuntimeField label="模型提供商" value={runtimeConfig.provider} onChange={value => setRuntimeConfig(config => ({ ...config, provider: value }))} />
                     <RuntimeField label="模型名称" value={runtimeConfig.model} onChange={value => setRuntimeConfig(config => ({ ...config, model: value }))} />
@@ -969,7 +985,7 @@ function App() {
                 </details>
                 {connectionError && <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive">{connectionError}</p>}
                 <Button className="mt-4" variant="primary" disabled={!runtimeConfig.dshPath.trim() || runtime.state === 'starting'} onClick={() => void connectRuntime()}>
-                  {runtime.state === 'starting' ? '正在连接…' : isOnline ? '保存并重新连接' : '连接并开始使用'}
+                  {runtime.state === 'starting' ? zhCN.connecting : isOnline ? zhCN.saveAndReconnect : zhCN.connectAndStart}
                 </Button>
               </section>
             )}
@@ -995,7 +1011,7 @@ function App() {
                     <button aria-label={`移除 ${image.name}`} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" onClick={() => setAttachments(current => current.filter(item => item.id !== image.id))} type="button"><X size={13} /></button>
                   </div>
                 ))}
-                {isReadingImages && <span className="self-center text-[11px] text-muted-foreground">正在读取图片…</span>}
+                {isReadingImages && <span className="self-center text-[11px] text-muted-foreground">{zhCN.readingImages}</span>}
               </div>}
               <textarea
                 aria-label="输入消息"
@@ -1009,7 +1025,7 @@ function App() {
                     void sendMessage()
                   }
                 }}
-                placeholder={isOnline ? '向 Harness 提出问题，或描述你要完成的工作…' : '连接 Harness 内核后即可开始对话…'}
+                placeholder={isOnline ? zhCN.promptHarness : zhCN.connectHarnessFirst}
                 value={draft}
               />
               <div className="flex items-center justify-between border-t border-border/70 px-2 pt-3">
@@ -1017,7 +1033,7 @@ function App() {
                   <Button aria-label="添加图片" className="size-8" size="icon" title="支持 PNG、JPEG、WebP、GIF；单张不超过 8 MB，最多 4 张" variant="ghost" disabled={!isOnline || attachments.length >= maxImageCount || isReadingImages} onClick={() => imageInputRef.current?.click()}><Plus size={16} /></Button>
                   <Button className="h-8 gap-1.5 text-xs" size="sm" variant="ghost" disabled={!isOnline} onClick={openConnectionSettings}>
                     <Zap size={14} />
-                    模型设置
+                    {zhCN.modelSettings}
                     <ChevronDown size={12} />
                   </Button>
                 </div>
@@ -1028,7 +1044,7 @@ function App() {
             </div>}
             {view === 'chat' && connectionError && isOnline && <p className="mt-2 text-xs text-destructive">{connectionError}</p>}
             {view === 'chat' && <p className="mt-3 text-center text-[11px] text-muted-foreground">
-              {isOnline ? runtime.message : '连接 Harness 后即可开始对话。'}
+              {isOnline ? runtime.message : zhCN.harnessNotConnectedMessage}
             </p>}
           </div>
         </div>
@@ -1045,16 +1061,16 @@ function App() {
       {helpOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" onMouseDown={event => { if (event.target === event.currentTarget) setHelpOpen(false) }} role="presentation">
           <section aria-labelledby="help-title" aria-modal="true" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl" onKeyDown={event => { if (event.key === 'Escape') setHelpOpen(false) }} role="dialog" tabIndex={-1}>
-            <h2 className="text-base font-semibold" id="help-title">Delta Suite 使用帮助</h2>
+            <h2 className="text-base font-semibold" id="help-title">{zhCN.helpTitle}</h2>
             <div className="mt-4 space-y-3 text-xs leading-5 text-muted-foreground">
-              <p>先连接电脑上已有的 Harness，然后就可以在对话框里提问、发送图片或描述任务。</p>
-              <p>Harness 请求审批或补充信息时，Delta 会弹出窗口；只有点“仅允许这一次”才会批准对应工具操作。</p>
-              <p>最近对话保存在这台电脑上。图片由 Harness 处理，Delta 历史只显示图片标记。</p>
-              <p>当前 SDK 不支持单独停止一条回复；断开连接会结束整个 Harness 进程，并中断它承载的活动对话。</p>
-              <p>当前版本还不能浏览 Harness 的全部会话、文件、设置、插件和技能，也不能操作终端。</p>
+              <p>{zhCN.helpConnect}</p>
+              <p>{zhCN.helpApproval}</p>
+              <p>{zhCN.helpHistory}</p>
+              <p>{zhCN.helpCancellation}</p>
+              <p>{zhCN.helpUnsupportedFeatures}</p>
             </div>
             <div className="mt-5 flex justify-end">
-              <Button autoFocus variant="primary" onClick={() => setHelpOpen(false)}>知道了</Button>
+              <Button autoFocus variant="primary" onClick={() => setHelpOpen(false)}>{zhCN.acknowledge}</Button>
             </div>
           </section>
         </div>
@@ -1063,8 +1079,8 @@ function App() {
       {renamingSessionId && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" onMouseDown={event => { if (event.target === event.currentTarget) closeSessionRename() }} role="presentation">
           <form aria-labelledby="rename-session-title" aria-modal="true" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); closeSessionRename() } }} onSubmit={event => { event.preventDefault(); saveSessionRename() }} role="dialog" tabIndex={-1}>
-            <h2 className="text-base font-semibold" id="rename-session-title">重命名对话</h2>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">只修改 Delta 在这台电脑上显示的名称。</p>
+            <h2 className="text-base font-semibold" id="rename-session-title">{zhCN.renameConversation}</h2>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{zhCN.renameLocalOnly}</p>
             <input
               autoFocus
               className="mt-4 h-10 w-full rounded-lg border border-input bg-background px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -1073,8 +1089,8 @@ function App() {
               value={renameDraft}
             />
             <div className="mt-5 flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={closeSessionRename}>取消</Button>
-              <Button disabled={!renameDraft.trim()} type="submit" variant="primary">保存名称</Button>
+              <Button type="button" variant="outline" onClick={closeSessionRename}>{zhCN.cancel}</Button>
+              <Button disabled={!renameDraft.trim()} type="submit" variant="primary">{zhCN.saveName}</Button>
             </div>
           </form>
         </div>
@@ -1083,8 +1099,8 @@ function App() {
       {workspacePickerOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" role="presentation">
           <section aria-labelledby="workspace-title" aria-modal="true" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl" role="dialog">
-            <h2 className="text-base font-semibold" id="workspace-title">设置工作文件夹</h2>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">填写文件夹完整路径。Harness 会在这里读取和处理文件。</p>
+            <h2 className="text-base font-semibold" id="workspace-title">{zhCN.setWorkspace}</h2>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{zhCN.workspacePickerDescription}</p>
             <div className="mt-4 flex gap-2">
               <input
                 autoFocus
@@ -1094,12 +1110,12 @@ function App() {
                 placeholder="可粘贴完整路径，或点右侧浏览"
                 value={workspaceDraft}
               />
-              <Button className="shrink-0" variant="outline" onClick={() => void chooseWorkspaceFolder()}>浏览…</Button>
+              <Button className="shrink-0" variant="outline" onClick={() => void chooseWorkspaceFolder()}>{zhCN.browse}</Button>
             </div>
             {workspaceError && <p className="mt-2 text-xs text-destructive">{workspaceError}</p>}
             <div className="mt-5 flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setWorkspacePickerOpen(false)}>取消</Button>
-              <Button disabled={!workspaceDraft.trim()} variant="primary" onClick={() => void chooseWorkspace()}>{isOnline ? '切换文件夹' : '保存'}</Button>
+              <Button variant="outline" onClick={() => setWorkspacePickerOpen(false)}>{zhCN.cancel}</Button>
+              <Button disabled={!workspaceDraft.trim()} variant="primary" onClick={() => void chooseWorkspace()}>{isOnline ? zhCN.switchFolder : zhCN.save}</Button>
             </div>
           </section>
         </div>
@@ -1108,8 +1124,8 @@ function App() {
       <aside className="hidden w-[276px] shrink-0 flex-col border-l border-border/80 bg-panel/55 px-4 py-5 xl:flex">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-semibold">运行环境</h2>
-            <p className="mt-1 text-[11px] text-muted-foreground">桌面与内核状态</p>
+            <h2 className="text-xs font-semibold">{zhCN.runtimeEnvironment}</h2>
+            <p className="mt-1 text-[11px] text-muted-foreground">{zhCN.runtimeDescription}</p>
           </div>
             <Button aria-label="连接设置" size="icon" variant="ghost" className="size-8" onClick={openConnectionSettings}><Settings2 size={15} /></Button>
         </div>
@@ -1126,33 +1142,33 @@ function App() {
             <RuntimeDot state={runtime.state} />
           </div>
           <div className="mt-3 border-t border-border/70 pt-3">
-            <div className="flex justify-between text-[11px]"><span className="text-muted-foreground">连接状态</span><span className="font-medium">{runtimeLabel(runtime.state)}</span></div>
-            <div className="mt-2 flex justify-between text-[11px]"><span className="text-muted-foreground">运行版本</span><span className="font-mono text-muted-foreground">{runtime.state === 'ready' ? runtime.version : '—'}</span></div>
+            <div className="flex justify-between text-[11px]"><span className="text-muted-foreground">{zhCN.connectionStatus}</span><span className="font-medium">{runtimeLabel(runtime.state)}</span></div>
+            <div className="mt-2 flex justify-between text-[11px]"><span className="text-muted-foreground">{zhCN.runtimeVersion}</span><span className="font-mono text-muted-foreground">{runtime.state === 'ready' ? runtime.version : '—'}</span></div>
           </div>
         </section>
 
         <section className="mt-4 rounded-xl border border-border bg-card p-3.5">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium"><FolderKanban size={14} className="text-primary" /> 工作区</div>
+          <div className="mb-3 flex items-center gap-2 text-xs font-medium"><FolderKanban size={14} className="text-primary" /> {zhCN.workspace}</div>
           <div className="rounded-lg bg-muted/70 px-3 py-3">
             <p className="break-all text-[11px] font-medium">{runtimeConfig.workspace || '使用默认工作文件夹'}</p>
-            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">新消息会在这个文件夹里交给 Harness 处理。</p>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{zhCN.workspaceProcessingNote}</p>
           </div>
-          <Button className="mt-3 w-full text-xs" size="sm" variant="outline" onClick={openWorkspacePicker}>{isOnline ? '切换工作文件夹' : '设置工作文件夹'}</Button>
+          <Button className="mt-3 w-full text-xs" size="sm" variant="outline" onClick={openWorkspacePicker}>{isOnline ? zhCN.switchWorkspace : zhCN.setWorkspace}</Button>
         </section>
 
         <section className="mt-4 rounded-xl border border-border bg-card p-3.5">
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium"><Activity size={14} className="text-primary" /> 当前任务</div>
+          <div className="mb-3 flex items-center gap-2 text-xs font-medium"><Activity size={14} className="text-primary" /> {zhCN.currentTask}</div>
           <div className="flex flex-col items-center rounded-lg border border-dashed border-border px-4 py-5 text-center">
             <div className={`mb-2 flex size-8 items-center justify-center rounded-full ${isSending ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{isSending ? <Activity className="animate-pulse" size={15} /> : <Check size={15} />}</div>
-            <p className="text-[11px] font-medium">{isSending ? 'Harness 正在处理' : '暂无运行任务'}</p>
-            <p className="mt-1 text-[10px] text-muted-foreground">{isSending ? '完成后会在对话中显示结果。' : '发送消息后，运行状态会显示在这里。'}</p>
+            <p className="text-[11px] font-medium">{isSending ? zhCN.harnessProcessing : zhCN.noRunningTask}</p>
+            <p className="mt-1 text-[10px] text-muted-foreground">{isSending ? zhCN.completionWillAppear : zhCN.sendToSeeStatus}</p>
           </div>
         </section>
 
         <div className="mt-auto pt-5">
           <div className="flex items-center gap-2 rounded-lg px-1 text-[10px] text-muted-foreground">
             <span className="size-1.5 rounded-full bg-warning" />
-            {runtime.state === 'offline' ? '尚未连接 Harness' : runtime.message}
+            {runtime.state === 'offline' ? zhCN.notConnected : runtime.message}
           </div>
         </div>
       </aside>
@@ -1244,12 +1260,12 @@ function HostRequestDialog({ request, onResolve }: {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" role="presentation">
         <section aria-labelledby="approval-title" aria-modal="true" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl" role="dialog">
           <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-warning/10 text-warning"><Zap size={19} /></div>
-          <h2 className="text-base font-semibold" id="approval-title">允许 Harness 执行操作？</h2>
+          <h2 className="text-base font-semibold" id="approval-title">{zhCN.approvalTitle}</h2>
           <p className="mt-2 text-sm font-medium">{toolName}</p>
           <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{reason}</p>
           <div className="mt-6 flex justify-end gap-2">
-            <Button disabled={submitting} variant="outline" onClick={() => void resolve({ outcome: 'rejected' })}>拒绝</Button>
-            <Button disabled={submitting} variant="primary" onClick={() => void resolve({ outcome: 'allowed-once' })}>{submitting ? '正在处理…' : '仅允许这一次'}</Button>
+            <Button disabled={submitting} variant="outline" onClick={() => void resolve({ outcome: 'rejected' })}>{zhCN.reject}</Button>
+            <Button disabled={submitting} variant="primary" onClick={() => void resolve({ outcome: 'allowed-once' })}>{submitting ? zhCN.processing : zhCN.allowOnce}</Button>
           </div>
         </section>
       </div>
@@ -1274,8 +1290,8 @@ function HostRequestDialog({ request, onResolve }: {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" role="presentation">
       <section aria-labelledby="question-title" aria-modal="true" className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl" role="dialog">
         <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground"><CircleHelp size={19} /></div>
-        <h2 className="text-base font-semibold" id="question-title">Harness 需要你的回答</h2>
-        {questions.length === 0 && <p className="mt-3 text-xs text-destructive">Harness 发来的问题内容无法读取。请取消后重试。</p>}
+        <h2 className="text-base font-semibold" id="question-title">{zhCN.questionTitle}</h2>
+        {questions.length === 0 && <p className="mt-3 text-xs text-destructive">{zhCN.questionInvalid}</p>}
         <div className="mt-4 space-y-5">
           {questions.map(question => (
             <div key={question.id} className="border-t border-border/70 pt-4">
@@ -1318,8 +1334,8 @@ function HostRequestDialog({ request, onResolve }: {
           ))}
         </div>
         <div className="mt-5 flex justify-end gap-2">
-          <Button disabled={submitting} variant="outline" onClick={() => void resolve({ cancelled: true })}>取消</Button>
-          <Button disabled={submitting || !canSubmit || questions.length === 0} variant="primary" onClick={() => void resolve({ answers })}>{submitting ? '正在提交…' : '提交回答'}</Button>
+          <Button disabled={submitting} variant="outline" onClick={() => void resolve({ cancelled: true })}>{zhCN.cancel}</Button>
+          <Button disabled={submitting || !canSubmit || questions.length === 0} variant="primary" onClick={() => void resolve({ answers })}>{submitting ? zhCN.submitting : zhCN.submitAnswers}</Button>
         </div>
       </section>
     </div>
