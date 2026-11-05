@@ -37,8 +37,8 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.match(client, /function hideHostOptions\(\)/);
     assert.match(client, /hideHostOptions\(\);/);
     assert.match(client, /hideThirdPartyProviders\(\);/);
-    assert.match(client, /mountSearchDock\(\);/);
-    assert.match(client, /restoreNativeSearch\(\);/);
+    assert.doesNotMatch(client, /mountSearchDock\(\);/);
+    assert.doesNotMatch(client, /restoreNativeSearch\(\);/);
     assert.match(client, /hideAccountModels\(\);/);
     assert.match(client, /hideListedModels\(\);/);
   });
