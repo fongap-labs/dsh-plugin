@@ -2,7 +2,7 @@
 
 ## 状态
 
-这是 Delta 前端与桌面 Host 之间的目标接口合同，不是对 Harness 当前全部能力的描述。完整会话目录的上游现状、传输缺口和接口要求见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。`src/lib/desktop-host-contract.ts` 定义 renderer 使用的产品 DTO。当前 Tauri adapter 已通过用户指定的 Node.js 与 Harness CLI 启动官方 `sdk` profile，并接通文本和编码图片输入、消息／状态／工具事件、一次性工具审批、用户提问、会话恢复和工作目录切换；用户可选提供配置补丁路径，adapter 通过 Harness 官方 `--patch` 参数传递；其他接口仍未实现。
+这是 Delta 前端与桌面 Host 之间的目标接口合同，不是对 Harness 当前全部能力的描述。完整会话目录的上游现状、传输缺口和接口要求见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)；精确停止任务的接口见[精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)。`src/lib/desktop-host-contract.ts` 定义 renderer 使用的产品 DTO。当前 Tauri adapter 已通过用户指定的 Node.js 与 Harness CLI 启动官方 `sdk` profile，并接通文本和编码图片输入、消息／状态／工具事件、一次性工具审批、用户提问、会话恢复和工作目录切换；用户可选提供配置补丁路径，adapter 通过 Harness 官方 `--patch` 参数传递；其他接口仍未实现。
 
 桌面端不得用模拟会话填充界面。运行时不支持某项能力时，Host 应省略相应 capability，UI 显示不可用原因。
 
@@ -32,7 +32,7 @@ Harness 已有受支持的长期运行 `sdk` profile。Tauri 启动 `dsh --profi
 
 **Harness 上游 SDK 目前没有协议版本协商或完整 capability 握手。** Tauri 返回的能力来自当前 adapter 已实现、且官方 SDK 文档声明的功能子集；`upstream.protocol=sdk-stdio-unversioned`、`capabilitySource=adapter-supported-methods` 明确来源，不代表 Harness 运行时逐项协商完成。
 
-当前只返回 `sessions.resume`、`sessions.prompt`、`sessions.wait`、`sessions.events`、`approvals.respond`、`questions.respond`、`workspace.cwd`。Delta 本机目录不是 Harness 全量会话目录，不能因此返回 `sessions.list`。Harness 公开的 Session Controller Remote API 虽有 `session.list`、`session.search`、`session.create`，但当前官方 `sdk` stdio profile 未提供 API Gateway 的远程传输入口，不能由当前 adapter 调用；未返回的 capability 不启用 UI 功能。
+当前只返回 `sessions.resume`、`sessions.prompt`、`sessions.wait`、`sessions.events`、`approvals.respond`、`questions.respond`、`workspace.cwd`。Delta 本机目录不是 Harness 全量会话目录，不能因此返回 `sessions.list`。Harness 公开的 Session Controller Remote API 虽有 `session.list`、`session.search`、`session.create`，但当前官方 `sdk` stdio profile 未提供 API Gateway 的远程传输入口，不能由当前 adapter 调用；未返回的 capability 不启用 UI 功能。当前不返回 `sessions.cancel`，且 `upstream.runCancellation=false`；`AbortSignal` 与 `shutdown` 不能模拟单次运行取消。
 
 
 Host 在任何会话操作前执行握手，返回 `DesktopHostHandshake`：
@@ -73,7 +73,7 @@ Harness 已公开的 [SDK client](https://github.com/deepseek-ai/deepseek-harnes
 
 SDK 的会话事件通知会覆盖同一运行时中的所有会话。Delta 只处理本机记录里存在、且符合 Delta 会话 ID 格式的会话事件与审批／提问请求；未知会话事件不会加入历史记录，未知会话的审批会被拒绝，提问会被取消，以免外部会话等待 Delta 回答。
 
-当前 SDK stdio 协议尚未提供完整桌面需要的会话目录分页、搜索和显式创建；单独取消会话、设置 CRUD、工作区与文件清单、插件／技能管理和终端控制也未接入。另有公开的 `@deepseek-ai/dsh-api-session-controller` Remote API，通过 API Gateway 提供 `session.list`、`session.search` 和 `session.create`，但该通道未暴露在当前无 Web GUI 的 `sdk` profile 中，不能假定 Delta 可直接调用。SDK 没有单会话取消请求；关闭 SDK 运行进程会影响该进程承载的所有活动，因此 Delta 不提供单条对话的停止按钮。补齐这些功能需要扩展官方 SDK 或提供受支持的 Desktop Host API；无 Web GUI 启动方式已由官方 `sdk` profile 提供。Delta 不修改 `app.asar`、Harness 私有目录或全局用户设置来填补缺口。
+当前 SDK stdio 协议尚未提供完整桌面需要的会话目录分页、搜索和显式创建；单独取消会话、设置 CRUD、工作区与文件清单、插件／技能管理和终端控制也未接入。另有公开的 `@deepseek-ai/dsh-api-session-controller` Remote API，通过 API Gateway 提供 `session.list`、`session.search` 和 `session.create`，但该通道未暴露在当前无 Web GUI 的 `sdk` profile 中，不能假定 Delta 可直接调用。SDK stdio 没有单会话取消请求。Harness 公开 Session Controller Remote API 虽有 `session.cancel({ sessionId })`，但只作用于活动的普通 Agent，且未通过当前 `sdk` profile 暴露；该请求还没有指定 `turnId` 的原子核验。关闭 SDK 进程会影响该进程承载的全部会话，因此 Delta 不提供单次运行停止按钮。补齐这些功能需要扩展官方 SDK 或提供受支持的 Desktop Host API；无 Web GUI 启动方式已由官方 `sdk` profile 提供。Delta 不修改 `app.asar`、Harness 私有目录或全局用户设置来填补缺口。
 
 ## 会话目录接口缺口
 

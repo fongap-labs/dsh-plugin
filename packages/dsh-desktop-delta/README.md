@@ -46,6 +46,8 @@ Delta 通过 Harness 官方 `sdk` profile 运行：Tauri 启动 `dsh --profile s
 
 Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前 SDK stdio 接口尚未提供完整会话目录所需的列表分页、搜索、显式创建和目录变更订阅；Harness 的公开 Session Controller API 目前通过 API Gateway 提供，尚未接入当前桌面运行通道。单独停止一条对话、Harness 设置、工作区文件浏览、插件和技能管理、终端控制等桌面接口也仍未接通。具体上游缺口和所需合同见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。
 
+单条任务停止尚未接通：Harness 公开 Session Controller Remote API 已提供 `session.cancel`，但当前 `sdk` stdio 协议尚未暴露该方法。本地停止等待、删除本机记录或断开连接均不等于精确停止一条任务。所需上游合同见[精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)。
+
 当前协议 v1.1 的协商仅发生在 Delta 与 Tauri Host 之间。Harness 官方 SDK 尚不提供自身的版本/能力协商和历史事件回放；检测到序号缺失不能自动补齐。调用超时或本地取消也不意味着 Harness 已停止实际任务，结果可能未知。
 
 Delta 不读取 Harness 私有文件，不依赖 Harness 网页界面的内部代码，也不在桌面包里安装或复制 Harness 内核。两者的职责和待补接口见[架构说明](ARCHITECTURE.md)和[接口说明](HOST_API.md)。
