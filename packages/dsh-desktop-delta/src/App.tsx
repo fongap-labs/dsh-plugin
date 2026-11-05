@@ -1316,7 +1316,24 @@ function App() {
             ) : view === 'skills' ? (
               <section className="rounded-2xl border border-border bg-card p-5">
                 <h1 className="text-xl font-semibold">{zhCN.skills}</h1>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{negotiatedHost?.capabilities.includes('skills.manage') ? zhCN.skillsAwaitingUi : zhCN.skillsUnavailable}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{zhCN.pluginSkillBoundary}</p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <article className="rounded-xl border border-border bg-background/70 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold">{zhCN.plugins}</h2>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{zhCN.managementUnavailable}</span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{zhCN.pluginsUnavailable}</p>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{zhCN.pluginAgentToolHint}</p>
+                  </article>
+                  <article className="rounded-xl border border-border bg-background/70 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold">{zhCN.skillsDirectory}</h2>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">{zhCN.managementUnavailable}</span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{negotiatedHost?.capabilities.includes('skills.manage') ? zhCN.skillsAwaitingUi : zhCN.skillsUnavailable}</p>
+                  </article>
+                </div>
               </section>
             ) : messages.length === 0 ? (
               <>
