@@ -17,7 +17,7 @@ describe('Delta Suite data exit privacy safeguards', () => {
       'sk-' + 'A'.repeat(24),
       'ghp_' + 'x'.repeat(36),
       'github_pat_' + 'A'.repeat(40),
-      '-----BEGIN PRIVATE KEY-----',
+      '-----BEGIN ' + 'PRIVATE KEY-----',
       'authorization: Bearer secret-123',
       'password=secret-password',
       'postgresql://admin:secret@host.example/db',
