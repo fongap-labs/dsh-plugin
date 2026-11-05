@@ -1,6 +1,6 @@
-# Delta Suite（Delta 套件）
+# Delta Suite for DSH（Delta 套件 · DSH 版）
 
-DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Suite)。
+面向 DeepSeek Harness 的界面、搜索、研究与本地记忆综合增强插件。Delta Suite 为跨宿主产品品牌；本插件是 DSH 适配版本，与独立 Delta Desktop 插件及未来 Delta 原生版区分。包名、安装路径和发布标签保持不变。
 
 ## 特性
 - **现代主题调色板**：适配深色/浅色双模式，高对比、细腻雅致。
@@ -64,7 +64,7 @@ Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模
 ## 上下文管理与长期记忆（P0–P2）
 
 - **上下文（P0）**：复用 Harness 的 ContextMeter、Token Meter、自动 Compaction、原生 /compact 和 @ 跨会话引用。Delta 设置页提供操作说明，不重写历史，不实现第二套压缩引擎。
-- **本地记忆（P1）**：在「设置 → Delta 套件 → 长期记忆」使用本地 SQLite 存储。支持全局／项目／会话范围、类别、来源会话、过期时间、置顶、创建、编辑、删除、搜索和 JSON 备份／导入。数据库路径为 DSH_HOME/delta-memory/memory.sqlite（未指定 DSH_HOME 时使用 ~/.dsh/delta-memory/memory.sqlite）。
+- **本地记忆（P1）**：在「设置 → Delta 套件（DSH 版） → 长期记忆」使用本地 SQLite 存储。支持全局／项目／会话范围、类别、来源会话、过期时间、置顶、创建、编辑、删除、搜索和 JSON 备份／导入。数据库路径为 DSH_HOME/delta-memory/memory.sqlite（未指定 DSH_HOME 时使用 ~/.dsh/delta-memory/memory.sqlite）。
 - **检索治理（P2）**：SQLite FTS5 加子字符串补充检索，按置顶、匹配与更新时间排序；搜索不返回已过期或已被新决策替代的记录。Agent 使用 delta_memory_search 按需召回，并使用 delta_memory_save 保存可独立理解的事实；每条记忆保留来源。
 - **隐私**：Agent 自动写入默认关闭，服务端拒绝未启用时的 Agent 写入；手动管理仍可使用。Agent 召回默认开启，可随时关闭。拦截常见 API Key、密码和私钥文本，记忆仅是不可执行的历史背景。删除单条记忆从 SQLite 表及 FTS 索引中删除，但不追溯删除备份文件。
 - **运行时**：记忆需要 Node.js 22.13+（推荐 Node 24），使用内置 node:sqlite，无额外 MCP 或 embedding 服务。旧 Node 仍可使用 Delta Suite 其他功能，记忆接口会给出明确错误。宿主缺少 tools/systemPrompt 时仅 Agent 记忆工具降级。
@@ -73,7 +73,7 @@ Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模
 
 ## 视觉识别与在线生图
 
-打开「设置 → Delta 套件」，顶部默认显示「在线生图」。填写生图模型 ID 后保存，输入图片描述、选择尺寸并点击「生成图片」，结果可直接预览和下载。生图只在点击后发起；当前支持返回 Base64 图片的 OpenAI 兼容 Images 接口。GPT Image 模型不发送其不支持的 response_format 参数，参见 [接口说明](https://developers.openai.com/api/reference/resources/images/methods/generate)。仅返回远程图片 URL 的服务会提示不兼容。
+打开「设置 → Delta 套件（DSH 版）」，顶部默认显示「在线生图」。填写生图模型 ID 后保存，输入图片描述、选择尺寸并点击「生成图片」，结果可直接预览和下载。生图只在点击后发起；当前支持返回 Base64 图片的 OpenAI 兼容 Images 接口。GPT Image 模型不发送其不支持的 response_format 参数，参见 [接口说明](https://developers.openai.com/api/reference/resources/images/methods/generate)。仅返回远程图片 URL 的服务会提示不兼容。
 
 开启「视觉识别」后，可设置视觉模型 ID、温度（0–2）及最大输出长度（1–65536 tokens）；参数留空采用服务商默认值。粘贴图片后，识别结果插入输入框。模型 ID 留空跟随主模型；选择的视觉模型必须支持图片输入。原有视觉模型 ID 会保留，旧的独立视觉服务商地址和密钥不再用于请求。
 
@@ -98,7 +98,7 @@ Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模
 
 ## 技能管理（P0 / P1 基础版）
 
-「设置 → Delta 套件 → 技能管理」直接读取 Harness 原生 `ctx.skills` 目录；已加载技能展示名称、来源、提供方和描述。无法访问宿主注册表时会提示诊断而不会中断对话界面。
+「设置 → Delta 套件（DSH 版） → 技能管理」直接读取 Harness 原生 `ctx.skills` 目录；已加载技能展示名称、来源、提供方和描述。无法访问宿主注册表时会提示诊断而不会中断对话界面。
 
 Delta 仅管理用户 DSH 目录 `$DSH_HOME/skills`（默认 `~/.dsh/skills`）中由本功能创建的扁平 `<name>.md` 技能。支持创建、编辑、查询、启用、禁用、删除，以及从本机 `SKILL.md` 导入正文到**待审核表单**（必须手动确认后创建）。禁用将文件重命名为 `.md.disabled`，可恢复；不会编辑宿主原生技能、项目技能、第三方技能或直接执行导入的脚本。技能实际加载和发现由 Harness 的 `dsh-skill-filesystem` 负责，必须确认当前 Agent preset 已挂载该服务。
 
@@ -106,7 +106,7 @@ Delta 仅管理用户 DSH 目录 `$DSH_HOME/skills`（默认 `~/.dsh/skills`）�
 
 ## 技能管理扩展：安全导入与回滚
 
-在「设置 → Delta 套件 → 技能管理」可粘贴公开 GitHub 仓库根目录、树目录或 `SKILL.md` 文件的链接，也可以选择本地 ZIP。两种方式只提取并**预览**唯一的 `SKILL.md`，填入待审核表单；必须再次手动点击「创建技能」，不会自动运行脚本或安装 ZIP 内其他资产。GitHub 只接受 `github.com`、`raw.githubusercontent.com` 的 HTTPS 地址，不允许鉴权信息、端口或重定向；浏览器与服务端均限制导入大小。ZIP 最大 2 MB，仅接收一个 `SKILL.md`，拒绝路径穿越、符号链接及异常压缩数据。
+在「设置 → Delta 套件（DSH 版） → 技能管理」可粘贴公开 GitHub 仓库根目录、树目录或 `SKILL.md` 文件的链接，也可以选择本地 ZIP。两种方式只提取并**预览**唯一的 `SKILL.md`，填入待审核表单；必须再次手动点击「创建技能」，不会自动运行脚本或安装 ZIP 内其他资产。GitHub 只接受 `github.com`、`raw.githubusercontent.com` 的 HTTPS 地址，不允许鉴权信息、端口或重定向；浏览器与服务端均限制导入大小。ZIP 最大 2 MB，仅接收一个 `SKILL.md`，拒绝路径穿越、符号链接及异常压缩数据。
 
 Delta 管理技能更新前会保存上一版，最多保留最近 10 个历史版本；可在技能操作栏点击「版本历史」选择恢复，恢复前还会备份当前版本。历史位于 `$DSH_HOME/skills/.delta-skill-history/`，不会复制宿主、项目或第三方技能，且不会执行内容。技能删除目前不自动删除历史快照；它们不会参与 Harness 的技能发现。GitHub 与 ZIP 导入仅支持单个 Markdown 指令文件，不含其引用的 scripts、assets 或 requirements，也不提供自动远程版本检查。
 

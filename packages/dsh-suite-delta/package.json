@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": false,
   "type": "module",
-  "description": "Delta Suite（Delta 套件）：DeepSeek Harness 界面、搜索、研究和本地记忆综合增强插件",
+  "description": "Delta Suite for DSH（Delta 套件 · DSH 版）：DeepSeek Harness 界面、搜索、研究和本地记忆综合增强插件",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {

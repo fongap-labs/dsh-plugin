@@ -4,7 +4,7 @@
   "artifact_name": "dsh-suite-delta-release",
   "target_repository": "fongap-labs/dsh-plugin",
   "release_key": "dsh-suite-delta",
-  "release_name": "Delta Suite",
+  "release_name": "Delta Suite for DSH",
   "release_notes": "",
   "license_expression": "Apache-2.0",
   "node_version_file": ".nvmrc",
