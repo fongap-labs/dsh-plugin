@@ -12,6 +12,7 @@ test('Desktop advertises and forwards the official session/wait operation', () =
   assert.match(rust, /"session\/wait"/)
   assert.match(rust, /Duration::from_secs\(24 \* 60 \* 60\)/)
   assert.match(rust, /wait_session,/)
+  assert.match(rust, /tauri::async_runtime::spawn_blocking/)
   assert.match(client, /waitForCompletion:[\s\S]*?callHost<void>\('wait_session'/)
   assert.match(client, /Harness RPC error \(/)
   assert.match(client, /new DesktopHostError\('runtime_error', message, false, false\)/)
