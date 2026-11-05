@@ -17,3 +17,7 @@ Thumbs.db
 .env.*
 !.env.example
 .delta-ui-acceptance/
+*.tsbuildinfo
+packages/dsh-desktop-delta/src-tauri/target/
+packages/dsh-desktop-delta/src-tauri/gen/
+packages/dsh-desktop-delta/src-tauri/icons/

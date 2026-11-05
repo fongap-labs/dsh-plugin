@@ -8,10 +8,14 @@
 
 | 插件 | 主要用途 | 源码 |
 | --- | --- | --- |
-| **Delta Suite for DSH / Delta 套件（DSH 版）**（`@fongap-labs/dsh-suite-delta`） | 优化界面配色、排版与交互；提供可选的视觉识别、联网搜索及相关配置入口 | [查看](packages/dsh-suite-delta) |
+| **Delta Suite / Delta 套件**（`@fongap-labs/dsh-suite-delta`） | 优化界面配色、排版与交互；提供可选的视觉识别、联网搜索及相关配置入口 | [查看](packages/dsh-suite-delta) |
 | **Code Worker**（`@fongap-labs/dsh-code-worker`） | 一体化编程工作流：仓库分析、批量编辑、Git 工作树、GitHub 多账号、PR/CI 诊断与测试验证 | [查看](packages/dsh-code-worker) |
 | **插件模板**（`@fongap-labs/plugin-template`） | 创建符合本仓库结构的新插件，主要供开发者使用 | [查看](packages/plugin-template) |
 | **共享库**（`@fongap-labs/shared`） | 为插件提供工具注册、子进程调用与工作区路径校验等公共能力，不作为独立插件安装 | [查看](packages/shared) |
+
+## 桌面应用
+
+`dsh-desktop-delta` 是独立的 Tauri 2 桌面前端，不通过 `dsh plugin` 安装，也不包含 Harness 运行内核。当前提供源码开发版，尚无可直接下载的安装包；需要 Node.js 22+、Rust 1.90+，可从[桌面应用说明](packages/dsh-desktop-delta/README.md)查看启动步骤和功能边界。
 
 ## 安装插件
 
@@ -19,18 +23,18 @@
 
 打开 [发布页面](https://github.com/fongap-labs/dsh-plugin/releases)，选择对应插件的版本并下载 `.tgz` 文件。**不要把整个仓库地址或 Release 标签当作 npm 包名。**
 
-安装时应以 [Releases 页面](https://github.com/fongap-labs/dsh-plugin/releases) 中实际发布的 Delta Suite for DSH 版本为准，选择标签前缀为 `dsh-suite-delta-v` 的条目，并复制其中的 `fongap-labs-dsh-suite-delta.tgz` 资产链接。**main 已合并的功能不等于已发布的安装包。**
+安装时应以 [Releases 页面](https://github.com/fongap-labs/dsh-plugin/releases) 中实际发布的 Delta Suite 版本为准，选择标签前缀为 `dsh-suite-delta-v` 的条目，并复制其中的 `fongap-labs-dsh-suite-delta.tgz` 资产链接。**main 已合并的功能不等于已发布的安装包。**
 
 ```bash
 # 把尖括号中的地址替换为 Release 页面复制的真实 .tgz 下载链接
-dsh plugin --profile desktop add "<Delta Suite for DSH Release 中的 .tgz 资产地址>"
+dsh plugin --profile desktop add "<Delta Suite Release 中的 .tgz 资产地址>"
 ```
 
 `desktop` 是示例配置档案名称；如果实际使用其他配置档案（如 `web`），请替换为真实名称。安装后检查插件版本及功能开关；宿主未开启热重载时需要重启配置档案。
 
 ### 通过 npm 安装
 
-**仅当目标版本已发布到当前使用的 npm 仓库时**，才能按包名安装。以 Delta Suite for DSH 为例：
+**仅当目标版本已发布到当前使用的 npm 仓库时**，才能按包名安装。以 Delta Suite 为例：
 
 ```bash
 # 先列出实际已发布到 npm 的版本，再选择其中一个已验证版本
@@ -63,7 +67,7 @@ pnpm test
 pnpm validate
 ```
 
-编译由 TypeScript 编译器完成：宿主入口输出至 `lib/index.js`，Delta Suite for DSH 浏览器端输出至 `lib/client.js`。发布包使用编译后的 JavaScript，而非直接加载 `.ts` 源码。
+编译由 TypeScript 编译器完成：宿主入口输出至 `lib/index.js`，Delta Suite 浏览器端输出至 `lib/client.js`。发布包使用编译后的 JavaScript，而非直接加载 `.ts` 源码。
 
 本地联调时，可将已编译的插件链接到现有 DeepSeek Harness 配置档案：
 
@@ -88,7 +92,7 @@ pnpm link:dev dsh-suite-delta --profile desktop --unlink
 
 ## 许可证
 
-本仓库自有插件（包括 Delta Suite for DSH）、共享库与插件模板统一采用 [Apache-2.0](LICENSE) 许可证；第三方依赖继续遵循各自的许可证。此前已发布的 MIT 许可版本及历史安装包不追溯变更。
+本仓库自有插件（包括 Delta Suite）、共享库与插件模板统一采用 [Apache-2.0](LICENSE) 许可证；第三方依赖继续遵循各自的许可证。此前已发布的 MIT 许可版本及历史安装包不追溯变更。
 
 相关文档：[架构与边界](docs/ARCHITECTURE.md) · [开发指南](docs/DEVELOPMENT.md) · [构建与发布](docs/OPERATIONS.md) · [变更记录](CHANGELOG.md) · [许可证](LICENSE) · [问题反馈](https://github.com/fongap-labs/dsh-plugin/issues)
 

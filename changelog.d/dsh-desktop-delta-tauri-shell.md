@@ -1,0 +1,1 @@
+- 新增: 增加独立桌面前端包 dsh-desktop-delta（Tauri 2），可与 dsh-suite-delta 并行部署，使用白底品牌色 tray-template 图标，并通过 Harness 官方 SDK profile 支持文字／图片对话、Markdown 回复与代码复制、隔离的本机会话事件与记录、对话标题和正文搜索、对话改名、工作目录切换、文件和文件夹选择、工具执行状态、一次性工具审批、用户提问、可选插件配置补丁及可操作的快捷入口。
