@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 记录 Harness Terminal Controller 的公开 API、SDK stdio 传输缺口及终端进程权限边界。
+
 - 新增: 在连接设置中说明 Harness 设置和敏感凭据暂不可用，并标明 Provider/模型仅在重新连接时应用。
 
 - 新增: 在技能库中区分插件与 Skills，并说明当前 SDK stdio 的目录与管理接口缺口。
