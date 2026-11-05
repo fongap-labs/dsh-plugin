@@ -114,4 +114,3 @@ export const zhCN = {
   localSaveFailed: "本机记录保存失败。关闭应用后，最近的对话或设置可能丢失；请先复制重要内容。",
   maximumImages: (count: number) => `最多添加 ${count} 张图片`,
 } as const
-
