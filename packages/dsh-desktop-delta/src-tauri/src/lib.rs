@@ -775,17 +775,22 @@ fn session_query(
 }
 
 #[tauri::command]
-fn wait_session(state: State<'_, RuntimeManager>, session_id: String) -> Result<(), String> {
-    let result = state.current_connection()?.request(
-        "session/wait",
-        json!({"sessionId": session_id}),
-        Duration::from_secs(24 * 60 * 60),
-    )?;
-    if result.is_object() {
-        Ok(())
-    } else {
-        Err("Harness returned an invalid session wait result".into())
-    }
+async fn wait_session(state: State<'_, RuntimeManager>, session_id: String) -> Result<(), String> {
+    let connection = state.current_connection()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = connection.request(
+            "session/wait",
+            json!({"sessionId": session_id}),
+            Duration::from_secs(24 * 60 * 60),
+        )?;
+        if result.is_object() {
+            Ok(())
+        } else {
+            Err("Harness returned an invalid session wait result".into())
+        }
+    })
+    .await
+    .map_err(|error| format!("Session wait task failed: {error}"))?
 }
 
 #[tauri::command]

@@ -814,6 +814,7 @@ function App() {
         return updated
       })
       setHostRequests(current => current.filter(request => request.params.sessionId !== targetId))
+      pendingWaitSessionIdsRef.current.delete(targetId)
       eventOrderRef.current.clear(targetId)
       setEventGaps(current => { const next = new Set(current); next.delete(targetId); return next })
       if (result.wasActive) {
