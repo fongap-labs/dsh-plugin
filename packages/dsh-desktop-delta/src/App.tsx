@@ -639,13 +639,13 @@ function App() {
       if (canWaitForCompletion) pendingWaitSessionIdsRef.current.add(sendingSessionId)
       await desktopHost.query(sendingSessionId, contentBlocks)
       hasAcceptedPrompt = true
+      if (sessionsRef.current.some(session => session.id === sendingSessionId)) {
+        setReadySessionIds(current => new Set(current).add(sendingSessionId))
+      }
       if (canWaitForCompletion) {
         await desktopHost.waitForCompletion(sendingSessionId)
         pendingWaitSessionIdsRef.current.delete(sendingSessionId)
         if (activeSessionIdRef.current === sendingSessionId) setIsSending(false)
-      }
-      if (sessionsRef.current.some(session => session.id === sendingSessionId)) {
-        setReadySessionIds(current => new Set(current).add(sendingSessionId))
       }
     } catch (error) {
       const isKnownRuntimeFailure = error instanceof DesktopHostError && !error.outcomeUnknown
@@ -897,7 +897,7 @@ function App() {
     setAttachments([])
     setActivities([])
     setDraft('')
-    setIsSending(false)
+    setIsSending(pendingWaitSessionIdsRef.current.has(session.id))
     setView('chat')
   }
 

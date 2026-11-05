@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修正: 切换会话时保留各会话的待完成运行状态。
+
 - 新增: 等待根 Agent 与受管子 Agent 完成后再结束运行状态。
 
 - 维护: 明确 Delta 使用官方 SDK profile 无 Web GUI 运行。
