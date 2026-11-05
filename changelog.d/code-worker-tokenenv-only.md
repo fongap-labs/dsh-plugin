@@ -1,1 +1,0 @@
-- 安全 [security, breaking, migration]: Code Worker 的 GitHub 账号配置不再保存明文 Token，改为仅记录 tokenEnv 环境变量名并在调用时从环境变量读取，已有明文 Token 配置需迁移为环境变量引用。
