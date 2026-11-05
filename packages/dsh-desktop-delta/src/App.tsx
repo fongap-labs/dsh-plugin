@@ -26,6 +26,7 @@ import {
   Settings2,
   Sparkles,
   Sun,
+  Trash2,
   Upload,
   Workflow,
   X,
@@ -325,6 +326,46 @@ function loadSessions(activeSessionId: string): LocalSession[] {
   }
 }
 
+function deleteLocalSessionRecord(
+  targetSessionId: string,
+  activeSessionId: string,
+  currentSessions: LocalSession[],
+): { sessions: LocalSession[]; activeSessionId: string; wasActive: boolean } | null {
+  if (!currentSessions.some(session => session.id === targetSessionId)) return null
+  const wasActive = targetSessionId === activeSessionId
+  const nextSessionId = wasActive ? newSessionId() : activeSessionId
+  const nextSessions = currentSessions.filter(session => session.id !== targetSessionId)
+  if (wasActive) nextSessions.unshift({ id: nextSessionId, title: '新对话', updatedAt: Date.now() })
+
+  const messageKey = `delta-messages:${targetSessionId}`
+  const changedKeys = [
+    'delta-sessions',
+    messageKey,
+    ...(wasActive ? ['delta-active-session', `delta-messages:${nextSessionId}`] : []),
+  ]
+  const previous = new Map(changedKeys.map(key => [key, localStorage.getItem(key)]))
+  try {
+    if (wasActive) {
+      localStorage.setItem(`delta-messages:${nextSessionId}`, '[]')
+      localStorage.setItem('delta-active-session', nextSessionId)
+    }
+    localStorage.setItem('delta-sessions', JSON.stringify(nextSessions))
+    localStorage.removeItem(messageKey)
+  } catch (error) {
+    for (const key of [...changedKeys].reverse()) {
+      try {
+        const value = previous.get(key)
+        if (value === null || value === undefined) localStorage.removeItem(key)
+        else localStorage.setItem(key, value)
+      } catch {
+        // The existing storage warning also covers incomplete rollback.
+      }
+    }
+    throw error
+  }
+  return { sessions: nextSessions, activeSessionId: nextSessionId, wasActive }
+}
+
 function App() {
   const runtime = useSyncExternalStore(desktopHostStatus.subscribe, desktopHostStatus.getSnapshot, desktopHostStatus.getSnapshot)
   const [theme, setTheme] = useState<Theme>(initialTheme)
@@ -339,6 +380,7 @@ function App() {
   const [isImportingHistory, setIsImportingHistory] = useState(false)
   const [isHelpOpen, setHelpOpen] = useState(false)
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [isWorkspacePickerOpen, setWorkspacePickerOpen] = useState(false)
   const [workspaceDraft, setWorkspaceDraft] = useState('')
@@ -350,6 +392,9 @@ function App() {
   const [sessions, setSessions] = useState<LocalSession[]>(() => loadSessions(sessionId))
   const sessionsRef = useRef(sessions)
   sessionsRef.current = sessions
+  const activeSessionIdRef = useRef(sessionId)
+  activeSessionIdRef.current = sessionId
+  const imageReadEpochRef = useRef(0)
   const [readySessionIds, setReadySessionIds] = useState<Set<string>>(() => new Set())
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [hostRequests, setHostRequests] = useState<DesktopHostRequest[]>([])
@@ -372,6 +417,7 @@ function App() {
   })
   const activeSessionTitle = sessions.find(session => session.id === sessionId)?.title ?? '新对话'
   const isImportedHistory = sessions.find(session => session.id === sessionId)?.localOnly === true
+  const deletingSession = sessions.find(session => session.id === deletingSessionId)
 
   useEffect(() => {
     const previousState = previousRuntimeState.current
@@ -422,6 +468,7 @@ function App() {
   }, [startNewSession, isHelpOpen, isWorkspacePickerOpen, renamingSessionId, activeHostRequest])
 
   useEffect(() => {
+    if (!sessions.some(session => session.id === sessionId)) return
     try {
       localStorage.setItem('delta-runtime-config', JSON.stringify(runtimeConfig))
       localStorage.setItem('delta-active-session', sessionId)
@@ -542,6 +589,7 @@ function App() {
     const text = draft.trim()
     const images = attachments
     if ((!text && images.length === 0) || !isOnline || isReadingImages) return
+    const sendingSessionId = sessionId
     const contentBlocks = [
       ...(text ? [{ type: 'text' as const, text }] : []),
       ...images.map(image => ({ type: 'image' as const, data: image.data, mimeType: image.mimeType, name: image.name })),
@@ -552,11 +600,15 @@ function App() {
     setConnectionError('')
     try {
       if (runtimeConfig.workspace.trim()) {
-        await desktopHost.setWorkingDirectory(sessionId, runtimeConfig.workspace.trim())
+        await desktopHost.setWorkingDirectory(sendingSessionId, runtimeConfig.workspace.trim())
       }
-      await desktopHost.query(sessionId, contentBlocks)
-      setReadySessionIds(current => new Set(current).add(sessionId))
+      if (!sessionsRef.current.some(session => session.id === sendingSessionId)) return
+      await desktopHost.query(sendingSessionId, contentBlocks)
+      if (sessionsRef.current.some(session => session.id === sendingSessionId)) {
+        setReadySessionIds(current => new Set(current).add(sendingSessionId))
+      }
     } catch (error) {
+      if (activeSessionIdRef.current !== sendingSessionId) return
       setConnectionError(String(error))
       setDraft(current => current.trim() ? current : text)
       setAttachments(current => current.length > 0 ? current : images)
@@ -568,6 +620,7 @@ function App() {
     const selected = Array.from(files ?? [])
     if (selected.length === 0) return
     if (isReadingImages) return
+    const readEpoch = ++imageReadEpochRef.current
 
     setConnectionError('')
     setIsReadingImages(true)
@@ -597,6 +650,7 @@ function App() {
         errorMessage ||= `${file.name} 读取失败：${imageReadErrorMessage(error)}`
       }
     }
+    if (readEpoch !== imageReadEpochRef.current) return
     if (loaded.length > 0) setAttachments(current => [...current, ...loaded].slice(0, maxImageCount))
     setConnectionError(errorMessage)
     setIsReadingImages(false)
@@ -690,6 +744,47 @@ function App() {
       setHistoryNotice({ text: zhCN.historyBackupReadFailed, isError: true })
     } finally {
       setIsImportingHistory(false)
+    }
+  }
+
+  function confirmDeleteLocalSession() {
+    if (!deletingSessionId || isImportingHistory) return
+    const targetId = deletingSessionId
+    try {
+      const result = deleteLocalSessionRecord(targetId, activeSessionIdRef.current, sessionsRef.current)
+      if (!result) {
+        setDeletingSessionId(null)
+        return
+      }
+      sessionsRef.current = result.sessions
+      setSessions(result.sessions)
+      setReadySessionIds(current => {
+        const updated = new Set(current)
+        updated.delete(targetId)
+        return updated
+      })
+      setHostRequests(current => current.filter(request => request.params.sessionId !== targetId))
+      if (result.wasActive) {
+        activeSessionIdRef.current = result.activeSessionId
+        imageReadEpochRef.current += 1
+        setSessionId(result.activeSessionId)
+        setMessages([])
+        setAttachments([])
+        setIsReadingImages(false)
+        setActivities([])
+        setDraft('')
+        setIsSending(false)
+        setConnectionError('')
+        setSearchOpen(false)
+        setQuery('')
+        setView('chat')
+      }
+      setHistoryNotice({ text: zhCN.localConversationDeleted, isError: false })
+      setDeletingSessionId(null)
+    } catch {
+      setHasStorageError(true)
+      setHistoryNotice({ text: zhCN.localConversationDeleteFailed, isError: true })
+      setDeletingSessionId(null)
     }
   }
 
@@ -1070,6 +1165,9 @@ function App() {
                       <Button aria-label={`重命名${session.title}`} className="size-8 shrink-0" size="icon" title="重命名对话" variant="ghost" onClick={() => beginSessionRename(session)}>
                         <Pencil size={14} />
                       </Button>
+                      <Button aria-label={`${zhCN.deleteLocalConversation}：${session.title}`} className="size-8 shrink-0 text-destructive hover:text-destructive" disabled={isImportingHistory} size="icon" title={zhCN.deleteLocalConversation} variant="ghost" onClick={() => setDeletingSessionId(session.id)}>
+                        <Trash2 size={14} />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -1283,6 +1381,20 @@ function App() {
               <Button disabled={!renameDraft.trim()} type="submit" variant="primary">{zhCN.saveName}</Button>
             </div>
           </form>
+        </div>
+      )}
+
+      {deletingSession && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/35 p-4 backdrop-blur-[2px]" onMouseDown={event => { if (event.target === event.currentTarget) setDeletingSessionId(null) }} role="presentation">
+          <section aria-labelledby="delete-local-session-title" aria-modal="true" className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setDeletingSessionId(null) } }} role="dialog" tabIndex={-1}>
+            <h2 className="text-base font-semibold" id="delete-local-session-title">{zhCN.deleteLocalConversation}</h2>
+            <p className="mt-2 break-words text-sm font-medium">{deletingSession.title}</p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">{zhCN.deleteLocalConversationDescription}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button autoFocus variant="outline" onClick={() => setDeletingSessionId(null)}>{zhCN.cancel}</Button>
+              <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90" variant="secondary" onClick={confirmDeleteLocalSession}>{zhCN.confirmLocalDeletion}</Button>
+            </div>
+          </section>
         </div>
       )}
 
