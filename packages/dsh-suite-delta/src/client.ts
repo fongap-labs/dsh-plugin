@@ -566,6 +566,59 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .ens-foot-notify .ens-foot-notify-close:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .wtg9ga_collapsed .ens-foot-notify { position: fixed; left: 12px; right: auto; bottom: 60px; max-width: min(320px, calc(100vw - 24px)); }
 
+
+/* ===== Delta Suite shared full-page rhythm =====
+   Scale 4 / 8 / 12 / 16 / 24, consistent with the native interface.
+   Only presentation properties; native React owns all sessions and content. */
+.wtg9ga_root { row-gap: 4px; }
+.wtg9ga_panelList { padding-block: 4px; }
+.wtg9ga_panelRow { min-height: 38px; border-radius: 10px; }
+.wtg9ga_panelRow:focus-visible,
+.wtg9ga_newSession:focus-visible,
+.ens-sidebar-search:focus-visible { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
+.wtg9ga_regionArea { min-height: 0; }
+.GAkraW_sectionHeader { margin-block: 8px 4px; }
+.GAkraW_headerActions { gap: 4px; }
+.wnFoaW_sessionRow { min-width: 0; padding-inline: 10px; }
+.wnFoaW_title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.an3WzG_header { min-height: 60px; padding-inline: clamp(16px, 2.5vw, 32px); }
+.an3WzG_headerActions { gap: 8px !important; }
+.V4vHZW_column { width: 100%; min-width: 0; }
+.LOmM4q_bubble { max-width: 100%; }
+.GRgSLq_card { border: 1px solid var(--dsw-alias-border-l2); box-shadow: none; }
+.GRgSLq_card:focus-within { border-color: var(--ens-color-ring); box-shadow: none; }
+.GRgSLq_input { min-height: 40px; line-height: 1.6; }
+[class*="jrmgQW_"] :is(button, input, select, textarea),
+.ens-ui-button, .ens-ui-input, .ens-ui-select, .ens-ui-textarea { transition-duration: 120ms; }
+.AnXs9G_panel { border: 1px solid var(--dsw-alias-border-l2); }
+.AnXs9G_navCell { border-radius: 10px; }
+.jrmgQW_section { min-width: 0; }
+.jrmgQW_rows { min-width: 0; }
+.jrmgQW_rowCard, .V7pFBG_card { box-shadow: none; }
+[role="menu"] { border-radius: 12px; }
+[role="menuitem"] { min-height: 34px; }
+.ens-sidebar-search {
+  display: flex; align-items: center; gap: 10px; flex: none; width: calc(100% - 4px);
+  min-height: 38px; margin: 2px 2px 8px; padding: 0 10px;
+  border: 0; border-radius: 10px; background: transparent;
+  font: inherit; font-size: 13px; line-height: 20px;
+  text-align: left; color: var(--dsw-alias-label-secondary); cursor: pointer;
+}
+.ens-sidebar-search:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.ens-sidebar-search svg { width: 17px; height: 17px; flex: none; }
+.ens-sidebar-search span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wtg9ga_collapsed .ens-sidebar-search { padding: 0; width: 36px; justify-content: center; }
+.wtg9ga_collapsed .ens-sidebar-search span { display: none; }
+@media (max-width: 720px) {
+  .an3WzG_header { min-height: 52px; padding-inline: 12px; }
+  .V4vHZW_scroll { padding-inline: 12px; }
+  .GRgSLq_card { margin-inline: 0; }
+  .wtg9ga_panelRow { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ens-sidebar-search { transition: none; }
+}
+
 /* 10 — structure: drop the brand, reorder the sidebar, field-style search,
       legible three-column dividers, discoverable resize handles */
 /* #1 the "DeepSeek Harness" brand identity is removed; the top row becomes a
@@ -574,6 +627,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_brand { display: none !important; }
 
 /* Host React owns the workspace and session list; keep its DOM intact. */
+ .ens-sidebar-search { order: 2; }
 nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 .wtg9ga_root > .wtg9ga_newSession,
 .wtg9ga_root > *:has(> .wtg9ga_newSession) { order: 4; }
@@ -1038,7 +1092,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   .ens-memory-form { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.ens-settings, .ens-standalone-settings-modal, .ens-folder-browser) * {
+  :is(.ens-settings, .ens-standalone-settings-modal) * {
     transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
   }
   .ens-ui-button, .ens-ui-card, .ens-ui-input, .ens-ui-select,
@@ -1059,54 +1113,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-actions .ens-ui-button { min-height: 32px; }
 
 
-/* Folder navigator uses public Host panel and row-decoration slots only. */
-.ens-folder-browser {
-  box-sizing: border-box; min-width: 0; height: 100%; overflow: auto;
-  padding: var(--ens-space-2xl); background: var(--ens-color-background);
-  color: var(--ens-color-foreground);
-}
-.ens-folder-browser-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ens-space-sm); margin-bottom: var(--ens-space-xl); }
-.ens-folder-browser-title { font-size: 19px; font-weight: 600; line-height: 28px; flex: 1 1 180px; }
-.ens-folder-browser-status { color: var(--ens-color-muted-foreground); font-size: 12px; margin-bottom: var(--ens-space-md); }
-.ens-folder-browser-group {
-  border: 1px solid var(--ens-color-border); border-radius: var(--dsw-radius-lg);
-  background: var(--ens-color-card); margin-bottom: var(--ens-space-md); overflow: hidden;
-}
-.ens-folder-browser-group[data-drop-active="true"] { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
-.ens-folder-browser-group-head {
-  width: 100%; display: flex; align-items: center; gap: var(--ens-space-sm);
-  padding: var(--ens-space-md); background: transparent; border: 0;
-  color: var(--ens-color-card-foreground); font: inherit; font-weight: 500; cursor: pointer; text-align: left;
-}
-.ens-folder-browser-group-head:hover { background: var(--ens-color-accent); }
-.ens-folder-browser-group-head:focus-visible,
-.ens-folder-browser-open:focus-visible {
-  outline: 2px solid var(--ens-color-ring);
-  outline-offset: -2px;
-  border-radius: var(--dsw-radius-sm);
-}
-.ens-folder-browser-session:focus-within {
-  border-color: var(--ens-color-ring);
-  background: var(--ens-color-accent);
-}
-.ens-folder-browser-group-head:focus-visible { background: var(--ens-color-accent); }
-.ens-folder-browser-count { margin-left: auto; color: var(--ens-color-muted-foreground); font-size: 12px; }
-.ens-folder-browser-items { display: grid; padding: 0 var(--ens-space-sm) var(--ens-space-sm); gap: var(--ens-space-3xs); }
-.ens-folder-browser-items[hidden] { display: none; }
-.ens-folder-browser-session {
-  min-width: 0; display: flex; align-items: center; gap: var(--ens-space-sm);
-  border: 1px solid transparent; border-radius: var(--dsw-radius-sm);
-  padding: var(--ens-space-sm); background: transparent;
-}
-.ens-folder-browser-session:hover, .ens-folder-browser-session:focus-within { background: var(--ens-color-accent); }
-.ens-folder-browser-session[draggable="true"] { cursor: grab; }
-.ens-folder-browser-open {
-  flex: 1 1 140px; min-width: 0; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; text-align: left; border: 0; padding: var(--ens-space-sm);
-  background: transparent; color: var(--ens-color-foreground); font: inherit; cursor: pointer;
-}
-.ens-folder-browser-select { max-width: 180px; flex: 0 1 180px; }
-.ens-folder-browser-empty { padding: var(--ens-space-lg); color: var(--ens-color-muted-foreground); font-size: 12px; }
+/* The folder manager is in Settings only; no parallel session browser. */
 .ens-folder-browser-row-tag { display: inline-flex; align-items: center; max-width: 88px; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--ens-color-muted-foreground); }
 .ens-folder-hover-detail {
@@ -1116,14 +1123,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 .ens-folder-hover-detail strong {
   color: var(--ens-color-foreground); font-weight: 500; overflow-wrap: anywhere;
 }
-@media (max-width: 720px) {
-  .ens-folder-browser { padding: var(--ens-space-md); }
-  .ens-folder-browser-session { flex-wrap: wrap; }
-  .ens-folder-browser-select { max-width: none; flex: 1 1 100%; }
-}
 @media (max-width: 480px) {
-  .ens-folder-browser { padding: var(--ens-space-sm); }
-  .ens-folder-browser-title { font-size: 16px; line-height: 24px; }
   .ens-folder-toolbar .ens-ui-input { flex-basis: 100%; }
   .ens-folder-row { align-items: stretch; }
   .ens-folder-actions { flex: 1 1 100%; }
@@ -1134,10 +1134,6 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
 @media (forced-colors: active) {
   .ens-ui-button:focus-visible, .ens-pill-btn:focus-visible,
   .ens-ui-input:focus-visible, .ens-ui-select:focus-visible,
-  .ens-folder-browser-group-head:focus-visible, .ens-folder-browser-open:focus-visible {
-    outline-color: Highlight !important;
-  }
-  .ens-folder-browser-group[data-drop-active="true"] { outline-color: Highlight; }
 }
 
 `;
@@ -2288,6 +2284,41 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
             }
 
+            // A Delta-owned search launcher is placed BEFORE the built-in
+            // Plugin Manager row. It invokes the Host's own search and never
+            // reparents, hides or clones the native search or session list.
+            const SEARCH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 5 5"/></svg>';
+            const mountSidebarSearch = () => {
+              const nav = document.querySelector<HTMLElement>('.wtg9ga_panelList');
+              if (!nav || !nav.parentElement) return;
+              const root = nav.closest<HTMLElement>('.wtg9ga_root') || nav.parentElement;
+              let launcher = root.querySelector<HTMLButtonElement>('.ens-sidebar-search');
+              if (!launcher) {
+                launcher = document.createElement('button');
+                launcher.type = 'button';
+                launcher.className = 'ens-sidebar-search';
+                launcher.innerHTML = SEARCH_ICON + '<span></span>';
+                launcher.addEventListener('click', () => {
+                  const native = root.querySelector<HTMLElement>(
+                    '.GAkraW_search input, .GAkraW_search [role="searchbox"], .GAkraW_searchSlot button, .GAkraW_search button, .GAkraW_search'
+                  );
+                  if (!native || native === launcher) {
+                    window.alert(t('宿主搜索暂不可用', 'Host search is unavailable'));
+                    return;
+                  }
+                  native.click();
+                  if (native.matches('input, [role="searchbox"]')) native.focus();
+                  else native.querySelector<HTMLElement>('input, [role="searchbox"]')?.focus();
+                });
+              }
+              launcher.setAttribute('aria-label', t('搜索会话', 'Search conversations'));
+              launcher.title = t('搜索会话', 'Search conversations');
+              const label = launcher.querySelector('span');
+              if (label) label.textContent = t('搜索会话', 'Search conversations');
+              // Reposition only the Delta-owned button; React-owned nodes stay put.
+              if (launcher.nextElementSibling !== nav) nav.parentElement.insertBefore(launcher, nav);
+            };
+
             // Never reparent, clone or remove Host-owned React search/session nodes.
             const hostVisibilityOrigins = new Map<HTMLElement, { display: string; hidden: HTMLElement['hidden']; ariaHidden: string | null }>();
             const setHostNodeVisible = (el: HTMLElement, isVisible: boolean) => {
@@ -2759,7 +2790,8 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 initAnnotations();
                 mountFootSettings();
                 mountVersionAction();
-                  hideHostOptions();
+                mountSidebarSearch();
+                hideHostOptions();
                 hideThirdPartyProviders();
                 renameLabels();
                 document.querySelectorAll<HTMLElement>('._5Qcc8a_trigger').forEach(injectAccountGlyph);
@@ -3292,7 +3324,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
             moStatus.observe(document.body, { childList: true, subtree: true, characterData: true });
             scheduleStatusRename();
 
-            return () => { pendingSearch?.abort(); avatarActivationEvents.forEach(type => document.removeEventListener(type, onAvatarActivate, true)); mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreVersionActions(); restoreHostVisibility(); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
+            return () => { pendingSearch?.abort(); avatarActivationEvents.forEach(type => document.removeEventListener(type, onAvatarActivate, true)); mo.disconnect(); moStatus.disconnect(); if (noticeTimer) clearTimeout(noticeTimer); restoreVersionActions(); restoreHostVisibility(); document.querySelectorAll('.ens-sidebar-search').forEach(el => el.remove()); restoreContentSearch?.(); document.querySelectorAll('.ens-foot-actions').forEach(el => el.remove()); document.querySelectorAll('._5Qcc8a_root[data-ens-balance]').forEach(el => el.removeAttribute('data-ens-balance')); document.documentElement.removeAttribute('data-ens-fold-errors'); document.removeEventListener('click', onErrorRowClick, true); document.removeEventListener('paste', onVisionPaste, true); document.removeEventListener('keydown', onSearchKey, true); window.removeEventListener('dsh-ui-delta:flags-changed', schedule); unsubAccount?.(); annoCleanup?.(); };
           }, 'dsh-ui-delta: chrome');
         } catch (error) {
           console.warn('[dsh-ui-delta] chrome layer unavailable:', error);
@@ -4742,12 +4774,8 @@ const MODULES: ModuleDef[] = [
                     run: () => {
                       const name = window.prompt(t('新文件夹名称', 'New folder name'));
                       if (name === null || !name.trim()) return;
-                      void updateFolder({ action: 'create', name: name.trim() })
-                        .then(data => {
-                          const folder = data.folders.find(item => item.name === name.trim());
-                          if (!folder) throw new Error('Folder creation did not return a folder');
-                          return updateFolder({ action: 'assign', sessionId, folderId: folder.id });
-                        })
+                      // One transaction: no intermediate folder without its session.
+                      void updateFolder({ action: 'createAndAssign', name: name.trim(), sessionId })
                         .catch(reportFolderError);
                     },
                   });
@@ -4798,40 +4826,12 @@ const MODULES: ModuleDef[] = [
         }
 
 
-        // Official public extension points: a left-sidebar launcher, matching
-        // root main panel, and a passive Session-row trailing decoration.
-        // The Host retains ownership of Workspace grouping and drag ordering.
+        // The extra folder panel and sidebar launcher were intentionally removed.
+        // Folder assignments remain available from the native session context menu
+        // and the Delta settings section. Never create a competing session list.
         try {
           const folderReact = require('react');
           const node = folderReact.createElement;
-          const PANEL_ID = 'delta.session-folders';
-          const DRAG_TYPE = 'application/x-delta-session-id';
-          interface ListedSession {
-            id: string; displayTitle: string; blank?: boolean; origin?: string;
-          }
-          interface SessionListFace {
-            list: {
-              getSnapshot(): { ids: string[]; byId: Record<string, ListedSession> };
-              subscribe(listener: () => void): () => void;
-            };
-          }
-          interface FolderNavigationFace {
-            openSession(id: string): void | Promise<void>;
-          }
-          const sessions = (ctx.get?.('sessions') || ctx.sessions) as SessionListFace | undefined;
-          const navigation = (ctx.get?.('uiWorkspace') || ctx.uiWorkspace) as FolderNavigationFace | undefined;
-          const reload = () => folderStore.refresh();
-          const mutate = (payload: Record<string, unknown>) => folderStore.mutate(payload);
-
-          function FolderPanelIcon(props: { size?: number; active?: boolean }) {
-            const size = props.size || 18;
-            return node('svg', {
-              width: size, height: size, viewBox: '0 0 24 24',
-              fill: 'none', stroke: 'currentColor', strokeWidth: 1.7,
-              strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
-            }, node('path', { d: 'M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z' }));
-          }
-
           function FolderHoverDetail(props: { sessionId: string }) {
             const [, setRevision] = folderReact.useState(0);
             folderReact.useEffect(() => folderStore.subscribe(() => setRevision(value => value + 1)), []);
@@ -4844,7 +4844,6 @@ const MODULES: ModuleDef[] = [
               node('strong', { key: 'value' }, folder.name),
             ]);
           }
-
           function FolderSessionMarker(props: { sessionId: string }) {
             const [, setRevision] = folderReact.useState(0);
             folderReact.useEffect(() => folderStore.subscribe(() => setRevision(value => value + 1)), []);
@@ -4856,154 +4855,6 @@ const MODULES: ModuleDef[] = [
               title: t('文件夹：', 'Folder: ') + folder.name,
             }, folder.name) : null;
           }
-
-          function FolderBrowserPanel() {
-            const [, setRevision] = folderReact.useState(0);
-            const [isBusy, setIsBusy] = folderReact.useState(false);
-            const [feedback, setFeedback] = folderReact.useState('');
-            const [collapsed, setCollapsed] = folderReact.useState<Record<string, boolean>>({});
-            const [visibleLimit, setVisibleLimit] = folderReact.useState(80);
-            const [activeDrop, setActiveDrop] = folderReact.useState('');
-            const folderSnapshot = folderStore.view();
-            const sessionList = sessions?.list;
-            const [catalog, setCatalog] = folderReact.useState(() =>
-              sessionList?.getSnapshot() || { ids: [], byId: {} as Record<string, ListedSession> });
-            folderReact.useEffect(() => {
-              const disposeFolder = folderStore.subscribe(() => setRevision(value => value + 1));
-              const disposeSessions = sessionList?.subscribe(() => setCatalog(sessionList.getSnapshot()));
-              return () => { disposeFolder(); disposeSessions?.(); };
-            }, []);
-            const available = catalog.ids
-              .map(id => catalog.byId[id])
-              .filter((item): item is ListedSession => !!item && !item.blank && item.origin !== 'subagent');
-            const knownIds = new Set(available.map(item => item.id));
-            const groups = [
-              ...folderSnapshot.folders.map(folder => ({ id: folder.id, label: folder.name })),
-              { id: '', label: t('未分类', 'Unfiled') },
-            ];
-            const run = (request: Record<string, unknown>) => {
-              if (isBusy) return;
-              setIsBusy(true);
-              setFeedback('');
-              void mutate(request).catch(error => setFeedback(String(error)))
-                .finally(() => setIsBusy(false));
-            };
-            const open = (id: string) => {
-              if (!navigation?.openSession) {
-                setFeedback(t('宿主会话导航不可用', 'Host session navigation unavailable'));
-                return;
-              }
-              void Promise.resolve(navigation.openSession(id)).catch(error => setFeedback(String(error)));
-            };
-            const sessionRow = (item: ListedSession) => node('div', {
-              key: item.id, className: 'ens-folder-browser-session',
-              draggable: !isBusy,
-              onDragStart: (event: { dataTransfer: DataTransfer }) => {
-                if (!event.dataTransfer) return;
-                setActiveDrop('');
-                event.dataTransfer.setData(DRAG_TYPE, item.id);
-                event.dataTransfer.effectAllowed = 'move';
-              },
-              onDragEnd: () => setActiveDrop(''),
-            }, [
-              node('button', {
-                key: 'open', type: 'button', className: 'ens-folder-browser-open',
-                title: item.displayTitle, onClick: () => open(item.id),
-              }, item.displayTitle || item.id),
-              node('select', {
-                key: 'folder', className: 'ens-ui-select ens-folder-browser-select',
-                'aria-label': t('选择会话文件夹', 'Choose session folder') + ': ' + (item.displayTitle || item.id),
-                value: folderSnapshot.assignments[item.id] || '', disabled: isBusy,
-                onChange: (event: { target: HTMLSelectElement }) => {
-                  const folderId = event.target.value;
-                  run(folderId
-                    ? { action: 'assign', sessionId: item.id, folderId }
-                    : { action: 'unassign', sessionId: item.id });
-                },
-              }, [
-                node('option', { key: 'none', value: '' }, t('未分类', 'Unfiled')),
-                ...folderSnapshot.folders.map(folder =>
-                  node('option', { key: folder.id, value: folder.id }, folder.name)),
-              ]),
-            ]);
-            const sections = groups.map(group => {
-              const items = available.filter(item =>
-                (folderSnapshot.assignments[item.id] || '') === group.id);
-              const isCollapsed = collapsed[group.id] === true;
-              const groupItemsId = `delta-folder-items-${group.id || 'unfiled'}`;
-              const isDropTarget = activeDrop === (group.id || 'unfiled');
-              return node('section', {
-                key: group.id || 'unfiled',
-                className: 'ens-folder-browser-group',
-                'data-drop-active': isDropTarget ? 'true' : 'false',
-                onDragOver: (event: { dataTransfer: DataTransfer; preventDefault(): void }) => {
-                  if (!event.dataTransfer || !Array.from(event.dataTransfer.types).includes(DRAG_TYPE)) return;
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
-                  setActiveDrop(group.id || 'unfiled');
-                },
-                onDragLeave: (event: { currentTarget: HTMLElement; relatedTarget: EventTarget | null }) => {
-                  const related = event.relatedTarget;
-                  if (related instanceof Node && event.currentTarget.contains(related)) return;
-                  setActiveDrop('');
-                },
-                onDrop: (event: { dataTransfer: DataTransfer; preventDefault(): void }) => {
-                  setActiveDrop('');
-                  if (!event.dataTransfer || !Array.from(event.dataTransfer.types).includes(DRAG_TYPE)) return;
-                  event.preventDefault();
-                  const sessionId = event.dataTransfer.getData(DRAG_TYPE);
-                  if (!knownIds.has(sessionId)) return;
-                  run(group.id
-                    ? { action: 'assign', sessionId, folderId: group.id }
-                    : { action: 'unassign', sessionId });
-                },
-              }, [
-                node('button', {
-                  key: 'header', type: 'button', className: 'ens-folder-browser-group-head',
-                  'aria-expanded': !isCollapsed,
-                  'aria-controls': groupItemsId,
-                  onClick: () => setCollapsed(prev => ({ ...prev, [group.id]: !prev[group.id] })),
-                }, [
-                  node('span', { key: 'name' }, group.label),
-                  node('span', { key: 'count', className: 'ens-folder-browser-count' }, String(items.length)),
-                ]),
-                node('div', { key: 'rows', id: groupItemsId,
-                  className: 'ens-folder-browser-items', hidden: isCollapsed }, isCollapsed ? null :
-                  items.length
-                    ? [...items.slice(0, visibleLimit).map(sessionRow),
-                      items.length > visibleLimit ? node('button', {
-                        key: 'more', type: 'button', className: 'ens-ui-button ens-ui-button--outline',
-                        onClick: () => setVisibleLimit(prev => prev + 80),
-                      }, t('显示更多', 'Show more')) : null]
-                    : node('div', { className: 'ens-folder-browser-empty' }, t('拖入会话，或在右侧选择文件夹', 'Drag a session here, or select a folder on a session row'))),
-              ]);
-            });
-            return node('section', {
-              className: 'ens-folder-browser', role: 'region',
-              'aria-label': t('会话文件夹', 'Session folders'),
-            }, [
-              node('header', { key: 'header', className: 'ens-folder-browser-header' }, [
-                node('h2', { key: 'title', className: 'ens-folder-browser-title' },
-                  t('会话文件夹', 'Session folders')),
-                node('button', {
-                  key: 'refresh', className: 'ens-ui-button ens-ui-button--outline',
-                  type: 'button', onClick: () => { void reload(); },
-                }, t('刷新', 'Refresh')),
-              ]),
-              node('div', { key: 'message', className: 'ens-folder-browser-status', role: 'status' },
-                feedback || folderStore.error() || t('拖动会话到文件夹；也可以使用选择框操作。', 'Drag a session into a folder, or use its dropdown.')),
-              ...sections,
-            ]);
-          }
-          ctx.effect(() => ctx.slots.inject('main', () =>
-            (ctx.slots.register as unknown as (meta: Record<string, unknown>, component: unknown) => unknown)(
-              { name: 'main', key: PANEL_ID }, FolderBrowserPanel,
-            )), 'dsh-ui-delta: folder browser panel');
-          ctx.effect(() => ctx.slots.inject('sidebar.panellist', () =>
-            (ctx.slots.register as unknown as (meta: Record<string, unknown>, component: unknown) => unknown)(
-              { name: 'sidebar.panellist', id: PANEL_ID, order: 430, label: t('会话文件夹', 'Session folders') },
-              FolderPanelIcon,
-            )), 'dsh-ui-delta: folder browser launcher');
           ctx.effect(() => ctx.slots.inject('sidebar.session.row.trailing', () =>
             (ctx.slots.register as unknown as (meta: Record<string, unknown>, component: unknown) => unknown)(
               { name: 'sidebar.session.row.trailing', id: 'delta.session-folder-indicator', order: 550 },
@@ -5015,9 +4866,8 @@ const MODULES: ModuleDef[] = [
               FolderHoverDetail,
             )), 'dsh-ui-delta: folder membership hover');
         } catch (error) {
-          console.warn('[dsh-ui-delta] native folder browser integration unavailable:', error);
+          console.warn('[dsh-ui-delta] folder row decoration unavailable:', error);
         }
-
 
         // The Host renders and reconciles its original session list.
         // Delta decorates the Host session rows only through public slots.
