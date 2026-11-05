@@ -663,11 +663,7 @@ function App() {
       if (hasAcceptedPrompt && isKnownRuntimeFailure) {
         settlePendingSessionWait(pendingWaitCountsRef.current, sendingSessionId)
         if (activeSessionIdRef.current === sendingSessionId && !pendingWaitCountsRef.current.has(sendingSessionId)) setIsSending(false)
-      } else if (outcomeUnknown) {
-        if (canWaitForCompletion && desktopHostStatus.getSnapshot().state === 'ready') {
-          pendingWaitSessionIdsRef.current.add(sendingSessionId)
-        }
-      } else {
+      } else if (!outcomeUnknown) {
         settlePendingSessionWait(pendingWaitCountsRef.current, sendingSessionId)
       }
       if (activeSessionIdRef.current !== sendingSessionId) return
