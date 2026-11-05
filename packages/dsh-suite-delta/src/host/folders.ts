@@ -16,6 +16,7 @@ export interface FolderState {
 
 export type FolderAction =
   | { action: 'create'; name: string }
+  | { action: 'createAndAssign'; name: string; sessionId: string }
   | { action: 'rename'; id: string; name: string }
   | { action: 'delete'; id: string }
   | { action: 'move'; id: string; direction: 'up' | 'down' }
@@ -214,6 +215,22 @@ export const mutateFolderView = (request: Mutation): FolderView => withFolderLoc
         throw new Error('Folder name already exists')
       }
       folders.push({ id: randomUUID(), name, order: folders.length })
+      break
+    }
+    case 'createAndAssign': {
+      // Create and assign under one lock and one atomic disk rename.
+      // Validate every constraint first so failed requests leave no orphan folder.
+      const name = folderName(request.name)
+      if (!safeId(request.sessionId)) throw new Error('Invalid session ID')
+      if (folders.length >= MAX_FOLDERS) throw new Error('Folder limit reached')
+      if (folders.some(folder => folder.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+        throw new Error('Folder name already exists')
+      }
+      if (!Object.hasOwn(assignments, request.sessionId)
+        && Object.keys(assignments).length >= MAX_ASSIGNMENTS) throw new Error('Assignment limit reached')
+      const id = randomUUID()
+      folders.push({ id, name, order: folders.length })
+      assignments[request.sessionId] = id
       break
     }
     case 'rename': {
