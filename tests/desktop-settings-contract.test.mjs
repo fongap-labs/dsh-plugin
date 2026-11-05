@@ -14,10 +14,10 @@ test('settings UI separates local launch options from unavailable Harness settin
   assert.match(app, /zhCN\.harnessRuntimeSettingsUnavailable/)
   assert.match(app, /zhCN\.sensitiveCredentialsUnavailable/)
   assert.match(app, /zhCN\.modelProviderSettingsScope/)
-  assert.match(locale, /Provider 和模型只在连接时应用/)
-  assert.match(locale, /SDK stdio 接口没有公开的设置读取或修改方法/)
-  assert.match(locale, /当前 SDK 连接没有安全的凭据读写接口/)
-  assert.match(proposal, /Delta 只展示不可用说明/)
+  assert.match(locale, /Provider \u548c\u6a21\u578b\u53ea\u5728\u8fde\u63a5\u65f6\u5e94\u7528/)
+  assert.match(locale, /SDK stdio \u63a5\u53e3\u6ca1\u6709\u516c\u5f00\u7684\u8bbe\u7f6e\u8bfb\u53d6\u6216\u4fee\u6539\u65b9\u6cd5/)
+  assert.match(locale, /\u5f53\u524d SDK \u8fde\u63a5\u6ca1\u6709\u5b89\u5168\u7684\u51ed\u636e\u8bfb\u5199\u63a5\u53e3/)
+  assert.match(proposal, /Delta \u53ea\u5c55\u793a\u4e0d\u53ef\u7528\u8bf4\u660e/)
 })
 
 test('Host does not advertise or call unavailable settings and credential APIs', () => {
