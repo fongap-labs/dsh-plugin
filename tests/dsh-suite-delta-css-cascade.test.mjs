@@ -57,7 +57,7 @@ it('retains canonical host behavior and light-dark contrast tokens', () => {
   assert.match(css, /\.wtg9ga_footArea\s*\{[^}]*position: relative; order: 6/)
   assert.match(css, /\.GAkraW_sectionHeader\s*\{[^}]*justify-content: flex-start/)
   assert.match(css, /\.GAkraW_sectionHeader \.GAkraW_search:focus-within/)
-  assert.doesNotMatch(css, /\.ens-search-dock/)
+  assert.match(css, /\.ens-sidebar-search/)
   assert.match(css, /\.AnXs9G_panel\s*\{[^}]*animation: ensFade/)
   assert.match(css, /\.ens-account-glyph\s*\{[^}]*pointer-events: none/)
   assert.match(css, /\.wtg9ga_collapsed \.ens-foot-actions\s*\{[^}]*margin-left: 0/)
