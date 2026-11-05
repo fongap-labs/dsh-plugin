@@ -6,8 +6,8 @@ const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts',
 const stylesheet = client.slice(client.indexOf('const STYLESHEET = `'), client.indexOf('\n`;', client.indexOf('const STYLESHEET = `')))
 
 test('native sidebar launcher and settings management remain keyboard accessible', () => {
-  assert.match(stylesheet, /\.ens-sidebar-search:focus-visible/)
-  assert.match(client, /launcher\.setAttribute\('aria-label', t\('搜索会话', 'Search conversations'\)\)/)
+  assert.match(stylesheet, /\.ens-sidebar-search-input:focus-visible/)
+  assert.match(client, /field\.setAttribute\('aria-label', t\('搜索会话', 'Search conversations'\)\)/)
   assert.match(stylesheet, /@media \(max-width: 720px\)/)
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/)
   assert.doesNotMatch(client, /function FolderBrowserPanel\(/)
