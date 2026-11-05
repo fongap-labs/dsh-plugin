@@ -413,6 +413,7 @@ function App() {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [hostRequests, setHostRequests] = useState<DesktopHostRequest[]>([])
   const eventOrderRef = useRef(new DesktopSessionEventOrder())
+  const pendingWaitSessionIdsRef = useRef(new Set<string>())
   const [eventGaps, setEventGaps] = useState<Set<string>>(() => new Set())
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
@@ -427,6 +428,7 @@ function App() {
   const isOnline = runtime.state === 'ready'
   const hasCapability = (capability: DesktopHostCapability) => isOnline && negotiatedHost?.capabilities.includes(capability) === true
   const canPrompt = hasCapability('sessions.prompt')
+  const canWaitForCompletion = hasCapability('sessions.wait')
   const canResume = hasCapability('sessions.resume')
   const canChangeWorkingDirectory = hasCapability('workspace.cwd')
   const activeHostRequest = hostRequests[0]
@@ -447,6 +449,7 @@ function App() {
       return
     }
     setHostRequests([])
+    pendingWaitSessionIdsRef.current.clear()
     if (previousState === 'ready') {
       setIsSending(false)
       setReadySessionIds(new Set())
@@ -563,7 +566,9 @@ function App() {
 
     void desktopHost.onSessionStatus(status => {
       if (desktopHostStatus.getSnapshot().state !== 'ready') return
-      if (status.sessionId === sessionId) setIsSending(status.status === 'running')
+      if (status.sessionId !== sessionId) return
+      if (status.status === 'running') setIsSending(true)
+      else if (!pendingWaitSessionIdsRef.current.has(status.sessionId)) setIsSending(false)
     }).then(stop => { if (isDisposed) stop(); else unlistenStatus = stop }).catch(() => {})
 
     void desktopHost.onHostRequest(request => {
@@ -617,6 +622,7 @@ function App() {
     const images = attachments
     if ((!text && images.length === 0) || !canPrompt || isReadingImages) return
     const sendingSessionId = sessionId
+    let hasAcceptedPrompt = false
     const contentBlocks = [
       ...(text ? [{ type: 'text' as const, text }] : []),
       ...images.map(image => ({ type: 'image' as const, data: image.data, mimeType: image.mimeType, name: image.name })),
@@ -630,16 +636,37 @@ function App() {
         await desktopHost.setWorkingDirectory(sendingSessionId, runtimeConfig.workspace.trim())
       }
       if (!sessionsRef.current.some(session => session.id === sendingSessionId)) return
+      if (canWaitForCompletion) pendingWaitSessionIdsRef.current.add(sendingSessionId)
       await desktopHost.query(sendingSessionId, contentBlocks)
+      hasAcceptedPrompt = true
+      if (canWaitForCompletion) {
+        await desktopHost.waitForCompletion(sendingSessionId)
+        pendingWaitSessionIdsRef.current.delete(sendingSessionId)
+        if (activeSessionIdRef.current === sendingSessionId) setIsSending(false)
+      }
       if (sessionsRef.current.some(session => session.id === sendingSessionId)) {
         setReadySessionIds(current => new Set(current).add(sendingSessionId))
       }
     } catch (error) {
+      const isKnownRuntimeFailure = error instanceof DesktopHostError && !error.outcomeUnknown
+      const outcomeUnknown = error instanceof DesktopHostError ? error.outcomeUnknown : true
+      if (hasAcceptedPrompt && isKnownRuntimeFailure) {
+        pendingWaitSessionIdsRef.current.delete(sendingSessionId)
+        if (activeSessionIdRef.current === sendingSessionId) setIsSending(false)
+      } else if (outcomeUnknown) {
+        if (canWaitForCompletion && desktopHostStatus.getSnapshot().state === 'ready') {
+          pendingWaitSessionIdsRef.current.add(sendingSessionId)
+        }
+      } else {
+        pendingWaitSessionIdsRef.current.delete(sendingSessionId)
+      }
       if (activeSessionIdRef.current !== sendingSessionId) return
       setConnectionError(displayHostError(error))
-      setDraft(current => current.trim() ? current : text)
-      setAttachments(current => current.length > 0 ? current : images)
-      setIsSending(false)
+      if (!hasAcceptedPrompt && !outcomeUnknown) {
+        setDraft(current => current.trim() ? current : text)
+        setAttachments(current => current.length > 0 ? current : images)
+        setIsSending(false)
+      }
     }
   }
 
@@ -791,6 +818,7 @@ function App() {
         return updated
       })
       setHostRequests(current => current.filter(request => request.params.sessionId !== targetId))
+      pendingWaitSessionIdsRef.current.delete(targetId)
       eventOrderRef.current.clear(targetId)
       setEventGaps(current => { const next = new Set(current); next.delete(targetId); return next })
       if (result.wasActive) {

@@ -10,6 +10,7 @@ export type DesktopHostCapability =
   | 'sessions.create'
   | 'sessions.resume'
   | 'sessions.prompt'
+  | 'sessions.wait'
   | 'sessions.cancel'
   | 'sessions.events'
   | 'sessions.events.resync'
@@ -131,6 +132,7 @@ export interface DesktopHostPort extends RuntimeStatusPort {
   createSession(input?: { workspaceId?: string }, signal?: AbortSignal): Promise<SessionSummary>
   resumeSession(sessionId: string, signal?: AbortSignal): Promise<SessionSummary>
   prompt(sessionId: string, content: readonly PromptContentBlock[], signal?: AbortSignal): Promise<{ runId: string }>
+  waitForCompletion(sessionId: string, signal?: AbortSignal): Promise<void>
   cancelSession(sessionId: string, runId?: string, signal?: AbortSignal): Promise<void>
   respondApproval(requestId: string, outcome: 'allowed-once' | 'rejected' | 'cancelled', signal?: AbortSignal): Promise<void>
   answerQuestion(requestId: string, answers: Record<string, string[]>, signal?: AbortSignal): Promise<void>

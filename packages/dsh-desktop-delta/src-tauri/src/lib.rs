@@ -484,11 +484,12 @@ fn read_runtime_output(
         let sender = pending.lock().ok().and_then(|mut map| map.remove(&id));
         if let Some(sender) = sender {
             let result = if let Some(error) = message.get("error") {
-                Err(error
+                let code = error.get("code").and_then(Value::as_i64).unwrap_or_default();
+                let detail = error
                     .get("message")
                     .and_then(Value::as_str)
-                    .unwrap_or("Harness 返回错误")
-                    .to_string())
+                    .unwrap_or("Harness returned an RPC error");
+                Err(format!("Harness RPC error ({code}): {detail}"))
             } else {
                 Ok(message.get("result").cloned().unwrap_or(Value::Null))
             };
@@ -673,6 +674,7 @@ fn desktop_host_handshake(
         "capabilities": [
             "sessions.resume",
             "sessions.prompt",
+            "sessions.wait",
             "sessions.events",
             "approvals.respond",
             "questions.respond",
@@ -774,6 +776,25 @@ fn session_query(
 }
 
 #[tauri::command]
+async fn wait_session(state: State<'_, RuntimeManager>, session_id: String) -> Result<(), String> {
+    let connection = state.current_connection()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = connection.request(
+            "session/wait",
+            json!({"sessionId": session_id}),
+            Duration::from_secs(24 * 60 * 60),
+        )?;
+        if result.is_object() {
+            Ok(())
+        } else {
+            Err("Harness returned an invalid session wait result".into())
+        }
+    })
+    .await
+    .map_err(|error| format!("Session wait task failed: {error}"))?
+}
+
+#[tauri::command]
 fn resume_session(state: State<'_, RuntimeManager>, session_id: String) -> Result<(), String> {
     let result = state.current_connection()?.request(
         "session/resume",
@@ -829,6 +850,7 @@ pub fn run() {
             desktop_host_handshake,
             connect_runtime,
             session_query,
+            wait_session,
             resume_session,
             set_working_directory,
             respond_host_request,
