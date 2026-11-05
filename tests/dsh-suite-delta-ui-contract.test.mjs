@@ -90,7 +90,7 @@ describe('Delta Suite settings privacy and usability', () => {
     assert.match(client, /if \(signal\.aborted \|\| !needle\) return base/);
   });
   it('keeps privacy copy precise and labels the settings section correctly', () => {
-    assert.match(client, /Delta Suite settings/);
+    assert.match(client, /label: t\('Delta 套件', 'Delta Suite'\)/);
     assert.match(client, /Model configuration/);
     assert.doesNotMatch(client, /This plugin collects and uploads nothing/);
   });
