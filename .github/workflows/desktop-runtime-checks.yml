@@ -49,5 +49,8 @@ jobs:
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Tauri icons
+        run: pnpm --filter @fongap-labs/dsh-desktop-delta icons
+
       - name: Run desktop Rust tests
         run: pnpm --filter @fongap-labs/dsh-desktop-delta exec cargo test --manifest-path src-tauri/Cargo.toml
