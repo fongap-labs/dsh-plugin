@@ -21,7 +21,9 @@ async function bootstrap() {
 
   try {
     await desktopHost.onRuntimeStatus(publish)
-    publish(await desktopHost.getStatus())
+    const current = await desktopHost.getStatus()
+    publish(current)
+    if (current.state === 'ready') await desktopHost.handshake()
   } catch {
     // Browser previews and an unconnected runtime stay in the explicit offline state.
   }

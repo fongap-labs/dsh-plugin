@@ -1,4 +1,9 @@
-export const DESKTOP_HOST_API_VERSION = { major: 1, minor: 0 } as const
+export const DESKTOP_HOST_API_VERSION = { major: 1, minor: 1 } as const
+
+export interface DesktopHostProtocolVersion {
+  major: number
+  minor: number
+}
 
 export type DesktopHostCapability =
   | 'sessions.list'
@@ -7,10 +12,12 @@ export type DesktopHostCapability =
   | 'sessions.prompt'
   | 'sessions.cancel'
   | 'sessions.events'
+  | 'sessions.events.resync'
   | 'approvals.respond'
   | 'questions.respond'
   | 'workspace.list'
   | 'workspace.select'
+  | 'workspace.cwd'
   | 'workspace.files'
   | 'settings.read'
   | 'settings.write'
@@ -21,9 +28,10 @@ export type DesktopHostCapability =
   | 'terminals.events'
 
 export interface DesktopHostHandshake {
-  protocolVersion: typeof DESKTOP_HOST_API_VERSION
+  protocolVersion: DesktopHostProtocolVersion
   runtime: { name: 'deepseek-harness'; version: string }
   capabilities: readonly DesktopHostCapability[]
+  upstream: { protocol: 'sdk-stdio-unversioned'; capabilitySource: 'adapter-supported-methods'; eventReplay: false; runCancellation: false }
 }
 
 export type RuntimeStatus =
@@ -64,6 +72,7 @@ interface DesktopSessionEventBase {
 }
 
 export type DesktopSessionEvent = DesktopSessionEventBase & (
+  | { type: 'session.advanced'; payload: Record<string, never> }
   | { type: 'message.completed'; payload: { messageId: string; role: 'user' | 'assistant'; text: string } }
   | { type: 'tool.started'; payload: { callId: string; toolName: string; summary?: string } }
   | { type: 'tool.completed'; payload: { callId: string; outcome: 'success' | 'error' | 'cancelled'; summary?: string } }
@@ -158,6 +167,7 @@ export class DesktopHostError extends Error {
     readonly code: DesktopHostErrorCode,
     message: string,
     readonly retryable = false,
+    readonly outcomeUnknown = false,
   ) {
     super(message)
     this.name = 'DesktopHostError'
