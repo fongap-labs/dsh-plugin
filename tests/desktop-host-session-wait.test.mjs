@@ -20,6 +20,8 @@ test('Desktop advertises and forwards the official session/wait operation', () =
 
 test('root idle does not end the UI wait while managed descendants are pending', () => {
   assert.match(app, /pendingWaitCountsRef\.current\.has\(status\.sessionId\)/)
+  assert.doesNotMatch(app, /pendingWaitSessionIdsRef/,
+    'the previous Set must not remain beside the per-session wait counter')
   assert.match(app, /markPendingSessionWait\(pendingWaitCountsRef\.current, sendingSessionId\)/)
   assert.match(app, /settlePendingSessionWait\(pendingWaitCountsRef\.current, sendingSessionId\)/)
   assert.match(app, /await desktopHost\.waitForCompletion\(sendingSessionId\)/)
