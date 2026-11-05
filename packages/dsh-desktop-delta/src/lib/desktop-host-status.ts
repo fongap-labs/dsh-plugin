@@ -1,6 +1,5 @@
-import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
 import type { RuntimeStatus, RuntimeStatusPort } from './desktop-host-contract'
+import { desktopHost } from './desktop-host-client'
 
 const disconnectedStatus: RuntimeStatus = {
   state: 'offline',
@@ -21,8 +20,8 @@ async function bootstrap() {
   isBootstrapped = true
 
   try {
-    await listen<RuntimeStatus>('desktop:runtime-status', event => publish(event.payload))
-    publish(await invoke<RuntimeStatus>('runtime_status'))
+    await desktopHost.onRuntimeStatus(publish)
+    publish(await desktopHost.getStatus())
   } catch {
     // Browser previews and an unconnected runtime stay in the explicit offline state.
   }

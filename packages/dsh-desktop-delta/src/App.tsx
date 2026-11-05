@@ -1,6 +1,4 @@
 import { isValidElement, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
-import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -33,11 +31,10 @@ import {
 } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { zhCN } from './locales/zh-CN'
+import { desktopHost } from './lib/desktop-host-client'
 import { desktopHostStatus } from './lib/desktop-host-status'
 import type {
   DesktopHostRequest,
-  DesktopSessionEvent,
-  DesktopSessionStatus,
   RuntimeStatus,
 } from './lib/desktop-host-contract'
 
@@ -360,8 +357,7 @@ function App() {
     let unlistenRequest: (() => void) | undefined
     let unlistenRequestCancelled: (() => void) | undefined
 
-    void listen<DesktopSessionEvent>('desktop:session-event', event => {
-      const item = event.payload
+    void desktopHost.onSessionEvent(item => {
       if (!isDeltaSessionId(item.sessionId) || !sessionsRef.current.some(session => session.id === item.sessionId)) return
       if (item.type === 'tool.started') {
         if (item.sessionId !== sessionId) return
@@ -410,12 +406,11 @@ function App() {
       }
     }).then(stop => { if (isDisposed) stop(); else unlistenSession = stop }).catch(() => {})
 
-    void listen<DesktopSessionStatus>('desktop:session-status', event => {
-      if (event.payload.sessionId === sessionId) setIsSending(event.payload.status === 'running')
+    void desktopHost.onSessionStatus(status => {
+      if (status.sessionId === sessionId) setIsSending(status.status === 'running')
     }).then(stop => { if (isDisposed) stop(); else unlistenStatus = stop }).catch(() => {})
 
-    void listen<DesktopHostRequest>('desktop:host-request', event => {
-      const request = event.payload
+    void desktopHost.onHostRequest(request => {
       if (request.method !== 'approval/request' && request.method !== 'user-question/ask') return
       const requestSessionId = request.params.sessionId
       if (typeof requestSessionId !== 'string'
@@ -424,14 +419,14 @@ function App() {
         const result = request.method === 'approval/request'
           ? { outcome: 'rejected' }
           : { cancelled: true }
-        void invoke('respond_host_request', { id: request.id, result }).catch(() => {})
+        void desktopHost.respondRequest(request.id, result).catch(() => {})
         return
       }
       setHostRequests(current => current.some(item => item.id === request.id) ? current : [...current, request])
     }).then(stop => { if (isDisposed) stop(); else unlistenRequest = stop }).catch(() => {})
 
-    void listen<{ requestId: string }>('desktop:host-request-cancelled', event => {
-      setHostRequests(current => current.filter(item => item.params.requestId !== event.payload.requestId))
+    void desktopHost.onHostRequestCancelled(requestId => {
+      setHostRequests(current => current.filter(item => item.params.requestId !== requestId))
     }).then(stop => { if (isDisposed) stop(); else unlistenRequestCancelled = stop }).catch(() => {})
 
     return () => {
@@ -446,19 +441,11 @@ function App() {
   async function connectRuntime() {
     setConnectionError('')
     try {
-      await invoke('connect_runtime', {
-        nodePath: runtimeConfig.nodePath,
-        dshPath: runtimeConfig.dshPath,
-        dshHome: runtimeConfig.dshHome || null,
-        patchPath: runtimeConfig.harnessPatchPath.trim() || null,
-        workspace: runtimeConfig.workspace || null,
-        provider: runtimeConfig.provider,
-        model: runtimeConfig.model,
-      })
+      await desktopHost.connect(runtimeConfig)
       setConnectionOpen(false)
       setReadySessionIds(new Set())
       if (messages.length > 0) {
-        await invoke('resume_session', { sessionId })
+        await desktopHost.resume(sessionId)
         setReadySessionIds(new Set([sessionId]))
       }
     } catch (error) {
@@ -480,9 +467,9 @@ function App() {
     setConnectionError('')
     try {
       if (runtimeConfig.workspace.trim()) {
-        await invoke('set_working_directory', { sessionId, path: runtimeConfig.workspace.trim() })
+        await desktopHost.setWorkingDirectory(sessionId, runtimeConfig.workspace.trim())
       }
-      await invoke('session_query', { sessionId, contentBlocks })
+      await desktopHost.query(sessionId, contentBlocks)
       setReadySessionIds(current => new Set(current).add(sessionId))
     } catch (error) {
       setConnectionError(String(error))
@@ -569,7 +556,7 @@ function App() {
     setConnectionError('')
     if (isOnline && loadMessages(session.id).length > 0 && !readySessionIds.has(session.id)) {
       try {
-        await invoke('resume_session', { sessionId: session.id })
+        await desktopHost.resume(session.id)
         setReadySessionIds(current => new Set(current).add(session.id))
       } catch (error) {
         setConnectionError(`无法恢复这条对话：${String(error)}`)
@@ -590,7 +577,7 @@ function App() {
     if (!path) return
     if (isOnline) {
       try {
-        const actualPath = await invoke<string>('set_working_directory', { sessionId, path })
+        const actualPath = await desktopHost.setWorkingDirectory(sessionId, path)
         setRuntimeConfig(config => ({ ...config, workspace: actualPath }))
         setConnectionError('')
         setWorkspaceError('')
@@ -681,7 +668,7 @@ function App() {
 
   async function disconnectRuntime() {
     try {
-      await invoke('disconnect_runtime')
+      await desktopHost.disconnect()
       setReadySessionIds(new Set())
       setIsSending(false)
     } catch (error) {
@@ -691,7 +678,7 @@ function App() {
 
   async function answerHostRequest(request: DesktopHostRequest, result: Record<string, unknown>) {
     try {
-      await invoke('respond_host_request', { id: request.id, result })
+      await desktopHost.respondRequest(request.id, result)
       setHostRequests(current => current.filter(item => item.id !== request.id))
       setConnectionError('')
     } catch (error) {
