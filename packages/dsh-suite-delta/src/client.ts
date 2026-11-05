@@ -575,7 +575,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_panelRow { min-height: 38px; border-radius: 10px; }
 .wtg9ga_panelRow:focus-visible,
 .wtg9ga_newSession:focus-visible,
-.ens-sidebar-search:focus-visible { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
+.ens-sidebar-search-input:focus-visible { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
 .wtg9ga_regionArea { min-height: 0; }
 .GAkraW_sectionHeader { margin-block: 8px 4px; }
 .GAkraW_headerActions { gap: 4px; }
@@ -598,17 +598,25 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 [role="menu"] { border-radius: 12px; }
 [role="menuitem"] { min-height: 34px; }
 .ens-sidebar-search {
-  display: flex; align-items: center; gap: 10px; flex: none; width: calc(100% - 4px);
-  min-height: 38px; margin: 2px 2px 8px; padding: 0 10px;
-  border: 0; border-radius: 10px; background: transparent;
-  font: inherit; font-size: 13px; line-height: 20px;
-  text-align: left; color: var(--dsw-alias-label-secondary); cursor: pointer;
+  display: flex; align-items: center; gap: 8px; flex: none;
+  width: calc(100% - 4px); min-height: 38px; margin: 2px 2px 8px;
+  padding: 0 10px; box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary);
 }
-.ens-sidebar-search:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.ens-sidebar-search:hover { border-color: var(--dsw-alias-border-l3); }
+.ens-sidebar-search:focus-within { border-color: var(--ens-color-ring); box-shadow: none; }
 .ens-sidebar-search svg { width: 17px; height: 17px; flex: none; }
-.ens-sidebar-search span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wtg9ga_collapsed .ens-sidebar-search { padding: 0; width: 36px; justify-content: center; }
-.wtg9ga_collapsed .ens-sidebar-search span { display: none; }
+.ens-sidebar-search-input {
+  width: 100%; min-width: 0; min-height: 34px; padding: 0;
+  border: 0 !important; outline: none !important; box-shadow: none !important;
+  background: transparent; color: var(--dsw-alias-label-primary);
+  font: inherit; font-size: 13px; line-height: 20px;
+}
+.ens-sidebar-search-input::placeholder { color: var(--dsw-alias-label-tertiary); opacity: 1; }
+.ens-sidebar-search-input::-webkit-search-cancel-button { cursor: pointer; }
+.wtg9ga_collapsed .ens-sidebar-search { width: 36px; padding: 0 9px; justify-content: center; }
+.wtg9ga_collapsed .ens-sidebar-search-input { display: none; }
 @media (max-width: 720px) {
   .an3WzG_header { min-height: 52px; padding-inline: 12px; }
   .V4vHZW_scroll { padding-inline: 12px; }
@@ -616,7 +624,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
   .wtg9ga_panelRow { min-height: 36px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ens-sidebar-search { transition: none; }
+  .ens-sidebar-search, .ens-sidebar-search-input { transition: none; }
 }
 
 /* 10 — structure: drop the brand, reorder the sidebar, field-style search,
@@ -655,6 +663,11 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
 /* Only the Host renders the workspace search field. */
 .GAkraW_sectionHeader .GAkraW_search:focus-within {
   outline: none !important; border-color: var(--ens-focus-ring); box-shadow: none !important;
+}
+/* The native search remains mounted, processing the Delta field's query.
+   Only its redundant header affordance is visually suppressed. */
+.wtg9ga_root:has(.ens-sidebar-search-input) .GAkraW_sectionHeader .GAkraW_searchSlot {
+  visibility: hidden; width: 0; max-width: 0; pointer-events: none;
 }
 /* #14 the 工作区 label stays flush-left while 视图选项 / 添加工作区 stay
       flush-right. With the search slot moved out, the header is just label +
@@ -2284,41 +2297,62 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
             }
 
-            // A Delta-owned search launcher is placed BEFORE the built-in
-            // Plugin Manager row. It invokes the Host's own search and never
-            // reparents, hides or clones the native search or session list.
+            // Delta-owned search input stays before Plugin Manager; its query is
+            // forwarded to the native Workspace search. The Host owns results,
+            // debounce, cancellation and Session navigation. Never clone its rows.
             const SEARCH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 5 5"/></svg>';
+            const findNativeSearchInput = () =>
+              document.querySelector<HTMLInputElement>('.GAkraW_search input, .GAkraW_searchSlot input, .GAkraW_sectionHeader input[type="search"]');
+            const relaySearchQuery = (query: string, attempts = 0) => {
+              let native = findNativeSearchInput();
+              if (!native) {
+                if (attempts === 0) {
+                  document.querySelector<HTMLElement>('.GAkraW_searchSlot button, .GAkraW_search button, .GAkraW_search')?.click();
+                }
+                if (attempts < 12) requestAnimationFrame(() => relaySearchQuery(query, attempts + 1));
+                return;
+              }
+              // Native setter, not direct .value assignment, activates the
+              // controlled React input's change tracker.
+              const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+              if (setter) setter.call(native, query);
+              else native.value = query;
+              native.dispatchEvent(new Event('input', { bubbles: true }));
+            };
             const mountSidebarSearch = () => {
               const nav = document.querySelector<HTMLElement>('.wtg9ga_panelList');
               if (!nav || !nav.parentElement) return;
               const root = nav.closest<HTMLElement>('.wtg9ga_root') || nav.parentElement;
-              let launcher = root.querySelector<HTMLButtonElement>('.ens-sidebar-search');
+              let field = root.querySelector<HTMLInputElement>('.ens-sidebar-search-input');
+              let launcher = root.querySelector<HTMLElement>('.ens-sidebar-search');
               if (!launcher) {
-                launcher = document.createElement('button');
-                launcher.type = 'button';
+                launcher = document.createElement('div');
                 launcher.className = 'ens-sidebar-search';
-                launcher.innerHTML = SEARCH_ICON + '<span></span>';
-                launcher.addEventListener('click', () => {
-                  const native = root.querySelector<HTMLElement>(
-                    '.GAkraW_search input, .GAkraW_search [role="searchbox"], .GAkraW_searchSlot button, .GAkraW_search button, .GAkraW_search'
-                  );
-                  if (!native || native === launcher) {
-                    window.alert(t('宿主搜索暂不可用', 'Host search is unavailable'));
-                    return;
+                launcher.innerHTML = SEARCH_ICON;
+                field = document.createElement('input');
+                field.className = 'ens-sidebar-search-input';
+                field.type = 'search';
+                field.autocomplete = 'off';
+                field.setAttribute('aria-label', t('搜索会话', 'Search conversations'));
+                field.placeholder = t('搜索会话', 'Search conversations');
+                field.addEventListener('input', () => relaySearchQuery(field!.value));
+                field.addEventListener('keydown', event => {
+                  if (event.key === 'Escape') {
+                    field!.value = '';
+                    relaySearchQuery('');
+                    field!.blur();
                   }
-                  native.click();
-                  if (native.matches('input, [role="searchbox"]')) native.focus();
-                  else native.querySelector<HTMLElement>('input, [role="searchbox"]')?.focus();
                 });
+                launcher.appendChild(field);
               }
-              launcher.setAttribute('aria-label', t('搜索会话', 'Search conversations'));
-              launcher.title = t('搜索会话', 'Search conversations');
-              const label = launcher.querySelector('span');
-              if (label) label.textContent = t('搜索会话', 'Search conversations');
-              // Reposition only the Delta-owned button; React-owned nodes stay put.
+              if (field) {
+                field.setAttribute('aria-label', t('搜索会话', 'Search conversations'));
+                field.placeholder = t('搜索会话', 'Search conversations');
+              }
+              // Only the Delta-owned element is moved; native search remains
+              // mounted in its original React tree and continues to own filtering.
               if (launcher.nextElementSibling !== nav) nav.parentElement.insertBefore(launcher, nav);
             };
-
             // Never reparent, clone or remove Host-owned React search/session nodes.
             const hostVisibilityOrigins = new Map<HTMLElement, { display: string; hidden: HTMLElement['hidden']; ariaHidden: string | null }>();
             const setHostNodeVisible = (el: HTMLElement, isVisible: boolean) => {
