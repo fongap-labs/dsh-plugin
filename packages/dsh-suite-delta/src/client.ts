@@ -620,10 +620,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
   .GRgSLq_card { margin-inline: 0; }
   .wtg9ga_panelRow { min-height: 36px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .ens-sidebar-search, .ens-sidebar-search-input { transition: none; }
-}
-
 /* 10 — structure: drop the brand, reorder the sidebar, field-style search,
       legible three-column dividers, discoverable resize handles */
 /* #1 the "DeepSeek Harness" brand identity is removed; the top row becomes a
@@ -1107,6 +1103,7 @@ html[data-input-modality="pointer"] [class*="_tab_d62eq_"]:focus-visible { outli
   }
   .ens-ui-button, .ens-ui-card, .ens-ui-input, .ens-ui-select,
   .ens-ui-textarea, .ens-ui-badge { animation: none !important; transition: none !important; }
+  .ens-sidebar-search, .ens-sidebar-search-input { transition: none !important; }
 }
 
 
