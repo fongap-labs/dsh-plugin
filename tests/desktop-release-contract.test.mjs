@@ -9,7 +9,7 @@ test('desktop release manifests match the governed product discovery contract', 
   assert.equal(m.root, 'packages')
   assert.equal(m.release_key, 'dsh-desktop-delta')
   assert.equal(m.target_repository, 'fongap-labs/dsh-plugin')
-  assert.deepEqual(m.builds.map(x => x.target), ['linux-x64', 'windows-x64', 'macos-arm64'])
+  assert.deepEqual(m.builds.map(x => x.target), ['x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc', 'aarch64-apple-darwin'])
   const assets = new Set()
   for (const b of m.builds) {
     assert.equal(b.script, 'dsh-desktop-delta/build-release.mjs')
@@ -23,10 +23,10 @@ test('desktop release manifests match the governed product discovery contract', 
 })
 
 test('release arguments reject unsupported runner and version combinations', () => {
-  const good = ['--target', 'linux-x64', '--version', '0.1.0-beta.1', '--output-dir', '/tmp/release']
+  const good = ['--target', 'x86_64-unknown-linux-gnu', '--version', '0.1.0-beta.1', '--output-dir', '/tmp/release']
   assert.equal(parseReleaseArgs(good, 'linux', 'x64').version, '0.1.0-beta.1')
   assert.throws(() => parseReleaseArgs(good, 'win32', 'x64'), /requires/)
-  assert.throws(() => parseReleaseArgs(['--target', 'macos-arm64', '--version', '1.0.0', '--output-dir', '/tmp/release'], 'darwin', 'x64'), /requires/)
-  assert.throws(() => parseReleaseArgs(['--target', 'linux-x64', '--version', '1.0.0-rc.1', '--output-dir', '/tmp/release'], 'linux', 'x64'), /Invalid/)
-  assert.throws(() => parseReleaseArgs(['--target', 'linux-x64', '--version', '1.0.0', '--output-dir', '/tmp/release', '--target', 'linux-x64'], 'linux', 'x64'), /Expected/)
+  assert.throws(() => parseReleaseArgs(['--target', 'aarch64-apple-darwin', '--version', '1.0.0', '--output-dir', '/tmp/release'], 'darwin', 'x64'), /requires/)
+  assert.throws(() => parseReleaseArgs(['--target', 'x86_64-unknown-linux-gnu', '--version', '1.0.0-rc.1', '--output-dir', '/tmp/release'], 'linux', 'x64'), /Invalid/)
+  assert.throws(() => parseReleaseArgs(['--target', 'x86_64-unknown-linux-gnu', '--version', '1.0.0', '--output-dir', '/tmp/release', '--target', 'x86_64-unknown-linux-gnu'], 'linux', 'x64'), /Expected/)
 })
