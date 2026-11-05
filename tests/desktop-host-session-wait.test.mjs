@@ -13,6 +13,8 @@ test('Desktop advertises and forwards the official session/wait operation', () =
   assert.match(rust, /Duration::from_secs\(24 \* 60 \* 60\)/)
   assert.match(rust, /wait_session,/)
   assert.match(client, /waitForCompletion:[\s\S]*?callHost<void>\('wait_session'/)
+  assert.match(client, /Harness RPC error \(/)
+  assert.match(client, /new DesktopHostError\('runtime_error', message, false, false\)/)
 })
 
 test('root idle does not end the UI wait while managed descendants are pending', () => {

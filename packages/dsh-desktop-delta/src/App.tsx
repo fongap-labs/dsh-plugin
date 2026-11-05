@@ -648,8 +648,12 @@ function App() {
         setReadySessionIds(current => new Set(current).add(sendingSessionId))
       }
     } catch (error) {
-      const outcomeUnknown = hasAcceptedPrompt || (error instanceof DesktopHostError && error.outcomeUnknown)
-      if (outcomeUnknown) {
+      const isKnownRuntimeFailure = error instanceof DesktopHostError && !error.outcomeUnknown
+      const outcomeUnknown = error instanceof DesktopHostError ? error.outcomeUnknown : true
+      if (hasAcceptedPrompt && isKnownRuntimeFailure) {
+        pendingWaitSessionIdsRef.current.delete(sendingSessionId)
+        if (activeSessionIdRef.current === sendingSessionId) setIsSending(false)
+      } else if (outcomeUnknown) {
         if (canWaitForCompletion && desktopHostStatus.getSnapshot().state === 'ready') {
           pendingWaitSessionIdsRef.current.add(sendingSessionId)
         }
@@ -658,7 +662,7 @@ function App() {
       }
       if (activeSessionIdRef.current !== sendingSessionId) return
       setConnectionError(displayHostError(error))
-      if (!outcomeUnknown) {
+      if (!hasAcceptedPrompt && !outcomeUnknown) {
         setDraft(current => current.trim() ? current : text)
         setAttachments(current => current.length > 0 ? current : images)
         setIsSending(false)

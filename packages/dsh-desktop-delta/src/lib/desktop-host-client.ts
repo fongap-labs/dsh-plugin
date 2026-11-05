@@ -57,6 +57,9 @@ function normalizeError(error: unknown): DesktopHostError {
   if (message.startsWith('Harness 请求超时：')) {
     return new DesktopHostError('timeout', message + '; runtime outcome is unknown.', false, true)
   }
+  if (message.startsWith('Harness RPC error (')) {
+    return new DesktopHostError('runtime_error', message, false, false)
+  }
   if (message === '请先连接 Harness' || message === 'Harness 连接已关闭') {
     return new DesktopHostError('runtime_unavailable', message, true, true)
   }

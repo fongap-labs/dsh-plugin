@@ -484,11 +484,12 @@ fn read_runtime_output(
         let sender = pending.lock().ok().and_then(|mut map| map.remove(&id));
         if let Some(sender) = sender {
             let result = if let Some(error) = message.get("error") {
-                Err(error
+                let code = error.get("code").and_then(Value::as_i64).unwrap_or_default();
+                let detail = error
                     .get("message")
                     .and_then(Value::as_str)
-                    .unwrap_or("Harness 返回错误")
-                    .to_string())
+                    .unwrap_or("Harness returned an RPC error");
+                Err(format!("Harness RPC error ({code}): {detail}"))
             } else {
                 Ok(message.get("result").cloned().unwrap_or(Value::Null))
             };
