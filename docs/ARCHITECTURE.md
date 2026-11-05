@@ -24,9 +24,9 @@
 
 包名使用 `@fongap-labs/<package-name>`。包名、Cordis patch 中的名称、包内文档和发布元数据必须一致。已发布包名属于外部接口；只有存在明确收益并提供升级方案时才调整。
 
-## 3. Delta Suite Host 与 Browser 双端
+## 3. 套件宿主与浏览器双端
 
-### Host
+### 宿主端
 
 Host 入口位于 `packages/dsh-suite-delta/src/index.ts`，导出 `name`、`inject` 和 `apply(ctx)`。实现按职责拆分：
 
@@ -38,7 +38,7 @@ Host 入口位于 `packages/dsh-suite-delta/src/index.ts`，导出 `name`、`inj
 
 Host 源码由 TypeScript 编译为 `lib/` 下的 ESM。包的公开入口仍是 `lib/index.js`；拆分内部文件不得改变插件包名、导出接口、路由路径、配置格式或已发布行为。
 
-### Browser
+### 浏览器端
 
 浏览器端目前保留一个源码入口 `src/client.ts`，编译为 `lib/client.js`。它通过 `window.__ModuleLoader__.load({ id, factory(require) { ... } })` 注册给 Harness。
 
@@ -61,6 +61,6 @@ Host 源码由 TypeScript 编译为 `lib/` 下的 ESM。包的公开入口仍是
 
 Action Worker 支持 PowerShell 原生构建和 Node.js 便携构建。插件发布采用 `linux-standard` Runner、`portable` 目标和每包一个薄 `build-release.mjs` 入口，实际构建集中在 `scripts/build-release.mjs`，保留 GitHub Release 的 ZIP/TGZ、SBOM 和来源证明。此规则依赖 Action Worker 的相应合约先行合并，不能绕过中央门禁。
 
-### Host 依赖边界
+### 宿主端依赖边界
 
 Harness 在宿主进程中提供 Cordis 和其他 Host 服务。插件在运行时通过 `ctx` 获取服务；`@deepseek-ai/cordis` 仅用于 TypeScript 的 `import type`，不得被打包为插件自己的运行时框架副本。三个插件的发布 `package.json` 不声明 Cordis/DSH Tools 的 `dependencies`、`peerDependencies` 或 `bundleDependencies`；根目录 `devDependencies` 和 `pnpm-lock.yaml` 固定开发/CI 类型基线。删除版本约束不代表跨宿主版本天然兼容：引入新 Host API 时必须做能力检测及 Windows/macOS/Linux 的宿主回归验证。
