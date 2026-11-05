@@ -4,7 +4,7 @@ DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Suite)。
 
 ## 桌面前端
 
-完整桌面前端是独立包 **[`dsh-desktop-delta`](../dsh-desktop-delta/README.md)**，与本 `dsh-suite-delta` Harness 插件并行运行；用户界面品牌仍为 Delta Suite。桌面应用通过 Harness 公开 SDK profile 连接外部运行内核，目前支持对话、Delta 本机的最近会话、会话恢复、工作目录切换、工具审批和用户提问。Harness 全量会话目录、设置、工作区文件浏览、技能管理和终端等完整桌面能力尚未接通，因此它还不能完全替代 Harness 原生前端。
+完整桌面前端是独立包 **[`dsh-desktop-delta`](../dsh-desktop-delta/README.md)**，与本 `dsh-suite-delta` Harness 插件并行运行；用户界面品牌仍为 Delta Suite。两者配套交付时，先通过现有 Action Worker 流程发布并在 Harness 安装、启用 `dsh-suite-delta`，再发布和安装 `dsh-desktop-delta`；两个包分别发布，桌面安装包不包含插件代码。桌面应用通过 Harness 公开 SDK profile 连接外部运行内核，目前支持对话、Delta 本机的最近会话、会话恢复、工作目录切换、工具审批和用户提问。Harness 全量会话目录、设置、工作区文件浏览、技能管理和终端等完整桌面能力尚未接通，因此它还不能完全替代 Harness 原生前端。
 
 ## 特性
 - **现代主题调色板**：适配深色/浅色双模式，高对比、细腻雅致。
