@@ -62,7 +62,7 @@ interface SessionListResponse {
 - 返回调用者有权查看的活动及已保存会话，不激活冷会话。
 - 游标不透明，绑定筛选条件和快照 `revision`。
 - 稳定排序；翻页期间不得无故重复或遗漏项目。
-- 摘要至少包含稳定 ``sessionId``、标题、更新时间、运行状态、是否空白、工作目录或工作区标识、活动 Agent 状态和必要的子会话来源信息。
+- 摘要至少包含稳定 `sessionId`、标题、更新时间、运行状态、是否空白、工作目录或工作区标识、活动 Agent 状态和必要的子会话来源信息。
 - 敏感路径、消息内容和其他用户数据按 Host 权限策略最小化返回。
 
 ### 2. 会话搜索
@@ -85,7 +85,7 @@ interface SessionSearchRequest {
 ```ts
 interface SessionSearchResponse {
   items: Array<{
-    ``sessionId``: string
+    `sessionId`: string
     snippet: string
     field?: 'title' | 'message' | 'workspace'
   }>
@@ -109,7 +109,7 @@ interface SessionSearchResponse {
 
 ```ts
 interface SessionCreateRequest {
-  ``sessionId``?: string
+  `sessionId`?: string
   workspaceId?: string
   cwd?: string
   agentPreset?: string
@@ -120,7 +120,7 @@ interface SessionCreateRequest {
 
 ```ts
 interface SessionCreateResponse {
-  ``sessionId``: string
+  `sessionId`: string
   agentPreset?: string
 }
 ```
@@ -139,7 +139,7 @@ interface SessionCreateResponse {
 ```ts
 interface SessionDirectoryChange {
   `revision`: string
-  ``sessionId``: string
+  `sessionId`: string
   operation: 'upsert' | 'remove'
   summary?: SessionSummary
 }
@@ -156,12 +156,12 @@ interface SessionDirectoryChange {
 
 建议新增：
 
-- ``session/event`s`({ ``sessionId``, `afterSeq`, limit })：返回有序历史事件页、下一游标和当前 `head sequence`。
-- `session/follow`({ ``sessionId``, `afterSeq` })：从明确游标开始推送实时事件。
+- `session/events`：请求 `{ sessionId, afterSeq?, limit? }`，返回有序历史事件页、下一游标和当前 head sequence。
+- `session/follow`：请求 `{ sessionId, afterSeq? }`，从明确游标开始推送实时事件。
 
 要求：
 
-- 事件必须包含稳定 ``sessionId``、事件 ID 和会话内单调递增序号。
+- 事件必须包含稳定 `sessionId`、事件 ID 和会话内单调递增序号。
 - 覆盖消息、状态、工具活动、审批和用户提问的关联信息。
 - 同一游标上的通知与响应顺序有明确定义。
 - 重复事件可去重，乱序可排序，缺口可按公开游标补齐。
