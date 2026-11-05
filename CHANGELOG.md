@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 修正: 明确 Delta 使用官方 SDK profile 无 Web GUI 运行。
+- 维护: 明确 Delta 使用官方 SDK profile 无 Web GUI 运行。
 
 - 新增: Desktop Host v1.1 协议、能力协商及事件缺口提醒。
 
