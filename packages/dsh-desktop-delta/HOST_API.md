@@ -2,7 +2,7 @@
 
 ## 状态
 
-这是 Delta 前端与桌面 Host 之间的目标接口合同，不是对 Harness 当前全部能力的描述。`src/lib/desktop-host-contract.ts` 定义 renderer 使用的产品 DTO。当前 Tauri adapter 已通过用户指定的 Node.js 与 Harness CLI 启动官方 `sdk` profile，并接通文本和编码图片输入、消息／状态／工具事件、一次性工具审批、用户提问、会话恢复和工作目录切换；用户可选提供配置补丁路径，adapter 通过 Harness 官方 `--patch` 参数传递；其他接口仍未实现。
+这是 Delta 前端与桌面 Host 之间的目标接口合同，不是对 Harness 当前全部能力的描述。完整会话目录的上游现状、传输缺口和接口要求见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。`src/lib/desktop-host-contract.ts` 定义 renderer 使用的产品 DTO。当前 Tauri adapter 已通过用户指定的 Node.js 与 Harness CLI 启动官方 `sdk` profile，并接通文本和编码图片输入、消息／状态／工具事件、一次性工具审批、用户提问、会话恢复和工作目录切换；用户可选提供配置补丁路径，adapter 通过 Harness 官方 `--patch` 参数传递；其他接口仍未实现。
 
 桌面端不得用模拟会话填充界面。运行时不支持某项能力时，Host 应省略相应 capability，UI 显示不可用原因。
 
@@ -32,7 +32,7 @@ Harness 已有受支持的长期运行 `sdk` profile。Tauri 启动 `dsh --profi
 
 **Harness 上游 SDK 目前没有协议版本协商或完整 capability 握手。** Tauri 返回的能力来自当前 adapter 已实现、且官方 SDK 文档声明的功能子集；`upstream.protocol=sdk-stdio-unversioned`、`capabilitySource=adapter-supported-methods` 明确来源，不代表 Harness 运行时逐项协商完成。
 
-当前只返回 `sessions.resume`、`sessions.prompt`、`sessions.wait`、`sessions.events`、`approvals.respond`、`questions.respond`、`workspace.cwd`。Delta 本机目录不是 Harness 全量会话目录，不能因此返回 `sessions.list`。未返回的 capability 不启用 UI 功能。
+当前只返回 `sessions.resume`、`sessions.prompt`、`sessions.wait`、`sessions.events`、`approvals.respond`、`questions.respond`、`workspace.cwd`。Delta 本机目录不是 Harness 全量会话目录，不能因此返回 `sessions.list`。Harness 公开的 Session Controller Remote API 虽有 `session.list`、`session.search`、`session.create`，但当前官方 `sdk` stdio profile 未提供 API Gateway 的远程传输入口，不能由当前 adapter 调用；未返回的 capability 不启用 UI 功能。
 
 
 Host 在任何会话操作前执行握手，返回 `DesktopHostHandshake`：
@@ -49,7 +49,7 @@ UI 对每项操作先检查对应 capability。缺少能力返回 `unsupported_c
 
 | 操作域 | 目标能力 | 约束 |
 |---|---|---|
-| 会话 | 列表、搜索、创建、恢复、提示、等待完成、取消、事件订阅 | 当前接通提示、恢复、等待根 Agent 与受管子 Agent 完成及事件通知；全量列表、单独取消和历史回放仍缺公开 SDK 接口 |
+| 会话 | 列表分页、搜索、创建、恢复、提示、等待完成、取消、事件订阅和历史回放 | 当前 SDK stdio 仅接通提示、恢复、等待和实时通知；Session Controller 的公开 Remote API 有列表、搜索和创建，但未通过当前 `sdk` profile 暴露；列表分页、目录变更订阅和 SDK 历史回放仍缺可用合同 |
 | 审批与提问 | 回复工具审批、回答用户问题 | 取消与拒绝分开表达；任何断线或超时都不能隐式批准 |
 | 工作区 | 列出、选择工作区，浏览相对路径文件 | 当前只支持 SDK 的会话工作目录切换 `workspace.cwd`；工作区/文件枚举仍待公开接口 |
 | 设置 | 获取和更新设置 | 更新携带 revision；过期 revision 返回冲突，不能静默覆盖 |
@@ -73,11 +73,48 @@ Harness 已公开的 [SDK client](https://github.com/deepseek-ai/deepseek-harnes
 
 SDK 的会话事件通知会覆盖同一运行时中的所有会话。Delta 只处理本机记录里存在、且符合 Delta 会话 ID 格式的会话事件与审批／提问请求；未知会话事件不会加入历史记录，未知会话的审批会被拒绝，提问会被取消，以免外部会话等待 Delta 回答。
 
-公开 SDK 尚未提供完整桌面需要的会话目录查询、单独取消会话、设置 CRUD、工作区与文件清单、插件／技能管理和终端控制，也未定义统一的桌面能力协商。SDK 没有单会话取消请求；关闭 SDK 运行进程会影响该进程承载的所有活动，因此 Delta 不提供单条对话的停止按钮。补齐这些功能需要扩展官方 SDK 或提供受支持的 Desktop Host API；无 Web GUI 启动方式已由官方 `sdk` profile 提供。Delta 不修改 `app.asar`、Harness 私有目录或全局用户设置来填补缺口。
+当前 SDK stdio 协议尚未提供完整桌面需要的会话目录分页、搜索和显式创建；单独取消会话、设置 CRUD、工作区与文件清单、插件／技能管理和终端控制也未接入。另有公开的 `@deepseek-ai/dsh-api-session-controller` Remote API，通过 API Gateway 提供 `session.list`、`session.search` 和 `session.create`，但该通道未暴露在当前无 Web GUI 的 `sdk` profile 中，不能假定 Delta 可直接调用。SDK 没有单会话取消请求；关闭 SDK 运行进程会影响该进程承载的所有活动，因此 Delta 不提供单条对话的停止按钮。补齐这些功能需要扩展官方 SDK 或提供受支持的 Desktop Host API；无 Web GUI 启动方式已由官方 `sdk` profile 提供。Delta 不修改 `app.asar`、Harness 私有目录或全局用户设置来填补缺口。
+
+## 会话目录接口缺口
+
+当前公开 API 的边界如下：
+
+- SDK stdio 协议只声明 `initialize`、`session/prompt`、`session/query`、`session/resume`、`session/wait`、工作目录读写和 `shutdown`；没有 `session/list`、`session/search` 或 `session/create`。
+- SDK 客户端的 `session(id?)` 只在客户端生成或接收 ID，运行时在首次提示或工作目录操作时才创建会话；它不是已保存会话目录。
+- Harness 的公开 `@deepseek-ai/dsh-api-session-controller` 通过 API Gateway 提供 `session.list`、`session.search`、`session.create`。但该客户端包声明为 Web 平台，当前 SDK profile 不启动 Web Server，也没有把该 Remote 通道接入 stdio。
+- 该 Remote API 的 `session.list` 当前返回完整可见列表，虽有保留的 `cursor` 请求字段，但实现未使用它，也不返回下一页游标；`session.search` 最多返回 20 条并提供 `hasMore`，没有继续搜索游标，且依赖可选的 Session Query 搜索服务。
+- Session Controller 还提供历史页和 follow 类 Remote 操作；SDK stdio 目前只推送实时 `session.event` 通知。SDK 的 `session/resume` 不会重新推送历史事件，因此不能把它当作断线后的事件补齐机制。
+
+上述 Remote API 是公开的 Harness Host API，不等于当前桌面连接已经具备该传输。Delta 不直接调用 Harness 私有 Context 服务、未公开模块或 Web UI 内部接口，也不读取 Harness 私有会话文件或数据库。
+
+## 所需上游合同
+
+优先由 Harness 在现有 SDK stdio 协议中公开下列能力；若维护者选择 API Gateway 方案，则必须提供受支持的本机 API-only profile，明确认证、端口绑定、生命周期和版本合同，并且不启动 SPA 或原生 Web UI。
+
+| 方法／能力 | 请求 | 返回与语义 |
+|---|---|---|
+| `session/list` | `{ cursor?, limit?, workspaceId?, includeSubagents? }` | `{ items, nextCursor?, snapshotRevision }`；返回调用者可见的已保存和活动会话，不激活冷会话；游标不透明、绑定筛选条件和快照，稳定排序，不漏项、不重复 |
+| `session/search` | `{ query, cursor?, limit?, fields? }` | `{ items: [{ sessionId, snippet, field? }], nextCursor?, hasMore }`；只返回有权查看的会话，搜索能力单独协商；索引未启用时明确返回 unsupported |
+| `session/create` | `{ sessionId?, workspaceId?, cwd?, agentPreset? }` | `{ sessionId, agentPreset? }`；显式创建或按合同复用空白会话，不把恢复失败静默转换成新会话 |
+| `session/directory/follow` | `{ afterRevision? }` | 先确认订阅基线，再推送带单调递增 `revision` 的 `upsert/remove` 变更；游标过期时明确要求重新获取列表快照 |
+| `session/events` | `{ sessionId, afterSeq?, limit? }` | 返回该会话的有序历史事件页、下一游标和当前序号；用于补齐重复、乱序或缺失事件 |
+| `session/follow` | `{ sessionId, afterSeq? }` | 在明确的事件游标后订阅实时消息、状态、工具、审批和提问事件；断线后可从游标恢复或收到明确的重同步要求 |
+
+会话摘要至少应提供稳定 `sessionId`、标题、更新时间、运行状态、是否空白、工作目录或工作区标识、是否有活动 Agent，以及必要的子会话来源信息。敏感路径和消息内容应按 Host 权限策略最小化返回。
+
+能力名建议为 `sessions.list`、`sessions.search`、`sessions.create`、`sessions.directory.follow` 和 `sessions.events.replay`。错误至少区分 `unsupported_capability`、`permission_denied`、`not_found`、`invalid_cursor`、`cursor_expired`、`migration_required` 和 `runtime_unavailable`。
+
+## Delta 接入规则
+
+1. 在 Harness 提供上述公开传输前，Tauri handshake 不得声明这些 capability，renderer 不显示可执行的 Harness 全量会话操作。
+2. 本机 Delta 历史仍单独显示并明确标注来源；不得把本机记录、缓存或已知 session ID 推断成 Harness 全量目录。
+3. 获得官方接口后，先订阅目录变更，再读取带快照 revision 的列表；按 `sessionId` 关联事件，使用序号去重和排序，缺口时按公开游标补齐。
+4. 恢复只对 Host 返回的稳定 session ID 调用；恢复失败时保留原记录和错误，不自动创建替代会话。
+5. 搜索不可用时显示 Host 返回的原因，不回退到扫描 Harness 私有存储。
 
 ## 接入顺序
 
-1. Harness 扩展公开 SDK：补充协议版本协商、事件历史回放／快照和单会话取消等缺失合同。
-2. Tauri adapter 继续通过官方 `sdk` profile 连接公开接口并实现 `DesktopHostPort`；先接入会话和事件，再接入工作区、设置与其他 capability。
-3. UI 按握手能力启用功能，并对不支持的能力显示明确状态。
-4. 集成验证通过后，桌面 profile 才作为默认前端入口；Harness Web UI 仍可由维护者的诊断 profile 显式启动。
+1. Harness 提供可版本化的会话目录、分页、搜索、显式创建、目录变更和历史事件重同步合同。
+2. Tauri adapter 只接入 Harness 官方 SDK stdio 或受支持的 API-only transport，并将能力映射到 `DesktopHostPort`。
+3. renderer 按握手 capability 显示完整 Harness 会话目录；本机 Delta 备份与 Harness 会话保持来源区分。
+4. 通过真实 Harness 验证分页、搜索、创建、恢复、切换、事件重放和权限后，再开放对应 UI。
