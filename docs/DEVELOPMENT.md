@@ -38,7 +38,7 @@ pnpm install --frozen-lockfile
 6. 运行 `pnpm build && pnpm test && pnpm validate`；联调时再链接到 DSH Profile。
 7. 更新本仓库文档，不复制 Action Worker 的组织级治理规范。
 
-## 4. Delta Suite 模块约定
+## 4. 套件模块约定
 
 Host 端新功能按职责放入 `src/host/`，入口只负责注册和组合。配置、视觉识别、搜索和路由不得重新堆回单一入口文件。
 
