@@ -68,3 +68,32 @@ test('successful session deletion removes only assignment, never the folders', (
   assert.deepEqual(readFolderView().folders.map(x => x.name), ['Research', 'Code'])
   assert.throws(() => forgetDeletedSession('../../root'), /Invalid session ID/)
 })
+
+test('createAndAssign commits folder and membership together under one revision', () => {
+  const before = readFolderView()
+  const created = mutateFolderView({
+    action: 'createAndAssign', name: 'Atomic Folder', sessionId: 'atomic-session',
+    expectedRevision: before.revision,
+  })
+  const folder = created.folders.find(item => item.name === 'Atomic Folder')
+  assert.ok(folder)
+  assert.equal(created.assignments['atomic-session'], folder.id)
+  assert.notEqual(created.revision, before.revision)
+  const bytes = readFileSync(FOLDER_FILE, 'utf8')
+  assert.ok(bytes.includes('atomic-session'))
+  assert.ok(bytes.includes('Atomic Folder'))
+})
+
+test('invalid createAndAssign fails closed with no orphan folder and no state write', () => {
+  const before = readFolderView()
+  const bytes = readFileSync(FOLDER_FILE, 'utf8')
+  for (const request of [
+    { action: 'createAndAssign', name: 'Bad Session', sessionId: '../outside' },
+    { action: 'createAndAssign', name: 'Atomic Folder', sessionId: 'another' },
+    { action: 'createAndAssign', name: 'Unassigned', sessionId: '' },
+  ]) {
+    assert.throws(() => mutateFolderView({ ...request, expectedRevision: before.revision }))
+    assert.deepEqual(readFolderView(), before)
+    assert.equal(readFileSync(FOLDER_FILE, 'utf8'), bytes)
+  }
+})
