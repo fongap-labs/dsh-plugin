@@ -21,5 +21,6 @@ test('Desktop advertises and forwards the official session/wait operation', () =
 test('root idle does not end the UI wait while managed descendants are pending', () => {
   assert.match(app, /pendingWaitSessionIdsRef\.current\.has\(status\.sessionId\)/)
   assert.match(app, /await desktopHost\.waitForCompletion\(sendingSessionId\)/)
-  assert.match(app, /const outcomeUnknown = hasAcceptedPrompt \|\|/)
+  assert.match(app, /const isKnownRuntimeFailure = error instanceof DesktopHostError && !error.outcomeUnknown/)
+  assert.match(app, /const outcomeUnknown = error instanceof DesktopHostError \? error.outcomeUnknown : true/)
 })
