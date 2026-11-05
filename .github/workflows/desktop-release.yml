@@ -1,0 +1,109 @@
+name: Delta Desktop native packages
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/desktop-release.yml'
+      - 'packages/dsh-desktop-delta/**'
+      - 'scripts/verify-desktop-bundle.mjs'
+      - 'tests/desktop-version-consistency.test.mjs'
+      - 'CHANGELOG.md'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  push:
+    tags:
+      - 'dsh-desktop-delta-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+        with:
+          version: 11.28.5
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Linux Tauri dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check desktop version and release tag
+        run: node --test tests/desktop-version-consistency.test.mjs
+
+      - name: Build native package
+        run: pnpm build:dsh-desktop-delta
+
+      - name: Check native package output
+        run: node scripts/verify-desktop-bundle.mjs
+
+      - name: Smoke test Windows installer and uninstaller
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bundle = 'packages/dsh-desktop-delta/src-tauri/target/release/bundle'
+          $installer = Get-ChildItem -Path (Join-Path $bundle 'nsis') -Filter '*-setup.exe' -File | Select-Object -First 1
+          if ($null -eq $installer) { throw 'NSIS setup installer was not produced.' }
+          $installDir = Join-Path $env:RUNNER_TEMP 'DeltaSuiteSmoke'
+          $install = Start-Process -FilePath $installer.FullName -ArgumentList @('/S', "/D=$installDir") -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "Installer exited with code $($install.ExitCode)." }
+          $app = Get-ChildItem -Path $installDir -Filter '*.exe' -File -Recurse | Where-Object { $_.Name -ne 'uninstall.exe' } | Select-Object -First 1
+          if ($null -eq $app) { throw 'The app executable was not installed.' }
+          $uninstaller = Join-Path $installDir 'uninstall.exe'
+          if (-not (Test-Path $uninstaller)) { throw 'The app uninstaller was not installed.' }
+          $remove = Start-Process -FilePath $uninstaller -ArgumentList '/S' -PassThru -Wait
+          if ($remove.ExitCode -ne 0) { throw "Uninstaller exited with code $($remove.ExitCode)." }
+          if (Test-Path $app.FullName) { throw 'The app executable remains after uninstall.' }
+
+      - name: Upload native package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: delta-desktop-${{ matrix.os }}
+          path: packages/dsh-desktop-delta/src-tauri/target/release/bundle/**/*
+          if-no-files-found: error
+          retention-days: 14
+
+  draft-release:
+    name: Prepare draft release
+    if: startsWith(github.ref, 'refs/tags/dsh-desktop-delta-v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download platform packages
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: delta-desktop-*
+          path: release-files
+          merge-multiple: true
+
+      - name: Create draft release for maintainer review
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65
+        with:
+          name: Delta Suite Desktop ${{ github.ref_name }}
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release-files/**/*
