@@ -409,6 +409,8 @@ function App() {
   const [isWorkspacePickerOpen, setWorkspacePickerOpen] = useState(false)
   const [workspaceDraft, setWorkspaceDraft] = useState('')
   const [workspaceError, setWorkspaceError] = useState('')
+  const [hostWorkingDirectory, setHostWorkingDirectory] = useState<{ sessionId: string; cwd: string } | null>(null)
+  const [workingDirectoryReadError, setWorkingDirectoryReadError] = useState('')
   const [sessionId, setSessionId] = useState(initialSessionId)
   const [messages, setMessages] = useState<ChatMessage[]>(() => loadMessages(sessionId))
   const [attachments, setAttachments] = useState<PendingImage[]>([])
@@ -419,6 +421,7 @@ function App() {
   const activeSessionIdRef = useRef(sessionId)
   activeSessionIdRef.current = sessionId
   const imageReadEpochRef = useRef(0)
+  const cwdReadEpochRef = useRef(0)
   const [readySessionIds, setReadySessionIds] = useState<Set<string>>(() => new Set())
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [hostRequests, setHostRequests] = useState<DesktopHostRequest[]>([])
@@ -441,6 +444,7 @@ function App() {
   const canWaitForCompletion = hasCapability('sessions.wait')
   const canResume = hasCapability('sessions.resume')
   const canChangeWorkingDirectory = hasCapability('workspace.cwd')
+  const confirmedWorkingDirectory = hostWorkingDirectory?.sessionId === sessionId ? hostWorkingDirectory.cwd : null
   const activeHostRequest = hostRequests[0]
   const searchTerm = query.trim().toLocaleLowerCase()
   const filteredSessions = sessions.filter(session => {
@@ -460,6 +464,9 @@ function App() {
     }
     setHostRequests([])
     pendingWaitCountsRef.current.clear()
+    cwdReadEpochRef.current += 1
+    setHostWorkingDirectory(null)
+    setWorkingDirectoryReadError('')
     if (previousState === 'ready') {
       setIsSending(false)
       setReadySessionIds(new Set())
@@ -611,15 +618,39 @@ function App() {
     }
   }, [sessionId])
 
+  function refreshKnownWorkingDirectory(knownSessionId: string) {
+    if (!desktopHostCapabilities.getSnapshot()?.capabilities.includes('workspace.cwd')) return
+    // The SDK getter creates unknown sessions; only call after a successful
+    // prompt, resume, or directory set. Drop results from older connections.
+    const readEpoch = ++cwdReadEpochRef.current
+    setWorkingDirectoryReadError('')
+    void desktopHost.getWorkingDirectory(knownSessionId).then(cwd => {
+      if (readEpoch !== cwdReadEpochRef.current
+        || activeSessionIdRef.current !== knownSessionId
+        || desktopHostStatus.getSnapshot().state !== 'ready') return
+      setHostWorkingDirectory({ sessionId: knownSessionId, cwd })
+    }).catch(error => {
+      if (readEpoch !== cwdReadEpochRef.current
+        || activeSessionIdRef.current !== knownSessionId
+        || desktopHostStatus.getSnapshot().state !== 'ready') return
+      setHostWorkingDirectory(null)
+      setWorkingDirectoryReadError(displayHostError(error))
+    })
+  }
+
   async function connectRuntime() {
     setConnectionError('')
     try {
       await desktopHost.connect(runtimeConfig)
+      cwdReadEpochRef.current += 1
+      setHostWorkingDirectory(null)
+      setWorkingDirectoryReadError('')
       setConnectionOpen(false)
       setReadySessionIds(new Set())
       if (messages.length > 0 && desktopHostCapabilities.getSnapshot()?.capabilities.includes('sessions.resume')) {
         await desktopHost.resume(sessionId)
         setReadySessionIds(new Set([sessionId]))
+        refreshKnownWorkingDirectory(sessionId)
       }
     } catch (error) {
       setConnectionError(displayHostError(error))
@@ -651,6 +682,7 @@ function App() {
       hasAcceptedPrompt = true
       if (sessionsRef.current.some(session => session.id === sendingSessionId)) {
         setReadySessionIds(current => new Set(current).add(sendingSessionId))
+        if (activeSessionIdRef.current === sendingSessionId) refreshKnownWorkingDirectory(sendingSessionId)
       }
       if (canWaitForCompletion) {
         await desktopHost.waitForCompletion(sendingSessionId)
@@ -898,7 +930,14 @@ function App() {
         return
       }
     }
+    cwdReadEpochRef.current += 1
+    setHostWorkingDirectory(null)
+    setWorkingDirectoryReadError('')
+    activeSessionIdRef.current = session.id
     setSessionId(session.id)
+    if (isOnline && !session.localOnly && (readySessionIds.has(session.id) || loadMessages(session.id).length > 0)) {
+      refreshKnownWorkingDirectory(session.id)
+    }
     setMessages(loadMessages(session.id))
     setAttachments([])
     setActivities([])
@@ -914,6 +953,9 @@ function App() {
       if (!canChangeWorkingDirectory) { setWorkspaceError(zhCN.hostWorkspaceUnsupported); return }
       try {
         const actualPath = await desktopHost.setWorkingDirectory(sessionId, path)
+        cwdReadEpochRef.current += 1
+        setHostWorkingDirectory({ sessionId, cwd: actualPath })
+        setWorkingDirectoryReadError('')
         setRuntimeConfig(config => ({ ...config, workspace: actualPath }))
         setConnectionError('')
         setWorkspaceError('')
@@ -946,7 +988,7 @@ function App() {
   }
 
   function openWorkspacePicker() {
-    setWorkspaceDraft(runtimeConfig.workspace)
+    setWorkspaceDraft(confirmedWorkingDirectory ?? runtimeConfig.workspace)
     setWorkspaceError('')
     setWorkspacePickerOpen(true)
   }
@@ -1518,8 +1560,8 @@ function App() {
         <section className="mt-4 rounded-xl border border-border bg-card p-3.5">
           <div className="mb-3 flex items-center gap-2 text-xs font-medium"><FolderKanban size={14} className="text-primary" /> {zhCN.workspace}</div>
           <div className="rounded-lg bg-muted/70 px-3 py-3">
-            <p className="break-all text-[11px] font-medium">{runtimeConfig.workspace || '使用默认工作文件夹'}</p>
-            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{zhCN.workspaceProcessingNote}</p>
+            <p className="break-all text-[11px] font-medium">{confirmedWorkingDirectory || runtimeConfig.workspace || zhCN.defaultWorkingDirectory}</p>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{confirmedWorkingDirectory ? zhCN.verifiedWorkingDirectory : workingDirectoryReadError || zhCN.workspaceProcessingNote}</p>
           </div>
           <Button className="mt-3 w-full text-xs" size="sm" variant="outline" disabled={isOnline && !canChangeWorkingDirectory} title={isOnline && !canChangeWorkingDirectory ? zhCN.hostWorkspaceUnsupported : undefined} onClick={openWorkspacePicker}>{isOnline ? zhCN.switchWorkspace : zhCN.setWorkspace}</Button>
         </section>

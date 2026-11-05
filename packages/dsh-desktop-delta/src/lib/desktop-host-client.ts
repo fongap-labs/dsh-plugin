@@ -147,6 +147,8 @@ export const desktopHost = {
     callHost<void>('wait_session', { sessionId }, { timeoutMs: 24 * 60 * 60 * 1000, signal, capability: 'sessions.wait' }),
   resume: (sessionId: string, signal?: AbortSignal) =>
     callHost<void>('resume_session', { sessionId }, { timeoutMs: 20000, signal, capability: 'sessions.resume' }),
+  getWorkingDirectory: (sessionId: string, signal?: AbortSignal) =>
+    callHost<string>('get_working_directory', { sessionId }, { timeoutMs: 20000, signal, capability: 'workspace.cwd' }),
   setWorkingDirectory: (sessionId: string, path: string, signal?: AbortSignal) =>
     callHost<string>('set_working_directory', { sessionId, path }, { timeoutMs: 20000, signal, capability: 'workspace.cwd' }),
   respondRequest: (id: DesktopHostRequest['id'], result: Record<string, unknown>, capability: 'approvals.respond' | 'questions.respond') =>

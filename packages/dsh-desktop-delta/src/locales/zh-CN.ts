@@ -84,6 +84,8 @@ export const zhCN = {
   connectionStatus: "连接状态",
   runtimeVersion: "运行版本",
   workspaceProcessingNote: "新消息会在这个文件夹里交给 Harness 处理。",
+  verifiedWorkingDirectory: "Harness 已确认当前会话的实际工作目录。",
+  defaultWorkingDirectory: "使用默认工作文件夹",
   currentTask: "当前任务",
   approvalTitle: "允许 Harness 执行操作？",
   reject: "拒绝",

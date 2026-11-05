@@ -51,7 +51,7 @@ UI 对每项操作先检查对应 capability。缺少能力返回 `unsupported_c
 |---|---|---|
 | 会话 | 列表分页、搜索、创建、恢复、提示、等待完成、取消、事件订阅和历史回放 | 当前 SDK stdio 仅接通提示、恢复、等待和实时通知；Session Controller 的公开 Remote API 有列表、搜索和创建，但未通过当前 `sdk` profile 暴露；列表分页、目录变更订阅和 SDK 历史回放仍缺可用合同 |
 | 审批与提问 | 回复工具审批、回答用户问题 | 取消与拒绝分开表达；任何断线或超时都不能隐式批准 |
-| 工作区 | 列出、选择工作区，浏览相对路径文件 | 当前只支持 SDK 的会话工作目录切换 `workspace.cwd`；工作区/文件枚举仍待公开接口 |
+| 工作区 | 列出、选择工作区，浏览相对路径文件 | 当前已支持 SDK 会话实际工作目录读取和切换 `workspace.cwd`；正式工作区列表、文件树与内容仍缺 SDK stdio 接口 |
 | 设置 | 获取和更新设置 | 更新携带 revision；过期 revision 返回冲突，不能静默覆盖 |
 | 模型与扩展 | 查询模型、插件、技能目录 | 修改技能等写操作必须单独协商 capability 与权限 |
 | 终端 | 创建、输入、调整尺寸、关闭和订阅输出 | 终端进程由受支持的 Host 服务管理；Delta 不实现第二套工具运行器 |
@@ -66,6 +66,14 @@ Tauri 为未映射的 SDK 会话事件发出不包含原始载荷的 `session.ad
 会话事件包含 `eventId`、`sessionId`、每个会话单调递增的 `sequence`、`occurredAt`、类型与类型化 payload。重复事件可用 `eventId` 去重；序号间断时 UI 显示缺口警告，不执行尚未实现的历史事件重新同步。
 
 Host 将错误归一为 `DesktopHostError`：`protocol_mismatch`、`unsupported_capability`、`permission_denied`、`not_found`、`conflict`、`invalid_request`、`runtime_unavailable`、`timeout`、`cancelled`、`runtime_error`。错误可标记 `retryable`；重试必须由操作语义决定，不能假定请求超时代表 Harness 没有执行。
+
+## 工作区与文件合同
+
+Harness 的官方 SDK stdio 公开 `session/working-directory/get` 与 `session/working-directory/set`，Tauri Host 分别以 `get_working_directory` 和 `set_working_directory` 暴露，并通过现有 `workspace.cwd` capability 启用。官方 SDK 对未知会话的工作目录查询也可能懒创建会话，因此读取仅在提示被接纳、明确恢复或设置目录成功后执行，不作为全量工作区发现方法。
+
+官方 `@deepseek-ai/dsh-api-workspace-controller` 的 `workspace` Remote namespace 提供工作区注册、重命名、移除、排序和状态跟随；`@deepseek-ai/dsh-api-workspace-files` 的 `workspaceFiles` Remote namespace 提供 `stat`、`read`、`readBytes`、`list` 和 `changes`，属于只读文件预览。两者通过 API Gateway 提供，尚未接入当前无 Web GUI 的 SDK stdio；不能把本机文件读取、猜测 `cwd` 或扫描 Harness 私有目录当作替代。
+
+详细接口与安全边界见[工作区与文件接口提案](WORKSPACE_FILES_API_PROPOSAL.md)。
 
 ## 当前 SDK 覆盖与缺口
 
