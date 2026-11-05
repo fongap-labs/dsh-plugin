@@ -41,7 +41,7 @@ Delta 通过 Harness 官方 `sdk` profile 运行：Tauri 启动 `dsh --profile s
 
 不要将它与 `dsh --profile headless "<task>"` 混淆。headless 每次只执行一个新任务，输出结果后退出，不适用于桌面持续会话。
 
-如果还要让 Harness 同时加载 `dsh-suite-delta`，请先按原方式在 Harness 中安装这个插件，再展开“更多连接设置”，点“浏览配置文件”选择它的 `cordis.patch.yml`。桌面端只把该配置交给 Harness 官方启动参数读取，不会安装插件或复制插件代码。这个步骤可以跳过。
+如果同一套环境要部署两个包，先通过现有 Action Worker 流程发布 `dsh-suite-delta`，在 Harness 安装并启用插件；然后再安装或升级桌面端。在桌面端“更多连接设置”中选择该插件的 `cordis.patch.yml`，由 Harness 官方启动参数加载。两个包分别发布和安装，桌面安装包不捆绑插件。
 
 ## 还不能完全替代 Harness 网页界面
 
