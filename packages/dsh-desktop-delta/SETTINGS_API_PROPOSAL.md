@@ -23,7 +23,6 @@ Provider 和模型是另一个范围：Delta 可把选择作为 SDK `initialize`
 
 在上述官方传输可用前，Delta 只展示不可用说明，不声明设置或凭据读写能力。连接路径、工作目录和 Provider/模型输入保存在 Delta 本机；Provider/模型只在重新启动 SDK 时传入。Delta 不缓存密钥，也不把本机对话数据库当作 Harness 设置存储。
 
-
 ## Harness 参考文档
 
 - [Settings Controller 中文说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/api/settings-controller/README.zh.md)：描述脱敏读取、配置写入、修订冲突和凭据引用接口。
