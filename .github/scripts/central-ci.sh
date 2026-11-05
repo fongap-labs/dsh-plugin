@@ -55,7 +55,7 @@ phase_end
 
 # Invoke the underlying commands directly (not "pnpm test"/"pnpm build") so a pull request cannot
 # weaken CI by editing package.json scripts. Type checking and compilation use the pinned local
-# TypeScript binary; the compiled output under packages/*/lib is what the tests and bundles load.
+# TypeScript binary; plugin output under packages/*/lib is what plugin tests and bundles load.
 #
 # The host plugins import @fongap-labs/shared through the declaration files that the shared
 # package build produces. On a clean checkout those declarations do not exist yet, so the shared
@@ -68,6 +68,7 @@ HOST_TSCONFIGS=(
   packages/plugin-template/tsconfig.json
 )
 CLIENT_TSCONFIG=packages/dsh-suite-delta/tsconfig.client.json
+DESKTOP_TSCONFIG=packages/dsh-desktop-delta/tsconfig.json
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"
@@ -80,12 +81,14 @@ for config in "${HOST_TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config" --noEmit
 done
 ./node_modules/.bin/tsc -p "$CLIENT_TSCONFIG" --noEmit
+./node_modules/.bin/tsc -b "$DESKTOP_TSCONFIG" --pretty false
 phase_end
 
 phase_begin build
 for config in "${TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config"
 done
+pnpm --filter @fongap-labs/dsh-desktop-delta exec vite build
 phase_end
 
 phase_begin test

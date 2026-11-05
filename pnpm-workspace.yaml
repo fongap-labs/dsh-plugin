@@ -5,3 +5,7 @@ packages:
 # Plugin bundles rely on Host ctx, with type-only Host dependencies pinned at workspace root.
 # Keep automatic peer installation disabled to avoid installing extra Host framework copies.
 autoInstallPeers: false
+
+# Vite needs esbuild's reviewed installer to validate the matching platform binary.
+allowBuilds:
+  esbuild: true

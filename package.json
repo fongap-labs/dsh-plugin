@@ -7,12 +7,14 @@
   "license": "Apache-2.0",
   "packageManager": "pnpm@11.28.5",
   "engines": {
-    "node": ">=20.10.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "test": "node --test \"tests/**/*.test.mjs\"",
-    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json --noEmit && tsc -p packages/dsh-suite-delta/tsconfig.json --noEmit && tsc -p packages/plugin-template/tsconfig.json --noEmit && tsc -p packages/dsh-suite-delta/tsconfig.client.json --noEmit",
-    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json && tsc -p packages/dsh-suite-delta/tsconfig.json && tsc -p packages/plugin-template/tsconfig.json && tsc -p packages/dsh-suite-delta/tsconfig.client.json",
+    "dev:dsh-desktop-delta": "pnpm --filter @fongap-labs/dsh-desktop-delta tauri dev",
+    "build:dsh-desktop-delta": "pnpm --filter @fongap-labs/dsh-desktop-delta tauri build",
+    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json --noEmit && tsc -p packages/dsh-suite-delta/tsconfig.json --noEmit && tsc -p packages/plugin-template/tsconfig.json --noEmit && tsc -p packages/dsh-suite-delta/tsconfig.client.json --noEmit && pnpm --filter @fongap-labs/dsh-desktop-delta exec tsc -b --pretty false",
+    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json && tsc -p packages/dsh-suite-delta/tsconfig.json && tsc -p packages/plugin-template/tsconfig.json && tsc -p packages/dsh-suite-delta/tsconfig.client.json && pnpm --filter @fongap-labs/dsh-desktop-delta build",
     "validate": "node scripts/pack-bundles.mjs --check",
     "pack:bundles": "node scripts/pack-bundles.mjs",
     "link:dev": "node scripts/link-profile.mjs",
