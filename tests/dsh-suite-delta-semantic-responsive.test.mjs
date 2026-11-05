@@ -15,7 +15,7 @@ test('existing semantic control base stays consistent', () => {
 })
 
 test('keyboard focus and reduced motion stay scoped to Delta components', () => {
-  assert.match(css, /\.ens-sidebar-search:focus-visible/)
+  assert.match(css, /\.ens-sidebar-search-input:focus-visible/)
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{/)
   assert.doesNotMatch(css, /^\s*\* \{ transition-duration:/gm)
   assert.match(css, /@media \(forced-colors: active\)/)
