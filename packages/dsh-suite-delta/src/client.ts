@@ -434,7 +434,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_panelGlyph svg { display: block; }
 
 /* 4 — session list & search (sidebar.workspaces) */
-.GAkraW_sectionHeader { height: 30px; justify-content: flex-start; padding-left: 6px; margin-right: 0; }
+.GAkraW_sectionHeader { height: 30px; justify-content: flex-start; padding-left: 6px; margin-right: 0; margin-block: 8px 4px; }
 .GAkraW_sectionLabel { font-size: 12px; font-weight: 600; letter-spacing: 0.03em; color: var(--dsw-alias-label-caption); margin-right: auto; }
 .GAkraW_iconButton { transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard); }
 .wnFoaW_sessionRow:not(.wnFoaW_selected):hover { background: var(--dsw-alias-interactive-bg-hover); }
@@ -479,7 +479,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .hSzSIW_root { border-radius: var(--dsw-radius-xl); }
 
 /* 7 — settings & plugin-manager cards */
-.AnXs9G_panel { box-shadow: var(--dsw-elevation-prominent); will-change: opacity; animation: ensFade 140ms ease-out both; }
+.AnXs9G_panel { box-shadow: var(--dsw-elevation-prominent); border: 1px solid var(--dsw-alias-border-l2); will-change: opacity; animation: ensFade 140ms ease-out both; }
 .AnXs9G_header { padding: 20px 14px 8px 12px; }
 .AnXs9G_navCell { transition: background-color var(--ens-dur-fast) var(--ens-ease-standard); }
 .AnXs9G_navCell.AnXs9G_active { box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2); }
@@ -577,7 +577,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_newSession:focus-visible,
 .ens-sidebar-search-input:focus-visible { outline: 2px solid var(--ens-color-ring); outline-offset: -2px; }
 .wtg9ga_regionArea { min-height: 0; }
-.GAkraW_sectionHeader { margin-block: 8px 4px; }
 .GAkraW_headerActions { gap: 4px; }
 .wnFoaW_title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .an3WzG_header { min-height: 60px; padding-inline: clamp(16px, 2.5vw, 32px); }
@@ -589,7 +588,6 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .GRgSLq_input { min-height: 40px; line-height: 1.6; }
 [class*="jrmgQW_"] :is(button, input, select, textarea),
 .ens-ui-button, .ens-ui-input, .ens-ui-select, .ens-ui-textarea { transition-duration: 120ms; }
-.AnXs9G_panel { border: 1px solid var(--dsw-alias-border-l2); }
 .AnXs9G_navCell { border-radius: 10px; }
 .jrmgQW_section { min-width: 0; }
 .jrmgQW_rows { min-width: 0; }
