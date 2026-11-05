@@ -1,4 +1,4 @@
-# Desktop Host API v1
+# Desktop Host API v1.1
 
 ## 状态
 
@@ -20,6 +20,13 @@ Renderer 不依赖 Harness SDK 类型、Cordis 服务或私有文件。Tauri ada
 
 ## 握手与版本
 
+本次实现的是 **Delta renderer ↔ Tauri Host** 协议 v1.1。连接 Harness SDK 的 `initialize` 成功后，renderer 调用 `desktop_host_handshake({ protocolVersion: {major:1,minor:1} })`；主版本不同拒绝，次版本按可选字段和 capability 兼容。断线、重新连接和桌面刷新后清除旧协商结果，重新握手。
+
+**Harness 上游 SDK 目前没有协议版本协商或完整 capability 握手。** Tauri 返回的能力来自当前 adapter 已实现、且官方 SDK 文档声明的功能子集；`upstream.protocol=sdk-stdio-unversioned`、`capabilitySource=adapter-supported-methods` 明确来源，不代表 Harness 运行时逐项协商完成。
+
+当前只返回 `sessions.resume`、`sessions.prompt`、`sessions.events`、`approvals.respond`、`questions.respond`、`workspace.cwd`。Delta 本机目录不是 Harness 全量会话目录，不能因此返回 `sessions.list`。未返回的 capability 不启用 UI 功能。
+
+
 Host 在任何会话操作前执行握手，返回 `DesktopHostHandshake`：
 
 - `protocolVersion`：主版本不一致时停止连接；次版本只允许增加可选字段和 capability。
@@ -34,14 +41,19 @@ UI 对每项操作先检查对应 capability。缺少能力返回 `unsupported_c
 
 | 操作域 | 目标能力 | 约束 |
 |---|---|---|
-| 会话 | 列表、搜索、创建、恢复、提示、取消、事件订阅 | 游标分页；会话事件按 session 提供稳定 ID 和递增序号 |
+| 会话 | 列表、搜索、创建、恢复、提示、取消、事件订阅 | 当前只接通提示、恢复与通知；全量列表、单独取消和历史回放仍缺公开 SDK 接口 |
 | 审批与提问 | 回复工具审批、回答用户问题 | 取消与拒绝分开表达；任何断线或超时都不能隐式批准 |
-| 工作区 | 列出、选择工作区，浏览相对路径文件 | 由 Tauri 权限控制；禁止把任意绝对路径交给 renderer 直接读取 |
+| 工作区 | 列出、选择工作区，浏览相对路径文件 | 当前只支持 SDK 的会话工作目录切换 `workspace.cwd`；工作区/文件枚举仍待公开接口 |
 | 设置 | 获取和更新设置 | 更新携带 revision；过期 revision 返回冲突，不能静默覆盖 |
 | 模型与扩展 | 查询模型、插件、技能目录 | 修改技能等写操作必须单独协商 capability 与权限 |
 | 终端 | 创建、输入、调整尺寸、关闭和订阅输出 | 终端进程由受支持的 Host 服务管理；Delta 不实现第二套工具运行器 |
 
 ## 事件和错误
+
+Tauri 调用在 TypeScript adapter 统一收敛为 `DesktopHostError`，保留 `code`、`retryable`、`outcomeUnknown`。原始 SDK 仍会返回不带类型码的错误字符串；未知错误统一记为 `runtime_error`，不猜测权限、修订版本冲突类别。客户端请求设有超时并支持 `AbortSignal`；**超时或取消只结束本地等待**，不代表已经撤销 Harness 消息、审批、提问或运行任务。未取得最终回执时 `outcomeUnknown=true`，不能自动重试有副作用的操作。Rust 当前仍采用有界阻塞 RPC 请求；未来真正的跨层取消信号传播须依赖 Harness 正式合同。
+
+Tauri 为未映射的 SDK 会话事件发出不包含原始载荷的 `session.advanced` 序号标记，避免正常忽略的 SDK 事件造成误报警。renderer 按稳定会话 ID 丢弃重复/旧序号，对真实跳号显示缺口提醒。**Harness `session/resume` 不会回放旧事件**，SDK 暂无 `events.replay` 或状态快照接口，不能完整重同步；`sessions.events.resync` 不在当前协商能力中。断线后运行中任务结果仍为未知，界面不得显示“已恢复全部事件”。未来需要 Harness 增加按稳定 session ID 和事件序号分页回放/快照、游标缺口处理与重新订阅的公开接口。
+
 
 会话事件包含 `eventId`、`sessionId`、每个会话单调递增的 `sequence`、`occurredAt`、类型与类型化 payload。重复事件可用 `eventId` 去重；序号间断时 UI 请求重新同步，不猜测丢失内容。
 

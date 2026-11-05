@@ -34,11 +34,14 @@ import {
 } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { zhCN } from './locales/zh-CN'
-import { desktopHost } from './lib/desktop-host-client'
+import { desktopHost, desktopHostCapabilities } from './lib/desktop-host-client'
+import { DesktopSessionEventOrder } from './lib/session-event-order'
 import { desktopHostStatus } from './lib/desktop-host-status'
-import type {
-  DesktopHostRequest,
-  RuntimeStatus,
+import {
+  DesktopHostError,
+  type DesktopHostCapability,
+  type DesktopHostRequest,
+  type RuntimeStatus,
 } from './lib/desktop-host-contract'
 
 type Theme = 'light' | 'dark'
@@ -111,6 +114,16 @@ const viewCopy: Record<View, { title: string; eyebrow: string; description: stri
     eyebrow: 'HISTORY',
     description: '查看 Delta 在这台电脑上保存的对话。',
   },
+}
+
+function displayHostError(error: unknown): string {
+  if (!(error instanceof DesktopHostError)) return String(error)
+  if (error.code === 'protocol_mismatch') return zhCN.hostProtocolMismatch
+  if (error.code === 'unsupported_capability') return zhCN.hostUnsupportedFeature
+  if (error.code === 'cancelled') return error.outcomeUnknown ? zhCN.hostCancelledUnknown : zhCN.hostCancelled
+  if (error.code === 'timeout') return zhCN.hostTimeoutUnknown
+  if (error.code === 'runtime_unavailable') return zhCN.hostNotReady
+  return error.message
 }
 
 function extractNodeText(node: ReactNode): string {
@@ -368,6 +381,7 @@ function deleteLocalSessionRecord(
 
 function App() {
   const runtime = useSyncExternalStore(desktopHostStatus.subscribe, desktopHostStatus.getSnapshot, desktopHostStatus.getSnapshot)
+  const negotiatedHost = useSyncExternalStore(desktopHostCapabilities.subscribe, desktopHostCapabilities.getSnapshot, desktopHostCapabilities.getSnapshot)
   const [theme, setTheme] = useState<Theme>(initialTheme)
   const [view, setView] = useState<View>('chat')
   const [isSearchOpen, setSearchOpen] = useState(false)
@@ -398,6 +412,8 @@ function App() {
   const [readySessionIds, setReadySessionIds] = useState<Set<string>>(() => new Set())
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [hostRequests, setHostRequests] = useState<DesktopHostRequest[]>([])
+  const eventOrderRef = useRef(new DesktopSessionEventOrder())
+  const [eventGaps, setEventGaps] = useState<Set<string>>(() => new Set())
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
   const previousRuntimeState = useRef<RuntimeStatus['state']>(runtime.state)
@@ -409,6 +425,10 @@ function App() {
   const copy = viewCopy[view]
   const shortcutModifier = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'
   const isOnline = runtime.state === 'ready'
+  const hasCapability = (capability: DesktopHostCapability) => isOnline && negotiatedHost?.capabilities.includes(capability) === true
+  const canPrompt = hasCapability('sessions.prompt')
+  const canResume = hasCapability('sessions.resume')
+  const canChangeWorkingDirectory = hasCapability('workspace.cwd')
   const activeHostRequest = hostRequests[0]
   const searchTerm = query.trim().toLocaleLowerCase()
   const filteredSessions = sessions.filter(session => {
@@ -423,7 +443,7 @@ function App() {
     const previousState = previousRuntimeState.current
     previousRuntimeState.current = runtime.state
     if (runtime.state === 'ready') {
-      setConnectionOpen(false)
+      if (negotiatedHost) setConnectionOpen(false)
       return
     }
     setHostRequests([])
@@ -435,7 +455,7 @@ function App() {
         : item))
       setConnectionOpen(true)
     }
-  }, [runtime.state])
+  }, [runtime.state, negotiatedHost])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -488,7 +508,12 @@ function App() {
 
     void desktopHost.onSessionEvent(item => {
       if (desktopHostStatus.getSnapshot().state !== 'ready') return
+      if (!desktopHostCapabilities.getSnapshot()?.capabilities.includes('sessions.events')) return
       if (!isDeltaSessionId(item.sessionId) || !sessionsRef.current.some(session => session.id === item.sessionId)) return
+      const order = eventOrderRef.current.observe(item)
+      if (order === 'invalid' || order === 'duplicate') return
+      if (order === 'gap') setEventGaps(current => new Set(current).add(item.sessionId))
+      if (item.type === 'session.advanced') return
       if (item.type === 'tool.started') {
         if (item.sessionId !== sessionId) return
         setActivities(current => [
@@ -543,6 +568,8 @@ function App() {
 
     void desktopHost.onHostRequest(request => {
       if (request.method !== 'approval/request' && request.method !== 'user-question/ask') return
+      const capability = request.method === 'approval/request' ? 'approvals.respond' : 'questions.respond'
+      if (!desktopHostCapabilities.getSnapshot()?.capabilities.includes(capability)) return
       const requestSessionId = request.params.sessionId
       if (typeof requestSessionId !== 'string'
         || !isDeltaSessionId(requestSessionId)
@@ -550,7 +577,7 @@ function App() {
         const result = request.method === 'approval/request'
           ? { outcome: 'rejected' }
           : { cancelled: true }
-        void desktopHost.respondRequest(request.id, result).catch(() => {})
+        void desktopHost.respondRequest(request.id, result, capability).catch(() => {})
         return
       }
       setHostRequests(current => current.some(item => item.id === request.id) ? current : [...current, request])
@@ -575,12 +602,12 @@ function App() {
       await desktopHost.connect(runtimeConfig)
       setConnectionOpen(false)
       setReadySessionIds(new Set())
-      if (messages.length > 0) {
+      if (messages.length > 0 && desktopHostCapabilities.getSnapshot()?.capabilities.includes('sessions.resume')) {
         await desktopHost.resume(sessionId)
         setReadySessionIds(new Set([sessionId]))
       }
     } catch (error) {
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
     }
   }
 
@@ -588,7 +615,7 @@ function App() {
     if (isImportedHistory) return
     const text = draft.trim()
     const images = attachments
-    if ((!text && images.length === 0) || !isOnline || isReadingImages) return
+    if ((!text && images.length === 0) || !canPrompt || isReadingImages) return
     const sendingSessionId = sessionId
     const contentBlocks = [
       ...(text ? [{ type: 'text' as const, text }] : []),
@@ -609,7 +636,7 @@ function App() {
       }
     } catch (error) {
       if (activeSessionIdRef.current !== sendingSessionId) return
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
       setDraft(current => current.trim() ? current : text)
       setAttachments(current => current.length > 0 ? current : images)
       setIsSending(false)
@@ -764,6 +791,8 @@ function App() {
         return updated
       })
       setHostRequests(current => current.filter(request => request.params.sessionId !== targetId))
+      eventOrderRef.current.clear(targetId)
+      setEventGaps(current => { const next = new Set(current); next.delete(targetId); return next })
       if (result.wasActive) {
         activeSessionIdRef.current = result.activeSessionId
         imageReadEpochRef.current += 1
@@ -826,11 +855,12 @@ function App() {
     }
     setConnectionError('')
     if (isOnline && !session.localOnly && loadMessages(session.id).length > 0 && !readySessionIds.has(session.id)) {
+      if (!canResume) { setConnectionError(zhCN.hostResumeUnsupported); return }
       try {
         await desktopHost.resume(session.id)
         setReadySessionIds(current => new Set(current).add(session.id))
       } catch (error) {
-        setConnectionError(`无法恢复这条对话：${String(error)}`)
+        setConnectionError(`无法恢复这条对话：${displayHostError(error)}`)
         return
       }
     }
@@ -847,6 +877,7 @@ function App() {
     const path = workspaceDraft.trim()
     if (!path) return
     if (isOnline) {
+      if (!canChangeWorkingDirectory) { setWorkspaceError(zhCN.hostWorkspaceUnsupported); return }
       try {
         const actualPath = await desktopHost.setWorkingDirectory(sessionId, path)
         setRuntimeConfig(config => ({ ...config, workspace: actualPath }))
@@ -854,7 +885,7 @@ function App() {
         setWorkspaceError('')
         setWorkspacePickerOpen(false)
       } catch (error) {
-        setWorkspaceError(`无法切换工作文件夹：${String(error)}`)
+        setWorkspaceError(`无法切换工作文件夹：${displayHostError(error)}`)
       }
     } else {
       setRuntimeConfig(config => ({ ...config, workspace: path }))
@@ -943,17 +974,17 @@ function App() {
       setReadySessionIds(new Set())
       setIsSending(false)
     } catch (error) {
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
     }
   }
 
   async function answerHostRequest(request: DesktopHostRequest, result: Record<string, unknown>) {
     try {
-      await desktopHost.respondRequest(request.id, result)
+      await desktopHost.respondRequest(request.id, result, request.method === 'approval/request' ? 'approvals.respond' : 'questions.respond')
       setHostRequests(current => current.filter(item => item.id !== request.id))
       setConnectionError('')
     } catch (error) {
-      setConnectionError(String(error))
+      setConnectionError(displayHostError(error))
       throw error
     }
   }
@@ -1115,13 +1146,14 @@ function App() {
                 {zhCN.disconnect}
               </Button>
             )}
-            <Button className="text-xs" size="sm" variant="outline" onClick={openWorkspacePicker}>
+            <Button className="text-xs" size="sm" variant="outline" disabled={isOnline && !canChangeWorkingDirectory} title={isOnline && !canChangeWorkingDirectory ? zhCN.hostWorkspaceUnsupported : undefined} onClick={openWorkspacePicker}>
               <FolderKanban size={14} />
               {zhCN.chooseWorkspace}
             </Button>
           </div>
         </header>
 
+        {eventGaps.has(sessionId) && <p className="mx-6 mt-4 rounded-lg bg-warning/10 px-3 py-2 text-xs text-foreground" role="alert">{zhCN.hostEventGapNoReplay}</p>}
         {hasStorageError && <p className="mx-6 mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-xs text-destructive" role="alert">{zhCN.localSaveFailed}</p>}
 
         <div className="flex flex-1 flex-col items-center overflow-y-auto px-6 pb-8 pt-[clamp(64px,12vh,142px)]">
@@ -1194,7 +1226,7 @@ function App() {
             ) : view === 'skills' ? (
               <section className="rounded-2xl border border-border bg-card p-5">
                 <h1 className="text-xl font-semibold">{zhCN.skills}</h1>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{zhCN.skillsUnavailable}</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">{negotiatedHost?.capabilities.includes('skills.manage') ? zhCN.skillsAwaitingUi : zhCN.skillsUnavailable}</p>
               </section>
             ) : messages.length === 0 ? (
               <>
@@ -1304,7 +1336,7 @@ function App() {
               <textarea
                 aria-label="输入消息"
                 className="min-h-[82px] w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
-                disabled={!isOnline || isImportedHistory}
+                disabled={!canPrompt || isImportedHistory}
                 ref={composerRef}
                 onChange={event => setDraft(event.target.value)}
                 onKeyDown={event => {
@@ -1313,26 +1345,26 @@ function App() {
                     void sendMessage()
                   }
                 }}
-                placeholder={isImportedHistory ? zhCN.importedHistoryReadOnly : isOnline ? zhCN.promptHarness : zhCN.connectHarnessFirst}
+                placeholder={isImportedHistory ? zhCN.importedHistoryReadOnly : canPrompt ? zhCN.promptHarness : isOnline ? zhCN.hostPromptUnsupported : zhCN.connectHarnessFirst}
                 value={draft}
               />
               <div className="flex items-center justify-between border-t border-border/70 px-2 pt-3">
                 <div className="flex items-center gap-1">
-                  <Button aria-label="添加图片" className="size-8" size="icon" title="支持 PNG、JPEG、WebP、GIF；单张不超过 8 MB，最多 4 张" variant="ghost" disabled={!isOnline || isImportedHistory || attachments.length >= maxImageCount || isReadingImages} onClick={() => imageInputRef.current?.click()}><Plus size={16} /></Button>
+                  <Button aria-label="添加图片" className="size-8" size="icon" title="支持 PNG、JPEG、WebP、GIF；单张不超过 8 MB，最多 4 张" variant="ghost" disabled={!canPrompt || isImportedHistory || attachments.length >= maxImageCount || isReadingImages} onClick={() => imageInputRef.current?.click()}><Plus size={16} /></Button>
                   <Button className="h-8 gap-1.5 text-xs" size="sm" variant="ghost" disabled={!isOnline} onClick={openConnectionSettings}>
                     <Zap size={14} />
                     {zhCN.modelSettings}
                     <ChevronDown size={12} />
                   </Button>
                 </div>
-                <Button aria-label="发送消息" className="size-8 rounded-lg" size="icon" variant="primary" disabled={!isOnline || isImportedHistory || (!draft.trim() && attachments.length === 0) || isReadingImages} onClick={() => void sendMessage()}>
+                <Button aria-label="发送消息" className="size-8 rounded-lg" size="icon" variant="primary" disabled={!canPrompt || isImportedHistory || (!draft.trim() && attachments.length === 0) || isReadingImages} onClick={() => void sendMessage()}>
                   {isOnline ? <ArrowUp size={16} /> : <ArrowDown size={15} />}
                 </Button>
               </div>
             </div>}
             {view === 'chat' && connectionError && isOnline && <p className="mt-2 text-xs text-destructive">{connectionError}</p>}
             {view === 'chat' && <p className="mt-3 text-center text-[11px] text-muted-foreground">
-              {isOnline ? runtime.message : zhCN.harnessNotConnectedMessage}
+              {isOnline && !canPrompt ? zhCN.hostPromptUnsupported : isOnline ? runtime.message : zhCN.harnessNotConnectedMessage}
             </p>}
           </div>
         </div>
@@ -1455,7 +1487,7 @@ function App() {
             <p className="break-all text-[11px] font-medium">{runtimeConfig.workspace || '使用默认工作文件夹'}</p>
             <p className="mt-1 text-[10px] leading-4 text-muted-foreground">{zhCN.workspaceProcessingNote}</p>
           </div>
-          <Button className="mt-3 w-full text-xs" size="sm" variant="outline" onClick={openWorkspacePicker}>{isOnline ? zhCN.switchWorkspace : zhCN.setWorkspace}</Button>
+          <Button className="mt-3 w-full text-xs" size="sm" variant="outline" disabled={isOnline && !canChangeWorkingDirectory} title={isOnline && !canChangeWorkingDirectory ? zhCN.hostWorkspaceUnsupported : undefined} onClick={openWorkspacePicker}>{isOnline ? zhCN.switchWorkspace : zhCN.setWorkspace}</Button>
         </section>
 
         <section className="mt-4 rounded-xl border border-border bg-card p-3.5">

@@ -15,6 +15,33 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, State};
 
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopProtocolVersion {
+    major: u32,
+    minor: u32,
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DesktopCommandError {
+    code: &'static str,
+    message: String,
+    retryable: bool,
+    outcome_unknown: bool,
+}
+
+impl DesktopCommandError {
+    fn new(code: &'static str, message: &str) -> Self {
+        Self {
+            code,
+            message: message.to_owned(),
+            retryable: false,
+            outcome_unknown: false,
+        }
+    }
+}
+
 #[derive(Clone, serde::Serialize)]
 #[serde(tag = "state", rename_all = "lowercase")]
 enum RuntimeStatus {
@@ -426,7 +453,9 @@ fn read_runtime_output(
             } else {
                 match method {
                     "session.event" => {
-                        if let Some(event) = map_session_event(&message["params"]) {
+                        if let Some(event) = map_session_event(&message["params"])
+                            .or_else(|| map_session_advanced(&message["params"]))
+                        {
                             let _ = app.emit("desktop:session-event", event);
                         }
                     }
@@ -571,6 +600,21 @@ fn map_session_event(params: &Value) -> Option<Value> {
     }
 }
 
+fn map_session_advanced(params: &Value) -> Option<Value> {
+    let session_id = params.get("sessionId")?.as_str()?;
+    let event = params.get("event")?;
+    let sequence = event.get("seq")?.as_u64()?;
+    let occurred_at = event.get("time")?.as_u64()?;
+    Some(json!({
+        "eventId": format!("{session_id}:{sequence}"),
+        "sessionId": session_id,
+        "sequence": sequence,
+        "occurredAt": occurred_at,
+        "type": "session.advanced",
+        "payload": {}
+    }))
+}
+
 fn value_summary(value: &Value) -> String {
     match value {
         Value::String(text) => text.clone(),
@@ -599,6 +643,48 @@ fn content_text(content: &Value) -> String {
         })
         .collect::<Vec<_>>()
         .join("")
+}
+
+#[tauri::command]
+fn desktop_host_handshake(
+    state: State<'_, RuntimeManager>,
+    protocol_version: DesktopProtocolVersion,
+) -> Result<Value, DesktopCommandError> {
+    if protocol_version.major != 1 {
+        return Err(DesktopCommandError::new(
+            "protocol_mismatch",
+            "桌面 Host 协议主版本不兼容",
+        ));
+    }
+    // Minor revisions only add optional fields or capabilities.
+    let _client_minor = protocol_version.minor;
+    let status = state
+        .status
+        .lock()
+        .map_err(|_| DesktopCommandError::new("runtime_unavailable", "运行时状态不可用"))?;
+    let RuntimeStatus::Ready { version, .. } = &*status else {
+        return Err(DesktopCommandError::new("runtime_unavailable", "请先连接 Harness"));
+    };
+    // Return only methods implemented by this adapter and documented by the public SDK.
+    // Harness SDK itself does not expose version or capability negotiation.
+    Ok(json!({
+        "protocolVersion": {"major": 1, "minor": 1},
+        "runtime": {"name": "deepseek-harness", "version": version},
+        "capabilities": [
+            "sessions.resume",
+            "sessions.prompt",
+            "sessions.events",
+            "approvals.respond",
+            "questions.respond",
+            "workspace.cwd"
+        ],
+        "upstream": {
+            "protocol": "sdk-stdio-unversioned",
+            "capabilitySource": "adapter-supported-methods",
+            "eventReplay": false,
+            "runCancellation": false
+        }
+    }))
 }
 
 #[tauri::command]
@@ -740,6 +826,7 @@ pub fn run() {
         .manage(RuntimeManager::default())
         .invoke_handler(tauri::generate_handler![
             runtime_status,
+            desktop_host_handshake,
             connect_runtime,
             session_query,
             resume_session,
