@@ -39,7 +39,7 @@ test('settings, native menus and sidebar use the same cache and revision contrac
   assert.match(client, /await folderStore\.mutate\(payload\)/)
   assert.match(client, /const folderCache = folderStore\.view\(\)/)
   assert.match(client, /const updateFolder = \(payload: Record<string, unknown>\) => folderStore\.mutate\(payload\)/)
-  assert.match(client, /const mutate = \(payload: Record<string, unknown>\) => folderStore\.mutate\(payload\)/)
+  assert.match(client, /action: 'createAndAssign', name: name\.trim\(\), sessionId/)
   assert.match(client, /folderStore\.publish\(data as FolderStoreView\)/)
   assert.equal((client.match(/window\.addEventListener\('dsh-ui-delta:folders-changed'/g) || []).length, 1)
   assert.equal((client.match(/window\.removeEventListener\('dsh-ui-delta:folders-changed'/g) || []).length, 1)
