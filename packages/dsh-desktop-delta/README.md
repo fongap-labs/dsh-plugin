@@ -45,7 +45,7 @@ Delta 通过 Harness 官方 `sdk` profile 运行：Tauri 启动 `dsh --profile s
 
 ## 还不能完全替代 Harness 网页界面
 
-Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前 SDK stdio 接口尚未提供完整会话目录所需的列表分页、搜索、显式创建和目录变更订阅；Harness 的公开 Session Controller API 目前通过 API Gateway 提供，尚未接入当前桌面运行通道。单独停止一条对话、Harness 设置、正式工作区文件管理、插件和技能管理、终端控制等桌面接口也仍未接通。具体上游缺口和所需合同见[会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)。
+Harness 的官方 `sdk` profile 已支持不启动原生 Web GUI 的长期运行方式，因此 Delta 不需要等待新的无界面启动器。当前 SDK stdio 接口尚未提供完整会话目录所需的列表分页、搜索、显式创建和目录变更订阅；Harness 的公开 Session Controller API 目前通过 API Gateway 提供，尚未接入当前桌面运行通道。单独停止一条对话、Harness 设置、正式工作区文件管理、插件和 Skills 管理、终端控制等桌面接口也仍未接通。各项上游缺口和所需合同见[插件与 Skills](PLUGIN_SKILLS_API_PROPOSAL.md)、[会话目录](SESSION_DIRECTORY_API_PROPOSAL.md)、[精确取消](RUN_CANCELLATION_API_PROPOSAL.md)、[工作区文件](WORKSPACE_FILES_API_PROPOSAL.md)和[设置接口提案](SETTINGS_API_PROPOSAL.md)。
 
 本机只读浏览只限用户明确选择的文件夹，拒绝隐藏路径、符号链接及超限预览，不支持写入。用户不应选择 Harness 私有会话、数据库、凭据或安装目录；文件系统若被其他程序并发修改，访问结果可能变化。
 
