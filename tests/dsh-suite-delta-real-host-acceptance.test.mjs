@@ -59,9 +59,9 @@ test('runner never mutates folder assignments and only captures explicit private
   assert.match(source, /chmodSync\(path, 0o600\)/)
   assert.match(source, /writeFileSync\(file, JSON\.stringify\(results, null, 2\)/)
   assert.match(source, /SafeError|safeError/)
-  assert.match(source, /keyboard-collapse-and-restore/)
-  assert.match(source, /folder-disclosure-semantics/)
-  assert.match(source, /session-specific-accessible-names/)
+  assert.match(source, /search-above-plugin-manager/)
+  assert.match(source, /single-native-session-browser/)
+  assert.match(source, /native-session-row/)
   assert.match(source, /responsive-.*width/)
   assert.match(source, /wcag-semantic-contrast/)
   assert.match(source, /contrastRatio\(foreground, background\)/)
@@ -70,14 +70,14 @@ test('runner never mutates folder assignments and only captures explicit private
   assert.match(source, /\[360, 800\], \[320, 720\]/)
 })
 
-test('folder buttons have visible keyboard focus and semantic light-dark tokens', () => {
-  assert.match(client, /\.ens-folder-browser-group-head:focus-visible,/)
-  assert.match(client, /\.ens-folder-browser-open:focus-visible \{/)
+test('the unified page has keyboard focus and preserves native session slots', () => {
+  assert.match(client, /\.ens-sidebar-search:focus-visible/)
   assert.match(client, /outline: 2px solid var\(--ens-color-ring\)/)
-  assert.match(client, /\.ens-folder-browser-session:focus-within \{/)
+  assert.match(client, /\.ens-sidebar-search \{/)
   assert.match(client, /'--ens-color-primary': \{ light: '#286F78', dark: '#60B4BF' \}/)
   assert.match(client, /ctx\.slots\.inject\('sidebar\.session\.row\.trailing'/)
   assert.match(client, /ctx\.slots\.inject\('sidebar\.session\.row\.hover'/)
+  assert.doesNotMatch(client, /ctx\.slots\.inject\('sidebar\.panellist'/)
 })
 
 test('visual regression requires explicit local baseline and valid tolerances', () => {
@@ -101,25 +101,15 @@ test('visual regression requires explicit local baseline and valid tolerances', 
 })
 
 
-test('real-host runner requires a matching disclosure target and reversible keyboard state', () => {
-  assert.match(source, /const controlledId = await groupToggle\.getAttribute\('aria-controls'\)/)
-  assert.match(source, /await groupContent\.getAttribute\('id'\), controlledId/)
-  assert.match(source, /await groupContent\.isVisible\(\), before === 'true'/)
-  assert.match(source, /await groupToggle\.press\('Space'\)/)
-  assert.match(source, /await groupContent\.isVisible\(\), before !== 'true'/)
-  assert.match(source, /record\('folder-disclosure-semantics', 'PASS'\)/)
+test('real-host runner checks native sidebar, search placement and input composer', () => {
+  assert.match(source, /single-native-session-browser/)
+  assert.match(source, /search-above-plugin-manager/)
+  assert.match(source, /native-session-row/)
+  assert.match(source, /conversation-composer/)
+  assert.match(source, /Native session list has no disposable sessions for keyboard acceptance/)
+  assert.match(source, /document\.DOCUMENT_POSITION_FOLLOWING/)
+  assert.doesNotMatch(source, /Folder panel has no disposable sessions/)
 })
-
-test('full keyboard acceptance fails closed without test sessions, without writing folders', () => {
-  assert.match(source, /if \(args\['--require-sessions'\]\)/)
-  assert.match(source, /throw new Error\('Folder panel has no disposable sessions for keyboard acceptance'\)/)
-  assert.match(source, /Math\.min\(selectCount, 5\)/)
-  assert.match(source, /label\.endsWith\(': ' \+ sessionTitle\)/)
-  assert.match(source, /document\.activeElement === el/)
-  assert.match(source, /record\('session-specific-accessible-names', 'PASS'\)/)
-  assert.doesNotMatch(source, /context\.request\.(?:post|patch|put|delete)\(/)
-})
-
 
 test('accessibility mode checks foreground/background pairs and focus indicator contrast', () => {
   assert.match(source, /'--ens-color-primary-foreground'/)
