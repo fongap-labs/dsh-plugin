@@ -36,6 +36,7 @@ import { Button } from './components/ui/button'
 import { zhCN } from './locales/zh-CN'
 import { desktopHost, desktopHostCapabilities } from './lib/desktop-host-client'
 import { DesktopSessionEventOrder } from './lib/session-event-order'
+import { WorkspaceBrowser } from './WorkspaceBrowser'
 import { desktopHostStatus } from './lib/desktop-host-status'
 import {
   DesktopHostError,
@@ -45,7 +46,7 @@ import {
 } from './lib/desktop-host-contract'
 
 type Theme = 'light' | 'dark'
-type View = 'chat' | 'activity' | 'skills' | 'history'
+type View = 'chat' | 'activity' | 'skills' | 'history' | 'files'
 type RuntimeConfig = {
   nodePath: string
   dshPath: string
@@ -89,6 +90,7 @@ const maxHistoryBackupBytes = 20 * 1024 * 1024
 const navItems: Array<{ id: View; label: string; icon: typeof MessageSquarePlus }> = [
   { id: 'chat', label: '对话', icon: MessageSquarePlus },
   { id: 'activity', label: '运行活动', icon: Activity },
+  { id: 'files', label: '工作区文件', icon: FolderKanban },
   { id: 'skills', label: '技能库', icon: BookOpen },
   { id: 'history', label: '历史记录', icon: History },
 ]
@@ -103,6 +105,11 @@ const viewCopy: Record<View, { title: string; eyebrow: string; description: stri
     title: '运行活动',
     eyebrow: 'ACTIVITY',
     description: '查看当前对话中 Harness 已报告的工具调用。',
+  },
+  files: {
+    title: '工作区文件',
+    eyebrow: 'WORKSPACE',
+    description: '只读查看所选工作文件夹中的文本文件。',
   },
   skills: {
     title: '技能库',
@@ -914,6 +921,7 @@ function App() {
       if (!canChangeWorkingDirectory) { setWorkspaceError(zhCN.hostWorkspaceUnsupported); return }
       try {
         const actualPath = await desktopHost.setWorkingDirectory(sessionId, path)
+        await desktopHost.handshake()
         setRuntimeConfig(config => ({ ...config, workspace: actualPath }))
         setConnectionError('')
         setWorkspaceError('')
@@ -1238,6 +1246,12 @@ function App() {
                   ))}
                 </div>
               </section>
+            ) : view === 'files' ? (
+              <WorkspaceBrowser
+                key={`${runtime.state}:${runtimeConfig.workspace}`}
+                isAvailable={hasCapability('workspace.files')}
+                onChooseWorkspace={openWorkspacePicker}
+              />
             ) : view === 'activity' ? (
               <section className="rounded-2xl border border-border bg-card p-5">
                 <h1 className="text-xl font-semibold">{zhCN.activity}</h1>

@@ -11,6 +11,8 @@ import {
   type DesktopSessionStatus,
   type PromptContentBlock,
   type RuntimeStatus,
+  type WorkspaceListing,
+  type WorkspacePreview,
 } from './desktop-host-contract'
 
 export interface RuntimeConnectInput {
@@ -149,6 +151,10 @@ export const desktopHost = {
     callHost<void>('resume_session', { sessionId }, { timeoutMs: 20000, signal, capability: 'sessions.resume' }),
   setWorkingDirectory: (sessionId: string, path: string, signal?: AbortSignal) =>
     callHost<string>('set_working_directory', { sessionId, path }, { timeoutMs: 20000, signal, capability: 'workspace.cwd' }),
+  listWorkspaceFiles: (relativePath = '', signal?: AbortSignal) =>
+    callHost<WorkspaceListing>('list_workspace_files', { relativePath }, { timeoutMs: 10000, signal, capability: 'workspace.files' }),
+  previewWorkspaceFile: (relativePath: string, signal?: AbortSignal) =>
+    callHost<WorkspacePreview>('preview_workspace_file', { relativePath }, { timeoutMs: 10000, signal, capability: 'workspace.files' }),
   respondRequest: (id: DesktopHostRequest['id'], result: Record<string, unknown>, capability: 'approvals.respond' | 'questions.respond') =>
     callHost<void>('respond_host_request', { id, result }, { timeoutMs: 10000, capability }),
   onRuntimeStatus: (listener: (status: RuntimeStatus) => void) =>

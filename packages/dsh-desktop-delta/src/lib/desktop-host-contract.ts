@@ -104,6 +104,18 @@ export interface WorkspaceFileEntry {
   kind: 'file' | 'directory'
 }
 
+export interface WorkspaceListing {
+  rootName: string
+  relativePath: string
+  entries: WorkspaceFileEntry[]
+  isTruncated: boolean
+}
+
+export interface WorkspacePreview {
+  relativePath: string
+  text: string
+}
+
 export interface SettingsSnapshot {
   revision: string
   values: Record<string, unknown>
