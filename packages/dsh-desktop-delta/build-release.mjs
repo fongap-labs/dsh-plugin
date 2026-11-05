@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Native Tauri release builder for the central Action Worker release contract.
 // The source repository owns the build logic; the central worker verifies and publishes assets.
-import { readFile, writeFile, mkdir, readdir, copyFile, stat, rm } from 'node:fs/promises'
-import { resolve, dirname, join, extname } from 'node:path'
+import { readFile, writeFile, mkdir, readdir, copyFile, stat } from 'node:fs/promises'
+import { resolve, dirname, join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
@@ -10,9 +10,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const product = join(root, 'packages', 'dsh-desktop-delta')
 const tauri = join(product, 'src-tauri')
 const targets = Object.freeze({
-  'linux-x64': { platform: 'linux', arch: 'x64', bundle: 'deb', extension: '.deb', directory: 'deb' },
-  'windows-x64': { platform: 'win32', arch: 'x64', bundle: 'nsis', extension: '.exe', directory: 'nsis' },
-  'macos-arm64': { platform: 'darwin', arch: 'arm64', bundle: 'dmg', extension: '.dmg', directory: 'dmg' },
+  'x86_64-unknown-linux-gnu': { output: 'linux-x64', platform: 'linux', arch: 'x64', bundle: 'deb', extension: '.deb', directory: 'deb' },
+  'x86_64-pc-windows-msvc': { output: 'windows-x64', platform: 'win32', arch: 'x64', bundle: 'nsis', extension: '.exe', directory: 'nsis' },
+  'aarch64-apple-darwin': { output: 'macos-arm64', platform: 'darwin', arch: 'arm64', bundle: 'dmg', extension: '.dmg', directory: 'dmg' },
 })
 
 export function parseReleaseArgs(args, platform = process.platform, arch = process.arch) {
@@ -50,7 +50,7 @@ export async function findInstaller(bundleRoot, config) {
 }
 
 function run(program, args, cwd = root) {
-  const result = spawnSync(program, args, { cwd, stdio: 'inherit', shell: false })
+  const result = spawnSync(program, args, { cwd, stdio: 'inherit', shell: process.platform === 'win32' && program === 'npm.cmd' })
   if (result.error) throw result.error
   if (result.status !== 0) throw new Error(program + ' exited with status ' + result.status)
 }
@@ -86,7 +86,7 @@ async function main() {
     pnpm(['--filter', '@fongap-labs/dsh-desktop-delta', 'tauri', 'build', '--bundles', config.bundle])
     const installer = await findInstaller(join(tauri, 'target', 'release', 'bundle'), config)
     await mkdir(outputDir, { recursive: true })
-    const targetFile = join(outputDir, 'dsh-desktop-delta-' + target + config.extension)
+    const targetFile = join(outputDir, 'dsh-desktop-delta-' + config.output + config.extension)
     await copyFile(installer, targetFile)
     if ((await stat(targetFile)).size === 0) throw new Error('Copied installer is empty')
     console.log('Desktop release artifact: ' + targetFile)
