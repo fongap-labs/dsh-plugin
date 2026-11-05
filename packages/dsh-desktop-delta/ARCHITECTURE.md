@@ -38,7 +38,7 @@ dsh --profile sdk
 
 Harness 的公开 SDK 协议采用 stdio JSON-RPC，当前包含提示、查询、恢复、等待、工作目录读写及实时通知，但没有会话目录分页、搜索或显式创建方法。Harness 另有公开的 `@deepseek-ai/dsh-api-session-controller` Remote API，提供 `session.list`、`session.search` 和 `session.create`，但它通过 API Gateway 暴露，当前 `sdk` profile 未提供对应的远程传输入口。Delta 不直接调用其 Host Context 服务或 Web UI 内部模块。
 
-完整替换原生前端前，Harness 必须通过现有 SDK stdio 或受支持的本机 API-only profile 暴露稳定、可版本协商的桌面 Host API。Delta adapter 只实现该公开合同。会话目录所需的上游方法和事件合同见 [会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)；单次运行精确取消合同见 [精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)。若能力尚未通过当前运行通道暴露，界面明确显示不可用；不得用以下方式绕过：
+完整替换原生前端前，Harness 必须通过现有 SDK stdio 或受支持的本机 API-only profile 暴露稳定、可版本协商的桌面 Host API。Delta adapter 只实现该公开合同。会话目录所需的上游方法和事件合同见 [会话目录接口提案](SESSION_DIRECTORY_API_PROPOSAL.md)；单次运行精确取消合同见 [精确取消接口提案](RUN_CANCELLATION_API_PROPOSAL.md)；工作区列表与文件接口见 [工作区与文件接口提案](WORKSPACE_FILES_API_PROPOSAL.md)。若能力尚未通过当前运行通道暴露，界面明确显示不可用；不得用以下方式绕过：
 
 - 依赖 Harness Web UI 的 DOM、CSS 类名、模块加载器或 UI slot。
 - 直接依赖 Harness 的私有 `ctx` 服务、内部 Remote 包或非公开 TypeScript 导出。
@@ -57,4 +57,4 @@ Host API 应定义协议版本、能力协商、请求取消、超时、事件�
 
 ## 当前状态
 
-当前已接通外部 Harness CLI 的官方 `sdk` profile（长期运行的 stdio JSON-RPC 服务，不启动 Harness Web Server）；支持初始化、文字与图片对话、消息／状态／工具开始与结果事件、一次性工具审批、用户提问、会话恢复、工作目录切换，并通过官方 `session/wait` 等待根 Agent 与受管子 Agent 完成；可选配置补丁通过 Harness 官方 `--patch` 启动参数传入。内核进程仍由 Harness 自己提供。Delta 在本机保存自己创建的对话目录和显示记录，不读取 Harness 私有存储。SDK 通知覆盖同一运行时中的所有会话，Delta 仅接受本机清单中且符合 Delta 会话 ID 格式的事件；未知会话的审批会被拒绝，提问会被取消。完整会话目录、设置、Harness 工作区管理／文件修改、插件／技能管理和终端尚未接通；仅新增 Tauri Host 在用户选定本机工作文件夹内的受限只读列表与文本预览能力，不使用 Harness 私有数据。`src/lib/desktop-host-client.ts` 集中处理当前 Tauri 运行时命令与事件，页面通过该连接层进行运行时操作；`src/lib/desktop-host-contract.ts` 定义 renderer 的产品级 DTO 和目标接口。完整桌面 API 仍待 Harness 提供受支持的稳定合同。
+当前已接通外部 Harness CLI 的官方 `sdk` profile（长期运行的 stdio JSON-RPC 服务，不启动 Harness Web Server）；支持初始化、文字与图片对话、消息／状态／工具开始与结果事件、一次性工具审批、用户提问、会话恢复、工作目录读取与切换，并通过官方 `session/wait` 等待根 Agent 与受管子 Agent 完成；可选配置补丁通过 Harness 官方 `--patch` 启动参数传入。内核进程仍由 Harness 自己提供。Delta 在本机保存自己创建的对话目录和显示记录，不读取 Harness 私有存储。SDK 通知覆盖同一运行时中的所有会话，Delta 仅接受本机清单中且符合 Delta 会话 ID 格式的事件；未知会话的审批会被拒绝，提问会被取消。完整会话目录、设置、Harness 正式工作区文件管理、插件／技能管理和终端尚未接通；Tauri 仅在用户明确选定本机工作文件夹后提供受限只读浏览，不读取 Harness 私有数据。`src/lib/desktop-host-client.ts` 集中处理当前 Tauri 运行时命令与事件，页面通过该连接层进行运行时操作；`src/lib/desktop-host-contract.ts` 定义 renderer 的产品级 DTO 和目标接口。完整桌面 API 仍待 Harness 提供受支持的稳定合同。
