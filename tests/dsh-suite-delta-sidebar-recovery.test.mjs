@@ -5,7 +5,7 @@ const source = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts',
 
 test('native session list is never replaced with a recovery duplicate', () => {
   assert.doesNotMatch(source, /sessionListRecovery|ens-sidebar-recovery|data-delta-sidebar-recovery/)
-  assert.doesNotMatch(source, /恢复的对话列表|Recovered sessions/)
+  assert.doesNotMatch(source, /\u6062\u590d\u7684\u5bf9\u8bdd\u5217\u8868|Recovered sessions/)
   assert.match(source, /ctx\.slots\.inject\('sidebar\.session\.row\.trailing'/)
   assert.doesNotMatch(source, /location\.reload\(/)
 })
