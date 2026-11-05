@@ -23,4 +23,12 @@ test('root idle does not end the UI wait while managed descendants are pending',
   assert.match(app, /await desktopHost\.waitForCompletion\(sendingSessionId\)/)
   assert.match(app, /const isKnownRuntimeFailure = error instanceof DesktopHostError && !error.outcomeUnknown/)
   assert.match(app, /const outcomeUnknown = error instanceof DesktopHostError \? error.outcomeUnknown : true/)
+
+  const promptIndex = app.indexOf('await desktopHost.query(sendingSessionId, contentBlocks)')
+  const readyIndex = app.indexOf('setReadySessionIds(current => new Set(current).add(sendingSessionId))', promptIndex)
+  const waitIndex = app.indexOf('await desktopHost.waitForCompletion(sendingSessionId)', promptIndex)
+  assert.ok(promptIndex >= 0 && readyIndex > promptIndex && waitIndex > readyIndex,
+    'an accepted prompt must mark the session ready before waiting for its descendants')
+  assert.match(app, /setIsSending\(pendingWaitSessionIdsRef\.current\.has\(session\.id\)\)/,
+    'switching back to a session with an outstanding wait must restore its running state')
 })
