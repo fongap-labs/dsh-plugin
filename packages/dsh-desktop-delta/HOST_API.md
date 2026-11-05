@@ -1,4 +1,4 @@
-# Desktop Host API v1
+# Desktop Host API v1.1
 
 ## 状态
 

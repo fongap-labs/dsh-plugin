@@ -497,6 +497,7 @@ function App() {
 
     void desktopHost.onSessionEvent(item => {
       if (desktopHostStatus.getSnapshot().state !== 'ready') return
+      if (!desktopHostCapabilities.getSnapshot()?.capabilities.includes('sessions.events')) return
       if (!isDeltaSessionId(item.sessionId) || !sessionsRef.current.some(session => session.id === item.sessionId)) return
       const order = eventOrderRef.current.observe(item)
       if (order === 'invalid' || order === 'duplicate') return
