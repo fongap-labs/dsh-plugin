@@ -1,6 +1,7 @@
 import { readConfig } from './config.js'
 import type { Context } from '@deepseek-ai/cordis'
 import { resolveMainImageAccount } from './main-model.js'
+import { assertOutboundTextSafe } from './privacy.js'
 
 const MAX_PROMPT_LENGTH = 4000
 const MAX_IMAGE_BYTES = 12 * 1024 * 1024
@@ -40,8 +41,7 @@ const detectMediaType = (bytes: Buffer): string => {
 
 /** Generate one image through the OpenAI-compatible account selected in Host settings. */
 export const generateImage = async (promptInput: unknown, sizeInput: unknown, ctx: Context): Promise<{ image: string; mediaType: string }> => {
-  const prompt = typeof promptInput === 'string' ? promptInput.trim().slice(0, MAX_PROMPT_LENGTH) : ''
-  if (!prompt) throw new Error('prompt required')
+  const prompt = assertOutboundTextSafe(promptInput, 'image prompt', MAX_PROMPT_LENGTH)
   const size = typeof sizeInput === 'string' && ALLOWED_SIZES.has(sizeInput) ? sizeInput : '1024x1024'
 
   const config = readConfig().imageGen || {}

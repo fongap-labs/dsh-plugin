@@ -19,12 +19,33 @@
   config:
     enabled: true
 
-# Default the official-API Session Log upload ("在使用官方模型 API 时上传 Session Log")
-# OFF. The host schema defaults enabled to true; the suite opts out by default.
-# Users can still re-enable it in Settings → General.
+# Remove the official Session Log contributor entirely, not just its
+# enabled config. The upstream General settings switch appears only while
+# this Host setting is served; disabling the plugin removes the setting row
+# and prevents re-enablement from the UI. Do not mount or create upload state.
 - id: session-log-deepseek
+  disabled: true
+
+# Disable the independent OTel feedback/session channel. Keep the registered
+# service in DISABLED mode so feedback callers retain their expected interface.
+# This is separate from the official API's dsh_session_log extension above.
+- id: session-telemetry-otel
+  config:
+    mode: DISABLED
+
+# The official DeepSeek adapter otherwise attaches a full active plugin list.
+- id: plugin-package-inventory-deepseek
   config:
     enabled: false
+
+# Desktop product analytics defaults to ON in upstream Harness. Preserve the
+# Host-facing service and its version field, but suppress event collection,
+# environment probing and user/device identity lookups. The inert OTel reporter
+# remains mounted to satisfy required Host service injection.
+- id: product-analytics
+  config:
+    enabled: false
+    appVersion: !!js process.env.DSH_CLIENT_VERSION
 
 - insert:
     - id: dsh-suite-delta
