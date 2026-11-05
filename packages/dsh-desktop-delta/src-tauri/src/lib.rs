@@ -809,6 +809,23 @@ fn resume_session(state: State<'_, RuntimeManager>, session_id: String) -> Resul
 }
 
 #[tauri::command]
+fn get_working_directory(
+    state: State<'_, RuntimeManager>,
+    session_id: String,
+) -> Result<String, String> {
+    let result = state.current_connection()?.request(
+        "session/working-directory/get",
+        json!({"sessionId": session_id}),
+        Duration::from_secs(15),
+    )?;
+    result
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "Harness did not return a working directory".into())
+}
+
+#[tauri::command]
 fn set_working_directory(
     state: State<'_, RuntimeManager>,
     session_id: String,
@@ -852,6 +869,7 @@ pub fn run() {
             session_query,
             wait_session,
             resume_session,
+            get_working_directory,
             set_working_directory,
             respond_host_request,
             disconnect_runtime
