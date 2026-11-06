@@ -293,7 +293,7 @@ test('Delta desktop sends a prompt and surfaces a terminal model error instead o
   nodes.get('send').listeners.click()
   await waitFor(() => nodes.get('message').value === '' && requestId)
   assert.match(nodes.get('messages').childNodes.map(x => x.textContent).join(' '), /hello/)
-  assert.match(nodes.get('diagnostic').textContent, /队列/)
+  assert.match(nodes.get('diagnostic').textContent, /\u961f\u5217/)
   const follow = sent.find(x => x.endpoint === 'session/follow')
   assert.ok(follow)
   socket.emit('message', { data: JSON.stringify({
