@@ -155,7 +155,7 @@ testCase('real installed Harness: Delta standalone page authenticates and stream
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'client-request', rpcId, method, payload: { args: { request } },
+          type: 'client-request', rpcId, method, payload: { args: method === 'session/list' ? { _request: request } : { request } },
         }),
         signal: AbortSignal.timeout(15_000),
       })
