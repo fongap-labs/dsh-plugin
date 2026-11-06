@@ -51,3 +51,20 @@ pnpm test
 探针每 5 秒通过原认证路由核查插件是否仍启用。验证页已经打开时停用 Suite，探针须自动关闭 Gateway WebSocket，禁用发消息和创建会话，且不能在停用后再次调用模型。
 
 对于不属于当前测试会话、未实现的用户提问或无法处理的 Remote waterfall，探针发送 `kind: next` 将交互交回其他处理者，不自动批准。注意：多网页客户端仍可能同时收到事件；此 PoC 不能证明跨客户端独占审批。
+
+## Real-Host acceptance runner (P0 verification)
+
+The repository now includes a separate **read-only by default** runner, not just mock wire tests:
+
+```sh
+node scripts/verify-delta-poc-host.mjs --help
+node scripts/verify-delta-poc-host.mjs --url http://127.0.0.1:3080 --cdp http://127.0.0.1:9222
+```
+
+Only run against a local, disposable Harness Profile with `standalonePoc: true`. The browser debugging port must be bound to loopback. Open the official Harness launch URL in **that browser context** to establish the signed Cookie first. The runner does not handle login tokens and rejects remote URLs, credentials, paths and query strings in its target URL.
+
+The default mode verifies independently served document, Cookie admission, Gateway event-source readiness, and Session list RPC without changing sessions. The optional `--session TEST_SESSION_ID` verifies a **real `session/follow` opening snapshot and snapshot recovery after page refresh**. `--create-session` permits creating a disposable blank session, and sending a test message additionally requires `--allow-agent --send-text "..." --create-session`. That last operation executes a real Agent and may cost tokens; no automatic tool approval is ever sent.
+
+`--output /private/report.json` writes a **new**, mode 0600, redacted pass/fail report (no cookie, auth token, text, URL or Session IDs). Output files are not uploaded to CI or committed. A failed or missing real-Host run is not a pass. Tool approval and the entire end-to-end process remain separate gates: human-approved, non-destructive interaction must be observed in a real Harness before declaring P0 successful.
+
+**CI scope**: the centralized normal CI runs the runner's CLI safety/validation unit tests. It does **not** claim that a live Harness was launched or that the real-Host acceptance tests passed.

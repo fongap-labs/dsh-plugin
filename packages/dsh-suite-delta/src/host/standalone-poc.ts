@@ -83,6 +83,7 @@ small { display: block; margin-top: 20px; color: #59666b; }
 <li>\u5bbf\u4e3b\u8ba4\u8bc1 <strong id="auth" data-state="pending">\u5f85\u68c0\u6d4b</strong></li>
 <li>Gateway \u4e8b\u4ef6\u6d41 <strong id="socket" data-state="pending">\u5f85\u68c0\u6d4b</strong></li>
 <li>Session RPC <strong id="gateway" data-state="pending">\u5f85\u68c0\u6d4b</strong></li>
+<li>Session follow <strong id="snapshot" data-state="pending">Not connected</strong></li>
 <li>\u5f53\u524d\u4f1a\u8bdd <strong id="current" data-state="pending">\u672a\u9009\u62e9</strong></li>
 </ol>
 <div class="actions"><button type="button" id="create">\u521b\u5efa\u6d4b\u8bd5\u4f1a\u8bdd</button><button type="button" id="refresh">\u5237\u65b0\u4f1a\u8bdd\u76ee\u5f55</button></div>

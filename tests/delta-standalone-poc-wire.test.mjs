@@ -22,7 +22,7 @@ function createNode(id) {
 
 test('P0-B: authenticated document uses official RPC and event stream without automatic tool approval', async () => {
   const ids = [
-    'auth', 'socket', 'gateway', 'sessions', 'messages', 'interaction',
+    'auth', 'socket', 'gateway', 'snapshot', 'sessions', 'messages', 'interaction',
     'message', 'send', 'create', 'refresh', 'current', 'diagnostic',
   ]
   const nodes = new Map(ids.map(id => [id, createNode(id)]))
@@ -100,6 +100,12 @@ test('P0-B: authenticated document uses official RPC and event stream without au
     type: 'item', streamId: events.streamId,
     value: { type: 'ready', clientId: 'generation-test', host: { home: '/tmp/test' } },
   }) })
+  const sessionStream = sockets[0].sent.find(frame => frame.endpoint === 'session/follow')
+  sockets[0].emit('message', { data: JSON.stringify({
+    type: 'item', streamId: sessionStream.streamId,
+    value: { type: 'snapshot', header: { id: 'test-session' }, cursor: 0, records: [] },
+  }) })
+  assert.equal(nodes.get('snapshot').dataset.state, 'pass')
   nodes.get('message').value = 'test hello'
   await nodes.get('send').click()
   await flush()

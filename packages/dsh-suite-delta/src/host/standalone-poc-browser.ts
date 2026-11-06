@@ -13,6 +13,7 @@ export const standalonePocBrowser = String.raw`
     auth: document.getElementById('auth'),
     socket: document.getElementById('socket'),
     gateway: document.getElementById('gateway'),
+    snapshot: document.getElementById('snapshot'),
     sessions: document.getElementById('sessions'),
     messages: document.getElementById('messages'),
     interaction: document.getElementById('interaction'),
@@ -151,6 +152,7 @@ export const standalonePocBrowser = String.raw`
     url.searchParams.set('session', id);
     history.replaceState(null, '', url);
     state(nodes.current, 'pass', id);
+    state(nodes.snapshot, 'pending', 'Waiting for Session snapshot');
     entries.length = 0;
     renderEvents();
     for (const stream of streams.values()) {
@@ -304,6 +306,7 @@ export const standalonePocBrowser = String.raw`
     if (!target) return;
     if (frame.type === 'error' || frame.type === 'end') {
       streams.delete(frame.streamId);
+      if (target.kind === 'session') state(nodes.snapshot, 'fail', 'Session stream ended');
       if (target.kind === 'session') diagnostic('Session \u6d41\u7ed3\u675f：' + (frame.error?.code || frame.type));
       if (target.kind === 'events') {
         state(nodes.socket, 'fail', '\u4e8b\u4ef6\u6d41\u4e2d\u65ad');
@@ -320,9 +323,11 @@ export const standalonePocBrowser = String.raw`
         if (!Array.isArray(value.records) || typeof value.cursor !== 'number' ||
             !value.header || typeof value.header.id !== 'string' ||
             value.header.id !== currentSession) {
+          state(nodes.snapshot, 'fail', 'Invalid Session snapshot');
           diagnostic('Invalid Session snapshot');
           return;
         }
+        state(nodes.snapshot, 'pass', 'Snapshot received');
         entries.length = 0;
         entries.push(...limitEvents(value.records));
         renderEvents();
@@ -405,7 +410,10 @@ export const standalonePocBrowser = String.raw`
       return;
     }
     state(nodes.auth, 'pass', 'Authenticated');
-    if (currentSession) state(nodes.current, 'pass', currentSession);
+    if (currentSession) {
+      state(nodes.current, 'pass', currentSession);
+      state(nodes.snapshot, 'pending', 'Waiting for Session snapshot');
+    }
     leaseTimer = setInterval(() => {
       void checkLease().then(valid => {
         if (isActive && !valid) stop('Gateway probe was disabled or lost authorization');
