@@ -11,5 +11,5 @@
     "verbatimModuleSyntax": false,
     "types": []
   },
-  "include": ["src/client.ts", "src/harness-module.d.ts"]
+  "include": ["src/client-entry.ts", "src/harness-module.d.ts"]
 }
