@@ -6,7 +6,7 @@
  * This is not a production SDK; delete when a supported standalone client
  * composition is identified. All mutations require explicit button actions.
  */
-export const standalonePocBrowser = String.raw\`
+export const standalonePocBrowser = String.raw`
 (() => {
   'use strict';
   const nodes = {
@@ -345,4 +345,4 @@ export const standalonePocBrowser = String.raw\`
   }, { once: true });
   void start();
 })();
-\`;
+`;
