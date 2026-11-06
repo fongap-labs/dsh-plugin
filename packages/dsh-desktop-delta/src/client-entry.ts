@@ -22,6 +22,8 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
     const fallback = () => {
       if (isActive) root.style.visibility = previousVisibility
     }
+    // Never leave the native shell invisible if the route probe stalls.
+    const startupTimeout = setTimeout(() => { controller.abort(); fallback() }, 8000)
     void (async () => {
       try {
         const status = await fetch(STATUS_PATH, {
@@ -50,11 +52,14 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
         window.location.replace(new URL(DESKTOP_PATH, url.origin).href)
       } catch {
         fallback()
+      } finally {
+        clearTimeout(startupTimeout)
       }
     })()
     return () => {
       isActive = false
       controller.abort()
+      clearTimeout(startupTimeout)
       root.style.visibility = previousVisibility
     }
   }, 'dsh-desktop-delta: delta-first authenticated entry')
