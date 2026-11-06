@@ -2,12 +2,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 
-const readme = readFileSync(new URL('../packages/dsh-suite-delta/README.md', import.meta.url), 'utf8')
+const readme = readFileSync(new URL('../packages/dsh-desktop-delta/README.md', import.meta.url), 'utf8')
 const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8')
-const routes = readFileSync(new URL('../packages/dsh-suite-delta/src/host/routes.ts', import.meta.url), 'utf8')
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
-const deletion = readFileSync(new URL('../packages/dsh-suite-delta/src/host/session-delete.ts', import.meta.url), 'utf8')
-const search = readFileSync(new URL('../packages/dsh-suite-delta/src/host/search.ts', import.meta.url), 'utf8')
+const routes = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/routes.ts', import.meta.url), 'utf8')
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
+const deletion = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/session-delete.ts', import.meta.url), 'utf8')
+const search = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/search.ts', import.meta.url), 'utf8')
 
 test('documentation describes the actual cold-session deletion route and its Host dependency', () => {
   assert.match(readme, /sessionPersistence/)

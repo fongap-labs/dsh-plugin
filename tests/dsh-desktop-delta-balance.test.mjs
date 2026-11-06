@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 
-const source = readFileSync(new URL('../packages/dsh-suite-delta/lib/client.js', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../packages/dsh-desktop-delta/lib/client.js', import.meta.url), 'utf8');
 const start = source.indexOf('const formatAccountBalance =');
 const end = source.indexOf('function syncBalance()', start);
 assert.ok(start >= 0 && end > start, 'compiled balance formatter must exist');

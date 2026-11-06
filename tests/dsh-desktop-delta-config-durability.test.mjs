@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { syncBuiltinESMExports } from 'node:module'
 
-const HOME = path.join(os.tmpdir(), 'dsh-suite-delta-config-test')
+const HOME = path.join(os.tmpdir(), 'dsh-desktop-delta-config-test')
 const CONFIG_DIR = path.join(HOME, '.dsh-ui-delta')
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
 
@@ -24,7 +24,7 @@ afterEach(() => {
 
 it('writes the config through a temporary file and renames it into place', async () => {
   useTempHome()
-  const { updateConfig, publicView } = await import('../packages/dsh-suite-delta/lib/host/config.js')
+  const { updateConfig, publicView } = await import('../packages/dsh-desktop-delta/lib/host/config.js')
   fs.mkdirSync(CONFIG_DIR, { recursive: true })
   await updateConfig({ section: 'imageGen', model: 'image-model' })
   assert.equal(publicView().imageGen.model, 'image-model')
@@ -35,7 +35,7 @@ it('writes the config through a temporary file and renames it into place', async
 
 it('preserves an unreadable config file instead of overwriting it', async () => {
   useTempHome()
-  const { readConfig } = await import('../packages/dsh-suite-delta/lib/host/config.js')
+  const { readConfig } = await import('../packages/dsh-desktop-delta/lib/host/config.js')
   fs.mkdirSync(CONFIG_DIR, { recursive: true })
   fs.writeFileSync(CONFIG_FILE, '{ this is not json', 'utf8')
   assert.deepEqual(readConfig(), {})
@@ -48,7 +48,7 @@ it('preserves an unreadable config file instead of overwriting it', async () => 
 
 it('treats a missing config file as the normal first-run state', async () => {
   useTempHome()
-  const { readConfig } = await import('../packages/dsh-suite-delta/lib/host/config.js')
+  const { readConfig } = await import('../packages/dsh-desktop-delta/lib/host/config.js')
   fs.mkdirSync(CONFIG_DIR, { recursive: true })
   assert.deepEqual(readConfig(), {})
   assert.deepEqual(fs.readdirSync(CONFIG_DIR), [])

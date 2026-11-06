@@ -2,7 +2,7 @@ import { it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const patch = readFileSync(new URL('../packages/dsh-suite-delta/cordis.patch.yml', import.meta.url), 'utf8')
+const patch = readFileSync(new URL('../packages/dsh-desktop-delta/cordis.patch.yml', import.meta.url), 'utf8')
 
 it('defaults the coding view on and removes the official Session Log contributor', () => {
   assert.match(patch, /- id: ui-settings\r?\n\s+config:\r?\n\s+enabled: true/)

@@ -2,7 +2,7 @@ import { it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
-const code = readFileSync(new URL('../packages/dsh-suite-delta/lib/client.js', import.meta.url), 'utf8')
+const code = readFileSync(new URL('../packages/dsh-desktop-delta/lib/client.js', import.meta.url), 'utf8')
 function extract(start, end) {
   const a = code.indexOf(start), b = code.indexOf(end, a)
   assert.ok(a >= 0 && b > a)

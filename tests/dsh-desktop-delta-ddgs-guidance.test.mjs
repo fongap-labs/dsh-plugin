@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const root = new URL('../packages/dsh-suite-delta/src/', import.meta.url)
+const root = new URL('../packages/dsh-desktop-delta/src/', import.meta.url)
 const adapter = readFileSync(new URL('host/python-ddgs.ts', root), 'utf8')
 const routes = readFileSync(new URL('host/routes.ts', root), 'utf8')
 const ui = readFileSync(new URL('client.ts', root), 'utf8')
