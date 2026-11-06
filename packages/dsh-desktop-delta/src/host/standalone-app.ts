@@ -35,7 +35,7 @@ export function registerIndependentApp(ctx: Context): void {
   const host = ctx as unknown as Host & {
     inject?: (deps: string[], callback: (child: unknown) => void) => unknown
   }
-  host.inject?.(['connection', 'webServer'], (child: unknown) => {
+  host?.inject?.(['connection', 'webServer'], (child: unknown) => {
     const scope = child as Host
     const web = scope.webServer ?? scope.get?.('webServer') as Web | undefined
     const connection = scope.connection ?? scope.get?.('connection') as Connection | undefined

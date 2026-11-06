@@ -42,7 +42,9 @@ describe('session-scoped approval extension', () => {
     assert.match(client, /status\.getSnapshot\(\)/)
     assert.match(client, /status\.subscribe\(reuseApprovals\)/)
     assert.match(client, /handled\.add\(approval\)/)
-    for (const dep of ['@deepseek-ai/dsh-api-session-controller', '@deepseek-ai/dsh-client-ui-session', '@deepseek-ai/dsh-client-ui-approval'])
-      assert.ok(manifest.dsh.client.inject.includes(dep))
+    // The migrated native extension remains dormant; independent Delta uses
+    // the signed Gateway rather than native UI injection dependencies.
+    assert.equal(manifest.dsh.client.immediately, false)
+    assert.deepEqual(manifest.dsh.client.inject, [])
   })
 })

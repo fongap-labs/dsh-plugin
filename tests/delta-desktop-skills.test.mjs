@@ -10,7 +10,7 @@ test('Delta-managed skills lifecycle, native read-only visibility, path safety',
   const original = process.env.DSH_HOME
   process.env.DSH_HOME = base
   try {
-    const source = await readFile(new URL('../packages/dsh-suite-delta/src/host/skills.ts', import.meta.url), 'utf8')
+    const source = await readFile(new URL('../packages/dsh-desktop-delta/src/host/skills.ts', import.meta.url), 'utf8')
     const js = stripTypeScriptTypes(source, { mode: 'strip' })
     const { mutateSkill, listSkills } = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'))
     await assert.rejects(mutateSkill({ action: 'create', name: '../unsafe', description: 'x', body: 'x' }))

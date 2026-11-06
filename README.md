@@ -1,6 +1,6 @@
 # Delta Desktop（Delta 桌面）
 
-Delta Desktop 是基于 DeepSeek Harness 运行内核的独立界面。单一插件 `@fongap-labs/dsh-desktop-delta`，不再提供 Tauri 桌面产品或 Delta Suite 原生 UI 注入。
+许可证：Apache-2.0。原先的 Delta Suite Release 保留为历史记录，不是新包。\n\nDelta Desktop 是基于 DeepSeek Harness 运行内核的独立界面。单一插件 `@fongap-labs/dsh-desktop-delta`，不再提供 Tauri 桌面产品或 Delta Suite 原生 UI 注入。
 
 ## 结构
 
@@ -12,7 +12,7 @@ Delta Desktop 是基于 DeepSeek Harness 运行内核的独立界面。单一插
 
 通过 GitHub Release 安装最新 `dsh-desktop-delta-v<版本>` 的 `fongap-labs-dsh-desktop-delta.tgz`。打开由 Harness 提供的带令牌启动地址完成一次认证后，在同一浏览器访问 `/dsh-ui-delta/app`，使用 Delta Desktop 独立界面。启动 Harness 时建议使用 `--no-open`，避免同时打开原生页面。旧 `.dsh-ui-delta` 配置目录和 `/dsh-ui-delta` 服务路径保留兼容。
 
-**重要**：`main` 已合并的功能不等于已发布的安装包。安装前请查看 GitHub Releases 中是否存在目标版本；不要把旧 `dsh-suite-delta` 安装包当成新包。可通过 `pnpm view @fongap-labs/dsh-desktop-delta versions --json --registry https://registry.npmjs.org` 查询 npm 发行版本。
+main 已合并的功能不等于已发布的安装包。安装前请查看 GitHub Releases 中是否存在目标版本；不要把旧 `dsh-suite-delta` 安装包当成新包。可通过 `pnpm view @fongap-labs/dsh-desktop-delta versions --json --registry https://registry.npmjs.org` 查询 npm 发行版本。
 
 ## 开发
 

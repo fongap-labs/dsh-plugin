@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { stripTypeScriptTypes } from 'node:module'
 import { readFile } from 'node:fs/promises'
 
-const source = await readFile(new URL('../packages/dsh-suite-delta/src/host/skill-import.ts', import.meta.url), 'utf8')
+const source = await readFile(new URL('../packages/dsh-desktop-delta/src/host/skill-import.ts', import.meta.url), 'utf8')
 const js = stripTypeScriptTypes(source, { mode: 'strip' })
 const { parseSkillMarkdown, githubSkillEndpoint, previewGithubSkill, previewZipSkill } =
   await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'))
