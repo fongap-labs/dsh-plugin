@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 独立 Gateway 验证页使用正确的 Session 列表 RPC 参数名。
+
 - 新增: CI 使用真实 Harness 验证 Delta 独立页面、会话流及重连。
 
 - 新增: Delta Suite 独立页面验证提供临时隔离 Harness Profile 一键启动脚本，固定已验证的 beta.1 发布包，不修改日常插件配置。
