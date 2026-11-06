@@ -27,6 +27,9 @@ export const standaloneDesktopBrowser = String.raw`
   if (Object.values(nodes).some(node => !node)) return;
   const maxEvents = 120;
   const entries = [];
+  // Keep a visible user echo until the Host confirms durable admission through
+  // session/follow. Failed submissions remain editable instead of disappearing.
+  const pendingMessages = new Map();
   let ws;
   let attempt = 0;
   let reconnect;
@@ -122,6 +125,19 @@ export const standaloneDesktopBrowser = String.raw`
         return { role: 'assistant', text: ch.text, transient: true };
       }
     }
+    if (raw.type === 'turn/end') {
+      const reason = raw.data?.reason;
+      if (reason?.kind === 'error') {
+        const failure = reason.error || {};
+        const code = typeof failure.code === 'string' ? failure.code.slice(0, 80) : '';
+        const message = typeof failure.message === 'string'
+          ? failure.message.slice(0, 500) : 'Harness model execution failed';
+        return { role: 'event', text: '\u6a21\u578b\u6267\u884c\u5931\u8d25' + (code ? ' [' + code + ']' : '') + ': ' + message };
+      }
+      if (reason?.kind === 'interrupted') {
+        return { role: 'event', text: '\u6a21\u578b\u6267\u884c\u4e2d\u65ad\uff1aHarness \u8fdb\u7a0b\u5728\u56de\u590d\u5b8c\u6210\u524d\u9000\u51fa' };
+      }
+    }
     if (raw.type === 'tool/call') {
       const name = typeof raw.data?.name === 'string' ? raw.data.name :
         typeof raw.data?.toolName === 'string' ? raw.data.toolName : 'Tool';
@@ -135,6 +151,11 @@ export const standaloneDesktopBrowser = String.raw`
     let assistantDraft = '';
     let count = 0;
     for (const event of entries) {
+      const raw = event?.type === 'event' ? event.event : event;
+      if (raw?.type === 'user/message' && raw.data?.source?.kind === 'user' &&
+          typeof raw.data.source.rpcId === 'string') {
+        pendingMessages.delete(raw.data.source.rpcId);
+      }
       const item = textFor(event);
       if (!item) continue;
       if (item.transient) { assistantDraft += item.text; continue; }
@@ -142,6 +163,13 @@ export const standaloneDesktopBrowser = String.raw`
       const row = document.createElement('li');
       row.dataset.role = item.role;
       row.textContent = item.text;
+      fragment.appendChild(row);
+      count++;
+    }
+    for (const pending of pendingMessages.values()) {
+      const row = document.createElement('li');
+      row.dataset.role = 'user';
+      row.textContent = pending.text + (pending.status === 'sending' ? ' (\u53d1\u9001\u4e2d)' : ' (\u6392\u961f\u4e2d)');
       fragment.appendChild(row);
       count++;
     }
@@ -232,6 +260,7 @@ export const standaloneDesktopBrowser = String.raw`
       return;
     }
     currentSession = id;
+    pendingMessages.clear();
     const url = new URL(location.href);
     url.searchParams.set('session', id);
     history.replaceState(null, '', url);
@@ -251,11 +280,15 @@ export const standaloneDesktopBrowser = String.raw`
       diagnostic('\u5148\u9009\u62e9\u4f1a\u8bdd\u5e76\u8f93\u5165\u6d88\u606f');
       return;
     }
+    const requestId = crypto.randomUUID();
+    pendingMessages.set(requestId, { text: value, status: 'sending' });
+    renderEvents();
+    diagnostic('\u6b63\u5728\u5411 Harness \u53d1\u9001\u6d88\u606f\u2026');
     nodes.send.disabled = true;
     try {
       const result = await rpc('session/prompt', {
         request: {
-          requestId: crypto.randomUUID(),
+          requestId,
           sessionId: currentSession,
           mode: 'queue',
           content: [{ type: 'text', text: value }],
@@ -263,8 +296,13 @@ export const standaloneDesktopBrowser = String.raw`
       });
       if (!result || result.accepted !== true) throw new TypeError('prompt not accepted');
       nodes.message.value = '';
+      const pending = pendingMessages.get(requestId);
+      if (pending) pending.status = 'queued';
+      renderEvents();
       diagnostic('\u6d88\u606f\u5df2\u8fdb\u5165 Harness \u961f\u5217，\u7b49\u5f85\u4e8b\u4ef6\u6d41');
     } catch (error) {
+      pendingMessages.delete(requestId);
+      renderEvents();
       diagnostic('\u53d1\u9001\u5931\u8d25：' + safeError(error));
     } finally {
       nodes.send.disabled = false;

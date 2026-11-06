@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop 显示模型执行失败的 turn/end 诊断，并在发送期间保留消息回显与草稿恢复。
+
 - 修复: 兼容 Harness Electron 的 dsh-app 自定义协议桌面启动及 Host WebSocket 桥接，保留失败回退。
 
 - 修复: Delta 桌面首次启动异常时自动回退原生界面，并隔离 Harness 接口。
