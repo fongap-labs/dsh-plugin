@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 接入受管发布，独立构建 Windows、Linux、macOS 安装包。
+
 - 维护: 明确配套交付时先发布和安装 dsh-suite-delta，再发布和安装 dsh-desktop-delta。
 
 - 修复: 统一 Delta 套件全页面导航、会话、对话、输入和设置界面的间距与交互；将搜索框放回插件管理上方并复用原生检索。

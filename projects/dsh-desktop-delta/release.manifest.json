@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "root": "packages",
+  "artifact_name": "dsh-desktop-delta-release",
+  "target_repository": "fongap-labs/dsh-plugin",
+  "release_key": "dsh-desktop-delta",
+  "release_name": "Delta Desktop",
+  "release_notes": "",
+  "license_expression": "Apache-2.0",
+  "node_version_file": ".nvmrc",
+  "python_version_file": "",
+  "sbom_asset": "dsh-desktop-delta-sbom.cdx.json",
+  "builds": [
+    {
+      "id": "linux-x64",
+      "runner_profile": "linux-standard",
+      "target": "x86_64-unknown-linux-gnu",
+      "script": "dsh-desktop-delta/build-release.mjs",
+      "assets": [
+        "dsh-desktop-delta-linux-x64.deb"
+      ],
+      "attest_asset": "dsh-desktop-delta-linux-x64.deb",
+      "setup_rust": true
+    },
+    {
+      "id": "windows-x64",
+      "runner_profile": "windows-build",
+      "target": "x86_64-pc-windows-msvc",
+      "script": "dsh-desktop-delta/build-release.mjs",
+      "assets": [
+        "dsh-desktop-delta-windows-x64.exe"
+      ],
+      "attest_asset": "dsh-desktop-delta-windows-x64.exe",
+      "setup_rust": true
+    },
+    {
+      "id": "macos-arm64",
+      "runner_profile": "macos-build",
+      "target": "aarch64-apple-darwin",
+      "script": "dsh-desktop-delta/build-release.mjs",
+      "assets": [
+        "dsh-desktop-delta-macos-arm64.dmg"
+      ],
+      "attest_asset": "dsh-desktop-delta-macos-arm64.dmg",
+      "setup_rust": true
+    }
+  ]
+}
