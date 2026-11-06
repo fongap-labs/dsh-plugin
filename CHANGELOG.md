@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 独立 Gateway 验证页在插件停用或认证失效时主动关闭连接，并委托未处理的交互请求。
+
 - 新增: Delta Suite 增加默认关闭的独立网页与认证、会话传输验证入口，不改动原生会话和 Agent 内核。
 
 - 新增: Delta Desktop 接入受管发布，独立构建 Windows、Linux、macOS 安装包。
