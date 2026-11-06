@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta 桌面客户端注册旧 Suite ID 导致 Harness 启动失败，改用独立的无界面注入入口。
+
 - 新增: Delta Desktop 独立界面，迁移原 Suite 包并移除旧 Tauri 桌面项目及发布合同。
 
 - 修复: 统一侧栏导航间距、默认折叠工作区，并隐藏悬浮弹框里的工作目录路径。

@@ -118,15 +118,20 @@ describe("dsh-ui-delta", () => {
     assert.match(responseBody, /request refused/);
   });
 
-  it("客户端资源 client.js 与 icon.svg 存在且有效", () => {
-    const clientPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/lib/client.js");
+  it("registers the correct unique Desktop client ID without native Suite UI injection", () => {
+    const clientPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/lib/client-entry.js");
     const iconPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/icon.svg");
+    const manifest = JSON.parse(readFileSync(
+      join(import.meta.dirname, "../packages/dsh-desktop-delta/package.json"), "utf8"
+    ));
 
-    assert.ok(existsSync(clientPath), "client.js 必须存在");
-    assert.ok(existsSync(iconPath), "icon.svg 必须存在");
-
+    assert.ok(existsSync(clientPath), "Delta Desktop client entry must exist");
+    assert.ok(existsSync(iconPath), "icon.svg must exist");
+    assert.equal(manifest.exports["./client"], "./lib/client-entry.js");
     const clientSrc = readFileSync(clientPath, "utf8");
-    assert.ok(clientSrc.length > 1000, "client.js 应当包含 Delta UI 客户端逻辑");
+    assert.ok(clientSrc.includes("id: '@fongap-labs/dsh-desktop-delta'"));
+    assert.ok(!clientSrc.includes("@fongap-labs/dsh-suite-delta"));
+    assert.ok(!clientSrc.includes("slots.inject") && !clientSrc.includes("slots.register"));
   });
 
   it("declares valid dsh.client configuration for web client discovery", () => {

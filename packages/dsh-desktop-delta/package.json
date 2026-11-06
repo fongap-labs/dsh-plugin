@@ -13,7 +13,7 @@
     },
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
-    "./client": "./lib/client.js"
+    "./client": "./lib/client-entry.js"
   },
   "dsh": {
     "bundle": {
