@@ -68,3 +68,44 @@ The default mode verifies independently served document, Cookie admission, Gatew
 `--output /private/report.json` writes a **new**, mode 0600, redacted pass/fail report (no cookie, auth token, text, URL or Session IDs). Output files are not uploaded to CI or committed. A failed or missing real-Host run is not a pass. Tool approval and the entire end-to-end process remain separate gates: human-approved, non-destructive interaction must be observed in a real Harness before declaring P0 successful.
 
 **CI scope**: the centralized normal CI runs the runner's CLI safety/validation unit tests. It does **not** claim that a live Harness was launched or that the real-Host acceptance tests passed.
+
+## One-command isolated Host (Release beta.1)
+
+The current `dsh-suite-delta-v0.1.0-beta.1` Release tag targets source commit
+`87af8102e83b405113e5f162a418d83bb92742dd`, which already contains the
+standalone PoC. This experimental page is **off by default**. Normal chat in
+Delta Suite does not prove its Remote Gateway contract.
+
+For a disposable test environment, without touching the installed Desktop
+profile or copying model/account credentials, run:
+
+```powershell
+node scripts/run-delta-poc-isolated.mjs --dry-run
+node scripts/run-delta-poc-isolated.mjs --port 3081
+```
+
+Requires: the official `dsh` CLI on PATH and network access to the pinned
+GitHub Release. The launcher creates a fresh temporary `DSH_HOME`, initializes
+its private `delta-poc` profile from the official Web template, installs the
+pinned `.tgz`, and enables `standalonePoc: true` only in that test profile.
+It prints the official Harness launch output and runs on the specified local
+port. Open the full launch URL supplied by Harness in your browser to establish
+the official signed Cookie, then browse **on the same origin** to:
+
+```text
+http://127.0.0.1:3081/dsh-ui-delta/poc
+```
+
+This is a P0 acceptance page, not a production chat UI. First confirm the
+status, event stream, and session list. If required, create an empty disposable
+session and test its snapshot/reload. **No model credentials are migrated**;
+a real prompt needs manually configured test-model credentials and explicitly
+clicking Send. Approval must remain manual and is not automatically tested.
+
+Ctrl+C stops the isolated Host and deletes its temporary data. For scripted
+browser/CDP acceptance, run the existing
+`scripts/verify-delta-poc-host.mjs` against this Host with a local CDP
+browser already authenticated through the official launch URL.
+
+The full P0 Go/No-Go remains **pending real Host evidence**. A successful
+mock test, a published Release, or a running native Harness chat is not enough.

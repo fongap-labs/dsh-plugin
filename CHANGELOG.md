@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Suite 独立页面验证提供临时隔离 Harness Profile 一键启动脚本，固定已验证的 beta.1 发布包，不修改日常插件配置。
+
 - 新增: Delta 独立网页支持真实 Host 会话快照观测与本地隔离验收脚本，验证连接、认证及刷新恢复。
 
 - 修复: 对齐 Code Worker 发布清单的更新日志分类与中央发布治理规则，避免 Release Governance 拒绝发布。
