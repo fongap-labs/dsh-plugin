@@ -134,7 +134,7 @@ describe("dsh-ui-delta", () => {
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     assert.equal(manifest.dsh?.client?.platform, "web");
     assert.ok(Array.isArray(manifest.dsh?.client?.inject));
-    assert.ok(manifest.dsh.client.inject.includes("@deepseek-ai/dsh-client-ui-theme"));
-    assert.ok(manifest.dsh.client.inject.includes("@deepseek-ai/dsh-client-ui-renderer"));
+    assert.equal(manifest.dsh.client.immediately, false);
+    assert.deepEqual(manifest.dsh.client.inject, []);
   });
 });
