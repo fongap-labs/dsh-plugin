@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop 启动时优先验证并打开独立界面，成功后关闭原生聊天入口；仅在认证或页面检查失败时恢复原生界面，保持 Harness Agent 后端与原有隐私保护不变。
+
 - 修复: Delta 桌面客户端注册旧 Suite ID 导致 Harness 启动失败，改用独立的无界面注入入口。
 
 - 新增: Delta Desktop 独立界面，迁移原 Suite 包并移除旧 Tauri 桌面项目及发布合同。
