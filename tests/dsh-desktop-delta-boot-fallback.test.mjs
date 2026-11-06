@@ -173,3 +173,47 @@ test('successful Gateway and Session bootstrap does not activate native fallback
   socket.emit('close')
   assert.equal(navigated, '', 'a later disconnect should reconnect inside Delta')
 })
+
+test('Electron standalone Delta connects to desktop-owned Host rather than ws://app', async () => {
+  const ids = ['auth', 'socket', 'gateway', 'snapshot', 'sessions', 'messages',
+    'interaction', 'message', 'send', 'create', 'refresh', 'current', 'diagnostic']
+  const nodes = new Map(ids.map(id => [id, {
+    dataset: {}, value: '', textContent: '', disabled: false,
+    addEventListener() {}, replaceChildren() {},
+  }]))
+  const urls = []
+  let bootCalls = 0
+  let navigated = ''
+  runInNewContext(standaloneDesktopBrowser, {
+    document: { getElementById: id => nodes.get(id) },
+    location: {
+      href: 'dsh-app://app/dsh-ui-delta/app', protocol: 'dsh-app:',
+      replace(value) { navigated = value },
+    },
+    dshDesktopBoot: {
+      async ready() {
+        bootCalls++
+        return { streamBaseUrl: 'http://127.0.0.1:43021' }
+      },
+    },
+    URL, crypto: { randomUUID: () => 'electron-test' },
+    fetch: async (path) => ({
+      ok: path === '/dsh-ui-delta/app/status',
+      json: async () => ({ authenticated: true, desktop: 'Delta Desktop' }),
+    }),
+    WebSocket: class {
+      static OPEN = 1
+      constructor(url) { urls.push(url); this.readyState = 0 }
+      addEventListener() {}
+      close() {}
+    },
+    setTimeout() { return 1 }, clearTimeout() {},
+    setInterval() { return 1 }, clearInterval() {},
+    addEventListener() {},
+  }, { timeout: 1000 })
+  for (let i = 0; i < 40 && !urls.length; i++)
+    await new Promise(resolve => setImmediate(resolve))
+  assert.equal(bootCalls, 1)
+  assert.equal(urls[0], 'ws://127.0.0.1:43021/api/remote.mux')
+  assert.equal(navigated, '')
+})
