@@ -129,9 +129,9 @@ describe("dsh-ui-delta", () => {
     assert.ok(existsSync(iconPath), "icon.svg 必须存在");
     assert.equal(manifest.exports["./client"], "./lib/client-entry.js");
     const clientSrc = readFileSync(clientPath, "utf8");
-    assert.match(clientSrc, /id:\s*['"]@fongap-labs\\/dsh-desktop-delta['"]/);
-    assert.doesNotMatch(clientSrc, /@fongap-labs\\/dsh-suite-delta/);
-    assert.doesNotMatch(clientSrc, /slots\\.inject|slots\\.register/);
+    assert.ok(clientSrc.includes("id: '@fongap-labs/dsh-desktop-delta'"));
+    assert.ok(!clientSrc.includes("@fongap-labs/dsh-suite-delta"));
+    assert.ok(!clientSrc.includes("slots.inject") && !clientSrc.includes("slots.register"));
   });
 
   it("declares valid dsh.client configuration for web client discovery", () => {
