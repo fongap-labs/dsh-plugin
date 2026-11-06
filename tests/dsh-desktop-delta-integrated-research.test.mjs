@@ -2,8 +2,8 @@ import { describe, it, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   PUBLIC_SEARCH_INSTANCES, clearPublicSearchHealth, searchPublicInstances, searchSearxng,
-} from '../packages/dsh-suite-delta/lib/host/searxng.js'
-import { chunkArticle, digestEvidence } from '../packages/dsh-suite-delta/lib/host/evidence-analysis.js'
+} from '../packages/dsh-desktop-delta/lib/host/searxng.js'
+import { chunkArticle, digestEvidence } from '../packages/dsh-desktop-delta/lib/host/evidence-analysis.js'
 
 afterEach(() => clearPublicSearchHealth())
 describe('embedded free search providers', () => {

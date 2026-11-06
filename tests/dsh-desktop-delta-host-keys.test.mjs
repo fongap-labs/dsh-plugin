@@ -12,7 +12,7 @@ describe('Delta UI Host provider key lifecycle', () => {
     const home = mkdtempSync(join(tmpdir(), 'dsh-ui-delta-keys-'))
     const script = `
       import assert from 'node:assert/strict';
-      import { publicView, updateConfig, openKey } from './packages/dsh-suite-delta/lib/host/config.js';
+      import { publicView, updateConfig, openKey } from './packages/dsh-desktop-delta/lib/host/config.js';
 
       await updateConfig({ section: 'search', addProvider: true });
       const first = publicView().search.providers[0];

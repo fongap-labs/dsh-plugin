@@ -2,8 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
-const host = readFileSync(new URL('../packages/dsh-suite-delta/src/index.ts', import.meta.url), 'utf8')
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
+const host = readFileSync(new URL('../packages/dsh-desktop-delta/src/index.ts', import.meta.url), 'utf8')
 
 describe('native file references and Workbench ownership', () => {
   it('does not expose duplicate disabled settings controls', () => {

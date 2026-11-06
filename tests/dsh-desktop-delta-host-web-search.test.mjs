@@ -2,9 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const search = readFileSync(new URL('../packages/dsh-suite-delta/src/host/search.ts', import.meta.url), 'utf8')
-const routes = readFileSync(new URL('../packages/dsh-suite-delta/src/host/routes.ts', import.meta.url), 'utf8')
-const adapter = readFileSync(new URL('../packages/dsh-suite-delta/src/host/python-ddgs.ts', import.meta.url), 'utf8')
+const search = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/search.ts', import.meta.url), 'utf8')
+const routes = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/routes.ts', import.meta.url), 'utf8')
+const adapter = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/python-ddgs.ts', import.meta.url), 'utf8')
 
 describe('shared Python ddgs search execution', () => {
   it('routes manual search and native model web_search through one search function', () => {

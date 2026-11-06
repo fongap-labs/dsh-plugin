@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { makeWebSearchProvider } from '../packages/dsh-suite-delta/lib/host/search.js'
-import { searchPythonDdgs } from '../packages/dsh-suite-delta/lib/host/python-ddgs.js'
+import { makeWebSearchProvider } from '../packages/dsh-desktop-delta/lib/host/search.js'
+import { searchPythonDdgs } from '../packages/dsh-desktop-delta/lib/host/python-ddgs.js'
 
 describe('native Python ddgs search provider', () => {
   it('passes a UTF-8 JSON query to fixed Python code with no shell', async () => {
@@ -29,8 +29,8 @@ describe('native Python ddgs search provider', () => {
   })
 
   it('preserves native web registry provider id and safe HTTP fetching', () => {
-    const host = readFileSync(new URL('../packages/dsh-suite-delta/src/index.ts', import.meta.url), 'utf8')
-    const patch = readFileSync(new URL('../packages/dsh-suite-delta/cordis.patch.yml', import.meta.url), 'utf8')
+    const host = readFileSync(new URL('../packages/dsh-desktop-delta/src/index.ts', import.meta.url), 'utf8')
+    const patch = readFileSync(new URL('../packages/dsh-desktop-delta/cordis.patch.yml', import.meta.url), 'utf8')
     assert.equal(makeWebSearchProvider().id, 'delta-duckduckgo')
     assert.match(host, /registerSearchProvider\(makeWebSearchProvider\(\)\)/)
     assert.match(patch, /searchProvider: delta-duckduckgo/)

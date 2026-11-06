@@ -3,8 +3,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 
-const client = readFileSync(new URL('../packages/dsh-suite-delta/lib/client.js', import.meta.url), 'utf8')
-const manifest = JSON.parse(readFileSync(new URL('../packages/dsh-suite-delta/package.json', import.meta.url), 'utf8'))
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/lib/client.js', import.meta.url), 'utf8')
+const manifest = JSON.parse(readFileSync(new URL('../packages/dsh-desktop-delta/package.json', import.meta.url), 'utf8'))
 
 test('client starts without contextMenus and registers its menu when the service appears', () => {
   let entry

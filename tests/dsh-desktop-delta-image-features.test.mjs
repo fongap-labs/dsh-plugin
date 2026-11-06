@@ -2,11 +2,11 @@ import { it, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { syncBuiltinESMExports } from 'node:module'
-import { publicView, updateConfig } from '../packages/dsh-suite-delta/lib/host/config.js'
-import { mainModelView, resolveMainImageAccount } from '../packages/dsh-suite-delta/lib/host/main-model.js'
-import { recognizeImage } from '../packages/dsh-suite-delta/lib/host/vision.js'
-import { generateImage } from '../packages/dsh-suite-delta/lib/host/image-gen.js'
-import { apply } from '../packages/dsh-suite-delta/lib/index.js'
+import { publicView, updateConfig } from '../packages/dsh-desktop-delta/lib/host/config.js'
+import { mainModelView, resolveMainImageAccount } from '../packages/dsh-desktop-delta/lib/host/main-model.js'
+import { recognizeImage } from '../packages/dsh-desktop-delta/lib/host/vision.js'
+import { generateImage } from '../packages/dsh-desktop-delta/lib/host/image-gen.js'
+import { apply } from '../packages/dsh-desktop-delta/lib/index.js'
 
 const ctx = {
   agentDefaultModel: { currentSelection: () => ({ provider: 'custom', model: 'chat' }) },
