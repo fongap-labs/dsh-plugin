@@ -42,9 +42,9 @@ describe('session-scoped approval extension', () => {
     assert.match(client, /status\.getSnapshot\(\)/)
     assert.match(client, /status\.subscribe\(reuseApprovals\)/)
     assert.match(client, /handled\.add\(approval\)/)
-    // The migrated native extension remains dormant; independent Delta uses
-    // the signed Gateway rather than native UI injection dependencies.
-    assert.equal(manifest.dsh.client.immediately, false)
+    // Delta's client entry starts eagerly for authenticated Delta-first navigation;
+    // the native approval extension remains excluded from UI injection.
+    assert.equal(manifest.dsh.client.immediately, true)
     assert.deepEqual(manifest.dsh.client.inject, [])
   })
 })
