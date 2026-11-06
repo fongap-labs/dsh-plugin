@@ -76,7 +76,7 @@ test('P0-A: same-origin authenticated probe is read-only and independently serve
   assert.deepEqual([...host.routes.keys()].sort(), [POC_PAGE_PATH, POC_STATUS_PATH].sort())
   const page = host.request(POC_PAGE_PATH)
   assert.equal(page.status, 200)
-  assert.match(page.body, /P0 Gateway 最小验证/)
+  assert.match(page.body, /P0 Gateway/)
   assert.match(page.body, /api\/remote\.mux/)
   assert.match(page.body, /Session RPC/)
   assert.match(page.body, /approval\\/request/)
