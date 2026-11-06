@@ -1,10 +1,18 @@
 # Delta Desktop（Delta 桌面）
 
-DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Desktop)。
+Delta Desktop 是以 DeepSeek Harness 插件方式安装的桌面功能入口，提供独立界面和可扩展的 Host 功能模块，Harness 仅作为 Agent/Gateway 后端。
 
 ## 独立前端
 
 Delta Desktop 现在是唯一产品。原有 Tauri 应用已废弃；本包复用 Harness 内核，提供独立的 `/dsh-ui-delta/app` 对话页面。客户端入口在官方启动认证完成后，以同源 Cookie 验证独立页面状态，再将 Harness 根页面切换至独立会话页；不在插件管理页、未认证状态或嵌入页强行跳转。独立页面仍是逐步迁移中的基础实现，并非已覆盖原生 Harness 全部功能。新包不向原生 Harness 前端注册 UI 插件，因此不会同时运行两个活动聊天界面。现阶段独立页面提供基础会话列表、发送、文本呈现及手动审批；原生增强功能尚未全部迁入新界面。历史 `.dsh-ui-delta` 配置目录保留，防止用户设置丢失。
+
+## 启动与原生回退
+
+- 默认优先打开 Delta 桌面：官方 Cookie 认证后检查独立页面是否可用，接着替换同窗口的原生聊天文档。
+- 首次启动需要 Gateway 事件流与 Session RPC 两者就绪；15 秒仍未成功则回退到原生界面。失败回退使用一次性 URL 标记避免循环，后续的短暂网络断线不会自动触发原生界面。
+- 插件不能阻止 Harness/Electron 在加载插件之前初始化原生入口，因此「关闭原生界面」当前指切换成功后不再显示/维持原生聊天文档，不表示关闭整个宿主进程。
+- 回退到原生 UI 后，DeepSeek 模型配置能力由宿主继续管理；隐私保护 Bundle 禁用项不会因界面回退而恢复。
+- 与 Harness 的 HTTP 路由和 Cookie 认证接口集中在 `src/host/harness-adapter.ts`，其它能力应作为独立 Host 模块扩展。详见 [架构约束](docs/architecture.md)。
 
 ## 特性
 - **现代主题调色板**：适配深色/浅色双模式，高对比、细腻雅致。
