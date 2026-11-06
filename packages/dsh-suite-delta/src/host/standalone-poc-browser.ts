@@ -107,7 +107,7 @@ export const standalonePocBrowser = String.raw`
     if (!isActive) return;
     state(nodes.sessions, 'pending', '\u8bfb\u53d6\u4e2d');
     try {
-      const value = await rpc('session/list', { request: {} });
+      const value = await rpc('session/list', { _request: {} });
       if (!isActive) return;
       const items = value && Array.isArray(value.items) ? value.items : null;
       if (items === null) throw new TypeError('invalid session list');
