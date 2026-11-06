@@ -12,13 +12,19 @@
       "default": "./lib/index.js"
     },
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./client": "./lib/client.js"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
-    "manifestVersion": 1
+    "manifestVersion": 1,
+    "client": {
+      "platform": "web",
+      "immediately": false,
+      "inject": []
+    }
   },
   "files": [
     "lib/**/*.js",
