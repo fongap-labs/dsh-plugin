@@ -2,7 +2,7 @@
 
 ## 现状
 
-Delta Suite 已通过官方 `sidebar.panellist` + `main` 扩展点提供完整的独立文件夹浏览面板；会话行标签和悬停详情使用 `sidebar.session.row.trailing` / `sidebar.session.row.hover`。文件夹拖放仅作用于 Delta 自有面板，不替换宿主的会话行或工作区拖拽。
+Delta Desktop 已通过官方 `sidebar.panellist` + `main` 扩展点提供完整的独立文件夹浏览面板；会话行标签和悬停详情使用 `sidebar.session.row.trailing` / `sidebar.session.row.hover`。文件夹拖放仅作用于 Delta 自有面板，不替换宿主的会话行或工作区拖拽。
 
 DeepSeek Harness `ui-workspace` 当前独占 `sidebar.workspaces` 的单实例插槽，内部管理工作区分组、原生会话树、拖拽排序和会话操作。注册第二个该插槽会与宿主冲突。当前没有可靠的“组提供者 / 原生会话树过滤器”扩展接口。因此 **原生侧栏内嵌的 Delta 文件夹树暂不可安全实现**，不能通过 DOM 重新挂载、覆盖 `sidebar.workspaces` 或拦截 Host 原生 DnD 事件规避这一边界。
 

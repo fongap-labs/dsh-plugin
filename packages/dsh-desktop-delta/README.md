@@ -1,10 +1,10 @@
-# Delta Suite（Delta 套件）
+# Delta Desktop（Delta 桌面）
 
-DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Suite)。
+DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Desktop)。
 
-## 桌面前端
+## 独立前端
 
-完整桌面前端是独立包 **[`dsh-desktop-delta`](../dsh-desktop-delta/README.md)**，与本 `dsh-suite-delta` Harness 插件并行运行；用户界面品牌仍为 Delta Suite。两者配套交付时，先通过现有 Action Worker 流程发布并在 Harness 安装、启用 `dsh-suite-delta`，再发布和安装 `dsh-desktop-delta`；两个包分别发布，桌面安装包不包含插件代码。桌面应用通过 Harness 公开 SDK profile 连接外部运行内核，目前支持对话、Delta 本机的最近会话、会话恢复、工作目录切换、工具审批和用户提问。Harness 全量会话目录、设置、工作区文件浏览、技能管理和终端等完整桌面能力尚未接通，因此它还不能完全替代 Harness 原生前端。
+Delta Desktop 现在是唯一产品。原有 Tauri 应用已废弃；本包复用 Harness 内核，提供独立的 `/dsh-ui-delta/app` 对话页面。新包不向原生 Harness 前端注册 UI 插件，因此不会同时运行两个活动聊天界面。现阶段独立页面提供基础会话列表、发送、文本呈现及手动审批；原生增强功能尚未全部迁入新界面。历史 `.dsh-ui-delta` 配置目录保留，防止用户设置丢失。
 
 ## 特性
 - **现代主题调色板**：适配深色/浅色双模式，高对比、细腻雅致。
@@ -13,7 +13,7 @@ DeepSeek Harness UI 界面深度美化与交互体验插件 (Delta Suite)。
 
 ## 隐私与配置
 
-Delta Suite 的 Bundle **禁用** 宿主 `session-log-deepseek` 插件，而不是仅将 `enabled` 设为 `false`。因此在此 Bundle 生效且没有更高优先级覆盖时，宿主「设置 → 通用」中的「在使用官方模型 API 时上传 Session Log」开关将不再显示，用户无法从该开关重新开启上传。此机制不是全局不可变安全策略：若其他 Profile、Home 配置或命令行覆盖重新启用插件，依然可能恢复该功能；Delta Suite 在宿主提供 `sessionLogDeepSeek` 服务时仍注册全局上传排除规则作为额外防护。禁用或卸载 Delta Suite 后，防护不再存在；已准备的在途请求不会被追溯取消。
+Delta Desktop 的 Bundle **禁用** 宿主 `session-log-deepseek` 插件，而不是仅将 `enabled` 设为 `false`。因此在此 Bundle 生效且没有更高优先级覆盖时，宿主「设置 → 通用」中的「在使用官方模型 API 时上传 Session Log」开关将不再显示，用户无法从该开关重新开启上传。此机制不是全局不可变安全策略：若其他 Profile、Home 配置或命令行覆盖重新启用插件，依然可能恢复该功能；Delta Desktop 在宿主提供 `sessionLogDeepSeek` 服务时仍注册全局上传排除规则作为额外防护。禁用或卸载 Delta Desktop 后，防护不再存在；已准备的在途请求不会被追溯取消。
 
 同时默认关闭 `session-telemetry-otel` 的 OTel 会话/反馈上传（`DISABLED`）、`plugin-package-inventory-deepseek` 插件清单附加上传及桌面 `product-analytics` 事件采集。以上是宿主 Bundle 默认值，不是操作系统级网络隔离；宿主原生模型调用、登录、更新和第三方插件/子进程可能另有网络请求。**普通模型推理仍会发送必需消息；脱敏扫描无法保证识别所有隐私内容。** Delta 自有的搜索和图片生成文本请求执行本地敏感信息预检查，检测到疑似凭据、邮箱、手机号或个人路径时拒绝外传，用户需先自行处理后重试。
 
@@ -31,17 +31,17 @@ Delta Suite 的 Bundle **禁用** 宿主 `session-log-deepseek` 插件，而不�
 
 输入 `/search 查询词` 会将搜索结果回填输入框，等待用户确认发送；它不等同于模型调用 `web_search` 工具，但两者复用 Delta 的宿主搜索实现。搜索先使用已配置的独立服务商；允许免密钥搜索时依次尝试公共 SearXNG 节点和本地 Python `ddgs`。**Python 是最终兜底，不是全部搜索方式的前置依赖。** 搜索过程中保留用户草稿，切换输入框或继续编辑不会被过期结果覆盖。
 
-**模型密钥不能代替搜索密钥。** Harness 未安装 Delta Suite 时默认使用 `deepseek-official` 进行搜索，需单独具备官方认证。安装 Delta Suite 的 Bundle 后默认选择 `delta-duckduckgo`，不需要官方搜索 API Key。使用其他模型网关时，建议为宿主指定独立搜索服务商（例如 Exa），或在 Delta 套件中提供 Tavily 兼容接口。若没有可用搜索服务，插件将明确说明配置失败原因；不会伪造新闻。
+**模型密钥不能代替搜索密钥。** Harness 未安装 Delta Desktop 时默认使用 `deepseek-official` 进行搜索，需单独具备官方认证。安装 Delta Desktop 的 Bundle 后默认选择 `delta-duckduckgo`，不需要官方搜索 API Key。使用其他模型网关时，建议为宿主指定独立搜索服务商（例如 Exa），或在 Delta 桌面中提供 Tavily 兼容接口。若没有可用搜索服务，插件将明确说明配置失败原因；不会伪造新闻。
 
 登录后，头像悬停/键盘聚焦显示 Harness 账户余额与赠送余额。数据只来自宿主的账户快照，未就绪时不显示任何余额提示；宿主提供今日消费数据时，悬停提示会一并显示今日消费金额，缺失时不会显示虚假数值；点击头像不再弹出设置、反馈或退出菜单，不执行独立的带密钥请求。余额指的是 DeepSeek 官方账户，不是自定义模型提供商或 AI Gateway 的余额。
 
 ## 会话删除的安全边界
 
-Harness 的 `sessionPersistence` 尚未提供受支持的永久删除事务。Delta Suite 当前**确实提供了实验性的冷会话永久删除**：在会话右键菜单选择「删除会话」并确认后，插件通过 `/dsh-ui-delta/session-delete` 删除对应的持久化会话目录，并尝试解除工作区关联及文件夹归属。正在运行、仍在宿主内存中、存储路径不符合隔离规则或无法安全定位的会话会被拒绝。此操作依赖宿主内部结构，无法保证跨版本兼容或多步骤原子回滚；物理删除不可撤销，若后续清理失败可能留下工作区或文件夹残余记录。**日常整理优先使用 Harness 原生归档**，只有明确需要永久移除冷会话时才使用这一入口。归档不等于删除。
+Harness 的 `sessionPersistence` 尚未提供受支持的永久删除事务。Delta Desktop 当前**确实提供了实验性的冷会话永久删除**：在会话右键菜单选择「删除会话」并确认后，插件通过 `/dsh-ui-delta/session-delete` 删除对应的持久化会话目录，并尝试解除工作区关联及文件夹归属。正在运行、仍在宿主内存中、存储路径不符合隔离规则或无法安全定位的会话会被拒绝。此操作依赖宿主内部结构，无法保证跨版本兼容或多步骤原子回滚；物理删除不可撤销，若后续清理失败可能留下工作区或文件夹残余记录。**日常整理优先使用 Harness 原生归档**，只有明确需要永久移除冷会话时才使用这一入口。归档不等于删除。
 
 ## 会话文件夹
 
-Delta Suite 提供本地文件夹管理和会话归类，但不再提供独立文件夹浏览面板或第二套会话列表。通过原生会话右键菜单执行「归入」「移出文件夹」「新建文件夹并归入」；在「设置 → Delta 套件」管理文件夹。新建并归入采用单次原子事务，失败不会留下未归类的新文件夹。宿主原生工作区和会话列表仍由 Harness 管理，插件不会移动、重排或复制其节点。文件夹归属使用本地状态文件保存，支持修订版本冲突保护；清理已删除会话的失效归属需要用户先预览、确认。具体边界见[锁恢复说明](docs/folder-lock-recovery.md)和[原生侧栏扩展契约](docs/native-sidebar-grouping-contract.md)。
+Delta Desktop 提供本地文件夹管理和会话归类，但不再提供独立文件夹浏览面板或第二套会话列表。通过原生会话右键菜单执行「归入」「移出文件夹」「新建文件夹并归入」；在「设置 → Delta 桌面」管理文件夹。新建并归入采用单次原子事务，失败不会留下未归类的新文件夹。宿主原生工作区和会话列表仍由 Harness 管理，插件不会移动、重排或复制其节点。文件夹归属使用本地状态文件保存，支持修订版本冲突保护；清理已删除会话的失效归属需要用户先预览、确认。具体边界见[锁恢复说明](docs/folder-lock-recovery.md)和[原生侧栏扩展契约](docs/native-sidebar-grouping-contract.md)。
 
 ## 免密钥搜索与原生工具
 
@@ -51,7 +51,7 @@ Delta Suite 提供本地文件夹管理和会话归类，但不再提供独立�
 
 缺少 Python 或 `ddgs` 时，插件在搜索失败提示中给出安装指引，用户安装后下次搜索可重新尝试。前置的自定义 Provider 和公共 SearXNG 节点均不依赖 Python。
 
-Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模型搜索工具。普通对话的自动搜索还取决于所选 Agent preset 是否加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用宿主的 `web-fetch-http` 安全规则。其他搜索服务商的密钥和费用由各自服务商负责。
+Delta Desktop 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模型搜索工具。普通对话的自动搜索还取决于所选 Agent preset 是否加载 `@deepseek-ai/dsh-tool-web`；网页读取沿用宿主的 `web-fetch-http` 安全规则。其他搜索服务商的密钥和费用由各自服务商负责。
 
 ## 搜索质量与深度检索
 
@@ -68,16 +68,16 @@ Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模
 ## 上下文管理与长期记忆（P0–P2）
 
 - **上下文（P0）**：复用 Harness 的 ContextMeter、Token Meter、自动 Compaction、原生 /compact 和 @ 跨会话引用。Delta 设置页提供操作说明，不重写历史，不实现第二套压缩引擎。
-- **本地记忆（P1）**：在「设置 → Delta 套件 → 长期记忆」使用本地 SQLite 存储。支持全局／项目／会话范围、类别、来源会话、过期时间、置顶、创建、编辑、删除、搜索和 JSON 备份／导入。数据库路径为 DSH_HOME/delta-memory/memory.sqlite（未指定 DSH_HOME 时使用 ~/.dsh/delta-memory/memory.sqlite）。
+- **本地记忆（P1）**：在「设置 → Delta 桌面 → 长期记忆」使用本地 SQLite 存储。支持全局／项目／会话范围、类别、来源会话、过期时间、置顶、创建、编辑、删除、搜索和 JSON 备份／导入。数据库路径为 DSH_HOME/delta-memory/memory.sqlite（未指定 DSH_HOME 时使用 ~/.dsh/delta-memory/memory.sqlite）。
 - **检索治理（P2）**：SQLite FTS5 加子字符串补充检索，按置顶、匹配与更新时间排序；搜索不返回已过期或已被新决策替代的记录。Agent 使用 delta_memory_search 按需召回，并使用 delta_memory_save 保存可独立理解的事实；每条记忆保留来源。
 - **隐私**：Agent 自动写入默认关闭，服务端拒绝未启用时的 Agent 写入；手动管理仍可使用。Agent 召回默认开启，可随时关闭。拦截常见 API Key、密码和私钥文本，记忆仅是不可执行的历史背景。删除单条记忆从 SQLite 表及 FTS 索引中删除，但不追溯删除备份文件。
-- **运行时**：记忆需要 Node.js 22.13+（推荐 Node 24），使用内置 node:sqlite，无额外 MCP 或 embedding 服务。旧 Node 仍可使用 Delta Suite 其他功能，记忆接口会给出明确错误。宿主缺少 tools/systemPrompt 时仅 Agent 记忆工具降级。
+- **运行时**：记忆需要 Node.js 22.13+（推荐 Node 24），使用内置 node:sqlite，无额外 MCP 或 embedding 服务。旧 Node 仍可使用 Delta Desktop 其他功能，记忆接口会给出明确错误。宿主缺少 tools/systemPrompt 时仅 Agent 记忆工具降级。
 
 管理 API：/dsh-ui-delta/memory、/dsh-ui-delta/memory/settings、/dsh-ui-delta/memory/export。备份含记忆正文，需妥善保管。项目 ID 使用 Agent 工作目录 SHA-256 摘要，避免把本地绝对路径存进索引。Agent 在服务端限定为当前项目、当前会话和全局记忆。记忆提取依赖 Agent 主动调用工具，并非每条消息的自动后台处理。
 
 ## 视觉识别与在线生图
 
-打开「设置 → Delta 套件」，顶部默认显示「在线生图」。填写生图模型 ID 后保存，输入图片描述、选择尺寸并点击「生成图片」，结果可直接预览和下载。生图只在点击后发起；当前支持返回 Base64 图片的 OpenAI 兼容 Images 接口。GPT Image 模型不发送其不支持的 response_format 参数，参见 [接口说明](https://developers.openai.com/api/reference/resources/images/methods/generate)。仅返回远程图片 URL 的服务会提示不兼容。
+打开「设置 → Delta 桌面」，顶部默认显示「在线生图」。填写生图模型 ID 后保存，输入图片描述、选择尺寸并点击「生成图片」，结果可直接预览和下载。生图只在点击后发起；当前支持返回 Base64 图片的 OpenAI 兼容 Images 接口。GPT Image 模型不发送其不支持的 response_format 参数，参见 [接口说明](https://developers.openai.com/api/reference/resources/images/methods/generate)。仅返回远程图片 URL 的服务会提示不兼容。
 
 开启「视觉识别」后，可设置视觉模型 ID、温度（0–2）及最大输出长度（1–65536 tokens）；参数留空采用服务商默认值。粘贴图片后，识别结果插入输入框。模型 ID 留空跟随主模型；选择的视觉模型必须支持图片输入。原有视觉模型 ID 会保留，旧的独立视觉服务商地址和密钥不再用于请求。
 
@@ -87,7 +87,7 @@ Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模
 
 工具审批弹窗增加“本次会话允许”。首次点击仍通过宿主原生 `PendingApproval.answer('allowed-once')` 批准当前请求，以便宿主记录 `approval/asked` 与 `approval/decided`。插件只在**相同浏览器加载周期、同一会话实例、同一个工具、完全相同的原始参数及审批原因**全部相同时，自动批准后续请求。不同命令、文件路径、参数、原因、会话、分支会话不共享授权；调用缺失、历史未就绪或无法确定参数时仍仅提供一次性审批。保留宿主的 `never` 拒绝策略。
 
-授权只在当前 Delta Suite 页面内存中持有，刷新页面、卸载插件或宿主连接重新建立后自动失效；**不提供永久允许**，也不把会话授权等同于“对全部操作取消审批”。目前未提供单独的授权列表；如需立即撤销已授权的重复操作，可刷新页面。真实桌面端仍需验证宿主审批区域是否按预期显示第三个按钮。
+授权只在当前 Delta Desktop 页面内存中持有，刷新页面、卸载插件或宿主连接重新建立后自动失效；**不提供永久允许**，也不把会话授权等同于“对全部操作取消审批”。目前未提供单独的授权列表；如需立即撤销已授权的重复操作，可刷新页面。真实桌面端仍需验证宿主审批区域是否按预期显示第三个按钮。
 
 
 ## 集成式搜索与研究链路
@@ -102,7 +102,7 @@ Delta Suite 向宿主的 `ctx.web` 注册搜索 Provider，不另建第二套模
 
 ## 技能管理（P0 / P1 基础版）
 
-「设置 → Delta 套件 → 技能管理」直接读取 Harness 原生 `ctx.skills` 目录；已加载技能展示名称、来源、提供方和描述。无法访问宿主注册表时会提示诊断而不会中断对话界面。
+「设置 → Delta 桌面 → 技能管理」直接读取 Harness 原生 `ctx.skills` 目录；已加载技能展示名称、来源、提供方和描述。无法访问宿主注册表时会提示诊断而不会中断对话界面。
 
 Delta 仅管理用户 DSH 目录 `$DSH_HOME/skills`（默认 `~/.dsh/skills`）中由本功能创建的扁平 `<name>.md` 技能。支持创建、编辑、查询、启用、禁用、删除，以及从本机 `SKILL.md` 导入正文到**待审核表单**（必须手动确认后创建）。禁用将文件重命名为 `.md.disabled`，可恢复；不会编辑宿主原生技能、项目技能、第三方技能或直接执行导入的脚本。技能实际加载和发现由 Harness 的 `dsh-skill-filesystem` 负责，必须确认当前 Agent preset 已挂载该服务。
 
@@ -110,10 +110,10 @@ Delta 仅管理用户 DSH 目录 `$DSH_HOME/skills`（默认 `~/.dsh/skills`）�
 
 ## 技能管理扩展：安全导入与回滚
 
-在「设置 → Delta 套件 → 技能管理」可粘贴公开 GitHub 仓库根目录、树目录或 `SKILL.md` 文件的链接，也可以选择本地 ZIP。两种方式只提取并**预览**唯一的 `SKILL.md`，填入待审核表单；必须再次手动点击「创建技能」，不会自动运行脚本或安装 ZIP 内其他资产。GitHub 只接受 `github.com`、`raw.githubusercontent.com` 的 HTTPS 地址，不允许鉴权信息、端口或重定向；浏览器与服务端均限制导入大小。ZIP 最大 2 MB，仅接收一个 `SKILL.md`，拒绝路径穿越、符号链接及异常压缩数据。
+在「设置 → Delta 桌面 → 技能管理」可粘贴公开 GitHub 仓库根目录、树目录或 `SKILL.md` 文件的链接，也可以选择本地 ZIP。两种方式只提取并**预览**唯一的 `SKILL.md`，填入待审核表单；必须再次手动点击「创建技能」，不会自动运行脚本或安装 ZIP 内其他资产。GitHub 只接受 `github.com`、`raw.githubusercontent.com` 的 HTTPS 地址，不允许鉴权信息、端口或重定向；浏览器与服务端均限制导入大小。ZIP 最大 2 MB，仅接收一个 `SKILL.md`，拒绝路径穿越、符号链接及异常压缩数据。
 
 Delta 管理技能更新前会保存上一版，最多保留最近 10 个历史版本；可在技能操作栏点击「版本历史」选择恢复，恢复前还会备份当前版本。历史位于 `$DSH_HOME/skills/.delta-skill-history/`，不会复制宿主、项目或第三方技能，且不会执行内容。技能删除目前不自动删除历史快照；它们不会参与 Harness 的技能发现。GitHub 与 ZIP 导入仅支持单个 Markdown 指令文件，不含其引用的 scripts、assets 或 requirements，也不提供自动远程版本检查。
 
 ## 许可证与迁移
 
-本插件自本次变更起采用与仓库根目录一致的 [Apache-2.0 许可证](LICENSE)。此前按 MIT 许可证发布的历史版本不追溯变更。安装新包 `@fongap-labs/dsh-suite-delta` 前请卸载旧包 `@fongap-labs/dsh-ui-delta`，避免两个插件同时启用。旧 GitHub Release 及其历史标签保留，用于回滚和追溯。配置存储位置、现有 `/dsh-ui-delta/` HTTP 路由、Provider ID 等内部兼容标识暂不调整，以免迁移时丢失数据或破坏已有设置。
+本插件自本次变更起采用与仓库根目录一致的 [Apache-2.0 许可证](LICENSE)。此前按 MIT 许可证发布的历史版本不追溯变更。安装新包 `@fongap-labs/dsh-desktop-delta` 前请卸载旧包 `@fongap-labs/dsh-ui-delta`，避免两个插件同时启用。旧 GitHub Release 及其历史标签保留，用于回滚和追溯。配置存储位置、现有 `/dsh-ui-delta/` HTTP 路由、Provider ID 等内部兼容标识暂不调整，以免迁移时丢失数据或破坏已有设置。

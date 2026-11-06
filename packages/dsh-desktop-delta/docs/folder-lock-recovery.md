@@ -1,4 +1,4 @@
-# Delta Suite 文件夹写入锁恢复
+# Delta Desktop 文件夹写入锁恢复
 
 文件夹数据保存在用户目录的 `~/.dsh-ui-delta/folders.json`，修改时使用同目录下的 `folders.json.lock` 独占目录，避免多个 DSH 进程同时覆盖文件。
 
