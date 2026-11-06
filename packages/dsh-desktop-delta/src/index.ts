@@ -5,6 +5,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { registerRoutes } from './host/routes.js'
 import { registerStandalonePoc } from './host/standalone-poc.js'
+import { registerIndependentApp } from './host/standalone-app.js'
 import { makeWebSearchProvider } from './host/search.js'
 import { registerMemoryTools } from './host/memory-tools.js'
 import { registerGatewayReliability } from './host/gateway-reliability.js'
@@ -22,6 +23,7 @@ export interface Config {
 export function apply(ctx: Context, config: Config = {}): void {
   registerGatewayReliability(ctx, config.gatewayReliability)
   registerRoutes(ctx)
+  registerIndependentApp(ctx)
   if (config.standalonePoc === true) registerStandalonePoc(ctx)
   registerMemoryTools(ctx)
   // The official DeepSeek extension enables Session Log contribution by default.
