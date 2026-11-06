@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const uiDelta = await import("../packages/dsh-suite-delta/lib/index.js");
+const uiDelta = await import("../packages/dsh-desktop-delta/lib/index.js");
 
 function createMockWebServer() {
   const routes = new Map();
@@ -23,7 +23,7 @@ function createMockWebServer() {
 
 describe("dsh-ui-delta", () => {
   it("插件元信息导出正确", () => {
-    assert.equal(uiDelta.name, "@fongap-labs/dsh-suite-delta");
+    assert.equal(uiDelta.name, "@fongap-labs/dsh-desktop-delta");
     assert.deepEqual(uiDelta.inject, ["webServer"]);
     assert.equal(typeof uiDelta.apply, "function");
   });
@@ -86,7 +86,7 @@ describe("dsh-ui-delta", () => {
 
     assert.equal(statusCode, 200);
     const parsed = JSON.parse(responseBody);
-    const manifestPath = join(import.meta.dirname, "../packages/dsh-suite-delta/package.json");
+    const manifestPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     assert.equal(parsed.version, manifest.version);
   });
@@ -119,8 +119,8 @@ describe("dsh-ui-delta", () => {
   });
 
   it("客户端资源 client.js 与 icon.svg 存在且有效", () => {
-    const clientPath = join(import.meta.dirname, "../packages/dsh-suite-delta/lib/client.js");
-    const iconPath = join(import.meta.dirname, "../packages/dsh-suite-delta/icon.svg");
+    const clientPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/lib/client.js");
+    const iconPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/icon.svg");
 
     assert.ok(existsSync(clientPath), "client.js 必须存在");
     assert.ok(existsSync(iconPath), "icon.svg 必须存在");
@@ -130,7 +130,7 @@ describe("dsh-ui-delta", () => {
   });
 
   it("declares valid dsh.client configuration for web client discovery", () => {
-    const manifestPath = join(import.meta.dirname, "../packages/dsh-suite-delta/package.json");
+    const manifestPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/package.json");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     assert.equal(manifest.dsh?.client?.platform, "web");
     assert.ok(Array.isArray(manifest.dsh?.client?.inject));

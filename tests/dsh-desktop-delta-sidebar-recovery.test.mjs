@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-const source = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
 
 test('native session list is never replaced with a recovery duplicate', () => {
   assert.doesNotMatch(source, /sessionListRecovery|ens-sidebar-recovery|data-delta-sidebar-recovery/)

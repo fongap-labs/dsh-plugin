@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8');
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8');
 const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
 
 describe('dsh-ui-delta UI compatibility regressions', () => {
@@ -12,7 +12,7 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
     assert.doesNotMatch(client, /Update available v/);
   });
 
-  it('falls back to the Delta Suite settings panel when no native settings surface opens', () => {
+  it('falls back to the Delta Desktop settings panel when no native settings surface opens', () => {
     assert.match(client, /if \(!isSettingsOpenInDom\(\)\) \{\s*note\('fallback'/);
     assert.match(client, /openStandaloneSettings\(true\)/);
     assert.match(client, /iconBtn\('settings', ICON_SETTINGS/);
@@ -54,10 +54,10 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
 
   it('documents the scoped package and release asset without a stale pinned version', () => {
     const manifest = JSON.parse(readFileSync(
-      new URL('../packages/dsh-suite-delta/package.json', import.meta.url), 'utf8'
+      new URL('../packages/dsh-desktop-delta/package.json', import.meta.url), 'utf8'
     ));
     const release = JSON.parse(readFileSync(
-      new URL('../projects/dsh-suite-delta/release.manifest.json', import.meta.url), 'utf8'
+      new URL('../projects/dsh-desktop-delta/release.manifest.json', import.meta.url), 'utf8'
     ));
     const tarball = release.builds.flatMap((build) => build.assets)
       .find((asset) => asset.endsWith('.tgz'));
@@ -74,9 +74,9 @@ describe('dsh-ui-delta UI compatibility regressions', () => {
 
 });
 
-describe('Delta Suite settings privacy and usability', () => {
-  const host = readFileSync(new URL('../packages/dsh-suite-delta/src/index.ts', import.meta.url), 'utf8');
-  const config = readFileSync(new URL('../packages/dsh-suite-delta/src/host/config.ts', import.meta.url), 'utf8');
+describe('Delta Desktop settings privacy and usability', () => {
+  const host = readFileSync(new URL('../packages/dsh-desktop-delta/src/index.ts', import.meta.url), 'utf8');
+  const config = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/config.ts', import.meta.url), 'utf8');
   it('excludes official DeepSeek session log contributions before reading them', () => {
     assert.match(host, /registerExclusion\(\(\) => true\)/);
   });
@@ -90,7 +90,7 @@ describe('Delta Suite settings privacy and usability', () => {
     assert.match(client, /if \(signal\.aborted \|\| !needle\) return base/);
   });
   it('keeps privacy copy precise and labels the settings section correctly', () => {
-    assert.match(client, /label: t\('Delta \u5957\u4ef6', 'Delta Suite'\)/);
+    assert.match(client, /label: t\('Delta \u5957\u4ef6', 'Delta Desktop'\)/);
     assert.match(client, /Model configuration/);
     assert.doesNotMatch(client, /This plugin collects and uploads nothing/);
   });

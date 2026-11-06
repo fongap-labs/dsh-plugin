@@ -10,7 +10,7 @@ const FILE = path.join(HOME, '.dsh-ui-delta', 'folders.json')
 const oldHome = os.homedir
 os.homedir = () => HOME
 syncBuiltinESMExports()
-const { readFolders, mutateFolders } = await import('../packages/dsh-suite-delta/lib/host/folders.js')
+const { readFolders, mutateFolders } = await import('../packages/dsh-desktop-delta/lib/host/folders.js')
 
 after(() => {
   os.homedir = oldHome
