@@ -169,7 +169,7 @@ export const standaloneDesktopBrowser = String.raw`
     for (const pending of pendingMessages.values()) {
       const row = document.createElement('li');
       row.dataset.role = 'user';
-      row.textContent = pending.text + (pending.status === 'sending' ? ' (发送中)' : ' (排队中)');
+      row.textContent = pending.text + (pending.status === 'sending' ? ' (\u53d1\u9001\u4e2d)' : ' (\u6392\u961f\u4e2d)');
       fragment.appendChild(row);
       count++;
     }
