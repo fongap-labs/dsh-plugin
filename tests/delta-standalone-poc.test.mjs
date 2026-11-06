@@ -31,7 +31,7 @@ function setup({ available = true } = {}) {
   }
   const ctx = {
     inject(names, run) {
-      assert.deepEqual(names, ['connection'])
+      assert.deepEqual(names, ['connection', 'webServer'])
       if (available) run({
         webServer,
         connection,
