@@ -1,0 +1,137 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import test from 'node:test'
+import { runInNewContext } from 'node:vm'
+import ts from 'typescript'
+
+const source = readFileSync(resolve('packages/dsh-suite-delta/src/host/standalone-poc-browser.ts'), 'utf8')
+const compiled = ts.transpileModule(source, {
+  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+}).outputText
+const { standalonePocBrowser } = await import('data:text/javascript;base64,' + Buffer.from(compiled).toString('base64'))
+
+function createNode(id) {
+  return {
+    id,
+    value: '',
+    textContent: '',
+    childNodes: [],
+    dataset: {},
+    disabled: false,
+    handlers: new Map(),
+    addEventListener(event, listener) { this.handlers.set(event, listener) },
+    async click() { await this.handlers.get('click')?.() },
+    replaceChildren(...children) { this.childNodes = [...children] },
+    appendChild(child) { this.childNodes.push(child) },
+    querySelectorAll(name) { return this.childNodes.flatMap(node => node.childNodes || []).filter(node => name === 'button' && node.tag === name) },
+  }
+}
+
+test('P0-B: authenticated document uses official RPC and event stream without automatic tool approval', async () => {
+  const ids = [
+    'auth', 'socket', 'gateway', 'sessions', 'messages', 'interaction',
+    'message', 'send', 'create', 'refresh', 'current', 'diagnostic',
+  ]
+  const nodes = new Map(ids.map(id => [id, createNode(id)]))
+  const calls = []
+  const sockets = []
+  const listeners = new Map()
+  const doc = {
+    getElementById: id => nodes.get(id),
+    createElement: tag => Object.assign(createNode(tag), { tag }),
+    createDocumentFragment: () => createNode('fragment'),
+  }
+  let nextId = 0
+  class FakeSocket {
+    static OPEN = 1
+    constructor(url) { this.url = url; this.readyState = 0; this.handlers = new Map(); this.sent = []; sockets.push(this) }
+    addEventListener(event, callback) { this.handlers.set(event, callback) }
+    send(value) { this.sent.push(JSON.parse(value)) }
+    close() { this.readyState = 3 }
+    emit(event, value) { this.handlers.get(event)?.(value) }
+    open() { this.readyState = 1; this.emit('open') }
+  }
+  const fetch = async (url, options = {}) => {
+    calls.push({ url, options })
+    if (url === '/dsh-ui-delta/poc/status') return {
+      ok: true, json: async () => ({ authenticated: true, poc: 'P0-B' }),
+    }
+    const frame = JSON.parse(options.body)
+    let value
+    if (frame.method === 'session/list') value = { items: [] }
+    else if (frame.method === 'session/create') value = { sessionId: 'test-session' }
+    else if (frame.method === 'session/prompt') value = { accepted: true }
+    else if (frame.method === '$events/result') value = { accepted: true }
+    else throw new Error('Unexpected endpoint ' + frame.method)
+    return {
+      ok: true,
+      json: async () => ({ type: 'server-response', rpcId: frame.rpcId, result: { ok: true, value } }),
+    }
+  }
+  const page = new URL('http://127.0.0.1:3080/dsh-ui-delta/poc?session=test-session')
+  const sandbox = {
+    document: doc,
+    location: page,
+    URL,
+    WebSocket: FakeSocket,
+    fetch,
+    crypto: { randomUUID: () => 'probe-id-' + ++nextId },
+    history: { replaceState() {} },
+    addEventListener: (name, listener) => listeners.set(name, listener),
+    setTimeout: () => 1,
+    clearTimeout() {},
+  }
+  runInNewContext(standalonePocBrowser, sandbox, { timeout: 1000 })
+  const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve() }
+  await flush()
+  assert.equal(sockets.length, 1)
+  assert.equal(sockets[0].url, 'ws://127.0.0.1:3080/api/remote.mux')
+  sockets[0].open()
+  await flush()
+  assert.equal(sockets[0].sent.some(frame => frame.type === 'open' && frame.endpoint === '$events'), true)
+  assert.equal(sockets[0].sent.some(frame => frame.type === 'open' && frame.endpoint === 'session/follow' &&
+    frame.payload.args.request.address.sessionId === 'test-session'), true)
+  assert.equal(calls.some(call => call.url === '/api/session/list'), true)
+  assert.equal(calls.some(call => call.url === '/api/session/prompt'), false)
+  assert.equal(calls.some(call => call.url === '/api/$events/result'), false)
+
+  const events = sockets[0].sent.find(frame => frame.endpoint === '$events')
+  sockets[0].emit('message', { data: JSON.stringify({
+    type: 'item', streamId: events.streamId,
+    value: { type: 'ready', clientId: 'generation-test', host: { home: '/tmp/test' } },
+  }) })
+  nodes.get('message').value = 'test hello'
+  await nodes.get('send').click()
+  await flush()
+  const prompt = calls.find(call => call.url === '/api/session/prompt')
+  assert.ok(prompt)
+  const submitted = JSON.parse(prompt.options.body)
+  assert.equal(submitted.type, 'client-request')
+  assert.equal(submitted.method, 'session/prompt')
+  assert.equal(submitted.payload.args.request.mode, 'queue')
+  assert.equal(submitted.payload.args.request.content[0].text, 'test hello')
+  assert.equal(submitted.payload.args.request.sessionId, 'test-session')
+
+  sockets[0].emit('message', { data: JSON.stringify({
+    type: 'item', streamId: events.streamId,
+    value: {
+      type: 'waterfall', event: 'approval/request', eventId: 'approval-test',
+      agentId: 'test-session', request: { toolName: 'read_only_test' },
+    },
+  }) })
+  assert.equal(calls.some(call => call.url === '/api/$events/result'), false)
+  const allow = nodes.get('interaction').childNodes[0].childNodes.find(node => node.textContent === '允许一次')
+  assert.ok(allow)
+  await allow.click()
+  await flush()
+  const reply = calls.find(call => call.url === '/api/$events/result')
+  assert.ok(reply)
+  const answer = JSON.parse(reply.options.body)
+  assert.equal(answer.payload.args.clientId, 'generation-test')
+  assert.equal(answer.payload.args.eventId, 'approval-test')
+  assert.equal(answer.payload.args.outcome.kind, 'result')
+  assert.equal(answer.payload.args.outcome.value, 'allowed-once')
+  listeners.get('pagehide')()
+  assert.equal(sockets[0].readyState, 3)
+})
