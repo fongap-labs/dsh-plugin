@@ -103,10 +103,22 @@ async function main() {
     return
   }
 
+  // Never use the caller's existing profile/home or accept a path from input.
   const home = mkdtempSync(join(tmpdir(), 'delta-poc-dsh-home-'))
   const profileDir = join(home, 'profiles', PROFILE)
   const environment = { ...process.env, DSH_HOME: home }
   let child
+  let isChildStopped = true
+  const stopChild = () => {
+    if (!child || isChildStopped) return
+    if (process.platform === 'win32' && typeof child.pid === 'number') {
+      // Windows shell mode launches cmd.exe; killing only that shell can leave
+      // the real Harness process alive against a deleted temporary DSH_HOME.
+      spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true })
+    } else {
+      child.kill('SIGINT')
+    }
+  }
   try {
     console.log('Preparing a disposable Delta Suite P0 Host.')
     console.log('Installation remains inside a temporary home.')
@@ -120,25 +132,25 @@ async function main() {
       env: environment,
       shell: process.platform === 'win32',
     })
+    isChildStopped = false
     const code = await new Promise((resolve, reject) => {
       child.once('error', reject)
       child.once('exit', (exitCode, signal) => {
         resolve(signal ? 0 : (exitCode ?? 1))
       })
       const interrupt = () => {
-        if (child?.exitCode === null) child.kill('SIGINT')
+        stopChild()
       }
       process.once('SIGINT', interrupt)
       process.once('SIGTERM', interrupt)
     })
+    isChildStopped = true
     if (code !== 0) process.exitCode = code
   } catch (error) {
     console.error('Isolated Host could not start: ' + (error instanceof Error ? error.message : 'unknown-error'))
     process.exitCode = 1
   } finally {
-    if (child && child.exitCode === null) {
-      child.kill()
-    }
+    if (!isChildStopped && child) stopChild()
     // No user-controlled path or existing DSH_HOME is ever removed.
     rmSync(home, { recursive: true, force: true })
     console.log('Disposable P0 home cleaned up.')
