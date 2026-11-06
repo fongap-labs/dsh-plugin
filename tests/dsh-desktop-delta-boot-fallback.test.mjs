@@ -67,7 +67,6 @@ function bootstrap(statusValid) {
   let timeout
   let navigated = ''
   const location = new URL('http://127.0.0.1:3080/dsh-ui-delta/app')
-  location.replace = undefined
   const locator = {
     href: location.href, protocol: location.protocol,
     replace(href) { navigated = href },
@@ -107,4 +106,61 @@ test('startup watchdog restores native if Gateway never becomes ready', async ()
   assert.equal(app.navigate(), '')
   app.timer()()
   assert.equal(app.navigate(), 'http://127.0.0.1:3080/?delta-native-fallback=1')
+})
+
+test('successful Gateway and Session bootstrap does not activate native fallback after a later disconnect', async () => {
+  const ids = ['auth', 'socket', 'gateway', 'snapshot', 'sessions', 'messages',
+    'interaction', 'message', 'send', 'create', 'refresh', 'current', 'diagnostic']
+  const nodes = new Map(ids.map(id => [id, {
+    dataset: {}, value: '', textContent: '', childNodes: [],
+    addEventListener() {}, replaceChildren(...items) { this.childNodes = items },
+  }]))
+  let socket
+  let navigated = ''
+  let clearedStartup = false
+  const startupTimerId = 17
+  let nextId = 0
+  class Socket {
+    static OPEN = 1
+    constructor() { socket = this; this.readyState = 0; this.sent = []; this.listeners = new Map() }
+    addEventListener(name, handler) { this.listeners.set(name, handler) }
+    send(raw) { this.sent.push(JSON.parse(raw)) }
+    close() { this.readyState = 3 }
+    emit(name, value) { this.listeners.get(name)?.(value) }
+  }
+  runInNewContext(standaloneDesktopBrowser, {
+    document: { getElementById: id => nodes.get(id) },
+    location: {
+      href: 'http://127.0.0.1:3080/dsh-ui-delta/app',
+      protocol: 'http:', replace(value) { navigated = value },
+    },
+    URL,
+    crypto: { randomUUID: () => 'test-id-' + ++nextId },
+    fetch: async (path, options) => path === '/dsh-ui-delta/app/status'
+      ? { ok: true, json: async () => ({ desktop: 'Delta Desktop', authenticated: true }) }
+      : { ok: true, json: async () => {
+        const request = JSON.parse(options.body)
+        assert.equal(request.method, 'session/list')
+        return { type: 'server-response', rpcId: request.rpcId, result: { ok: true, value: { items: [] } } }
+      } },
+    WebSocket: Socket,
+    setTimeout(callback, delay) { return delay === 15000 ? startupTimerId : 19 },
+    clearTimeout(id) { if (id === startupTimerId) clearedStartup = true },
+    setInterval() { return 3 }, clearInterval() {},
+    addEventListener() {},
+  }, { timeout: 1000 })
+  for (let i = 0; i < 6; i++) await Promise.resolve()
+  assert.ok(socket)
+  socket.readyState = 1
+  socket.emit('open')
+  for (let i = 0; i < 6; i++) await Promise.resolve()
+  assert.equal(clearedStartup, false, 'Session RPC alone is insufficient')
+  const events = socket.sent.find(item => item.endpoint === '$events')
+  assert.ok(events)
+  socket.emit('message', { data: JSON.stringify({
+    type: 'item', streamId: events.streamId, value: { type: 'ready', clientId: 'host-client' },
+  }) })
+  assert.equal(clearedStartup, true, 'both Gateway and Session must be ready')
+  socket.emit('close')
+  assert.equal(navigated, '', 'a later disconnect should reconnect inside Delta')
 })
