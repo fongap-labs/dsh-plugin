@@ -132,10 +132,10 @@ export const standaloneDesktopBrowser = String.raw`
         const code = typeof failure.code === 'string' ? failure.code.slice(0, 80) : '';
         const message = typeof failure.message === 'string'
           ? failure.message.slice(0, 500) : 'Harness model execution failed';
-        return { role: 'event', text: '模型执行失败' + (code ? ' [' + code + ']' : '') + ': ' + message };
+        return { role: 'event', text: '\u6a21\u578b\u6267\u884c\u5931\u8d25' + (code ? ' [' + code + ']' : '') + ': ' + message };
       }
       if (reason?.kind === 'interrupted') {
-        return { role: 'event', text: '模型执行中断：Harness 进程在回复完成前退出' };
+        return { role: 'event', text: '\u6a21\u578b\u6267\u884c\u4e2d\u65ad\uff1aHarness \u8fdb\u7a0b\u5728\u56de\u590d\u5b8c\u6210\u524d\u9000\u51fa' };
       }
     }
     if (raw.type === 'tool/call') {
@@ -283,7 +283,7 @@ export const standaloneDesktopBrowser = String.raw`
     const requestId = crypto.randomUUID();
     pendingMessages.set(requestId, { text: value, status: 'sending' });
     renderEvents();
-    diagnostic('正在向 Harness 发送消息…');
+    diagnostic('\u6b63\u5728\u5411 Harness \u53d1\u9001\u6d88\u606f\u2026');
     nodes.send.disabled = true;
     try {
       const result = await rpc('session/prompt', {
