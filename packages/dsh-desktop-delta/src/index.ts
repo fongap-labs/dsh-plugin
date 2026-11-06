@@ -1,5 +1,5 @@
 /**
- * Delta Suite Host entry. Keep the public Cordis contract stable while the
+ * Delta Desktop Host entry. Keep the public Cordis contract stable while the
  * configuration, HTTP routes and provider clients live in host/ modules.
  */
 import type { Context } from '@deepseek-ai/cordis'
@@ -10,7 +10,7 @@ import { registerMemoryTools } from './host/memory-tools.js'
 import { registerGatewayReliability } from './host/gateway-reliability.js'
 import type { GatewayReliabilityConfig } from './host/gateway-reliability.js'
 
-export const name = '@fongap-labs/dsh-suite-delta'
+export const name = '@fongap-labs/dsh-desktop-delta'
 export const inject = ['webServer']
 
 export interface Config {
@@ -74,7 +74,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         }
         return ''
       },
-    }), 'dsh-suite-delta: reply language follows Host locale')
+    }), 'dsh-desktop-delta: reply language follows Host locale')
   })
   optionalHost?.inject?.(['sessionLogDeepSeek'], (child) => {
     const service = (child as { sessionLogDeepSeek?: {

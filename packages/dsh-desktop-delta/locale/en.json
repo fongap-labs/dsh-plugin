@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Delta Suite (DSH edition)",
-    "description": "DeepSeek Harness enhancements for UI, web search, research and local memory"
+    "title": "Delta Desktop",
+    "description": "Independent Delta frontend powered by the DeepSeek Harness runtime"
   }
 }

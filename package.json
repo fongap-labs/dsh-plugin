@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "DSH (DeepSeek Harness) 原生 Bundle / Host Plugin 多插件 Monorepo",
+  "description": "Delta Desktop and Harness extensions",
   "license": "Apache-2.0",
   "packageManager": "pnpm@11.28.5",
   "engines": {
@@ -11,10 +11,8 @@
   },
   "scripts": {
     "test": "node --test \"tests/**/*.test.mjs\"",
-    "dev:dsh-desktop-delta": "pnpm --filter @fongap-labs/dsh-desktop-delta tauri dev",
-    "build:dsh-desktop-delta": "pnpm --filter @fongap-labs/dsh-desktop-delta tauri build",
-    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json --noEmit && tsc -p packages/dsh-suite-delta/tsconfig.json --noEmit && tsc -p packages/plugin-template/tsconfig.json --noEmit && tsc -p packages/dsh-suite-delta/tsconfig.client.json --noEmit && pnpm --filter @fongap-labs/dsh-desktop-delta exec tsc -b --pretty false",
-    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json && tsc -p packages/dsh-suite-delta/tsconfig.json && tsc -p packages/plugin-template/tsconfig.json && tsc -p packages/dsh-suite-delta/tsconfig.client.json && pnpm --filter @fongap-labs/dsh-desktop-delta build",
+    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json --noEmit && tsc -p packages/dsh-desktop-delta/tsconfig.json --noEmit && tsc -p packages/plugin-template/tsconfig.json --noEmit && tsc -p packages/dsh-desktop-delta/tsconfig.client.json --noEmit",
+    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-code-worker/tsconfig.json && tsc -p packages/dsh-desktop-delta/tsconfig.json && tsc -p packages/plugin-template/tsconfig.json && tsc -p packages/dsh-desktop-delta/tsconfig.client.json",
     "validate": "node scripts/pack-bundles.mjs --check",
     "pack:bundles": "node scripts/pack-bundles.mjs",
     "link:dev": "node scripts/link-profile.mjs",

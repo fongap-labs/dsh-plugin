@@ -1,9 +1,9 @@
 {
-  "name": "@fongap-labs/dsh-suite-delta",
+  "name": "@fongap-labs/dsh-desktop-delta",
   "version": "0.0.0",
   "private": false,
   "type": "module",
-  "description": "Delta Suite for DSH（Delta 套件 · DSH 版）：DeepSeek Harness 界面、搜索、研究和本地记忆综合增强插件",
+  "description": "Delta Desktop（Delta 桌面）：独立浏览器界面，由 DeepSeek Harness 提供 Agent 与会话",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {
@@ -11,7 +11,6 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
-    "./client": "./lib/client.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
@@ -19,20 +18,7 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
-    "manifestVersion": 1,
-    "client": {
-      "platform": "web",
-      "immediately": true,
-      "inject": [
-        "@deepseek-ai/dsh-client-ui-theme",
-        "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-sidebar",
-        "@deepseek-ai/dsh-api-session-controller",
-        "@deepseek-ai/dsh-client-ui-session",
-        "@deepseek-ai/dsh-client-ui-approval"
-      ]
-    }
+    "manifestVersion": 1
   },
   "files": [
     "lib/**/*.js",

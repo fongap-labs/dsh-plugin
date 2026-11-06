@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-  Per-plugin release build wrapper for dsh-suite-delta.
-  Called by Action Worker via projects/dsh-suite-delta/release.manifest.json.
+  Per-plugin release build wrapper for dsh-desktop-delta.
+  Called by Action Worker via projects/dsh-desktop-delta/release.manifest.json.
 #>
 
 param(
@@ -12,4 +12,4 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-& "$RepoRoot/scripts/build-release.ps1" -Package dsh-suite-delta -Target $Target -Version $Version -OutputDir $OutputDir
+& "$RepoRoot/scripts/build-release.ps1" -Package dsh-desktop-delta -Target $Target -Version $Version -OutputDir $OutputDir

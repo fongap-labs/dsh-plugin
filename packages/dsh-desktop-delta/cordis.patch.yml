@@ -48,5 +48,5 @@
     appVersion: !!js process.env.DSH_CLIENT_VERSION
 
 - insert:
-    - id: dsh-suite-delta
-      name: '@fongap-labs/dsh-suite-delta'
+    - id: dsh-desktop-delta
+      name: '@fongap-labs/dsh-desktop-delta'
