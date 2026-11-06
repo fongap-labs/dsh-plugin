@@ -1,10 +1,10 @@
-# Delta Suite 视觉验收矩阵
+# Delta Desktop 视觉验收矩阵
 
 本文件是 **待执行的真实宿主验收清单**，不能将静态测试或 CI 成功等同于 DeepSeek Harness 的视觉验收。
 
 ## 自动化入口（只读）
 
-从仓库根目录运行。在本地隔离的 DeepSeek Harness 测试配置上启用 Delta Suite，确保页面可通过 loopback HTTP(S) 访问：
+从仓库根目录运行。在本地隔离的 DeepSeek Harness 测试配置上启用 Delta Desktop，确保页面可通过 loopback HTTP(S) 访问：
 
 ```bash
 npm install --no-save playwright-core pngjs
@@ -74,4 +74,4 @@ node scripts/verify-delta-suite-ui.mjs --url http://127.0.0.1:PORT/ --theme dark
 
 ## 证据与结论
 
-记录 DSH/Delta Suite 版本、操作系统、窗口尺寸、主题、浏览器类型、运行命令、每一项的 PASS/FAIL/SKIP、复现步骤和本地截图引用。人工实测未完成前，只能标记为“待验收”。不同宿主版本不能共用此前的验收结论。
+记录 DSH/Delta Desktop 版本、操作系统、窗口尺寸、主题、浏览器类型、运行命令、每一项的 PASS/FAIL/SKIP、复现步骤和本地截图引用。人工实测未完成前，只能标记为“待验收”。不同宿主版本不能共用此前的验收结论。

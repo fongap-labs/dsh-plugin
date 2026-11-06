@@ -1,10 +1,10 @@
-# Delta Suite: P0 独立页面完整协议验证
+# Delta Desktop: P0 独立页面完整协议验证
 
 这是**实验原型**，默认关闭。验证插件能否提供完全独立的网页并与现有 Harness Gateway 交互，不接管 `root` Slot、不运行 Tauri、不替换 Agent 或 Session 持久化。
 
 ## 运行方式（仅隔离测试 Profile）
 
-在**测试用** Harness Profile 的 Delta Suite 条目中设置 `config.standalonePoc: true`；保留现有插件 id、inject 和业务配置。正式 Bundle 不启用这个开关。
+在**测试用** Harness Profile 的 Delta Desktop 条目中设置 `config.standalonePoc: true`；保留现有插件 id、inject 和业务配置。正式 Bundle 不启用这个开关。
 
 1. 先通过 Harness 的正常启动 URL `/?token=...` 完成**官方** Cookie 交换。
 2. 在相同 Host、协议、端口的浏览器打开 `/dsh-ui-delta/poc`。不要在 PoC URL 上携带 token。
@@ -71,10 +71,10 @@ The default mode verifies independently served document, Cookie admission, Gatew
 
 ## One-command isolated Host (Release beta.1)
 
-The current `dsh-suite-delta-v0.1.0-beta.1` Release tag targets source commit
+The current `dsh-desktop-delta-v0.1.0-beta.1` Release tag targets source commit
 `87af8102e83b405113e5f162a418d83bb92742dd`, which already contains the
 standalone PoC. This experimental page is **off by default**. Normal chat in
-Delta Suite does not prove its Remote Gateway contract.
+Delta Desktop does not prove its Remote Gateway contract.
 
 For a disposable test environment, without touching the installed Desktop
 profile or copying model/account credentials, run:
