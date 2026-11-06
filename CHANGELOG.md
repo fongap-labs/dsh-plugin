@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 测试: 中央 CI 以临时 DSH_HOME 启动真实 Harness npm 包和 Delta Suite，验证签名 Cookie、独立页面、会话列表、Gateway 事件流、会话快照及重连恢复；模型审批仍单独验收。
+
 - 新增: Delta Suite 独立页面验证提供临时隔离 Harness Profile 一键启动脚本，固定已验证的 beta.1 发布包，不修改日常插件配置。
 
 - 新增: Delta 独立网页支持真实 Host 会话快照观测与本地隔离验收脚本，验证连接、认证及刷新恢复。
