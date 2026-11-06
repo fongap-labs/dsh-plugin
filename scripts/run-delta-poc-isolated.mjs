@@ -22,11 +22,14 @@ function parseArgs(argv) {
   let port = DEFAULT_PORT
   let isDryRun = false
   let isHelp = false
+  let portSeen = false
   for (let i = 0; i < argv.length; i += 1) {
     const value = argv[i]
     if (value === '--help' || value === '-h') isHelp = true
     else if (value === '--dry-run') isDryRun = true
     else if (value === '--port') {
+      if (portSeen) throw new Error('duplicate-port')
+      portSeen = true
       if (i + 1 >= argv.length) throw new Error('port-required')
       const raw = argv[++i]
       if (!/^[0-9]{4,5}$/.test(raw) || Number(raw) < 1025 || Number(raw) > 65535) {
