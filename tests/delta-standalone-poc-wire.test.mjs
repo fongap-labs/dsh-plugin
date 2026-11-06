@@ -1,15 +1,7 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
-import ts from 'typescript'
-
-const source = readFileSync(resolve('packages/dsh-suite-delta/src/host/standalone-poc-browser.ts'), 'utf8')
-const compiled = ts.transpileModule(source, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
-}).outputText
-const { standalonePocBrowser } = await import('data:text/javascript;base64,' + Buffer.from(compiled).toString('base64'))
+import { standalonePocBrowser } from '../packages/dsh-suite-delta/lib/host/standalone-poc-browser.js'
 
 function createNode(id) {
   return {
