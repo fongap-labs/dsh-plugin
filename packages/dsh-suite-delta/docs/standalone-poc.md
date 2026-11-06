@@ -1,44 +1,47 @@
-# Delta Suite: P0-A 独立网页/认证探针（实验版）
+# Delta Suite: P0 独立页面完整协议验证
 
-本探针用于判断 Delta 是否能够以 **单个 Harness 插件** 提供一个独立 HTML 文档，而不接管 Harness 的 `root` Slot 或运行独立的 Tauri 应用。默认禁用；不迁移、覆盖或清除现有 Suite UI、Session、Agent、配置与数据。
+这是**实验原型**，默认关闭。验证插件能否提供完全独立的网页并与现有 Harness Gateway 交互，不接管 `root` Slot、不运行 Tauri、不替换 Agent 或 Session 持久化。
 
-## 启用方式
+## 运行方式（仅隔离测试 Profile）
 
-仅在**隔离的本地测试 Profile** 内，将插件 `@fongap-labs/dsh-suite-delta` 的 Cordis 条目配置为：
+在**测试用** Harness Profile 的 Delta Suite 条目中设置 `config.standalonePoc: true`；保留现有插件 id、inject 和业务配置。正式 Bundle 不启用这个开关。
 
-```yaml
-- id: dsh-suite-delta
-  config:
-    standalonePoc: true
+1. 先通过 Harness 的正常启动 URL `/?token=...` 完成**官方** Cookie 交换。
+2. 在相同 Host、协议、端口的浏览器打开 `/dsh-ui-delta/poc`。不要在 PoC URL 上携带 token。
+3. 页面应先通过 `/dsh-ui-delta/poc/status` 同源认证，再接通 `/api/remote.mux` 的 `$events` Gateway 逻辑流，读取 `session/list`。
+4. 点击“创建测试会话”，选择会话并手动发送普通测试消息，检查 `session/follow` 能收到 opening snapshot 和后续事件。重新加载页面时，地址中的 `?session=...` 应恢复同一会话。
+5. 仅在受控的、无破坏性的工具测试中触发 `approval/request`，由页面明确点击“允许一次”或“拒绝”；请求中断时不自动决定。
+6. 禁用插件后应删除测试页面路由，Harness 原生界面应正常可用。
+
+**注意**：必须使用隔离的测试账户、测试会话及非敏感内容；发送消息将真实调用 Harness Agent，可能产生费用或触发工具执行。不要同时让原生 Harness 标签页与此实验页共同回答同一工具审批请求。测试权限不等同于允许真实敏感操作。
+
+## 能力与边界
+
+| 维度 | 本原型实现 | 判定限制 |
+| --- | --- | --- |
+| 页面与认证 | 官方 `connection.admit`，CSP nonce，独立 DOM | 需在真实 Harness 环境确认 |
+| Gateway | 原生 HTTP RPC envelope 和官方 mux wire | 为诊断使用的**临时协议探针**，非正式客户端 SDK |
+| 会话 | `session/list`、`session/create`、`session/prompt` | 需真实运行通过，禁止自动发送 |
+| 流 | `session/follow` opening snapshot、增量事件、重新连接 | 仅显示有限事件类型和摘要；不是正式消息呈现器 |
+| 审批 | `$events` 的 `approval/request`、`$events/result` 人工允许/拒绝 | 不自动批准；仅处理当前选中会话 |
+| 用户提问 | 仅检测未支持的交互并提示 | **尚未提供回答 UI，不可宣称全功能闭环** |
+| 构建卸载 | 路由与资源由 Cordis effect 生命周期管理 | 需要在 Harness 上验证卸载后无残留 |
+| 生产 Adapter | 无 | 不能原样移植此探针到正式 Delta UI |
+
+上述 wire 形状直接依据 Harness 官方 `packages/client/connection/src/client/rpc.ts`、
+`packages/api/gateway/src/stream-protocol.ts`、
+`packages/api/session-controller/src/types.ts`、
+`packages/api/gateway/src/client/remote-events.ts`；
+它们**并非承诺长期稳定的外部 JS SDK**，因此本原型不会直接成为生产实现。
+
+## 验证与发布门禁
+
+```sh
+node --test tests/delta-standalone-poc.test.mjs
+pnpm typecheck
+pnpm test
 ```
 
-具体应在测试 Profile 的后置 patch 中覆盖配置，保留原条目及其依赖，不要将这个配置写入生产的默认 Bundle。
+单元测试包括 HTML/JS 静态语法、模拟 HTTP 授权、方法限制和路由回收。它们不替代真实 Host 集成测试。
 
-1. 启动 Harness Web，**先使用 Harness 正常启动网址中的 token 打开根页面并完成 Cookie 交换**。不复制、存储或泄露 token。
-2. 在**同一浏览器、同一协议、同一 Host 和端口**访问 `/dsh-ui-delta/poc`。
-3. 页面自动检查 `/dsh-ui-delta/poc/status` 的授权访问，并尝试 `/api/remote.mux` 的 WebSocket 握手。
-4. 停用插件、刷新探针页面：自有路由应消失，Harness 原生页面仍可使用。
-
-注意：直接访问 `/dsh-ui-delta/poc?token=...` **不会**认证；官方只允许在 Harness 根路由交换启动 token。不要绕过签名 Cookie，也不要改变 Harness 的 Host/Origin 检查。
-
-## 本阶段只验证 P0-A
-
-| 检查点 | 解释 |
-| --- | --- |
-| 新的独立 HTML 文档 | 页面不是原生 AppFrame/Slot 树的覆盖层 |
-| Cookie 和可信来源 | 直接调用官方 `ctx.connection.admit()`，不实现第二套认证 |
-| HTTP 授权与 WebSocket 握手 | 测试同源会话能通过官方 HTTP 和升级入口 |
-| 卸载清理 | 注册路由由 Cordis effect 管理 |
-| 功能默认关闭 | 生产 Bundle 不启用 |
-
-**不代表已经通过的检查**：独立加载 `ctx.remote`、完整客户端引导、Session RPC、消息流、工具审批、用户提问、断线恢复、刷新恢复。这些属于 **P0-B**，必须经过实际 Harness 测试后才能作出 Go/No-Go 决策。
-
-特别注意：官方 `/api/remote.mux` 即使 WebSocket 握手成功，也**不等于**完成 Gateway 逻辑握手或建立 Remote RPC 会话；探针在握手后立即关闭，以免发送不符合官方协议的消息。
-
-## 验证与停止规则
-
-静态及模拟测试：`node --test tests/delta-standalone-poc.test.mjs`（需在仓库安装项目依赖）。
-
-只有在 P0-A 页面鉴权正常、未经授权返回 401/403、停用路由及时卸载并且宿主页面不受影响后，才进入 P0-B。
-
-P0-B 将重点调查能否通过受支持的方式独立装配官方 Connection + Gateway + Session 客户端服务，而非复制 `__DSH_BOOT__` 或调用内部私有模块。任何不支持的环节应明确判定，不通过削弱认证、重写 Session 存储或新建 Agent 运行时来规避。
+必须由实际运行证据证明 Gateway 启动、创建会话、发送消息、事件流、审批、刷新恢复和卸载后复原均正常，才能把 P0 标成通过。P0 不通过时不允许跳过认证、读取私有数据库或直接接管 Harness 根 Slot。保留 Draft PR，未经正常 Action Worker 门禁不得合并或 Release。
