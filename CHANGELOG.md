@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 对齐 Code Worker 发布清单的更新日志分类与中央发布治理规则，避免 Release Governance 拒绝发布。
+
 - 修复: 独立 Gateway 验证页在插件停用或认证失效时主动关闭连接，并委托未处理的交互请求。
 
 - 新增: Delta Suite 增加默认关闭的独立网页与认证、会话传输验证入口，不改动原生会话和 Agent 内核。
