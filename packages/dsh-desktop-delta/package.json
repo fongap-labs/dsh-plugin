@@ -22,7 +22,7 @@
     "manifestVersion": 1,
     "client": {
       "platform": "web",
-      "immediately": false,
+      "immediately": true,
       "inject": []
     }
   },
