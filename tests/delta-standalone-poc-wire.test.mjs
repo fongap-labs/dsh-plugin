@@ -91,6 +91,9 @@ test('P0-B: authenticated document uses official RPC and event stream without au
   assert.equal(sockets[0].sent.some(frame => frame.type === 'open' && frame.endpoint === 'session/follow' &&
     frame.payload.args.request.address.sessionId === 'test-session'), true)
   assert.equal(calls.some(call => call.url === '/api/session/list'), true)
+  const listing = calls.find(call => call.url === '/api/session/list')
+  const listEnvelope = JSON.parse(listing.options.body)
+  assert.deepEqual(Object.keys(listEnvelope.payload.args), ['_request'])
   assert.equal(calls.some(call => call.url === '/api/session/prompt'), false)
   assert.equal(calls.some(call => call.url === '/api/$events/result'), false)
 

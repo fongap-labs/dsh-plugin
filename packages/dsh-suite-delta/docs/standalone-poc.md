@@ -109,3 +109,11 @@ browser already authenticated through the official launch URL.
 
 The full P0 Go/No-Go remains **pending real Host evidence**. A successful
 mock test, a published Release, or a running native Harness chat is not enough.
+
+## 自动化真实 Host 验收（CI）
+
+`tests/delta-poc-real-harness-ci.test.mjs` 在 GitHub Actions 的隔离临时目录安装固定版本的官方 Harness CLI，构建独立 Web Profile 并挂载当前编译的 Suite Host。它通过真实 HTTP 和 WebSocket 验证：未认证 401、官方 Cookie 签发、独立 HTML/status 页面、Session 列表/创建、Gateway 事件 ready、`session/follow` opening snapshot 和重新连接恢复。
+
+仅当 CI/GitHub Actions 环境标志均存在时运行这组真实 Host 测试；本地普通单元测试保持跳过。测试不携带用户凭据，不发送模型请求，不操作真实工具，不读取现有 Harness Profile。任何真实 Host 失败都必须保留红叉，不能回退到模拟成功。
+
+**仍未覆盖**：真实模型的增量文本输出、复杂工具审批与跨客户端竞争、用户提问交互、页面视觉验收、Host 运行中卸载/更新后的行为。它们不能因真实 Host 的基础连接测试通过而标记验收完成。
