@@ -149,11 +149,20 @@ test('successful Gateway and Session bootstrap does not activate native fallback
     setInterval() { return 3 }, clearInterval() {},
     addEventListener() {},
   }, { timeout: 1000 })
-  for (let i = 0; i < 6; i++) await Promise.resolve()
-  assert.ok(socket)
+  // Cross-context async jobs are not guaranteed to complete after a fixed
+  // number of Promise.resolve() turns. Wait for observable startup state.
+  const waitUntil = async (predicate, description) => {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (predicate()) return
+      await new Promise(resolve => setImmediate(resolve))
+    }
+    assert.fail(description)
+  }
+  await waitUntil(() => socket, 'authenticated startup must create Gateway WebSocket')
   socket.readyState = 1
   socket.emit('open')
-  for (let i = 0; i < 6; i++) await Promise.resolve()
+  await waitUntil(() => nodes.get('gateway').dataset.state === 'pass',
+    'session/list RPC must complete before the events ready frame')
   assert.equal(clearedStartup, false, 'Session RPC alone is insufficient')
   const events = socket.sent.find(item => item.endpoint === '$events')
   assert.ok(events)
