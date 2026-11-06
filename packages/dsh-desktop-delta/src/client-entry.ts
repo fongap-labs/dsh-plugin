@@ -10,7 +10,8 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
   const url = new URL(window.location.href)
   // Preserve official launch-token handling, nested tools and plugin routes.
   if (window.self !== window.top || !['http:', 'https:'].includes(url.protocol) ||
-      url.pathname !== '/' || url.searchParams.has('token')) return
+      url.pathname !== '/' || url.searchParams.has('token') ||
+      url.searchParams.get('delta-native-fallback') === '1') return
 
   const controller = new AbortController()
   let isActive = true
