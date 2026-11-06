@@ -94,7 +94,7 @@ export const standalonePocBrowser = String.raw`
     return frame.result.value;
   }
   async function list() {
-    state(nodes.sessions, 'pending', '读取中');
+    state(nodes.sessions, 'pending', '\u8bfb\u53d6\u4e2d');
     try {
       const value = await rpc('session/list', { request: {} });
       const items = value && Array.isArray(value.items) ? value.items : null;
@@ -109,10 +109,10 @@ export const standalonePocBrowser = String.raw`
         option.addEventListener('click', () => selectSession(item.sessionId));
         nodes.sessions.appendChild(option);
       }
-      if (!nodes.sessions.childNodes.length) state(nodes.sessions, 'pass', '没有会话');
-      state(nodes.gateway, 'pass', 'Session RPC 可用');
+      if (!nodes.sessions.childNodes.length) state(nodes.sessions, 'pass', '\u6ca1\u6709\u4f1a\u8bdd');
+      state(nodes.gateway, 'pass', 'Session RPC \u53ef\u7528');
     } catch (error) {
-      state(nodes.sessions, 'fail', '读取失败');
+      state(nodes.sessions, 'fail', '\u8bfb\u53d6\u5931\u8d25');
       state(nodes.gateway, 'fail', safeError(error));
     }
   }
@@ -124,14 +124,14 @@ export const standalonePocBrowser = String.raw`
       selectSession(value.sessionId);
       await list();
     } catch (error) {
-      diagnostic('创建会话失败：' + safeError(error));
+      diagnostic('\u521b\u5efa\u4f1a\u8bdd\u5931\u8d25：' + safeError(error));
     } finally {
       nodes.create.disabled = false;
     }
   }
   function selectSession(id) {
     if (!id || !/^[A-Za-z0-9._:-]{1,150}$/.test(id)) {
-      diagnostic('会话标识不符合探针约束');
+      diagnostic('\u4f1a\u8bdd\u6807\u8bc6\u4e0d\u7b26\u5408\u63a2\u9488\u7ea6\u675f');
       return;
     }
     currentSession = id;
@@ -149,7 +149,7 @@ export const standalonePocBrowser = String.raw`
   async function send() {
     const value = nodes.message.value.trim();
     if (!currentSession || !value) {
-      diagnostic('先选择会话并输入消息');
+      diagnostic('\u5148\u9009\u62e9\u4f1a\u8bdd\u5e76\u8f93\u5165\u6d88\u606f');
       return;
     }
     nodes.send.disabled = true;
@@ -164,9 +164,9 @@ export const standalonePocBrowser = String.raw`
       });
       if (!result || result.accepted !== true) throw new TypeError('prompt not accepted');
       nodes.message.value = '';
-      diagnostic('消息已进入 Harness 队列，等待事件流');
+      diagnostic('\u6d88\u606f\u5df2\u8fdb\u5165 Harness \u961f\u5217，\u7b49\u5f85\u4e8b\u4ef6\u6d41');
     } catch (error) {
-      diagnostic('发送失败：' + safeError(error));
+      diagnostic('\u53d1\u9001\u5931\u8d25：' + safeError(error));
     } finally {
       nodes.send.disabled = false;
     }
@@ -209,9 +209,9 @@ export const standalonePocBrowser = String.raw`
     pending = frame;
     const card = document.createElement('div');
     const detail = document.createElement('p');
-    detail.textContent = '工具 ' + frame.request.toolName + ' 请求批准';
+    detail.textContent = '\u5de5\u5177 ' + frame.request.toolName + ' \u8bf7\u6c42\u6279\u51c6';
     card.appendChild(detail);
-    for (const [title, value] of [['允许一次', 'allowed-once'], ['拒绝', 'rejected']]) {
+    for (const [title, value] of [['\u5141\u8bb8\u4e00\u6b21', 'allowed-once'], ['\u62d2\u7edd', 'rejected']]) {
       const button = document.createElement('button');
       button.type = 'button';
       button.textContent = title;
@@ -229,9 +229,9 @@ export const standalonePocBrowser = String.raw`
         eventId: frame.eventId,
         outcome: { kind: 'result', value: decision },
       });
-      clearApproval('审批结果已提交至 Host');
+      clearApproval('\u5ba1\u6279\u7ed3\u679c\u5df2\u63d0\u4ea4\u81f3 Host');
     } catch (error) {
-      diagnostic('审批提交失败：' + safeError(error));
+      diagnostic('\u5ba1\u6279\u63d0\u4ea4\u5931\u8d25：' + safeError(error));
       clearApproval();
     }
   }
@@ -240,18 +240,18 @@ export const standalonePocBrowser = String.raw`
     if (!gatewayClientId) {
       if (value.type === 'ready' && typeof value.clientId === 'string') {
         gatewayClientId = value.clientId;
-        state(nodes.socket, 'pass', 'Gateway 事件流就绪');
+        state(nodes.socket, 'pass', 'Gateway \u4e8b\u4ef6\u6d41\u5c31\u7eea');
       } else {
-        state(nodes.socket, 'fail', '无效事件流首帧');
+        state(nodes.socket, 'fail', '\u65e0\u6548\u4e8b\u4ef6\u6d41\u9996\u5e27');
       }
       return;
     }
     if (value.type === 'cancel') {
-      if (pending && pending.eventId === value.eventId) clearApproval('请求已由 Host 取消');
+      if (pending && pending.eventId === value.eventId) clearApproval('\u8bf7\u6c42\u5df2\u7531 Host \u53d6\u6d88');
     } else if (value.type === 'waterfall' && value.event === 'approval/request') {
       receiveApproval(value);
     } else if (value.type === 'waterfall') {
-      diagnostic('存在未支持的交互：' + String(value.event || 'unknown'));
+      diagnostic('\u5b58\u5728\u672a\u652f\u6301\u7684\u4ea4\u4e92：' + String(value.event || 'unknown'));
       // Never automatically accept unknown permissions or questions.
     }
   }
@@ -261,9 +261,9 @@ export const standalonePocBrowser = String.raw`
     if (!target) return;
     if (frame.type === 'error' || frame.type === 'end') {
       streams.delete(frame.streamId);
-      if (target.kind === 'session') diagnostic('Session 流结束：' + (frame.error?.code || frame.type));
+      if (target.kind === 'session') diagnostic('Session \u6d41\u7ed3\u675f：' + (frame.error?.code || frame.type));
       if (target.kind === 'events') {
-        state(nodes.socket, 'fail', '事件流中断');
+        state(nodes.socket, 'fail', '\u4e8b\u4ef6\u6d41\u4e2d\u65ad');
       }
       return;
     }
@@ -277,7 +277,7 @@ export const standalonePocBrowser = String.raw`
         entries.length = 0;
         entries.push(...limitEvents(value.records));
         renderEvents();
-        diagnostic('Session 快照已恢复，历史事件 ' + entries.length + ' 条');
+        diagnostic('Session \u5feb\u7167\u5df2\u6062\u590d，\u5386\u53f2\u4e8b\u4ef6 ' + entries.length + ' \u6761');
       } else {
         pushEvent(value);
       }
@@ -290,13 +290,13 @@ export const standalonePocBrowser = String.raw`
     gatewayClientId = '';
     streams.clear();
     clearApproval();
-    state(nodes.socket, 'pending', '连接中');
+    state(nodes.socket, 'pending', '\u8fde\u63a5\u4e2d');
     const url = new URL('/api/remote.mux', location.href);
     url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(url.href);
     ws.addEventListener('open', () => {
       if (attempt !== current) return;
-      state(nodes.socket, 'pending', 'Gateway 握手中');
+      state(nodes.socket, 'pending', 'Gateway \u63e1\u624b\u4e2d');
       openStream('events', '$events', {});
       if (currentSession) openSessionStream(currentSession);
       void list();
@@ -304,33 +304,33 @@ export const standalonePocBrowser = String.raw`
     ws.addEventListener('message', ({data}) => {
       if (attempt !== current || typeof data !== 'string') return;
       try { handleFrame(JSON.parse(data)); }
-      catch { diagnostic('Gateway 帧无法解析'); }
+      catch { diagnostic('Gateway \u5e27\u65e0\u6cd5\u89e3\u6790'); }
     });
     ws.addEventListener('close', () => {
       if (attempt !== current) return;
       gatewayClientId = '';
-      clearApproval('连接断开；待处理审批不作任何自动决定');
-      state(nodes.socket, 'fail', '连接断开');
+      clearApproval('\u8fde\u63a5\u65ad\u5f00；\u5f85\u5904\u7406\u5ba1\u6279\u4e0d\u4f5c\u4efb\u4f55\u81ea\u52a8\u51b3\u5b9a');
+      state(nodes.socket, 'fail', '\u8fde\u63a5\u65ad\u5f00');
       reconnect = setTimeout(connect, 2400);
     });
     ws.addEventListener('error', () => {
-      if (attempt === current) state(nodes.socket, 'fail', 'WebSocket 错误');
+      if (attempt === current) state(nodes.socket, 'fail', 'WebSocket \u9519\u8bef');
     });
   }
   async function start() {
-    state(nodes.auth, 'pending', '校验中');
+    state(nodes.auth, 'pending', '\u6821\u9a8c\u4e2d');
     try {
       const response = await fetch('/dsh-ui-delta/poc/status', {
         cache: 'no-store', credentials: 'same-origin',
       });
       const value = await response.json();
       if (!response.ok || value.authenticated !== true) throw new Error('unauthorized');
-      state(nodes.auth, 'pass', '通过');
+      state(nodes.auth, 'pass', '\u901a\u8fc7');
       if (currentSession) state(nodes.current, 'pass', currentSession);
       connect();
     } catch {
-      state(nodes.auth, 'fail', '认证失败');
-      diagnostic('请先使用官方 Harness 启动页面完成 Cookie 交换');
+      state(nodes.auth, 'fail', '\u8ba4\u8bc1\u5931\u8d25');
+      diagnostic('\u8bf7\u5148\u4f7f\u7528\u5b98\u65b9 Harness \u542f\u52a8\u9875\u9762\u5b8c\u6210 Cookie \u4ea4\u6362');
     }
   }
   nodes.create.addEventListener('click', () => { void createSession(); });
