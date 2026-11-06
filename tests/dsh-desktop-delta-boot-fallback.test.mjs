@@ -217,3 +217,105 @@ test('Electron standalone Delta connects to desktop-owned Host rather than ws://
   assert.equal(urls[0], 'ws://127.0.0.1:43021/api/remote.mux')
   assert.equal(navigated, '')
 })
+
+
+test('Delta desktop sends a prompt and surfaces a terminal model error instead of a blank chat', async () => {
+  const ids = ['auth', 'socket', 'gateway', 'snapshot', 'sessions', 'messages',
+    'interaction', 'message', 'send', 'create', 'refresh', 'current', 'diagnostic',
+    'welcome', 'conversation']
+  const node = () => ({
+    dataset: {}, value: '', textContent: '', childNodes: [], listeners: {},
+    addEventListener(name, fn) { this.listeners[name] = fn },
+    replaceChildren(...elements) {
+      this.childNodes = elements.flatMap(element => element.isFragment ? element.childNodes : [element])
+    },
+    appendChild(element) { this.childNodes.push(element) },
+  })
+  const nodes = new Map(ids.map(id => [id, node()]))
+  const sent = []
+  let socket
+  let requestId
+  let counter = 0
+  class Socket {
+    static OPEN = 1
+    constructor() { socket = this; this.readyState = 0; this.listeners = new Map() }
+    addEventListener(name, fn) { this.listeners.set(name, fn) }
+    send(raw) { sent.push(JSON.parse(raw)) }
+    close() {}
+    emit(name, value) { this.listeners.get(name)?.(value) }
+  }
+  const waitFor = async predicate => {
+    for (let attempt = 0; attempt < 80; attempt++) {
+      if (predicate()) return
+      await new Promise(resolve => setImmediate(resolve))
+    }
+    assert.fail('condition not reached')
+  }
+  runInNewContext(standaloneDesktopBrowser, {
+    document: {
+      getElementById: id => nodes.get(id),
+      createElement: () => node(),
+      createDocumentFragment: () => ({ ...node(), isFragment: true }),
+    },
+    location: {
+      href: 'http://127.0.0.1:3080/dsh-ui-delta/app?session=session-test',
+      protocol: 'http:', replace() {},
+    },
+    URL, crypto: { randomUUID: () => 'request-' + ++counter },
+    fetch: async (path, options) => {
+      if (path === '/dsh-ui-delta/app/status') {
+        return { ok: true, json: async () => ({ authenticated: true, desktop: 'Delta Desktop' }) }
+      }
+      const body = JSON.parse(options.body)
+      if (body.method === 'session/list') {
+        return { ok: true, json: async () => ({
+          type: 'server-response', rpcId: body.rpcId,
+          result: { ok: true, value: { items: [{ sessionId: 'session-test' }] } },
+        }) }
+      }
+      assert.equal(body.method, 'session/prompt')
+      requestId = body.payload.args.request.requestId
+      assert.equal(body.payload.args.request.content[0].text, 'hello')
+      return { ok: true, json: async () => ({
+        type: 'server-response', rpcId: body.rpcId, result: { ok: true, value: { accepted: true } },
+      }) }
+    },
+    WebSocket: Socket,
+    setTimeout() { return 1 }, clearTimeout() {},
+    setInterval() { return 1 }, clearInterval() {},
+    addEventListener() {},
+  }, { timeout: 1000 })
+  await waitFor(() => socket)
+  socket.readyState = 1
+  socket.emit('open')
+  await waitFor(() => typeof nodes.get('send').listeners.click === 'function')
+  nodes.get('message').value = 'hello'
+  nodes.get('send').listeners.click()
+  await waitFor(() => nodes.get('message').value === '' && requestId)
+  assert.match(nodes.get('messages').childNodes.map(x => x.textContent).join(' '), /hello/)
+  assert.match(nodes.get('diagnostic').textContent, /队列/)
+  const follow = sent.find(x => x.endpoint === 'session/follow')
+  assert.ok(follow)
+  socket.emit('message', { data: JSON.stringify({
+    type: 'item', streamId: follow.streamId, value: {
+      type: 'event', event: {
+        type: 'user/message', seq: 3,
+        data: { source: { kind: 'user', rpcId: requestId }, content: [{ type: 'text', text: 'hello' }] },
+      },
+    },
+  }) })
+  socket.emit('message', { data: JSON.stringify({
+    type: 'item', streamId: follow.streamId, value: {
+      type: 'event', event: {
+        type: 'turn/end', seq: 4,
+        data: { reason: { kind: 'error', error: {
+          code: 'INVALID_REQUEST', message: "Invalid 'tools[0].name'",
+        } } },
+      },
+    },
+  }) })
+  const messages = nodes.get('messages').childNodes.map(x => x.textContent)
+  assert.equal(messages.filter(x => x === 'hello').length, 1, 'durable message replaces pending echo')
+  assert.match(messages.join(' '), /模型执行失败/)
+  assert.match(messages.join(' '), /tools\[0\]\.name/)
+})
