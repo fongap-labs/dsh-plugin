@@ -1,6 +1,8 @@
 # Delta Desktop（Delta 桌面）
 
-许可证：Apache-2.0。原先的 Delta Suite Release 保留为历史记录，不是新包。\n\nDelta Desktop 是基于 DeepSeek Harness 运行内核的独立界面。单一插件 `@fongap-labs/dsh-desktop-delta`，不再提供 Tauri 桌面产品或 Delta Suite 原生 UI 注入。
+许可证：Apache-2.0。原先的 Delta Suite Release 保留为历史记录，不是新包。
+
+Delta Desktop 是基于 DeepSeek Harness 运行内核的独立界面。单一插件 `@fongap-labs/dsh-desktop-delta`，不再提供 Tauri 桌面产品或 Delta Suite 原生 UI 注入。
 
 ## 结构
 
