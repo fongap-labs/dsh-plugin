@@ -1,41 +1,52 @@
 {
-  "name": "@fongap-labs/dsh-desktop-delta",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@fongap-labs/dsh-suite-delta",
+  "version": "0.0.0",
+  "private": false,
   "type": "module",
-  "description": "Delta Suite Tauri desktop frontend",
-  "license": "Apache-2.0",
-  "packageManager": "pnpm@11.28.5",
+  "description": "Delta Suite for DSH（Delta 套件 · DSH 版）：DeepSeek Harness 界面、搜索、研究和本地记忆综合增强插件",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "manifestVersion": 1,
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-api-session-controller",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-approval"
+      ]
+    }
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/**/*.d.ts",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=20.10.0"
   },
-  "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
-    "icons": "tauri icon icon.svg --output src-tauri/icons",
-    "build": "pnpm icons && tsc -b && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 1420 --strictPort",
-    "tauri": "tauri"
-  },
-  "dependencies": {
-    "@tauri-apps/api": "^2.0.0",
-    "@tauri-apps/plugin-dialog": "^2.8.4",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.468.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
-    "tailwind-merge": "^3.3.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0",
-    "@tauri-apps/cli": "^2.0.0",
-    "@types/node": "^24.19.2",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.0.0",
-    "tailwindcss": "^4.0.0",
-    "typescript": "7.0.2",
-    "vite": "^6.0.0"
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
   }
 }
