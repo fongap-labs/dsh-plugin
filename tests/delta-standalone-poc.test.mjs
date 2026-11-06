@@ -1,22 +1,10 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import test from 'node:test'
 import { Script } from 'node:vm'
-import ts from 'typescript'
+import { standalonePocBrowser } from '../packages/dsh-suite-delta/lib/host/standalone-poc-browser.js'
+import { registerStandalonePoc, POC_PAGE_PATH, POC_STATUS_PATH } from '../packages/dsh-suite-delta/lib/host/standalone-poc.js'
 
-const browserSource = readFileSync(resolve('packages/dsh-suite-delta/src/host/standalone-poc-browser.ts'), 'utf8')
-const browserModule = ts.transpileModule(browserSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
-const { standalonePocBrowser } = await import('data:text/javascript;base64,' + Buffer.from(browserModule).toString('base64'))
 new Script(standalonePocBrowser, { filename: 'standalone-poc-browser.js' })
-const source = readFileSync(resolve('packages/dsh-suite-delta/src/host/standalone-poc.ts'), 'utf8')
-  .replace("import { standalonePocBrowser } from './standalone-poc-browser.js'", 'const standalonePocBrowser = ' + JSON.stringify(standalonePocBrowser))
-const javascript = ts.transpileModule(source, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
-}).outputText
-const { registerStandalonePoc, POC_PAGE_PATH, POC_STATUS_PATH } = await import(
-  'data:text/javascript;base64,' + Buffer.from(javascript).toString('base64')
-)
 
 function setup({ available = true } = {}) {
   const routes = new Map()
@@ -79,9 +67,9 @@ test('P0-A: same-origin authenticated probe is read-only and independently serve
   assert.match(page.body, /P0 Gateway/)
   assert.match(page.body, /api\/remote\.mux/)
   assert.match(page.body, /Session RPC/)
-  assert.match(page.body, /approval\\/request/)
-  assert.match(page.body, /session\\/follow/)
-  assert.match(page.body, /session\\/prompt/)
+  assert.ok(page.body.includes('approval/request'))
+  assert.ok(page.body.includes('session/follow'))
+  assert.ok(page.body.includes('session/prompt'))
   assert.doesNotMatch(page.body, /__DSH_BOOT__/)
   assert.match(page.responseHeaders['content-security-policy'], /frame-ancestors 'none'/)
   assert.match(page.responseHeaders['cache-control'], /no-store/)
