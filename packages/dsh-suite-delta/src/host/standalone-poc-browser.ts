@@ -32,7 +32,12 @@ export const standalonePocBrowser = String.raw`
   let pending = null;
   let currentSession = new URL(location.href).searchParams.get('session') || '';
   const streams = new Map();
-  const sessionEvents = new Map();
+  let active = true;
+  let leaseTimer;
+  let reconnectAttempts = 0;
+  let approvalSettling = false;
+  const validSessionId = (id) => typeof id === 'string' && /^[A-Za-z0-9._:-]{1,150}$/.test(id);
+  if (!validSessionId(currentSession)) currentSession = '';
   let gatewayClientId = '';
   const safeError = (error) => {
     if (error && typeof error === 'object' && typeof error.code === 'string') return error.code;
@@ -98,9 +103,11 @@ export const standalonePocBrowser = String.raw`
     return frame.result.value;
   }
   async function list() {
+    if (!active) return;
     state(nodes.sessions, 'pending', '\u8bfb\u53d6\u4e2d');
     try {
       const value = await rpc('session/list', { request: {} });
+      if (!active) return;
       const items = value && Array.isArray(value.items) ? value.items : null;
       if (items === null) throw new TypeError('invalid session list');
       nodes.sessions.replaceChildren();
@@ -121,6 +128,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   async function createSession() {
+    if (!active) return;
     nodes.create.disabled = true;
     try {
       const value = await rpc('session/create', { request: {} });
@@ -134,7 +142,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   function selectSession(id) {
-    if (!id || !/^[A-Za-z0-9._:-]{1,150}$/.test(id)) {
+    if (!active || !validSessionId(id)) {
       diagnostic('\u4f1a\u8bdd\u6807\u8bc6\u4e0d\u7b26\u5408\u63a2\u9488\u7ea6\u675f');
       return;
     }
@@ -151,6 +159,7 @@ export const standalonePocBrowser = String.raw`
     if (ws && ws.readyState === WebSocket.OPEN) openSessionStream(id);
   }
   async function send() {
+    if (!active) return;
     const value = nodes.message.value.trim();
     if (!currentSession || !value) {
       diagnostic('\u5148\u9009\u62e9\u4f1a\u8bdd\u5e76\u8f93\u5165\u6d88\u606f');
@@ -176,7 +185,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   function openStream(kind, endpoint, request) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!active || !ws || ws.readyState !== WebSocket.OPEN) return;
     const id = crypto.randomUUID();
     streams.set(id, { id, kind, endpoint });
     ws.send(JSON.stringify({
@@ -199,22 +208,46 @@ export const standalonePocBrowser = String.raw`
       request: {
         address: { kind: 'session', sessionId },
         assistantStream: true,
+        maxMessages: 50,
       },
     });
   }
   function clearApproval(reason) {
     pending = null;
+    approvalSettling = false;
     nodes.interaction.replaceChildren();
     if (reason) diagnostic(reason);
   }
+  function delegateUnclaimed(frame) {
+    if (!active || !gatewayClientId || typeof frame.eventId !== 'string') return;
+    void rpc('$events/result', {
+      clientId: gatewayClientId,
+      eventId: frame.eventId,
+      outcome: { kind: 'next' },
+    }).catch(() => { diagnostic('Unable to delegate an unsupported interaction'); });
+  }
   function receiveApproval(frame) {
-    if (!gatewayClientId || !currentSession || frame.agentId !== currentSession || pending) return;
-    if (!frame.eventId || !frame.request || typeof frame.request.toolName !== 'string') return;
+    if (!active || !gatewayClientId || !currentSession || frame.agentId !== currentSession ||
+        pending || !frame.eventId || !frame.request || typeof frame.request.toolName !== 'string') {
+      delegateUnclaimed(frame);
+      return;
+    }
     pending = frame;
     const card = document.createElement('div');
     const detail = document.createElement('p');
     detail.textContent = '\u5de5\u5177 ' + frame.request.toolName + ' \u8bf7\u6c42\u6279\u51c6';
     card.appendChild(detail);
+    const reason = frame.request.displayReason?.zh || frame.request.displayReason?.en || frame.request.reason;
+    if (typeof reason === 'string' && reason.trim()) {
+      const reasonText = document.createElement('p');
+      reasonText.textContent = reason.slice(0, 1000);
+      card.appendChild(reasonText);
+    }
+    if (typeof frame.request.callId === 'string' && frame.request.callId) {
+      const call = document.createElement('p');
+      call.textContent = 'Tool call: ' + frame.request.callId.slice(0, 150);
+      card.appendChild(call);
+    }
     for (const [title, value] of [['\u5141\u8bb8\u4e00\u6b21', 'allowed-once'], ['\u62d2\u7edd', 'rejected']]) {
       const button = document.createElement('button');
       button.type = 'button';
@@ -225,7 +258,10 @@ export const standalonePocBrowser = String.raw`
     nodes.interaction.replaceChildren(card);
   }
   async function answerApproval(frame, decision) {
-    if (!pending || pending.eventId !== frame.eventId || !gatewayClientId) return;
+    if (!active || !pending || approvalSettling ||
+        pending.eventId !== frame.eventId || frame.agentId !== currentSession ||
+        !gatewayClientId) return;
+    approvalSettling = true;
     for (const button of nodes.interaction.querySelectorAll('button')) button.disabled = true;
     try {
       await rpc('$events/result', {
@@ -237,6 +273,8 @@ export const standalonePocBrowser = String.raw`
     } catch (error) {
       diagnostic('\u5ba1\u6279\u63d0\u4ea4\u5931\u8d25：' + safeError(error));
       clearApproval();
+    } finally {
+      approvalSettling = false;
     }
   }
   function handleEvent(value) {
@@ -255,6 +293,7 @@ export const standalonePocBrowser = String.raw`
     } else if (value.type === 'waterfall' && value.event === 'approval/request') {
       receiveApproval(value);
     } else if (value.type === 'waterfall') {
+      delegateUnclaimed(value);
       diagnostic('\u5b58\u5728\u672a\u652f\u6301\u7684\u4ea4\u4e92：' + String(value.event || 'unknown'));
       // Never automatically accept unknown permissions or questions.
     }
@@ -278,6 +317,12 @@ export const standalonePocBrowser = String.raw`
       const value = frame.value;
       if (!value || typeof value !== 'object') return;
       if (value.type === 'snapshot') {
+        if (!Array.isArray(value.records) || typeof value.cursor !== 'number' ||
+            !value.header || typeof value.header.id !== 'string' ||
+            value.header.id !== currentSession) {
+          diagnostic('Invalid Session snapshot');
+          return;
+        }
         entries.length = 0;
         entries.push(...limitEvents(value.records));
         renderEvents();
@@ -288,6 +333,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   function connect() {
+    if (!active) return;
     const current = ++attempt;
     clearTimeout(reconnect);
     if (ws) { try { ws.close(); } catch {} }
@@ -301,6 +347,7 @@ export const standalonePocBrowser = String.raw`
     ws.addEventListener('open', () => {
       if (attempt !== current) return;
       state(nodes.socket, 'pending', 'Gateway \u63e1\u624b\u4e2d');
+      reconnectAttempts = 0;
       openStream('events', '$events', {});
       if (currentSession) openSessionStream(currentSession);
       void list();
@@ -315,38 +362,61 @@ export const standalonePocBrowser = String.raw`
       gatewayClientId = '';
       clearApproval('\u8fde\u63a5\u65ad\u5f00；\u5f85\u5904\u7406\u5ba1\u6279\u4e0d\u4f5c\u4efb\u4f55\u81ea\u52a8\u51b3\u5b9a');
       state(nodes.socket, 'fail', '\u8fde\u63a5\u65ad\u5f00');
-      reconnect = setTimeout(connect, 2400);
+      reconnect = setTimeout(connect, Math.min(2000 * 2 ** reconnectAttempts++, 12000));
     });
     ws.addEventListener('error', () => {
       if (attempt === current) state(nodes.socket, 'fail', 'WebSocket \u9519\u8bef');
     });
   }
-  async function start() {
-    state(nodes.auth, 'pending', '\u6821\u9a8c\u4e2d');
+  async function checkLease() {
+    if (!active) return false;
     try {
       const response = await fetch('/dsh-ui-delta/poc/status', {
         cache: 'no-store', credentials: 'same-origin',
       });
+      if (!response.ok) return false;
       const value = await response.json();
-      if (!response.ok || value.authenticated !== true) throw new Error('unauthorized');
-      state(nodes.auth, 'pass', '\u901a\u8fc7');
-      if (currentSession) state(nodes.current, 'pass', currentSession);
-      connect();
+      return value?.authenticated === true && value?.poc === 'P0-B';
     } catch {
-      state(nodes.auth, 'fail', '\u8ba4\u8bc1\u5931\u8d25');
-      diagnostic('\u8bf7\u5148\u4f7f\u7528\u5b98\u65b9 Harness \u542f\u52a8\u9875\u9762\u5b8c\u6210 Cookie \u4ea4\u6362');
+      return false;
     }
+  }
+  function stop(reason) {
+    if (!active) return;
+    active = false;
+    ++attempt;
+    clearTimeout(reconnect);
+    clearInterval(leaseTimer);
+    streams.clear();
+    gatewayClientId = '';
+    if (ws) ws.close();
+    clearApproval();
+    nodes.create.disabled = true;
+    nodes.refresh.disabled = true;
+    nodes.send.disabled = true;
+    state(nodes.socket, 'fail', 'Disconnected');
+    if (reason) diagnostic(reason);
+  }
+  async function start() {
+    state(nodes.auth, 'pending', 'Checking');
+    if (!(await checkLease())) {
+      state(nodes.auth, 'fail', 'Not authenticated');
+      stop('Gateway probe is not authenticated or no longer installed');
+      return;
+    }
+    state(nodes.auth, 'pass', 'Authenticated');
+    if (currentSession) state(nodes.current, 'pass', currentSession);
+    leaseTimer = setInterval(() => {
+      void checkLease().then(valid => {
+        if (active && !valid) stop('Gateway probe was disabled or lost authorization');
+      });
+    }, 5000);
+    connect();
   }
   nodes.create.addEventListener('click', () => { void createSession(); });
   nodes.refresh.addEventListener('click', () => { void list(); });
   nodes.send.addEventListener('click', () => { void send(); });
-  addEventListener('pagehide', () => {
-    ++attempt;
-    clearTimeout(reconnect);
-    for (const id of [...streams.keys()]) cancelStream(id);
-    if (ws) ws.close();
-    clearApproval();
-  }, { once: true });
+  addEventListener('pagehide', () => { stop(); }, { once: true });
   void start();
 })();
 `;
