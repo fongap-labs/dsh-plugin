@@ -118,15 +118,15 @@ describe("dsh-ui-delta", () => {
     assert.match(responseBody, /request refused/);
   });
 
-  it("新客户端入口注册唯一正确 ID，且不再挂载原生 Suite UI", () => {
+  it("registers the correct unique Desktop client ID without native Suite UI injection", () => {
     const clientPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/lib/client-entry.js");
     const iconPath = join(import.meta.dirname, "../packages/dsh-desktop-delta/icon.svg");
     const manifest = JSON.parse(readFileSync(
       join(import.meta.dirname, "../packages/dsh-desktop-delta/package.json"), "utf8"
     ));
 
-    assert.ok(existsSync(clientPath), "Delta Desktop 客户端入口必须存在");
-    assert.ok(existsSync(iconPath), "icon.svg 必须存在");
+    assert.ok(existsSync(clientPath), "Delta Desktop client entry must exist");
+    assert.ok(existsSync(iconPath), "icon.svg must exist");
     assert.equal(manifest.exports["./client"], "./lib/client-entry.js");
     const clientSrc = readFileSync(clientPath, "utf8");
     assert.ok(clientSrc.includes("id: '@fongap-labs/dsh-desktop-delta'"));
