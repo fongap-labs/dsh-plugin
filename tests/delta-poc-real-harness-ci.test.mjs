@@ -112,8 +112,8 @@ testCase('real installed Harness: Delta standalone page authenticates and stream
     })
     childExit = new Promise((done) => child.once('exit', (code, signal) => done({ code, signal })))
     child.on('error', () => {})
-    child.stdout.on('data', (chunk) => { childOutput += String(chunk).slice(0, 8192) })
-    child.stderr.on('data', (chunk) => { childOutput += String(chunk).slice(0, 8192) })
+    child.stdout.on('data', (chunk) => { childOutput = (childOutput + String(chunk)).slice(-32768) })
+    child.stderr.on('data', (chunk) => { childOutput = (childOutput + String(chunk)).slice(-32768) })
 
     const launchUrl = await limit(new Promise((done, reject) => {
       const interval = setInterval(() => {
@@ -177,7 +177,6 @@ testCase('real installed Harness: Delta standalone page authenticates and stream
     marks.push('real-disposable-session-created')
 
     // Use an actual WebSocket carrier and the official Remote mux wire.
-    const fromRuntime = createRequire(join(runtime, 'node_modules', '@deepseek-ai', 'dsh', 'package.json'))
     const WS = createRequire(join(runtime, 'package.json'))('ws')
     assert.ok(typeof WS === 'function')
     const packets = []
