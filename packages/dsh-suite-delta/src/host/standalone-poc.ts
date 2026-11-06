@@ -7,6 +7,7 @@
  * + the official WebSocket carrier upgrade without copying the Web boot graph.
  */
 import { randomBytes } from 'node:crypto'
+import { standalonePocBrowser } from './standalone-poc-browser.js'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 
@@ -46,7 +47,12 @@ body { margin: 0; min-height: 100dvh; background: #f5f6f7; color: #1c2529; }
 main { max-width: 780px; margin: min(9vh, 76px) auto; padding: 28px; }
 h1 { font-size: 24px; letter-spacing: -.03em; margin: 0 0 10px; }
 p { color: #55636a; margin: 0 0 22px; }
-section { background: white; border: 1px solid #d9e1e2; border-radius: 14px; padding: 18px; }
+section { background: white; border: 1px solid #d9e1e2; border-radius: 14px; padding: 18px; margin: 12px 0; }
+h2 { margin: 0 0 10px; font-size: 16px; }
+.actions { display:flex; gap:8px; flex-wrap:wrap; margin: 12px 0; }
+input { flex: 1 1 160px; border:1px solid #bccdd1; border-radius: 8px; padding: 10px; }
+.session-option { margin:4px; background:#e4f0f1; color:#183b42; font-size:12px; }
+#messages {max-height: 240px; overflow:auto; word-break:break-all;}
 ol { padding-left: 20px; }
 li { padding: 8px 0; }
 strong { font-weight: 600; }
@@ -69,72 +75,35 @@ small { display: block; margin-top: 20px; color: #59666b; }
 </head>
 <body>
 <main>
-<h1>Delta Suite · P0-A 最小验证</h1>
-<p>这是插件独立提供的文档页面。没有加载 Harness 原生 React 布局，也没有复制 Harness 运行内核。</p>
+<h1>Delta Suite · P0 Gateway 最小验证</h1>
+<p>独立文档、独立交互，不挂载 Harness 原生 AppFrame。仅在隔离测试环境使用。</p>
 <section>
+<h2>连接状态</h2>
 <ol>
-<li>独立页面与签名 Cookie 认证 <strong data-state="pass">通过</strong></li>
-<li>同源认证请求 <strong id="auth" data-state="pending">待检测</strong></li>
-<li>Harness 官方 WebSocket 连接升级 <strong id="socket" data-state="pending">待检测</strong></li>
-<li>Session RPC、流式消息和恢复 <strong data-state="pending">未验证</strong></li>
-<li>工具审批与用户提问 <strong data-state="pending">未验证</strong></li>
+<li>宿主认证 <strong id="auth" data-state="pending">待检测</strong></li>
+<li>Gateway 事件流 <strong id="socket" data-state="pending">待检测</strong></li>
+<li>Session RPC <strong id="gateway" data-state="pending">待检测</strong></li>
+<li>当前会话 <strong id="current" data-state="pending">未选择</strong></li>
 </ol>
-<button type="button" id="retry">重新检测</button>
-<small>只检查协议连通性，不发送模型消息、不执行工具、不读取会话、不记录凭据。WebSocket 握手成功不代表 Session API 已兼容。</small>
+<div class="actions"><button type="button" id="create">创建测试会话</button><button type="button" id="refresh">刷新会话目录</button></div>
+<div id="sessions" aria-label="Harness 会话目录"></div>
 </section>
+<section>
+<h2>Session / 流式事件</h2>
+<p>先选择隔离的测试会话。发消息将真实调用 Harness Agent，可能产生模型费用或工具操作。</p>
+<div class="actions"><input type="text" id="message" aria-label="测试消息" placeholder="输入测试消息"><button id="send" type="button">发送消息</button></div>
+<ol id="messages" aria-label="最近的 Session 事件"></ol>
+</section>
+<section>
+<h2>审批（手动决定）</h2>
+<p>只有本页收到当前会话的审批请求时才显示按钮；不会自动允许工具执行。</p>
+<div id="interaction"></div>
+</section>
+<p role="status" id="diagnostic" aria-live="polite">等待连接</p>
+<small>原型只验证当前协议。不要把本页用于生产操作；协议细节可能随 Harness 更新而变更。</small>
 </main>
 <script nonce="${nonce}">
-(() => {
-  const status = (id, state, text) => {
-    const node = document.getElementById(id);
-    node.dataset.state = state;
-    node.textContent = text;
-  };
-  let generation = 0;
-  async function run() {
-    const current = ++generation;
-    status('auth','pending','检测中');
-    status('socket','pending','检测中');
-    try {
-      const res = await fetch('/dsh-ui-delta/poc/status', {
-        credentials: 'same-origin', headers: { accept: 'application/json' }, cache: 'no-store'
-      });
-      const body = await res.json();
-      if (current !== generation) return;
-      if (res.ok && body.authenticated === true && body.poc === 'P0-A') {
-        status('auth','pass','通过');
-      } else {
-        status('auth','fail',res.status === 401 ? '未认证' : '失败');
-      }
-    } catch {
-      if (current === generation) status('auth','fail','请求失败');
-    }
-    if (current !== generation) return;
-    const address = new URL('/api/remote.mux', location.href);
-    address.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let settled = false;
-    let ws;
-    let timeout;
-    const finish = (state, text) => {
-      if (settled || current !== generation) return;
-      settled = true;
-      clearTimeout(timeout);
-      status('socket',state,text);
-      try { ws?.close(1000); } catch { /* diagnostic only */ }
-    };
-    try {
-      ws = new WebSocket(address.href);
-      ws.addEventListener('open', () => finish('pass','握手通过'));
-      ws.addEventListener('error', () => finish('fail','握手失败'));
-      ws.addEventListener('close', () => finish('fail','连接关闭'));
-      timeout = setTimeout(() => finish('fail','连接超时'), 6000);
-    } catch {
-      finish('fail','无法连接');
-    }
-  }
-  document.getElementById('retry').addEventListener('click', run);
-  run();
-})();
+${standalonePocBrowser}
 </script>
 </body>
 </html>`
@@ -166,7 +135,7 @@ export function registerStandalonePoc(ctx: Context): void {
         return
       }
       const nonce = randomBytes(18).toString('base64')
-      const body = isPage ? html(nonce) : JSON.stringify({ poc: 'P0-A', authenticated: true })
+      const body = isPage ? html(nonce) : JSON.stringify({ poc: 'P0-B', authenticated: true })
       res.writeHead(200, {
         'content-type': isPage ? 'text/html; charset=utf-8' : 'application/json; charset=utf-8',
         'cache-control': 'no-store',
