@@ -42,6 +42,24 @@ export const standaloneDesktopBrowser = String.raw`
   let isSessionListReady = false;
   let isEventStreamReady = false;
   let startupTimer;
+  let gatewayBaseUrl = location.href;
+  async function resolveGatewayBaseUrl() {
+    if (location.protocol !== 'dsh-app:') return location.href;
+    // On Electron the document origin is dsh-app://app, not the WebSocket
+    // Host. The owned desktop preload supplies its loopback Host origin.
+    const boot = globalThis.dshDesktopBoot;
+    if (typeof boot?.ready !== 'function') throw new Error('Desktop Host bridge is unavailable');
+    const result = await boot.ready();
+    const raw = result?.streamBaseUrl;
+    if (typeof raw !== 'string') throw new Error('Desktop Host stream origin is unavailable');
+    const target = new URL(raw);
+    if (!['http:', 'https:'].includes(target.protocol) ||
+        !['localhost', '127.0.0.1', '[::1]'].includes(target.hostname) ||
+        target.username || target.password || target.origin !== raw) {
+      throw new Error('Invalid Desktop Host stream origin');
+    }
+    return target.origin;
+  }
   function fallbackToNative() {
     if (isBootstrapReady) return;
     stop('Delta Desktop failed to start; restoring native Harness');
@@ -414,8 +432,8 @@ export const standaloneDesktopBrowser = String.raw`
     streams.clear();
     clearApproval();
     state(nodes.socket, 'pending', '\u8fde\u63a5\u4e2d');
-    const url = new URL('/api/remote.mux', location.href);
-    url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = new URL('/api/remote.mux', gatewayBaseUrl);
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(url.href);
     ws.addEventListener('open', () => {
       if (attempt !== current) return;
@@ -480,6 +498,14 @@ export const standaloneDesktopBrowser = String.raw`
       return;
     }
     state(nodes.auth, 'pass', 'Authenticated');
+    try {
+      gatewayBaseUrl = await resolveGatewayBaseUrl();
+    } catch {
+      state(nodes.gateway, 'fail', 'Desktop Host unavailable');
+      fallbackToNative();
+      return;
+    }
+    if (!isActive) return;
     if (currentSession) {
       state(nodes.current, 'pass', currentSession);
       state(nodes.snapshot, 'pending', 'Waiting for Session snapshot');

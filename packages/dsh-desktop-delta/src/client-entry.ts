@@ -11,10 +11,14 @@ const STATUS_PATH = '/dsh-ui-delta/app/status'
 function activateIndependentDesktop(ctx: HarnessClientContext): void {
   const url = new URL(window.location.href)
   // A one-shot fallback remains in native Harness, without a redirect loop.
-  if (window.self !== window.top || !['http:', 'https:'].includes(url.protocol) ||
+  // Electron Desktop owns dsh-app://app/ and forwards other paths to its
+  // authenticated Host. Reject other custom-scheme or unowned documents.
+  const isDesktopShell = url.protocol === 'dsh-app:' && url.hostname === 'app'
+  if (window.self !== window.top ||
+      (!['http:', 'https:'].includes(url.protocol) && !isDesktopShell) ||
       url.pathname !== '/' || url.searchParams.get('delta-native-fallback') === '1') return
 
-  const isOfficialLaunch = url.searchParams.has('token')
+  const isOfficialLaunch = !isDesktopShell && url.searchParams.has('token')
   const controller = new AbortController()
   let isActive = true
   ctx.effect(() => {
@@ -55,7 +59,9 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
                 if (page.status === 200 &&
                     (page.headers.get('content-type') || '').includes('text/html')) {
                   // No query or fragment, in particular no launch material.
-                  window.location.replace(new URL(DESKTOP_PATH, url.origin).href)
+                  // Custom-scheme URL.origin is "null"; keep the trusted
+                  // document's scheme/authority and drop all launch queries.
+                  window.location.replace(new URL(DESKTOP_PATH, url.href).href)
                   return
                 }
                 if (!isOfficialLaunch) { fallback(); return }

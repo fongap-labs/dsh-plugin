@@ -21,7 +21,7 @@ test('native chat stays hidden pending authenticated Delta verification', () => 
   assert.match(entry, /authenticated.*=== true/)
   assert.match(entry, /method: 'HEAD'/)
   assert.match(entry, /page\.status === 200/)
-  assert.match(entry, /location\.replace\(new URL\(DESKTOP_PATH, url\.origin\)\.href\)/)
+  assert.match(entry, /location\.replace\(new URL\(DESKTOP_PATH, url\.href\)\.href\)/)
 })
 
 test('official launch and unrelated surfaces are never intercepted', () => {
@@ -31,4 +31,13 @@ test('official launch and unrelated surfaces are never intercepted', () => {
   assert.match(entry, /url\.pathname !== '\/'/)
   assert.match(entry, /window\.self !== window\.top/)
   assert.match(entry, /controller\.abort\(\)/)
+})
+
+test('Electron dsh-app desktop origin is an authorized bootstrap source', () => {
+  assert.match(entry, /url\.protocol === 'dsh-app:' && url\.hostname === 'app'/)
+  assert.match(entry, /new URL\(DESKTOP_PATH, url\.href\)/)
+  assert.equal(new URL('/dsh-ui-delta/app', 'dsh-app://app/').href,
+    'dsh-app://app/dsh-ui-delta/app')
+  assert.equal(new URL('dsh-app://app/').origin, 'null',
+    'custom protocol must not be passed as URL.origin to the redirect')
 })
