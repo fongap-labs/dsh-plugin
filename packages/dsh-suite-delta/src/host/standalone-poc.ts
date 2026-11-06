@@ -40,7 +40,7 @@ const html = (nonce: string): string => `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Delta Suite · 独立网页验证</title>
+<title>Delta Suite · \u72ec\u7acb\u7f51\u9875\u9a8c\u8bc1</title>
 <style nonce="${nonce}">
 :root { color-scheme: light dark; font: 14px/1.55 system-ui, sans-serif; }
 body { margin: 0; min-height: 100dvh; background: #f5f6f7; color: #1c2529; }
@@ -75,32 +75,32 @@ small { display: block; margin-top: 20px; color: #59666b; }
 </head>
 <body>
 <main>
-<h1>Delta Suite · P0 Gateway 最小验证</h1>
-<p>独立文档、独立交互，不挂载 Harness 原生 AppFrame。仅在隔离测试环境使用。</p>
+<h1>Delta Suite · P0 Gateway \u6700\u5c0f\u9a8c\u8bc1</h1>
+<p>\u72ec\u7acb\u6587\u6863、\u72ec\u7acb\u4ea4\u4e92，\u4e0d\u6302\u8f7d Harness \u539f\u751f AppFrame。\u4ec5\u5728\u9694\u79bb\u6d4b\u8bd5\u73af\u5883\u4f7f\u7528。</p>
 <section>
-<h2>连接状态</h2>
+<h2>\u8fde\u63a5\u72b6\u6001</h2>
 <ol>
-<li>宿主认证 <strong id="auth" data-state="pending">待检测</strong></li>
-<li>Gateway 事件流 <strong id="socket" data-state="pending">待检测</strong></li>
-<li>Session RPC <strong id="gateway" data-state="pending">待检测</strong></li>
-<li>当前会话 <strong id="current" data-state="pending">未选择</strong></li>
+<li>\u5bbf\u4e3b\u8ba4\u8bc1 <strong id="auth" data-state="pending">\u5f85\u68c0\u6d4b</strong></li>
+<li>Gateway \u4e8b\u4ef6\u6d41 <strong id="socket" data-state="pending">\u5f85\u68c0\u6d4b</strong></li>
+<li>Session RPC <strong id="gateway" data-state="pending">\u5f85\u68c0\u6d4b</strong></li>
+<li>\u5f53\u524d\u4f1a\u8bdd <strong id="current" data-state="pending">\u672a\u9009\u62e9</strong></li>
 </ol>
-<div class="actions"><button type="button" id="create">创建测试会话</button><button type="button" id="refresh">刷新会话目录</button></div>
-<div id="sessions" aria-label="Harness 会话目录"></div>
+<div class="actions"><button type="button" id="create">\u521b\u5efa\u6d4b\u8bd5\u4f1a\u8bdd</button><button type="button" id="refresh">\u5237\u65b0\u4f1a\u8bdd\u76ee\u5f55</button></div>
+<div id="sessions" aria-label="Harness \u4f1a\u8bdd\u76ee\u5f55"></div>
 </section>
 <section>
-<h2>Session / 流式事件</h2>
-<p>先选择隔离的测试会话。发消息将真实调用 Harness Agent，可能产生模型费用或工具操作。</p>
-<div class="actions"><input type="text" id="message" aria-label="测试消息" placeholder="输入测试消息"><button id="send" type="button">发送消息</button></div>
-<ol id="messages" aria-label="最近的 Session 事件"></ol>
+<h2>Session / \u6d41\u5f0f\u4e8b\u4ef6</h2>
+<p>\u5148\u9009\u62e9\u9694\u79bb\u7684\u6d4b\u8bd5\u4f1a\u8bdd。\u53d1\u6d88\u606f\u5c06\u771f\u5b9e\u8c03\u7528 Harness Agent，\u53ef\u80fd\u4ea7\u751f\u6a21\u578b\u8d39\u7528\u6216\u5de5\u5177\u64cd\u4f5c。</p>
+<div class="actions"><input type="text" id="message" aria-label="\u6d4b\u8bd5\u6d88\u606f" placeholder="\u8f93\u5165\u6d4b\u8bd5\u6d88\u606f"><button id="send" type="button">\u53d1\u9001\u6d88\u606f</button></div>
+<ol id="messages" aria-label="\u6700\u8fd1\u7684 Session \u4e8b\u4ef6"></ol>
 </section>
 <section>
-<h2>审批（手动决定）</h2>
-<p>只有本页收到当前会话的审批请求时才显示按钮；不会自动允许工具执行。</p>
+<h2>\u5ba1\u6279（\u624b\u52a8\u51b3\u5b9a）</h2>
+<p>\u53ea\u6709\u672c\u9875\u6536\u5230\u5f53\u524d\u4f1a\u8bdd\u7684\u5ba1\u6279\u8bf7\u6c42\u65f6\u624d\u663e\u793a\u6309\u94ae；\u4e0d\u4f1a\u81ea\u52a8\u5141\u8bb8\u5de5\u5177\u6267\u884c。</p>
 <div id="interaction"></div>
 </section>
-<p role="status" id="diagnostic" aria-live="polite">等待连接</p>
-<small>原型只验证当前协议。不要把本页用于生产操作；协议细节可能随 Harness 更新而变更。</small>
+<p role="status" id="diagnostic" aria-live="polite">\u7b49\u5f85\u8fde\u63a5</p>
+<small>\u539f\u578b\u53ea\u9a8c\u8bc1\u5f53\u524d\u534f\u8bae。\u4e0d\u8981\u628a\u672c\u9875\u7528\u4e8e\u751f\u4ea7\u64cd\u4f5c；\u534f\u8bae\u7ec6\u8282\u53ef\u80fd\u968f Harness \u66f4\u65b0\u800c\u53d8\u66f4。</small>
 </main>
 <script nonce="${nonce}">
 ${standalonePocBrowser}
