@@ -35,6 +35,8 @@ test('P0-B: authenticated document uses official RPC and event stream without au
     createDocumentFragment: () => createNode('fragment'),
   }
   let nextId = 0
+  let leaseCheck
+  let statusAvailable = true
   class FakeSocket {
     static OPEN = 1
     constructor(url) { this.url = url; this.readyState = 0; this.handlers = new Map(); this.sent = []; sockets.push(this) }
@@ -47,7 +49,9 @@ test('P0-B: authenticated document uses official RPC and event stream without au
   const fetch = async (url, options = {}) => {
     calls.push({ url, options })
     if (url === '/dsh-ui-delta/poc/status') return {
-      ok: true, json: async () => ({ authenticated: true, poc: 'P0-B' }),
+      ok: statusAvailable,
+      json: async () => statusAvailable
+        ? ({ authenticated: true, poc: 'P0-B' }) : ({ authenticated: false }),
     }
     const frame = JSON.parse(options.body)
     let value
@@ -73,6 +77,8 @@ test('P0-B: authenticated document uses official RPC and event stream without au
     addEventListener: (name, listener) => listeners.set(name, listener),
     setTimeout: () => 1,
     clearTimeout() {},
+    setInterval: callback => { leaseCheck = callback; return 55 },
+    clearInterval() {},
   }
   runInNewContext(standalonePocBrowser, sandbox, { timeout: 1000 })
   const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve() }
@@ -88,6 +94,7 @@ test('P0-B: authenticated document uses official RPC and event stream without au
   assert.equal(calls.some(call => call.url === '/api/session/prompt'), false)
   assert.equal(calls.some(call => call.url === '/api/$events/result'), false)
 
+  assert.equal(typeof leaseCheck, 'function')
   const events = sockets[0].sent.find(frame => frame.endpoint === '$events')
   sockets[0].emit('message', { data: JSON.stringify({
     type: 'item', streamId: events.streamId,
@@ -124,6 +131,40 @@ test('P0-B: authenticated document uses official RPC and event stream without au
   assert.equal(answer.payload.args.eventId, 'approval-test')
   assert.equal(answer.payload.args.outcome.kind, 'result')
   assert.equal(answer.payload.args.outcome.value, 'allowed-once')
+  const unanswered = {
+    type: 'waterfall', event: 'user-questions/request', eventId: 'unknown-interaction',
+    agentId: 'test-session', request: { questions: [] },
+  }
+  sockets[0].emit('message', { data: JSON.stringify({
+    type: 'item', streamId: events.streamId, value: unanswered,
+  }) })
+  await flush()
+  const delegate = calls.find(call => call.url === '/api/$events/result' &&
+    JSON.parse(call.options.body).payload.args.eventId === 'unknown-interaction')
+  assert.ok(delegate, 'unknown waterfalls must be delegated rather than held')
+  assert.equal(JSON.parse(delegate.options.body).payload.args.outcome.kind, 'next')
+
+  const otherSession = {
+    type: 'waterfall', event: 'approval/request', eventId: 'other-session',
+    agentId: 'not-selected', request: { toolName: 'another_tool' },
+  }
+  sockets[0].emit('message', { data: JSON.stringify({
+    type: 'item', streamId: events.streamId, value: otherSession,
+  }) })
+  await flush()
+  assert.equal(calls.some(call => call.url === '/api/$events/result' &&
+    JSON.parse(call.options.body).payload.args.eventId === 'other-session'), true)
+
+  statusAvailable = false
+  leaseCheck()
+  await flush()
+  assert.equal(sockets[0].readyState, 3)
+  assert.equal(nodes.get('send').disabled, true)
+  assert.equal(nodes.get('create').disabled, true)
+  const before = calls.length
+  nodes.get('message').value = 'should not send after unload'
+  await nodes.get('send').click()
+  assert.equal(calls.length, before, 'must not send after plugin lease expires')
   listeners.get('pagehide')()
   assert.equal(sockets[0].readyState, 3)
 })
