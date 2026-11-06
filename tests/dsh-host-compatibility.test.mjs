@@ -25,7 +25,7 @@ function walkTypeScript(directory) {
 
 describe('one-plugin compatibility with the native Harness Host', () => {
   it('never pins or installs Host framework packages in distributed plugin manifests', () => {
-    for (const name of ['dsh-suite-delta', 'dsh-code-worker', 'plugin-template']) {
+    for (const name of ['dsh-desktop-delta', 'dsh-code-worker', 'plugin-template']) {
       const plugin = readManifest(name)
       for (const hostPackage of ['@deepseek-ai/cordis', '@deepseek-ai/dsh-tools']) {
         assert.equal(Object.hasOwn(plugin.peerDependencies ?? {}, hostPackage), false)
@@ -40,7 +40,7 @@ describe('one-plugin compatibility with the native Harness Host', () => {
   })
 
   it('imports Cordis only as a type and never as a runtime module', () => {
-    for (const folder of ['dsh-suite-delta', 'dsh-code-worker', 'plugin-template', 'shared']) {
+    for (const folder of ['dsh-desktop-delta', 'dsh-code-worker', 'plugin-template', 'shared']) {
       const files = walkTypeScript(join(root, 'packages', folder, 'src'))
       for (const file of files) {
         const source = readFileSync(file, 'utf8')

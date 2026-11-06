@@ -13,7 +13,7 @@ import { createRequire } from 'node:module'
 const REPO = resolve(import.meta.dirname, '..')
 const HARNESS_VERSION = '0.2.1-rc.5'
 const WS_VERSION = '8.18.3'
-const NAME = '@fongap-labs/dsh-suite-delta'
+const NAME = '@fongap-labs/dsh-desktop-delta'
 const PROFILE = 'delta-poc-ci'
 const IS_CI = process.env.CI === 'true' && process.env.GITHUB_ACTIONS === 'true'
 
@@ -80,18 +80,18 @@ testCase('real installed Harness: Delta standalone page authenticates and stream
     const manifestPath = join(profileDir, 'package.json')
     assert.ok(existsSync(manifestPath), 'Official Web template did not initialize a profile')
 
-    const pluginDir = join(REPO, 'packages', 'dsh-suite-delta')
+    const pluginDir = join(REPO, 'packages', 'dsh-desktop-delta')
     assert.ok(existsSync(join(pluginDir, 'lib', 'index.js')), 'Compiled Delta host is missing')
     const scope = join(profileDir, 'node_modules', '@fongap-labs')
     mkdirSync(scope, { recursive: true })
-    symlinkSync(pluginDir, join(scope, 'dsh-suite-delta'), 'dir')
+    symlinkSync(pluginDir, join(scope, 'dsh-desktop-delta'), 'dir')
 
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
     assert.ok(Array.isArray(manifest.dsh?.profile?.bundles), 'Official profile manifest shape changed')
     if (!manifest.dsh.profile.bundles.includes(NAME)) manifest.dsh.profile.bundles.push(NAME)
     writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
     writeFileSync(join(profileDir, 'cordis.patch.yml'),
-      '- id: dsh-suite-delta\n  config:\n    standalonePoc: true\n')
+      '- id: dsh-desktop-delta\n  config:\n    standalonePoc: true\n')
     marks.push('installed-source-plugin-in-isolated-profile')
 
     // Pick an OS-assigned loopback port: fixed ports collide on shared runners.

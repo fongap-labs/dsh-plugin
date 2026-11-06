@@ -1,0 +1,111 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8');
+const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8');
+
+describe('dsh-ui-delta UI compatibility regressions', () => {
+  it('does not hardcode a mismatched runtime version or show its own update banner', () => {
+    assert.doesNotMatch(client, /const VERSION\s*=\s*['"]0\.1\.0['"]/);
+    assert.doesNotMatch(client, /checkVersion\s*=|versionNotice\s*=/);
+    assert.doesNotMatch(client, /Update available v/);
+  });
+
+  it('falls back to the Delta Desktop settings panel when no native settings surface opens', () => {
+    assert.match(client, /if \(!isSettingsOpenInDom\(\)\) \{\s*note\('fallback'/);
+    assert.match(client, /openStandaloneSettings\(true\)/);
+    assert.match(client, /iconBtn\('settings', ICON_SETTINGS/);
+    assert.match(client, /iconBtn\('account', ICON_LOGIN/);
+  });
+
+  it('keeps selected conversation styling text-only', () => {
+    const selected = client.match(/\.wnFoaW_sessionRow\.wnFoaW_selected\s*\{([^}]*)\}/)?.[1];
+    assert.ok(selected, 'expected the selected conversation rule');
+    assert.match(selected, /background:\s*transparent/);
+    assert.match(selected, /box-shadow:\s*none/);
+  });
+
+  it('themes host hover previews through the preview-card token hook only', () => {
+    assert.doesNotMatch(client, /\[class\*=["']tooltip["']\]:not/);
+    assert.doesNotMatch(client, /\[class\*=["']popover["']\]\s*\{/);
+    assert.match(client, /\[style\*=["']--dsh-hover-preview-fade["']\]/);
+    assert.match(client, /background:\s*var\(--dsw-alias-bg-layer-1\)\s*!important/);
+  });
+
+  it('applies requested sidebar and model settings changes without replacing host slots', () => {
+    assert.match(client, /function hideHostOptions\(\)/);
+    assert.match(client, /hideHostOptions\(\);/);
+    assert.match(client, /hideThirdPartyProviders\(\);/);
+    assert.doesNotMatch(client, /mountSearchDock\(\);/);
+    assert.doesNotMatch(client, /restoreNativeSearch\(\);/);
+    assert.match(client, /hideAccountModels\(\);/);
+    assert.match(client, /hideListedModels\(\);/);
+  });
+
+  it('hides account model menu items and their empty provider group', () => {
+    const modelFilters = client.slice(client.indexOf('const hideAccountModels = () => {'),
+      client.indexOf('// v0.1.0: the working status reads'));
+    assert.ok(modelFilters.length > 100);
+    assert.match(modelFilters, /\[role="menu"\] \[data-provider-id="deepseek-account"\]/);
+    assert.match(modelFilters, /closest<HTMLElement>\('\[role="menuitemradio"\]'\)/);
+    assert.match(modelFilters, /\[role="group"\]\[data-menu-group\]/);
+  });
+
+  it('documents the scoped package and release asset without a stale pinned version', () => {
+    const manifest = JSON.parse(readFileSync(
+      new URL('../packages/dsh-desktop-delta/package.json', import.meta.url), 'utf8'
+    ));
+    const release = JSON.parse(readFileSync(
+      new URL('../projects/dsh-desktop-delta/release.manifest.json', import.meta.url), 'utf8'
+    ));
+    const tarball = release.builds.flatMap((build) => build.assets)
+      .find((asset) => asset.endsWith('.tgz'));
+    assert.ok(tarball, 'release manifest must declare a tarball');
+    assert.ok(readme.includes('pnpm view ' + manifest.name + ' versions --json --registry'),
+      'README should require users to verify published npm versions');
+    assert.ok(readme.includes(release.release_key + '-v'),
+      'README must explain the product-specific release tag prefix');
+    assert.ok(readme.includes(tarball), 'README must show the actual tarball asset name');
+    assert.ok(readme.includes('main 已合并的功能不等于已发布的安装包'));
+    assert.ok(!readme.includes('Delta UI 的 GitHub Release 已发布 `0.1.0-beta.3`'),
+      'README must not claim a pinned old version is the latest release');
+  });
+
+});
+
+describe('Delta Desktop settings privacy and usability', () => {
+  const host = readFileSync(new URL('../packages/dsh-desktop-delta/src/index.ts', import.meta.url), 'utf8');
+  const config = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/config.ts', import.meta.url), 'utf8');
+  it('excludes official DeepSeek session log contributions before reading them', () => {
+    assert.match(host, /registerExclusion\(\(\) => true\)/);
+  });
+  it('accepts credentials in the same provider update as the other fields', () => {
+    assert.match(config, /input\.apiKey\.trim\(\)/);
+    assert.match(client, /data-provider-field/);
+    assert.match(client, /Save settings/);
+    assert.match(client, /if \(!r\.ok \|\| d\.error\)/);
+  });
+  it('searches all nonempty text queries, not only Chinese', () => {
+    assert.match(client, /if \(signal\.aborted \|\| !needle\) return base/);
+  });
+  it('keeps privacy copy precise and labels the settings section correctly', () => {
+    assert.match(client, /label: t\('Delta \u5957\u4ef6', 'Delta Suite'\)/);
+    assert.match(client, /Model configuration/);
+    assert.doesNotMatch(client, /This plugin collects and uploads nothing/);
+  });
+});
+
+describe('Delta avatar and independent search contracts', () => {
+  it('shows signed-in balance only on hover or keyboard focus', () => {
+    assert.match(client, /_5Qcc8a_root\[data-ens-balance\]:hover::after/);
+    assert.match(client, /_5Qcc8a_root\[data-ens-balance\]:focus-within::after/);
+    assert.match(client, /account\.removeAttribute\('data-ens-balance'\)/);
+    assert.match(client, /bonusWallets/);
+    assert.doesNotMatch(client, /\.ens-balance\s*\{\s*display: block/);
+  });
+  it('describes the shared keyless default and independent search configuration', () => {
+    assert.match(client, /Uses keyless search by default/);
+    assert.match(client, /shared with native model web search/);
+  });
+});

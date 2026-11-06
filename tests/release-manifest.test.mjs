@@ -59,9 +59,7 @@ function safeNameOf(packageName) {
 
 // Native desktop and DSH plugin products share the release schema, not the packaging contract.
 // Keep the exemption narrow: all future native products require an explicit reviewed contract.
-function isNativeDesktopProduct(name) {
-  return name === "dsh-desktop-delta";
-}
+function isNativeDesktopProduct(_name) { return false; }
 
 const NATIVE_DESKTOP_BUILDS = [
   ["linux-x64", "linux-standard", "x86_64-unknown-linux-gnu", "dsh-desktop-delta-linux-x64.deb"],

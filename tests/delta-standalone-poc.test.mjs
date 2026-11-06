@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Script } from 'node:vm'
-import { standalonePocBrowser } from '../packages/dsh-suite-delta/lib/host/standalone-poc-browser.js'
-import { registerStandalonePoc, POC_PAGE_PATH, POC_STATUS_PATH } from '../packages/dsh-suite-delta/lib/host/standalone-poc.js'
+import { standalonePocBrowser } from '../packages/dsh-desktop-delta/lib/host/standalone-poc-browser.js'
+import { registerStandalonePoc, POC_PAGE_PATH, POC_STATUS_PATH } from '../packages/dsh-desktop-delta/lib/host/standalone-poc.js'
 
 new Script(standalonePocBrowser, { filename: 'standalone-poc-browser.js' })
 

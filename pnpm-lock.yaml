@@ -33,65 +33,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/dsh-desktop-delta:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.0.0
-        version: 2.12.4
-      '@tauri-apps/plugin-dialog':
-        specifier: ^2.8.4
-        version: 2.8.4
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      lucide-react:
-        specifier: ^0.468.0
-        version: 0.468.0(react@18.3.1)
-      react:
-        specifier: ^18.2.0
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.2.0
-        version: 18.3.1(react@18.3.1)
-      react-markdown:
-        specifier: ^10.1.0
-        version: 10.1.0(@types/react@18.3.31)(react@18.3.1)
-      remark-gfm:
-        specifier: ^4.0.1
-        version: 4.0.1
-      tailwind-merge:
-        specifier: ^3.3.1
-        version: 3.7.0
-    devDependencies:
-      '@tailwindcss/vite':
-        specifier: ^4.0.0
-        version: 4.3.4(vite@6.4.5(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0))
-      '@tauri-apps/cli':
-        specifier: ^2.0.0
-        version: 2.12.4
-      '@types/node':
-        specifier: ^24.19.2
-        version: 24.19.2
-      '@types/react':
-        specifier: ^18.3.0
-        version: 18.3.31
-      '@types/react-dom':
-        specifier: ^18.3.0
-        version: 18.3.7(@types/react@18.3.31)
-      '@vitejs/plugin-react':
-        specifier: ^4.0.0
-        version: 4.7.0(vite@6.4.5(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0))
-      tailwindcss:
-        specifier: ^4.0.0
-        version: 4.3.4
-      typescript:
-        specifier: 7.0.2
-        version: 7.0.2
-      vite:
-        specifier: ^6.0.0
-        version: 6.4.5(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.33.0)
-
-  packages/dsh-suite-delta: {}
+  packages/dsh-desktop-delta: {}
 
   packages/plugin-template:
     dependencies:

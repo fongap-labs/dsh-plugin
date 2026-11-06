@@ -64,11 +64,10 @@ phase_end
 SHARED_TSCONFIG=packages/shared/tsconfig.json
 HOST_TSCONFIGS=(
   packages/dsh-code-worker/tsconfig.json
-  packages/dsh-suite-delta/tsconfig.json
+  packages/dsh-desktop-delta/tsconfig.json
   packages/plugin-template/tsconfig.json
 )
-CLIENT_TSCONFIG=packages/dsh-suite-delta/tsconfig.client.json
-DESKTOP_TSCONFIG=packages/dsh-desktop-delta/tsconfig.json
+CLIENT_TSCONFIG=packages/dsh-desktop-delta/tsconfig.client.json
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"
@@ -81,14 +80,12 @@ for config in "${HOST_TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config" --noEmit
 done
 ./node_modules/.bin/tsc -p "$CLIENT_TSCONFIG" --noEmit
-./node_modules/.bin/tsc -b "$DESKTOP_TSCONFIG" --pretty false
 phase_end
 
 phase_begin build
 for config in "${TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config"
 done
-pnpm --filter @fongap-labs/dsh-desktop-delta exec vite build
 phase_end
 
 phase_begin test
