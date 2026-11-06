@@ -139,7 +139,7 @@ describe("dsh-ui-delta", () => {
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
     assert.equal(manifest.dsh?.client?.platform, "web");
     assert.ok(Array.isArray(manifest.dsh?.client?.inject));
-    assert.equal(manifest.dsh.client.immediately, false);
+    assert.equal(manifest.dsh.client.immediately, true);
     assert.deepEqual(manifest.dsh.client.inject, []);
   });
 });
