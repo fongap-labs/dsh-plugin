@@ -4,6 +4,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import { registerRoutes } from './host/routes.js'
+import { registerStandalonePoc } from './host/standalone-poc.js'
 import { makeWebSearchProvider } from './host/search.js'
 import { registerMemoryTools } from './host/memory-tools.js'
 import { registerGatewayReliability } from './host/gateway-reliability.js'
@@ -12,11 +13,16 @@ import type { GatewayReliabilityConfig } from './host/gateway-reliability.js'
 export const name = '@fongap-labs/dsh-suite-delta'
 export const inject = ['webServer']
 
-export interface Config { gatewayReliability?: GatewayReliabilityConfig }
+export interface Config {
+  gatewayReliability?: GatewayReliabilityConfig
+  /** Developer-only, explicit opt-in. Never on by default or in releases. */
+  standalonePoc?: boolean
+}
 
 export function apply(ctx: Context, config: Config = {}): void {
   registerGatewayReliability(ctx, config.gatewayReliability)
   registerRoutes(ctx)
+  if (config.standalonePoc === true) registerStandalonePoc(ctx)
   registerMemoryTools(ctx)
   // The official DeepSeek extension enables Session Log contribution by default.
   // Exclude every request before the host reads log records. This is a second
