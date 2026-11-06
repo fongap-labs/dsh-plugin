@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const route = readFileSync(new URL('../packages/dsh-suite-delta/src/host/routes.ts', import.meta.url), 'utf8')
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
-const source = readFileSync(new URL('../packages/dsh-suite-delta/src/host/folders.ts', import.meta.url), 'utf8')
+const route = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/routes.ts', import.meta.url), 'utf8')
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
+const source = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/folders.ts', import.meta.url), 'utf8')
 
 test('mutations are versioned, serialized, and return HTTP 409 on conflicts', () => {
   assert.match(source, /const withFolderLock = <T>/)

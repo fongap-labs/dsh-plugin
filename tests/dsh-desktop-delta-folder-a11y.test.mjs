@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
 const stylesheet = client.slice(client.indexOf('const STYLESHEET = `'), client.indexOf('\n`;', client.indexOf('const STYLESHEET = `')))
 
 test('native sidebar launcher and settings management remain keyboard accessible', () => {

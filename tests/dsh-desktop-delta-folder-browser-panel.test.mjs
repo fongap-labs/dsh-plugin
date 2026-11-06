@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
-const host = readFileSync(new URL('../packages/dsh-suite-delta/src/host/folders.ts', import.meta.url), 'utf8')
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
+const host = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/folders.ts', import.meta.url), 'utf8')
 
 test('no extra session folder launcher or competing browser is registered', () => {
   assert.doesNotMatch(client, /delta\.session-folders|FolderBrowserPanel|sidebar\.panellist', id: PANEL_ID/)

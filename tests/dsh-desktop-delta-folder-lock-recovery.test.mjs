@@ -12,7 +12,7 @@ const oldHome = os.homedir
 os.homedir = () => HOME
 syncBuiltinESMExports()
 const { mutateFolderView, readFolderView, FolderConflictError } =
-  await import('../packages/dsh-suite-delta/lib/host/folders.js')
+  await import('../packages/dsh-desktop-delta/lib/host/folders.js')
 
 // Verify recovery using a real exited process, not an arbitrary invalid PID.
 const child = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], {

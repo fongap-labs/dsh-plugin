@@ -12,7 +12,7 @@ os.homedir = () => HOME
 syncBuiltinESMExports()
 const {
   readFolders, readFolderView, mutateFolderView, forgetDeletedSession, FolderConflictError,
-} = await import('../packages/dsh-suite-delta/lib/host/folders.js')
+} = await import('../packages/dsh-desktop-delta/lib/host/folders.js')
 const FOLDER_FILE = join(HOME, '.dsh-ui-delta', 'folders.json')
 after(() => {
   os.homedir = oldHome

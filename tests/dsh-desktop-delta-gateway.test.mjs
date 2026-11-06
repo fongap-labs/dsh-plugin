@@ -5,7 +5,7 @@ import {
   GatewayQueue,
   classifyGatewayFailure,
   registerGatewayReliability,
-} from '../packages/dsh-suite-delta/lib/host/gateway-reliability.js'
+} from '../packages/dsh-desktop-delta/lib/host/gateway-reliability.js'
 
 const config = { providers: ['gateway'], origins: ['https://gateway.example.com'] }
 const agent = (id) => ({ session: { id } })

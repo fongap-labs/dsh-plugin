@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { verifiedKnownSessionIds } from '../packages/dsh-suite-delta/lib/host/folder-reconciliation.js'
+import { verifiedKnownSessionIds } from '../packages/dsh-desktop-delta/lib/host/folder-reconciliation.js'
 
 const notFound = (id) => Object.assign(new Error('session not found'), {
   name: 'SessionPersistenceNotFoundError', sessionId: id,
