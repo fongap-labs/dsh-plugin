@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
-import { standalonePocBrowser } from '../packages/dsh-suite-delta/lib/host/standalone-poc-browser.js'
+import { standalonePocBrowser } from '../packages/dsh-desktop-delta/lib/host/standalone-poc-browser.js'
 
 function createNode(id) {
   return {

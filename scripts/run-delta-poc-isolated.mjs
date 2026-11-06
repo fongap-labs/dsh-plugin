@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * A single-command, isolated local acceptance Host for the already released
- * Delta Suite P0 probe. This file never changes the user's real DSH_HOME.
+ * Delta Desktop P0 probe. This file never changes the user's real DSH_HOME.
  *
  * The Release tag is pinned to the source SHA already confirmed for beta.1.
  * No model or account credentials are copied. All test data stays in a fresh
@@ -13,8 +13,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 const RELEASE_URL =
-  'https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-suite-delta-v0.1.0-beta.1/fongap-labs-dsh-suite-delta.tgz'
-const BUNDLE = '@fongap-labs/dsh-suite-delta'
+  'https://github.com/fongap-labs/dsh-plugin/releases/download/dsh-desktop-delta-v0.1.0-beta.1/fongap-labs-dsh-desktop-delta.tgz'
+const BUNDLE = '@fongap-labs/dsh-desktop-delta'
 const PROFILE = 'delta-poc'
 const DEFAULT_PORT = 3081
 
@@ -43,12 +43,12 @@ function parseArgs(argv) {
 
 function usage() {
   return [
-    'Delta Suite isolated P0 Host',
+    'Delta Desktop isolated P0 Host',
     'Usage: node scripts/run-delta-poc-isolated.mjs [--port 3081] [--dry-run]',
     'Requirements: installed dsh CLI, local network access to GitHub Release.',
     'Uses a NEW temporary DSH_HOME and the official web template.',
     'Never copies real profiles, credentials, sessions, cookies, or model settings.',
-    'The installed Delta Suite P0 page is enabled ONLY in that temporary profile.',
+    'The installed Delta Desktop P0 page is enabled ONLY in that temporary profile.',
     'Open the URL printed by Harness (it supplies the official launch token).',
     'Then navigate in the same authenticated browser to /dsh-ui-delta/poc.',
     'Stop the child Host with Ctrl+C to delete the temporary profile.',
@@ -74,7 +74,7 @@ function addBundle(profileDir) {
   const manifestFile = join(profileDir, 'package.json')
   if (!existsSync(manifestFile)) throw new Error('profile-not-initialized')
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'))
-  const installed = join(profileDir, 'node_modules', '@fongap-labs', 'dsh-suite-delta', 'package.json')
+  const installed = join(profileDir, 'node_modules', '@fongap-labs', 'dsh-desktop-delta', 'package.json')
   if (!existsSync(installed)) throw new Error('installed-bundle-not-found')
   const ownPackage = JSON.parse(readFileSync(installed, 'utf8'))
   if (ownPackage.name !== BUNDLE || ownPackage.version !== '0.1.0-beta.1') {
@@ -88,7 +88,7 @@ function addBundle(profileDir) {
   // This is the only write to a Cordis config file. Fresh test profile only.
   const patchFile = join(profileDir, 'cordis.patch.yml')
   writeFileSync(patchFile,
-    '- id: dsh-suite-delta\n  config:\n    standalonePoc: true\n',
+    '- id: dsh-desktop-delta\n  config:\n    standalonePoc: true\n',
     { mode: 0o600 })
 }
 
@@ -123,7 +123,7 @@ async function main() {
     }
   }
   try {
-    console.log('Preparing a disposable Delta Suite P0 Host.')
+    console.log('Preparing a disposable Delta Desktop P0 Host.')
     console.log('Installation remains inside a temporary home.')
     runDsh(['--profile', PROFILE, '--from-default-profile', 'web', '--dump-config'], environment)
     runDsh(['plugin', '--profile', PROFILE, 'add', RELEASE_URL], environment)
