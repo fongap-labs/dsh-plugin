@@ -374,6 +374,8 @@ body {
 [data-windows-titlebar] .mP3x-q_sidebarCol { border-right-color: var(--dsw-alias-border-l2); }
 
 /* 3 — sidebar column（规范正文字号 13px，桌面触控面 ≥32px） */
+/* One shared spacing token for search, Plugin Manager, Schedules, and New Chat. */
+.wtg9ga_root { --ens-sidebar-primary-gap: 10px; }
 .wtg9ga_root { font-size: 13px; padding: 8px 10px; }
 .wtg9ga_topStrip { height: 44px; }
 /* v0.1.0: the logo row was a 50px empty strip, pushing the search far down. */
@@ -434,6 +436,9 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 .wtg9ga_panelGlyph svg { display: block; }
 
 /* 4 — session list & search (sidebar.workspaces) */
+/* The upstream Workspace hover card exposes absolute filesystem locations.
+   Delta's sidebar does not show paths in any Workspace or Session popover. */
+.wnFoaW_hoverPath { display: none !important; }
 .GAkraW_sectionHeader { height: 30px; justify-content: flex-start; padding-left: 6px; margin-right: 0; margin-block: 8px 4px; }
 .GAkraW_sectionLabel { font-size: 12px; font-weight: 600; letter-spacing: 0.03em; color: var(--dsw-alias-label-caption); margin-right: auto; }
 .GAkraW_iconButton { transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard); }
@@ -596,7 +601,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 [role="menuitem"] { min-height: 34px; }
 .ens-sidebar-search {
   display: flex; align-items: center; gap: 8px; flex: none;
-  width: calc(100% - 4px); min-height: 38px; margin: 2px 2px 8px;
+  width: calc(100% - 4px); min-height: 38px; margin: 2px 2px var(--ens-sidebar-primary-gap);
   padding: 0 10px; box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2); border-radius: 10px;
   background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary);
@@ -629,7 +634,7 @@ html[data-ens-fold-errors] .LOmM4q_turnErrorRow:not([data-ens-open]) .LOmM4q_tur
 
 /* Host React owns the workspace and session list; keep its DOM intact. */
  .ens-sidebar-search { order: 2; }
-nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
+nav.wtg9ga_panelList { order: 3; gap: var(--ens-sidebar-primary-gap); margin-bottom: var(--ens-sidebar-primary-gap); }
 .wtg9ga_root > .wtg9ga_newSession,
 .wtg9ga_root > *:has(> .wtg9ga_newSession) { order: 4; }
 .wtg9ga_regionArea { order: 5; }
@@ -645,7 +650,7 @@ nav.wtg9ga_panelList { order: 3; margin-bottom: 2px; }
   padding: 0 10px; font: inherit; font-weight: 400; text-align: left; position: relative;
   transition: background-color var(--ens-dur-fast) var(--ens-ease-standard), color var(--ens-dur-fast) var(--ens-ease-standard);
 }
-[data-windows-titlebar] .wtg9ga_root:not(.wtg9ga_collapsed) .wtg9ga_newSession { margin: 0 2px 8px; }
+[data-windows-titlebar] .wtg9ga_root:not(.wtg9ga_collapsed) .wtg9ga_newSession { margin: 0 2px; }
 .wtg9ga_newSession:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
 .wtg9ga_newSessionLabelMask { flex: none; min-width: 0; mask-image: none !important; -webkit-mask-image: none !important; }
 .wtg9ga_newSessionContent { justify-content: flex-start; align-items: center; gap: var(--ens-space-sm); width: auto; }
@@ -2805,6 +2810,19 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
               });
             };
 
+            // The Host owns Workspace expansion and persists each click. On first
+            // appearance, collapse an expanded group once. Never keep forcing
+            // it closed after the user manually opens it during this page load.
+            const initializedWorkspaceRows = new Set<string>();
+            const foldWorkspaceGroupsOnce = () => {
+              document.querySelectorAll<HTMLElement>('.wnFoaW_projectRow[data-row-key^="workspace:"]').forEach((row) => {
+                const key = row.getAttribute('data-row-key');
+                if (!key || initializedWorkspaceRows.has(key)) return;
+                initializedWorkspaceRows.add(key);
+                if (row.getAttribute('aria-expanded') === 'true') row.click();
+              });
+            };
+
             let isTicking = false;
             // v0.2.2: the version check runs once per page load, not on every render
             // React to account sign-in / sign-out so 登录 shows/hides live.
@@ -2825,6 +2843,7 @@ const looksLikeEntry = (v: unknown): v is SlotEntry => !!v && typeof v === 'obje
                 mountFootSettings();
                 mountVersionAction();
                 mountSidebarSearch();
+                foldWorkspaceGroupsOnce();
                 hideHostOptions();
                 hideThirdPartyProviders();
                 renameLabels();
