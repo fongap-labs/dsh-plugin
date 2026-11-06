@@ -144,7 +144,7 @@ export function registerStandalonePoc(ctx: Context): void {
   const host = ctx as unknown as POCHost & {
     inject?: (deps: string[], callback: (child: unknown) => void) => unknown
   }
-  host.inject?.(['connection'], (child: unknown) => {
+  host.inject?.(['connection', 'webServer'], (child: unknown) => {
     const scope = child as POCHost
     const webServer = scope.webServer ?? (scope.get?.('webServer') as POCWebServer | undefined)
     const connection = scope.connection ?? (scope.get?.('connection') as POCConnection | undefined)
@@ -173,7 +173,7 @@ export function registerStandalonePoc(ctx: Context): void {
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',
         ...(isPage ? {
-          'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
+          'content-security-policy': `default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; connect-src 'self' ws: wss:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`,
         } : {}),
       })
       res.end(req.method === 'HEAD' ? undefined : body)
