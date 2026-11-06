@@ -32,10 +32,10 @@ export const standalonePocBrowser = String.raw`
   let pending = null;
   let currentSession = new URL(location.href).searchParams.get('session') || '';
   const streams = new Map();
-  let active = true;
+  let isActive = true;
   let leaseTimer;
   let reconnectAttempts = 0;
-  let approvalSettling = false;
+  let isApprovalSettling = false;
   const validSessionId = (id) => typeof id === 'string' && /^[A-Za-z0-9._:-]{1,150}$/.test(id);
   if (!validSessionId(currentSession)) currentSession = '';
   let gatewayClientId = '';
@@ -103,11 +103,11 @@ export const standalonePocBrowser = String.raw`
     return frame.result.value;
   }
   async function list() {
-    if (!active) return;
+    if (!isActive) return;
     state(nodes.sessions, 'pending', '\u8bfb\u53d6\u4e2d');
     try {
       const value = await rpc('session/list', { request: {} });
-      if (!active) return;
+      if (!isActive) return;
       const items = value && Array.isArray(value.items) ? value.items : null;
       if (items === null) throw new TypeError('invalid session list');
       nodes.sessions.replaceChildren();
@@ -128,7 +128,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   async function createSession() {
-    if (!active) return;
+    if (!isActive) return;
     nodes.create.disabled = true;
     try {
       const value = await rpc('session/create', { request: {} });
@@ -142,7 +142,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   function selectSession(id) {
-    if (!active || !validSessionId(id)) {
+    if (!isActive || !validSessionId(id)) {
       diagnostic('\u4f1a\u8bdd\u6807\u8bc6\u4e0d\u7b26\u5408\u63a2\u9488\u7ea6\u675f');
       return;
     }
@@ -159,7 +159,7 @@ export const standalonePocBrowser = String.raw`
     if (ws && ws.readyState === WebSocket.OPEN) openSessionStream(id);
   }
   async function send() {
-    if (!active) return;
+    if (!isActive) return;
     const value = nodes.message.value.trim();
     if (!currentSession || !value) {
       diagnostic('\u5148\u9009\u62e9\u4f1a\u8bdd\u5e76\u8f93\u5165\u6d88\u606f');
@@ -185,7 +185,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   function openStream(kind, endpoint, request) {
-    if (!active || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!isActive || !ws || ws.readyState !== WebSocket.OPEN) return;
     const id = crypto.randomUUID();
     streams.set(id, { id, kind, endpoint });
     ws.send(JSON.stringify({
@@ -214,12 +214,12 @@ export const standalonePocBrowser = String.raw`
   }
   function clearApproval(reason) {
     pending = null;
-    approvalSettling = false;
+    isApprovalSettling = false;
     nodes.interaction.replaceChildren();
     if (reason) diagnostic(reason);
   }
   function delegateUnclaimed(frame) {
-    if (!active || !gatewayClientId || typeof frame.eventId !== 'string') return;
+    if (!isActive || !gatewayClientId || typeof frame.eventId !== 'string') return;
     void rpc('$events/result', {
       clientId: gatewayClientId,
       eventId: frame.eventId,
@@ -227,7 +227,7 @@ export const standalonePocBrowser = String.raw`
     }).catch(() => { diagnostic('Unable to delegate an unsupported interaction'); });
   }
   function receiveApproval(frame) {
-    if (!active || !gatewayClientId || !currentSession || frame.agentId !== currentSession ||
+    if (!isActive || !gatewayClientId || !currentSession || frame.agentId !== currentSession ||
         pending || !frame.eventId || !frame.request || typeof frame.request.toolName !== 'string') {
       delegateUnclaimed(frame);
       return;
@@ -258,10 +258,10 @@ export const standalonePocBrowser = String.raw`
     nodes.interaction.replaceChildren(card);
   }
   async function answerApproval(frame, decision) {
-    if (!active || !pending || approvalSettling ||
+    if (!isActive || !pending || isApprovalSettling ||
         pending.eventId !== frame.eventId || frame.agentId !== currentSession ||
         !gatewayClientId) return;
-    approvalSettling = true;
+    isApprovalSettling = true;
     for (const button of nodes.interaction.querySelectorAll('button')) button.disabled = true;
     try {
       await rpc('$events/result', {
@@ -274,7 +274,7 @@ export const standalonePocBrowser = String.raw`
       diagnostic('\u5ba1\u6279\u63d0\u4ea4\u5931\u8d25：' + safeError(error));
       clearApproval();
     } finally {
-      approvalSettling = false;
+      isApprovalSettling = false;
     }
   }
   function handleEvent(value) {
@@ -333,7 +333,7 @@ export const standalonePocBrowser = String.raw`
     }
   }
   function connect() {
-    if (!active) return;
+    if (!isActive) return;
     const current = ++attempt;
     clearTimeout(reconnect);
     if (ws) { try { ws.close(); } catch {} }
@@ -369,7 +369,7 @@ export const standalonePocBrowser = String.raw`
     });
   }
   async function checkLease() {
-    if (!active) return false;
+    if (!isActive) return false;
     try {
       const response = await fetch('/dsh-ui-delta/poc/status', {
         cache: 'no-store', credentials: 'same-origin',
@@ -382,8 +382,8 @@ export const standalonePocBrowser = String.raw`
     }
   }
   function stop(reason) {
-    if (!active) return;
-    active = false;
+    if (!isActive) return;
+    isActive = false;
     ++attempt;
     clearTimeout(reconnect);
     clearInterval(leaseTimer);
@@ -408,7 +408,7 @@ export const standalonePocBrowser = String.raw`
     if (currentSession) state(nodes.current, 'pass', currentSession);
     leaseTimer = setInterval(() => {
       void checkLease().then(valid => {
-        if (active && !valid) stop('Gateway probe was disabled or lost authorization');
+        if (isActive && !valid) stop('Gateway probe was disabled or lost authorization');
       });
     }, 5000);
     connect();
