@@ -316,6 +316,6 @@ test('Delta desktop sends a prompt and surfaces a terminal model error instead o
   }) })
   const messages = nodes.get('messages').childNodes.map(x => x.textContent)
   assert.equal(messages.filter(x => x === 'hello').length, 1, 'durable message replaces pending echo')
-  assert.match(messages.join(' '), /模型执行失败/)
+  assert.match(messages.join(' '), /\u6a21\u578b\u6267\u884c\u5931\u8d25/)
   assert.match(messages.join(' '), /tools\[0\]\.name/)
 })
