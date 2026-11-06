@@ -13,13 +13,13 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
       url.pathname !== '/' || url.searchParams.has('token')) return
 
   const controller = new AbortController()
-  let active = true
+  let isActive = true
   ctx.effect(() => {
     const root = document.documentElement
     const previousVisibility = root.style.visibility
     root.style.visibility = 'hidden'
     const fallback = () => {
-      if (active) root.style.visibility = previousVisibility
+      if (isActive) root.style.visibility = previousVisibility
     }
     void (async () => {
       try {
@@ -27,9 +27,9 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
           method: 'GET', credentials: 'same-origin', cache: 'no-store',
           redirect: 'error', signal: controller.signal,
         })
-        if (!active || status.status !== 200) { fallback(); return }
+        if (!isActive || status.status !== 200) { fallback(); return }
         const payload: unknown = await status.json()
-        if (!active || !payload || typeof payload !== 'object' ||
+        if (!isActive || !payload || typeof payload !== 'object' ||
             (payload as { authenticated?: unknown }).authenticated !== true ||
             (payload as { desktop?: unknown }).desktop !== 'Delta Desktop') {
           fallback()
@@ -40,7 +40,7 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
           method: 'HEAD', credentials: 'same-origin', cache: 'no-store',
           redirect: 'error', signal: controller.signal,
         })
-        if (!active || page.status !== 200 ||
+        if (!isActive || page.status !== 200 ||
             !(page.headers.get('content-type') || '').includes('text/html')) {
           fallback()
           return
@@ -52,7 +52,7 @@ function activateIndependentDesktop(ctx: HarnessClientContext): void {
       }
     })()
     return () => {
-      active = false
+      isActive = false
       controller.abort()
       root.style.visibility = previousVisibility
     }
