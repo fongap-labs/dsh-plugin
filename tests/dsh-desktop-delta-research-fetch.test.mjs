@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   assertPublicResearchUrl, collectEvidence, extractReadablePage, isPublicAddress,
-} from '../packages/dsh-suite-delta/lib/host/research-fetch.js'
+} from '../packages/dsh-desktop-delta/lib/host/research-fetch.js'
 
 describe('research page safety and extraction', () => {
   it('rejects loopback, non-public DNS, local addresses and unsafe protocols', async () => {

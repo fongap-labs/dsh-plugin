@@ -2,8 +2,8 @@ import { it, afterEach, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { syncBuiltinESMExports } from 'node:module'
-import { searchWeb } from '../packages/dsh-suite-delta/lib/host/search.js'
-import { apply } from '../packages/dsh-suite-delta/lib/index.js'
+import { searchWeb } from '../packages/dsh-desktop-delta/lib/host/search.js'
+import { apply } from '../packages/dsh-desktop-delta/lib/index.js'
 
 afterEach(() => { mock.restoreAll(); syncBuiltinESMExports() })
 function config(value = {}) {

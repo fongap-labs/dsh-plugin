@@ -1,12 +1,12 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { assertOutboundTextSafe } from '../packages/dsh-suite-delta/lib/host/privacy.js'
+import { assertOutboundTextSafe } from '../packages/dsh-desktop-delta/lib/host/privacy.js'
 
-const bundle = readFileSync(new URL('../packages/dsh-suite-delta/cordis.patch.yml', import.meta.url), 'utf8')
-const host = readFileSync(new URL('../packages/dsh-suite-delta/src/index.ts', import.meta.url), 'utf8')
+const bundle = readFileSync(new URL('../packages/dsh-desktop-delta/cordis.patch.yml', import.meta.url), 'utf8')
+const host = readFileSync(new URL('../packages/dsh-desktop-delta/src/index.ts', import.meta.url), 'utf8')
 
-describe('Delta Suite data exit privacy safeguards', () => {
+describe('Delta Desktop data exit privacy safeguards', () => {
   it('never mounts Session Log upload or its upstream settings form', () => {
     assert.match(bundle, /- id: session-log-deepseek\r?\n\s+disabled: true/)
     assert.match(host, /registerExclusion\(\(\) => true\)/)

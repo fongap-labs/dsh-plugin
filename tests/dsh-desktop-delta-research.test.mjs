@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { safeResults, rankResults, researchQueries } from '../packages/dsh-suite-delta/lib/host/search-quality.js'
-import { researchWeb } from '../packages/dsh-suite-delta/lib/host/search.js'
-import { checkPythonDdgs, searchPythonDdgs } from '../packages/dsh-suite-delta/lib/host/python-ddgs.js'
+import { safeResults, rankResults, researchQueries } from '../packages/dsh-desktop-delta/lib/host/search-quality.js'
+import { researchWeb } from '../packages/dsh-desktop-delta/lib/host/search.js'
+import { checkPythonDdgs, searchPythonDdgs } from '../packages/dsh-desktop-delta/lib/host/python-ddgs.js'
 
 describe('search evidence pipeline', () => {
   it('deduplicates canonical URLs and discards unsafe schemes', () => {

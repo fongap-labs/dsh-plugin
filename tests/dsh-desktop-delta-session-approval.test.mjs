@@ -2,8 +2,8 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
-const manifest = JSON.parse(readFileSync(new URL('../packages/dsh-suite-delta/package.json', import.meta.url), 'utf8'))
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
+const manifest = JSON.parse(readFileSync(new URL('../packages/dsh-desktop-delta/package.json', import.meta.url), 'utf8'))
 
 describe('session-scoped approval extension', () => {
   it('adds a real session option in the existing approval composer without replacing the Host audit path', () => {

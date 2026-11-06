@@ -2,9 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const routes = readFileSync(new URL('../packages/dsh-suite-delta/src/host/routes.ts', import.meta.url), 'utf8')
-const client = readFileSync(new URL('../packages/dsh-suite-delta/src/client.ts', import.meta.url), 'utf8')
-const verification = readFileSync(new URL('../packages/dsh-suite-delta/src/host/folder-reconciliation.ts', import.meta.url), 'utf8')
+const routes = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/routes.ts', import.meta.url), 'utf8')
+const client = readFileSync(new URL('../packages/dsh-desktop-delta/src/client.ts', import.meta.url), 'utf8')
+const verification = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/folder-reconciliation.ts', import.meta.url), 'utf8')
 
 test('session cleanup requires the complete persisted and live Host views', () => {
   assert.match(routes, /route\('\/dsh-ui-delta\/folder-cleanup'/)
