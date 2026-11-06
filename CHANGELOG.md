@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 新增: 将 Delta Desktop 纳入 Action Worker 多产品受管发布，分别构建并验证 Linux、Windows、macOS 原生安装包，保留独立发布版本。
+- 新增: Delta Desktop 接入受管发布，独立构建 Windows、Linux、macOS 安装包。
 
 - 维护: 明确配套交付时先发布和安装 dsh-suite-delta，再发布和安装 dsh-desktop-delta。
 
