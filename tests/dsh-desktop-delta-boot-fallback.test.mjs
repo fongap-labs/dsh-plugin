@@ -229,7 +229,10 @@ test('Delta desktop sends a prompt and surfaces a terminal model error instead o
     replaceChildren(...elements) {
       this.childNodes = elements.flatMap(element => element.isFragment ? element.childNodes : [element])
     },
-    appendChild(element) { this.childNodes.push(element) },
+    appendChild(element) {
+      if (element.isFragment) this.childNodes.push(...element.childNodes)
+      else this.childNodes.push(element)
+    },
   })
   const nodes = new Map(ids.map(id => [id, node()]))
   const sent = []
