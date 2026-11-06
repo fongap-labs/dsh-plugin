@@ -51,6 +51,10 @@ export const standalonePocBrowser = String.raw`
     const name = String(event.type || 'unknown');
     if (name === 'assistant-stream') {
       const frame = event.frame || {};
+      if (frame.type === 'chunk' && frame.chunk?.type === 'text-delta' &&
+          typeof frame.chunk.text === 'string') {
+        return 'assistant-stream/text-delta: ' + frame.chunk.text.slice(0, 600);
+      }
       return 'assistant-stream/' + String(frame.type || 'unknown');
     }
     const record = event.event || event;
