@@ -37,6 +37,22 @@ export const standaloneDesktopBrowser = String.raw`
   let leaseTimer;
   let reconnectAttempts = 0;
   let isApprovalSettling = false;
+  // The native UI is a startup-only fallback, not a second running frontend.
+  let isBootstrapReady = false;
+  let isSessionListReady = false;
+  let isEventStreamReady = false;
+  let startupTimer;
+  function fallbackToNative() {
+    if (isBootstrapReady) return;
+    stop('Delta Desktop failed to start; restoring native Harness');
+    // The one-shot query guard prevents the native launcher redirecting back.
+    location.replace(new URL('/?delta-native-fallback=1', location.href).href);
+  }
+  function markReady() {
+    if (!isActive || isBootstrapReady || !isSessionListReady || !isEventStreamReady) return;
+    isBootstrapReady = true;
+    clearTimeout(startupTimer);
+  }
   const validSessionId = (id) => typeof id === 'string' && /^[A-Za-z0-9._:-]{1,150}$/.test(id);
   if (!validSessionId(currentSession)) currentSession = '';
   let gatewayClientId = '';
@@ -171,6 +187,8 @@ export const standaloneDesktopBrowser = String.raw`
       }
       if (!nodes.sessions.childNodes.length) state(nodes.sessions, 'pass', '\u6ca1\u6709\u4f1a\u8bdd');
       state(nodes.gateway, 'pass', 'Session RPC \u53ef\u7528');
+      isSessionListReady = true;
+      markReady();
     } catch (error) {
       state(nodes.sessions, 'fail', '\u8bfb\u53d6\u5931\u8d25');
       state(nodes.gateway, 'fail', safeError(error));
@@ -333,6 +351,8 @@ export const standaloneDesktopBrowser = String.raw`
       if (value.type === 'ready' && typeof value.clientId === 'string') {
         gatewayClientId = value.clientId;
         state(nodes.socket, 'pass', 'Gateway \u4e8b\u4ef6\u6d41\u5c31\u7eea');
+        isEventStreamReady = true;
+        markReady();
       } else {
         state(nodes.socket, 'fail', '\u65e0\u6548\u4e8b\u4ef6\u6d41\u9996\u5e27');
       }
@@ -439,6 +459,7 @@ export const standaloneDesktopBrowser = String.raw`
     isActive = false;
     ++attempt;
     clearTimeout(reconnect);
+    clearTimeout(startupTimer);
     clearInterval(leaseTimer);
     streams.clear();
     gatewayClientId = '';
@@ -452,9 +473,10 @@ export const standaloneDesktopBrowser = String.raw`
   }
   async function start() {
     state(nodes.auth, 'pending', 'Checking');
+    startupTimer = setTimeout(fallbackToNative, 15000);
     if (!(await checkLease())) {
       state(nodes.auth, 'fail', 'Not authenticated');
-      stop('Delta Desktop is not authenticated or no longer installed');
+      fallbackToNative();
       return;
     }
     state(nodes.auth, 'pass', 'Authenticated');

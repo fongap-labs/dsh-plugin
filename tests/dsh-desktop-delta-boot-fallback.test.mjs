@@ -1,0 +1,175 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
+import { registerIndependentApp } from '../packages/dsh-desktop-delta/lib/host/standalone-app.js'
+import { standaloneDesktopBrowser } from '../packages/dsh-desktop-delta/lib/host/standalone-desktop-browser.js'
+
+const entry = readFileSync(new URL('../packages/dsh-desktop-delta/src/client-entry.ts', import.meta.url), 'utf8')
+const adapter = readFileSync(new URL('../packages/dsh-desktop-delta/src/host/harness-adapter.ts', import.meta.url), 'utf8')
+const manifest = JSON.parse(readFileSync(new URL('../packages/dsh-desktop-delta/package.json', import.meta.url), 'utf8'))
+const patch = readFileSync(new URL('../packages/dsh-desktop-delta/cordis.patch.yml', import.meta.url), 'utf8')
+
+test('Delta remains an installable Harness plugin with an isolated gateway adapter', () => {
+  assert.equal(manifest.name, '@fongap-labs/dsh-desktop-delta')
+  assert.equal(manifest.dsh.client.immediately, true)
+  assert.match(entry, /url.searchParams.get\('delta-native-fallback'\) === '1'/)
+  assert.match(adapter, /\['connection', 'webServer'\]/)
+  assert.doesNotMatch(entry, /slots\.(inject|register)/)
+  assert.match(patch, /- id: session-log-deepseek\s+disabled: true/)
+  assert.match(patch, /- id: product-analytics\s+config:\s+enabled: false/)
+})
+
+test('independent document remains authenticated and its host routes are disposable', () => {
+  const routes = new Map()
+  const disposers = []
+  registerIndependentApp({
+    inject(deps, callback) {
+      assert.deepEqual(deps, ['connection', 'webServer'])
+      callback({
+        webServer: { register(route) {
+          routes.set(route.path, route)
+          return () => routes.delete(route.path)
+        } },
+        connection: { admit(req) {
+          return req.headers?.cookie === 'signed' ? { peer: {} } : { rejection: 401 }
+        } },
+        effect(register) { disposers.push(register()) },
+      })
+    },
+  })
+  const response = (path, method, cookie) => {
+    let status, headers, body
+    routes.get(path).handler({ method, headers: { cookie } }, {
+      writeHead(s, h) { status = s; headers = h },
+      end(content) { body = content },
+    })
+    return { status, headers, body }
+  }
+  assert.deepEqual([...routes.keys()].sort(), ['/dsh-ui-delta/app', '/dsh-ui-delta/app/status'].sort())
+  assert.equal(response('/dsh-ui-delta/app', 'GET', '').status, 401)
+  assert.equal(response('/dsh-ui-delta/app/status', 'GET', '').status, 401)
+  const ok = response('/dsh-ui-delta/app', 'HEAD', 'signed')
+  assert.equal(ok.status, 200)
+  assert.match(ok.headers['content-type'], /text\/html/)
+  assert.equal(response('/dsh-ui-delta/app/status', 'GET', 'signed').status, 200)
+  for (const dispose of disposers.reverse()) dispose()
+  assert.equal(routes.size, 0)
+})
+
+function bootstrap(statusValid) {
+  const ids = ['auth', 'socket', 'gateway', 'snapshot', 'sessions', 'messages',
+    'interaction', 'message', 'send', 'create', 'refresh', 'current', 'diagnostic']
+  const nodes = new Map(ids.map(id => [id, {
+    dataset: {}, value: '', textContent: '', disabled: false,
+    addEventListener() {}, replaceChildren() {},
+  }]))
+  let timeout
+  let navigated = ''
+  const location = new URL('http://127.0.0.1:3080/dsh-ui-delta/app')
+  const locator = {
+    href: location.href, protocol: location.protocol,
+    replace(href) { navigated = href },
+  }
+  runInNewContext(standaloneDesktopBrowser, {
+    document: { getElementById: id => nodes.get(id) },
+    location: locator,
+    URL,
+    fetch: async () => ({
+      ok: statusValid,
+      json: async () => statusValid
+        ? { authenticated: true, desktop: 'Delta Desktop' }
+        : { authenticated: false },
+    }),
+    setTimeout(callback) { timeout = callback; return 1 },
+    clearTimeout() {}, setInterval() { return 2 }, clearInterval() {},
+    addEventListener() {},
+    WebSocket: class {
+      constructor() { this.readyState = 0 }
+      addEventListener() {}
+      close() {}
+    },
+  }, { timeout: 1000 })
+  return { navigate: () => navigated, timer: () => timeout, nodes }
+}
+
+test('initial admission failure falls back to native with a loop guard', async () => {
+  const app = bootstrap(false)
+  for (let i = 0; i < 8; i++) await Promise.resolve()
+  assert.equal(app.navigate(), 'http://127.0.0.1:3080/?delta-native-fallback=1')
+  assert.equal(app.nodes.get('send').disabled, true)
+})
+
+test('startup watchdog restores native if Gateway never becomes ready', async () => {
+  const app = bootstrap(true)
+  for (let i = 0; i < 8; i++) await Promise.resolve()
+  assert.equal(app.navigate(), '')
+  app.timer()()
+  assert.equal(app.navigate(), 'http://127.0.0.1:3080/?delta-native-fallback=1')
+})
+
+test('successful Gateway and Session bootstrap does not activate native fallback after a later disconnect', async () => {
+  const ids = ['auth', 'socket', 'gateway', 'snapshot', 'sessions', 'messages',
+    'interaction', 'message', 'send', 'create', 'refresh', 'current', 'diagnostic']
+  const nodes = new Map(ids.map(id => [id, {
+    dataset: {}, value: '', textContent: '', childNodes: [],
+    addEventListener() {}, replaceChildren(...items) { this.childNodes = items },
+  }]))
+  let socket
+  let navigated = ''
+  let clearedStartup = false
+  const startupTimerId = 17
+  let nextId = 0
+  class Socket {
+    static OPEN = 1
+    constructor() { socket = this; this.readyState = 0; this.sent = []; this.listeners = new Map() }
+    addEventListener(name, handler) { this.listeners.set(name, handler) }
+    send(raw) { this.sent.push(JSON.parse(raw)) }
+    close() { this.readyState = 3 }
+    emit(name, value) { this.listeners.get(name)?.(value) }
+  }
+  runInNewContext(standaloneDesktopBrowser, {
+    document: { getElementById: id => nodes.get(id) },
+    location: {
+      href: 'http://127.0.0.1:3080/dsh-ui-delta/app',
+      protocol: 'http:', replace(value) { navigated = value },
+    },
+    URL,
+    crypto: { randomUUID: () => 'test-id-' + ++nextId },
+    fetch: async (path, options) => path === '/dsh-ui-delta/app/status'
+      ? { ok: true, json: async () => ({ desktop: 'Delta Desktop', authenticated: true }) }
+      : { ok: true, json: async () => {
+        const request = JSON.parse(options.body)
+        assert.equal(request.method, 'session/list')
+        return { type: 'server-response', rpcId: request.rpcId, result: { ok: true, value: { items: [] } } }
+      } },
+    WebSocket: Socket,
+    setTimeout(callback, delay) { return delay === 15000 ? startupTimerId : 19 },
+    clearTimeout(id) { if (id === startupTimerId) clearedStartup = true },
+    setInterval() { return 3 }, clearInterval() {},
+    addEventListener() {},
+  }, { timeout: 1000 })
+  // Cross-context async jobs are not guaranteed to complete after a fixed
+  // number of Promise.resolve() turns. Wait for observable startup state.
+  const waitUntil = async (predicate, description) => {
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (predicate()) return
+      await new Promise(resolve => setImmediate(resolve))
+    }
+    assert.fail(description)
+  }
+  await waitUntil(() => socket, 'authenticated startup must create Gateway WebSocket')
+  socket.readyState = 1
+  socket.emit('open')
+  await waitUntil(() => nodes.get('gateway').dataset.state === 'pass',
+    'session/list RPC must complete before the events ready frame')
+  assert.equal(clearedStartup, false, 'Session RPC alone is insufficient')
+  const events = socket.sent.find(item => item.endpoint === '$events')
+  assert.ok(events)
+  socket.emit('message', { data: JSON.stringify({
+    type: 'item', streamId: events.streamId, value: { type: 'ready', clientId: 'host-client' },
+  }) })
+  assert.equal(clearedStartup, true, 'both Gateway and Session must be ready')
+  socket.emit('close')
+  assert.equal(navigated, '', 'a later disconnect should reconnect inside Delta')
+})

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta 桌面首次启动异常时自动回退原生界面，并隔离 Harness 接口。
+
 - 修复: Delta Desktop 默认启动并在失败时回退原生界面。
 
 - 修复: Delta 桌面客户端注册旧 Suite ID 导致 Harness 启动失败，改用独立的无界面注入入口。

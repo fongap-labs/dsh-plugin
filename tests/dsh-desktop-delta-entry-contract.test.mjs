@@ -18,14 +18,16 @@ test('native chat stays hidden pending authenticated Delta verification', () => 
   assert.match(entry, /root\.style\.visibility = previousVisibility/)
   assert.match(entry, /credentials: 'same-origin'/)
   assert.match(entry, /status\.status !== 200/)
-  assert.match(entry, /authenticated !== true/)
+  assert.match(entry, /authenticated.*=== true/)
   assert.match(entry, /method: 'HEAD'/)
-  assert.match(entry, /page\.status !== 200/)
+  assert.match(entry, /page\.status === 200/)
   assert.match(entry, /location\.replace\(new URL\(DESKTOP_PATH, url\.origin\)\.href\)/)
 })
 
 test('official launch and unrelated surfaces are never intercepted', () => {
   assert.match(entry, /url\.searchParams\.has\('token'\)/)
+  assert.match(entry, /isOfficialLaunch/)
+  assert.match(entry, /referrerPolicy: 'no-referrer'/)
   assert.match(entry, /url\.pathname !== '\/'/)
   assert.match(entry, /window\.self !== window\.top/)
   assert.match(entry, /controller\.abort\(\)/)
