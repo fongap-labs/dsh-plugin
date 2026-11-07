@@ -21,6 +21,7 @@
         "fongap-labs-dsh-desktop-delta.tgz"
       ],
       "attest_asset": "fongap-labs-dsh-desktop-delta.zip",
+      "acceptance_script": "dsh-desktop-delta/verify-release.mjs",
       "setup_rust": false
     }
   ]
