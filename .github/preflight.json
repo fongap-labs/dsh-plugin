@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "checks": [
+    {
+      "id": "portable-release-contract",
+      "command": "node",
+      "args": [
+        "--test",
+        "tests/portable-release.test.mjs"
+      ],
+      "mode": "quick"
+    },
+    {
+      "id": "suite",
+      "command": "pnpm",
+      "args": [
+        "test"
+      ],
+      "mode": "full"
+    }
+  ]
+}
