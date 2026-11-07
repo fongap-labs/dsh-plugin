@@ -33,8 +33,8 @@ const MANIFEST_KEYS = new Set([
   "target_repository",
 ]);
 const MANIFEST_REQUIRED_KEYS = [...MANIFEST_KEYS].filter((key) => key !== "root" && key !== "changelog_entries");
-const BUILD_KEYS = new Set(["assets", "attest_asset", "id", "runner_profile", "script", "target", "setup_rust"]);
-const REQUIRED_BUILD_KEYS = [...BUILD_KEYS].filter((key) => key !== "setup_rust");
+const BUILD_KEYS = new Set(["assets", "attest_asset", "id", "runner_profile", "script", "target", "setup_rust", "acceptance_script"]);
+const REQUIRED_BUILD_KEYS = [...BUILD_KEYS].filter((key) => key !== "setup_rust" && key !== "acceptance_script");
 
 const PRODUCT_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 const ASSET_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -188,6 +188,11 @@ describe("release manifests", () => {
         // Action Worker joins the manifest root with the script path and requires the file.
         const scriptPath = join(repoRoot, manifest.root, build.script);
         assert.ok(existsSync(scriptPath), `${label} script does not exist: ${manifest.root}/${build.script}`);
+        if (build.acceptance_script !== undefined) {
+          assert.match(build.acceptance_script, RELATIVE_PATH, `${label} acceptance_script must be relative`);
+          assert.match(build.acceptance_script, /\.(mjs|ps1)$/, `${label} acceptance_script extension invalid`);
+          assert.ok(existsSync(join(repoRoot, manifest.root, build.acceptance_script)), `${label} acceptance script missing`);
+        }
         assert.ok(Array.isArray(build.assets) && build.assets.length >= 1, `${label} assets must not be empty`);
         for (const asset of build.assets) {
           assert.match(asset, ASSET_NAME, `${label} asset name is invalid: ${asset}`);
