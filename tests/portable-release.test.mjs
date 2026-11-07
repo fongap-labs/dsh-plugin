@@ -13,6 +13,10 @@ for (const name of ['dsh-desktop-delta', 'dsh-code-worker', 'plugin-template']) 
     assert.equal(build.setup_rust, false)
     assert.equal(build.script, name + '/build-release.mjs')
     assert.ok(existsSync(join(root, 'packages', build.script)))
+    if (name === 'dsh-desktop-delta') {
+      assert.equal(build.acceptance_script, 'dsh-desktop-delta/verify-release.mjs')
+      assert.ok(existsSync(join(root, 'packages', build.acceptance_script)))
+    }
     assert.deepEqual(build.assets.sort(), [
       'fongap-labs-' + name + '.zip', 'fongap-labs-' + name + '.tgz',
     ].sort())
