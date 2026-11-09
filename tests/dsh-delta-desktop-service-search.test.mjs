@@ -94,7 +94,10 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let workspaceState = 'idle'
   let workspaceTitle = 'Design Workspace'
   let refreshWorkspaces = () => {}
-  let refreshSessions = () => {}
+  const sessionListeners = new Set()
+  const hoverSignals = []
+  const hoverDisposers = []
+  const refreshSessions = () => { for (const listener of [...sessionListeners]) listener() }
   let sessionRunning = false
   let sessionPhase = 'ready'
   let isSessionSnapshotUnavailable = false
@@ -117,7 +120,10 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
         return { phase: sessionPhase,
           byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning, updatedAt: 1760000000000 } } }
       },
-      subscribe(callback) { refreshSessions = callback; return () => { refreshSessions = () => {} } },
+      subscribe(callback) {
+        sessionListeners.add(callback)
+        return () => { sessionListeners.delete(callback) }
+      },
     },
     search: async (query, signal) => {
       actions.push(['search', query])
@@ -175,7 +181,13 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const plugin = registered.factory(() => ({
     createElement(type, props, ...children) { return { type, props, children } },
     useState(initial) { return [initial, () => {}] },
-    useSyncExternalStore(_subscribe, read) { return read() },
+    useSyncExternalStore(subscribe, read) {
+      const snapshot = read()
+      if (typeof snapshot === 'string') {
+        hoverDisposers.push(subscribe(() => { hoverSignals.push(read()) }))
+      }
+      return snapshot
+    },
   }))
   plugin.apply(ctx)
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
@@ -242,8 +254,23 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.ok(hoverText.includes('运行中'), 'native Session hover exposes Host-confirmed running state')
   assert.ok(hoverText.includes('最近更新'), 'native Session hover includes public updatedAt metadata')
   assert.doesNotMatch(hoverText, /private\\\\secret/, 'native Session hover must never contain a path')
+  assert.equal(sessionListeners.size, 2, 'hover subscribes without starting another Session')
   sessionRunning = false
   refreshSessions()
+  assert.equal(hoverSignals.at(-1), '0:1760000000000',
+    'Host running-state changes signal the mounted native hover')
+  assert.doesNotMatch(JSON.stringify(nativeHover({ sessionId: 'local' })), /运行中/,
+    'a stopped Session must not retain the previous running badge')
+  sessionPhase = 'pending'
+  assert.doesNotMatch(JSON.stringify(nativeHover({ sessionId: 'local' })), /最近更新/,
+    'pending Host snapshots must not show stale activity metadata')
+  sessionPhase = 'ready'
+  isSessionSnapshotUnavailable = true
+  assert.doesNotThrow(() => nativeHover({ sessionId: 'local' }),
+    'a reconnecting Host must leave the identity-only hover usable')
+  isSessionSnapshotUnavailable = false
+  hoverDisposers.forEach(dispose => dispose())
+  assert.equal(sessionListeners.size, 1, 'unmounted hover removes its Host subscription')
   assert.equal(results.children[0].children.length, 1)
   const fire = timers.values().next().value
   assert.equal(typeof fire, 'function')
