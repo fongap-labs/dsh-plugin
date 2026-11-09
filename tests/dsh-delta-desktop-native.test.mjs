@@ -145,9 +145,11 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(entry.spec.id, 'delta.personalization')
   assert.equal(entry.spec.label(), '个性设置')
   const controller = entry.spec.inject().controller
+  assert.equal(controller.getSnapshot().themeReady, true, 'palette must be owned before reporting readiness')
   assert.match(JSON.stringify(entry.component({ controller })), new RegExp('Delta 桌面'))
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-preference-row/)
   controller.setMode('official')
+  assert.equal(controller.getSnapshot().themeReady, false)
   assert.equal(app.layers.size, 0)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
   assert.equal(app.components.has('sidebar.brand.mark'), false, 'official theme restores the native mark fallback')
@@ -157,6 +159,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   controller.toggleSidebar()
   assert.deepEqual(app.changes, [null, 'sidebar'])
   controller.setMode('delta')
+  assert.equal(controller.getSnapshot().themeReady, true)
   assert.equal(app.layers.size, 1)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('sidebar.brand.mark'), true, 'Delta mark returns only in Delta theme')
@@ -193,6 +196,8 @@ test('missing theme keeps the independent Settings entry usable', () => {
   assert.equal(entry.spec.label(), '个性设置')
   const controller = entry.spec.inject().controller
   assert.equal(controller.getSnapshot().error, true)
+  assert.equal(controller.getSnapshot().themeReady, false)
+  assert.ok(JSON.stringify(entry.component({ controller })).includes('Delta 配色未就绪'))
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-error/)
   controller.setMode('official')
   assert.equal(controller.getSnapshot().error, false)
