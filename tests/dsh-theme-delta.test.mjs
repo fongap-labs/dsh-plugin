@@ -8,6 +8,8 @@ import vm from 'node:vm'
 // Central CI invokes node --test directly, so build the actual client artifact here.
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
+  fixture('packages/dsh-theme-delta/tsconfig.json')], { stdio: 'pipe' })
+execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/dsh-theme-delta/tsconfig.client.json')], { stdio: 'pipe' })
 execFileSync(process.execPath, [fixture('packages/dsh-theme-delta/scripts/finalize-client.mjs')],
   { stdio: 'pipe' })
