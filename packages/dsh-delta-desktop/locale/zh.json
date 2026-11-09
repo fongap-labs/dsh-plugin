@@ -26,6 +26,8 @@
     "copySessionId": "复制会话编号",
     "copy": "复制",
     "searchSessions": "搜索会话",
-    "newConversation": "开始对话"
+    "newConversation": "开始对话",
+    "copied": "已复制会话编号",
+    "copyFailed": "复制失败"
   }
 }

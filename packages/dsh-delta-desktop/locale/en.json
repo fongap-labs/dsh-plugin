@@ -26,6 +26,8 @@
     "copySessionId": "Copy session ID",
     "copy": "Copy",
     "searchSessions": "Search sessions",
-    "newConversation": "New conversation"
+    "newConversation": "New conversation",
+    "copied": "Session ID copied",
+    "copyFailed": "Unable to copy"
   }
 }

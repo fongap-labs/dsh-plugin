@@ -156,3 +156,12 @@
   :root[data-delta-compat="1"] [data-sidebar-scrollport] { gap: 6px; }
   :root[data-delta-compat="1"] .dtd-native-search { min-height: 36px; }
 }
+
+.dtd-toast { position: fixed; right: 24px; bottom: 24px; z-index: 2147483000;
+  max-width: min(360px, calc(100vw - 48px)); padding: 11px 15px;
+  border-radius: 10px; box-shadow: 0 8px 24px #0002;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dsw-alias-label-primary, #172126);
+  border: 1px solid var(--dsw-alias-border-l1, #D8DEE1);
+  font: inherit; font-size: 13px;
+}
