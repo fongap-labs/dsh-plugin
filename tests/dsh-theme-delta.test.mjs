@@ -105,6 +105,6 @@ test('package identity, localization and assets are independent', () => {
   assert.equal(pkg.description, json('locale/en.json').meta.description)
   assert.equal(json('locale/zh.json').meta.title, 'Delta 主题')
   assert.equal(pkg.dependencies?.['@deepseek-ai/cordis'], undefined)
-  const rel = json('../projects/dsh-theme-delta/release.manifest.json')
+  const rel = json('../../projects/dsh-theme-delta/release.manifest.json')
   assert.equal(rel.release_key, 'dsh-theme-delta')
 })

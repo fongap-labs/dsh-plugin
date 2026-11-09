@@ -36,7 +36,8 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "README.md"
+    "README.md",
+    "COMPATIBILITY.md"
   ],
   "engines": {
     "node": ">=22.0.0"
