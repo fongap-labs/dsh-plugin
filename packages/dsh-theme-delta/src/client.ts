@@ -8,6 +8,8 @@ interface DeltaCopy {
     preference: string; theme: string; official: string; delta: string;
     open: string; close: string; conversation: string; sidebar: string;
     status: string; unavailable: string; recovery: string; shortcut: string;
+    personalization: string; personalizationDescription: string; enabled: string;
+    appearance: string; appearanceDescription: string; hostOwned: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -36,8 +38,8 @@ interface SlotsApi {
   register(options: { name: string; id: string; order?: number; inject: () => DeltaProps }, component: (props: DeltaProps) => unknown): unknown
 }
 interface ClientContext {
-  theme: ThemeApi
-  layout: LayoutApi
+  theme?: ThemeApi
+  layout?: LayoutApi
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
   inject(services: string[], callback: (scope: ClientContext) => void): void
@@ -89,6 +91,7 @@ function writeMode(mode: Mode): void {
 function createController(ctx: ClientContext): DeltaController {
   let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
+  let activeTheme: ThemeApi | undefined
   let isDisposed = false
   const listeners = new Set<() => void>()
   const publish = (change: Partial<Omit<DeltaState, 'revision'>>): void => {
@@ -101,7 +104,8 @@ function createController(ctx: ClientContext): DeltaController {
     ownedLayer = undefined
     if (mode === 'official') return true
     try {
-      ownedLayer = ctx.theme.overrideTokens(OWNER, TOKENS)
+      if (!activeTheme || typeof activeTheme.overrideTokens !== 'function') return false
+      ownedLayer = activeTheme.overrideTokens(OWNER, TOKENS)
       return typeof ownedLayer === 'function'
     } catch { return false }
   }
@@ -124,8 +128,8 @@ function createController(ctx: ClientContext): DeltaController {
       writeMode(mode)
       publish({ mode, error: false })
     },
-    toggleSidebar: () => { safeLayout(() => ctx.layout.toggleSidebar()) },
-    openConversation: () => { safeLayout(() => ctx.layout.selectPanel(null)) },
+    toggleSidebar: () => { safeLayout(() => ctx.layout?.toggleSidebar()) },
+    openConversation: () => { safeLayout(() => ctx.layout?.selectPanel(null)) },
     dispose: () => {
       if (isDisposed) return
       isDisposed = true
@@ -136,6 +140,11 @@ function createController(ctx: ClientContext): DeltaController {
     // Used by the owning activation to sync a host language switch.
     syncLanguage: () => { publish({ language: language() }) },
     activate: () => { if (!applyPalette(snapshot.mode)) publish({ error: true }) },
+    bindTheme: (theme: ThemeApi | undefined) => {
+      if (isDisposed) return
+      activeTheme = theme
+      publish({ error: !applyPalette(snapshot.mode) })
+    },
   } as DeltaController & { syncLanguage(): void; activate(): void }
 }
 
@@ -162,76 +171,82 @@ window.__ModuleLoader__.load({
         callback => controller.subscribe(callback), () => controller.getSnapshot())
       return { state, copy: DICTIONARIES[state.language] ?? DICTIONARIES.en }
     }
-    function SettingsRow({ controller }: DeltaProps): unknown {
+    function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
-      return el('section', { className: 'dtd-settings', 'data-dtd-settings': '', 'aria-label': copy.meta.title },
-        el('div', { className: 'dtd-setting-copy' },
-          el('strong', null, copy.meta.title),
-          el('p', null, copy.ui.preference)),
-        el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.ui.theme },
-          (['delta', 'official'] as const).map(mode =>
-            el('button', { key: mode, type: 'button', 'aria-pressed': state.mode === mode,
-              className: state.mode === mode ? 'dtd-active' : '',
-              onClick: () => controller.setMode(mode) },
-              mode === 'delta' ? copy.ui.delta : copy.ui.official))),
-        state.error ? el('p', { role: 'status', className: 'dtd-error' }, copy.ui.unavailable) : null,
-        el('p', { className: 'dtd-hint' }, copy.ui.recovery))
-    }
-    function QuickActions({ controller }: DeltaProps): unknown {
-      const { state, copy } = useCopy(controller)
-      const [open, setOpen] = React.useState(false)
-      return el('div', { className: 'dtd-overlay', 'data-dtd-overlay': '' },
-        open ? el('section', { className: 'dtd-popover', 'aria-label': copy.meta.title },
-          el('strong', { className: 'dtd-heading' }, copy.meta.title),
-          el('p', { className: 'dtd-status' }, copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
-          el('button', { type: 'button', onClick: () => { controller.openConversation(); setOpen(false) } }, copy.ui.conversation),
-          el('button', { type: 'button', onClick: () => { controller.toggleSidebar(); setOpen(false) } }, copy.ui.sidebar),
-          el('button', { type: 'button', onClick: () => controller.setMode(state.mode === 'delta' ? 'official' : 'delta') }, copy.ui.theme),
-          el('small', null, copy.ui.shortcut),
-          state.error ? el('p', { role: 'status', className: 'dtd-error' }, copy.ui.unavailable) : null) : null,
-        el('button', { type: 'button', className: 'dtd-fab',
-          'aria-expanded': open, 'aria-label': copy.meta.title + ' — ' + (open ? copy.ui.close : copy.ui.open),
-          onClick: () => setOpen(!open) }, 'Δ'))
+      return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
+        'aria-label': copy.ui.personalization },
+        el('header', { className: 'dtd-page-head' },
+          el('div', { className: 'dtd-heading-group' },
+            el('span', { className: 'dtd-mark', 'aria-hidden': true }, 'Δ'),
+            el('div', null,
+              el('h2', null, copy.meta.title),
+              el('p', null, copy.ui.personalizationDescription))),
+          el('span', { className: 'dtd-enabled', role: 'status' }, copy.ui.enabled)),
+        el('div', { className: 'dtd-preference-row' },
+          el('div', { className: 'dtd-preference-copy' },
+            el('strong', null, copy.ui.appearance),
+            el('p', null, copy.ui.appearanceDescription)),
+          el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.ui.theme },
+            (['delta', 'official'] as const).map(mode =>
+              el('button', { key: mode, type: 'button', 'aria-pressed': state.mode === mode,
+                className: state.mode === mode ? 'dtd-active' : '',
+                onClick: () => controller.setMode(mode) },
+                mode === 'delta' ? copy.ui.delta : copy.ui.official)))),
+        el('p', { className: 'dtd-current', role: 'status' },
+          copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
+        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
+        el('p', { className: 'dtd-recovery' }, copy.ui.recovery),
+        el('p', { className: 'dtd-capability' }, copy.ui.hostOwned))
     }
     return {
       // The parent plugin remains active even if UI services or a theme API are unavailable.
       inject: [],
       apply(ctx) {
         try {
-          ctx.inject(['slots', 'theme', 'layout'], (scope) => {
+          // Personalization must still appear if the Theme provider is absent.
+          ctx.inject(['slots'], (scope) => {
             try {
-              const controller = createController(scope) as DeltaController & { activate(): void; syncLanguage(): void }
-        scope.effect(() => {
-          controller.activate()
-          const tag = document.createElement('style')
-          tag.dataset.plugin = OWNER
-          tag.textContent = OWNED_CSS
-          document.head.appendChild(tag)
-          const observer = typeof MutationObserver !== 'undefined'
-            ? new MutationObserver(() => controller.syncLanguage()) : undefined
-          observer?.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
-          const offLocale = scope.locale?.subscribe?.(() => controller.syncLanguage())
-          return () => {
-            offLocale?.()
-            observer?.disconnect()
-            if (tag.parentNode) tag.parentNode.removeChild(tag)
-            controller.dispose()
-          }
-        }, 'dsh-theme-delta: palette and owned resources')
-        scope.slots.inject('settings.general.item', () => scope.slots.register({
-          name: 'settings.general.item', id: 'fongap.delta.theme', order: 60,
-          inject: () => ({ controller }),
-        }, SettingsRow))
-        scope.slots.inject('shell.overlay', () => scope.slots.register({
-          name: 'shell.overlay', id: 'fongap.delta.quick-actions', order: 100,
-          inject: () => ({ controller }),
-        }, QuickActions))
+              const controller = createController(scope) as DeltaController & {
+                syncLanguage(): void
+                bindTheme(theme: ThemeApi | undefined): void
+              }
+              scope.effect(() => {
+                const tag = document.createElement('style')
+                tag.dataset.plugin = OWNER
+                tag.textContent = OWNED_CSS
+                document.head.appendChild(tag)
+                const observer = typeof MutationObserver !== 'undefined'
+                  ? new MutationObserver(() => controller.syncLanguage()) : undefined
+                observer?.observe(document.documentElement, {
+                  attributes: true, attributeFilter: ['lang'],
+                })
+                const offLocale = scope.locale?.subscribe?.(() => controller.syncLanguage())
+                return () => {
+                  offLocale?.()
+                  observer?.disconnect()
+                  tag.parentNode?.removeChild(tag)
+                  controller.dispose()
+                }
+              }, 'dsh-theme-delta: personalization resource ownership')
+              scope.slots.inject('settings.section', () => scope.slots.register({
+                name: 'settings.section',
+                id: 'delta.personalization',
+                order: 90,
+                label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.personalization,
+                inject: () => ({ controller }),
+              }, PersonalizationSection))
+              // Theme is optional: delayed service readiness never blocks Settings.
+              scope.inject(['theme'], themeScope => {
+                controller.bindTheme(themeScope.theme)
+                themeScope.effect(() => () => controller.bindTheme(undefined),
+                  'dsh-theme-delta: theme service lifetime')
+              })
             } catch (error) {
-              console.error('[dsh-theme-delta] UI mount failed; native UI preserved:', error)
+              console.error('[dsh-theme-delta] Settings mount failed; native UI preserved:', error)
             }
           })
         } catch (error) {
-          console.error('[dsh-theme-delta] deferred UI registration failed; native UI preserved:', error)
+          console.error('[dsh-theme-delta] deferred Settings registration failed; native UI preserved:', error)
         }
       },
     }
