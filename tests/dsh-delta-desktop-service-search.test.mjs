@@ -112,7 +112,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const hostSessions = {
     list: {
       getSnapshot: () => ({ phase: sessionPhase,
-        byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning } } }),
+        byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning, updatedAt: 1760000000000 } } }),
       subscribe(callback) { refreshSessions = callback; return () => { refreshSessions = () => {} } },
     },
     search: async (query, signal) => {
@@ -226,6 +226,11 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   refreshSessions()
   assert.equal(results.children[0].children[1].textContent, '运行中',
     'active Host Session status refreshes plugin search results')
+  const nativeHover = inserted.find(([spec]) => spec.name === 'sidebar.session.row.hover')[1]
+  const hoverText = JSON.stringify(nativeHover({ sessionId: 'local' }))
+  assert.match(hoverText, /运行中/, 'native Session hover exposes Host-confirmed running state')
+  assert.match(hoverText, /最近更新/, 'native Session hover includes public updatedAt metadata')
+  assert.doesNotMatch(hoverText, /private\\\\secret/, 'native Session hover must never contain a path')
   sessionRunning = false
   refreshSessions()
   assert.equal(results.children[0].children.length, 1)
@@ -342,6 +347,8 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   controller.syncLanguage()
   assert.equal(results.children[0].children[1].textContent, 'Running',
     'language switch updates visible status copy without repeating search')
+  assert.match(JSON.stringify(nativeHover({ sessionId: 'local' })), /Last updated/,
+    'native hover time label follows the active Host language')
   sessionRunning = false
   refreshSessions()
   assert.equal(input.placeholder, 'Search sessions')
