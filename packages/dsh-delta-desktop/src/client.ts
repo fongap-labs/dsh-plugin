@@ -274,13 +274,36 @@ window.__ModuleLoader__.load({
                   id: feature.id,
                 }, feature.icon))
               }
-              // These host-owned slots keep all native navigation and shortcuts intact.
-              scope.slots.inject('sidebar.brand.mark', () => scope.slots.register({
-                name: 'sidebar.brand.mark', id: 'delta.brand.mark',
-              }, DeltaBrandMark))
-              scope.slots.inject('sidebar.brand.name', () => scope.slots.register({
-                name: 'sidebar.brand.name', id: 'delta.brand.name',
-              }, DeltaBrandName))
+              // Brand slot entries must disappear in official mode. A null component
+              // still shadows the native fallback in a single-occupant slot.
+              const registerBrand = (
+                name: 'sidebar.brand.mark' | 'sidebar.brand.name',
+                id: string,
+                component: (props: DeltaProps) => unknown,
+              ): void => {
+                scope.slots.inject(name, () => {
+                  let release: (() => void) | undefined
+                  const sync = (): void => {
+                    const shouldShow = controller.getSnapshot().mode === 'delta'
+                    if (shouldShow && !release) {
+                      const result = scope.slots.register({ name, id }, component)
+                      release = typeof result === 'function' ? result : () => {}
+                    } else if (!shouldShow && release) {
+                      release()
+                      release = undefined
+                    }
+                  }
+                  sync()
+                  const unsubscribe = controller.subscribe(sync)
+                  return () => {
+                    unsubscribe()
+                    release?.()
+                    release = undefined
+                  }
+                })
+              }
+              registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
+              registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
