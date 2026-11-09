@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { gunzipSync, inflateRawSync } from 'node:zlib'
 import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import ts from 'typescript'
 
 const packageName = '@fongap-labs/dsh-delta-desktop'
 const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/host-capabilities.js', 'lib/client.js',
@@ -64,6 +65,29 @@ export function readTgz(buffer) {
   ensure(entries.size > 0, 'empty TGZ')
   return entries
 }
+/**
+ * Inspect JavaScript syntax rather than searching generated source text.
+ * The compiler retains source comments; a warning mentioning a forbidden
+ * Host service must not turn a safe portable archive into a false failure.
+ * Identifiers and string-literal property names remain forbidden.
+ */
+export function hasUnsafeHostPatch(source) {
+  const syntax = ts.createSourceFile('lib/index.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
+  const denied = ['workspaceRegistry', 'protected-default-workspace']
+  let isUnsafe = false
+  const scan = node => {
+    if (isUnsafe) return
+    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) &&
+        denied.some(value => node.text.includes(value))) {
+      isUnsafe = true
+      return
+    }
+    ts.forEachChild(node, scan)
+  }
+  scan(syntax)
+  return isUnsafe
+}
+
 export function verifyEntries(entries, version, format) {
   for (const path of required) ensure(entries.has(path), format + ' missing ' + path)
   const manifest = JSON.parse(entries.get('package.json').toString())
@@ -76,7 +100,7 @@ export function verifyEntries(entries, version, format) {
   const host = entries.get('lib/index.js').toString()
   ensure(host.includes('negotiateHostCapabilities') && host.includes('DELTA_HOST_CONTRACT_VERSION'), format + ' Host capability contract')
   ensure(entries.get('lib/host-capabilities.js').toString().includes('negotiateHostCapabilities'), format + ' capability module')
-  ensure(!host.includes('workspaceRegistry') && !host.includes('protected-default-workspace'), format + ' unsafe Host patch')
+  ensure(!hasUnsafeHostPatch(host), format + ' unsafe Host patch')
   const client = entries.get('lib/client.js').toString()
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
