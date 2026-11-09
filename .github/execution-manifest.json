@@ -12,7 +12,22 @@
             "{target_root}"
           ],
           "timeout_minutes": 30,
-          "capability_requests": ["source.read"]
+          "capability_requests": [
+            "source.read"
+          ]
+        },
+        {
+          "id": "windows",
+          "runner_profile": "windows-build",
+          "command": [
+            "node",
+            "{target_root}/scripts/central-ci-windows.mjs",
+            "{target_root}"
+          ],
+          "timeout_minutes": 35,
+          "capability_requests": [
+            "source.read"
+          ]
         }
       ]
     }
