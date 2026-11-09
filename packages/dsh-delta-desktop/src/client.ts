@@ -229,7 +229,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
       const proxy = search.querySelector<HTMLInputElement>('input')
       if (proxy && document.activeElement !== proxy && proxy.value !== nativeInput.value) proxy.value = nativeInput.value
-      let newSession = mounted.get('newSession')
+      let newSession = mounted.get('newSession') as HTMLButtonElement | undefined
       const nativeNew = document.querySelector<HTMLButtonElement>('button[class*="newSession"]')
       if (nativeNew && (!newSession || !newSession.isConnected)) {
         newSession = document.createElement('button')
