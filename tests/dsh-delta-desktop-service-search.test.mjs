@@ -131,6 +131,8 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   }))
   plugin.apply(ctx)
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
+  const controller = inserted.find(([spec]) => spec.name === 'settings.section')[0].inject().controller
+  assert.equal(controller.getSnapshot().searchStatus, 'waiting-sidebar')
   body.appendChild(viewport)
   env.observers.forEach(update => update())
   const shell = viewport.children[0]
@@ -138,6 +140,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(viewport.children[1], nav)
   assert.equal(viewport.children[2], nativeWorkspace)
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
+  assert.equal(controller.getSnapshot().searchStatus, 'active')
 
   const input = shell.children[0].children[1]
   const quickActions = shell.children[1]
@@ -168,8 +171,6 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.deepEqual(actions[4], ['open', 'remote'])
   assert.equal(results.hidden, true)
 
-  const preference = inserted.find(([spec]) => spec.name === 'settings.section')
-  const controller = preference[0].inject().controller
   root.lang = 'en-US'
   controller.syncLanguage()
   assert.equal(input.placeholder, 'Search sessions')
@@ -180,7 +181,9 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   controller.setMode('official')
   assert.equal(viewport.children[0], nav)
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
+  assert.equal(controller.getSnapshot().searchStatus, 'disabled')
   controller.setMode('delta')
+  assert.equal(controller.getSnapshot().searchStatus, 'active')
   assert.equal(viewport.children[0], shell)
   assert.equal(input.value, '', 'switching themes discards stale search state')
   assert.equal(feedback.hidden, true)

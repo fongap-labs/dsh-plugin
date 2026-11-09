@@ -12,12 +12,14 @@ interface DeltaCopy {
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
     searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
+    searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
     copied: string; copyFailed: string;
   }
 }
 type Language = 'zh' | 'en'
 type Mode = 'delta' | 'official'
-type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; revision: number }>
+type SearchStatus = 'waiting-services' | 'waiting-sidebar' | 'active' | 'disabled'
+type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; searchStatus: SearchStatus; revision: number }>
 interface DeltaController {
   getSnapshot(): DeltaState
   subscribe(listener: () => void): () => void
@@ -25,6 +27,7 @@ interface DeltaController {
   toggleSidebar(): void
   openConversation(): void
   openPanel(panelId: 'plugins' | 'schedules'): boolean
+  setSearchStatus(status: SearchStatus): void
   dispose(): void
 }
 interface DeltaProps { controller: DeltaController }
@@ -116,7 +119,9 @@ function writeMode(mode: Mode): void {
 }
 
 function createController(): DeltaController {
-  let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
+  const initialMode = readMode()
+  let snapshot: DeltaState = Object.freeze({ mode: initialMode, language: language(), error: false,
+    searchStatus: initialMode === 'official' ? 'disabled' : 'waiting-services', revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
   let activeLayout: LayoutApi | undefined
@@ -162,11 +167,14 @@ function createController(): DeltaController {
       const success = applyPalette(mode)
       if (!success) { publish({ error: true }); return }
       writeMode(mode)
-      publish({ mode, error: false })
+      publish({ mode, error: false, searchStatus: mode === 'official' ? 'disabled' : 'waiting-services' })
     },
     toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
     openConversation: () => { safeLayout(layout => layout.selectPanel(null)) },
     openPanel: (panelId) => safeLayout(layout => layout.selectPanel(panelId)),
+    setSearchStatus: (status) => {
+      if (!isDisposed && snapshot.searchStatus !== status) publish({ searchStatus: status })
+    },
     dispose: () => {
       if (isDisposed) return
       isDisposed = true
@@ -387,6 +395,7 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
       results.replaceChildren()
       shell.remove()
       root.removeAttribute('data-delta-search-adapter')
+      controller.setSearchStatus('disabled')
       return
     }
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
@@ -401,12 +410,14 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     if (!viewport || !navigationRow) {
       shell.remove()
       root.setAttribute('data-delta-search-adapter', 'waiting-for-sidebar')
+      controller.setSearchStatus('waiting-sidebar')
       return
     }
     if (shell.parentElement !== viewport || shell.nextElementSibling !== navigationRow) {
       viewport.insertBefore(shell, navigationRow)
     }
     root.setAttribute('data-delta-search-adapter', 'active')
+    controller.setSearchStatus('active')
   }
   const observer = new MutationObserver(sync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
@@ -420,6 +431,7 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     observer.disconnect()
     shell.remove()
     root.removeAttribute('data-delta-search-adapter')
+    controller.setSearchStatus(controller.getSnapshot().mode === 'official' ? 'disabled' : 'waiting-services')
   }
 }
 
@@ -531,7 +543,13 @@ window.__ModuleLoader__.load({
           copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
         state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
         el('p', { className: 'dtd-recovery' }, copy.ui.recovery),
-        el('p', { className: 'dtd-capability' }, copy.ui.hostOwned))
+        el('p', { className: 'dtd-capability' }, copy.ui.hostOwned),
+        el('p', { className: 'dtd-capability', role: 'status',
+          'data-delta-search-status': state.searchStatus },
+          state.searchStatus === 'active' ? copy.ui.searchReady
+            : state.searchStatus === 'waiting-sidebar' ? copy.ui.searchWaitingSidebar
+              : state.searchStatus === 'disabled' ? copy.ui.searchDisabled
+                : copy.ui.searchWaitingServices))
     }
     return {
       // The parent plugin remains active even if UI services or a theme API are unavailable.

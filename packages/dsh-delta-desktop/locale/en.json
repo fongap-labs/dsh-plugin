@@ -32,6 +32,10 @@
     "searching": "Searching sessions…",
     "noResults": "No matching sessions",
     "pluginManagement": "Plugins",
-    "scheduledTasks": "Schedules"
+    "scheduledTasks": "Schedules",
+    "searchReady": "Search and shortcuts: mounted in the native sidebar.",
+    "searchWaitingServices": "Search and shortcuts: waiting for Harness session and navigation services.",
+    "searchWaitingSidebar": "Search and shortcuts: waiting for the Harness sidebar.",
+    "searchDisabled": "Search and shortcuts: disabled in official appearance."
   }
 }

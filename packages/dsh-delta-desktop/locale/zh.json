@@ -32,6 +32,10 @@
     "searching": "正在搜索会话…",
     "noResults": "未找到匹配的会话",
     "pluginManagement": "插件管理",
-    "scheduledTasks": "定时任务"
+    "scheduledTasks": "定时任务",
+    "searchReady": "搜索与快捷入口：已挂载至原生侧栏。",
+    "searchWaitingServices": "搜索与快捷入口：等待 Harness 会话与导航服务。",
+    "searchWaitingSidebar": "搜索与快捷入口：等待 Harness 侧栏挂载。",
+    "searchDisabled": "搜索与快捷入口：官方外观下不启用。"
   }
 }
