@@ -995,10 +995,15 @@ window.__ModuleLoader__.load({
               // visibly effective without inventing an unsafe fallback action.
               let sessionService: SearchSessionsApi | undefined
               let navigationService: SearchNavigationApi | undefined
-              scope.effect(() => installHostSearch(
-                controller, () => sessionService, () => navigationService,
-                () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
-              ), 'dsh-delta-desktop: reversible sidebar presentation')
+              scope.effect(() => {
+                // Some supported Host environments activate plugins before the
+                // browser document is available. Skip only DOM-less activation.
+                if (typeof document.querySelector !== 'function') return
+                return installHostSearch(
+                  controller, () => sessionService, () => navigationService,
+                  () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
+                )
+              }, 'dsh-delta-desktop: reversible sidebar presentation')
               // Rebind the live services without remounting or dropping the
               // user's sidebar search field. A missing service shows a waiting
               // state; a later Host injection activates real search/navigation.
