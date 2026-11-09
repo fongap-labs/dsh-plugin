@@ -146,6 +146,7 @@ test('package identity, localization and assets are independent', () => {
   assert.equal(pkg.name, '@fongap-labs/dsh-theme-delta')
   assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
   assert.equal(pkg.dsh.client.platform, 'web')
+  assert.deepEqual(pkg.dsh.client.inject, [], 'optional UI dependencies must never block web boot')
   assert.equal(pkg.description, json('locale/en.json').meta.description)
   assert.equal(json('locale/zh.json').meta.title, 'Delta 主题')
   assert.equal(pkg.dependencies?.['@deepseek-ai/cordis'], undefined)
