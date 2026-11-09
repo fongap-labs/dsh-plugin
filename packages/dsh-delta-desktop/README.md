@@ -1,9 +1,9 @@
-# Delta UI · Delta 界面
+# Delta Desktop · Delta 桌面
 
 独立的 DeepSeek Harness 原生界面插件。
 
-- npm 包名：`@fongap-labs/dsh-ui-delta`
-- 插件配置条目：`dsh-ui-delta`
+- npm 包名：`@fongap-labs/dsh-delta-desktop`
+- 插件配置条目：`dsh-delta-desktop`
 - 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
 
 ## 现有功能
@@ -16,9 +16,9 @@
 
 ## 安装迁移
 
-旧版 `dsh-theme-delta` **不会被此包自动覆盖**。在隔离 Profile 中先停用并卸载旧主题插件，再安装 `dsh-ui-delta`，保留官方 `ui-layout`、`ui-renderer`、`ui-theme` 和第三方插件。新包使用独立的 Cordis ID、本地状态命名空间和 Release Key；不得启用新旧两个插件。如果新包启动或渲染失败，直接禁用 `dsh-ui-delta` 并重启恢复原生界面，禁止修改 `app.asar` 或隐藏宿主业务按钮。
+旧版 `dsh-theme-delta` **不会被此包自动覆盖**。在隔离 Profile 中先停用并卸载旧主题插件，再安装 `dsh-delta-desktop`，保留官方 `ui-layout`、`ui-renderer`、`ui-theme` 和第三方插件。新包使用独立的 Cordis ID、本地状态命名空间和 Release Key；不得启用新旧两个插件。如果新包启动或渲染失败，直接禁用 `dsh-delta-desktop` 并重启恢复原生界面，禁止修改 `app.asar` 或隐藏宿主业务按钮。
 
-历史 `dsh-ui-delta` 标识曾出现于旧版更新日志，不能覆盖旧 GitHub Tag 或重复使用已发布的版本号。任何新版本都由手动发布任务明确输入。
+历史 `dsh-delta-desktop` 标识曾出现于旧版更新日志，不能覆盖旧 GitHub Tag 或重复使用已发布的版本号。任何新版本都由手动发布任务明确输入。
 
 ## 开发
 
@@ -27,7 +27,7 @@ pnpm install --frozen-lockfile
 pnpm build
 pnpm test
 pnpm validate
-pnpm link:dev dsh-ui-delta
+pnpm link:dev dsh-delta-desktop
 ```
 
 ## 未完成的用户需求
