@@ -87,10 +87,10 @@ function writeMode(mode: Mode): void {
 function createController(ctx: ClientContext): DeltaController {
   let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
-  let disposed = false
+  let isDisposed = false
   const listeners = new Set<() => void>()
   const publish = (change: Partial<Omit<DeltaState, 'revision'>>): void => {
-    if (disposed) return
+    if (isDisposed) return
     snapshot = Object.freeze({ ...snapshot, ...change, revision: snapshot.revision + 1 })
     listeners.forEach(listener => listener())
   }
@@ -104,19 +104,19 @@ function createController(ctx: ClientContext): DeltaController {
     } catch { return false }
   }
   const safeLayout = (command: () => void): void => {
-    if (disposed) return
+    if (isDisposed) return
     try { command(); publish({ error: false }) }
     catch { publish({ error: true }) }
   }
   return {
     getSnapshot: () => snapshot,
     subscribe: (listener) => {
-      if (disposed) return () => {}
+      if (isDisposed) return () => {}
       listeners.add(listener)
       return () => { listeners.delete(listener) }
     },
     setMode: (mode) => {
-      if (disposed || (mode !== 'delta' && mode !== 'official')) return
+      if (isDisposed || (mode !== 'delta' && mode !== 'official')) return
       const success = applyPalette(mode)
       if (!success) { publish({ error: true }); return }
       writeMode(mode)
@@ -125,8 +125,8 @@ function createController(ctx: ClientContext): DeltaController {
     toggleSidebar: () => { safeLayout(() => ctx.layout.toggleSidebar()) },
     openConversation: () => { safeLayout(() => ctx.layout.selectPanel(null)) },
     dispose: () => {
-      if (disposed) return
-      disposed = true
+      if (isDisposed) return
+      isDisposed = true
       ownedLayer?.()
       ownedLayer = undefined
       listeners.clear()
