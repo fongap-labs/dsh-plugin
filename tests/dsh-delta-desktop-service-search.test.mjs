@@ -97,6 +97,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let refreshSessions = () => {}
   let sessionRunning = false
   let sessionPhase = 'ready'
+  let isSessionSnapshotUnavailable = false
   const hostWorkspaces = {
     list: {
       getSnapshot: () => ({ phase: workspacePhase, state: workspaceState, archivedSessionIds, items: [
@@ -111,8 +112,11 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let grantSessionCreate = () => {}
   const hostSessions = {
     list: {
-      getSnapshot: () => ({ phase: sessionPhase,
-        byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning, updatedAt: 1760000000000 } } }),
+      getSnapshot: () => {
+        if (isSessionSnapshotUnavailable) throw new Error('Session catalog reconnecting')
+        return { phase: sessionPhase,
+          byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning, updatedAt: 1760000000000 } } }
+      },
       subscribe(callback) { refreshSessions = callback; return () => { refreshSessions = () => {} } },
     },
     search: async (query, signal) => {
@@ -226,6 +230,13 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   refreshSessions()
   assert.equal(results.children[0].children[1].textContent, '运行中',
     'active Host Session status refreshes plugin search results')
+  isSessionSnapshotUnavailable = true
+  assert.doesNotThrow(() => refreshSessions(), 'Host catalog reconnect must not unmount Delta search')
+  assert.equal(results.children[0].textContent, '搜索与快捷入口：等待 Harness 会话与导航服务。')
+  isSessionSnapshotUnavailable = false
+  refreshSessions()
+  assert.equal(results.children[0].children[0].textContent, 'Example Session',
+    'Host catalog recovery restores search without replacing the native sidebar')
   const nativeHover = inserted.find(([spec]) => spec.name === 'sidebar.session.row.hover')[1]
   const hoverText = JSON.stringify(nativeHover({ sessionId: 'local' }))
   assert.ok(hoverText.includes('运行中'), 'native Session hover exposes Host-confirmed running state')
