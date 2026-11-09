@@ -6,10 +6,13 @@ export const name = '@fongap-labs/dsh-delta-desktop'
 export const inject = ['workspaceRegistry']
 
 interface Workspace {
+  readonly id: string
   readonly path: string
+  readonly sessionIds: readonly string[]
 }
 interface WorkspaceRegistry {
   get(id: string): Workspace | undefined
+  list(): Workspace[]
   delete(id: string): Promise<boolean>
 }
 interface HostContext {
@@ -27,7 +30,11 @@ export function apply(ctx: HostContext): () => void {
   const guardedDelete = function (id: string): Promise<boolean> {
     const target = registry.get(id)
     if (isActive && target && isAutomaticDefaultWorkspace(target.path)) {
-      return Promise.reject(new Error('delta/protected-default-workspace'))
+      const hasOtherWorkspace = registry.list().some(row => row.id !== id)
+      const hasSessions = target.sessionIds.length > 0
+      if (!hasOtherWorkspace || hasSessions) {
+        return Promise.reject(new Error('delta/protected-default-workspace'))
+      }
     }
     return originalDelete.call(registry, id)
   }
