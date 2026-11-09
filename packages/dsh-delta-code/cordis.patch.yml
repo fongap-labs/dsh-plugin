@@ -1,11 +1,11 @@
 # Delta Code Worker bundle patch
 #
 # 该文件是 dsh.bundle.patch 层：通过 `dsh plugin --profile <name> add` 安装后，
-# 管理器会读取本声明并把 dsh-code-worker 追加到 dsh.profile.bundles，profile 启动时
+# 管理器会读取本声明并把 dsh-delta-code 追加到 dsh.profile.bundles，profile 启动时
 # 合并本 patch（一条 insert 行）。
 - insert:
-    - id: dsh-code-worker
-      name: '@fongap-labs/dsh-code-worker'
+    - id: dsh-delta-code
+      name: '@fongap-labs/dsh-delta-code'
       config:
         enabled: true
         autoRouting: true

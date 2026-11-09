@@ -1,5 +1,5 @@
 {
-  "name": "@fongap-labs/dsh-code-worker",
+  "name": "@fongap-labs/dsh-delta-code",
   "version": "0.0.0",
   "private": false,
   "type": "module",

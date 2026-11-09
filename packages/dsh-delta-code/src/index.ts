@@ -21,8 +21,8 @@ import { registerCodingSkills } from './skills.js'
 import { registerAutomaticCodingRouter } from './auto-routing.js'
 
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
-const PROMPT_SECTION_NAME = 'dsh-code-worker:guidance'
-export const name = '@fongap-labs/dsh-code-worker'
+const PROMPT_SECTION_NAME = 'dsh-delta-code:guidance'
+export const name = '@fongap-labs/dsh-delta-code'
 export const inject = ['tools']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
@@ -38,7 +38,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
       toolDisposers.push(result.disposer)
     } else if (result.error) {
       ctx.logger?.warn?.(
-        `dsh-code-worker: tool "${tool.name}" was not registered: ${result.error.message}`,
+        `dsh-delta-code: tool "${tool.name}" was not registered: ${result.error.message}`,
       )
     }
     }
@@ -69,7 +69,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
       if (typeof disposer === 'function') promptDisposers.push(disposer)
     } catch (error) {
       ctx.logger?.warn?.(
-        `dsh-code-worker: failed to register system prompt section: ${errorMessage(error)}`,
+        `dsh-delta-code: failed to register system prompt section: ${errorMessage(error)}`,
       )
     }
   })
