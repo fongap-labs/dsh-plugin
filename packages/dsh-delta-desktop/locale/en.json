@@ -21,7 +21,7 @@
     "enabled": "Enabled",
     "appearance": "Theme appearance",
     "appearanceDescription": "Switch between Delta and native colors without changing sessions, models or plugins.",
-    "hostOwned": "More Desktop features will appear when their host integrations are ready.",
+    "hostOwned": "Sidebar status is available at document.documentElement.dataset.deltaCompatStatus in Developer Tools; unsupported Host structure safely retains the native UI.",
     "sessionId": "Session ID",
     "copySessionId": "Copy session ID",
     "copy": "Copy",

@@ -184,13 +184,26 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     isSyncing = true
     try {
       if (controller.getSnapshot().mode !== 'delta') { reset(); return }
+      // The official workspace tree may mount later than the sidebar shell,
+      // and the native search input may be absent until Search is expanded.
+      // Do not make those optional children prerequisites for the entire layout.
       const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
-      const navigation = viewport?.querySelector<HTMLElement>(':scope > nav')
-      const header = viewport?.querySelector<HTMLElement>('[data-sidebar-workspace-header]')
-      const nativeInput = header?.querySelector<HTMLInputElement>('input[type="text"]')
-      const nativeSearch = header?.querySelector<HTMLButtonElement>('button[aria-expanded]')
-      // Only enter compatibility mode after all version-specific anchors exist.
-      if (!viewport || !navigation || !nativeInput || !nativeSearch) { reset(); return }
+      const navigation = viewport?.querySelector<HTMLElement>('nav') ??
+        document.querySelector<HTMLElement>('[data-sidebar-scrollport] nav')
+      const header = document.querySelector<HTMLElement>('[data-sidebar-workspace-header]')
+      const nativeInput = header?.querySelector<HTMLInputElement>('input[type="text"]') ?? null
+      const nativeSearch = header?.querySelector<HTMLButtonElement>('button[aria-expanded]') ??
+        header?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="搜索"]') ?? null
+      if (!viewport || !navigation || !header || !nativeSearch) {
+        const missing = [
+          !viewport && 'scrollport', !navigation && 'navigation',
+          !header && 'workspace-header', !nativeSearch && 'native-search',
+        ].filter(Boolean).join(', ')
+        root.setAttribute('data-delta-compat-status', 'waiting:' + missing)
+        reset()
+        return
+      }
+      root.setAttribute('data-delta-compat-status', 'mounted')
       root.setAttribute('data-delta-compat', '1')
       let search = mounted.get('search')
       if (!search || !search.isConnected) {
@@ -209,11 +222,19 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             '[data-sidebar-workspace-header] input[type="text"]')
           const hostButton = document.querySelector<HTMLButtonElement>(
             '[data-sidebar-workspace-header] button[aria-expanded]')
-          if (!hostInput || !hostButton) return
+          if (!hostButton) return
           if (hostButton.getAttribute('aria-expanded') !== 'true') hostButton.click()
-          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-          setter?.call(hostInput, input.value)
-          hostInput.dispatchEvent(new Event('input', { bubbles: true }))
+          // Let React commit the newly expanded input before forwarding text.
+          const forward = (): void => {
+            const target = document.querySelector<HTMLInputElement>(
+              '[data-sidebar-workspace-header] input[type="text"]')
+            if (!target) return
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+            setter?.call(target, input.value)
+            target.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+          if (hostInput) forward()
+          else window.requestAnimationFrame(forward)
           input.focus()
         })
         input.addEventListener('keydown', event => {
@@ -229,7 +250,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         viewport.insertBefore(search, navigation)
       }
       const proxy = search.querySelector<HTMLInputElement>('input')
-      if (proxy && document.activeElement !== proxy && proxy.value !== nativeInput.value) proxy.value = nativeInput.value
+      if (proxy && nativeInput && document.activeElement !== proxy &&
+          proxy.value !== nativeInput.value) proxy.value = nativeInput.value
       let newSession = mounted.get('newSession') as HTMLButtonElement | undefined
       const nativeNew = document.querySelector<HTMLButtonElement>('button[class*="newSession"]')
       if (nativeNew && (!newSession || !newSession.isConnected)) {
@@ -255,6 +277,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     } catch (error) {
       reset()
+      root.setAttribute('data-delta-compat-status', 'error')
       console.error('[dsh-delta-desktop] Native compatibility disabled:', error)
     } finally { isSyncing = false }
   }
@@ -268,6 +291,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     unsubscribe()
     observer.disconnect()
     reset()
+    root.removeAttribute('data-delta-compat-status')
   }
 }
 
