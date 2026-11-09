@@ -43,7 +43,11 @@ function harness({ stored = null, failTheme = false } = {}) {
     inject(services, callback) {
       const names = Array.from(services)
       assert.ok(names.join(',') === 'slots' || names.join(',') === 'theme')
-      callback(ctx)
+      // Cordis throws for undeclared services even when optional chaining is used.
+      callback(new Proxy(ctx, { get(target, property) {
+        if (property === 'locale') throw new Error('cannot get property "locale" without inject')
+        return Reflect.get(target, property)
+      } }))
     },
     effect(create) { effects.push(create()) },
     theme: { overrideTokens(id, values) {
@@ -104,7 +108,7 @@ test('web boot stays active while waiting for UI services or when React is unava
   assert.doesNotThrow(() => missingReact.apply({}))
   assert.ok(diagnostic.some(record => String(record[0]).includes('React unavailable')))
 })
-test('appearance, official layout actions, and cleanup are reversible', () => {
+test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
   assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
