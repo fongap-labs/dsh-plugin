@@ -11,9 +11,9 @@ const one = (marker, code) => {
   if (source.split(literal).length !== 2) throw new Error('Expected exactly one ' + marker + ' in compiled client')
   source = source.replace(literal, code)
 }
-one('__DELTA_THEME_LOCALES__', JSON.stringify(dictionaries))
-one('__DELTA_THEME_STYLE__', JSON.stringify(readFileSync(join(root, 'src/theme.css'), 'utf8')))
-if (/\b(?:from|import)\s*\(['"]|\bprocess\.env\b|__DELTA_THEME_/.test(source)) throw new Error('Client bundle contains unresolved runtime imports or markers')
+one('__DELTA_DESKTOP_LOCALES__', JSON.stringify(dictionaries))
+one('__DELTA_DESKTOP_STYLE__', JSON.stringify(readFileSync(join(root, 'src/theme.css'), 'utf8')))
+if (/\b(?:from|import)\s*\(['"]|\bprocess\.env\b|__DELTA_DESKTOP_/.test(source)) throw new Error('Client bundle contains unresolved runtime imports or markers')
 if (!source.includes('window.__ModuleLoader__.load({')) throw new Error('Client module registration missing')
 writeFileSync(path, source)
 const manifestPath = join(root, 'package.json')

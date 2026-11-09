@@ -1,6 +1,26 @@
 {
   "meta": {
     "title": "Delta Desktop",
-    "description": "Independent Delta frontend powered by the DeepSeek Harness runtime"
+    "description": "Delta Desktop native DeepSeek Harness plugin with extensible appearance and settings."
+  },
+  "ui": {
+    "preference": "Switch appearance without disabling the official layout, sessions or other plugins.",
+    "theme": "Change appearance",
+    "official": "Official appearance",
+    "delta": "Delta appearance",
+    "open": "Open quick actions",
+    "close": "Close quick actions",
+    "conversation": "Back to conversation",
+    "sidebar": "Toggle sidebar",
+    "status": "Current appearance",
+    "unavailable": "A required capability is unavailable or an action failed. Disable this plugin to restore the official UI.",
+    "recovery": "If Settings cannot open, disable dsh-desktop-delta in the Host Profile and restart.",
+    "shortcut": "The official layout owns shortcuts; this plugin does not override existing keys.",
+    "personalization": "Personalization",
+    "personalizationDescription": "Desktop appearance preferences. Additional settings can be provided by future Delta features.",
+    "enabled": "Enabled",
+    "appearance": "Theme appearance",
+    "appearanceDescription": "Switch between Delta and native colors without changing sessions, models or plugins.",
+    "hostOwned": "More Desktop features will appear when their host integrations are ready."
   }
 }

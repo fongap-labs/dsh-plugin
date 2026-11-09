@@ -57,16 +57,6 @@ function safeNameOf(packageName) {
   return packageName.replace(/^@/, "").replaceAll("/", "-");
 }
 
-// Native desktop and DSH plugin products share the release schema, not the packaging contract.
-// Keep the exemption narrow: all future native products require an explicit reviewed contract.
-function isNativeDesktopProduct(_name) { return false; }
-
-const NATIVE_DESKTOP_BUILDS = [
-  ["linux-x64", "linux-standard", "x86_64-unknown-linux-gnu", "dsh-desktop-delta-linux-x64.deb"],
-  ["windows-x64", "windows-build", "x86_64-pc-windows-msvc", "dsh-desktop-delta-windows-x64.exe"],
-  ["macos-arm64", "macos-build", "aarch64-apple-darwin", "dsh-desktop-delta-macos-arm64.dmg"],
-];
-
 const products = readdirSync(projectsDir, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
@@ -175,11 +165,7 @@ describe("release manifests", () => {
         if (build.setup_rust !== undefined) {
           assert.equal(typeof build.setup_rust, "boolean", `${label} setup_rust must be a boolean`);
         }
-        if (isNativeDesktopProduct(name)) {
-          assert.ok(portable, `${label} desktop builder must be a Node entrypoint`);
-          assert.match(build.target, RUSTUP_TARGET, `${label} desktop target must be a rustup triple`);
-          assert.equal(build.setup_rust, true, `${label} desktop must install the Rust toolchain`);
-        } else if (portable) {
+        if (portable) {
           assert.equal(build.target, "portable", `${label} Node plugin target must be portable`);
           assert.equal(build.setup_rust, false, `${label} portable plugin does not need Rust`);
         } else {
@@ -221,25 +207,6 @@ describe("release manifests", () => {
         `${label} expects a package at ${manifest.root}/${name}/package.json`
       );
       const packageJson = readJson(packageJsonPath);
-      if (isNativeDesktopProduct(name)) {
-        assert.equal(packageJson.private, true, `${label} desktop must remain private on npm`);
-        assert.equal(packageJson.name, "@fongap-labs/dsh-desktop-delta");
-        const tauriConfig = readJson(join(repoRoot, manifest.root, name, "src-tauri", "tauri.conf.json"));
-        assert.equal(tauriConfig.bundle.active, true, `${label} Tauri bundling must be enabled`);
-        assert.equal(manifest.builds.length, NATIVE_DESKTOP_BUILDS.length, `${label} requires three native builds`);
-        for (let i = 0; i < NATIVE_DESKTOP_BUILDS.length; i++) {
-          const build = manifest.builds[i];
-          const [id, runner, target, asset] = NATIVE_DESKTOP_BUILDS[i];
-          assert.deepEqual(
-            [build.id, build.runner_profile, build.target, build.assets[0], build.attest_asset],
-            [id, runner, target, asset, asset],
-            `${label} build ${id} must retain the expected platform, runner, artifact and attestation`
-          );
-          assert.deepEqual(build.assets, [asset], `${label} must emit exactly one native installer per build`);
-          assert.equal(build.script, "dsh-desktop-delta/build-release.mjs");
-        }
-        continue;
-      }
       // The build script copies the packed zip to <safe-name>.zip and the tarball to <safe-name>.tgz,
       // so the declared assets must match both.
       const safe = safeNameOf(packageJson.name);
@@ -253,12 +220,7 @@ describe("release manifests", () => {
     for (const { name, manifest } of products) {
       for (const build of manifest.builds) {
         const text = readFileSync(join(repoRoot, manifest.root, build.script), "utf8");
-        if (isNativeDesktopProduct(name)) {
-          assert.match(text, /parseReleaseArgs/, `projects/${name}: desktop must validate release arguments`);
-          assert.match(text, /tauri.*build/, `projects/${name}: desktop must use the Tauri builder`);
-          assert.match(text, /findInstaller/, `projects/${name}: desktop must verify native installer output`);
-          assert.match(text, /finally\s*\{/, `projects/${name}: desktop must restore source versions`);
-        } else if (build.script.endsWith(".mjs")) {
+        if (build.script.endsWith(".mjs")) {
           assert.ok(text.includes(`'--package', '${name}'`), `projects/${name}: Node wrapper must pass the package name`);
           assert.match(text, /scripts\/build-release\.mjs/, `projects/${name}: Node wrapper must delegate to the shared builder`);
         } else {
@@ -339,19 +301,6 @@ describe("release manifests", () => {
   it("packs package.json so the release version reaches the artifact", () => {
     for (const { name, manifest } of products) {
       const dir = join(repoRoot, manifest.root, name);
-      if (isNativeDesktopProduct(name)) {
-        const pkg = readJson(join(dir, "package.json"));
-        const conf = readJson(join(dir, "src-tauri", "tauri.conf.json"));
-        const cargo = readFileSync(join(dir, "src-tauri", "Cargo.toml"), "utf8");
-        const builder = readFileSync(join(dir, "build-release.mjs"), "utf8");
-        assert.equal(pkg.version, conf.version, `${name}: package and Tauri versions must agree`);
-        assert.match(cargo, /^version\s*=\s*"[^"]+"/m, `${name}: Cargo package must declare a version`);
-        assert.ok(cargo.includes(`version = "${pkg.version}"`), `${name}: Cargo version must match package version`);
-        assert.match(builder, /writeFile\(packagePath/, `${name}: builder must inject package version`);
-        assert.match(builder, /writeFile\(tauriPath/, `${name}: builder must inject Tauri version`);
-        assert.match(builder, /writeFile\(cargoPath/, `${name}: builder must inject Cargo version`);
-        continue;
-      }
       const files = resolveBundleFiles(dir, readJson(join(dir, "package.json")));
       // The release build injects the version into package.json before packing; if package.json is
       // not inside the zip, the published artifact carries no version at all.

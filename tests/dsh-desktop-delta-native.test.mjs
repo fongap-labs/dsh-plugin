@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
@@ -8,12 +8,12 @@ import vm from 'node:vm'
 // Central CI invokes node --test directly, so build the actual client artifact here.
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/dsh-theme-delta/tsconfig.json')], { stdio: 'pipe' })
+  fixture('packages/dsh-desktop-delta/tsconfig.json')], { stdio: 'pipe' })
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/dsh-theme-delta/tsconfig.client.json')], { stdio: 'pipe' })
-execFileSync(process.execPath, [fixture('packages/dsh-theme-delta/scripts/finalize-client.mjs')],
+  fixture('packages/dsh-desktop-delta/tsconfig.client.json')], { stdio: 'pipe' })
+execFileSync(process.execPath, [fixture('packages/dsh-desktop-delta/scripts/finalize-client.mjs')],
   { stdio: 'pipe' })
-const source = readFileSync(fixture('packages/dsh-theme-delta/lib/client.js'), 'utf8')
+const source = readFileSync(fixture('packages/dsh-desktop-delta/lib/client.js'), 'utf8')
 function harness({ stored = null, failTheme = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
@@ -70,9 +70,9 @@ function harness({ stored = null, failTheme = false } = {}) {
 test('lazy ModuleLoader registration and browser-safe artifact', () => {
   let loaded
   vm.runInNewContext(source, { window: { __ModuleLoader__: { load(x) { loaded = x } } } })
-  assert.equal(loaded.id, '@fongap-labs/dsh-theme-delta')
+  assert.equal(loaded.id, '@fongap-labs/dsh-desktop-delta')
   assert.equal(typeof loaded.factory, 'function')
-  assert.doesNotMatch(source, /__DELTA_THEME_|process\.env|from\s+['"]/)
+  assert.doesNotMatch(source, /__DELTA_DESKTOP_|process\.env|from\s+['"]/)
 })
 test('web boot stays active while waiting for UI services or when React is unavailable', () => {
   let entry
@@ -116,7 +116,7 @@ test('appearance, official layout actions, and cleanup are reversible', () => {
   assert.equal(entry.spec.id, 'delta.personalization')
   assert.equal(entry.spec.label(), '个性设置')
   const controller = entry.spec.inject().controller
-  assert.match(JSON.stringify(entry.component({ controller })), new RegExp('Delta 主题'))
+  assert.match(JSON.stringify(entry.component({ controller })), new RegExp('Delta 桌面'))
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-preference-row/)
   controller.setMode('official')
   assert.equal(app.layers.size, 0)
@@ -128,7 +128,7 @@ test('appearance, official layout actions, and cleanup are reversible', () => {
   assert.match(app.stored, /"mode":"delta"/)
   app.documentElement.lang = 'en'
   app.context.observer()
-  assert.match(JSON.stringify(entry.component({ controller })), /Delta Theme/)
+  assert.match(JSON.stringify(entry.component({ controller })), /Delta Desktop/)
   assert.equal(entry.spec.label(), 'Personalization')
   app.cleanup(); app.cleanup()
   assert.equal(app.layers.size, 0)
@@ -165,16 +165,25 @@ test('invalid persisted values and missing theme services are recoverable', () =
   failed.cleanup()
 })
 test('package identity, localization and assets are independent', () => {
-  const base = '../packages/dsh-theme-delta/'
+  const base = '../packages/dsh-desktop-delta/'
   const json = path => JSON.parse(readFileSync(new URL(base + path, import.meta.url), 'utf8'))
   const pkg = json('package.json')
-  assert.equal(pkg.name, '@fongap-labs/dsh-theme-delta')
+  assert.equal(pkg.name, '@fongap-labs/dsh-desktop-delta')
   assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
   assert.equal(pkg.dsh.client.platform, 'web')
   assert.deepEqual(pkg.dsh.client.inject, [], 'optional UI dependencies must never block web boot')
   assert.equal(pkg.description, json('locale/en.json').meta.description)
-  assert.equal(json('locale/zh.json').meta.title, 'Delta 主题')
+  assert.equal(json('locale/zh.json').meta.title, 'Delta 桌面')
   assert.equal(pkg.dependencies?.['@deepseek-ai/cordis'], undefined)
-  const rel = json('../../projects/dsh-theme-delta/release.manifest.json')
-  assert.equal(rel.release_key, 'dsh-theme-delta')
+  const rel = json('../../projects/dsh-desktop-delta/release.manifest.json')
+  assert.equal(rel.release_key, 'dsh-desktop-delta')
+})
+
+test('obsolete standalone routes and UI packages are excluded from Desktop', () => {
+  assert.equal(existsSync(fixture('packages/dsh-ui-delta')), false)
+  assert.equal(existsSync(fixture('packages/dsh-theme-delta')), false)
+  assert.equal(existsSync(fixture('packages/dsh-desktop-delta/src/host/routes.ts')), false)
+  assert.equal(existsSync(fixture('scripts/verify-delta-poc-host.mjs')), false)
+  assert.equal(existsSync(fixture('scripts/verify-delta-suite-ui.mjs')), false)
+  assert.match(source, /const settingsModules/)
 })

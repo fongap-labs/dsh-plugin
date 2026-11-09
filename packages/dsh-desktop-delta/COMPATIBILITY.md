@@ -1,4 +1,7 @@
-# 宿主契约与兼容性记录
+# Delta UI 宿主兼容性与迁移
+
+新的插件身份为 `@fongap-labs/dsh-ui-delta`，历史 `@fongap-labs/dsh-theme-delta` 的发布记录和错误日志不修改。首次安装新包前先停用旧插件，确保不会重复覆盖主题或重复注册 `settings.section`；禁止在没有实际宿主验证前声称可自动迁移。
+
 
 公开源码基线：`deepseek-ai/deepseek-harness@fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`。基线只用于阅读，不等于已完成实际安装验证，也不代表全部后续宿主构建兼容。
 

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 维护: 删除旧 dsh-desktop-delta 独立网页/Host 实现，以可扩展的原生 Delta Desktop 插件替换，保留历史发行记录。
+
+- 维护: 原生客户端插件由 dsh-theme-delta 迁移为 dsh-ui-delta，独立插件 ID、包名与发布清单；保留历史发布和手动版本管理。
+
 - 新增: Delta 主题在原生设置页增加独立“个性设置”栏目，支持中英文配色切换及停用恢复。
 
 - 维护: 插件源码统一使用占位版本，移除本地标签驱动发布，版本仅由 Action Worker 手动发布输入确定。
