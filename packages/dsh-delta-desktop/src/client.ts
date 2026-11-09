@@ -163,8 +163,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const root = document.documentElement
   const mounted = new Map<string, HTMLElement>()
   const initialized = new Set<string>()
-  let disposed = false
-  let syncing = false
+  let isDisposed = false
+  let isSyncing = false
   const reset = (): void => {
     for (const node of mounted.values()) node.remove()
     mounted.clear()
@@ -179,8 +179,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     } catch { return {} }
   }
   const sync = (): void => {
-    if (disposed || syncing) return
-    syncing = true
+    if (isDisposed || isSyncing) return
+    isSyncing = true
     try {
       if (controller.getSnapshot().mode !== 'delta') { reset(); return }
       const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
@@ -255,7 +255,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     } catch (error) {
       reset()
       console.error('[dsh-delta-desktop] Native compatibility disabled:', error)
-    } finally { syncing = false }
+    } finally { isSyncing = false }
   }
   // React may remount its Host-owned regions. Recreate only Delta-owned nodes.
   const observer = new MutationObserver(() => sync())
@@ -263,7 +263,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const unsubscribe = controller.subscribe(sync)
   sync()
   return () => {
-    disposed = true
+    isDisposed = true
     unsubscribe()
     observer.disconnect()
     reset()
