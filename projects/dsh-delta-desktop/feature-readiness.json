@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "required": {
+    "native_personalization": true,
+    "theme_tokens": true,
+    "brand_slots": true,
+    "sidebar_search_placement": false,
+    "sidebar_navigation_order": false,
+    "sidebar_spacing": false,
+    "conversation_status_presentation": false,
+    "session_hover_card_layout": false,
+    "workspace_initial_collapse": false,
+    "default_workspace_delete_guard": false
+  },
+  "note": "Source-level completion gate. Windows real-host testing is required after all required capabilities are implemented. Update statuses only with linked tests and verified implementation."
+}
