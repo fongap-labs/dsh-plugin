@@ -431,6 +431,7 @@ function installHostSearch(
             clearRequest()
             remoteItems = []
             hasError = false
+            feedback.hidden = true
             render()
           }, () => {
             if (!active() || serial !== navigationRequest) return
