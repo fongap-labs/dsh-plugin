@@ -1,17 +1,25 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { execFileSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import vm from 'node:vm'
-import ts from 'typescript'
 
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
-// Transpile into this test's memory: node --test runs files in parallel, and a
-// second finalize-client execution can race the native artifact test.
-const raw = readFileSync(file('packages/dsh-delta-desktop/src/client.ts'), 'utf8')
+// Compile into an isolated directory. TypeScript 7's native compiler no longer
+// exports the legacy transpileModule API; concurrent node --test workers must
+// not overwrite the real package's lib/client.js during finalize-client.
+const compileDir = mkdtempSync(join(tmpdir(), 'delta-search-'))
+let compiled
+try {
+  execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
+    file('packages/dsh-delta-desktop/tsconfig.client.json'), '--outDir', compileDir], { stdio: 'pipe' })
+  compiled = readFileSync(join(compileDir, 'client.js'), 'utf8')
+} finally { rmSync(compileDir, { recursive: true, force: true }) }
 const locales = Object.fromEntries(['en', 'zh'].map(lang =>
   [lang, JSON.parse(readFileSync(file('packages/dsh-delta-desktop/locale/' + lang + '.json'), 'utf8'))]))
-const compiled = ts.transpileModule(raw, { compilerOptions: { target: 9, module: 0 } }).outputText
 assert.equal(compiled.split("'__DELTA_DESKTOP_LOCALES__'").length, 2)
 assert.equal(compiled.split("'__DELTA_DESKTOP_STYLE__'").length, 2)
 const source = compiled.replace("'__DELTA_DESKTOP_LOCALES__'", JSON.stringify(locales))
