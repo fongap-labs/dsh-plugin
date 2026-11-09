@@ -64,6 +64,60 @@ export function readTgz(buffer) {
   ensure(entries.size > 0, 'empty TGZ')
   return entries
 }
+/**
+ * Scan emitted JavaScript without mistaking source comments for executable
+ * references. Keep string, template, and regular-expression text conservative:
+ * forbidden names in runtime text still block the release. No compiler API is
+ * used because the project installs native TypeScript 7 (CLI-only).
+ */
+export function hasUnsafeHostPatch(source) {
+  let executable = ''
+  let quote = null
+  let isEscaped = false
+  let isBlockComment = false
+  let isLineComment = false
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i]
+    const next = source[i + 1]
+    if (isLineComment) {
+      if (char === '\n' || char === '\r') {
+        isLineComment = false
+        executable += char
+      }
+      continue
+    }
+    if (isBlockComment) {
+      if (char === '*' && next === '/') {
+        isBlockComment = false
+        i++
+      } else if (char === '\n' || char === '\r') {
+        executable += char
+      }
+      continue
+    }
+    if (quote !== null) {
+      executable += char
+      if (isEscaped) isEscaped = false
+      else if (char === '\\') isEscaped = true
+      else if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'" || char === '\x60') {
+      quote = char
+      executable += char
+    } else if (char === '/' && next === '/') {
+      isLineComment = true
+      i++
+    } else if (char === '/' && next === '*') {
+      isBlockComment = true
+      i++
+    } else {
+      executable += char
+    }
+  }
+  return executable.includes('workspaceRegistry') || executable.includes('protected-default-workspace')
+}
+
 export function verifyEntries(entries, version, format) {
   for (const path of required) ensure(entries.has(path), format + ' missing ' + path)
   const manifest = JSON.parse(entries.get('package.json').toString())
@@ -76,7 +130,7 @@ export function verifyEntries(entries, version, format) {
   const host = entries.get('lib/index.js').toString()
   ensure(host.includes('negotiateHostCapabilities') && host.includes('DELTA_HOST_CONTRACT_VERSION'), format + ' Host capability contract')
   ensure(entries.get('lib/host-capabilities.js').toString().includes('negotiateHostCapabilities'), format + ' capability module')
-  ensure(!host.includes('workspaceRegistry') && !host.includes('protected-default-workspace'), format + ' unsafe Host patch')
+  ensure(!hasUnsafeHostPatch(host), format + ' unsafe Host patch')
   const client = entries.get('lib/client.js').toString()
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
