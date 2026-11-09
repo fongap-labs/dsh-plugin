@@ -21,7 +21,7 @@ const manifests = [
 
 test('repository and workspace packages consistently declare MIT', () => {
   const canonical = read('LICENSE')
-  assert.match(canonical, /^MIT License\n/)
+  assert.match(canonical, /^MIT License\r?\n/)
   assert.match(canonical, /Copyright \(c\) 2026 Fongap Labs/)
   assert.match(canonical, /THE SOFTWARE IS PROVIDED "AS IS"/)
   for (const path of licenses) assert.equal(read(path), canonical, path)
