@@ -11,8 +11,7 @@ const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
 const raw = readFileSync(file('packages/dsh-delta-desktop/src/client.ts'), 'utf8')
 const locales = Object.fromEntries(['en', 'zh'].map(lang =>
   [lang, JSON.parse(readFileSync(file('packages/dsh-delta-desktop/locale/' + lang + '.json'), 'utf8'))]))
-const compiled = ts.transpileModule(raw, { compilerOptions: { target: ts.ScriptTarget.ES2022,
-  module: ts.ModuleKind.None } }).outputText
+const compiled = ts.transpileModule(raw, { compilerOptions: { target: 9, module: 0 } }).outputText
 assert.equal(compiled.split("'__DELTA_DESKTOP_LOCALES__'").length, 2)
 assert.equal(compiled.split("'__DELTA_DESKTOP_STYLE__'").length, 2)
 const source = compiled.replace("'__DELTA_DESKTOP_LOCALES__'", JSON.stringify(locales))
