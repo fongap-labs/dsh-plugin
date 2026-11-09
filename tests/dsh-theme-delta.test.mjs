@@ -41,7 +41,7 @@ function harness({ stored = null, failTheme = false } = {}) {
   })
   const ctx = {
     inject(services, callback) {
-      assert.deepEqual(services, ['slots', 'theme', 'layout'])
+      assert.deepEqual(Array.from(services), ['slots', 'theme', 'layout'])
       callback(ctx)
     },
     effect(create) { effects.push(create()) },
@@ -84,7 +84,7 @@ test('web boot stays active while waiting for UI services or when React is unava
   let deferred
   assert.doesNotThrow(() => react.apply({
     inject(required, install) {
-      assert.deepEqual(required, ['slots', 'theme', 'layout'])
+      assert.deepEqual(Array.from(required), ['slots', 'theme', 'layout'])
       deferred = install
     },
   }))
