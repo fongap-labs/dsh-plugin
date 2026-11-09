@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 使用 Harness 原生会话悬浮插槽显示本地化会话编号与复制操作，保留官方时间和运行状态。
+- 修复: 切换官方外观时撤销 Delta 侧栏品牌插槽，恢复官方标识；重新选择 Delta 后重新挂载，并增加生命周期测试。
+
 - 维护: 删除旧 dsh-desktop-delta 独立网页/Host 实现，以可扩展的原生 Delta Desktop 插件替换，保留历史发行记录。
 
 - 维护: 原生客户端插件由 dsh-theme-delta 迁移为 dsh-ui-delta，独立插件 ID、包名与发布清单；保留历史发布和手动版本管理。
