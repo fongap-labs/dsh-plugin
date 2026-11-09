@@ -39,6 +39,8 @@ interface ClientContext {
   theme: ThemeApi
   layout: LayoutApi
   slots: SlotsApi
+  /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
+  inject(services: string[], callback: (scope: ClientContext) => void): void
   effect(callback: () => void | (() => void), label?: string): void
   locale?: { subscribe?: (listener: () => void) => (() => void) }
 }
@@ -141,7 +143,19 @@ window.__ModuleLoader__.load({
   id: OWNER,
   factory(require) {
     // Shared React instance supplied by the host module table, never bundled.
-    const React = require('react') as ReactApi
+    // Import errors must not make this optional plugin fail the entire web boot.
+    let React: ReactApi
+    try {
+      React = require('react') as ReactApi
+      if (typeof React?.createElement !== 'function' ||
+          typeof React?.useState !== 'function' ||
+          typeof React?.useSyncExternalStore !== 'function') {
+        throw new Error('Host React platform module is incomplete')
+      }
+    } catch (error) {
+      console.error('[dsh-theme-delta] React unavailable; native UI remains active:', error)
+      return { inject: [], apply() {} }
+    }
     const el = React.createElement
     function useCopy(controller: DeltaController): { state: DeltaState; copy: DeltaCopy } {
       const state = React.useSyncExternalStore(
@@ -180,10 +194,14 @@ window.__ModuleLoader__.load({
           onClick: () => setOpen(!open) }, 'Δ'))
     }
     return {
-      inject: ['slots', 'theme', 'layout'],
+      // The parent plugin remains active even if UI services or a theme API are unavailable.
+      inject: [],
       apply(ctx) {
-        const controller = createController(ctx) as DeltaController & { activate(): void; syncLanguage(): void }
-        ctx.effect(() => {
+        try {
+          ctx.inject(['slots', 'theme', 'layout'], (scope) => {
+            try {
+              const controller = createController(scope) as DeltaController & { activate(): void; syncLanguage(): void }
+        scope.effect(() => {
           controller.activate()
           const tag = document.createElement('style')
           tag.dataset.plugin = OWNER
@@ -192,7 +210,7 @@ window.__ModuleLoader__.load({
           const observer = typeof MutationObserver !== 'undefined'
             ? new MutationObserver(() => controller.syncLanguage()) : undefined
           observer?.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
-          const offLocale = ctx.locale?.subscribe?.(() => controller.syncLanguage())
+          const offLocale = scope.locale?.subscribe?.(() => controller.syncLanguage())
           return () => {
             offLocale?.()
             observer?.disconnect()
@@ -200,14 +218,21 @@ window.__ModuleLoader__.load({
             controller.dispose()
           }
         }, 'dsh-theme-delta: palette and owned resources')
-        ctx.slots.inject('settings.general.item', () => ctx.slots.register({
+        scope.slots.inject('settings.general.item', () => scope.slots.register({
           name: 'settings.general.item', id: 'fongap.delta.theme', order: 60,
           inject: () => ({ controller }),
         }, SettingsRow))
-        ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+        scope.slots.inject('shell.overlay', () => scope.slots.register({
           name: 'shell.overlay', id: 'fongap.delta.quick-actions', order: 100,
           inject: () => ({ controller }),
         }, QuickActions))
+            } catch (error) {
+              console.error('[dsh-theme-delta] UI mount failed; native UI preserved:', error)
+            }
+          })
+        } catch (error) {
+          console.error('[dsh-theme-delta] deferred UI registration failed; native UI preserved:', error)
+        }
       },
     }
   },
