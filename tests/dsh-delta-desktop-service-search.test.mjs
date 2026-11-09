@@ -228,8 +228,8 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     'active Host Session status refreshes plugin search results')
   const nativeHover = inserted.find(([spec]) => spec.name === 'sidebar.session.row.hover')[1]
   const hoverText = JSON.stringify(nativeHover({ sessionId: 'local' }))
-  assert.match(hoverText, /运行中/, 'native Session hover exposes Host-confirmed running state')
-  assert.match(hoverText, /最近更新/, 'native Session hover includes public updatedAt metadata')
+  assert.ok(hoverText.includes('运行中'), 'native Session hover exposes Host-confirmed running state')
+  assert.ok(hoverText.includes('最近更新'), 'native Session hover includes public updatedAt metadata')
   assert.doesNotMatch(hoverText, /private\\\\secret/, 'native Session hover must never contain a path')
   sessionRunning = false
   refreshSessions()
