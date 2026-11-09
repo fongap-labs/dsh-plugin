@@ -11,7 +11,7 @@ interface DeltaCopy {
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
-    searchSessions: string; newConversation: string;
+    searchSessions: string; newConversation: string; searching: string; noResults: string;
     copied: string; copyFailed: string;
   }
 }
@@ -45,10 +45,27 @@ interface WorkspacesApi {
   list: { getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[] } }
   delete(workspaceId: string): Promise<unknown>
 }
+
+/** Existing Harness 0.2.2-rc.1 public Client services. All data and navigation remain Host-owned. */
+interface SearchSessionsApi {
+  list: { getSnapshot(): { byId: Record<string, { id: string; title?: string; blank?: boolean }> } }
+  search(query: string, signal: AbortSignal): Promise<{
+    ok: boolean
+    value?: { items: { sessionId: string; snippet: string }[]; hasMore: boolean }
+    error?: { message?: string }
+  }>
+}
+interface SearchNavigationApi {
+  openSession(sessionId: string): void
+  startSession(): void
+}
+
 interface ClientContext {
   theme?: ThemeApi
   layout?: LayoutApi
   workspaces?: WorkspacesApi
+  sessions?: SearchSessionsApi
+  uiWorkspace?: SearchNavigationApi
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
   inject(services: string[], callback: (scope: ClientContext) => void): void
@@ -166,6 +183,184 @@ function createController(): DeltaController {
   } as DeltaController & { syncLanguage(): void; activate(): void }
 }
 
+
+
+/**
+ * A plugin-owned search control inside the published sidebar scrollport.
+ * It calls Harness Session Controller and UiWorkspace services directly:
+ * no synthetic React events, no moving Host nodes, and no Host method replacement.
+ * Markers are checked before each insertion; loss of the Host surface safely unmounts.
+ */
+function installHostSearch(controller: DeltaController, sessions: SearchSessionsApi, navigation: SearchNavigationApi): () => void {
+  const root = document.documentElement
+  const shell = document.createElement('section')
+  shell.className = 'dtd-host-search'
+  shell.setAttribute('data-delta-search', 'sessions')
+  const searchField = document.createElement('div')
+  searchField.className = 'dtd-host-search-field'
+  const glyph = document.createElement('span')
+  glyph.className = 'dtd-host-search-icon'
+  glyph.setAttribute('aria-hidden', 'true')
+  glyph.textContent = '⌕'
+  const input = document.createElement('input')
+  input.type = 'search'
+  input.maxLength = 500
+  input.className = 'dtd-host-search-input'
+  input.autocomplete = 'off'
+  input.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
+  input.placeholder = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions
+  searchField.append(glyph, input)
+  const results = document.createElement('div')
+  results.className = 'dtd-host-search-results'
+  results.setAttribute('role', 'region')
+  results.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
+  results.hidden = true
+  shell.append(searchField, results)
+  let disposed = false
+  let timer: number | undefined
+  let pending: AbortController | undefined
+  let serial = 0
+  let remoteItems: { sessionId: string; snippet: string }[] = []
+  let searching = false
+  let error = false
+  const active = (): boolean => !disposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
+  const clearRequest = (): void => {
+    if (timer !== undefined) window.clearTimeout(timer)
+    timer = undefined
+    pending?.abort()
+    pending = undefined
+    serial += 1
+  }
+  const render = (): void => {
+    results.replaceChildren()
+    const query = input.value.trim().toLocaleLowerCase()
+    if (!query || !active()) { results.hidden = true; return }
+    results.hidden = false
+    const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+    const seen = new Set<string>()
+    const matches: { id: string; title: string; snippet?: string }[] = []
+    for (const item of Object.values(sessions.list.getSnapshot().byId)) {
+      const title = item.title?.trim() ?? ''
+      if (!item.blank && title.toLocaleLowerCase().includes(query)) {
+        matches.push({ id: item.id, title })
+        seen.add(item.id)
+      }
+      if (matches.length >= 20) break
+    }
+    for (const item of remoteItems) {
+      if (seen.has(item.sessionId) || matches.length >= 20) continue
+      const title = sessions.list.getSnapshot().byId[item.sessionId]?.title?.trim() || item.sessionId
+      matches.push({ id: item.sessionId, title, snippet: item.snippet })
+      seen.add(item.sessionId)
+    }
+    for (const match of matches) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'dtd-host-search-result'
+      const heading = document.createElement('span')
+      heading.className = 'dtd-host-search-result-title'
+      heading.textContent = match.title
+      button.appendChild(heading)
+      if (match.snippet) {
+        const detail = document.createElement('span')
+        detail.className = 'dtd-host-search-result-snippet'
+        detail.textContent = match.snippet
+        button.appendChild(detail)
+      }
+      button.addEventListener('click', () => {
+        try {
+          navigation.openSession(match.id)
+          input.value = ''
+          clearRequest()
+          remoteItems = []
+          render()
+        } catch (reason) {
+          console.warn('[dsh-delta-desktop] native Session navigation failed', reason)
+          error = true
+          render()
+        }
+      })
+      results.appendChild(button)
+    }
+    if (searching || error || matches.length === 0) {
+      const message = document.createElement('p')
+      message.className = 'dtd-host-search-hint'
+      message.setAttribute('role', 'status')
+      message.textContent = error ? copy.unavailable : searching ? copy.searching : copy.noResults
+      results.appendChild(message)
+    }
+  }
+  const onInput = (): void => {
+    clearRequest()
+    remoteItems = []
+    searching = false
+    error = false
+    const query = input.value.replaceAll('\0', '').trim().slice(0, 500)
+    if (query) {
+      searching = true
+      const requestId = serial
+      const aborter = new AbortController()
+      pending = aborter
+      timer = window.setTimeout(() => {
+        timer = undefined
+        void sessions.search(query, aborter.signal).then(result => {
+          if (!active() || serial !== requestId || aborter.signal.aborted) return
+          searching = false
+          error = !result.ok
+          remoteItems = result.ok ? (result.value?.items ?? []) : []
+          render()
+        }, reason => {
+          if (!active() || serial !== requestId || aborter.signal.aborted) return
+          searching = false
+          error = true
+          console.warn('[dsh-delta-desktop] native Session search failed', reason)
+          render()
+        })
+      }, 250)
+    }
+    render()
+  }
+  input.addEventListener('input', onInput)
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return
+    input.value = ''
+    onInput()
+    input.blur()
+  })
+  const sync = (): void => {
+    if (disposed) return
+    if (controller.getSnapshot().mode !== 'delta') {
+      clearRequest()
+      shell.remove()
+      root.removeAttribute('data-delta-search-adapter')
+      return
+    }
+    const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
+    const navigationRow = viewport?.querySelector('nav')
+    if (!viewport || !navigationRow) {
+      shell.remove()
+      root.setAttribute('data-delta-search-adapter', 'waiting-for-sidebar')
+      return
+    }
+    if (shell.parentElement !== viewport || shell.nextElementSibling !== navigationRow) {
+      viewport.insertBefore(shell, navigationRow)
+    }
+    root.setAttribute('data-delta-search-adapter', 'active')
+  }
+  const observer = new MutationObserver(sync)
+  observer.observe(document.body ?? root, { subtree: true, childList: true })
+  const unsubscribe = controller.subscribe(sync)
+  sync()
+  return () => {
+    if (disposed) return
+    disposed = true
+    clearRequest()
+    unsubscribe()
+    observer.disconnect()
+    shell.remove()
+    root.removeAttribute('data-delta-search-adapter')
+  }
+}
 
 window.__ModuleLoader__.load({
   id: OWNER,
@@ -389,6 +584,13 @@ window.__ModuleLoader__.load({
                 id: 'delta.session.identity',
                 order: 500,
               }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              // Native search and navigation are optional Host services, not synthetic DOM commands.
+              // They mount only once both services exist and never block the Settings or Theme.
+              scope.inject(['sessions', 'uiWorkspace'], searchScope => {
+                if (!searchScope.sessions || !searchScope.uiWorkspace) return
+                searchScope.effect(() => installHostSearch(controller, searchScope.sessions!, searchScope.uiWorkspace!),
+                  'dsh-delta-desktop: native service-backed sidebar search')
+              })
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
