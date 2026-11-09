@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta 主题启动失败时保留 Harness 原生界面，并延迟挂载可选 UI 服务。
+
 - 新增: 独立 dsh-theme-delta 插件，通过官方主题与布局插槽提供可逆外观和导航增强。
 
 - 新增: Delta Desktop 便携包发布前验证 ZIP 和 TGZ 完整性及插件入口与版本，失败时阻断发布。

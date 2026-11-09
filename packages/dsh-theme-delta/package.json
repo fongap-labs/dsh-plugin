@@ -23,11 +23,7 @@
     "client": {
       "platform": "web",
       "immediately": false,
-      "inject": [
-        "@deepseek-ai/dsh-client-ui-renderer",
-        "@deepseek-ai/dsh-client-ui-theme",
-        "@deepseek-ai/dsh-client-ui-layout"
-      ]
+      "inject": []
     }
   },
   "files": [
