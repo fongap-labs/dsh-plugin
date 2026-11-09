@@ -11,6 +11,7 @@ interface DeltaCopy {
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
+    searchSessions: string; newConversation: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -198,7 +199,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         const input = document.createElement('input')
         input.type = 'search'
         input.className = 'dtd-native-search-input'
-        input.setAttribute('aria-label', language() === 'zh' ? '搜索会话' : 'Search sessions')
+        input.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
         input.placeholder = language() === 'zh' ? '搜索会话' : 'Search sessions'
         input.maxLength = 500
         // Proxies use the Host's own React input setter and existing search flow.
@@ -235,7 +236,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         newSession.type = 'button'
         newSession.className = 'dtd-native-new-session'
         newSession.setAttribute('data-delta-action', 'new-session')
-        newSession.textContent = language() === 'zh' ? '开始对话' : 'New conversation'
+        newSession.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.newConversation
         newSession.addEventListener('click', () => {
           document.querySelector<HTMLButtonElement>('button[class*="newSession"]:not([data-delta-action])')?.click()
         })

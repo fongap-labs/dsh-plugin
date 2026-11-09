@@ -24,6 +24,8 @@
     "hostOwned": "More Desktop features will appear when their host integrations are ready.",
     "sessionId": "Session ID",
     "copySessionId": "Copy session ID",
-    "copy": "Copy"
+    "copy": "Copy",
+    "searchSessions": "Search sessions",
+    "newConversation": "New conversation"
   }
 }
