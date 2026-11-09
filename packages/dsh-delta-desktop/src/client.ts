@@ -317,7 +317,7 @@ window.__ModuleLoader__.load({
                     const shouldShow = controller.getSnapshot().mode === 'delta'
                     if (shouldShow && !release) {
                       const result = scope.slots.register({ name, id }, component)
-                      release = typeof result === 'function' ? result : () => {}
+                      release = typeof result === 'function' ? (result as () => void) : () => {}
                     } else if (!shouldShow && release) {
                       release()
                       release = undefined
