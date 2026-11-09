@@ -41,6 +41,7 @@
     "archivedSession": "This session is archived. Restore it in the native workspace list before opening.",
     "sessionStateUnknown": "Session archive status is unavailable. Open it through the native session list.",
     "sessionRunning": "Running",
+    "sessionUpdated": "Last updated",
     "sessionArchived": "Archived"
   }
 }
