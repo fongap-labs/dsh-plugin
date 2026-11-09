@@ -96,9 +96,9 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   }
   const ctx = {
     theme: { overrideTokens() { return () => {} } },
-    layout: { toggleSidebar() {}, selectPanel() {} },
+    layout: { toggleSidebar() {}, selectPanel(id) { actions.push(['panel', id]) } },
     sessions: hostSessions,
-    uiWorkspace: { openSession(id) { actions.push(['open', id]) }, startSession() {} },
+    uiWorkspace: { openSession(id) { actions.push(['open', id]) }, startSession() { actions.push(['new-session']) } },
     inject(_names, fn) { fn(ctx) },
     effect(create) { const cleanup = create(); if (typeof cleanup === 'function') callbacks.push(cleanup) },
     slots: {
@@ -140,9 +140,19 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
 
   const input = shell.children[0].children[1]
+  const quickActions = shell.children[1]
+  const feedback = shell.children[2]
+  assert.deepEqual(quickActions.children.map(button => button.getAttribute('data-delta-action')),
+    ['plugins', 'schedules', 'new-session'])
+  assert.deepEqual(quickActions.children.map(button => button.textContent), ['插件管理', '定时任务', '开始对话'])
+  quickActions.children[0].emit('click')
+  quickActions.children[1].emit('click')
+  quickActions.children[2].emit('click')
+  assert.deepEqual(actions, [['panel', 'plugins'], ['panel', 'schedules'], ['new-session']])
+  assert.equal(feedback.hidden, true)
   input.value = 'example'
   input.emit('input')
-  const results = shell.children[1]
+  const results = shell.children[3]
   assert.equal(results.hidden, false)
   assert.equal(results.children[0].textContent, '')
   assert.equal(results.children[0].children[0].textContent, 'Example Session')
@@ -151,20 +161,30 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   fire()
   await Promise.resolve()
   await Promise.resolve()
-  assert.deepEqual(actions[0], ['search', 'example'])
+  assert.deepEqual(actions[3], ['search', 'example'])
   assert.equal(results.children.length, 2)
   assert.equal(results.children[1].children[1].textContent, 'Example content match')
   results.children[1].emit('click')
-  assert.deepEqual(actions[1], ['open', 'remote'])
+  assert.deepEqual(actions[4], ['open', 'remote'])
   assert.equal(results.hidden, true)
 
   const preference = inserted.find(([spec]) => spec.name === 'settings.section')
   const controller = preference[0].inject().controller
+  root.lang = 'en-US'
+  controller.syncLanguage()
+  assert.equal(input.placeholder, 'Search sessions')
+  assert.deepEqual(quickActions.children.map(button => button.textContent), ['Plugins', 'Schedules', 'New conversation'])
+  controller.bindLayout(undefined)
+  quickActions.children[0].emit('click')
+  assert.equal(feedback.hidden, false, 'unavailable Host panel must report a visible error')
   controller.setMode('official')
   assert.equal(viewport.children[0], nav)
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
   controller.setMode('delta')
   assert.equal(viewport.children[0], shell)
+  assert.equal(input.value, '', 'switching themes discards stale search state')
+  assert.equal(feedback.hidden, true)
+  assert.equal(results.hidden, true)
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)

@@ -30,6 +30,8 @@
     "copied": "已复制会话编号",
     "copyFailed": "复制失败",
     "searching": "正在搜索会话…",
-    "noResults": "未找到匹配的会话"
+    "noResults": "未找到匹配的会话",
+    "pluginManagement": "插件管理",
+    "scheduledTasks": "定时任务"
   }
 }

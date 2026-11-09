@@ -11,7 +11,7 @@ interface DeltaCopy {
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
-    searchSessions: string; newConversation: string; searching: string; noResults: string;
+    searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
     copied: string; copyFailed: string;
   }
 }
@@ -24,6 +24,7 @@ interface DeltaController {
   setMode(mode: Mode): void
   toggleSidebar(): void
   openConversation(): void
+  openPanel(panelId: 'plugins' | 'schedules'): boolean
   dispose(): void
 }
 interface DeltaProps { controller: DeltaController }
@@ -136,14 +137,18 @@ function createController(): DeltaController {
       return typeof ownedLayer === 'function'
     } catch { return false }
   }
-  const safeLayout = (command: (layout: LayoutApi) => void): void => {
-    if (isDisposed) return
+  const safeLayout = (command: (layout: LayoutApi) => void): boolean => {
+    if (isDisposed) return false
     try {
       // Missing services must not silently report an action as successful.
       if (!activeLayout) throw new Error('Host layout capability is unavailable')
       command(activeLayout)
       publish({ error: false })
-    } catch { publish({ error: true }) }
+      return true
+    } catch {
+      publish({ error: true })
+      return false
+    }
   }
   return {
     getSnapshot: () => snapshot,
@@ -161,6 +166,7 @@ function createController(): DeltaController {
     },
     toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
     openConversation: () => { safeLayout(layout => layout.selectPanel(null)) },
+    openPanel: (panelId) => safeLayout(layout => layout.selectPanel(panelId)),
     dispose: () => {
       if (isDisposed) return
       isDisposed = true
@@ -210,12 +216,31 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
   input.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
   input.placeholder = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions
   searchField.append(glyph, input)
+  // The Host retains its original navigation. These are additive service-backed shortcuts,
+  // not a replacement for Host buttons, access controls, or panel registrations.
+  const quickActions = document.createElement('div')
+  quickActions.className = 'dtd-host-quick-actions'
+  const makeQuickAction = (id: string): HTMLButtonElement => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'dtd-host-quick-action'
+    button.setAttribute('data-delta-action', id)
+    return button
+  }
+  const pluginsButton = makeQuickAction('plugins')
+  const schedulesButton = makeQuickAction('schedules')
+  const newSessionButton = makeQuickAction('new-session')
+  quickActions.append(pluginsButton, schedulesButton, newSessionButton)
+  const feedback = document.createElement('p')
+  feedback.className = 'dtd-host-action-feedback'
+  feedback.setAttribute('role', 'alert')
+  feedback.hidden = true
   const results = document.createElement('div')
   results.className = 'dtd-host-search-results'
   results.setAttribute('role', 'region')
   results.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
   results.hidden = true
-  shell.append(searchField, results)
+  shell.append(searchField, quickActions, feedback, results)
   let isDisposed = false
   let timer: number | undefined
   let pending: AbortController | undefined
@@ -320,7 +345,29 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     }
     render()
   }
-  input.addEventListener('input', onInput)
+  const runQuickAction = (name: string, invoke: () => boolean | void): void => {
+    if (!active()) return
+    try {
+      if (invoke() === false) throw new Error('Host navigation unavailable')
+      feedback.hidden = true
+      input.value = ''
+      onInput()
+    } catch (reason) {
+      feedback.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.unavailable
+      feedback.hidden = false
+      console.warn('[dsh-delta-desktop] native quick action failed: ' + name, reason)
+    }
+  }
+  pluginsButton.addEventListener('click', () =>
+    runQuickAction('plugins', () => controller.openPanel('plugins')))
+  schedulesButton.addEventListener('click', () =>
+    runQuickAction('schedules', () => controller.openPanel('schedules')))
+  newSessionButton.addEventListener('click', () =>
+    runQuickAction('new-session', () => navigation.startSession()))
+  input.addEventListener('input', () => {
+    feedback.hidden = true
+    onInput()
+  })
   input.addEventListener('keydown', event => {
     if (event.key !== 'Escape') return
     input.value = ''
@@ -331,10 +378,24 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     if (isDisposed) return
     if (controller.getSnapshot().mode !== 'delta') {
       clearRequest()
+      input.value = ''
+      remoteItems = []
+      isSearching = false
+      hasError = false
+      feedback.hidden = true
+      results.hidden = true
+      results.replaceChildren()
       shell.remove()
       root.removeAttribute('data-delta-search-adapter')
       return
     }
+    const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+    input.placeholder = copy.searchSessions
+    input.setAttribute('aria-label', copy.searchSessions)
+    results.setAttribute('aria-label', copy.searchSessions)
+    pluginsButton.textContent = copy.pluginManagement
+    schedulesButton.textContent = copy.scheduledTasks
+    newSessionButton.textContent = copy.newConversation
     const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
     const navigationRow = viewport?.querySelector('nav')
     if (!viewport || !navigationRow) {
@@ -587,7 +648,11 @@ window.__ModuleLoader__.load({
               // Native search and navigation are optional Host services, not synthetic DOM commands.
               // They mount only once both services exist and never block the Settings or Theme.
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
-                if (!searchScope.sessions || !searchScope.uiWorkspace) return
+                if (!searchScope.sessions || !searchScope.uiWorkspace ||
+                    typeof searchScope.sessions.search !== 'function' ||
+                    typeof searchScope.sessions.list?.getSnapshot !== 'function' ||
+                    typeof searchScope.uiWorkspace.openSession !== 'function' ||
+                    typeof searchScope.uiWorkspace.startSession !== 'function') return
                 searchScope.effect(() => installHostSearch(controller, searchScope.sessions!, searchScope.uiWorkspace!),
                   'dsh-delta-desktop: native service-backed sidebar search')
               })

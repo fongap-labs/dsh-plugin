@@ -30,6 +30,8 @@
     "copied": "Session ID copied",
     "copyFailed": "Unable to copy",
     "searching": "Searching sessions…",
-    "noResults": "No matching sessions"
+    "noResults": "No matching sessions",
+    "pluginManagement": "Plugins",
+    "scheduledTasks": "Schedules"
   }
 }

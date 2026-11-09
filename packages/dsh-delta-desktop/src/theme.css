@@ -181,3 +181,35 @@
   text-overflow: ellipsis;
 }
 :root[data-delta-ui="delta"] .dtd-host-search-hint { padding: 6px 9px; }
+
+/* Service-backed quick actions are additive; native navigation remains present. */
+:root[data-delta-ui="delta"] .dtd-host-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+:root[data-delta-ui="delta"] .dtd-host-quick-action {
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 4px;
+  border: 1px solid var(--dsw-alias-border-l1, #d8dee1);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dsw-alias-label-primary, #172126);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.25;
+  cursor: pointer;
+}
+:root[data-delta-ui="delta"] .dtd-host-quick-action:hover,
+:root[data-delta-ui="delta"] .dtd-host-quick-action:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, #e5e9eb);
+  outline: 1px solid var(--dsw-alias-brand-primary, #286f78);
+}
+:root[data-delta-ui="delta"] .dtd-host-action-feedback {
+  margin: 0;
+  padding: 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-state-error-primary, #b91c1c);
+}
+:root[data-delta-ui="delta"] .dtd-host-action-feedback[hidden] { display: none; }
