@@ -58,71 +58,6 @@
 :root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav button { min-height: 36px; }
 :root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav + div { margin-block-start: 8px; }
 
-/* The native controls remain mounted: this is a reversible presentation adapter. */
-:root[data-delta-compat="1"] [data-sidebar-scrollport] {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-:root[data-delta-compat="1"] .dtd-native-search {
-  display: flex;
-  box-sizing: border-box;
-  min-height: 38px;
-  align-items: center;
-  border: 1px solid var(--dsw-alias-border-l1, #D8DEE1);
-  border-radius: 10px;
-  background: var(--dsw-alias-bg-layer-1, #fff);
-  padding: 0 12px;
-}
-:root[data-delta-compat="1"] .dtd-native-search-input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  color: var(--dsw-alias-label-primary, #172126);
-  background: transparent;
-  font: inherit;
-  font-size: 13px;
-}
-:root[data-delta-compat="1"] .dtd-native-search:focus-within {
-  outline: 2px solid var(--dsw-alias-brand-primary, #286F78);
-  outline-offset: 1px;
-}
-:root[data-delta-compat="1"] [data-sidebar-workspace-header] [class*="searchSlot"] {
-  position: absolute;
-  visibility: hidden;
-  pointer-events: none;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav { order: 1; display: flex; flex-direction: column; gap: 8px; }
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > .dtd-native-search { order: 0; }
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > .dtd-native-new-session { order: 2; }
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > div:has([data-sidebar-workspace-header]) { order: 3; }
-:root[data-delta-compat="1"] button[class*="newSession"]:not([data-delta-action]) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session {
-  display: flex;
-  min-height: 38px;
-  align-items: center;
-  padding: 7px 12px;
-  text-align: start;
-  border-radius: 10px;
-  border: 1px solid var(--dsw-alias-border-l1, #D8DEE1);
-  background: var(--dsw-alias-bg-layer-1, #fff);
-  color: var(--dsw-alias-label-primary, #172126);
-  cursor: pointer;
-  font: inherit;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session:hover {
-  background: var(--dsw-alias-interactive-bg-hover, #E5E9EB);
-}
 /* Hide only the path line inside the official session hover card. */
 :root[data-delta-ui="delta"] [class*="hoverContent"] > [class*="hoverPath"] { display: none; }
 
@@ -152,11 +87,6 @@
   outline: 1px solid var(--dsw-alias-brand-primary, #286F78);
   outline-offset: 0;
 }
-@media (max-width: 600px) {
-  :root[data-delta-compat="1"] [data-sidebar-scrollport] { gap: 6px; }
-  :root[data-delta-compat="1"] .dtd-native-search { min-height: 36px; }
-}
-
 .dtd-toast { position: fixed; right: 24px; bottom: 24px; z-index: 2147483000;
   max-width: min(360px, calc(100vw - 48px)); padding: 11px 15px;
   border-radius: 10px; box-shadow: 0 8px 24px #0002;
@@ -165,10 +95,3 @@
   border: 1px solid var(--dsw-alias-border-l1, #D8DEE1);
   font: inherit; font-size: 13px;
 }
-
-/* Fixed primary navigation order, irrespective of user pin metadata. */
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="插件管理"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="Plugins"]) { order: 0; }
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="定时任务"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="Schedules"]) { order: 1; }
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :not(:has(button[aria-label="插件管理"])):not(:has(button[aria-label="Plugins"])):not(:has(button[aria-label="定时任务"])):not(:has(button[aria-label="Schedules"])) { order: 2; }

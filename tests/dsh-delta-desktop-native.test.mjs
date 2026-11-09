@@ -14,7 +14,7 @@ execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p'
 execFileSync(process.execPath, [fixture('packages/dsh-delta-desktop/scripts/finalize-client.mjs')],
   { stdio: 'pipe' })
 const source = readFileSync(fixture('packages/dsh-delta-desktop/lib/client.js'), 'utf8')
-function harness({ stored = null, failTheme = false } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -58,7 +58,7 @@ function harness({ stored = null, failTheme = false } = {}) {
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
-      assert.ok(['slots', 'theme', 'workspaces'].includes(names.join(',')))
+      assert.ok(['slots', 'theme', 'layout', 'workspaces'].includes(names.join(',')))
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'locale') throw new Error('cannot get property "locale" without inject')
@@ -72,7 +72,7 @@ function harness({ stored = null, failTheme = false } = {}) {
       layers.set(id, values)
       return () => { layers.delete(id) }
     } },
-    layout: { toggleSidebar() { changes.push('sidebar') }, selectPanel(id) { changes.push(id) } },
+    layout: failLayout ? undefined : { toggleSidebar() { changes.push('sidebar') }, selectPanel(id) { changes.push(id) } },
     slots: {
       inject(name, register) {
         slots.push(name)
@@ -137,7 +137,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.match(JSON.stringify(hover.component({ sessionId: '0123456789abcdef' })), /0123456789ab/)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('shell.overlay'), false)
-  assert.notEqual(app.workspaces.delete, app.originalDelete, 'guard is installed while Delta is enabled')
+  assert.equal(app.workspaces.delete, app.originalDelete, 'Client must not patch Host workspace services')
   const palette = app.layers.get(app.registration.id)
   assert.equal(palette['--dsw-alias-brand-primary'].light, '#286F78')
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
@@ -171,11 +171,22 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.layers.size, 0)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
   assert.equal(app.removed, 1)
-  assert.equal(app.workspaces.delete, app.originalDelete, 'disabling the plugin restores the Host workspace service')
+  assert.equal(app.workspaces.delete, app.originalDelete, 'Host workspace service remains unchanged')
   controller.setMode('delta')
   assert.equal(app.layers.size, 0)
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
+test('missing native layout does not report successful no-op actions', () => {
+  const app = harness({ failLayout: true })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  controller.toggleSidebar()
+  assert.equal(controller.getSnapshot().error, true)
+  controller.openConversation()
+  assert.equal(controller.getSnapshot().error, true)
+  assert.deepEqual(app.changes, [])
+  app.cleanup()
+})
+
 test('missing theme keeps the independent Settings entry usable', () => {
   const app = harness({ failTheme: true })
   const entry = app.components.get('settings.section')
@@ -227,17 +238,13 @@ test('obsolete standalone routes and UI packages are excluded from Desktop', () 
   assert.match(source, /const settingsModules/)
 })
 
-test('workspace deletion guard rejects the automatic directory and permits other workspaces', async () => {
+test('workspace deletion remains Host owned regardless of appearance mode', async () => {
   const app = harness()
-  await assert.rejects(app.workspaces.delete('default'), /delta\/protected-default-workspace/)
+  assert.equal(app.workspaces.delete, app.originalDelete)
   await app.workspaces.delete('other')
-  assert.deepEqual(app.deletedWorkspaces, ['other'])
-  app.defaultSessions.length = 0
-  await app.workspaces.delete('default')
-  assert.deepEqual(app.deletedWorkspaces, ['other', 'default'])
   const controller = app.components.get('settings.section').spec.inject().controller
   controller.setMode('official')
-  await app.workspaces.delete('default')
-  assert.deepEqual(app.deletedWorkspaces, ['other', 'default', 'default'])
+  assert.equal(app.workspaces.delete, app.originalDelete)
   app.cleanup()
+  assert.deepEqual(app.deletedWorkspaces, ['other'])
 })
