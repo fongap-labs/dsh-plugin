@@ -317,6 +317,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   await new Promise(resolve => setImmediate(resolve))
   assert.deepEqual(actions.at(-1), ['workspace', 'design'])
   assert.equal(results.hidden, true, 'successful Host workspace navigation clears search')
+  assert.equal(feedback.hidden, true, 'successful navigation must also clear stale Host-reconnect errors')
   workspaceNavigationFails = true
   input.value = 'design'
   input.emit('input')
