@@ -24,6 +24,7 @@ interface DeltaController {
   dispose(): void
 }
 interface DeltaProps { controller: DeltaController }
+interface SessionHoverProps { sessionId: string }
 interface ReactApi {
   createElement(type: string | ((props: DeltaProps) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
   useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
@@ -35,7 +36,7 @@ interface ThemeApi {
 interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): void }
 interface SlotsApi {
   inject(name: string, register: () => unknown): void
-  register(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: DeltaProps) => unknown): unknown
+  register<P = DeltaProps>(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
 interface ClientContext {
   theme?: ThemeApi
@@ -187,6 +188,20 @@ window.__ModuleLoader__.load({
     function DeltaBrandName(): unknown {
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
+    // This extension uses an existing native row-hover seat. Host-owned
+    // activity state and timestamps remain authoritative and are not duplicated.
+    function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
+      const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
+      const label = language() === 'zh' ? '会话编号' : 'Session ID'
+      return el('div', { className: 'dtd-session-meta' },
+        el('span', { className: 'dtd-session-meta-label' }, label),
+        el('span', { className: 'dtd-session-meta-id', title: sessionId }, shortId),
+        el('button', {
+          type: 'button', className: 'dtd-session-meta-copy',
+          'aria-label': language() === 'zh' ? '复制会话编号' : 'Copy session ID',
+          onClick: () => { void navigator.clipboard?.writeText(sessionId).catch(() => {}) },
+        }, language() === 'zh' ? '复制' : 'Copy'))
+    }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
       return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
@@ -304,6 +319,13 @@ window.__ModuleLoader__.load({
               }
               registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
               registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
+              // Extend the official session hover card without binding sessions or
+              // exposing workspace paths. The native time/status lines remain intact.
+              scope.slots.inject('sidebar.session.row.hover', () => scope.slots.register<SessionHoverProps>({
+                name: 'sidebar.session.row.hover',
+                id: 'delta.session.identity',
+                order: 500,
+              }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
