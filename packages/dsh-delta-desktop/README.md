@@ -16,7 +16,7 @@
 
 **尚未实现**：原生搜索框完全搬迁（当前采用插件自有搜索框和快捷操作并保留原生搜索与导航）、侧栏导航重排、会话状态文案替换、工作区默认折叠和默认工作区业务层删除校验。不修改 Harness 上游；当前采用可撤销的版本限定适配器，未来需要对上述缺失能力实现独立、可验证的兼容策略。旧版依靠私有 DOM 选择器和 `workspaceRegistry.delete` 方法替换的实现已撤销，因为在 Windows 实机不能可靠生效，且会绕过宿主正式业务边界。
 
-当前 `projects/dsh-delta-desktop/feature-readiness.json` 对未验收功能标记 `false`，`build-release.mjs` 会拒绝发布不完整版本。设置页会明确说明“已启用”仅指外观模块，不代表完整桌面布局已生效。参考 [兼容性说明](COMPATIBILITY.md) 和 [功能任务 #190](https://github.com/fongap-labs/dsh-plugin/issues/190)。
+当前 `projects/dsh-delta-desktop/feature-readiness.json` 对未验收功能标记 `false`，仅用于如实记录功能完成度。**是否以及何时发布完全由项目发布操作者决定**；`build-release.mjs` 不因这些标记拒绝执行，仍进行正常编译、归档及完整性验证。设置页会明确说明“已启用”仅指外观模块，不代表完整桌面布局已生效。参考 [兼容性说明](COMPATIBILITY.md) 和 [功能任务 #190](https://github.com/fongap-labs/dsh-plugin/issues/190)。
 
 ## 模块规划
 
