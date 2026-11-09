@@ -53,7 +53,7 @@ interface ConfigPageProps {
         mutate(ops: Op[], revision?: number): Promise<boolean>;
     };
 }
-declare const NAME = "@fongap-labs/dsh-code-worker";
+declare const NAME = "@fongap-labs/dsh-delta-code";
 declare const ROW_KEY: string;
 declare const OWNER: RegExp;
 declare const ENV: RegExp;

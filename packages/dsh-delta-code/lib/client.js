@@ -1,6 +1,6 @@
 "use strict";
-const NAME = '@fongap-labs/dsh-code-worker';
-const ROW_KEY = NAME + '#dsh-code-worker';
+const NAME = '@fongap-labs/dsh-delta-code';
+const ROW_KEY = NAME + '#dsh-delta-code';
 const OWNER = /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i;
 const ENV = /^[A-Z_][A-Z0-9_]*$/;
 const inset = { display: 'grid', gap: '10px', margin: '12px 0' };
@@ -189,7 +189,7 @@ function installClient(require) {
         apply(ctx) {
             ctx.effect(() => ctx.slots.inject('plugins.row.config', () => ctx.slots.register({
                 name: 'plugins.row.config', key: ROW_KEY,
-            }, Page)), 'dsh-code-worker: native settings page');
+            }, Page)), 'dsh-delta-code: native settings page');
         },
     };
 }

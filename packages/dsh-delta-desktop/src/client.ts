@@ -54,8 +54,8 @@ interface Window { __ModuleLoader__: Loader }
 // The release builder replaces both markers with data from locale/*.json and src/theme.css.
 const DICTIONARIES = '__DELTA_DESKTOP_LOCALES__' as unknown as Record<Language, DeltaCopy>
 const OWNED_CSS = '__DELTA_DESKTOP_STYLE__'
-const OWNER = '@fongap-labs/dsh-desktop-delta'
-const STORAGE_KEY = 'fongap.dsh-desktop-delta.v1'
+const OWNER = '@fongap-labs/dsh-delta-desktop'
+const STORAGE_KEY = 'fongap.dsh-delta-desktop.v1'
 const TOKENS: Record<string, { light: string; dark: string }> = {
   '--dsw-alias-brand-primary': { light: '#286F78', dark: '#60B4BF' },
   '--dsw-alias-button-primary-fill': { light: '#286F78', dark: '#60B4BF' },
@@ -162,7 +162,7 @@ window.__ModuleLoader__.load({
         throw new Error('Host React platform module is incomplete')
       }
     } catch (error) {
-      console.error('[dsh-desktop-delta] React unavailable; native UI remains active:', error)
+      console.error('[dsh-delta-desktop] React unavailable; native UI remains active:', error)
       return { inject: [], apply() {} }
     }
     const el = React.createElement
@@ -235,7 +235,7 @@ window.__ModuleLoader__.load({
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
                 }
-              }, 'dsh-desktop-delta: personalization resource ownership')
+              }, 'dsh-delta-desktop: personalization resource ownership')
               // Only live features contribute settings; no inactive placeholder switches.
               // New Desktop features can add their own localized settings sections here.
               const settingsModules: ReadonlyArray<{
@@ -270,14 +270,14 @@ window.__ModuleLoader__.load({
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
                 themeScope.effect(() => () => controller.bindTheme(undefined),
-                  'dsh-desktop-delta: theme service lifetime')
+                  'dsh-delta-desktop: theme service lifetime')
               })
             } catch (error) {
-              console.error('[dsh-desktop-delta] Settings mount failed; native UI preserved:', error)
+              console.error('[dsh-delta-desktop] Settings mount failed; native UI preserved:', error)
             }
           })
         } catch (error) {
-          console.error('[dsh-desktop-delta] deferred Settings registration failed; native UI preserved:', error)
+          console.error('[dsh-delta-desktop] deferred Settings registration failed; native UI preserved:', error)
         }
       },
     }

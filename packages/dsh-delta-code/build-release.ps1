@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-  Per-plugin release build wrapper for dsh-code-worker.
-  Called by Action Worker via projects/dsh-code-worker/release.manifest.json.
+  Per-plugin release build wrapper for dsh-delta-code.
+  Called by Action Worker via projects/dsh-delta-code/release.manifest.json.
 #>
 
 param(
@@ -12,4 +12,4 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-& "$RepoRoot/scripts/build-release.ps1" -Package dsh-code-worker -Target $Target -Version $Version -OutputDir $OutputDir
+& "$RepoRoot/scripts/build-release.ps1" -Package dsh-delta-code -Target $Target -Version $Version -OutputDir $OutputDir

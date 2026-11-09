@@ -1,4 +1,4 @@
-# dsh-code-worker
+# dsh-delta-code
 
 DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
@@ -25,16 +25,16 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 ```bash
 # 根目录下安装/链接
-pnpm link:dev dsh-code-worker
+pnpm link:dev dsh-delta-code
 ```
 
-脚本会软链 `packages/dsh-code-worker` 到 `~/.dsh/profiles/<profile>/node_modules/`，
-并把 `dsh-code-worker` 追加到 profile 的 `dsh.profile.bundles`。
+脚本会软链 `packages/dsh-delta-code` 到 `~/.dsh/profiles/<profile>/node_modules/`，
+并把 `dsh-delta-code` 追加到 profile 的 `dsh.profile.bundles`。
 
 也可使用 DSH 官方通道（等价于 `plugin_manager.install_bundle`）：
 
 ```bash
-dsh plugin --profile desktop add link:/absolute/path/to/packages/dsh-code-worker
+dsh plugin --profile desktop add link:/absolute/path/to/packages/dsh-delta-code
 ```
 
 ## 配置
@@ -42,8 +42,8 @@ dsh plugin --profile desktop add link:/absolute/path/to/packages/dsh-code-worker
 配置写在 profile 的 `cordis.patch.yml`（用户层）或本包的 `cordis.patch.yml`（Bundle 层）：
 
 ```yaml
-- id: dsh-code-worker
-  name: 'dsh-code-worker'
+- id: dsh-delta-code
+  name: 'dsh-delta-code'
   config:
     enabled: true
     workspaceRoot: ''
@@ -77,7 +77,7 @@ pnpm test
 
 ## GitHub 多账号连接
 
-在本机 **用户 Profile** 的 `cordis.patch.yml` 中，对 `dsh-code-worker` 配置 `github.accounts`。每个 GitHub 账号需填写 **用户名或组织名 `owner` 与 Token 环境变量名 `tokenEnv`**。Token 真实值**永不写入配置文件**，而是由运行环境在启动前注入对应环境变量。账号数量不限：
+在本机 **用户 Profile** 的 `cordis.patch.yml` 中，对 `dsh-delta-code` 配置 `github.accounts`。每个 GitHub 账号需填写 **用户名或组织名 `owner` 与 Token 环境变量名 `tokenEnv`**。Token 真实值**永不写入配置文件**，而是由运行环境在启动前注入对应环境变量。账号数量不限：
 
 ```yaml
 github:
@@ -133,7 +133,7 @@ execution:
 
 ## 原生图形配置页面
 
-在 DSH **插件 → Code Worker → 组件 dsh-code-worker → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
+在 DSH **插件 → Code Worker → 组件 dsh-delta-code → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
 
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - GitHub 多账号只通过 `tokenEnv` 环境变量名引用凭据；Token 永不写入配置，页面也不会回显。
