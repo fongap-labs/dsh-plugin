@@ -253,10 +253,23 @@ window.__ModuleLoader__.load({
                 observer?.observe(document.documentElement, {
                   attributes: true, attributeFilter: ['lang'],
                 })
+                // A root theme marker scopes native shell spacing. This changes
+                // appearance only; Host navigation and actions are never moved.
+                const syncAppearance = (): void => {
+                  if (controller.getSnapshot().mode === 'delta') {
+                    document.documentElement.setAttribute?.('data-delta-ui', 'delta')
+                  } else {
+                    document.documentElement.removeAttribute?.('data-delta-ui')
+                  }
+                }
+                syncAppearance()
+                const stopAppearance = controller.subscribe(syncAppearance)
                 // Language changes are tracked through the document lang observer.
                 // Do not read ctx.locale without an explicit Cordis injection.
                 return () => {
                   observer?.disconnect()
+                  stopAppearance()
+                  document.documentElement.removeAttribute?.('data-delta-ui')
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
                 }
