@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { chooseVerificationCommand } from '../packages/dsh-code-worker/lib/tools/verify-presets.js'
-import { createVerifyTool } from '../packages/dsh-code-worker/lib/tools/verify.js'
-import { normalizeConfig } from '../packages/dsh-code-worker/lib/runtime.js'
+import { chooseVerificationCommand } from '../packages/dsh-delta-code/lib/tools/verify-presets.js'
+import { createVerifyTool } from '../packages/dsh-delta-code/lib/tools/verify.js'
+import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 
 const exec = { signal: new AbortController().signal }
 

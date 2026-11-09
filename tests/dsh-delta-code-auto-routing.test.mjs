@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { routeCodingTask, registerAutomaticCodingRouter } from '../packages/dsh-code-worker/lib/auto-routing.js'
-import { normalizeConfig } from '../packages/dsh-code-worker/lib/runtime.js'
+import { routeCodingTask, registerAutomaticCodingRouter } from '../packages/dsh-delta-code/lib/auto-routing.js'
+import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 
 function fixture() {
   const listeners = new Map()

@@ -1,5 +1,5 @@
 /**
- * dsh-code-worker 集成/回归测试
+ * dsh-delta-code 集成/回归测试
  * 通过 mock 的 Cordis ctx 捕获插件真实注册的工具，并直接执行它们。
  * 运行：pnpm test
  */
@@ -10,7 +10,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-const codeWorker = await import("../packages/dsh-code-worker/lib/index.js");
+const codeWorker = await import("../packages/dsh-delta-code/lib/index.js");
 const shared = await import("../packages/shared/lib/index.js");
 
 const NODE_PRINT = [resolve(process.execPath), "-e", "process.stdout.write('hello')"];
@@ -50,12 +50,12 @@ function createContext() {
   return ctx;
 }
 
-describe("dsh-code-worker", () => {
+describe("dsh-delta-code", () => {
   let workspace;
   let ctx;
 
   before(async () => {
-    workspace = await mkdtemp(join(tmpdir(), "dsh-code-worker-"));
+    workspace = await mkdtemp(join(tmpdir(), "dsh-delta-code-"));
     ctx = createContext();
     const disposer = codeWorker.apply(ctx, {
       enabled: true,
@@ -87,7 +87,7 @@ describe("dsh-code-worker", () => {
   });
 
   it("插件声明元信息正确", () => {
-    assert.equal(codeWorker.name, "@fongap-labs/dsh-code-worker");
+    assert.equal(codeWorker.name, "@fongap-labs/dsh-delta-code");
     assert.deepEqual(codeWorker.inject, ["tools"]);
   });
 

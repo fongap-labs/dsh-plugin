@@ -25,7 +25,7 @@ function walkTypeScript(directory) {
 
 describe('one-plugin compatibility with the native Harness Host', () => {
   it('never pins or installs Host framework packages in distributed plugin manifests', () => {
-    for (const name of ['dsh-desktop-delta', 'dsh-code-worker', 'plugin-template']) {
+    for (const name of ['dsh-delta-desktop', 'dsh-delta-code', 'plugin-template']) {
       const plugin = readManifest(name)
       for (const hostPackage of ['@deepseek-ai/cordis', '@deepseek-ai/dsh-tools']) {
         assert.equal(Object.hasOwn(plugin.peerDependencies ?? {}, hostPackage), false)
@@ -40,7 +40,7 @@ describe('one-plugin compatibility with the native Harness Host', () => {
   })
 
   it('imports Cordis only as a type and never as a runtime module', () => {
-    for (const folder of ['dsh-desktop-delta', 'dsh-code-worker', 'plugin-template', 'shared']) {
+    for (const folder of ['dsh-delta-desktop', 'dsh-delta-code', 'plugin-template', 'shared']) {
       const files = walkTypeScript(join(root, 'packages', folder, 'src'))
       for (const file of files) {
         const source = readFileSync(file, 'utf8')
@@ -60,7 +60,7 @@ describe('one-plugin compatibility with the native Harness Host', () => {
   })
 
   it('uses only type-level static dsh-tools imports', () => {
-    for (const folder of ['dsh-code-worker', 'shared']) {
+    for (const folder of ['dsh-delta-code', 'shared']) {
       const files = walkTypeScript(join(root, 'packages', folder, 'src'))
       for (const file of files) {
         const source = readFileSync(file, 'utf8')
@@ -79,14 +79,14 @@ describe('one-plugin compatibility with the native Harness Host', () => {
   })
 
   it('does not bundle a second copy of the Host tools implementation', () => {
-    for (const name of ['dsh-code-worker', 'plugin-template']) {
+    for (const name of ['dsh-delta-code', 'plugin-template']) {
       const plugin = readManifest(name)
       assert.equal((plugin.bundleDependencies ?? []).includes('@deepseek-ai/dsh-tools'), false)
     }
   })
 
   it('continues using the Host tool registry contract', () => {
-    const source = readFileSync(join(root, 'packages/dsh-code-worker/src/index.ts'), 'utf8')
+    const source = readFileSync(join(root, 'packages/dsh-delta-code/src/index.ts'), 'utf8')
     assert.match(source, /registerTool\(ctx, tool\)/)
     const shared = readFileSync(join(root, 'packages/shared/src/tool.ts'), 'utf8')
     assert.match(shared, /registry\.register\(definition\)/)

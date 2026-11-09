@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeConfig, validateGitHubAccounts } from '../packages/dsh-code-worker/lib/runtime.js'
-import { repositoryFromRemote, selectGitHubAccount, createGitHubTools } from '../packages/dsh-code-worker/lib/tools/github.js'
+import { normalizeConfig, validateGitHubAccounts } from '../packages/dsh-delta-code/lib/runtime.js'
+import { repositoryFromRemote, selectGitHubAccount, createGitHubTools } from '../packages/dsh-delta-code/lib/tools/github.js'
 
 const accounts = [
   { owner: 'fongap-labs', tokenEnv: 'DSH_TEST_GITHUB_TEAM_TOKEN' },

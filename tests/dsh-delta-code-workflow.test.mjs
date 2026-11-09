@@ -5,17 +5,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import { normalizeConfig } from '../packages/dsh-code-worker/lib/runtime.js'
-import { rankTrackedFiles, createWorkspaceMapTool } from '../packages/dsh-code-worker/lib/tools/workspace.js'
-import { parseGitStatus } from '../packages/dsh-code-worker/lib/tools/git.js'
-import { validateWorktreeName, createWorktreeTool } from '../packages/dsh-code-worker/lib/tools/worktree.js'
-import { redactKnownTokens, createVerifyTool } from '../packages/dsh-code-worker/lib/tools/verify.js'
+import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { rankTrackedFiles, createWorkspaceMapTool } from '../packages/dsh-delta-code/lib/tools/workspace.js'
+import { parseGitStatus } from '../packages/dsh-delta-code/lib/tools/git.js'
+import { validateWorktreeName, createWorktreeTool } from '../packages/dsh-delta-code/lib/tools/worktree.js'
+import { redactKnownTokens, createVerifyTool } from '../packages/dsh-delta-code/lib/tools/verify.js'
 
 const git = promisify(execFile)
 const ctx = { get: () => undefined }
 const exec = { signal: new AbortController().signal }
 
-describe('dsh-code-worker integrated workflow helpers', () => {
+describe('dsh-delta-code integrated workflow helpers', () => {
   it('parses ahead and behind from git porcelain headers independently', () => {
     const ahead = parseGitStatus('## feature...origin/feature [ahead 3, behind 2]\0 M src/a.ts\0')
     assert.equal(ahead.branch, 'feature')
@@ -60,7 +60,7 @@ describe('dsh-code-worker integrated workflow helpers', () => {
     await assert.rejects(createWorktreeTool(ctx, settings).execute({ action: 'create', task: 'demo' }, exec), /host subprocess service/)
   })
   it('uses tracked files from git ls-files with query and limit', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'dsh-code-worker-workflow-'))
+    const root = await mkdtemp(join(tmpdir(), 'dsh-delta-code-workflow-'))
     try {
       await mkdir(join(root, 'src'))
       await writeFile(join(root, 'src', 'handler.ts'), 'export const handler = 1')

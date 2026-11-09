@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { ALL_CODING_SKILLS, CODING_SKILLS } from '../packages/dsh-code-worker/lib/skills.js'
-import { WORKFLOW_SKILLS } from '../packages/dsh-code-worker/lib/workflow-skills.js'
+import { ALL_CODING_SKILLS, CODING_SKILLS } from '../packages/dsh-delta-code/lib/skills.js'
+import { WORKFLOW_SKILLS } from '../packages/dsh-delta-code/lib/workflow-skills.js'
 
 test('one-plugin coding workflow catalog is complete, unique and loadable', () => {
   const names = ALL_CODING_SKILLS.map(skill => skill.name)

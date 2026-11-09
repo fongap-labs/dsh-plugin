@@ -3,11 +3,11 @@ import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { ALL_CODING_SKILLS } from '../packages/dsh-code-worker/lib/skills.js'
-import { decideCodingWorkflow, createWorkflowRouteTool } from '../packages/dsh-code-worker/lib/workflow-route.js'
-import { normalizeConfig } from '../packages/dsh-code-worker/lib/runtime.js'
-import { createVerifyTool } from '../packages/dsh-code-worker/lib/tools/verify.js'
-import { chooseVerificationCommand } from '../packages/dsh-code-worker/lib/tools/verify-presets.js'
+import { ALL_CODING_SKILLS } from '../packages/dsh-delta-code/lib/skills.js'
+import { decideCodingWorkflow, createWorkflowRouteTool } from '../packages/dsh-delta-code/lib/workflow-route.js'
+import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { createVerifyTool } from '../packages/dsh-delta-code/lib/tools/verify.js'
+import { chooseVerificationCommand } from '../packages/dsh-delta-code/lib/tools/verify-presets.js'
 
 const exec = { signal: new AbortController().signal }
 

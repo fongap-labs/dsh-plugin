@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
-const root = new URL('../packages/dsh-code-worker/', import.meta.url)
+const root = new URL('../packages/dsh-delta-code/', import.meta.url)
 const read = (p) => readFileSync(new URL(p,root),'utf8')
 describe('code worker native settings contract', () => {
   it('uses localized Delta Code Worker labels without changing the bundle identity', () => {
@@ -10,7 +10,7 @@ describe('code worker native settings contract', () => {
     const pkg = JSON.parse(read('package.json'))
     assert.equal(en.meta.title, 'Delta Code Worker')
     assert.equal(zh.meta.title, 'Delta 编程助手')
-    assert.equal(pkg.name, '@fongap-labs/dsh-code-worker')
+    assert.equal(pkg.name, '@fongap-labs/dsh-delta-code')
     const client = read('src/client.ts')
     assert.match(client, /Delta Code Worker/)
   })
