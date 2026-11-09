@@ -45,6 +45,11 @@ async function main() {
   if (!manifest?.dsh?.bundle?.patch || !manifest.name?.startsWith('@')) {
     throw new Error('Not a valid DSH plugin package: ' + name)
   }
+  // Release versions come exclusively from the manually supplied --version.
+  // Reject accidental source-controlled product versions instead of silently overriding them.
+  if (manifest.version !== '0.0.0') {
+    throw new Error('Plugin source version must be the 0.0.0 placeholder: ' + name)
+  }
   const safeName = manifest.name.replace(/^@/, '').replaceAll('/', '-')
   await mkdir(output, { recursive: true })
   const patched = { ...manifest, version, private: false }
