@@ -106,7 +106,8 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance, official layout actions, and cleanup are reversible', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon'])
+  assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.equal(app.components.has('shell.overlay'), false)
   const palette = app.layers.get(app.registration.id)
   assert.equal(palette['--dsw-alias-brand-primary'].light, '#286F78')
