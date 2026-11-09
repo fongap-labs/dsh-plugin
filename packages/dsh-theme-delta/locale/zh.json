@@ -15,6 +15,12 @@
     "status": "当前外观",
     "unavailable": "此版本缺少必要能力或操作失败，请停用此插件并恢复官方界面。",
     "recovery": "无法显示设置时，请从宿主 Profile 禁用 dsh-theme-delta 条目并重启。",
-    "shortcut": "快捷键由官方布局管理，本插件不覆盖既有按键。"
+    "shortcut": "快捷键由官方布局管理，本插件不覆盖既有按键。",
+    "personalization": "个性设置",
+    "personalizationDescription": "Delta 主题由插件管理，随插件启停自动加载或移除。",
+    "enabled": "已启用",
+    "appearance": "主题外观",
+    "appearanceDescription": "在 Delta 配色与官方配色之间切换，不影响会话、模型和插件。",
+    "hostOwned": "侧栏导航、会话及工作区行为仍由宿主组件管理，尚无可安全接管的公开接口。"
   }
 }
