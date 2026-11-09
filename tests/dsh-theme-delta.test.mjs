@@ -41,7 +41,8 @@ function harness({ stored = null, failTheme = false } = {}) {
   })
   const ctx = {
     inject(services, callback) {
-      assert.deepEqual(Array.from(services), ['slots', 'theme', 'layout'])
+      const names = Array.from(services)
+      assert.ok(names.join(',') === 'slots' || names.join(',') === 'theme')
       callback(ctx)
     },
     effect(create) { effects.push(create()) },
@@ -52,7 +53,11 @@ function harness({ stored = null, failTheme = false } = {}) {
     } },
     layout: { toggleSidebar() { changes.push('sidebar') }, selectPanel(id) { changes.push(id) } },
     slots: {
-      inject(name, register) { slots.push(name); register() },
+      inject(name, register) {
+        slots.push(name)
+        const dispose = register()
+        if (typeof dispose === 'function') effects.push(dispose)
+      },
       register(spec, component) { components.set(spec.name, { spec, component }); return () => components.delete(spec.name) },
     },
   }
@@ -84,15 +89,15 @@ test('web boot stays active while waiting for UI services or when React is unava
   let deferred
   assert.doesNotThrow(() => react.apply({
     inject(required, install) {
-      assert.deepEqual(Array.from(required), ['slots', 'theme', 'layout'])
+      assert.deepEqual(Array.from(required), ['slots'])
       deferred = install
     },
   }))
   assert.equal(typeof deferred, 'function')
   assert.doesNotThrow(() => deferred({ theme: null, layout: null, slots: null }))
-  assert.ok(diagnostic.some(record => String(record[0]).includes('UI mount failed')))
+  assert.ok(diagnostic.some(record => String(record[0]).includes('Settings mount failed')))
   assert.doesNotThrow(() => react.apply({ inject() { throw new Error('service unavailable') } }))
-  assert.ok(diagnostic.some(record => String(record[0]).includes('deferred UI registration failed')))
+  assert.ok(diagnostic.some(record => String(record[0]).includes('deferred Settings registration failed')))
 
   const missingReact = entry.factory(() => { throw new Error('missing react platform module') })
   assert.deepEqual(Array.from(missingReact.inject), [])
@@ -101,13 +106,18 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance, official layout actions, and cleanup are reversible', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.general.item', 'shell.overlay'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon'])
+  assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
+  assert.equal(app.components.has('shell.overlay'), false)
   const palette = app.layers.get(app.registration.id)
   assert.equal(palette['--dsw-alias-brand-primary'].light, '#286F78')
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
-  const entry = app.components.get('settings.general.item')
+  const entry = app.components.get('settings.section')
+  assert.equal(entry.spec.id, 'delta.personalization')
+  assert.equal(entry.spec.label(), '个性设置')
   const controller = entry.spec.inject().controller
   assert.match(JSON.stringify(entry.component({ controller })), new RegExp('Delta 主题'))
+  assert.match(JSON.stringify(entry.component({ controller })), /dtd-preference-row/)
   controller.setMode('official')
   assert.equal(app.layers.size, 0)
   controller.openConversation()
@@ -119,12 +129,27 @@ test('appearance, official layout actions, and cleanup are reversible', () => {
   app.documentElement.lang = 'en'
   app.context.observer()
   assert.match(JSON.stringify(entry.component({ controller })), /Delta Theme/)
+  assert.equal(entry.spec.label(), 'Personalization')
   app.cleanup(); app.cleanup()
   assert.equal(app.layers.size, 0)
   assert.equal(app.removed, 1)
   controller.setMode('delta')
   assert.equal(app.layers.size, 0)
+  assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
+test('missing theme keeps the independent Settings entry usable', () => {
+  const app = harness({ failTheme: true })
+  const entry = app.components.get('settings.section')
+  assert.equal(entry.spec.label(), '个性设置')
+  const controller = entry.spec.inject().controller
+  assert.equal(controller.getSnapshot().error, true)
+  assert.match(JSON.stringify(entry.component({ controller })), /dtd-error/)
+  controller.setMode('official')
+  assert.equal(controller.getSnapshot().error, false)
+  app.cleanup()
+  assert.equal(app.components.size, 0)
+})
+
 test('invalid persisted values and missing theme services are recoverable', () => {
   const official = harness({ stored: JSON.stringify({ schema: 1, mode: 'official' }) })
   assert.equal(official.layers.size, 0)
@@ -133,7 +158,7 @@ test('invalid persisted values and missing theme services are recoverable', () =
   assert.equal(invalid.layers.size, 1)
   invalid.cleanup()
   const failed = harness({ failTheme: true })
-  const controller = failed.components.get('settings.general.item').spec.inject().controller
+  const controller = failed.components.get('settings.section').spec.inject().controller
   assert.equal(controller.getSnapshot().error, true)
   controller.setMode('official')
   assert.equal(controller.getSnapshot().mode, 'official')

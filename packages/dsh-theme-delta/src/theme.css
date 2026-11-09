@@ -1,29 +1,43 @@
-/* Only plugin-owned elements. The global palette is applied through ctx.theme. */
-.dtd-settings, .dtd-overlay {
-  --dtd-spacing-1: 6px;
-  --dtd-spacing-2: 12px;
-  --dtd-radius: 12px;
-  --dtd-border: var(--dsw-alias-border-l1, #88939a);
-  --dtd-surface: var(--dsw-alias-bg-layer-1, Canvas);
-  --dtd-foreground: var(--dsw-alias-label-primary, CanvasText);
+/* Theme-owned Settings elements only. Native sidebar/chat DOM is not manipulated. */
+.dtd-page {
   --dtd-accent: var(--dsw-alias-brand-primary, #286F78);
-  color: var(--dtd-foreground);
-  font: inherit;
+  --dtd-surface: var(--dsw-alias-bg-layer-1, Canvas);
+  --dtd-border: var(--dsw-alias-border-l1, #D8DEE1);
+  --dtd-text: var(--dsw-alias-label-primary, CanvasText);
+  --dtd-muted: var(--dsw-alias-label-secondary, #737A84);
+  display: flex; flex-direction: column; gap: 16px;
+  width: 100%; max-width: 960px; padding: 2px 0 20px;
+  color: var(--dtd-text); font: inherit;
 }
-.dtd-settings { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--dtd-spacing-2); padding: 16px; border: 1px solid var(--dtd-border); border-radius: var(--dtd-radius); background: var(--dtd-surface); }
-.dtd-setting-copy { flex: 1 1 230px; }
-.dtd-setting-copy p, .dtd-hint, .dtd-status { margin: var(--dtd-spacing-1) 0 0; opacity: .8; font-size: .9em; }
-.dtd-segment { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; border: 1px solid var(--dtd-border); border-radius: 10px; }
-.dtd-segment button, .dtd-popover button { appearance: none; border: 0; border-radius: 8px; background: transparent; color: inherit; padding: 8px 10px; font: inherit; cursor: pointer; }
-.dtd-segment button.dtd-active { background: var(--dtd-accent); color: var(--dsw-alias-label-primary-inverted, white); }
-.dtd-hint { flex: 1 1 100%; }
-.dtd-error { flex: 1 1 100%; color: var(--dsw-alias-state-error-primary, #b91c1c); font-size: .9em; }
-.dtd-overlay { pointer-events: none; position: fixed; right: max(18px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); z-index: 20; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.dtd-overlay > * { pointer-events: auto; }
-.dtd-fab { cursor: pointer; background: var(--dtd-accent); color: var(--dsw-alias-label-primary-inverted, white); border: 1px solid var(--dtd-border); width: 42px; height: 42px; border-radius: 14px; font-size: 23px; line-height: 1; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
-.dtd-popover { width: min(260px, calc(100vw - 36px)); background: var(--dtd-surface); border: 1px solid var(--dtd-border); border-radius: var(--dtd-radius); padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.18); display: flex; flex-direction: column; gap: 4px; }
-.dtd-popover button { text-align: start; }
-.dtd-popover button:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(128,128,128,.15)); }
-.dtd-popover small { opacity: .75; }
-.dtd-overlay :focus-visible, .dtd-settings :focus-visible { outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
-@media (prefers-reduced-motion: reduce) { .dtd-overlay *, .dtd-settings * { transition: none !important; } }
+.dtd-page-head, .dtd-preference-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 24px; background: var(--dtd-surface);
+  border: 1px solid var(--dtd-border); border-radius: 16px;
+}
+.dtd-heading-group { display: flex; align-items: center; gap: 16px; min-width: 230px; flex: 1; }
+.dtd-mark { display: grid; place-items: center; flex: 0 0 54px; width: 54px; height: 54px;
+  border-radius: 14px; background: color-mix(in srgb, var(--dtd-accent) 12%, transparent);
+  color: var(--dtd-accent); font-size: 27px; }
+.dtd-page h2 { margin: 0 0 6px; font-size: 20px; font-weight: 650; line-height: 1.3; }
+.dtd-page p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dtd-muted); }
+.dtd-enabled { padding: 7px 12px; border-radius: 99px;
+  background: color-mix(in srgb, var(--dtd-accent) 10%, transparent);
+  color: var(--dtd-accent); white-space: nowrap; font-size: 13px; font-weight: 600; }
+.dtd-preference-copy { flex: 1 1 245px; min-width: 0; }
+.dtd-preference-copy strong { font-weight: 600; }
+.dtd-preference-copy p { margin-top: 6px; }
+.dtd-segment { display: flex; flex-wrap: wrap; gap: 4px;
+  border: 1px solid var(--dtd-border); border-radius: 10px; padding: 4px; }
+.dtd-segment button { border: 0; border-radius: 7px; padding: 9px 12px;
+  cursor: pointer; background: transparent; color: inherit; font: inherit; }
+.dtd-segment button.dtd-active { background: var(--dtd-accent);
+  color: var(--dsw-alias-label-primary-inverted, white); }
+.dtd-page :focus-visible { outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
+.dtd-page .dtd-error { color: var(--dsw-alias-state-error-primary, #B91C1C); }
+.dtd-page .dtd-current, .dtd-page .dtd-recovery, .dtd-page .dtd-capability { font-size: 12px; }
+@media (max-width: 600px) {
+  .dtd-page-head, .dtd-preference-row { padding: 16px; }
+  .dtd-segment { width: 100%; }
+  .dtd-segment button { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .dtd-page * { transition: none !important; } }
