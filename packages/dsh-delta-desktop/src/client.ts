@@ -13,6 +13,7 @@ interface DeltaCopy {
     sessionId: string; copySessionId: string; copy: string;
     searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
     searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
+    workspaceResult: string;
     copied: string; copyFailed: string;
   }
 }
@@ -46,7 +47,10 @@ interface SlotsApi {
   register<P = DeltaProps>(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
 interface WorkspacesApi {
-  list: { getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[] } }
+  list: {
+    getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[] }
+    subscribe?(listener: () => void): () => void
+  }
   delete(workspaceId: string): Promise<unknown>
 }
 
@@ -62,6 +66,8 @@ interface SearchSessionsApi {
 interface SearchNavigationApi {
   openSession(sessionId: string): void
   startSession(): void
+  /** Public Harness navigation, retaining Host create/access checks. Optional on older builds. */
+  openWorkspace?(workspaceId: string): Promise<void>
 }
 
 interface ClientContext {
@@ -204,8 +210,15 @@ function createController(): DeltaController {
  * It calls Harness Session Controller and UiWorkspace services directly:
  * no synthetic React events, no moving Host nodes, and no Host method replacement.
  * Markers are checked before each insertion; loss of the Host surface safely unmounts.
+ * Workspace names come only from the public Workspace snapshot; never render paths.
  */
-function installHostSearch(controller: DeltaController, sessions: SearchSessionsApi, navigation: SearchNavigationApi): () => void {
+function installHostSearch(
+  controller: DeltaController,
+  sessions: SearchSessionsApi,
+  navigation: SearchNavigationApi,
+  getWorkspaces: () => WorkspacesApi | undefined,
+  bindWorkspaceRefresh: (refresh: (() => void) | undefined) => void,
+): () => void {
   const root = document.documentElement
   const shell = document.createElement('section')
   shell.className = 'dtd-host-search'
@@ -270,6 +283,22 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     if (!query || !active()) { results.hidden = true; return }
     results.hidden = false
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+    // Workspaces are an optional read-only enhancement. No filesystem paths, IDs,
+    // permissions, or private viewing-store keys are exposed in search results.
+    const workspaceMatches: { id: string; title: string }[] = []
+    const workspaceApi = getWorkspaces()
+    if (workspaceApi && typeof navigation.openWorkspace === 'function') {
+      try {
+        for (const item of workspaceApi.list.getSnapshot().items) {
+          const title = typeof item.title === 'string' ? item.title.trim() : ''
+          if (!title || typeof item.workspaceId !== 'string' || !title.toLocaleLowerCase().includes(query)) continue
+          workspaceMatches.push({ id: item.workspaceId, title })
+          if (workspaceMatches.length >= 8) break
+        }
+      } catch {
+        // Workspace snapshots may be unavailable during Host reconnect; keep Session search alive.
+      }
+    }
     const seen = new Set<string>()
     const matches: { id: string; title: string; snippet?: string }[] = []
     for (const item of Object.values(sessions.list.getSnapshot().byId)) {
@@ -285,6 +314,44 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
       const title = sessions.list.getSnapshot().byId[item.sessionId]?.title?.trim() || item.sessionId
       matches.push({ id: item.sessionId, title, snippet: item.snippet })
       seen.add(item.sessionId)
+    }
+    for (const workspace of workspaceMatches) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'dtd-host-search-result'
+      button.setAttribute('data-delta-result-kind', 'workspace')
+      const kind = document.createElement('span')
+      kind.className = 'dtd-host-search-result-kind'
+      kind.textContent = copy.workspaceResult
+      const heading = document.createElement('span')
+      heading.className = 'dtd-host-search-result-title'
+      heading.textContent = workspace.title
+      button.append(kind, heading)
+      button.addEventListener('click', () => {
+        if (!active() || typeof navigation.openWorkspace !== 'function') return
+        clearRequest()
+        isSearching = false
+        const navigationRequest = serial
+        try {
+          void Promise.resolve(navigation.openWorkspace(workspace.id)).then(() => {
+            if (!active() || serial !== navigationRequest) return
+            input.value = ''
+            clearRequest()
+            remoteItems = []
+            hasError = false
+            render()
+          }, () => {
+            if (!active() || serial !== navigationRequest) return
+            hasError = true
+            render()
+          })
+        } catch {
+          if (!active() || serial !== navigationRequest) return
+          hasError = true
+          render()
+        }
+      })
+      results.appendChild(button)
     }
     for (const match of matches) {
       const button = document.createElement('button')
@@ -315,7 +382,7 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
       })
       results.appendChild(button)
     }
-    if (isSearching || hasError || matches.length === 0) {
+    if (isSearching || hasError || (matches.length === 0 && workspaceMatches.length === 0)) {
       const message = document.createElement('p')
       message.className = 'dtd-host-search-hint'
       message.setAttribute('role', 'status')
@@ -406,19 +473,22 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     schedulesButton.textContent = copy.scheduledTasks
     newSessionButton.textContent = copy.newConversation
     const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
-    const navigationRow = viewport?.querySelector('nav')
-    if (!viewport || !navigationRow) {
+    // The Host only renders <nav> when it has main-panel entries; search must
+    // still work with no panels, above the unchanged workspace browsing region.
+    if (!viewport) {
       shell.remove()
       root.setAttribute('data-delta-search-adapter', 'waiting-for-sidebar')
       controller.setSearchStatus('waiting-sidebar')
       return
     }
-    if (shell.parentElement !== viewport || shell.nextElementSibling !== navigationRow) {
-      viewport.insertBefore(shell, navigationRow)
+    if (shell.parentElement !== viewport || viewport.firstElementChild !== shell) {
+      viewport.insertBefore(shell, viewport.firstElementChild)
     }
     root.setAttribute('data-delta-search-adapter', 'active')
     controller.setSearchStatus('active')
   }
+  // Workspace Controller notifications update matches without replacing Host controls.
+  bindWorkspaceRefresh(() => { if (active()) render() })
   const observer = new MutationObserver(sync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
@@ -429,6 +499,7 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     clearRequest()
     unsubscribe()
     observer.disconnect()
+    bindWorkspaceRefresh(undefined)
     shell.remove()
     root.removeAttribute('data-delta-search-adapter')
     controller.setSearchStatus(controller.getSnapshot().mode === 'official' ? 'disabled' : 'waiting-services')
@@ -663,6 +734,25 @@ window.__ModuleLoader__.load({
                 id: 'delta.session.identity',
                 order: 500,
               }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              // The published Workspace Controller is optional for name-only search.
+              // It never grants control of workspace deletion or the private expansion store.
+              let workspaceService: WorkspacesApi | undefined
+              let refreshWorkspaceResults: (() => void) | undefined
+              scope.inject(['workspaces'], workspaceScope => {
+                const candidate = workspaceScope.workspaces
+                if (!candidate || typeof candidate.list?.getSnapshot !== 'function') return
+                workspaceScope.effect(() => {
+                  workspaceService = candidate
+                  const unsubscribe = typeof candidate.list.subscribe === 'function'
+                    ? candidate.list.subscribe(() => refreshWorkspaceResults?.()) : undefined
+                  refreshWorkspaceResults?.()
+                  return () => {
+                    unsubscribe?.()
+                    if (workspaceService === candidate) workspaceService = undefined
+                    refreshWorkspaceResults?.()
+                  }
+                }, 'dsh-delta-desktop: optional workspace search source')
+              })
               // Native search and navigation are optional Host services, not synthetic DOM commands.
               // They mount only once both services exist and never block the Settings or Theme.
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
@@ -671,8 +761,10 @@ window.__ModuleLoader__.load({
                     typeof searchScope.sessions.list?.getSnapshot !== 'function' ||
                     typeof searchScope.uiWorkspace.openSession !== 'function' ||
                     typeof searchScope.uiWorkspace.startSession !== 'function') return
-                searchScope.effect(() => installHostSearch(controller, searchScope.sessions!, searchScope.uiWorkspace!),
-                  'dsh-delta-desktop: native service-backed sidebar search')
+                searchScope.effect(() => installHostSearch(
+                  controller, searchScope.sessions!, searchScope.uiWorkspace!,
+                  () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
+                ), 'dsh-delta-desktop: native service-backed sidebar search')
               })
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {

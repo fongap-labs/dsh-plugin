@@ -40,6 +40,7 @@ class Element {
     this.lang = 'zh-CN'
   }
   get isConnected() { return this.parentElement !== null }
+  get firstElementChild() { return this.children[0] ?? null }
   get nextElementSibling() {
     if (!this.parentElement) return null
     return this.parentElement.children[this.parentElement.children.indexOf(this) + 1] ?? null
@@ -86,6 +87,16 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let registered
   const inserted = []
   const actions = []
+  const hostWorkspaces = {
+    list: {
+      getSnapshot: () => ({ items: [
+        { workspaceId: 'design', title: 'Design Workspace', path: 'C:\\Users\\private\\secret' },
+      ] }),
+      subscribe() { return () => {} },
+    },
+    async delete() { throw new Error('workspace deletion is Host-owned') },
+  }
+  let workspaceNavigationFails = false
   const hostSessions = {
     list: { getSnapshot: () => ({ byId: { local: { id: 'local', title: 'Example Session' } } }) },
     search: async (query, signal) => {
@@ -98,7 +109,15 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     theme: { overrideTokens() { return () => {} } },
     layout: { toggleSidebar() {}, selectPanel(id) { actions.push(['panel', id]) } },
     sessions: hostSessions,
-    uiWorkspace: { openSession(id) { actions.push(['open', id]) }, startSession() { actions.push(['new-session']) } },
+    workspaces: hostWorkspaces,
+    uiWorkspace: {
+      openSession(id) { actions.push(['open', id]) },
+      startSession() { actions.push(['new-session']) },
+      openWorkspace(id) {
+        actions.push(['workspace', id])
+        return workspaceNavigationFails ? Promise.reject(new Error('Host refused')) : Promise.resolve()
+      },
+    },
     inject(_names, fn) { fn(ctx) },
     effect(create) { const cleanup = create(); if (typeof cleanup === 'function') callbacks.push(cleanup) },
     slots: {
@@ -171,6 +190,28 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.deepEqual(actions[4], ['open', 'remote'])
   assert.equal(results.hidden, true)
 
+  input.value = 'design'
+  input.emit('input')
+  assert.equal(results.children[0].getAttribute('data-delta-result-kind'), 'workspace')
+  assert.equal(results.children[0].children[0].textContent, '工作区')
+  assert.equal(results.children[0].children[1].textContent, 'Design Workspace')
+  assert.equal(results.children[0].children.some(x => String(x.textContent).includes('private')), false,
+    'only the workspace title may appear; the filesystem path must stay private')
+  results.children[0].emit('click')
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.deepEqual(actions.at(-1), ['workspace', 'design'])
+  assert.equal(results.hidden, true, 'successful Host workspace navigation clears search')
+  workspaceNavigationFails = true
+  input.value = 'design'
+  input.emit('input')
+  results.children[0].emit('click')
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(results.hidden, false, 'rejected Host navigation retains search and shows failure')
+  assert.equal(results.children.at(-1).textContent, '此版本缺少必要能力或操作失败，请停用此插件并恢复官方界面。')
+  workspaceNavigationFails = false
+
   root.lang = 'en-US'
   controller.syncLanguage()
   assert.equal(input.placeholder, 'Search sessions')
@@ -182,9 +223,12 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(viewport.children[0], nav)
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
   assert.equal(controller.getSnapshot().searchStatus, 'disabled')
+  nav.remove()
   controller.setMode('delta')
   assert.equal(controller.getSnapshot().searchStatus, 'active')
-  assert.equal(viewport.children[0], shell)
+  assert.equal(viewport.children[0], shell, 'search mounts even if Host does not render a nav list')
+  assert.equal(viewport.children[1], nativeWorkspace)
+  viewport.insertBefore(nav, nativeWorkspace)
   assert.equal(input.value, '', 'switching themes discards stale search state')
   assert.equal(feedback.hidden, true)
   assert.equal(results.hidden, true)
