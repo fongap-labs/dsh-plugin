@@ -24,7 +24,7 @@ importers:
         specifier: 7.0.2
         version: 7.0.2
 
-  packages/dsh-code-worker:
+  packages/dsh-delta-code:
     dependencies:
       '@deepseek-ai/schemastery':
         specifier: 3.18.5
@@ -33,7 +33,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/dsh-desktop-delta: {}
+  packages/dsh-delta-desktop: {}
 
 
   packages/plugin-template:

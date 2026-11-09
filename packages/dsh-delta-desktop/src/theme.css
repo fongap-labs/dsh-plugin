@@ -1,0 +1,47 @@
+/* Theme-owned Settings elements only. Native sidebar/chat DOM is not manipulated. */
+.dtd-page {
+  --dtd-accent: var(--dsw-alias-brand-primary, #286F78);
+  --dtd-surface: var(--dsw-alias-bg-layer-1, Canvas);
+  --dtd-border: var(--dsw-alias-border-l1, #D8DEE1);
+  --dtd-text: var(--dsw-alias-label-primary, CanvasText);
+  --dtd-muted: var(--dsw-alias-label-secondary, #737A84);
+  display: flex; flex-direction: column; gap: 16px;
+  width: 100%; max-width: 960px; padding: 2px 0 20px;
+  color: var(--dtd-text); font: inherit;
+}
+.dtd-page-head, .dtd-preference-row {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 24px; background: var(--dtd-surface);
+  border: 1px solid var(--dtd-border); border-radius: 16px;
+}
+.dtd-heading-group { display: flex; align-items: center; gap: 16px; min-width: 230px; flex: 1; }
+.dtd-mark { display: grid; place-items: center; flex: 0 0 54px; width: 54px; height: 54px;
+  border-radius: 14px; background: color-mix(in srgb, var(--dtd-accent) 12%, transparent);
+  color: var(--dtd-accent); font-size: 27px; }
+.dtd-page h2 { margin: 0 0 6px; font-size: 20px; font-weight: 650; line-height: 1.3; }
+.dtd-page p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--dtd-muted); }
+.dtd-enabled { padding: 7px 12px; border-radius: 99px;
+  background: color-mix(in srgb, var(--dtd-accent) 10%, transparent);
+  color: var(--dtd-accent); white-space: nowrap; font-size: 13px; font-weight: 600; }
+.dtd-preference-copy { flex: 1 1 245px; min-width: 0; }
+.dtd-preference-copy strong { font-weight: 600; }
+.dtd-preference-copy p { margin-top: 6px; }
+.dtd-segment { display: flex; flex-wrap: wrap; gap: 4px;
+  border: 1px solid var(--dtd-border); border-radius: 10px; padding: 4px; }
+.dtd-segment button { border: 0; border-radius: 7px; padding: 9px 12px;
+  cursor: pointer; background: transparent; color: inherit; font: inherit; }
+.dtd-segment button.dtd-active { background: var(--dtd-accent);
+  color: var(--dsw-alias-label-primary-inverted, white); }
+.dtd-page :focus-visible { outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
+.dtd-page .dtd-error { color: var(--dsw-alias-state-error-primary, #B91C1C); }
+.dtd-page .dtd-current, .dtd-page .dtd-recovery, .dtd-page .dtd-capability { font-size: 12px; }
+@media (max-width: 600px) {
+  .dtd-page-head, .dtd-preference-row { padding: 16px; }
+  .dtd-segment { width: 100%; }
+  .dtd-segment button { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .dtd-page * { transition: none !important; } }
+
+/* Brand contributed through supported sidebar slots, fully reversible on disable. */
+.dtd-brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 20px; font-weight: 650; color: var(--dsw-alias-brand-primary, #286F78); }
+.dtd-brand-name { font-weight: 650; letter-spacing: -0.015em; }

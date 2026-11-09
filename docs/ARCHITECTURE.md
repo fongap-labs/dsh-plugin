@@ -6,8 +6,8 @@
 
 | 位置 | 职责 |
 | --- | --- |
-| `packages/dsh-desktop-delta/` | Delta 桌面唯一插件入口，原生体验层及未来 Host Adapter |
-| `packages/dsh-code-worker/` | 独立的 Delta 编程助手 |
+| `packages/dsh-delta-desktop/` | Delta 桌面唯一插件入口，原生体验层及未来 Host Adapter |
+| `packages/dsh-delta-code/` | 独立的 Delta 编程助手 |
 | `packages/shared/` | 中立的工具注册及安全执行能力 |
 | `packages/plugin-template/` | 插件模板 |
 | `projects/<plugin>/release.manifest.json` | Action Worker 单产品发行契约 |
@@ -36,7 +36,7 @@
 
 ## 替换范围与迁移
 
-本次用原生客户端插件**整体替换了旧版 `dsh-desktop-delta` 实现**，删除旧 Host 网页路由、独立浏览器入口及对应测试、脚本；保留历史 Release 供查证，不在源码中保留无人维护的兼容分支。旧安装的 Profile/路由不是新插件的迁移输入，升级前应做好独立备份并在隔离 Profile 测试。
+本次用原生客户端插件**整体替换了旧版 `dsh-delta-desktop` 实现**，删除旧 Host 网页路由、独立浏览器入口及对应测试、脚本；保留历史 Release 供查证，不在源码中保留无人维护的兼容分支。旧安装的 Profile/路由不是新插件的迁移输入，升级前应做好独立备份并在隔离 Profile 测试。
 
 ## 构建与发布
 

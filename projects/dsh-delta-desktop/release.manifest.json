@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "root": "packages",
+  "artifact_name": "dsh-delta-desktop-release",
+  "target_repository": "fongap-labs/dsh-plugin",
+  "release_key": "dsh-delta-desktop",
+  "release_name": "Delta Desktop",
+  "release_notes": "",
+  "license_expression": "Apache-2.0",
+  "node_version_file": ".nvmrc",
+  "python_version_file": "",
+  "sbom_asset": "dsh-delta-desktop-sbom.cdx.json",
+  "builds": [
+    {
+      "id": "portable",
+      "runner_profile": "linux-standard",
+      "target": "portable",
+      "script": "dsh-delta-desktop/build-release.mjs",
+      "assets": [
+        "fongap-labs-dsh-delta-desktop.zip",
+        "fongap-labs-dsh-delta-desktop.tgz"
+      ],
+      "attest_asset": "fongap-labs-dsh-delta-desktop.zip",
+      "setup_rust": false
+    }
+  ]
+}

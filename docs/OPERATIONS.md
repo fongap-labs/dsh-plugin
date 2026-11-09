@@ -65,4 +65,4 @@ CI 检查包许可证与发布清单一致，并确保 Bundle 包含对应许可
 3. 修复源码并走正常 PR、中央 CI 和新版本发布。
 4. 不覆盖或重写已发布的 tag、Release 资产和来源证明。
 
-重构后的 Delta Desktop（Delta 桌面）使用 Apache-2.0 许可证，发布清单位于 `projects/dsh-desktop-delta/release.manifest.json`。历史 MIT 版本已发布的许可与 Tag 保持原状，不再提供旧独立网页 `/dsh-ui-delta/app`；新版本须由人工选择未使用过的发行版本。
+重构后的 Delta Desktop（Delta 桌面）使用 Apache-2.0 许可证，发布清单位于 `projects/dsh-delta-desktop/release.manifest.json`。历史 MIT 版本已发布的许可与 Tag 保持原状，不再提供旧独立网页 `/dsh-ui-delta/app`；新版本须由人工选择未使用过的发行版本。

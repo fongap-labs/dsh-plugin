@@ -1,4 +1,0 @@
-# Delta Desktop native experience plugin; official UI modules remain enabled.
-- insert:
-    - id: dsh-desktop-delta
-      name: '@fongap-labs/dsh-desktop-delta'
