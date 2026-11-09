@@ -23,18 +23,18 @@ export function apply(ctx: HostContext): () => void {
   const registry = ctx.workspaceRegistry
   const originalDelete = registry.delete
   if (typeof originalDelete !== 'function') return () => {}
-  let active = true
+  let isActive = true
   const guardedDelete = function (id: string): Promise<boolean> {
     const target = registry.get(id)
-    if (active && target && isAutomaticDefaultWorkspace(target.path)) {
+    if (isActive && target && isAutomaticDefaultWorkspace(target.path)) {
       return Promise.reject(new Error('delta/protected-default-workspace'))
     }
     return originalDelete.call(registry, id)
   }
   registry.delete = guardedDelete
   const restore = (): void => {
-    if (!active) return
-    active = false
+    if (!isActive) return
+    isActive = false
     if (registry.delete === guardedDelete) registry.delete = originalDelete
   }
   ctx.effect(() => restore, 'dsh-delta-desktop: guard default workspace registry deletion')
