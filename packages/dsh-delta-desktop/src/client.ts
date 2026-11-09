@@ -179,6 +179,14 @@ window.__ModuleLoader__.load({
         el('line', { x1: 4, y1: 17, x2: 20, y2: 17 }),
         el('circle', { cx: 15, cy: 17, r: 2, fill: 'currentColor' }))
     }
+    // Supported brand slots replace Harness artwork without DOM manipulation.
+    // The official sidebar retains ownership of the surrounding navigation.
+    function DeltaBrandMark(): unknown {
+      return el('span', { 'aria-hidden': true, className: 'dtd-brand-mark' }, 'Δ')
+    }
+    function DeltaBrandName(): unknown {
+      return el('span', { className: 'dtd-brand-name' }, language() === 'zh' ? 'Delta 桌面' : 'Delta Desktop')
+    }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
       return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
@@ -266,6 +274,13 @@ window.__ModuleLoader__.load({
                   id: feature.id,
                 }, feature.icon))
               }
+              // These host-owned slots keep all native navigation and shortcuts intact.
+              scope.slots.inject('sidebar.brand.mark', () => scope.slots.register({
+                name: 'sidebar.brand.mark', id: 'delta.brand.mark',
+              }, DeltaBrandMark))
+              scope.slots.inject('sidebar.brand.name', () => scope.slots.register({
+                name: 'sidebar.brand.name', id: 'delta.brand.name',
+              }, DeltaBrandName))
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
