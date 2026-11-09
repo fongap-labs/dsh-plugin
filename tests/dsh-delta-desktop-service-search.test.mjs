@@ -38,6 +38,7 @@ class Element {
     this.value = ''
     this.hidden = false
     this.lang = 'zh-CN'
+    this.focused = false
   }
   get isConnected() { return this.parentElement !== null }
   get firstElementChild() { return this.children[0] ?? null }
@@ -64,7 +65,8 @@ class Element {
   }
   addEventListener(type, fn) { this.listeners.set(type, fn) }
   emit(type, args = {}) { this.listeners.get(type)?.({ type, ...args }) }
-  blur() {}
+  blur() { this.focused = false }
+  focus() { this.focused = true }
   querySelector(selector) {
     if (selector === 'nav') return this.children.find(item => item.tagName === 'nav') ?? null
     return null
@@ -212,6 +214,12 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(results.hidden, false)
   assert.equal(results.children[0].textContent, '')
   assert.equal(results.children[0].children[0].textContent, 'Example Session')
+  let keyboardPrevented = false
+  input.emit('keydown', { key: 'ArrowDown', preventDefault() { keyboardPrevented = true } })
+  assert.equal(keyboardPrevented, true)
+  assert.equal(results.children[0].focused, true, 'ArrowDown focuses first search result')
+  results.children[0].emit('keydown', { key: 'ArrowUp', preventDefault() {} })
+  assert.equal(input.focused, true, 'ArrowUp from first result restores search input')
   sessionRunning = true
   refreshSessions()
   assert.equal(results.children[0].children[1].textContent, '运行中',
@@ -227,6 +235,21 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.deepEqual(actions.at(-1), ['search', 'example'])
   assert.equal(results.children.length, 2)
   assert.equal(results.children[1].children[1].textContent, 'Example content match')
+  input.emit('keydown', { key: 'ArrowDown', preventDefault() {} })
+  results.children[0].emit('keydown', { key: 'ArrowDown', preventDefault() {} })
+  assert.equal(results.children[1].focused, true, 'ArrowDown advances through result buttons')
+  results.children[1].emit('keydown', { key: 'Escape', preventDefault() {} })
+  assert.equal(input.value, '', 'Escape clears the search')
+  assert.equal(results.hidden, true)
+  input.value = 'example'
+  input.emit('input')
+  // The debounced request is no longer needed here: the Host list still contains the local row.
+  // Reuse a fresh remote search response for archive checks below.
+  const fireAgain = timers.values().next().value
+  fireAgain()
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(results.children.length, 2)
   archivedSessionIds = ['remote']
   refreshWorkspaces()
   assert.equal(results.children[1].getAttribute('aria-disabled'), 'true')
@@ -283,8 +306,17 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(results.children.at(-1).textContent, '此版本缺少必要能力或操作失败，请停用此插件并恢复官方界面。')
   workspaceNavigationFails = false
 
+  input.value = 'example'
+  input.emit('input')
+  sessionRunning = true
+  refreshSessions()
+  assert.equal(results.children[0].children[1].textContent, '运行中')
   root.lang = 'en-US'
   controller.syncLanguage()
+  assert.equal(results.children[0].children[1].textContent, 'Running',
+    'language switch updates visible status copy without repeating search')
+  sessionRunning = false
+  refreshSessions()
   assert.equal(input.placeholder, 'Search sessions')
   assert.deepEqual(quickActions.children.map(button => button.textContent), ['Plugins', 'Schedules', 'New conversation'])
   controller.bindLayout(undefined)
@@ -303,6 +335,18 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(input.value, '', 'switching themes discards stale search state')
   assert.equal(feedback.hidden, true)
   assert.equal(results.hidden, true)
+  input.value = 'old-search'
+  input.emit('input')
+  viewport.remove()
+  env.observers.forEach(update => update())
+  assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
+  assert.equal(input.value, '', 'unmounted Host sidebar invalidates stale search')
+  assert.equal(results.hidden, true)
+  assert.equal(viewport.children[0], nav, 'native sidebar children are not replaced')
+  body.appendChild(viewport)
+  env.observers.forEach(update => update())
+  assert.equal(viewport.children[0], shell)
+  assert.equal(input.value, '', 'Host sidebar remount does not replay prior query')
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)

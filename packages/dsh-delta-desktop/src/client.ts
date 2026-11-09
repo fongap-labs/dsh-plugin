@@ -295,6 +295,7 @@ function installHostSearch(
   let remoteItems: { sessionId: string; snippet: string }[] = []
   let isSearching = false
   let hasError = false
+  let displayedLanguage = language()
   const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
   const workspaceReady = (snapshot: ReturnType<WorkspacesApi['list']['getSnapshot']>): boolean =>
     (snapshot.phase === undefined || snapshot.phase === 'ready') &&
@@ -316,6 +317,38 @@ function installHostSearch(
     pending?.abort()
     pending = undefined
     serial += 1
+  }
+  // Search results are native buttons; support arrow navigation in both
+  // directions without hijacking the Host's global keyboard shortcuts.
+  const focusResult = (current: HTMLButtonElement | null, step: number): void => {
+    const buttons = Array.from(results.children)
+      .filter((node): node is HTMLButtonElement => node.tagName.toLowerCase() === 'button')
+    const nextIndex = current === null ? 0 : buttons.indexOf(current) + step
+    if (nextIndex >= 0 && nextIndex < buttons.length) buttons[nextIndex]?.focus()
+    else if (nextIndex < 0) input.focus()
+  }
+  const bindResultKeys = (button: HTMLButtonElement): void => {
+    button.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault()
+        focusResult(button, event.key === 'ArrowDown' ? 1 : -1)
+      } else if (event.key === 'Escape') {
+        event.preventDefault()
+        input.value = ''
+        onInput()
+        input.focus()
+      }
+    })
+  }
+  const resetSearch = (): void => {
+    clearRequest()
+    input.value = ''
+    remoteItems = []
+    isSearching = false
+    hasError = false
+    feedback.hidden = true
+    results.hidden = true
+    results.replaceChildren()
   }
   const render = (): void => {
     results.replaceChildren()
@@ -395,6 +428,7 @@ function installHostSearch(
           render()
         }
       })
+      bindResultKeys(button)
       results.appendChild(button)
     }
     for (const match of matches) {
@@ -445,6 +479,7 @@ function installHostSearch(
           render()
         }
       })
+      bindResultKeys(button)
       results.appendChild(button)
     }
     if (isSearching || hasError || (matches.length === 0 && workspaceMatches.length === 0)) {
@@ -514,6 +549,11 @@ function installHostSearch(
     onInput()
   })
   input.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown' && !results.hidden) {
+      event.preventDefault()
+      focusResult(null, 1)
+      return
+    }
     if (event.key !== 'Escape') return
     input.value = ''
     onInput()
@@ -522,14 +562,7 @@ function installHostSearch(
   const sync = (): void => {
     if (isDisposed) return
     if (controller.getSnapshot().mode !== 'delta') {
-      clearRequest()
-      input.value = ''
-      remoteItems = []
-      isSearching = false
-      hasError = false
-      feedback.hidden = true
-      results.hidden = true
-      results.replaceChildren()
+      resetSearch()
       shell.remove()
       root.removeAttribute('data-delta-search-adapter')
       controller.setSearchStatus('disabled')
@@ -548,6 +581,9 @@ function installHostSearch(
     // The Host only renders <nav> when it has main-panel entries; search must
     // still work with no panels, above the unchanged workspace browsing region.
     if (!viewport) {
+      // A detached sidebar can be rebuilt for a different Host generation.
+      // Drop all pending RPCs, prior results and focus context before remount.
+      if (shell.parentElement !== null) resetSearch()
       shell.remove()
       root.setAttribute('data-delta-search-adapter', 'waiting-for-sidebar')
       controller.setSearchStatus('waiting-sidebar')
@@ -558,6 +594,11 @@ function installHostSearch(
     }
     root.setAttribute('data-delta-search-adapter', 'active')
     controller.setSearchStatus('active')
+    const currentLanguage = language()
+    if (displayedLanguage !== currentLanguage) {
+      displayedLanguage = currentLanguage
+      if (active()) render()
+    }
   }
   // Workspace Controller notifications update matches without replacing Host controls.
   bindWorkspaceRefresh(() => { if (active()) render() })

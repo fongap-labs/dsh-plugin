@@ -38,6 +38,8 @@ pnpm validate
 pnpm link:dev dsh-delta-desktop
 ```
 
+搜索结果支持方向键上下切换、Escape 返回输入框，语言变更会刷新可见状态文案；侧栏重新挂载时作废旧的搜索请求与结果，避免显示上一个宿主生命周期的数据。原生快捷键保持宿主所有权。
+
 ## 验收
 
 运行 `pnpm build && pnpm test && pnpm validate` 并通过 Central CI 后，需在 Windows Harness 中实际检查插件加载、对话、搜索、工作区保护、主题切换、停用回退及第三方插件兼容性。任何未通过项不得声称已经完成实机交付。
