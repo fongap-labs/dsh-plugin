@@ -10,6 +10,7 @@ test('Delta Desktop does not take over private Host sidebar DOM', () => {
   assert.doesNotMatch(source, /installSidebarCompatibility|data-sidebar-scrollport|data-sidebar-workspace-header/)
   assert.doesNotMatch(source, /querySelector<.*>\('button\[class\*="newSession"/)
   assert.doesNotMatch(source, /groupExpansion.*dsh\.workspace\.view/)
+  assert.doesNotMatch(source, /workspaces\.delete\s*=|originalDelete\.call/)
 })
 
 test('unverified Host UI capabilities block release', () => {
