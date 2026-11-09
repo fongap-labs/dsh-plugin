@@ -83,6 +83,15 @@ async function main() {
     } finally {
       await rm(temp, { recursive: true, force: true })
     }
+    // Verify actual archives before a release can be published.
+    if (name === 'dsh-delta-desktop') {
+      run(process.execPath, [
+        join(root, 'scripts/verify-delta-desktop-release.mjs'),
+        '--zip', join(output, safeName + '.zip'),
+        '--tgz', join(output, safeName + '.tgz'),
+        '--version', version,
+      ])
+    }
     console.log('Portable release assembled: ' + name + '@' + version)
   } finally {
     await writeFile(packagePath, original)
