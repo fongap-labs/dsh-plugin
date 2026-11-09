@@ -6,7 +6,7 @@
   "release_key": "dsh-delta-code",
   "release_name": "Delta Code Worker",
   "release_notes": "",
-  "license_expression": "Apache-2.0",
+  "license_expression": "MIT",
   "node_version_file": ".nvmrc",
   "python_version_file": "",
   "sbom_asset": "dsh-delta-code-sbom.cdx.json",

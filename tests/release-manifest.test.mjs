@@ -252,8 +252,8 @@ describe("release manifests", () => {
   it("allows package-specific licenses and aligns package, release, and distributed metadata", () => {
     const defaultLicense = readJson(join(repoRoot, "package.json")).license;
     const defaultLicenseText = readFileSync(join(repoRoot, "LICENSE"), "utf8");
-    assert.equal(defaultLicense, "Apache-2.0");
-    assert.match(defaultLicenseText, /Apache License\s+Version 2\.0/);
+    assert.equal(defaultLicense, "MIT");
+    assert.match(defaultLicenseText, /^MIT License/);
 
     const packagesDir = join(repoRoot, "packages");
     const packageManifests = new Map();
