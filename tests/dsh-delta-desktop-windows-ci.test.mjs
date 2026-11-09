@@ -16,7 +16,11 @@ test('Action Worker must run both Linux and Windows CI for Delta Desktop', () =>
   assert.ok(windows.timeout_minutes <= 45)
 })
 test('Windows CI uses pinned installation and runs full cross-platform tests', () => {
-  const windows = readFileSync(join(root, 'scripts/central-ci-windows.mjs'), 'utf8')
+  const bridge = readFileSync(join(root, '.github/scripts/central-ci.ps1'), 'utf8')
+  assert.match(bridge, /TargetRoot/)
+  assert.match(bridge, /central-ci-windows\.mjs/)
+  assert.match(bridge, /LASTEXITCODE/)
+    const windows = readFileSync(join(root, 'scripts/central-ci-windows.mjs'), 'utf8')
   assert.match(windows, /packageManager/)
   assert.match(windows, /--frozen-lockfile/)
   assert.match(windows, /tsconfig\.client\.json/)
