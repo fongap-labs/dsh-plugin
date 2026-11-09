@@ -424,3 +424,101 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(viewport.children[1], nativeWorkspace)
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
 })
+
+test('Delta sidebar remains visible without optional Host Session services', () => {
+  const root = new Element('html')
+  const body = new Element('body')
+  root.appendChild(body)
+  const viewport = new Element('div')
+  const nativeNav = new Element('nav')
+  viewport.appendChild(nativeNav)
+  body.appendChild(viewport)
+  const effects = []
+  const delayed = []
+  const actions = []
+  let registration
+  const ctx = {
+    slots: {
+      inject(_name, register) {
+        const dispose = register()
+        if (typeof dispose === 'function') effects.push(dispose)
+      },
+      register(options, component) {
+        return () => {}
+      },
+    },
+    layout: { toggleSidebar() {}, selectPanel(id) { actions.push(id) } },
+    theme: { overrideTokens() { return () => {} } },
+    inject(names, callback) {
+      if (names.every(name => ctx[name] !== undefined)) callback(ctx)
+      else delayed.push({ names, callback })
+    },
+    effect(factory) {
+      const dispose = factory()
+      if (typeof dispose === 'function') effects.push(dispose)
+    },
+  }
+  const env = {
+    window: {
+      __ModuleLoader__: { load(entry) { registration = entry } },
+      setTimeout() { return 1 },
+      clearTimeout() {},
+    },
+    document: {
+      documentElement: root,
+      body,
+      head: { appendChild(tag) { tag.parentNode = { removeChild() {} } } },
+      createElement(tag) { return new Element(tag) },
+      querySelector(selector) {
+        return selector === '[data-sidebar-scrollport]' ? viewport : null
+      },
+    },
+    localStorage: { getItem() { return null }, setItem() {} },
+    navigator: { language: 'zh-CN' },
+    MutationObserver: class { observe() {} disconnect() {} },
+    AbortController,
+  }
+  vm.runInNewContext(source, env)
+  const client = registration.factory(() => ({
+    createElement(type, props, ...children) { return { type, props, children } },
+    useState(value) { return [value, () => {}] },
+    useSyncExternalStore(_subscribe, get) { return get() },
+  }))
+  client.apply(ctx)
+  assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-services')
+  const shell = viewport.children[0]
+  assert.equal(shell.getAttribute('data-delta-search'), 'sessions')
+  assert.equal(viewport.children[1], nativeNav, 'the native navigation remains available')
+  assert.deepEqual(shell.children[1].children.map(button => button.textContent),
+    ['插件管理', '定时任务', '开始对话'])
+  shell.children[1].children[0].emit('click')
+  assert.deepEqual(actions, ['plugins'], 'Plugins uses native layout with no Session service')
+  const input = shell.children[0].children[1]
+  input.value = 'example'
+  input.emit('input')
+  assert.equal(shell.children[3].children[0].textContent,
+    '搜索与快捷入口：等待 Harness 会话与导航服务。')
+  // Simulate Cordis resolving late optional services.
+  const sessionListeners = new Set()
+  ctx.sessions = {
+    list: {
+      getSnapshot() { return { phase: 'ready',
+        byId: { local: { id: 'local', title: 'Example Session', running: false } } } },
+      subscribe(listener) {
+        sessionListeners.add(listener)
+        return () => { sessionListeners.delete(listener) }
+      },
+    },
+    search: async () => ({ ok: true, value: { items: [], hasMore: false } }),
+  }
+  ctx.uiWorkspace = { openSession() {}, startSession() {} }
+  for (const entry of delayed) {
+    if (entry.names.every(name => ctx[name] !== undefined)) entry.callback(ctx)
+  }
+  assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
+  assert.equal(viewport.children[0], shell, 'service activation does not remount the search input')
+  assert.equal(shell.children[3].children[0].children[0].textContent, 'Example Session')
+  effects.reverse().forEach(dispose => dispose())
+  assert.equal(sessionListeners.size, 0, 'cleanup releases Host Session subscriptions')
+  assert.equal(shell.parentElement, null)
+})
