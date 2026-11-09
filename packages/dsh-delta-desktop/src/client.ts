@@ -245,8 +245,8 @@ function createController(): DeltaController {
  */
 function installHostSearch(
   controller: DeltaController,
-  sessions: SearchSessionsApi,
-  navigation: SearchNavigationApi,
+  getSessions: () => SearchSessionsApi | undefined,
+  getNavigation: () => SearchNavigationApi | undefined,
   getWorkspaces: () => WorkspacesApi | undefined,
   bindWorkspaceRefresh: (refresh: (() => void) | undefined) => void,
 ): () => void {
@@ -309,7 +309,8 @@ function installHostSearch(
   // Workspace snapshot is authoritative; missing or loading metadata fails closed.
   const sessionOpenability = (sessionId: string): 'allowed' | 'archived' | 'unknown' => {
     const workspaces = getWorkspaces()
-    if (!workspaces) return 'unknown'
+    const sessions = getSessions()
+    if (!workspaces || !sessions) return 'unknown'
     try {
       // A session list in a pending/reconnecting phase is not an actionable
       // snapshot, even when the Workspace archive metadata is still cached.
@@ -369,7 +370,8 @@ function installHostSearch(
     // permissions, or private viewing-store keys are exposed in search results.
     const workspaceMatches: { id: string; title: string }[] = []
     const workspaceApi = getWorkspaces()
-    if (workspaceApi && typeof navigation.openWorkspace === 'function') {
+    const navigation = getNavigation()
+    if (workspaceApi && typeof navigation?.openWorkspace === 'function') {
       try {
         const snapshot = workspaceApi.list.getSnapshot()
         if (!workspaceReady(snapshot)) throw new Error('Workspace list is not ready')
@@ -387,6 +389,8 @@ function installHostSearch(
     // remounts. A transient failure must not tear down the Delta sidebar.
     let sessionSnapshot: ReturnType<SearchSessionsApi['list']['getSnapshot']>
     try {
+      const sessions = getSessions()
+      if (!sessions) throw new Error('Host Session service not available')
       sessionSnapshot = sessions.list.getSnapshot()
       if (sessionSnapshot.phase !== undefined && sessionSnapshot.phase !== 'ready') {
         throw new Error('Session catalog not ready')
@@ -429,7 +433,8 @@ function installHostSearch(
       heading.textContent = workspace.title
       button.append(kind, heading)
       button.addEventListener('click', () => {
-        if (!active() || typeof navigation.openWorkspace !== 'function') return
+        const currentNavigation = getNavigation()
+        if (!active() || typeof currentNavigation?.openWorkspace !== 'function') return
         // A rendered result is not a grant to navigate: the Host can remove,
         // rename or reload a Workspace between painting this button and click.
         // Recheck its public snapshot at activation, before calling the Host.
@@ -449,7 +454,7 @@ function installHostSearch(
         isSearching = false
         const navigationRequest = serial
         try {
-          void Promise.resolve(navigation.openWorkspace(workspace.id)).then(() => {
+          void Promise.resolve(currentNavigation.openWorkspace(workspace.id)).then(() => {
             if (!active() || serial !== navigationRequest) return
             input.value = ''
             clearRequest()
@@ -507,8 +512,10 @@ function installHostSearch(
           return
         }
         try {
+          const currentNavigation = getNavigation()
+          if (typeof currentNavigation?.openSession !== 'function') throw new Error('Host Session navigation unavailable')
           feedback.hidden = true
-          navigation.openSession(match.id)
+          currentNavigation.openSession(match.id)
           input.value = ''
           clearRequest()
           remoteItems = []
@@ -536,7 +543,7 @@ function installHostSearch(
     isSearching = false
     hasError = false
     const query = input.value.replaceAll('\0', '').trim().slice(0, 500)
-    if (query) {
+    if (query && getSessions()) {
       isSearching = true
       const requestId = serial
       const aborter = new AbortController()
@@ -548,6 +555,8 @@ function installHostSearch(
         if (!active() || serial !== requestId || aborter.signal.aborted) return
         let request: ReturnType<SearchSessionsApi['search']>
         try {
+          const sessions = getSessions()
+          if (!sessions) throw new Error('Host Session search disconnected')
           request = sessions.search(query, aborter.signal)
         } catch (reason) {
           if (!active() || serial !== requestId || aborter.signal.aborted) return
@@ -596,6 +605,8 @@ function installHostSearch(
       // Native SidebarRoot gates New Session on useRemoteAccess('session/create').
       // A revoked or missing global grant must never dispatch from Delta either.
       if (!controller.getSnapshot().createAllowed) return false
+      const navigation = getNavigation()
+      if (typeof navigation?.startSession !== 'function') return false
       navigation.startSession()
     }))
   input.addEventListener('input', () => {
@@ -629,8 +640,8 @@ function installHostSearch(
     pluginsButton.textContent = copy.pluginManagement
     schedulesButton.textContent = copy.scheduledTasks
     newSessionButton.textContent = copy.newConversation
-    newSessionButton.hidden = !controller.getSnapshot().createAllowed
-    newSessionButton.disabled = !controller.getSnapshot().createAllowed
+    newSessionButton.hidden = !controller.getSnapshot().createAllowed || !getNavigation()
+    newSessionButton.disabled = !controller.getSnapshot().createAllowed || !getNavigation()
     const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
     // The Host only renders <nav> when it has main-panel entries; search must
     // still work with no panels, above the unchanged workspace browsing region.
@@ -646,8 +657,9 @@ function installHostSearch(
     if (shell.parentElement !== viewport || viewport.firstElementChild !== shell) {
       viewport.insertBefore(shell, viewport.firstElementChild)
     }
-    root.setAttribute('data-delta-search-adapter', 'active')
-    controller.setSearchStatus('active')
+    const hasSearchServices = !!getSessions() && !!getNavigation()
+    root.setAttribute('data-delta-search-adapter', hasSearchServices ? 'active' : 'waiting-for-services')
+    controller.setSearchStatus(hasSearchServices ? 'active' : 'waiting-services')
     const currentLanguage = language()
     if (displayedLanguage !== currentLanguage) {
       displayedLanguage = currentLanguage
@@ -655,9 +667,12 @@ function installHostSearch(
     }
   }
   // Workspace Controller notifications update matches without replacing Host controls.
-  bindWorkspaceRefresh(() => { if (active()) render() })
-  const unsubscribeSessions = typeof sessions.list.subscribe === 'function'
-    ? sessions.list.subscribe(() => { if (active()) render() }) : undefined
+  bindWorkspaceRefresh(() => {
+    if (!isDisposed) {
+      sync()
+      if (active()) render()
+    }
+  })
   const observer = new MutationObserver(sync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
@@ -667,7 +682,6 @@ function installHostSearch(
     isDisposed = true
     clearRequest()
     unsubscribe()
-    unsubscribeSessions?.()
     observer.disconnect()
     bindWorkspaceRefresh(undefined)
     shell.remove()
