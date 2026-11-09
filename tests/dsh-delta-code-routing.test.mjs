@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ALL_CODING_SKILLS } from '../packages/dsh-delta-code/lib/skills.js'
@@ -107,7 +107,7 @@ test('Host-only command execution respects permissions, manifests and ecosystem 
       assert.equal(result.passed, true)
       assert.equal(result.project, check.ecosystem)
       assert.deepEqual(host.calls.at(-1).argv, check.expected)
-      assert.equal(host.calls.at(-1).cwd, join(root, check.cwd))
+      assert.equal(await realpath(host.calls.at(-1).cwd), await realpath(join(root, check.cwd)))
     }
     await assert.rejects(tool.execute({ cwd: 'node', script: 'lint' }, exec), /does not declare script lint/)
     await assert.rejects(tool.execute({ cwd: 'polyglot', script: 'test' }, exec), /ambiguous|multiple project types/)
