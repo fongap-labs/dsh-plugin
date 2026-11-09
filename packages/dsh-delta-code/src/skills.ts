@@ -96,7 +96,7 @@ export function registerCodingSkills(ctx: Context): () => void {
         })
         if (typeof dispose === 'function') disposers.push(dispose)
       } catch (error) {
-        ctx.logger?.warn?.('dsh-code-worker: skill registration failed for ' + skill.name +
+        ctx.logger?.warn?.('dsh-delta-code: skill registration failed for ' + skill.name +
           ': ' + (error instanceof Error ? error.message : String(error)))
       }
     }

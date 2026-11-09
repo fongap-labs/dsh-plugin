@@ -62,7 +62,7 @@ async function githubRequest(
       Authorization: 'Bearer ' + token.trim(),
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'dsh-code-worker',
+      'User-Agent': 'dsh-delta-code',
       ...(data === undefined ? {} : { 'Content-Type': 'application/json' }),
     },
     ...(data === undefined ? {} : { body: JSON.stringify(data) }),

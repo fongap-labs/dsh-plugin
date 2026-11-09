@@ -66,7 +66,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       if (command.exitCode !== 0 || command.timedOut || command.lossy) {
         throw new Error('unable to enumerate tracked files without truncation')
       }
-      const paths = command.stdout.split('\0').filter(Boolean).filter((p) => !p.startsWith('.dsh-code-worker/'))
+      const paths = command.stdout.split('\0').filter(Boolean).filter((p) => !p.startsWith('.dsh-delta-code/'))
       const selected = rankTrackedFiles(paths, args.query ?? '', limit)
       return { total: paths.length, selected, truncated: paths.length > selected.length }
     },

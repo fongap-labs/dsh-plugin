@@ -41,7 +41,7 @@ export function createWorktreeTool(ctx: Context, settings: Settings): ToolDefini
       const base = args.base ?? 'HEAD'
       validateWorktreeName(task, base)
       const canonicalRoot = await realpath(root)
-      const dir = join(canonicalRoot, '.dsh-code-worker', 'worktrees')
+      const dir = join(canonicalRoot, '.dsh-delta-code', 'worktrees')
       await mkdir(dir, { recursive: true })
       const canonicalDir = await realpath(dir)
       if (!isPathInside(canonicalRoot, canonicalDir)) throw new Error('worktree storage escapes workspace')
