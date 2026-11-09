@@ -29,3 +29,7 @@ pnpm validate
 ## 发行
 
 源码中的 `package.json.version` 恒为 `0.0.0`，不随 PR 变更。统一由 Action Worker 手动发布（选择 `product=dsh-delta-desktop`，填写 `requested_version`），旧版本不得覆盖。未通过真实 Windows Harness 会话、停用和恢复测试前，不能称为正式可用。
+
+## 许可证
+
+本仓库自行拥有版权的代码以 [MIT License](LICENSE) 开源，各插件包及共享模块同样采用 MIT。第三方依赖及其原有版权和许可条款不因此变更；历史发行版本的既有许可证保持不变。

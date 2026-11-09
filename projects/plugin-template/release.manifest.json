@@ -6,7 +6,7 @@
   "release_key": "dsh-plugin-template",
   "release_name": "dsh-plugin-template",
   "release_notes": "",
-  "license_expression": "Apache-2.0",
+  "license_expression": "MIT",
   "node_version_file": ".nvmrc",
   "python_version_file": "",
   "sbom_asset": "dsh-plugin-template-sbom.cdx.json",

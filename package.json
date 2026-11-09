@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Delta Desktop and Harness extensions",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "packageManager": "pnpm@11.28.5",
   "engines": {
     "node": ">=22.0.0"
