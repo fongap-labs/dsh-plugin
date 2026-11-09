@@ -165,3 +165,10 @@
   border: 1px solid var(--dsw-alias-border-l1, #D8DEE1);
   font: inherit; font-size: 13px;
 }
+
+/* Fixed primary navigation order, irrespective of user pin metadata. */
+:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="插件管理"]),
+:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="Plugins"]) { order: 0; }
+:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="定时任务"]),
+:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="Schedules"]) { order: 1; }
+:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :not(:has(button[aria-label="插件管理"])):not(:has(button[aria-label="Plugins"])):not(:has(button[aria-label="定时任务"])):not(:has(button[aria-label="Schedules"])) { order: 2; }
