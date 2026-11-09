@@ -14,7 +14,7 @@ interface DeltaCopy {
     searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
     searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
     workspaceResult: string; archivedSession: string; sessionStateUnknown: string;
-    sessionRunning: string; sessionArchived: string;
+    sessionRunning: string; sessionArchived: string; sessionUpdated: string;
     copied: string; copyFailed: string;
   }
 }
@@ -69,7 +69,7 @@ interface WorkspacesApi {
 interface SearchSessionsApi {
   list: {
     getSnapshot(): {
-      byId: Record<string, { id: string; title?: string; blank?: boolean; running?: boolean }>
+      byId: Record<string, { id: string; title?: string; blank?: boolean; running?: boolean; updatedAt?: number }>
       phase?: string
     }
     subscribe?(listener: () => void): () => void
@@ -674,6 +674,7 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    let hoverSessionSource: SearchSessionsApi | undefined
     const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
     const showDeltaToast = (message: string): void => {
       try {
@@ -725,7 +726,25 @@ window.__ModuleLoader__.load({
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
+      // Use the Host's public Session catalog only. Do not materialize a Session
+      // or read its filesystem location to enrich a hover card.
+      let summary: ReturnType<SearchSessionsApi['list']['getSnapshot']>['byId'][string] | undefined
+      try {
+        const snapshot = hoverSessionSource?.list.getSnapshot()
+        if (snapshot && (snapshot.phase === undefined || snapshot.phase === 'ready')) {
+          summary = snapshot.byId[sessionId]
+        }
+      } catch { /* Native hover content remains usable while the Host reconnects. */ }
+      const timestamp = summary?.updatedAt
+      const updated = typeof timestamp === 'number' && Number.isFinite(timestamp) && timestamp > 0
+        ? new Date(timestamp) : undefined
+      const updatedText = updated && Number.isFinite(updated.getTime())
+        ? updated.toLocaleString(language() === 'zh' ? 'zh-CN' : 'en-US') : undefined
       return el('div', { className: 'dtd-session-meta' },
+        summary?.running === true
+          ? el('span', { className: 'dtd-session-meta-status', role: 'status' }, copy.ui.sessionRunning) : null,
+        updatedText ? el('span', { className: 'dtd-session-meta-time' },
+          copy.ui.sessionUpdated + ': ' + updatedText) : null,
         el('span', { className: 'dtd-session-meta-label' }, label),
         el('span', { className: 'dtd-session-meta-id', title: sessionId }, shortId),
         el('button', {
@@ -911,10 +930,17 @@ window.__ModuleLoader__.load({
                     typeof searchScope.sessions.list?.getSnapshot !== 'function' ||
                     typeof searchScope.uiWorkspace.openSession !== 'function' ||
                     typeof searchScope.uiWorkspace.startSession !== 'function') return
-                searchScope.effect(() => installHostSearch(
-                  controller, searchScope.sessions!, searchScope.uiWorkspace!,
-                  () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
-                ), 'dsh-delta-desktop: native service-backed sidebar search')
+                searchScope.effect(() => {
+                  hoverSessionSource = searchScope.sessions
+                  const disposeSearch = installHostSearch(
+                    controller, searchScope.sessions!, searchScope.uiWorkspace!,
+                    () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
+                  )
+                  return () => {
+                    disposeSearch()
+                    if (hoverSessionSource === searchScope.sessions) hoverSessionSource = undefined
+                  }
+                }, 'dsh-delta-desktop: native service-backed sidebar search')
               })
               // Match the native New Session permission gate without reading any
               // private access state: whenAccess handles future grant/revoke updates.
