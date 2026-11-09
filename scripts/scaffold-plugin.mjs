@@ -77,7 +77,7 @@ export function scaffoldPlugin({ name: slug, description, root = ROOT, dryRun = 
     writeJson(join(targetDir, 'package.json'), source)
 
     const patchPath = join(targetDir, 'cordis.patch.yml')
-    let patch = readFileSync(patchPath, 'utf8')
+    let patch = readFileSync(patchPath, 'utf8').replace(/\r\n/g, '\n')
     patch = replaceOnce(patch, `- id: ${sourceSlug}\n`, `- id: ${slug}\n`, 'patch id')
     patch = replaceOnce(patch, `name: '${sourceName}'`, `name: '${packageName}'`, 'patch name')
     writeFileSync(patchPath, patch.replace('plugin-template Bundle Patch', `${slug} Bundle Patch`))
