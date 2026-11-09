@@ -488,7 +488,7 @@ function installHostSearch(
       // Add only Host-confirmed state. Native rows remain authoritative for
       // pending approvals, completed runs, relative times and session actions.
       const archived = sessionOpenability(match.id) === 'archived'
-      const running = sessionSnapshot.phase !== 'pending' && currentSessions[match.id]?.running === true
+      const running = currentSessions[match.id]?.running === true
       if (archived || running) {
         const status = document.createElement('span')
         status.className = 'dtd-host-search-result-status'
