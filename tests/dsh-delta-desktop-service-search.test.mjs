@@ -96,6 +96,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let refreshWorkspaces = () => {}
   let refreshSessions = () => {}
   let sessionRunning = false
+  let sessionPhase = 'ready'
   const hostWorkspaces = {
     list: {
       getSnapshot: () => ({ phase: workspacePhase, state: workspaceState, archivedSessionIds, items: [
@@ -110,7 +111,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let grantSessionCreate = () => {}
   const hostSessions = {
     list: {
-      getSnapshot: () => ({ phase: 'ready',
+      getSnapshot: () => ({ phase: sessionPhase,
         byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning } } }),
       subscribe(callback) { refreshSessions = callback; return () => { refreshSessions = () => {} } },
     },
@@ -282,6 +283,11 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   results.children[1].emit('click')
   assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
   workspaceState = 'idle'
+  sessionPhase = 'pending'
+  results.children[1].emit('click')
+  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。',
+    'reconnecting Session streams must not navigate using a stale Workspace snapshot')
+  sessionPhase = 'ready'
   results.children[1].emit('click')
   assert.deepEqual(actions.at(-1), ['open', 'remote'])
   assert.equal(results.hidden, true)
