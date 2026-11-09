@@ -24,6 +24,10 @@
     "hostOwned": "搜索、导航、会话、工作区等功能将在适配宿主契约后逐项接入。",
     "sessionId": "会话编号",
     "copySessionId": "复制会话编号",
-    "copy": "复制"
+    "copy": "复制",
+    "searchSessions": "搜索会话",
+    "newConversation": "开始对话",
+    "copied": "已复制会话编号",
+    "copyFailed": "复制失败"
   }
 }

@@ -11,6 +11,8 @@ interface DeltaCopy {
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
+    searchSessions: string; newConversation: string;
+    copied: string; copyFailed: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -39,9 +41,14 @@ interface SlotsApi {
   inject(name: string, register: () => unknown): void
   register<P = DeltaProps>(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
+interface WorkspacesApi {
+  list: { getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[] } }
+  delete(workspaceId: string): Promise<unknown>
+}
 interface ClientContext {
   theme?: ThemeApi
   layout?: LayoutApi
+  workspaces?: WorkspacesApi
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
   inject(services: string[], callback: (scope: ClientContext) => void): void
@@ -150,6 +157,120 @@ function createController(ctx: ClientContext): DeltaController {
   } as DeltaController & { syncLanguage(): void; activate(): void }
 }
 
+
+// Compatibility layer for the public Harness sidebar DOM. The Host retains
+// ownership of all React nodes, commands, and session data.
+function installSidebarCompatibility(controller: DeltaController): () => void {
+  const root = document.documentElement
+  const mounted = new Map<string, HTMLElement>()
+  const initialized = new Set<string>()
+  let isDisposed = false
+  let isSyncing = false
+  const reset = (): void => {
+    for (const node of mounted.values()) node.remove()
+    mounted.clear()
+    root.removeAttribute('data-delta-compat')
+  }
+  const persistedExpansion = (): Record<string, boolean> => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('dsh.workspace.view.v5') ?? '{}') as {
+        groupExpansion?: Record<string, boolean>
+      }
+      return stored.groupExpansion ?? {}
+    } catch { return {} }
+  }
+  const sync = (): void => {
+    if (isDisposed || isSyncing) return
+    isSyncing = true
+    try {
+      if (controller.getSnapshot().mode !== 'delta') { reset(); return }
+      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
+      const navigation = viewport?.querySelector<HTMLElement>(':scope > nav')
+      const header = viewport?.querySelector<HTMLElement>('[data-sidebar-workspace-header]')
+      const nativeInput = header?.querySelector<HTMLInputElement>('input[type="text"]')
+      const nativeSearch = header?.querySelector<HTMLButtonElement>('button[aria-expanded]')
+      // Only enter compatibility mode after all version-specific anchors exist.
+      if (!viewport || !navigation || !nativeInput || !nativeSearch) { reset(); return }
+      root.setAttribute('data-delta-compat', '1')
+      let search = mounted.get('search')
+      if (!search || !search.isConnected) {
+        search = document.createElement('div')
+        search.className = 'dtd-native-search'
+        search.setAttribute('data-delta-search', '')
+        const input = document.createElement('input')
+        input.type = 'search'
+        input.className = 'dtd-native-search-input'
+        input.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
+        input.placeholder = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions
+        input.maxLength = 500
+        // Proxies use the Host's own React input setter and existing search flow.
+        input.addEventListener('input', () => {
+          const hostInput = document.querySelector<HTMLInputElement>(
+            '[data-sidebar-workspace-header] input[type="text"]')
+          const hostButton = document.querySelector<HTMLButtonElement>(
+            '[data-sidebar-workspace-header] button[aria-expanded]')
+          if (!hostInput || !hostButton) return
+          if (hostButton.getAttribute('aria-expanded') !== 'true') hostButton.click()
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+          setter?.call(hostInput, input.value)
+          hostInput.dispatchEvent(new Event('input', { bubbles: true }))
+          input.focus()
+        })
+        input.addEventListener('keydown', event => {
+          if (event.key !== 'Escape') return
+          input.value = ''
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+          input.blur()
+        })
+        search.appendChild(input)
+        mounted.set('search', search)
+      }
+      if (search.parentElement !== viewport || search.nextElementSibling !== navigation) {
+        viewport.insertBefore(search, navigation)
+      }
+      const proxy = search.querySelector<HTMLInputElement>('input')
+      if (proxy && document.activeElement !== proxy && proxy.value !== nativeInput.value) proxy.value = nativeInput.value
+      let newSession = mounted.get('newSession') as HTMLButtonElement | undefined
+      const nativeNew = document.querySelector<HTMLButtonElement>('button[class*="newSession"]')
+      if (nativeNew && (!newSession || !newSession.isConnected)) {
+        newSession = document.createElement('button')
+        newSession.type = 'button'
+        newSession.className = 'dtd-native-new-session'
+        newSession.setAttribute('data-delta-action', 'new-session')
+        newSession.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.newConversation
+        newSession.addEventListener('click', () => {
+          document.querySelector<HTMLButtonElement>('button[class*="newSession"]:not([data-delta-action])')?.click()
+        })
+        mounted.set('newSession', newSession)
+      }
+      if (newSession && newSession.parentElement !== viewport) navigation.insertAdjacentElement('afterend', newSession)
+      // Fold only never-configured groups once. The native row click persists
+      // the explicit false value. Never override an existing user preference.
+      const saved = persistedExpansion()
+      for (const row of viewport.querySelectorAll<HTMLElement>('[data-row-key^="workspace:"][aria-expanded="true"]')) {
+        const key = row.getAttribute('data-row-key')?.slice('workspace:'.length)
+        if (!key || initialized.has(key) || saved[key] !== undefined) continue
+        initialized.add(key)
+        row.click()
+      }
+    } catch (error) {
+      reset()
+      console.error('[dsh-delta-desktop] Native compatibility disabled:', error)
+    } finally { isSyncing = false }
+  }
+  // React may remount its Host-owned regions. Recreate only Delta-owned nodes.
+  const observer = new MutationObserver(() => sync())
+  observer.observe(document.body ?? root, { subtree: true, childList: true })
+  const unsubscribe = controller.subscribe(sync)
+  sync()
+  return () => {
+    isDisposed = true
+    unsubscribe()
+    observer.disconnect()
+    reset()
+  }
+}
+
 window.__ModuleLoader__.load({
   id: OWNER,
   factory(require) {
@@ -168,6 +289,30 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
+    const showDeltaToast = (message: string): void => {
+      try {
+        if (!document.body) return
+        const node = document.createElement('div')
+        node.className = 'dtd-toast'
+        node.setAttribute('role', 'status')
+        node.textContent = message
+        document.body.appendChild(node)
+        const entry = { node, timer: 0 }
+        entry.timer = window.setTimeout(() => {
+          node.remove()
+          toastEntries.delete(entry)
+        }, 3000)
+        toastEntries.add(entry)
+      } catch { /* Toasts must never prevent native interaction. */ }
+    }
+    const clearDeltaToasts = (): void => {
+      for (const entry of toastEntries) {
+        window.clearTimeout(entry.timer)
+        entry.node.remove()
+      }
+      toastEntries.clear()
+    }
     function useCopy(controller: DeltaController): { state: DeltaState; copy: DeltaCopy } {
       const state = React.useSyncExternalStore(
         callback => controller.subscribe(callback), () => controller.getSnapshot())
@@ -201,7 +346,12 @@ window.__ModuleLoader__.load({
         el('button', {
           type: 'button', className: 'dtd-session-meta-copy',
           'aria-label': copy.ui.copySessionId,
-          onClick: () => { void navigator.clipboard?.writeText(sessionId).catch(() => {}) },
+          onClick: () => {
+            const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+            const request = navigator.clipboard?.writeText(sessionId)
+            if (!request) { showDeltaToast(labels.copyFailed); return }
+            void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
+          },
         }, copy.ui.copy))
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
@@ -264,11 +414,14 @@ window.__ModuleLoader__.load({
                 }
                 syncAppearance()
                 const stopAppearance = controller.subscribe(syncAppearance)
+                const stopCompat = installSidebarCompatibility(controller)
                 // Language changes are tracked through the document lang observer.
                 // Do not read ctx.locale without an explicit Cordis injection.
                 return () => {
                   observer?.disconnect()
                   stopAppearance()
+                  stopCompat()
+                  clearDeltaToasts()
                   document.documentElement.removeAttribute?.('data-delta-ui')
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
@@ -341,6 +494,35 @@ window.__ModuleLoader__.load({
                 id: 'delta.session.identity',
                 order: 500,
               }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              // Guard Host workspace mutations at the client service boundary,
+              // not merely by hiding a delete menu item. Restore on plugin unload.
+              scope.inject(['workspaces'], workspaceScope => {
+                const workspaces = workspaceScope.workspaces
+                if (!workspaces || typeof workspaces.delete !== 'function') return
+                const originalDelete = workspaces.delete
+                const guardedDelete = (id: string): Promise<unknown> => {
+                  const items = workspaces.list.getSnapshot().items
+                  const target = items.find(item => item.workspaceId === id)
+                  const path = target?.path.replace(/\\/g, '/').toLowerCase()
+                  const protectedDefault = path?.endsWith('/deepseek-harness/default-workspace') === true
+                  if (controller.getSnapshot().mode === 'delta' && protectedDefault) {
+                    const hasOtherWorkspace = items.some(item => item.workspaceId !== id)
+                    const hasSessions = target?.sessionIds === undefined || target.sessionIds.length > 0
+                    if (!hasOtherWorkspace || hasSessions) {
+                      return Promise.reject(new Error('delta/protected-default-workspace'))
+                    }
+                  }
+                  return originalDelete.call(workspaces, id)
+                }
+                try {
+                  workspaces.delete = guardedDelete
+                  workspaceScope.effect(() => () => {
+                    if (workspaces.delete === guardedDelete) workspaces.delete = originalDelete
+                  }, 'dsh-delta-desktop: workspace deletion guard')
+                } catch (error) {
+                  console.error('[dsh-delta-desktop] Workspace guard unavailable:', error)
+                }
+              })
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)

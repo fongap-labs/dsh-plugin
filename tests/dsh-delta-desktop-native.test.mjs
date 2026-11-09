@@ -18,6 +18,16 @@ function harness({ stored = null, failTheme = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
+  const deletedWorkspaces = []
+  const defaultSessions = ['session-one']
+  const workspaces = {
+    list: { getSnapshot() { return { items: [
+      { workspaceId: 'default', path: 'C:\\Users\\user\\Documents\\deepseek-harness\\default-workspace', title: 'default-workspace', sessionIds: defaultSessions },
+      { workspaceId: 'other', path: 'C:\\Users\\user\\Documents\\work', title: 'work', sessionIds: [] },
+    ] } } },
+    async delete(id) { deletedWorkspaces.push(id) },
+  }
+  const originalDelete = workspaces.delete
   const attributes = new Map()
   const documentElement = { lang: 'zh-CN',
     setAttribute(key, value) { attributes.set(key, value) },
@@ -28,11 +38,12 @@ function harness({ stored = null, failTheme = false } = {}) {
     tag.parentNode = { removeChild(value) { removed++; value.parentNode = null } }
   } }
   const context = {
+    observers: [],
     window: { __ModuleLoader__: { load(entry) { registration = entry } } },
     document: { documentElement, head, createElement(name) { return { name, dataset: {}, textContent: '', parentNode: null } } },
     navigator: { language: 'en-US' },
     localStorage: { getItem() { return stored }, setItem(_key, value) { stored = value } },
-    MutationObserver: class { constructor(callback) { context.observer = callback } observe() {} disconnect() {} },
+    MutationObserver: class { constructor(callback) { context.observers.push(callback) } observe() {} disconnect() {} },
   }
   vm.runInNewContext(source, context)
   const components = new Map()
@@ -47,7 +58,7 @@ function harness({ stored = null, failTheme = false } = {}) {
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
-      assert.ok(names.join(',') === 'slots' || names.join(',') === 'theme')
+      assert.ok(['slots', 'theme', 'workspaces'].includes(names.join(',')))
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'locale') throw new Error('cannot get property "locale" without inject')
@@ -55,6 +66,7 @@ function harness({ stored = null, failTheme = false } = {}) {
       } }))
     },
     effect(create) { effects.push(create()) },
+    workspaces,
     theme: { overrideTokens(id, values) {
       if (failTheme) throw new Error('theme unavailable')
       layers.set(id, values)
@@ -72,6 +84,7 @@ function harness({ stored = null, failTheme = false } = {}) {
   }
   client.apply(ctx)
   return { registration, context, documentElement, components, slots, layers, changes,
+    workspaces, deletedWorkspaces, originalDelete, defaultSessions,
     cleanup() { effects.forEach(fn => fn?.()) },
     get removed() { return removed },
     get stored() { return stored } }
@@ -124,6 +137,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.match(JSON.stringify(hover.component({ sessionId: '0123456789abcdef' })), /0123456789ab/)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('shell.overlay'), false)
+  assert.notEqual(app.workspaces.delete, app.originalDelete, 'guard is installed while Delta is enabled')
   const palette = app.layers.get(app.registration.id)
   assert.equal(palette['--dsw-alias-brand-primary'].light, '#286F78')
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
@@ -150,13 +164,14 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.match(JSON.stringify(hover.component({ sessionId: 'abc' })), /abc/)
   assert.match(app.stored, /"mode":"delta"/)
   app.documentElement.lang = 'en'
-  app.context.observer()
+  app.context.observers.forEach(notify => notify())
   assert.match(JSON.stringify(entry.component({ controller })), /Delta Desktop/)
   assert.equal(entry.spec.label(), 'Personalization')
   app.cleanup(); app.cleanup()
   assert.equal(app.layers.size, 0)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
   assert.equal(app.removed, 1)
+  assert.equal(app.workspaces.delete, app.originalDelete, 'disabling the plugin restores the Host workspace service')
   controller.setMode('delta')
   assert.equal(app.layers.size, 0)
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
@@ -210,4 +225,19 @@ test('obsolete standalone routes and UI packages are excluded from Desktop', () 
   assert.equal(existsSync(fixture('scripts/verify-delta-poc-host.mjs')), false)
   assert.equal(existsSync(fixture('scripts/verify-delta-suite-ui.mjs')), false)
   assert.match(source, /const settingsModules/)
+})
+
+test('workspace deletion guard rejects the automatic directory and permits other workspaces', async () => {
+  const app = harness()
+  await assert.rejects(app.workspaces.delete('default'), /delta\/protected-default-workspace/)
+  await app.workspaces.delete('other')
+  assert.deepEqual(app.deletedWorkspaces, ['other'])
+  app.defaultSessions.length = 0
+  await app.workspaces.delete('default')
+  assert.deepEqual(app.deletedWorkspaces, ['other', 'default'])
+  const controller = app.components.get('settings.section').spec.inject().controller
+  controller.setMode('official')
+  await app.workspaces.delete('default')
+  assert.deepEqual(app.deletedWorkspaces, ['other', 'default', 'default'])
+  app.cleanup()
 })
