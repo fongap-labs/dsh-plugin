@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": false,
   "type": "module",
-  "description": "Delta Desktop（Delta 桌面）：独立浏览器界面，由 DeepSeek Harness 提供 Agent 与会话",
+  "description": "Delta Desktop native DeepSeek Harness plugin with extensible appearance and settings.",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {
@@ -11,9 +11,9 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./client": "./lib/client.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg",
-    "./client": "./lib/client-entry.js"
+    "./icon": "./icon.svg"
   },
   "dsh": {
     "bundle": {
@@ -22,7 +22,7 @@
     "manifestVersion": 1,
     "client": {
       "platform": "web",
-      "immediately": true,
+      "immediately": false,
       "inject": []
     }
   },
@@ -32,10 +32,11 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "README.md"
+    "README.md",
+    "COMPATIBILITY.md"
   ],
   "engines": {
-    "node": ">=20.10.0"
+    "node": ">=22.0.0"
   },
   "license": "Apache-2.0",
   "publishConfig": {

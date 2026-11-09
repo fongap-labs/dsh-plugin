@@ -52,7 +52,7 @@ CI 检查包许可证与发布清单一致，并确保 Bundle 包含对应许可
 
 ## 5. 本地发布与生产发布
 
-根目录 `pnpm release` / `pnpm release:dry-run` 是本地 npm 发布工具，按脚本中的依赖顺序处理工作区包。它与 Action Worker 的按产品 GitHub Release 流程不同，不应把本地脚本的行为误认为中央发布契约。
+仓库不提供本地发布命令。每次发行版本只能由 Action Worker 的手动 `release-app.yml` 输入，源文件中的版本保持 `0.0.0`。
 
 生产发布优先走 Action Worker。不要在插件仓库中新增自己的完整 Release Workflow、跨仓库凭据或重复的发布治理逻辑。
 
@@ -65,4 +65,4 @@ CI 检查包许可证与发布清单一致，并确保 Bundle 包含对应许可
 3. 修复源码并走正常 PR、中央 CI 和新版本发布。
 4. 不覆盖或重写已发布的 tag、Release 资产和来源证明。
 
-Delta Desktop（Delta 桌面）独立采用 MIT 许可证，发布清单位于 `projects/dsh-desktop-delta/release.manifest.json`。旧标签 `dsh-ui-delta-v*` 保留作历史回滚，新版本统一使用 `dsh-desktop-delta-v*`。
+重构后的 Delta Desktop（Delta 桌面）使用 Apache-2.0 许可证，发布清单位于 `projects/dsh-desktop-delta/release.manifest.json`。历史 MIT 版本已发布的许可与 Tag 保持原状，不再提供旧独立网页 `/dsh-ui-delta/app`；新版本须由人工选择未使用过的发行版本。

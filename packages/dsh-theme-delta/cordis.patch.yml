@@ -1,4 +1,0 @@
-# Independent Delta Theme plugin. Official ui-layout remains enabled.
-- insert:
-    - id: dsh-theme-delta
-      name: '@fongap-labs/dsh-theme-delta'
