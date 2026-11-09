@@ -45,3 +45,15 @@
 /* Brand contributed through supported sidebar slots, fully reversible on disable. */
 .dtd-brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 20px; font-weight: 650; color: var(--dsw-alias-brand-primary, #286F78); }
 .dtd-brand-name { font-weight: 650; letter-spacing: -0.015em; }
+
+/* The official hover card owns timestamps and status. Delta adds an identity row. */
+.dtd-session-meta { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; }
+.dtd-session-meta-label { opacity: .7; }
+.dtd-session-meta-id { font-family: var(--ds-font-family-code, monospace); overflow: hidden; text-overflow: ellipsis; }
+.dtd-session-meta-copy { margin-inline-start: auto; border: 0; background: transparent; color: var(--dsw-alias-brand-primary, #286F78); cursor: pointer; }
+.dtd-session-meta-copy:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+/* Stable host scrollport contract: cosmetic spacing only, no DOM reordering. */
+:root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav { row-gap: 8px; }
+:root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav button { min-height: 36px; }
+:root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav + div { margin-block-start: 8px; }

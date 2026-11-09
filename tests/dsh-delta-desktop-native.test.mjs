@@ -18,7 +18,12 @@ function harness({ stored = null, failTheme = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
-  const documentElement = { lang: 'zh-CN' }
+  const attributes = new Map()
+  const documentElement = { lang: 'zh-CN',
+    setAttribute(key, value) { attributes.set(key, value) },
+    removeAttribute(key) { attributes.delete(key) },
+    getAttribute(key) { return attributes.get(key) },
+  }
   const head = { appendChild(tag) {
     tag.parentNode = { removeChild(value) { removed++; value.parentNode = null } }
   } }
@@ -110,10 +115,14 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'sidebar.brand.mark', 'sidebar.brand.name'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 桌面'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
+  const hover = app.components.get('sidebar.session.row.hover')
+  assert.equal(hover.spec.id, 'delta.session.identity')
+  assert.match(JSON.stringify(hover.component({ sessionId: '0123456789abcdef' })), /0123456789ab/)
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('shell.overlay'), false)
   const palette = app.layers.get(app.registration.id)
   assert.equal(palette['--dsw-alias-brand-primary'].light, '#286F78')
@@ -126,11 +135,19 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-preference-row/)
   controller.setMode('official')
   assert.equal(app.layers.size, 0)
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
+  assert.equal(app.components.has('sidebar.brand.mark'), false, 'official theme restores the native mark fallback')
+  assert.equal(app.components.has('sidebar.brand.name'), false, 'official theme restores the native name fallback')
+  assert.equal(hover.component({ sessionId: 'abc' }), null, 'official theme hides Delta hover extras')
   controller.openConversation()
   controller.toggleSidebar()
   assert.deepEqual(app.changes, [null, 'sidebar'])
   controller.setMode('delta')
   assert.equal(app.layers.size, 1)
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
+  assert.equal(app.components.has('sidebar.brand.mark'), true, 'Delta mark returns only in Delta theme')
+  assert.equal(app.components.has('sidebar.brand.name'), true, 'Delta name returns only in Delta theme')
+  assert.match(JSON.stringify(hover.component({ sessionId: 'abc' })), /abc/)
   assert.match(app.stored, /"mode":"delta"/)
   app.documentElement.lang = 'en'
   app.context.observer()
@@ -138,6 +155,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(entry.spec.label(), 'Personalization')
   app.cleanup(); app.cleanup()
   assert.equal(app.layers.size, 0)
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
   assert.equal(app.removed, 1)
   controller.setMode('delta')
   assert.equal(app.layers.size, 0)

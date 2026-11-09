@@ -21,6 +21,9 @@
     "enabled": "已启用",
     "appearance": "主题外观",
     "appearanceDescription": "在 Delta 配色与官方配色之间切换，不影响会话、模型和插件。",
-    "hostOwned": "搜索、导航、会话、工作区等功能将在适配宿主契约后逐项接入。"
+    "hostOwned": "搜索、导航、会话、工作区等功能将在适配宿主契约后逐项接入。",
+    "sessionId": "会话编号",
+    "copySessionId": "复制会话编号",
+    "copy": "复制"
   }
 }

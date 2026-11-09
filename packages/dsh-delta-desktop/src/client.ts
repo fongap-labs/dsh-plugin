@@ -10,6 +10,7 @@ interface DeltaCopy {
     status: string; unavailable: string; recovery: string; shortcut: string;
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
+    sessionId: string; copySessionId: string; copy: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -24,6 +25,7 @@ interface DeltaController {
   dispose(): void
 }
 interface DeltaProps { controller: DeltaController }
+interface SessionHoverProps { sessionId: string }
 interface ReactApi {
   createElement(type: string | ((props: DeltaProps) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
   useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
@@ -35,7 +37,7 @@ interface ThemeApi {
 interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): void }
 interface SlotsApi {
   inject(name: string, register: () => unknown): void
-  register(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: DeltaProps) => unknown): unknown
+  register<P = DeltaProps>(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
 interface ClientContext {
   theme?: ThemeApi
@@ -187,6 +189,21 @@ window.__ModuleLoader__.load({
     function DeltaBrandName(): unknown {
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
+    // This extension uses an existing native row-hover seat. Host-owned
+    // activity state and timestamps remain authoritative and are not duplicated.
+    function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
+      const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const label = copy.ui.sessionId
+      return el('div', { className: 'dtd-session-meta' },
+        el('span', { className: 'dtd-session-meta-label' }, label),
+        el('span', { className: 'dtd-session-meta-id', title: sessionId }, shortId),
+        el('button', {
+          type: 'button', className: 'dtd-session-meta-copy',
+          'aria-label': copy.ui.copySessionId,
+          onClick: () => { void navigator.clipboard?.writeText(sessionId).catch(() => {}) },
+        }, copy.ui.copy))
+    }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
       return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
@@ -236,10 +253,23 @@ window.__ModuleLoader__.load({
                 observer?.observe(document.documentElement, {
                   attributes: true, attributeFilter: ['lang'],
                 })
+                // A root theme marker scopes native shell spacing. This changes
+                // appearance only; Host navigation and actions are never moved.
+                const syncAppearance = (): void => {
+                  if (controller.getSnapshot().mode === 'delta') {
+                    document.documentElement.setAttribute?.('data-delta-ui', 'delta')
+                  } else {
+                    document.documentElement.removeAttribute?.('data-delta-ui')
+                  }
+                }
+                syncAppearance()
+                const stopAppearance = controller.subscribe(syncAppearance)
                 // Language changes are tracked through the document lang observer.
                 // Do not read ctx.locale without an explicit Cordis injection.
                 return () => {
                   observer?.disconnect()
+                  stopAppearance()
+                  document.documentElement.removeAttribute?.('data-delta-ui')
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
                 }
@@ -274,13 +304,43 @@ window.__ModuleLoader__.load({
                   id: feature.id,
                 }, feature.icon))
               }
-              // These host-owned slots keep all native navigation and shortcuts intact.
-              scope.slots.inject('sidebar.brand.mark', () => scope.slots.register({
-                name: 'sidebar.brand.mark', id: 'delta.brand.mark',
-              }, DeltaBrandMark))
-              scope.slots.inject('sidebar.brand.name', () => scope.slots.register({
-                name: 'sidebar.brand.name', id: 'delta.brand.name',
-              }, DeltaBrandName))
+              // Brand slot entries must disappear in official mode. A null component
+              // still shadows the native fallback in a single-occupant slot.
+              const registerBrand = (
+                name: 'sidebar.brand.mark' | 'sidebar.brand.name',
+                id: string,
+                component: (props: DeltaProps) => unknown,
+              ): void => {
+                scope.slots.inject(name, () => {
+                  let release: (() => void) | undefined
+                  const sync = (): void => {
+                    const shouldShow = controller.getSnapshot().mode === 'delta'
+                    if (shouldShow && !release) {
+                      const result = scope.slots.register({ name, id }, component)
+                      release = typeof result === 'function' ? (result as () => void) : () => {}
+                    } else if (!shouldShow && release) {
+                      release()
+                      release = undefined
+                    }
+                  }
+                  sync()
+                  const unsubscribe = controller.subscribe(sync)
+                  return () => {
+                    unsubscribe()
+                    release?.()
+                    release = undefined
+                  }
+                })
+              }
+              registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
+              registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
+              // Extend the official session hover card without binding sessions or
+              // exposing workspace paths. The native time/status lines remain intact.
+              scope.slots.inject('sidebar.session.row.hover', () => scope.slots.register<SessionHoverProps>({
+                name: 'sidebar.session.row.hover',
+                id: 'delta.session.identity',
+                order: 500,
+              }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
