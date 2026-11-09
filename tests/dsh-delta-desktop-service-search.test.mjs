@@ -259,10 +259,10 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   refreshSessions()
   assert.equal(hoverSignals.at(-1), '0:1760000000000',
     'Host running-state changes signal the mounted native hover')
-  assert.doesNotMatch(JSON.stringify(nativeHover({ sessionId: 'local' })), /运行中/,
+  assert.equal(JSON.stringify(nativeHover({ sessionId: 'local' })).includes('运行中'), false,
     'a stopped Session must not retain the previous running badge')
   sessionPhase = 'pending'
-  assert.doesNotMatch(JSON.stringify(nativeHover({ sessionId: 'local' })), /最近更新/,
+  assert.equal(JSON.stringify(nativeHover({ sessionId: 'local' })).includes('最近更新'), false,
     'pending Host snapshots must not show stale activity metadata')
   sessionPhase = 'ready'
   isSessionSnapshotUnavailable = true
