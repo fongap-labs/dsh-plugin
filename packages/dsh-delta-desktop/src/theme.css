@@ -125,3 +125,34 @@
 }
 /* Hide only the path line inside the official session hover card. */
 :root[data-delta-ui="delta"] [class*="hoverContent"] > [class*="hoverPath"] { display: none; }
+
+/* Delta conversation row layout: native status data and actions remain unchanged. */
+:root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"] {
+  min-height: 36px;
+  border-radius: 9px;
+}
+:root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"] [class*="rowResting"] {
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"] [class*="time"] {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+:root[data-delta-ui="delta"] [class*="hoverContent"] {
+  min-width: 0;
+  max-width: min(350px, calc(100vw - 36px));
+}
+:root[data-delta-ui="delta"] [class*="hoverContent"] > [class*="hoverStatus"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+:root[data-delta-ui="delta"] :is(textarea, [contenteditable="true"]):focus-visible {
+  outline: 1px solid var(--dsw-alias-brand-primary, #286F78);
+  outline-offset: 0;
+}
+@media (max-width: 600px) {
+  :root[data-delta-compat="1"] [data-sidebar-scrollport] { gap: 6px; }
+  :root[data-delta-compat="1"] .dtd-native-search { min-height: 36px; }
+}
