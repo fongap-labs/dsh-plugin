@@ -25,3 +25,7 @@ main 已合并的功能不等于已发布的安装包。安装前请查看 GitHu
 ## Delta 主题（新增独立插件）
 
 `packages/dsh-theme-delta` 是通过官方扩展接口增强原生客户端主题与快捷操作的独立插件，包名为 `@fongap-labs/dsh-theme-delta`。其发布配置见 `projects/dsh-theme-delta/release.manifest.json`，安装、停用和恢复说明见包内 README。该插件不替换官方根布局；完整布局交接和真实宿主安装尚待验收。
+
+## 插件版本管理
+
+插件源码中的 `package.json.version` 固定为 `0.0.0` 占位值，包括本仓库根项目；它不是对外发行版本，也不得随功能提交递增。**唯一发布入口**是 Action Worker 的“手动 · 发布应用”，人工填写 `source_repository`、`product` 和 `requested_version`，该仓库不允许留空让流水线自动推算。构建脚本仅在隔离发布工作区临时把填写的版本注入产物，完成后恢复占位值。不得通过 Git Tag、普通 CI、提交历史或 `pnpm release` 自动发布插件。发布后的版本只以独立 Release Tag、资产和发行记录为准。
