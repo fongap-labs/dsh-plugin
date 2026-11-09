@@ -200,7 +200,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         input.type = 'search'
         input.className = 'dtd-native-search-input'
         input.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
-        input.placeholder = language() === 'zh' ? '搜索会话' : 'Search sessions'
+        input.placeholder = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions
         input.maxLength = 500
         // Proxies use the Host's own React input setter and existing search flow.
         input.addEventListener('input', () => {
