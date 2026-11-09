@@ -13,8 +13,8 @@ function validEntries(version = '0.1.0-beta.2') {
       exports: { './client': './lib/client.js' },
     }),
     'cordis.patch.yml': 'id: dsh-delta-desktop\nname: @fongap-labs/dsh-delta-desktop',
-    'lib/index.js': 'workspaceRegistry protected-default-workspace',
-    'lib/client.js': 'window.__ModuleLoader__.load({ settings.section sidebar.brand.mark data-delta-compat data-delta-ui',
+    'lib/index.js': 'export { negotiateHostCapabilities, DELTA_HOST_CONTRACT_VERSION } from "./host-capabilities.js"',
+    'lib/client.js': 'window.__ModuleLoader__.load({ settings.section sidebar.brand.mark data-delta-ui',
     'locale/en.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'New conversation' } }),
     'locale/zh.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'Start' } }),
     'icon.svg': '<svg/>',
@@ -59,6 +59,12 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
   oldName.set('package.json', Buffer.from(JSON.stringify({ ...JSON.parse(entries.get('package.json').toString()),
     name: '@fongap-labs/dsh-desktop-delta' })))
   assert.throws(() => verifyEntries(oldName, '0.1.0-beta.2', 'ZIP'), /name/)
+  const unsafeHost = new Map(entries)
+  unsafeHost.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + ' workspaceRegistry'))
+  assert.throws(() => verifyEntries(unsafeHost, '0.1.0-beta.2', 'ZIP'), /unsafe Host patch/)
+  const unsafeClient = new Map(entries)
+  unsafeClient.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + ' installSidebarCompatibility'))
+  assert.throws(() => verifyEntries(unsafeClient, '0.1.0-beta.2', 'ZIP'), /private DOM coupling/)
 })
 
 test('central manual release verifies both packaged archives after build', () => {
