@@ -158,143 +158,6 @@ function createController(ctx: ClientContext): DeltaController {
 }
 
 
-// Compatibility layer for the public Harness sidebar DOM. The Host retains
-// ownership of all React nodes, commands, and session data.
-function installSidebarCompatibility(controller: DeltaController): () => void {
-  const root = document.documentElement
-  const mounted = new Map<string, HTMLElement>()
-  const initialized = new Set<string>()
-  let isDisposed = false
-  let isSyncing = false
-  const reset = (): void => {
-    for (const node of mounted.values()) node.remove()
-    mounted.clear()
-    root.removeAttribute('data-delta-compat')
-  }
-  const persistedExpansion = (): Record<string, boolean> => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('dsh.workspace.view.v5') ?? '{}') as {
-        groupExpansion?: Record<string, boolean>
-      }
-      return stored.groupExpansion ?? {}
-    } catch { return {} }
-  }
-  const sync = (): void => {
-    if (isDisposed || isSyncing) return
-    isSyncing = true
-    try {
-      if (controller.getSnapshot().mode !== 'delta') { reset(); return }
-      // The official workspace tree may mount later than the sidebar shell,
-      // and the native search input may be absent until Search is expanded.
-      // Do not make those optional children prerequisites for the entire layout.
-      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
-      const navigation = viewport?.querySelector<HTMLElement>('nav') ??
-        document.querySelector<HTMLElement>('[data-sidebar-scrollport] nav')
-      const header = document.querySelector<HTMLElement>('[data-sidebar-workspace-header]')
-      const nativeInput = header?.querySelector<HTMLInputElement>('input[type="text"]') ?? null
-      const nativeSearch = header?.querySelector<HTMLButtonElement>('button[aria-expanded]') ??
-        header?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="搜索"]') ?? null
-      if (!viewport || !navigation || !header || !nativeSearch) {
-        const missing = [
-          !viewport && 'scrollport', !navigation && 'navigation',
-          !header && 'workspace-header', !nativeSearch && 'native-search',
-        ].filter(Boolean).join(', ')
-        root.setAttribute('data-delta-compat-status', 'waiting:' + missing)
-        reset()
-        return
-      }
-      root.setAttribute('data-delta-compat-status', 'mounted')
-      root.setAttribute('data-delta-compat', '1')
-      let search = mounted.get('search')
-      if (!search || !search.isConnected) {
-        search = document.createElement('div')
-        search.className = 'dtd-native-search'
-        search.setAttribute('data-delta-search', '')
-        const input = document.createElement('input')
-        input.type = 'search'
-        input.className = 'dtd-native-search-input'
-        input.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
-        input.placeholder = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions
-        input.maxLength = 500
-        // Proxies use the Host's own React input setter and existing search flow.
-        input.addEventListener('input', () => {
-          const hostInput = document.querySelector<HTMLInputElement>(
-            '[data-sidebar-workspace-header] input[type="text"]')
-          const hostButton = document.querySelector<HTMLButtonElement>(
-            '[data-sidebar-workspace-header] button[aria-expanded]')
-          if (!hostButton) return
-          if (hostButton.getAttribute('aria-expanded') !== 'true') hostButton.click()
-          // Let React commit the newly expanded input before forwarding text.
-          const forward = (): void => {
-            const target = document.querySelector<HTMLInputElement>(
-              '[data-sidebar-workspace-header] input[type="text"]')
-            if (!target) return
-            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-            setter?.call(target, input.value)
-            target.dispatchEvent(new Event('input', { bubbles: true }))
-          }
-          if (hostInput) forward()
-          else window.requestAnimationFrame(forward)
-          input.focus()
-        })
-        input.addEventListener('keydown', event => {
-          if (event.key !== 'Escape') return
-          input.value = ''
-          input.dispatchEvent(new Event('input', { bubbles: true }))
-          input.blur()
-        })
-        search.appendChild(input)
-        mounted.set('search', search)
-      }
-      if (search.parentElement !== viewport || search.nextElementSibling !== navigation) {
-        viewport.insertBefore(search, navigation)
-      }
-      const proxy = search.querySelector<HTMLInputElement>('input')
-      if (proxy && nativeInput && document.activeElement !== proxy &&
-          proxy.value !== nativeInput.value) proxy.value = nativeInput.value
-      let newSession = mounted.get('newSession') as HTMLButtonElement | undefined
-      const nativeNew = document.querySelector<HTMLButtonElement>('button[class*="newSession"]')
-      if (nativeNew && (!newSession || !newSession.isConnected)) {
-        newSession = document.createElement('button')
-        newSession.type = 'button'
-        newSession.className = 'dtd-native-new-session'
-        newSession.setAttribute('data-delta-action', 'new-session')
-        newSession.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.newConversation
-        newSession.addEventListener('click', () => {
-          document.querySelector<HTMLButtonElement>('button[class*="newSession"]:not([data-delta-action])')?.click()
-        })
-        mounted.set('newSession', newSession)
-      }
-      if (newSession && newSession.parentElement !== viewport) navigation.insertAdjacentElement('afterend', newSession)
-      // Fold only never-configured groups once. The native row click persists
-      // the explicit false value. Never override an existing user preference.
-      const saved = persistedExpansion()
-      for (const row of viewport.querySelectorAll<HTMLElement>('[data-row-key^="workspace:"][aria-expanded="true"]')) {
-        const key = row.getAttribute('data-row-key')?.slice('workspace:'.length)
-        if (!key || initialized.has(key) || saved[key] !== undefined) continue
-        initialized.add(key)
-        row.click()
-      }
-    } catch (error) {
-      reset()
-      root.setAttribute('data-delta-compat-status', 'error')
-      console.error('[dsh-delta-desktop] Native compatibility disabled:', error)
-    } finally { isSyncing = false }
-  }
-  // React may remount its Host-owned regions. Recreate only Delta-owned nodes.
-  const observer = new MutationObserver(() => sync())
-  observer.observe(document.body ?? root, { subtree: true, childList: true })
-  const unsubscribe = controller.subscribe(sync)
-  sync()
-  return () => {
-    isDisposed = true
-    unsubscribe()
-    observer.disconnect()
-    reset()
-    root.removeAttribute('data-delta-compat-status')
-  }
-}
-
 window.__ModuleLoader__.load({
   id: OWNER,
   factory(require) {
@@ -438,13 +301,11 @@ window.__ModuleLoader__.load({
                 }
                 syncAppearance()
                 const stopAppearance = controller.subscribe(syncAppearance)
-                const stopCompat = installSidebarCompatibility(controller)
                 // Language changes are tracked through the document lang observer.
                 // Do not read ctx.locale without an explicit Cordis injection.
                 return () => {
                   observer?.disconnect()
                   stopAppearance()
-                  stopCompat()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute?.('data-delta-ui')
                   tag.parentNode?.removeChild(tag)
