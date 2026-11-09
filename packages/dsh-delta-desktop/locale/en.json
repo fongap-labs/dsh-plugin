@@ -42,6 +42,12 @@
     "sessionStateUnknown": "Session archive status is unavailable. Open it through the native session list.",
     "sessionRunning": "Running",
     "sessionUpdated": "Last updated",
-    "sessionArchived": "Archived"
+    "sessionArchived": "Archived",
+    "integrationTitle": "Host compatibility · extension contract v1",
+    "integrationSummary": "The verified Harness 0.2.2-rc.1 does not expose four required extension contracts. Delta enables only supported additive features; the full desktop layout has not been activated.",
+    "integrationSidebar": "Full sidebar navigation composition: no public composition seat",
+    "integrationCollapse": "Default-collapsed Workspaces: no public view-state initializer",
+    "integrationDeletion": "Default Workspace deletion guard: no business-layer guard hook",
+    "integrationRunning": "Native chat running copy: no dedicated localization override"
   }
 }
