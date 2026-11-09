@@ -150,6 +150,120 @@ function createController(ctx: ClientContext): DeltaController {
   } as DeltaController & { syncLanguage(): void; activate(): void }
 }
 
+
+// Compatibility layer for the public Harness sidebar DOM. The Host retains
+// ownership of all React nodes, commands, and session data.
+function installSidebarCompatibility(controller: DeltaController): () => void {
+  const root = document.documentElement
+  const mounted = new Map<string, HTMLElement>()
+  const initialized = new Set<string>()
+  let disposed = false
+  let syncing = false
+  const reset = (): void => {
+    for (const node of mounted.values()) node.remove()
+    mounted.clear()
+    root.removeAttribute('data-delta-compat')
+  }
+  const persistedExpansion = (): Record<string, boolean> => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('dsh.workspace.view.v5') ?? '{}') as {
+        groupExpansion?: Record<string, boolean>
+      }
+      return stored.groupExpansion ?? {}
+    } catch { return {} }
+  }
+  const sync = (): void => {
+    if (disposed || syncing) return
+    syncing = true
+    try {
+      if (controller.getSnapshot().mode !== 'delta') { reset(); return }
+      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
+      const navigation = viewport?.querySelector<HTMLElement>(':scope > nav')
+      const header = viewport?.querySelector<HTMLElement>('[data-sidebar-workspace-header]')
+      const nativeInput = header?.querySelector<HTMLInputElement>('input[type="text"]')
+      const nativeSearch = header?.querySelector<HTMLButtonElement>('button[aria-expanded]')
+      // Only enter compatibility mode after all version-specific anchors exist.
+      if (!viewport || !navigation || !nativeInput || !nativeSearch) { reset(); return }
+      root.setAttribute('data-delta-compat', '1')
+      let search = mounted.get('search')
+      if (!search || !search.isConnected) {
+        search = document.createElement('div')
+        search.className = 'dtd-native-search'
+        search.setAttribute('data-delta-search', '')
+        const input = document.createElement('input')
+        input.type = 'search'
+        input.className = 'dtd-native-search-input'
+        input.setAttribute('aria-label', language() === 'zh' ? '搜索会话' : 'Search sessions')
+        input.placeholder = language() === 'zh' ? '搜索会话' : 'Search sessions'
+        input.maxLength = 500
+        // Proxies use the Host's own React input setter and existing search flow.
+        input.addEventListener('input', () => {
+          const hostInput = document.querySelector<HTMLInputElement>(
+            '[data-sidebar-workspace-header] input[type="text"]')
+          const hostButton = document.querySelector<HTMLButtonElement>(
+            '[data-sidebar-workspace-header] button[aria-expanded]')
+          if (!hostInput || !hostButton) return
+          if (hostButton.getAttribute('aria-expanded') !== 'true') hostButton.click()
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+          setter?.call(hostInput, input.value)
+          hostInput.dispatchEvent(new Event('input', { bubbles: true }))
+          input.focus()
+        })
+        input.addEventListener('keydown', event => {
+          if (event.key !== 'Escape') return
+          input.value = ''
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+          input.blur()
+        })
+        search.appendChild(input)
+        mounted.set('search', search)
+      }
+      if (search.parentElement !== viewport || search.nextElementSibling !== navigation) {
+        viewport.insertBefore(search, navigation)
+      }
+      const proxy = search.querySelector<HTMLInputElement>('input')
+      if (proxy && document.activeElement !== proxy && proxy.value !== nativeInput.value) proxy.value = nativeInput.value
+      let newSession = mounted.get('newSession')
+      const nativeNew = document.querySelector<HTMLButtonElement>('button[class*="newSession"]')
+      if (nativeNew && (!newSession || !newSession.isConnected)) {
+        newSession = document.createElement('button')
+        newSession.type = 'button'
+        newSession.className = 'dtd-native-new-session'
+        newSession.setAttribute('data-delta-action', 'new-session')
+        newSession.textContent = language() === 'zh' ? '开始对话' : 'New conversation'
+        newSession.addEventListener('click', () => {
+          document.querySelector<HTMLButtonElement>('button[class*="newSession"]:not([data-delta-action])')?.click()
+        })
+        mounted.set('newSession', newSession)
+      }
+      if (newSession && newSession.parentElement !== viewport) navigation.insertAdjacentElement('afterend', newSession)
+      // Fold only never-configured groups once. The native row click persists
+      // the explicit false value. Never override an existing user preference.
+      const saved = persistedExpansion()
+      for (const row of viewport.querySelectorAll<HTMLElement>('[data-row-key^="workspace:"][aria-expanded="true"]')) {
+        const key = row.getAttribute('data-row-key')?.slice('workspace:'.length)
+        if (!key || initialized.has(key) || saved[key] !== undefined) continue
+        initialized.add(key)
+        row.click()
+      }
+    } catch (error) {
+      reset()
+      console.error('[dsh-delta-desktop] Native compatibility disabled:', error)
+    } finally { syncing = false }
+  }
+  // React may remount its Host-owned regions. Recreate only Delta-owned nodes.
+  const observer = new MutationObserver(() => sync())
+  observer.observe(document.body ?? root, { subtree: true, childList: true })
+  const unsubscribe = controller.subscribe(sync)
+  sync()
+  return () => {
+    disposed = true
+    unsubscribe()
+    observer.disconnect()
+    reset()
+  }
+}
+
 window.__ModuleLoader__.load({
   id: OWNER,
   factory(require) {
@@ -264,11 +378,13 @@ window.__ModuleLoader__.load({
                 }
                 syncAppearance()
                 const stopAppearance = controller.subscribe(syncAppearance)
+                const stopCompat = installSidebarCompatibility(controller)
                 // Language changes are tracked through the document lang observer.
                 // Do not read ctx.locale without an explicit Cordis injection.
                 return () => {
                   observer?.disconnect()
                   stopAppearance()
+                  stopCompat()
                   document.documentElement.removeAttribute?.('data-delta-ui')
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
