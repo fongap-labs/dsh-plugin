@@ -306,6 +306,10 @@ function installHostSearch(
     const workspaces = getWorkspaces()
     if (!workspaces) return 'unknown'
     try {
+      // A session list in a pending/reconnecting phase is not an actionable
+      // snapshot, even when the Workspace archive metadata is still cached.
+      const sessionSnapshot = sessions.list.getSnapshot()
+      if (sessionSnapshot.phase !== undefined && sessionSnapshot.phase !== 'ready') return 'unknown'
       const snapshot = workspaces.list.getSnapshot()
       if (!Array.isArray(snapshot.archivedSessionIds) || !workspaceReady(snapshot)) return 'unknown'
       return snapshot.archivedSessionIds.includes(sessionId) ? 'archived' : 'allowed'
