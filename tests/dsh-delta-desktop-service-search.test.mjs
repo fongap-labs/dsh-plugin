@@ -92,13 +92,14 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let archivedSessionIds = []
   let workspacePhase = 'ready'
   let workspaceState = 'idle'
+  let workspaceTitle = 'Design Workspace'
   let refreshWorkspaces = () => {}
   let refreshSessions = () => {}
   let sessionRunning = false
   const hostWorkspaces = {
     list: {
       getSnapshot: () => ({ phase: workspacePhase, state: workspaceState, archivedSessionIds, items: [
-        { workspaceId: 'design', title: 'Design Workspace', path: 'C:\\Users\\private\\secret' },
+        { workspaceId: 'design', title: workspaceTitle, path: 'C:\\Users\\private\\secret' },
       ] }),
       subscribe(callback) { refreshWorkspaces = callback; return () => { refreshWorkspaces = () => {} } },
     },
@@ -297,6 +298,20 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(results.children[0].children[1].textContent, 'Design Workspace')
   assert.equal(results.children[0].children.some(x => String(x.textContent).includes('private')), false,
     'only the workspace title may appear; the filesystem path must stay private')
+  // Host state may change after the row is rendered but before click.
+  // Never use a stale Workspace button as authority for navigation.
+  const beforeWorkspaceClicks = actions.filter(([kind]) => kind === 'workspace').length
+  workspaceState = 'loading'
+  results.children[0].emit('click')
+  assert.equal(actions.filter(([kind]) => kind === 'workspace').length, beforeWorkspaceClicks,
+    'a stale row must not open a Workspace while the Host is reconnecting')
+  assert.equal(feedback.hidden, false, 'stale workspace navigation must report a visible error')
+  workspaceState = 'idle'
+  workspaceTitle = 'Renamed Workspace'
+  results.children[0].emit('click')
+  assert.equal(actions.filter(([kind]) => kind === 'workspace').length, beforeWorkspaceClicks,
+    'a Workspace renamed since paint must not be opened from the stale row')
+  workspaceTitle = 'Design Workspace'
   results.children[0].emit('click')
   // The simulated Host returns a cross-vm Promise; wait for Promise assimilation.
   await new Promise(resolve => setImmediate(resolve))
