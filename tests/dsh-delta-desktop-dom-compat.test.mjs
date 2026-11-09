@@ -13,6 +13,8 @@ test('Delta Desktop does not take over private Host sidebar DOM', () => {
   assert.doesNotMatch(style, /data-delta-compat|dtd-native-search|dtd-native-new-session/)
   assert.match(source, /sessions\.search\(query, aborter\.signal\)/)
   assert.match(source, /navigation\.openSession\(match\.id\)/)
+  assert.match(source, /sessionOpenability\(match\.id\)/)
+  assert.match(source, /snapshot\.archivedSessionIds\.includes\(sessionId\)/)
   assert.match(source, /viewport\.insertBefore\(shell, viewport\.firstElementChild\)/)
   assert.doesNotMatch(source, /viewport\?\.querySelector\('nav'\)/)
   assert.match(source, /navigation\.openWorkspace\(workspace\.id\)/)

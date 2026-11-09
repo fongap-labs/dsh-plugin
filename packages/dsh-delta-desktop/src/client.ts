@@ -13,7 +13,7 @@ interface DeltaCopy {
     sessionId: string; copySessionId: string; copy: string;
     searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
     searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
-    workspaceResult: string;
+    workspaceResult: string; archivedSession: string; sessionStateUnknown: string;
     copied: string; copyFailed: string;
   }
 }
@@ -48,7 +48,12 @@ interface SlotsApi {
 }
 interface WorkspacesApi {
   list: {
-    getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[] }
+    getSnapshot(): {
+      items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
+      /** Native WorkspaceBrowser prevents opening archived Sessions. */
+      archivedSessionIds?: readonly string[]
+      phase?: string
+    }
     subscribe?(listener: () => void): () => void
   }
   delete(workspaceId: string): Promise<unknown>
@@ -270,6 +275,18 @@ function installHostSearch(
   let isSearching = false
   let hasError = false
   const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
+  // Native WorkspaceBrowser's guardedOpen forbids archived Sessions. The public
+  // Workspace snapshot is authoritative; missing or loading metadata fails closed.
+  const sessionOpenability = (sessionId: string): 'allowed' | 'archived' | 'unknown' => {
+    const workspaces = getWorkspaces()
+    if (!workspaces) return 'unknown'
+    try {
+      const snapshot = workspaces.list.getSnapshot()
+      if (!Array.isArray(snapshot.archivedSessionIds) ||
+          (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return 'unknown'
+      return snapshot.archivedSessionIds.includes(sessionId) ? 'archived' : 'allowed'
+    } catch { return 'unknown' }
+  }
   const clearRequest = (): void => {
     if (timer !== undefined) window.clearTimeout(timer)
     timer = undefined
@@ -368,7 +385,17 @@ function installHostSearch(
         button.appendChild(detail)
       }
       button.addEventListener('click', () => {
+        if (!active()) return
+        const openability = sessionOpenability(match.id)
+        if (openability !== 'allowed') {
+          const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+          feedback.textContent = openability === 'archived'
+            ? labels.archivedSession : labels.sessionStateUnknown
+          feedback.hidden = false
+          return
+        }
         try {
+          feedback.hidden = true
           navigation.openSession(match.id)
           input.value = ''
           clearRequest()

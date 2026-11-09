@@ -37,6 +37,8 @@
     "searchWaitingServices": "搜索与快捷入口：等待 Harness 会话与导航服务。",
     "searchWaitingSidebar": "搜索与快捷入口：等待 Harness 侧栏挂载。",
     "searchDisabled": "搜索与快捷入口：官方外观下不启用。",
-    "workspaceResult": "工作区"
+    "workspaceResult": "工作区",
+    "archivedSession": "此会话已归档。请先通过官方工作区列表恢复后再打开。",
+    "sessionStateUnknown": "无法确认会话归档状态，请使用官方会话列表打开。"
   }
 }

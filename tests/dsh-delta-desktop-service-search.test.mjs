@@ -87,9 +87,11 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let registered
   const inserted = []
   const actions = []
+  let archivedSessionIds = []
+  let workspacePhase = 'ready'
   const hostWorkspaces = {
     list: {
-      getSnapshot: () => ({ items: [
+      getSnapshot: () => ({ phase: workspacePhase, archivedSessionIds, items: [
         { workspaceId: 'design', title: 'Design Workspace', path: 'C:\\Users\\private\\secret' },
       ] }),
       subscribe() { return () => {} },
@@ -186,6 +188,21 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.deepEqual(actions[3], ['search', 'example'])
   assert.equal(results.children.length, 2)
   assert.equal(results.children[1].children[1].textContent, 'Example content match')
+  archivedSessionIds = ['remote']
+  results.children[1].emit('click')
+  assert.equal(feedback.hidden, false)
+  assert.equal(feedback.textContent, '此会话已归档。请先通过官方工作区列表恢复后再打开。')
+  assert.equal(actions.filter(([action]) => action === 'open').length, 0,
+    'archived search results must not bypass native WorkspaceBrowser guardedOpen')
+  archivedSessionIds = []
+  workspacePhase = 'loading'
+  results.children[1].emit('click')
+  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
+  workspacePhase = 'ready'
+  archivedSessionIds = undefined
+  results.children[1].emit('click')
+  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
+  archivedSessionIds = []
   results.children[1].emit('click')
   assert.deepEqual(actions[4], ['open', 'remote'])
   assert.equal(results.hidden, true)
