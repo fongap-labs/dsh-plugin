@@ -19,10 +19,11 @@ function harness({ stored = null, failTheme = false } = {}) {
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
   const deletedWorkspaces = []
+  const defaultSessions = ['session-one']
   const workspaces = {
     list: { getSnapshot() { return { items: [
-      { workspaceId: 'default', path: 'C:\\Users\\user\\Documents\\deepseek-harness\\default-workspace', title: 'default-workspace' },
-      { workspaceId: 'other', path: 'C:\\Users\\user\\Documents\\work', title: 'work' },
+      { workspaceId: 'default', path: 'C:\\Users\\user\\Documents\\deepseek-harness\\default-workspace', title: 'default-workspace', sessionIds: defaultSessions },
+      { workspaceId: 'other', path: 'C:\\Users\\user\\Documents\\work', title: 'work', sessionIds: [] },
     ] } } },
     async delete(id) { deletedWorkspaces.push(id) },
   }
@@ -83,7 +84,7 @@ function harness({ stored = null, failTheme = false } = {}) {
   }
   client.apply(ctx)
   return { registration, context, documentElement, components, slots, layers, changes,
-    workspaces, deletedWorkspaces, originalDelete,
+    workspaces, deletedWorkspaces, originalDelete, defaultSessions,
     cleanup() { effects.forEach(fn => fn?.()) },
     get removed() { return removed },
     get stored() { return stored } }
@@ -231,9 +232,12 @@ test('workspace deletion guard rejects the automatic directory and permits other
   await assert.rejects(app.workspaces.delete('default'), /delta\/protected-default-workspace/)
   await app.workspaces.delete('other')
   assert.deepEqual(app.deletedWorkspaces, ['other'])
+  app.defaultSessions.length = 0
+  await app.workspaces.delete('default')
+  assert.deepEqual(app.deletedWorkspaces, ['other', 'default'])
   const controller = app.components.get('settings.section').spec.inject().controller
   controller.setMode('official')
   await app.workspaces.delete('default')
-  assert.deepEqual(app.deletedWorkspaces, ['other', 'default'])
+  assert.deepEqual(app.deletedWorkspaces, ['other', 'default', 'default'])
   app.cleanup()
 })
