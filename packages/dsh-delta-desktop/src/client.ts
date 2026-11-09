@@ -10,6 +10,7 @@ interface DeltaCopy {
     status: string; unavailable: string; recovery: string; shortcut: string;
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
+    sessionId: string; copySessionId: string; copy: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -192,15 +193,16 @@ window.__ModuleLoader__.load({
     // activity state and timestamps remain authoritative and are not duplicated.
     function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
-      const label = language() === 'zh' ? '会话编号' : 'Session ID'
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const label = copy.ui.sessionId
       return el('div', { className: 'dtd-session-meta' },
         el('span', { className: 'dtd-session-meta-label' }, label),
         el('span', { className: 'dtd-session-meta-id', title: sessionId }, shortId),
         el('button', {
           type: 'button', className: 'dtd-session-meta-copy',
-          'aria-label': language() === 'zh' ? '复制会话编号' : 'Copy session ID',
+          'aria-label': copy.ui.copySessionId,
           onClick: () => { void navigator.clipboard?.writeText(sessionId).catch(() => {}) },
-        }, language() === 'zh' ? '复制' : 'Copy'))
+        }, copy.ui.copy))
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
