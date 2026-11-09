@@ -990,8 +990,18 @@ window.__ModuleLoader__.load({
                   }
                 }, 'dsh-delta-desktop: optional workspace search source')
               })
-              // Native search and navigation are optional Host services, not synthetic DOM commands.
-              // They mount only once both services exist and never block the Settings or Theme.
+              // Sidebar presentation is owned by Delta even when optional Host
+              // search/navigation services have not started. This makes enable
+              // visibly effective without inventing an unsafe fallback action.
+              let sessionService: SearchSessionsApi | undefined
+              let navigationService: SearchNavigationApi | undefined
+              scope.effect(() => installHostSearch(
+                controller, () => sessionService, () => navigationService,
+                () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
+              ), 'dsh-delta-desktop: reversible sidebar presentation')
+              // Rebind the live services without remounting or dropping the
+              // user's sidebar search field. A missing service shows a waiting
+              // state; a later Host injection activates real search/navigation.
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
                 if (!searchScope.sessions || !searchScope.uiWorkspace ||
                     typeof searchScope.sessions.search !== 'function' ||
@@ -999,16 +1009,21 @@ window.__ModuleLoader__.load({
                     typeof searchScope.uiWorkspace.openSession !== 'function' ||
                     typeof searchScope.uiWorkspace.startSession !== 'function') return
                 searchScope.effect(() => {
-                  hoverSessionSource = searchScope.sessions
-                  const disposeSearch = installHostSearch(
-                    controller, searchScope.sessions!, searchScope.uiWorkspace!,
-                    () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
-                  )
+                  const sessions = searchScope.sessions!
+                  const navigation = searchScope.uiWorkspace!
+                  sessionService = sessions
+                  navigationService = navigation
+                  hoverSessionSource = sessions
+                  const unsubscribe = sessions.list.subscribe?.(() => refreshWorkspaceResults?.())
+                  refreshWorkspaceResults?.()
                   return () => {
-                    disposeSearch()
-                    if (hoverSessionSource === searchScope.sessions) hoverSessionSource = undefined
+                    unsubscribe?.()
+                    if (sessionService === sessions) sessionService = undefined
+                    if (navigationService === navigation) navigationService = undefined
+                    if (hoverSessionSource === sessions) hoverSessionSource = undefined
+                    refreshWorkspaceResults?.()
                   }
-                }, 'dsh-delta-desktop: native service-backed sidebar search')
+                }, 'dsh-delta-desktop: optional Host search and navigation')
               })
               // Match the native New Session permission gate without reading any
               // private access state: whenAccess handles future grant/revoke updates.
