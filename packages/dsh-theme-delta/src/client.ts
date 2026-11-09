@@ -35,7 +35,7 @@ interface ThemeApi {
 interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): void }
 interface SlotsApi {
   inject(name: string, register: () => unknown): void
-  register(options: { name: string; id: string; order?: number; inject: () => DeltaProps }, component: (props: DeltaProps) => unknown): unknown
+  register(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: DeltaProps) => unknown): unknown
 }
 interface ClientContext {
   theme?: ThemeApi
