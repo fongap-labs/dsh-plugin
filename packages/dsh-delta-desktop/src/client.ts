@@ -20,7 +20,10 @@ interface DeltaCopy {
 type Language = 'zh' | 'en'
 type Mode = 'delta' | 'official'
 type SearchStatus = 'waiting-services' | 'waiting-sidebar' | 'active' | 'disabled'
-type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; searchStatus: SearchStatus; revision: number }>
+type DeltaState = Readonly<{
+  mode: Mode; language: Language; error: boolean; searchStatus: SearchStatus;
+  createAllowed: boolean; revision: number
+}>
 interface DeltaController {
   getSnapshot(): DeltaState
   subscribe(listener: () => void): () => void
@@ -29,6 +32,7 @@ interface DeltaController {
   openConversation(): void
   openPanel(panelId: 'plugins' | 'schedules'): boolean
   setSearchStatus(status: SearchStatus): void
+  setCreateAllowed(allowed: boolean): void
   dispose(): void
 }
 interface DeltaProps { controller: DeltaController }
@@ -75,7 +79,12 @@ interface SearchNavigationApi {
   openWorkspace?(workspaceId: string): Promise<void>
 }
 
+interface AccessApi {
+  /** Official global grant: callback runs only while session/create is allowed. */
+  whenAccess(action: string, callback: () => (() => void)): () => void
+}
 interface ClientContext {
+  remoteAccess?: AccessApi
   theme?: ThemeApi
   layout?: LayoutApi
   workspaces?: WorkspacesApi
@@ -132,7 +141,8 @@ function writeMode(mode: Mode): void {
 function createController(): DeltaController {
   const initialMode = readMode()
   let snapshot: DeltaState = Object.freeze({ mode: initialMode, language: language(), error: false,
-    searchStatus: initialMode === 'official' ? 'disabled' : 'waiting-services', revision: 0 })
+    searchStatus: initialMode === 'official' ? 'disabled' : 'waiting-services',
+    createAllowed: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
   let activeLayout: LayoutApi | undefined
@@ -185,6 +195,9 @@ function createController(): DeltaController {
     openPanel: (panelId) => safeLayout(layout => layout.selectPanel(panelId)),
     setSearchStatus: (status) => {
       if (!isDisposed && snapshot.searchStatus !== status) publish({ searchStatus: status })
+    },
+    setCreateAllowed: (allowed) => {
+      if (!isDisposed && snapshot.createAllowed !== allowed) publish({ createAllowed: allowed })
     },
     dispose: () => {
       if (isDisposed) return
@@ -465,7 +478,12 @@ function installHostSearch(
   schedulesButton.addEventListener('click', () =>
     runQuickAction('schedules', () => controller.openPanel('schedules')))
   newSessionButton.addEventListener('click', () =>
-    runQuickAction('new-session', () => navigation.startSession()))
+    runQuickAction('new-session', () => {
+      // Native SidebarRoot gates New Session on useRemoteAccess('session/create').
+      // A revoked or missing global grant must never dispatch from Delta either.
+      if (!controller.getSnapshot().createAllowed) return false
+      navigation.startSession()
+    }))
   input.addEventListener('input', () => {
     feedback.hidden = true
     onInput()
@@ -499,6 +517,8 @@ function installHostSearch(
     pluginsButton.textContent = copy.pluginManagement
     schedulesButton.textContent = copy.scheduledTasks
     newSessionButton.textContent = copy.newConversation
+    newSessionButton.hidden = !controller.getSnapshot().createAllowed
+    newSessionButton.disabled = !controller.getSnapshot().createAllowed
     const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
     // The Host only renders <nav> when it has main-panel entries; search must
     // still work with no panels, above the unchanged workspace browsing region.
@@ -792,6 +812,21 @@ window.__ModuleLoader__.load({
                   controller, searchScope.sessions!, searchScope.uiWorkspace!,
                   () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
                 ), 'dsh-delta-desktop: native service-backed sidebar search')
+              })
+              // Match the native New Session permission gate without reading any
+              // private access state: whenAccess handles future grant/revoke updates.
+              scope.inject(['remoteAccess'], accessScope => {
+                if (typeof accessScope.remoteAccess?.whenAccess !== 'function') return
+                accessScope.effect(() => {
+                  const release = accessScope.remoteAccess!.whenAccess('session/create', () => {
+                    controller.setCreateAllowed(true)
+                    return () => controller.setCreateAllowed(false)
+                  })
+                  return () => {
+                    release()
+                    controller.setCreateAllowed(false)
+                  }
+                }, 'dsh-delta-desktop: native session-create authorization')
               })
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {

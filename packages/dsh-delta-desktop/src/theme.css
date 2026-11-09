@@ -220,3 +220,9 @@
   font-size: 11px;
   font-weight: 600;
 }
+
+/* Match native session/create grants: unauthorized New Session is not shown. */
+:root[data-delta-ui="delta"] .dtd-host-quick-action[hidden] { display: none; }
+:root[data-delta-ui="delta"] .dtd-host-quick-actions:has([data-delta-action="new-session"][hidden]) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}

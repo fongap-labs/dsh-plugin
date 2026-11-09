@@ -99,6 +99,8 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     async delete() { throw new Error('workspace deletion is Host-owned') },
   }
   let workspaceNavigationFails = false
+  let revokeSessionCreate = () => {}
+  let grantSessionCreate = () => {}
   const hostSessions = {
     list: { getSnapshot: () => ({ byId: { local: { id: 'local', title: 'Example Session' } } }) },
     search: async (query, signal) => {
@@ -112,6 +114,15 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     layout: { toggleSidebar() {}, selectPanel(id) { actions.push(['panel', id]) } },
     sessions: hostSessions,
     workspaces: hostWorkspaces,
+    remoteAccess: {
+      whenAccess(action, install) {
+        assert.equal(action, 'session/create')
+        let uninstall = install()
+        revokeSessionCreate = () => { uninstall?.(); uninstall = undefined }
+        grantSessionCreate = () => { uninstall = install() }
+        return () => { uninstall?.(); uninstall = undefined }
+      },
+    },
     uiWorkspace: {
       openSession(id) { actions.push(['open', id]) },
       startSession() { actions.push(['new-session']) },
@@ -169,10 +180,23 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.deepEqual(quickActions.children.map(button => button.getAttribute('data-delta-action')),
     ['plugins', 'schedules', 'new-session'])
   assert.deepEqual(quickActions.children.map(button => button.textContent), ['插件管理', '定时任务', '开始对话'])
+  assert.equal(quickActions.children[2].hidden, false, 'owner grant enables New Session')
   quickActions.children[0].emit('click')
   quickActions.children[1].emit('click')
   quickActions.children[2].emit('click')
   assert.deepEqual(actions, [['panel', 'plugins'], ['panel', 'schedules'], ['new-session']])
+  assert.equal(feedback.hidden, true)
+  revokeSessionCreate()
+  assert.equal(quickActions.children[2].hidden, true, 'revoked grant hides New Session')
+  assert.equal(quickActions.children[2].disabled, true)
+  quickActions.children[2].emit('click')
+  assert.deepEqual(actions, [['panel', 'plugins'], ['panel', 'schedules'], ['new-session']],
+    'revoked grants cannot dispatch even a synthetic click')
+  assert.equal(feedback.hidden, false)
+  grantSessionCreate()
+  assert.equal(quickActions.children[2].hidden, false, 'restored grant shows New Session')
+  quickActions.children[2].emit('click')
+  assert.deepEqual(actions.at(-1), ['new-session'])
   assert.equal(feedback.hidden, true)
   input.value = 'example'
   input.emit('input')
@@ -185,7 +209,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   fire()
   await Promise.resolve()
   await Promise.resolve()
-  assert.deepEqual(actions[3], ['search', 'example'])
+  assert.deepEqual(actions.at(-1), ['search', 'example'])
   assert.equal(results.children.length, 2)
   assert.equal(results.children[1].children[1].textContent, 'Example content match')
   archivedSessionIds = ['remote']
@@ -204,7 +228,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
   archivedSessionIds = []
   results.children[1].emit('click')
-  assert.deepEqual(actions[4], ['open', 'remote'])
+  assert.deepEqual(actions.at(-1), ['open', 'remote'])
   assert.equal(results.hidden, true)
 
   input.value = 'design'

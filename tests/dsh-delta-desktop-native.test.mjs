@@ -58,7 +58,7 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
-      assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace'].includes(names.join(',')))
+      assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess'].includes(names.join(',')))
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'locale') throw new Error('cannot get property "locale" without inject')
