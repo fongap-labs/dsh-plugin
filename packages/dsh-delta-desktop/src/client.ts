@@ -39,9 +39,14 @@ interface SlotsApi {
   inject(name: string, register: () => unknown): void
   register<P = DeltaProps>(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
+interface WorkspacesApi {
+  list: { getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string }[] } }
+  delete(workspaceId: string): Promise<unknown>
+}
 interface ClientContext {
   theme?: ThemeApi
   layout?: LayoutApi
+  workspaces?: WorkspacesApi
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
   inject(services: string[], callback: (scope: ClientContext) => void): void
@@ -457,6 +462,30 @@ window.__ModuleLoader__.load({
                 id: 'delta.session.identity',
                 order: 500,
               }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              // Guard Host workspace mutations at the client service boundary,
+              // not merely by hiding a delete menu item. Restore on plugin unload.
+              scope.inject(['workspaces'], workspaceScope => {
+                const workspaces = workspaceScope.workspaces
+                if (!workspaces || typeof workspaces.delete !== 'function') return
+                const originalDelete = workspaces.delete
+                const guardedDelete = (id: string): Promise<unknown> => {
+                  const target = workspaces.list.getSnapshot().items.find(item => item.workspaceId === id)
+                  const path = target?.path.replace(/\\/g, '/').toLowerCase()
+                  const protectedDefault = path?.endsWith('/deepseek-harness/default-workspace') === true
+                  if (controller.getSnapshot().mode === 'delta' && protectedDefault) {
+                    return Promise.reject(new Error('delta/protected-default-workspace'))
+                  }
+                  return originalDelete.call(workspaces, id)
+                }
+                try {
+                  workspaces.delete = guardedDelete
+                  workspaceScope.effect(() => () => {
+                    if (workspaces.delete === guardedDelete) workspaces.delete = originalDelete
+                  }, 'dsh-delta-desktop: workspace deletion guard')
+                } catch (error) {
+                  console.error('[dsh-delta-desktop] Workspace guard unavailable:', error)
+                }
+              })
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
