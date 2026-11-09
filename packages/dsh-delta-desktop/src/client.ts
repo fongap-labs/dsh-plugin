@@ -44,7 +44,7 @@ interface SessionHoverProps { sessionId: string }
 interface ReactApi {
   createElement(type: string | ((props: DeltaProps) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
   useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
-  useSyncExternalStore(subscribe: (listener: () => void) => () => void, getSnapshot: () => DeltaState): DeltaState
+  useSyncExternalStore<T>(subscribe: (listener: () => void) => () => void, getSnapshot: () => T): T
 }
 interface ThemeApi {
   overrideTokens(source: string, tokens: Record<string, { light: string; dark: string }>): () => void
@@ -695,6 +695,26 @@ window.__ModuleLoader__.load({
     }
     const el = React.createElement
     let hoverSessionSource: SearchSessionsApi | undefined
+    // The hover seat is mounted only while a row is visible. Subscribe to the
+    // public Session list so its running state updates without opening a Session.
+    const subscribeHoverSessions = (notify: () => void): (() => void) => {
+      try {
+        return hoverSessionSource?.list.subscribe?.(notify) ?? (() => {})
+      } catch { return () => {} }
+    }
+    // useSyncExternalStore must receive a stable, primitive snapshot. Reading
+    // a fresh Host catalog object here would otherwise cause render loops.
+    const readHoverState = (sessionId: string): string => {
+      try {
+        const snapshot = hoverSessionSource?.list.getSnapshot()
+        if (!snapshot || (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return ''
+        const session = snapshot.byId[sessionId]
+        if (!session) return ''
+        const timestamp = typeof session.updatedAt === 'number' && Number.isFinite(session.updatedAt) &&
+          session.updatedAt > 0 ? session.updatedAt : 0
+        return (session.running === true ? '1' : '0') + ':' + timestamp
+      } catch { return '' }
+    }
     const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
     const showDeltaToast = (message: string): void => {
       try {
@@ -740,28 +760,21 @@ window.__ModuleLoader__.load({
     function DeltaBrandName(): unknown {
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
-    // This extension uses an existing native row-hover seat. Host-owned
-    // activity state and timestamps remain authoritative and are not duplicated.
-    function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
+    // This extension uses an existing native row-hover seat. All values come
+    // from the public catalog; the Host retains its actions and session lifecycle.
+    function SessionHoverDetail({ sessionId }: SessionHoverProps, liveState: string): unknown {
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
-      // Use the Host's public Session catalog only. Do not materialize a Session
-      // or read its filesystem location to enrich a hover card.
-      let summary: ReturnType<SearchSessionsApi['list']['getSnapshot']>['byId'][string] | undefined
-      try {
-        const snapshot = hoverSessionSource?.list.getSnapshot()
-        if (snapshot && (snapshot.phase === undefined || snapshot.phase === 'ready')) {
-          summary = snapshot.byId[sessionId]
-        }
-      } catch { /* Native hover content remains usable while the Host reconnects. */ }
-      const timestamp = summary?.updatedAt
-      const updated = typeof timestamp === 'number' && Number.isFinite(timestamp) && timestamp > 0
-        ? new Date(timestamp) : undefined
+      // A missing/not-ready Host snapshot renders only the safe session ID.
+      const [running, timestamp] = liveState.split(':')
+      const millis = Number(timestamp)
+      const updated = timestamp && Number.isFinite(millis) && millis > 0
+        ? new Date(millis) : undefined
       const updatedText = updated && Number.isFinite(updated.getTime())
         ? updated.toLocaleString(language() === 'zh' ? 'zh-CN' : 'en-US') : undefined
       return el('div', { className: 'dtd-session-meta' },
-        summary?.running === true
+        running === '1'
           ? el('span', { className: 'dtd-session-meta-status', role: 'status' }, copy.ui.sessionRunning) : null,
         updatedText ? el('span', { className: 'dtd-session-meta-time' },
           copy.ui.sessionUpdated + ': ' + updatedText) : null,
@@ -777,6 +790,12 @@ window.__ModuleLoader__.load({
             void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
           },
         }, copy.ui.copy))
+    }
+    function SessionHoverExtension(props: SessionHoverProps): unknown {
+      // Keep the hook unconditional across appearance switches.
+      const state = React.useSyncExternalStore(subscribeHoverSessions,
+        () => readHoverState(props.sessionId))
+      return controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props, state) : null
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
@@ -937,7 +956,7 @@ window.__ModuleLoader__.load({
                 name: 'sidebar.session.row.hover',
                 id: 'delta.session.identity',
                 order: 500,
-              }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              }, SessionHoverExtension))
               // The published Workspace Controller is optional for name-only search.
               // It never grants control of workspace deletion or the private expansion store.
               let workspaceService: WorkspacesApi | undefined
