@@ -503,7 +503,21 @@ function installHostSearch(
       pending = aborter
       timer = window.setTimeout(() => {
         timer = undefined
-        void sessions.search(query, aborter.signal).then(result => {
+        // A callback already queued when clearTimeout ran may still execute.
+        // Never issue Host requests after cancellation or sidebar remount.
+        if (!active() || serial !== requestId || aborter.signal.aborted) return
+        let request: ReturnType<SearchSessionsApi['search']>
+        try {
+          request = sessions.search(query, aborter.signal)
+        } catch (reason) {
+          if (!active() || serial !== requestId || aborter.signal.aborted) return
+          isSearching = false
+          hasError = true
+          console.warn('[dsh-delta-desktop] synchronous Session search failed', reason)
+          render()
+          return
+        }
+        void request.then(result => {
           if (!active() || serial !== requestId || aborter.signal.aborted) return
           isSearching = false
           hasError = !result.ok

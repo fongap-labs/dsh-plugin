@@ -241,11 +241,16 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   results.children[1].emit('keydown', { key: 'Escape', preventDefault() {} })
   assert.equal(input.value, '', 'Escape clears the search')
   assert.equal(results.hidden, true)
+  const startedSearchCount = actions.filter(([action]) => action === 'search').length
+  fire()
+  assert.equal(actions.filter(([action]) => action === 'search').length, startedSearchCount,
+    'a queued debounce callback must not start a Host RPC after Escape cancels it')
   input.value = 'example'
   input.emit('input')
   // The debounced request is no longer needed here: the Host list still contains the local row.
   // Reuse a fresh remote search response for archive checks below.
-  const fireAgain = timers.values().next().value
+  const fireAgain = [...timers.values()].at(-1)
+  assert.equal(typeof fireAgain, 'function')
   fireAgain()
   await Promise.resolve()
   await Promise.resolve()
