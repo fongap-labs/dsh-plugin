@@ -89,12 +89,16 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const actions = []
   let archivedSessionIds = []
   let workspacePhase = 'ready'
+  let workspaceState = 'idle'
+  let refreshWorkspaces = () => {}
+  let refreshSessions = () => {}
+  let sessionRunning = false
   const hostWorkspaces = {
     list: {
-      getSnapshot: () => ({ phase: workspacePhase, archivedSessionIds, items: [
+      getSnapshot: () => ({ phase: workspacePhase, state: workspaceState, archivedSessionIds, items: [
         { workspaceId: 'design', title: 'Design Workspace', path: 'C:\\Users\\private\\secret' },
       ] }),
-      subscribe() { return () => {} },
+      subscribe(callback) { refreshWorkspaces = callback; return () => { refreshWorkspaces = () => {} } },
     },
     async delete() { throw new Error('workspace deletion is Host-owned') },
   }
@@ -102,7 +106,11 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let revokeSessionCreate = () => {}
   let grantSessionCreate = () => {}
   const hostSessions = {
-    list: { getSnapshot: () => ({ byId: { local: { id: 'local', title: 'Example Session' } } }) },
+    list: {
+      getSnapshot: () => ({ phase: 'ready',
+        byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning } } }),
+      subscribe(callback) { refreshSessions = callback; return () => { refreshSessions = () => {} } },
+    },
     search: async (query, signal) => {
       actions.push(['search', query])
       assert.equal(signal.aborted, false)
@@ -204,6 +212,13 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(results.hidden, false)
   assert.equal(results.children[0].textContent, '')
   assert.equal(results.children[0].children[0].textContent, 'Example Session')
+  sessionRunning = true
+  refreshSessions()
+  assert.equal(results.children[0].children[1].textContent, '运行中',
+    'active Host Session status refreshes plugin search results')
+  sessionRunning = false
+  refreshSessions()
+  assert.equal(results.children[0].children.length, 1)
   const fire = timers.values().next().value
   assert.equal(typeof fire, 'function')
   fire()
@@ -213,6 +228,9 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(results.children.length, 2)
   assert.equal(results.children[1].children[1].textContent, 'Example content match')
   archivedSessionIds = ['remote']
+  refreshWorkspaces()
+  assert.equal(results.children[1].getAttribute('aria-disabled'), 'true')
+  assert.equal(results.children[1].children.at(-1).textContent, '已归档')
   results.children[1].emit('click')
   assert.equal(feedback.hidden, false)
   assert.equal(feedback.textContent, '此会话已归档。请先通过官方工作区列表恢复后再打开。')
@@ -227,12 +245,25 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   results.children[1].emit('click')
   assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
   archivedSessionIds = []
+  workspaceState = 'loading'
+  results.children[1].emit('click')
+  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。',
+    'loading Workspace streams must not expose stale archive grants')
+  workspaceState = 'error'
+  results.children[1].emit('click')
+  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
+  workspaceState = 'idle'
   results.children[1].emit('click')
   assert.deepEqual(actions.at(-1), ['open', 'remote'])
   assert.equal(results.hidden, true)
 
+  workspaceState = 'loading'
   input.value = 'design'
   input.emit('input')
+  assert.notEqual(results.children[0].getAttribute('data-delta-result-kind'), 'workspace',
+    'reconnecting workspace lists do not expose stale title navigation')
+  workspaceState = 'idle'
+  refreshWorkspaces()
   assert.equal(results.children[0].getAttribute('data-delta-result-kind'), 'workspace')
   assert.equal(results.children[0].children[0].textContent, '工作区')
   assert.equal(results.children[0].children[1].textContent, 'Design Workspace')

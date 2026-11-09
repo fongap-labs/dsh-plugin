@@ -15,6 +15,8 @@ test('Delta Desktop does not take over private Host sidebar DOM', () => {
   assert.match(source, /navigation\.openSession\(match\.id\)/)
   assert.match(source, /sessionOpenability\(match\.id\)/)
   assert.match(source, /snapshot\.archivedSessionIds\.includes\(sessionId\)/)
+  assert.match(source, /workspaceReady\(snapshot\)/)
+  assert.match(source, /sessions\.list\.subscribe/)
   assert.match(source, /viewport\.insertBefore\(shell, viewport\.firstElementChild\)/)
   assert.doesNotMatch(source, /viewport\?\.querySelector\('nav'\)/)
   assert.match(source, /navigation\.openWorkspace\(workspace\.id\)/)

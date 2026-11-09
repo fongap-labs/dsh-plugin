@@ -14,6 +14,7 @@ interface DeltaCopy {
     searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
     searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
     workspaceResult: string; archivedSession: string; sessionStateUnknown: string;
+    sessionRunning: string; sessionArchived: string;
     copied: string; copyFailed: string;
   }
 }
@@ -57,6 +58,7 @@ interface WorkspacesApi {
       /** Native WorkspaceBrowser prevents opening archived Sessions. */
       archivedSessionIds?: readonly string[]
       phase?: string
+      state?: 'idle' | 'loading' | 'error'
     }
     subscribe?(listener: () => void): () => void
   }
@@ -65,7 +67,13 @@ interface WorkspacesApi {
 
 /** Existing Harness 0.2.2-rc.1 public Client services. All data and navigation remain Host-owned. */
 interface SearchSessionsApi {
-  list: { getSnapshot(): { byId: Record<string, { id: string; title?: string; blank?: boolean }> } }
+  list: {
+    getSnapshot(): {
+      byId: Record<string, { id: string; title?: string; blank?: boolean; running?: boolean }>
+      phase?: string
+    }
+    subscribe?(listener: () => void): () => void
+  }
   search(query: string, signal: AbortSignal): Promise<{
     ok: boolean
     value?: { items: { sessionId: string; snippet: string }[]; hasMore: boolean }
@@ -288,6 +296,9 @@ function installHostSearch(
   let isSearching = false
   let hasError = false
   const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
+  const workspaceReady = (snapshot: ReturnType<WorkspacesApi['list']['getSnapshot']>): boolean =>
+    (snapshot.phase === undefined || snapshot.phase === 'ready') &&
+    (snapshot.state === undefined || snapshot.state === 'idle')
   // Native WorkspaceBrowser's guardedOpen forbids archived Sessions. The public
   // Workspace snapshot is authoritative; missing or loading metadata fails closed.
   const sessionOpenability = (sessionId: string): 'allowed' | 'archived' | 'unknown' => {
@@ -295,8 +306,7 @@ function installHostSearch(
     if (!workspaces) return 'unknown'
     try {
       const snapshot = workspaces.list.getSnapshot()
-      if (!Array.isArray(snapshot.archivedSessionIds) ||
-          (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return 'unknown'
+      if (!Array.isArray(snapshot.archivedSessionIds) || !workspaceReady(snapshot)) return 'unknown'
       return snapshot.archivedSessionIds.includes(sessionId) ? 'archived' : 'allowed'
     } catch { return 'unknown' }
   }
@@ -319,7 +329,9 @@ function installHostSearch(
     const workspaceApi = getWorkspaces()
     if (workspaceApi && typeof navigation.openWorkspace === 'function') {
       try {
-        for (const item of workspaceApi.list.getSnapshot().items) {
+        const snapshot = workspaceApi.list.getSnapshot()
+        if (!workspaceReady(snapshot)) throw new Error('Workspace list is not ready')
+        for (const item of snapshot.items) {
           const title = typeof item.title === 'string' ? item.title.trim() : ''
           if (!title || typeof item.workspaceId !== 'string' || !title.toLocaleLowerCase().includes(query)) continue
           workspaceMatches.push({ id: item.workspaceId, title })
@@ -329,9 +341,11 @@ function installHostSearch(
         // Workspace snapshots may be unavailable during Host reconnect; keep Session search alive.
       }
     }
+    const sessionSnapshot = sessions.list.getSnapshot()
+    const currentSessions = sessionSnapshot.byId
     const seen = new Set<string>()
     const matches: { id: string; title: string; snippet?: string }[] = []
-    for (const item of Object.values(sessions.list.getSnapshot().byId)) {
+    for (const item of Object.values(currentSessions)) {
       const title = item.title?.trim() ?? ''
       if (!item.blank && title.toLocaleLowerCase().includes(query)) {
         matches.push({ id: item.id, title })
@@ -341,7 +355,7 @@ function installHostSearch(
     }
     for (const item of remoteItems) {
       if (seen.has(item.sessionId) || matches.length >= 20) continue
-      const title = sessions.list.getSnapshot().byId[item.sessionId]?.title?.trim() || item.sessionId
+      const title = currentSessions[item.sessionId]?.title?.trim() || item.sessionId
       matches.push({ id: item.sessionId, title, snippet: item.snippet })
       seen.add(item.sessionId)
     }
@@ -397,6 +411,17 @@ function installHostSearch(
         detail.textContent = match.snippet
         button.appendChild(detail)
       }
+      // Add only Host-confirmed state. Native rows remain authoritative for
+      // pending approvals, completed runs, relative times and session actions.
+      const archived = sessionOpenability(match.id) === 'archived'
+      const running = sessionSnapshot.phase !== 'pending' && currentSessions[match.id]?.running === true
+      if (archived || running) {
+        const status = document.createElement('span')
+        status.className = 'dtd-host-search-result-status'
+        status.textContent = archived ? copy.sessionArchived : copy.sessionRunning
+        button.appendChild(status)
+      }
+      if (archived) button.setAttribute('aria-disabled', 'true')
       button.addEventListener('click', () => {
         if (!active()) return
         const openability = sessionOpenability(match.id)
@@ -536,6 +561,8 @@ function installHostSearch(
   }
   // Workspace Controller notifications update matches without replacing Host controls.
   bindWorkspaceRefresh(() => { if (active()) render() })
+  const unsubscribeSessions = typeof sessions.list.subscribe === 'function'
+    ? sessions.list.subscribe(() => { if (active()) render() }) : undefined
   const observer = new MutationObserver(sync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
@@ -545,6 +572,7 @@ function installHostSearch(
     isDisposed = true
     clearRequest()
     unsubscribe()
+    unsubscribeSessions?.()
     observer.disconnect()
     bindWorkspaceRefresh(undefined)
     shell.remove()

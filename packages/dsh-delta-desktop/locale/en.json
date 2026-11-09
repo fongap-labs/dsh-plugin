@@ -39,6 +39,8 @@
     "searchDisabled": "Search and shortcuts: disabled in official appearance.",
     "workspaceResult": "Workspace",
     "archivedSession": "This session is archived. Restore it in the native workspace list before opening.",
-    "sessionStateUnknown": "Session archive status is unavailable. Open it through the native session list."
+    "sessionStateUnknown": "Session archive status is unavailable. Open it through the native session list.",
+    "sessionRunning": "Running",
+    "sessionArchived": "Archived"
   }
 }
