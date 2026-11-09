@@ -37,11 +37,12 @@ function harness({ stored = null, failTheme = false } = {}) {
     tag.parentNode = { removeChild(value) { removed++; value.parentNode = null } }
   } }
   const context = {
+    observers: [],
     window: { __ModuleLoader__: { load(entry) { registration = entry } } },
     document: { documentElement, head, createElement(name) { return { name, dataset: {}, textContent: '', parentNode: null } } },
     navigator: { language: 'en-US' },
     localStorage: { getItem() { return stored }, setItem(_key, value) { stored = value } },
-    MutationObserver: class { constructor(callback) { context.observer = callback } observe() {} disconnect() {} },
+    MutationObserver: class { constructor(callback) { context.observers.push(callback) } observe() {} disconnect() {} },
   }
   vm.runInNewContext(source, context)
   const components = new Map()
@@ -162,7 +163,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.match(JSON.stringify(hover.component({ sessionId: 'abc' })), /abc/)
   assert.match(app.stored, /"mode":"delta"/)
   app.documentElement.lang = 'en'
-  app.context.observer()
+  app.context.observers.forEach(notify => notify())
   assert.match(JSON.stringify(entry.component({ controller })), /Delta Desktop/)
   assert.equal(entry.spec.label(), 'Personalization')
   app.cleanup(); app.cleanup()
