@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { gzipSync } from 'node:zlib'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { readZip, readTgz, verifyEntries } from '../scripts/verify-delta-desktop-release.mjs'
+import { readZip, readTgz, verifyEntries, hasUnsafeHostPatch } from '../scripts/verify-delta-desktop-release.mjs'
 
 function validEntries(version = '0.1.0-beta.2') {
   const files = {
@@ -80,4 +80,30 @@ test('central manual release verifies both packaged archives after build', () =>
   assert.match(script, /--zip/)
   assert.match(script, /--tgz/)
   assert.match(script, /--version/)
+})
+
+test('comment-only Host patch references do not invalidate a compiled archive', () => {
+  const markerOnly = [
+    '/**',
+    ' * Never access Host workspaceRegistry; do not patch protected-default-workspace.',
+    ' */',
+    'export function apply() { return () => {} }',
+  ].join('\\n')
+  assert.equal(hasUnsafeHostPatch(markerOnly), false)
+  const entries = validEntries()
+  entries.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + '\\n' + markerOnly))
+  assert.doesNotThrow(() => verifyEntries(entries, '0.1.0-beta.2', 'ZIP'))
+})
+
+test('executable Host service references still block release', () => {
+  for (const statement of [
+    'ctx.workspaceRegistry.delete("default")',
+    'const manager = ctx["workspaceRegistry"]',
+    'const key = "protected-default-workspace"',
+  ]) {
+    const entries = validEntries()
+    entries.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + '\\n' + statement))
+    assert.equal(hasUnsafeHostPatch(statement), true)
+    assert.throws(() => verifyEntries(entries, '0.1.0-beta.2', 'ZIP'), /unsafe Host patch/)
+  }
 })
