@@ -12,7 +12,7 @@ test('Delta Desktop does not take over private Host sidebar DOM', () => {
   assert.doesNotMatch(source, /querySelector<.*>\('button\[class\*="newSession"/)
   assert.doesNotMatch(style, /data-delta-compat|dtd-native-search|dtd-native-new-session/)
   assert.match(source, /sessions\.search\(query, aborter\.signal\)/)
-  assert.match(source, /navigation\.openSession\(match\.id\)/)
+  assert.match(source, /currentNavigation\.openSession\(match\.id\)/)
   assert.match(source, /sessionOpenability\(match\.id\)/)
   assert.match(source, /snapshot\.archivedSessionIds\.includes\(sessionId\)/)
   assert.match(source, /workspaceReady\(snapshot\)/)
@@ -21,14 +21,14 @@ test('Delta Desktop does not take over private Host sidebar DOM', () => {
   assert.match(source, /if \(shell\.parentElement !== null\) resetSearch\(\)/)
   assert.match(source, /viewport\.insertBefore\(shell, viewport\.firstElementChild\)/)
   assert.doesNotMatch(source, /viewport\?\.querySelector\('nav'\)/)
-  assert.match(source, /navigation\.openWorkspace\(workspace\.id\)/)
+  assert.match(source, /currentNavigation\.openWorkspace\(workspace\.id\)/)
   assert.doesNotMatch(source, /textContent\s*=\s*(?:item\.|workspace\.)path/)
   assert.doesNotMatch(source, /HTMLInputElement\.prototype|hostButton\.click\(|nativeNew\.click\(/)
   assert.doesNotMatch(source, /groupExpansion.*dsh\.workspace\.view/)
   assert.doesNotMatch(source, /workspaces\.delete\s*=|originalDelete\.call/)
 })
 
-test('unverified Host UI capabilities block release', () => {
+test('unverified Host UI capabilities remain accurately reported', () => {
   for (const capability of ['sidebar_search_placement', 'sidebar_navigation_order', 'workspace_initial_collapse']) {
     assert.equal(readiness.required[capability], false)
   }

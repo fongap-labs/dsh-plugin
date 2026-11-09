@@ -44,7 +44,7 @@ interface SessionHoverProps { sessionId: string }
 interface ReactApi {
   createElement(type: string | ((props: DeltaProps) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
   useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
-  useSyncExternalStore(subscribe: (listener: () => void) => () => void, getSnapshot: () => DeltaState): DeltaState
+  useSyncExternalStore<T>(subscribe: (listener: () => void) => () => void, getSnapshot: () => T): T
 }
 interface ThemeApi {
   overrideTokens(source: string, tokens: Record<string, { light: string; dark: string }>): () => void
@@ -245,8 +245,8 @@ function createController(): DeltaController {
  */
 function installHostSearch(
   controller: DeltaController,
-  sessions: SearchSessionsApi,
-  navigation: SearchNavigationApi,
+  getSessions: () => SearchSessionsApi | undefined,
+  getNavigation: () => SearchNavigationApi | undefined,
   getWorkspaces: () => WorkspacesApi | undefined,
   bindWorkspaceRefresh: (refresh: (() => void) | undefined) => void,
 ): () => void {
@@ -309,7 +309,8 @@ function installHostSearch(
   // Workspace snapshot is authoritative; missing or loading metadata fails closed.
   const sessionOpenability = (sessionId: string): 'allowed' | 'archived' | 'unknown' => {
     const workspaces = getWorkspaces()
-    if (!workspaces) return 'unknown'
+    const sessions = getSessions()
+    if (!workspaces || !sessions) return 'unknown'
     try {
       // A session list in a pending/reconnecting phase is not an actionable
       // snapshot, even when the Workspace archive metadata is still cached.
@@ -369,7 +370,8 @@ function installHostSearch(
     // permissions, or private viewing-store keys are exposed in search results.
     const workspaceMatches: { id: string; title: string }[] = []
     const workspaceApi = getWorkspaces()
-    if (workspaceApi && typeof navigation.openWorkspace === 'function') {
+    const navigation = getNavigation()
+    if (workspaceApi && typeof navigation?.openWorkspace === 'function') {
       try {
         const snapshot = workspaceApi.list.getSnapshot()
         if (!workspaceReady(snapshot)) throw new Error('Workspace list is not ready')
@@ -387,6 +389,8 @@ function installHostSearch(
     // remounts. A transient failure must not tear down the Delta sidebar.
     let sessionSnapshot: ReturnType<SearchSessionsApi['list']['getSnapshot']>
     try {
+      const sessions = getSessions()
+      if (!sessions) throw new Error('Host Session service not available')
       sessionSnapshot = sessions.list.getSnapshot()
       if (sessionSnapshot.phase !== undefined && sessionSnapshot.phase !== 'ready') {
         throw new Error('Session catalog not ready')
@@ -429,7 +433,8 @@ function installHostSearch(
       heading.textContent = workspace.title
       button.append(kind, heading)
       button.addEventListener('click', () => {
-        if (!active() || typeof navigation.openWorkspace !== 'function') return
+        const currentNavigation = getNavigation()
+        if (!active() || typeof currentNavigation?.openWorkspace !== 'function') return
         // A rendered result is not a grant to navigate: the Host can remove,
         // rename or reload a Workspace between painting this button and click.
         // Recheck its public snapshot at activation, before calling the Host.
@@ -449,7 +454,7 @@ function installHostSearch(
         isSearching = false
         const navigationRequest = serial
         try {
-          void Promise.resolve(navigation.openWorkspace(workspace.id)).then(() => {
+          void Promise.resolve(currentNavigation.openWorkspace(workspace.id)).then(() => {
             if (!active() || serial !== navigationRequest) return
             input.value = ''
             clearRequest()
@@ -507,8 +512,10 @@ function installHostSearch(
           return
         }
         try {
+          const currentNavigation = getNavigation()
+          if (typeof currentNavigation?.openSession !== 'function') throw new Error('Host Session navigation unavailable')
           feedback.hidden = true
-          navigation.openSession(match.id)
+          currentNavigation.openSession(match.id)
           input.value = ''
           clearRequest()
           remoteItems = []
@@ -536,7 +543,7 @@ function installHostSearch(
     isSearching = false
     hasError = false
     const query = input.value.replaceAll('\0', '').trim().slice(0, 500)
-    if (query) {
+    if (query && getSessions()) {
       isSearching = true
       const requestId = serial
       const aborter = new AbortController()
@@ -548,6 +555,8 @@ function installHostSearch(
         if (!active() || serial !== requestId || aborter.signal.aborted) return
         let request: ReturnType<SearchSessionsApi['search']>
         try {
+          const sessions = getSessions()
+          if (!sessions) throw new Error('Host Session search disconnected')
           request = sessions.search(query, aborter.signal)
         } catch (reason) {
           if (!active() || serial !== requestId || aborter.signal.aborted) return
@@ -596,6 +605,8 @@ function installHostSearch(
       // Native SidebarRoot gates New Session on useRemoteAccess('session/create').
       // A revoked or missing global grant must never dispatch from Delta either.
       if (!controller.getSnapshot().createAllowed) return false
+      const navigation = getNavigation()
+      if (typeof navigation?.startSession !== 'function') return false
       navigation.startSession()
     }))
   input.addEventListener('input', () => {
@@ -629,8 +640,8 @@ function installHostSearch(
     pluginsButton.textContent = copy.pluginManagement
     schedulesButton.textContent = copy.scheduledTasks
     newSessionButton.textContent = copy.newConversation
-    newSessionButton.hidden = !controller.getSnapshot().createAllowed
-    newSessionButton.disabled = !controller.getSnapshot().createAllowed
+    newSessionButton.hidden = !controller.getSnapshot().createAllowed || !getNavigation()
+    newSessionButton.disabled = !controller.getSnapshot().createAllowed || !getNavigation()
     const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
     // The Host only renders <nav> when it has main-panel entries; search must
     // still work with no panels, above the unchanged workspace browsing region.
@@ -646,8 +657,9 @@ function installHostSearch(
     if (shell.parentElement !== viewport || viewport.firstElementChild !== shell) {
       viewport.insertBefore(shell, viewport.firstElementChild)
     }
-    root.setAttribute('data-delta-search-adapter', 'active')
-    controller.setSearchStatus('active')
+    const hasSearchServices = !!getSessions() && !!getNavigation()
+    root.setAttribute('data-delta-search-adapter', hasSearchServices ? 'active' : 'waiting-for-services')
+    controller.setSearchStatus(hasSearchServices ? 'active' : 'waiting-services')
     const currentLanguage = language()
     if (displayedLanguage !== currentLanguage) {
       displayedLanguage = currentLanguage
@@ -655,9 +667,12 @@ function installHostSearch(
     }
   }
   // Workspace Controller notifications update matches without replacing Host controls.
-  bindWorkspaceRefresh(() => { if (active()) render() })
-  const unsubscribeSessions = typeof sessions.list.subscribe === 'function'
-    ? sessions.list.subscribe(() => { if (active()) render() }) : undefined
+  bindWorkspaceRefresh(() => {
+    if (!isDisposed) {
+      sync()
+      if (active()) render()
+    }
+  })
   const observer = new MutationObserver(sync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
@@ -667,7 +682,6 @@ function installHostSearch(
     isDisposed = true
     clearRequest()
     unsubscribe()
-    unsubscribeSessions?.()
     observer.disconnect()
     bindWorkspaceRefresh(undefined)
     shell.remove()
@@ -695,6 +709,26 @@ window.__ModuleLoader__.load({
     }
     const el = React.createElement
     let hoverSessionSource: SearchSessionsApi | undefined
+    // The hover seat is mounted only while a row is visible. Subscribe to the
+    // public Session list so its running state updates without opening a Session.
+    const subscribeHoverSessions = (notify: () => void): (() => void) => {
+      try {
+        return hoverSessionSource?.list.subscribe?.(notify) ?? (() => {})
+      } catch { return () => {} }
+    }
+    // useSyncExternalStore must receive a stable, primitive snapshot. Reading
+    // a fresh Host catalog object here would otherwise cause render loops.
+    const readHoverState = (sessionId: string): string => {
+      try {
+        const snapshot = hoverSessionSource?.list.getSnapshot()
+        if (!snapshot || (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return ''
+        const session = snapshot.byId[sessionId]
+        if (!session) return ''
+        const timestamp = typeof session.updatedAt === 'number' && Number.isFinite(session.updatedAt) &&
+          session.updatedAt > 0 ? session.updatedAt : 0
+        return (session.running === true ? '1' : '0') + ':' + timestamp
+      } catch { return '' }
+    }
     const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
     const showDeltaToast = (message: string): void => {
       try {
@@ -740,28 +774,21 @@ window.__ModuleLoader__.load({
     function DeltaBrandName(): unknown {
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
-    // This extension uses an existing native row-hover seat. Host-owned
-    // activity state and timestamps remain authoritative and are not duplicated.
-    function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
+    // This extension uses an existing native row-hover seat. All values come
+    // from the public catalog; the Host retains its actions and session lifecycle.
+    function SessionHoverDetail({ sessionId }: SessionHoverProps, liveState: string): unknown {
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
-      // Use the Host's public Session catalog only. Do not materialize a Session
-      // or read its filesystem location to enrich a hover card.
-      let summary: ReturnType<SearchSessionsApi['list']['getSnapshot']>['byId'][string] | undefined
-      try {
-        const snapshot = hoverSessionSource?.list.getSnapshot()
-        if (snapshot && (snapshot.phase === undefined || snapshot.phase === 'ready')) {
-          summary = snapshot.byId[sessionId]
-        }
-      } catch { /* Native hover content remains usable while the Host reconnects. */ }
-      const timestamp = summary?.updatedAt
-      const updated = typeof timestamp === 'number' && Number.isFinite(timestamp) && timestamp > 0
-        ? new Date(timestamp) : undefined
+      // A missing/not-ready Host snapshot renders only the safe session ID.
+      const [running, timestamp] = liveState.split(':')
+      const millis = Number(timestamp)
+      const updated = timestamp && Number.isFinite(millis) && millis > 0
+        ? new Date(millis) : undefined
       const updatedText = updated && Number.isFinite(updated.getTime())
         ? updated.toLocaleString(language() === 'zh' ? 'zh-CN' : 'en-US') : undefined
       return el('div', { className: 'dtd-session-meta' },
-        summary?.running === true
+        running === '1'
           ? el('span', { className: 'dtd-session-meta-status', role: 'status' }, copy.ui.sessionRunning) : null,
         updatedText ? el('span', { className: 'dtd-session-meta-time' },
           copy.ui.sessionUpdated + ': ' + updatedText) : null,
@@ -777,6 +804,12 @@ window.__ModuleLoader__.load({
             void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
           },
         }, copy.ui.copy))
+    }
+    function SessionHoverExtension(props: SessionHoverProps, controller: DeltaController): unknown {
+      // Keep the hook unconditional across appearance switches.
+      const state = React.useSyncExternalStore(subscribeHoverSessions,
+        () => readHoverState(props.sessionId))
+      return controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props, state) : null
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
@@ -937,7 +970,7 @@ window.__ModuleLoader__.load({
                 name: 'sidebar.session.row.hover',
                 id: 'delta.session.identity',
                 order: 500,
-              }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              }, props => SessionHoverExtension(props, controller)))
               // The published Workspace Controller is optional for name-only search.
               // It never grants control of workspace deletion or the private expansion store.
               let workspaceService: WorkspacesApi | undefined
@@ -957,8 +990,23 @@ window.__ModuleLoader__.load({
                   }
                 }, 'dsh-delta-desktop: optional workspace search source')
               })
-              // Native search and navigation are optional Host services, not synthetic DOM commands.
-              // They mount only once both services exist and never block the Settings or Theme.
+              // Sidebar presentation is owned by Delta even when optional Host
+              // search/navigation services have not started. This makes enable
+              // visibly effective without inventing an unsafe fallback action.
+              let sessionService: SearchSessionsApi | undefined
+              let navigationService: SearchNavigationApi | undefined
+              scope.effect(() => {
+                // Some supported Host environments activate plugins before the
+                // browser document is available. Skip only DOM-less activation.
+                if (typeof document.querySelector !== 'function') return
+                return installHostSearch(
+                  controller, () => sessionService, () => navigationService,
+                  () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
+                )
+              }, 'dsh-delta-desktop: reversible sidebar presentation')
+              // Rebind the live services without remounting or dropping the
+              // user's sidebar search field. A missing service shows a waiting
+              // state; a later Host injection activates real search/navigation.
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
                 if (!searchScope.sessions || !searchScope.uiWorkspace ||
                     typeof searchScope.sessions.search !== 'function' ||
@@ -966,16 +1014,21 @@ window.__ModuleLoader__.load({
                     typeof searchScope.uiWorkspace.openSession !== 'function' ||
                     typeof searchScope.uiWorkspace.startSession !== 'function') return
                 searchScope.effect(() => {
-                  hoverSessionSource = searchScope.sessions
-                  const disposeSearch = installHostSearch(
-                    controller, searchScope.sessions!, searchScope.uiWorkspace!,
-                    () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
-                  )
+                  const sessions = searchScope.sessions!
+                  const navigation = searchScope.uiWorkspace!
+                  sessionService = sessions
+                  navigationService = navigation
+                  hoverSessionSource = sessions
+                  const unsubscribe = sessions.list.subscribe?.(() => refreshWorkspaceResults?.())
+                  refreshWorkspaceResults?.()
                   return () => {
-                    disposeSearch()
-                    if (hoverSessionSource === searchScope.sessions) hoverSessionSource = undefined
+                    unsubscribe?.()
+                    if (sessionService === sessions) sessionService = undefined
+                    if (navigationService === navigation) navigationService = undefined
+                    if (hoverSessionSource === sessions) hoverSessionSource = undefined
+                    refreshWorkspaceResults?.()
                   }
-                }, 'dsh-delta-desktop: native service-backed sidebar search')
+                }, 'dsh-delta-desktop: optional Host search and navigation')
               })
               // Match the native New Session permission gate without reading any
               // private access state: whenAccess handles future grant/revoke updates.
