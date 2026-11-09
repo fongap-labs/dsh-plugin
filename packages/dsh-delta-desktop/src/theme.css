@@ -95,3 +95,89 @@
   border: 1px solid var(--dsw-alias-border-l1, #D8DEE1);
   font: inherit; font-size: 13px;
 }
+
+
+/* Additive sidebar search using official Sessions and UiWorkspace APIs.
+   Only Delta-owned nodes are styled; the native search and action buttons stay available. */
+:root[data-delta-ui="delta"] .dtd-host-search {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding: 2px 0;
+  min-width: 0;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-field {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding-inline: 11px;
+  gap: 8px;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  border: 1px solid var(--dsw-alias-border-l1, #d8dee1);
+  border-radius: 11px;
+  color: var(--dsw-alias-label-secondary, #737a84);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-field:focus-within {
+  outline: 2px solid var(--dsw-alias-brand-primary, #286f78);
+  outline-offset: 1px;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-icon { flex: none; font-size: 20px; line-height: 1; }
+:root[data-delta-ui="delta"] .dtd-host-search-input {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0;
+  border: none;
+  outline: none;
+  color: var(--dsw-alias-label-primary, #172126);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-height: min(320px, 55vh);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--dsw-alias-border-l1, #d8dee1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-results[hidden] { display: none; }
+:root[data-delta-ui="delta"] .dtd-host-search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #172126);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result:hover,
+:root[data-delta-ui="delta"] .dtd-host-search-result:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, #e5e9eb);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result-snippet,
+:root[data-delta-ui="delta"] .dtd-host-search-hint {
+  margin: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary, #737a84);
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-hint { padding: 6px 9px; }

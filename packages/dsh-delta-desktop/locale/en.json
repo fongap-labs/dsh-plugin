@@ -17,17 +17,19 @@
     "recovery": "If Settings cannot open, disable dsh-delta-desktop in the Host Profile and restart.",
     "shortcut": "The official layout owns shortcuts; this plugin does not override existing keys.",
     "personalization": "Personalization",
-    "personalizationDescription": "Only reversible theme and native preferences are available; full sidebar and workspace integration is not provided by this Host.",
+    "personalizationDescription": "Appearance and native-service search are available; remaining layout features depend on Host compatibility.",
     "enabled": "Appearance module enabled",
     "appearance": "Theme appearance",
     "appearanceDescription": "Switch between Delta and native colors without changing sessions, models or plugins.",
-    "hostOwned": "This Harness build exposes theme, branding and limited session slots. Search placement, navigation order, status copy and workspace deletion protection are not supported. Enabling Delta appearance does not activate those features.",
+    "hostOwned": "Delta provides an additional search field using native Harness session services. Official search remains as fallback. Navigation and workspace ownership stay with the Host.",
     "sessionId": "Session ID",
     "copySessionId": "Copy session ID",
     "copy": "Copy",
     "searchSessions": "Search sessions",
     "newConversation": "New conversation",
     "copied": "Session ID copied",
-    "copyFailed": "Unable to copy"
+    "copyFailed": "Unable to copy",
+    "searching": "Searching sessions…",
+    "noResults": "No matching sessions"
   }
 }

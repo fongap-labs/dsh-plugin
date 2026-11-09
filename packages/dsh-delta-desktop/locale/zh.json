@@ -17,17 +17,19 @@
     "recovery": "无法显示设置时，请从宿主 Profile 禁用 dsh-delta-desktop 条目并重启。",
     "shortcut": "快捷键由官方布局管理，本插件不覆盖既有按键。",
     "personalization": "个性设置",
-    "personalizationDescription": "当前只提供可逆的主题与原生设置；完整侧栏布局与工作区能力尚未接入宿主。",
+    "personalizationDescription": "主题与原生服务搜索已接入；其余布局能力按照宿主兼容状态逐项提供。",
     "enabled": "外观模块已启用",
     "appearance": "主题外观",
     "appearanceDescription": "在 Delta 配色与官方配色之间切换，不影响会话、模型和插件。",
-    "hostOwned": "当前 Harness 仅开放主题、品牌及部分会话插槽；搜索置顶、导航重排、状态文案及工作区删除保护尚不支持。Delta 外观已启用不代表上述功能完成。",
+    "hostOwned": "搜索入口由 Delta 插件使用 Harness 原生会话服务提供；官方搜索仍保留作为回退。导航和工作区行为仍由宿主负责。",
     "sessionId": "会话编号",
     "copySessionId": "复制会话编号",
     "copy": "复制",
     "searchSessions": "搜索会话",
     "newConversation": "开始对话",
     "copied": "已复制会话编号",
-    "copyFailed": "复制失败"
+    "copyFailed": "复制失败",
+    "searching": "正在搜索会话…",
+    "noResults": "未找到匹配的会话"
   }
 }
