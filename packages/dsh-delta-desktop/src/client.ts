@@ -97,7 +97,7 @@ function writeMode(mode: Mode): void {
   catch { /* session-only preference when storage is blocked */ }
 }
 
-function createController(ctx: ClientContext): DeltaController {
+function createController(): DeltaController {
   let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
@@ -285,7 +285,7 @@ window.__ModuleLoader__.load({
           // Personalization must still appear if the Theme provider is absent.
           ctx.inject(['slots'], (scope) => {
             try {
-              const controller = createController(scope) as DeltaController & {
+              const controller = createController() as DeltaController & {
                 syncLanguage(): void
                 bindTheme(theme: ThemeApi | undefined): void
                 bindLayout(layout: LayoutApi | undefined): void
