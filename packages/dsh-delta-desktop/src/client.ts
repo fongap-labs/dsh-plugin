@@ -101,6 +101,7 @@ function createController(ctx: ClientContext): DeltaController {
   let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
+  let activeLayout: LayoutApi | undefined
   let isDisposed = false
   const listeners = new Set<() => void>()
   const publish = (change: Partial<Omit<DeltaState, 'revision'>>): void => {
@@ -118,10 +119,14 @@ function createController(ctx: ClientContext): DeltaController {
       return typeof ownedLayer === 'function'
     } catch { return false }
   }
-  const safeLayout = (command: () => void): void => {
+  const safeLayout = (command: (layout: LayoutApi) => void): void => {
     if (isDisposed) return
-    try { command(); publish({ error: false }) }
-    catch { publish({ error: true }) }
+    try {
+      // Missing services must not silently report an action as successful.
+      if (!activeLayout) throw new Error('Host layout capability is unavailable')
+      command(activeLayout)
+      publish({ error: false })
+    } catch { publish({ error: true }) }
   }
   return {
     getSnapshot: () => snapshot,
@@ -137,13 +142,14 @@ function createController(ctx: ClientContext): DeltaController {
       writeMode(mode)
       publish({ mode, error: false })
     },
-    toggleSidebar: () => { safeLayout(() => ctx.layout?.toggleSidebar()) },
-    openConversation: () => { safeLayout(() => ctx.layout?.selectPanel(null)) },
+    toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
+    openConversation: () => { safeLayout(layout => layout.selectPanel(null)) },
     dispose: () => {
       if (isDisposed) return
       isDisposed = true
       ownedLayer?.()
       ownedLayer = undefined
+      activeLayout = undefined
       listeners.clear()
     },
     // Used by the owning activation to sync a host language switch.
@@ -153,6 +159,9 @@ function createController(ctx: ClientContext): DeltaController {
       if (isDisposed) return
       activeTheme = theme
       publish({ error: !applyPalette(snapshot.mode) })
+    },
+    bindLayout: (layout: LayoutApi | undefined) => {
+      if (!isDisposed) activeLayout = layout
     },
   } as DeltaController & { syncLanguage(): void; activate(): void }
 }
@@ -279,6 +288,7 @@ window.__ModuleLoader__.load({
               const controller = createController(scope) as DeltaController & {
                 syncLanguage(): void
                 bindTheme(theme: ThemeApi | undefined): void
+                bindLayout(layout: LayoutApi | undefined): void
               }
               scope.effect(() => {
                 const tag = document.createElement('style')
@@ -384,6 +394,11 @@ window.__ModuleLoader__.load({
                 controller.bindTheme(themeScope.theme)
                 themeScope.effect(() => () => controller.bindTheme(undefined),
                   'dsh-delta-desktop: theme service lifetime')
+              })
+              scope.inject(['layout'], layoutScope => {
+                controller.bindLayout(layoutScope.layout)
+                layoutScope.effect(() => () => controller.bindLayout(undefined),
+                  'dsh-delta-desktop: layout service lifetime')
               })
             } catch (error) {
               console.error('[dsh-delta-desktop] Settings mount failed; native UI preserved:', error)
