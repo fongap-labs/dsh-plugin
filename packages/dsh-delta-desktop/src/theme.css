@@ -47,7 +47,9 @@
 .dtd-brand-name { font-weight: 650; letter-spacing: -0.015em; }
 
 /* The official hover card owns timestamps and status. Delta adds an identity row. */
-.dtd-session-meta { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; }
+.dtd-session-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; font-size: 12px; }
+.dtd-session-meta-status { color: var(--dsw-alias-brand-primary, #286F78); font-weight: 600; }
+.dtd-session-meta-time { color: var(--dsw-alias-label-secondary, #737a84); font-size: 11px; }
 .dtd-session-meta-label { opacity: .7; }
 .dtd-session-meta-id { font-family: var(--ds-font-family-code, monospace); overflow: hidden; text-overflow: ellipsis; }
 .dtd-session-meta-copy { margin-inline-start: auto; border: 0; background: transparent; color: var(--dsw-alias-brand-primary, #286F78); cursor: pointer; }
