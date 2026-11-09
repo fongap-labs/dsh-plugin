@@ -6,7 +6,7 @@ import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const packageName = '@fongap-labs/dsh-delta-desktop'
-const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/client.js',
+const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/host-capabilities.js', 'lib/client.js',
   'locale/en.json', 'locale/zh.json', 'icon.svg']
 function ensure(isValid, description) {
   if (!isValid) throw new Error('Invalid Delta Desktop release: ' + description)
@@ -75,12 +75,14 @@ export function verifyEntries(entries, version, format) {
   ensure(patch.includes('id: dsh-delta-desktop') && patch.includes(packageName), format + ' patch')
   const host = entries.get('lib/index.js').toString()
   ensure(host.includes('negotiateHostCapabilities') && host.includes('DELTA_HOST_CONTRACT_VERSION'), format + ' Host capability contract')
+  ensure(entries.get('lib/host-capabilities.js').toString().includes('negotiateHostCapabilities'), format + ' capability module')
   ensure(!host.includes('workspaceRegistry') && !host.includes('protected-default-workspace'), format + ' unsafe Host patch')
   const client = entries.get('lib/client.js').toString()
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
   ensure(client.includes('data-delta-ui'), format + ' appearance lifecycle')
-  ensure(!client.includes('installSidebarCompatibility') && !client.includes('data-sidebar-scrollport'), format + ' private DOM coupling')
+  ensure(!client.includes('installSidebarCompatibility') && !client.includes('data-delta-compat') &&
+    !client.includes('dtd-native-search'), format + ' private DOM coupling')
   ensure(!client.includes('__DELTA_DESKTOP_STYLE__') &&
     !client.includes('__DELTA_DESKTOP_LOCALES__'), format + ' build markers')
   for (const lang of ['en', 'zh']) {
