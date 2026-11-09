@@ -6,6 +6,7 @@
 
 | 路径 | 职责 |
 | --- | --- |
+| `packages/dsh-theme-delta/` | 原生客户端 Delta 主题与快捷操作扩展，仅使用官方主题、布局与插槽服务 |
 | `packages/dsh-desktop-delta/` | Delta Desktop：浏览器界面增强及 Host 端配置、视觉识别、搜索服务 |
 | `packages/dsh-code-worker/` | Code Worker：文件编辑、Git、LSP 与编码工作流工具 |
 | `packages/shared/` | 不含产品逻辑的通用工具注册、子进程和路径安全能力 |

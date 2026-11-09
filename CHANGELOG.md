@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: 独立 dsh-theme-delta 插件，通过官方主题与布局插槽提供可逆外观和导航增强。
+
 - 新增: Delta Desktop 便携包发布前验证 ZIP 和 TGZ 完整性及插件入口与版本，失败时阻断发布。
 
 - 修复: 兼容 Harness Electron 的 dsh-app 自定义协议桌面启动及 Host WebSocket 桥接，保留失败回退。

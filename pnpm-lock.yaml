@@ -35,6 +35,8 @@ importers:
 
   packages/dsh-desktop-delta: {}
 
+  packages/dsh-theme-delta: {}
+
   packages/plugin-template:
     dependencies:
       '@fongap-labs/shared':

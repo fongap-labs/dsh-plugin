@@ -21,3 +21,7 @@ main 已合并的功能不等于已发布的安装包。安装前请查看 GitHu
 `pnpm install --frozen-lockfile`、`pnpm build`、`pnpm test`。发布由 Action Worker 按 `projects/dsh-desktop-delta/release.manifest.json` 执行。
 
 当前独立 UI 仍处早期：完整 Markdown、复杂工具审批、文件/模型/设置 UI 尚未完全迁移。Harness 依然管理会话、权限、模型和工具。正式验证以实际运行结果为准。
+
+## Delta 主题（新增独立插件）
+
+`packages/dsh-theme-delta` 是通过官方扩展接口增强原生客户端主题与快捷操作的独立插件，包名为 `@fongap-labs/dsh-theme-delta`。其发布配置见 `projects/dsh-theme-delta/release.manifest.json`，安装、停用和恢复说明见包内 README。该插件不替换官方根布局；完整布局交接和真实宿主安装尚待验收。
