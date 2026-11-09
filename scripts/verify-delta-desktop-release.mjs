@@ -8,8 +8,8 @@ import { pathToFileURL } from 'node:url'
 const packageName = '@fongap-labs/dsh-delta-desktop'
 const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/client.js',
   'locale/en.json', 'locale/zh.json', 'icon.svg']
-function ensure(ok, description) {
-  if (!ok) throw new Error('Invalid Delta Desktop release: ' + description)
+function ensure(isValid, description) {
+  if (!isValid) throw new Error('Invalid Delta Desktop release: ' + description)
 }
 export function readZip(buffer) {
   const entries = new Map()
