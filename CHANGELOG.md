@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 修复: Delta 主题在 Windows Harness 0.2.2-rc.1 启用后阻断 Web Boot，改为可选 UI 服务延迟注入和失败隔离，保留原生界面与错误诊断。
+- 修复: Delta 主题启动失败时保留 Harness 原生界面，并延迟挂载可选 UI 服务。
 
 - 新增: 独立 dsh-theme-delta 插件，通过官方主题与布局插槽提供可逆外观和导航增强。
 
