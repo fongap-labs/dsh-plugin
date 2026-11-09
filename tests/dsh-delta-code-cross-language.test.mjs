@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, writeFile, rm, symlink } from 'node:fs/promises'
+import { mkdtemp, writeFile, rm, symlink, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chooseVerificationCommand } from '../packages/dsh-delta-code/lib/tools/verify-presets.js'
@@ -44,7 +44,7 @@ describe('cross-language validation command boundaries', () => {
       assert.equal(result.passed, true)
       assert.equal(result.project, 'rust')
       assert.deepEqual(seen.argv, ['cargo', 'test'])
-      assert.equal(seen.cwd, root)
+      assert.equal(await realpath(seen.cwd), await realpath(root))
       assert.equal(seen.stdio.stdin, 'ignore')
       await assert.rejects(tool.execute({ script: 'rm', project: 'rust' }, exec), /must be one of|not allowlisted/)
       await writeFile(join(root, 'package.json'), '{"scripts":{"test":"echo ok"}}')
