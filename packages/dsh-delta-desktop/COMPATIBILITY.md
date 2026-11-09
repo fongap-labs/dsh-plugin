@@ -38,3 +38,13 @@
 - `ui-workspace` 的默认展开和删除动作是其自有视图存储与 Host WorkspaceController 命令；缺少独立的公开“删除前置检查”注册接口。对默认工作区的保护必须发生在 Host 业务边界，不能通过 CSS 禁用按钮。
 - `ui-chat/RunningStatus.tsx` 与 `ui-conversation` 的状态及预览文案属于宿主翻译字典；没有公开的单项覆盖插槽，不覆盖其他插件拥有的 locale 命名空间。
 - 仅完成设置栏目和真实主题切换；上述侧栏、会话和工作区重构均为**未完成**，真实 Windows Harness `0.2.2-rc.1` 安装与启停仍待复验。
+
+## 2026-11-09 兼容适配实现
+
+- Delta Sidebar Compatibility 通过仅在 `data-sidebar-scrollport`、`data-sidebar-workspace-header` 和原生导航均存在时启用可撤销适配；未匹配时恢复宿主导航，不触碰 `app.asar`。
+- 搜索使用原生 React 输入的值设置器与 input 事件，开始对话通过官方按钮触发；新添加的节点只归插件所有，在停用时全部释放。
+- 对从未持久化折叠偏好的工作区触发一次宿主展开状态切换，保留用户后续手动设置。
+- 宿主 WorkspaceRegistry 删除方法在插件启用期间验证默认工作区是否为空且有其他工作区，停用时恢复原方法。客户端再进行一次防误触拦截。
+- Delta 样式仅在相关根节点标记存在时覆盖会话列表、导航和悬浮卡，官方数据、会话状态和消息流仍由宿主管理。
+
+本节为源码实现记录，不代表真实 Windows 桌面验收已经通过。适配依赖上述源码基线，后续 Harness DOM 改动必须重新验证。
