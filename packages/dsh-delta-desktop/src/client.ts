@@ -11,19 +11,32 @@ interface DeltaCopy {
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
-    searchSessions: string; newConversation: string; searching: string; noResults: string;
+    searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
+    searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
+    workspaceResult: string; archivedSession: string; sessionStateUnknown: string;
+    sessionRunning: string; sessionArchived: string; sessionUpdated: string;
+    integrationTitle: string; integrationSummary: string; integrationSidebar: string;
+    integrationCollapse: string; integrationDeletion: string; integrationRunning: string;
+    themeWaiting: string;
     copied: string; copyFailed: string;
   }
 }
 type Language = 'zh' | 'en'
 type Mode = 'delta' | 'official'
-type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; revision: number }>
+type SearchStatus = 'waiting-services' | 'waiting-sidebar' | 'active' | 'disabled'
+type DeltaState = Readonly<{
+  mode: Mode; language: Language; error: boolean; searchStatus: SearchStatus;
+  createAllowed: boolean; themeReady: boolean; revision: number
+}>
 interface DeltaController {
   getSnapshot(): DeltaState
   subscribe(listener: () => void): () => void
   setMode(mode: Mode): void
   toggleSidebar(): void
   openConversation(): void
+  openPanel(panelId: 'plugins' | 'schedules'): boolean
+  setSearchStatus(status: SearchStatus): void
+  setCreateAllowed(allowed: boolean): void
   dispose(): void
 }
 interface DeltaProps { controller: DeltaController }
@@ -42,13 +55,28 @@ interface SlotsApi {
   register<P = DeltaProps>(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
 interface WorkspacesApi {
-  list: { getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[] } }
+  list: {
+    getSnapshot(): {
+      items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
+      /** Native WorkspaceBrowser prevents opening archived Sessions. */
+      archivedSessionIds?: readonly string[]
+      phase?: string
+      state?: 'idle' | 'loading' | 'error'
+    }
+    subscribe?(listener: () => void): () => void
+  }
   delete(workspaceId: string): Promise<unknown>
 }
 
 /** Existing Harness 0.2.2-rc.1 public Client services. All data and navigation remain Host-owned. */
 interface SearchSessionsApi {
-  list: { getSnapshot(): { byId: Record<string, { id: string; title?: string; blank?: boolean }> } }
+  list: {
+    getSnapshot(): {
+      byId: Record<string, { id: string; title?: string; blank?: boolean; running?: boolean; updatedAt?: number }>
+      phase?: string
+    }
+    subscribe?(listener: () => void): () => void
+  }
   search(query: string, signal: AbortSignal): Promise<{
     ok: boolean
     value?: { items: { sessionId: string; snippet: string }[]; hasMore: boolean }
@@ -58,9 +86,16 @@ interface SearchSessionsApi {
 interface SearchNavigationApi {
   openSession(sessionId: string): void
   startSession(): void
+  /** Public Harness navigation, retaining Host create/access checks. Optional on older builds. */
+  openWorkspace?(workspaceId: string): Promise<void>
 }
 
+interface AccessApi {
+  /** Official global grant: callback runs only while session/create is allowed. */
+  whenAccess(action: string, callback: () => (() => void)): () => void
+}
 interface ClientContext {
+  remoteAccess?: AccessApi
   theme?: ThemeApi
   layout?: LayoutApi
   workspaces?: WorkspacesApi
@@ -115,7 +150,10 @@ function writeMode(mode: Mode): void {
 }
 
 function createController(): DeltaController {
-  let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
+  const initialMode = readMode()
+  let snapshot: DeltaState = Object.freeze({ mode: initialMode, language: language(), error: false,
+    searchStatus: initialMode === 'official' ? 'disabled' : 'waiting-services',
+    createAllowed: false, themeReady: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
   let activeLayout: LayoutApi | undefined
@@ -136,14 +174,18 @@ function createController(): DeltaController {
       return typeof ownedLayer === 'function'
     } catch { return false }
   }
-  const safeLayout = (command: (layout: LayoutApi) => void): void => {
-    if (isDisposed) return
+  const safeLayout = (command: (layout: LayoutApi) => void): boolean => {
+    if (isDisposed) return false
     try {
       // Missing services must not silently report an action as successful.
       if (!activeLayout) throw new Error('Host layout capability is unavailable')
       command(activeLayout)
       publish({ error: false })
-    } catch { publish({ error: true }) }
+      return true
+    } catch {
+      publish({ error: true })
+      return false
+    }
   }
   return {
     getSnapshot: () => snapshot,
@@ -155,12 +197,20 @@ function createController(): DeltaController {
     setMode: (mode) => {
       if (isDisposed || (mode !== 'delta' && mode !== 'official')) return
       const success = applyPalette(mode)
-      if (!success) { publish({ error: true }); return }
+      if (!success) { publish({ error: true, themeReady: false }); return }
       writeMode(mode)
-      publish({ mode, error: false })
+      publish({ mode, error: false, themeReady: mode === 'delta',
+        searchStatus: mode === 'official' ? 'disabled' : 'waiting-services' })
     },
     toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
     openConversation: () => { safeLayout(layout => layout.selectPanel(null)) },
+    openPanel: (panelId) => safeLayout(layout => layout.selectPanel(panelId)),
+    setSearchStatus: (status) => {
+      if (!isDisposed && snapshot.searchStatus !== status) publish({ searchStatus: status })
+    },
+    setCreateAllowed: (allowed) => {
+      if (!isDisposed && snapshot.createAllowed !== allowed) publish({ createAllowed: allowed })
+    },
     dispose: () => {
       if (isDisposed) return
       isDisposed = true
@@ -175,7 +225,8 @@ function createController(): DeltaController {
     bindTheme: (theme: ThemeApi | undefined) => {
       if (isDisposed) return
       activeTheme = theme
-      publish({ error: !applyPalette(snapshot.mode) })
+      const hasPalette = applyPalette(snapshot.mode)
+      publish({ error: !hasPalette, themeReady: snapshot.mode === 'delta' && hasPalette })
     },
     bindLayout: (layout: LayoutApi | undefined) => {
       if (!isDisposed) activeLayout = layout
@@ -190,8 +241,15 @@ function createController(): DeltaController {
  * It calls Harness Session Controller and UiWorkspace services directly:
  * no synthetic React events, no moving Host nodes, and no Host method replacement.
  * Markers are checked before each insertion; loss of the Host surface safely unmounts.
+ * Workspace names come only from the public Workspace snapshot; never render paths.
  */
-function installHostSearch(controller: DeltaController, sessions: SearchSessionsApi, navigation: SearchNavigationApi): () => void {
+function installHostSearch(
+  controller: DeltaController,
+  sessions: SearchSessionsApi,
+  navigation: SearchNavigationApi,
+  getWorkspaces: () => WorkspacesApi | undefined,
+  bindWorkspaceRefresh: (refresh: (() => void) | undefined) => void,
+): () => void {
   const root = document.documentElement
   const shell = document.createElement('section')
   shell.className = 'dtd-host-search'
@@ -210,12 +268,31 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
   input.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
   input.placeholder = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions
   searchField.append(glyph, input)
+  // The Host retains its original navigation. These are additive service-backed shortcuts,
+  // not a replacement for Host buttons, access controls, or panel registrations.
+  const quickActions = document.createElement('div')
+  quickActions.className = 'dtd-host-quick-actions'
+  const makeQuickAction = (id: string): HTMLButtonElement => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'dtd-host-quick-action'
+    button.setAttribute('data-delta-action', id)
+    return button
+  }
+  const pluginsButton = makeQuickAction('plugins')
+  const schedulesButton = makeQuickAction('schedules')
+  const newSessionButton = makeQuickAction('new-session')
+  quickActions.append(pluginsButton, schedulesButton, newSessionButton)
+  const feedback = document.createElement('p')
+  feedback.className = 'dtd-host-action-feedback'
+  feedback.setAttribute('role', 'alert')
+  feedback.hidden = true
   const results = document.createElement('div')
   results.className = 'dtd-host-search-results'
   results.setAttribute('role', 'region')
   results.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
   results.hidden = true
-  shell.append(searchField, results)
+  shell.append(searchField, quickActions, feedback, results)
   let isDisposed = false
   let timer: number | undefined
   let pending: AbortController | undefined
@@ -223,7 +300,26 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
   let remoteItems: { sessionId: string; snippet: string }[] = []
   let isSearching = false
   let hasError = false
+  let displayedLanguage = language()
   const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
+  const workspaceReady = (snapshot: ReturnType<WorkspacesApi['list']['getSnapshot']>): boolean =>
+    (snapshot.phase === undefined || snapshot.phase === 'ready') &&
+    (snapshot.state === undefined || snapshot.state === 'idle')
+  // Native WorkspaceBrowser's guardedOpen forbids archived Sessions. The public
+  // Workspace snapshot is authoritative; missing or loading metadata fails closed.
+  const sessionOpenability = (sessionId: string): 'allowed' | 'archived' | 'unknown' => {
+    const workspaces = getWorkspaces()
+    if (!workspaces) return 'unknown'
+    try {
+      // A session list in a pending/reconnecting phase is not an actionable
+      // snapshot, even when the Workspace archive metadata is still cached.
+      const sessionSnapshot = sessions.list.getSnapshot()
+      if (sessionSnapshot.phase !== undefined && sessionSnapshot.phase !== 'ready') return 'unknown'
+      const snapshot = workspaces.list.getSnapshot()
+      if (!Array.isArray(snapshot.archivedSessionIds) || !workspaceReady(snapshot)) return 'unknown'
+      return snapshot.archivedSessionIds.includes(sessionId) ? 'archived' : 'allowed'
+    } catch { return 'unknown' }
+  }
   const clearRequest = (): void => {
     if (timer !== undefined) window.clearTimeout(timer)
     timer = undefined
@@ -231,15 +327,82 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     pending = undefined
     serial += 1
   }
+  // Search results are native buttons; support arrow navigation in both
+  // directions without hijacking the Host's global keyboard shortcuts.
+  const focusResult = (current: HTMLButtonElement | null, step: number): void => {
+    const buttons = Array.from(results.children)
+      .filter((node): node is HTMLButtonElement => node.tagName.toLowerCase() === 'button')
+    const nextIndex = current === null ? 0 : buttons.indexOf(current) + step
+    if (nextIndex >= 0 && nextIndex < buttons.length) buttons[nextIndex]?.focus()
+    else if (nextIndex < 0) input.focus()
+  }
+  const bindResultKeys = (button: HTMLButtonElement): void => {
+    button.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault()
+        focusResult(button, event.key === 'ArrowDown' ? 1 : -1)
+      } else if (event.key === 'Escape') {
+        event.preventDefault()
+        input.value = ''
+        onInput()
+        input.focus()
+      }
+    })
+  }
+  const resetSearch = (): void => {
+    clearRequest()
+    input.value = ''
+    remoteItems = []
+    isSearching = false
+    hasError = false
+    feedback.hidden = true
+    results.hidden = true
+    results.replaceChildren()
+  }
   const render = (): void => {
     results.replaceChildren()
     const query = input.value.trim().toLocaleLowerCase()
     if (!query || !active()) { results.hidden = true; return }
     results.hidden = false
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+    // Workspaces are an optional read-only enhancement. No filesystem paths, IDs,
+    // permissions, or private viewing-store keys are exposed in search results.
+    const workspaceMatches: { id: string; title: string }[] = []
+    const workspaceApi = getWorkspaces()
+    if (workspaceApi && typeof navigation.openWorkspace === 'function') {
+      try {
+        const snapshot = workspaceApi.list.getSnapshot()
+        if (!workspaceReady(snapshot)) throw new Error('Workspace list is not ready')
+        for (const item of snapshot.items) {
+          const title = typeof item.title === 'string' ? item.title.trim() : ''
+          if (!title || typeof item.workspaceId !== 'string' || !title.toLocaleLowerCase().includes(query)) continue
+          workspaceMatches.push({ id: item.workspaceId, title })
+          if (workspaceMatches.length >= 8) break
+        }
+      } catch {
+        // Workspace snapshots may be unavailable during Host reconnect; keep Session search alive.
+      }
+    }
+    // The published Session list may temporarily reject reads while the Host
+    // remounts. A transient failure must not tear down the Delta sidebar.
+    let sessionSnapshot: ReturnType<SearchSessionsApi['list']['getSnapshot']>
+    try {
+      sessionSnapshot = sessions.list.getSnapshot()
+      if (sessionSnapshot.phase !== undefined && sessionSnapshot.phase !== 'ready') {
+        throw new Error('Session catalog not ready')
+      }
+    } catch {
+      const message = document.createElement('p')
+      message.className = 'dtd-host-search-hint'
+      message.setAttribute('role', 'status')
+      message.textContent = copy.searchWaitingServices
+      results.appendChild(message)
+      return
+    }
+    const currentSessions = sessionSnapshot.byId
     const seen = new Set<string>()
     const matches: { id: string; title: string; snippet?: string }[] = []
-    for (const item of Object.values(sessions.list.getSnapshot().byId)) {
+    for (const item of Object.values(currentSessions)) {
       const title = item.title?.trim() ?? ''
       if (!item.blank && title.toLocaleLowerCase().includes(query)) {
         matches.push({ id: item.id, title })
@@ -249,9 +412,64 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     }
     for (const item of remoteItems) {
       if (seen.has(item.sessionId) || matches.length >= 20) continue
-      const title = sessions.list.getSnapshot().byId[item.sessionId]?.title?.trim() || item.sessionId
+      const title = currentSessions[item.sessionId]?.title?.trim() || item.sessionId
       matches.push({ id: item.sessionId, title, snippet: item.snippet })
       seen.add(item.sessionId)
+    }
+    for (const workspace of workspaceMatches) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.className = 'dtd-host-search-result'
+      button.setAttribute('data-delta-result-kind', 'workspace')
+      const kind = document.createElement('span')
+      kind.className = 'dtd-host-search-result-kind'
+      kind.textContent = copy.workspaceResult
+      const heading = document.createElement('span')
+      heading.className = 'dtd-host-search-result-title'
+      heading.textContent = workspace.title
+      button.append(kind, heading)
+      button.addEventListener('click', () => {
+        if (!active() || typeof navigation.openWorkspace !== 'function') return
+        // A rendered result is not a grant to navigate: the Host can remove,
+        // rename or reload a Workspace between painting this button and click.
+        // Recheck its public snapshot at activation, before calling the Host.
+        let isStillAvailable = false
+        try {
+          const snapshot = getWorkspaces()?.list.getSnapshot()
+          isStillAvailable = !!snapshot && workspaceReady(snapshot) &&
+            snapshot.items.some(item => item.workspaceId === workspace.id &&
+              typeof item.title === 'string' && item.title.trim() === workspace.title)
+        } catch { /* A reconnecting Host must fail closed. */ }
+        if (!isStillAvailable) {
+          feedback.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.unavailable
+          feedback.hidden = false
+          return
+        }
+        clearRequest()
+        isSearching = false
+        const navigationRequest = serial
+        try {
+          void Promise.resolve(navigation.openWorkspace(workspace.id)).then(() => {
+            if (!active() || serial !== navigationRequest) return
+            input.value = ''
+            clearRequest()
+            remoteItems = []
+            hasError = false
+            feedback.hidden = true
+            render()
+          }, () => {
+            if (!active() || serial !== navigationRequest) return
+            hasError = true
+            render()
+          })
+        } catch {
+          if (!active() || serial !== navigationRequest) return
+          hasError = true
+          render()
+        }
+      })
+      bindResultKeys(button)
+      results.appendChild(button)
     }
     for (const match of matches) {
       const button = document.createElement('button')
@@ -267,8 +485,29 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
         detail.textContent = match.snippet
         button.appendChild(detail)
       }
+      // Add only Host-confirmed state. Native rows remain authoritative for
+      // pending approvals, completed runs, relative times and session actions.
+      const archived = sessionOpenability(match.id) === 'archived'
+      const running = currentSessions[match.id]?.running === true
+      if (archived || running) {
+        const status = document.createElement('span')
+        status.className = 'dtd-host-search-result-status'
+        status.textContent = archived ? copy.sessionArchived : copy.sessionRunning
+        button.appendChild(status)
+      }
+      if (archived) button.setAttribute('aria-disabled', 'true')
       button.addEventListener('click', () => {
+        if (!active()) return
+        const openability = sessionOpenability(match.id)
+        if (openability !== 'allowed') {
+          const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+          feedback.textContent = openability === 'archived'
+            ? labels.archivedSession : labels.sessionStateUnknown
+          feedback.hidden = false
+          return
+        }
         try {
+          feedback.hidden = true
           navigation.openSession(match.id)
           input.value = ''
           clearRequest()
@@ -280,9 +519,10 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
           render()
         }
       })
+      bindResultKeys(button)
       results.appendChild(button)
     }
-    if (isSearching || hasError || matches.length === 0) {
+    if (isSearching || hasError || (matches.length === 0 && workspaceMatches.length === 0)) {
       const message = document.createElement('p')
       message.className = 'dtd-host-search-hint'
       message.setAttribute('role', 'status')
@@ -303,7 +543,21 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
       pending = aborter
       timer = window.setTimeout(() => {
         timer = undefined
-        void sessions.search(query, aborter.signal).then(result => {
+        // A callback already queued when clearTimeout ran may still execute.
+        // Never issue Host requests after cancellation or sidebar remount.
+        if (!active() || serial !== requestId || aborter.signal.aborted) return
+        let request: ReturnType<SearchSessionsApi['search']>
+        try {
+          request = sessions.search(query, aborter.signal)
+        } catch (reason) {
+          if (!active() || serial !== requestId || aborter.signal.aborted) return
+          isSearching = false
+          hasError = true
+          console.warn('[dsh-delta-desktop] synchronous Session search failed', reason)
+          render()
+          return
+        }
+        void request.then(result => {
           if (!active() || serial !== requestId || aborter.signal.aborted) return
           isSearching = false
           hasError = !result.ok
@@ -320,8 +574,40 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     }
     render()
   }
-  input.addEventListener('input', onInput)
+  const runQuickAction = (name: string, invoke: () => boolean | void): void => {
+    if (!active()) return
+    try {
+      if (invoke() === false) throw new Error('Host navigation unavailable')
+      feedback.hidden = true
+      input.value = ''
+      onInput()
+    } catch (reason) {
+      feedback.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.unavailable
+      feedback.hidden = false
+      console.warn('[dsh-delta-desktop] native quick action failed: ' + name, reason)
+    }
+  }
+  pluginsButton.addEventListener('click', () =>
+    runQuickAction('plugins', () => controller.openPanel('plugins')))
+  schedulesButton.addEventListener('click', () =>
+    runQuickAction('schedules', () => controller.openPanel('schedules')))
+  newSessionButton.addEventListener('click', () =>
+    runQuickAction('new-session', () => {
+      // Native SidebarRoot gates New Session on useRemoteAccess('session/create').
+      // A revoked or missing global grant must never dispatch from Delta either.
+      if (!controller.getSnapshot().createAllowed) return false
+      navigation.startSession()
+    }))
+  input.addEventListener('input', () => {
+    feedback.hidden = true
+    onInput()
+  })
   input.addEventListener('keydown', event => {
+    if (event.key === 'ArrowDown' && !results.hidden) {
+      event.preventDefault()
+      focusResult(null, 1)
+      return
+    }
     if (event.key !== 'Escape') return
     input.value = ''
     onInput()
@@ -330,23 +616,48 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
   const sync = (): void => {
     if (isDisposed) return
     if (controller.getSnapshot().mode !== 'delta') {
-      clearRequest()
+      resetSearch()
       shell.remove()
       root.removeAttribute('data-delta-search-adapter')
+      controller.setSearchStatus('disabled')
       return
     }
+    const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+    input.placeholder = copy.searchSessions
+    input.setAttribute('aria-label', copy.searchSessions)
+    results.setAttribute('aria-label', copy.searchSessions)
+    pluginsButton.textContent = copy.pluginManagement
+    schedulesButton.textContent = copy.scheduledTasks
+    newSessionButton.textContent = copy.newConversation
+    newSessionButton.hidden = !controller.getSnapshot().createAllowed
+    newSessionButton.disabled = !controller.getSnapshot().createAllowed
     const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
-    const navigationRow = viewport?.querySelector('nav')
-    if (!viewport || !navigationRow) {
+    // The Host only renders <nav> when it has main-panel entries; search must
+    // still work with no panels, above the unchanged workspace browsing region.
+    if (!viewport) {
+      // A detached sidebar can be rebuilt for a different Host generation.
+      // Drop all pending RPCs, prior results and focus context before remount.
+      if (shell.parentElement !== null) resetSearch()
       shell.remove()
       root.setAttribute('data-delta-search-adapter', 'waiting-for-sidebar')
+      controller.setSearchStatus('waiting-sidebar')
       return
     }
-    if (shell.parentElement !== viewport || shell.nextElementSibling !== navigationRow) {
-      viewport.insertBefore(shell, navigationRow)
+    if (shell.parentElement !== viewport || viewport.firstElementChild !== shell) {
+      viewport.insertBefore(shell, viewport.firstElementChild)
     }
     root.setAttribute('data-delta-search-adapter', 'active')
+    controller.setSearchStatus('active')
+    const currentLanguage = language()
+    if (displayedLanguage !== currentLanguage) {
+      displayedLanguage = currentLanguage
+      if (active()) render()
+    }
   }
+  // Workspace Controller notifications update matches without replacing Host controls.
+  bindWorkspaceRefresh(() => { if (active()) render() })
+  const unsubscribeSessions = typeof sessions.list.subscribe === 'function'
+    ? sessions.list.subscribe(() => { if (active()) render() }) : undefined
   const observer = new MutationObserver(sync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
@@ -356,9 +667,12 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     isDisposed = true
     clearRequest()
     unsubscribe()
+    unsubscribeSessions?.()
     observer.disconnect()
+    bindWorkspaceRefresh(undefined)
     shell.remove()
     root.removeAttribute('data-delta-search-adapter')
+    controller.setSearchStatus(controller.getSnapshot().mode === 'official' ? 'disabled' : 'waiting-services')
   }
 }
 
@@ -380,6 +694,7 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    let hoverSessionSource: SearchSessionsApi | undefined
     const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
     const showDeltaToast = (message: string): void => {
       try {
@@ -431,7 +746,25 @@ window.__ModuleLoader__.load({
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
+      // Use the Host's public Session catalog only. Do not materialize a Session
+      // or read its filesystem location to enrich a hover card.
+      let summary: ReturnType<SearchSessionsApi['list']['getSnapshot']>['byId'][string] | undefined
+      try {
+        const snapshot = hoverSessionSource?.list.getSnapshot()
+        if (snapshot && (snapshot.phase === undefined || snapshot.phase === 'ready')) {
+          summary = snapshot.byId[sessionId]
+        }
+      } catch { /* Native hover content remains usable while the Host reconnects. */ }
+      const timestamp = summary?.updatedAt
+      const updated = typeof timestamp === 'number' && Number.isFinite(timestamp) && timestamp > 0
+        ? new Date(timestamp) : undefined
+      const updatedText = updated && Number.isFinite(updated.getTime())
+        ? updated.toLocaleString(language() === 'zh' ? 'zh-CN' : 'en-US') : undefined
       return el('div', { className: 'dtd-session-meta' },
+        summary?.running === true
+          ? el('span', { className: 'dtd-session-meta-status', role: 'status' }, copy.ui.sessionRunning) : null,
+        updatedText ? el('span', { className: 'dtd-session-meta-time' },
+          copy.ui.sessionUpdated + ': ' + updatedText) : null,
         el('span', { className: 'dtd-session-meta-label' }, label),
         el('span', { className: 'dtd-session-meta-id', title: sessionId }, shortId),
         el('button', {
@@ -455,7 +788,9 @@ window.__ModuleLoader__.load({
             el('div', null,
               el('h2', null, copy.meta.title),
               el('p', null, copy.ui.personalizationDescription))),
-          el('span', { className: 'dtd-enabled', role: 'status' }, copy.ui.enabled)),
+          el('span', { className: 'dtd-enabled', role: 'status' },
+          state.mode === 'official' ? copy.ui.official
+            : state.themeReady ? copy.ui.enabled : copy.ui.themeWaiting)),
         el('div', { className: 'dtd-preference-row' },
           el('div', { className: 'dtd-preference-copy' },
             el('strong', null, copy.ui.appearance),
@@ -470,7 +805,26 @@ window.__ModuleLoader__.load({
           copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
         state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
         el('p', { className: 'dtd-recovery' }, copy.ui.recovery),
-        el('p', { className: 'dtd-capability' }, copy.ui.hostOwned))
+        el('p', { className: 'dtd-capability' }, copy.ui.hostOwned),
+        el('p', { className: 'dtd-capability', role: 'status',
+          'data-delta-search-status': state.searchStatus },
+          state.searchStatus === 'active' ? copy.ui.searchReady
+            : state.searchStatus === 'waiting-sidebar' ? copy.ui.searchWaitingSidebar
+              : state.searchStatus === 'disabled' ? copy.ui.searchDisabled
+                : copy.ui.searchWaitingServices),
+        state.mode === 'delta' ? el('section', {
+          className: 'dtd-integration',
+          'aria-label': copy.ui.integrationTitle,
+          'data-delta-contract-version': '1',
+          'data-delta-integration': 'incomplete',
+        },
+        el('h3', null, copy.ui.integrationTitle),
+        el('p', null, copy.ui.integrationSummary),
+        el('ul', null,
+          el('li', null, copy.ui.integrationSidebar),
+          el('li', null, copy.ui.integrationCollapse),
+          el('li', null, copy.ui.integrationDeletion),
+          el('li', null, copy.ui.integrationRunning))) : null)
     }
     return {
       // The parent plugin remains active even if UI services or a theme API are unavailable.
@@ -584,12 +938,59 @@ window.__ModuleLoader__.load({
                 id: 'delta.session.identity',
                 order: 500,
               }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              // The published Workspace Controller is optional for name-only search.
+              // It never grants control of workspace deletion or the private expansion store.
+              let workspaceService: WorkspacesApi | undefined
+              let refreshWorkspaceResults: (() => void) | undefined
+              scope.inject(['workspaces'], workspaceScope => {
+                const candidate = workspaceScope.workspaces
+                if (!candidate || typeof candidate.list?.getSnapshot !== 'function') return
+                workspaceScope.effect(() => {
+                  workspaceService = candidate
+                  const unsubscribe = typeof candidate.list.subscribe === 'function'
+                    ? candidate.list.subscribe(() => refreshWorkspaceResults?.()) : undefined
+                  refreshWorkspaceResults?.()
+                  return () => {
+                    unsubscribe?.()
+                    if (workspaceService === candidate) workspaceService = undefined
+                    refreshWorkspaceResults?.()
+                  }
+                }, 'dsh-delta-desktop: optional workspace search source')
+              })
               // Native search and navigation are optional Host services, not synthetic DOM commands.
               // They mount only once both services exist and never block the Settings or Theme.
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
-                if (!searchScope.sessions || !searchScope.uiWorkspace) return
-                searchScope.effect(() => installHostSearch(controller, searchScope.sessions!, searchScope.uiWorkspace!),
-                  'dsh-delta-desktop: native service-backed sidebar search')
+                if (!searchScope.sessions || !searchScope.uiWorkspace ||
+                    typeof searchScope.sessions.search !== 'function' ||
+                    typeof searchScope.sessions.list?.getSnapshot !== 'function' ||
+                    typeof searchScope.uiWorkspace.openSession !== 'function' ||
+                    typeof searchScope.uiWorkspace.startSession !== 'function') return
+                searchScope.effect(() => {
+                  hoverSessionSource = searchScope.sessions
+                  const disposeSearch = installHostSearch(
+                    controller, searchScope.sessions!, searchScope.uiWorkspace!,
+                    () => workspaceService, refresh => { refreshWorkspaceResults = refresh },
+                  )
+                  return () => {
+                    disposeSearch()
+                    if (hoverSessionSource === searchScope.sessions) hoverSessionSource = undefined
+                  }
+                }, 'dsh-delta-desktop: native service-backed sidebar search')
+              })
+              // Match the native New Session permission gate without reading any
+              // private access state: whenAccess handles future grant/revoke updates.
+              scope.inject(['remoteAccess'], accessScope => {
+                if (typeof accessScope.remoteAccess?.whenAccess !== 'function') return
+                accessScope.effect(() => {
+                  const release = accessScope.remoteAccess!.whenAccess('session/create', () => {
+                    controller.setCreateAllowed(true)
+                    return () => controller.setCreateAllowed(false)
+                  })
+                  return () => {
+                    release()
+                    controller.setCreateAllowed(false)
+                  }
+                }, 'dsh-delta-desktop: native session-create authorization')
               })
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {

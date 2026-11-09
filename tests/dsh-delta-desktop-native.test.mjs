@@ -58,7 +58,7 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
-      assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace'].includes(names.join(',')))
+      assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess'].includes(names.join(',')))
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'locale') throw new Error('cannot get property "locale" without inject')
@@ -145,9 +145,11 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(entry.spec.id, 'delta.personalization')
   assert.equal(entry.spec.label(), '个性设置')
   const controller = entry.spec.inject().controller
+  assert.equal(controller.getSnapshot().themeReady, true, 'palette must be owned before reporting readiness')
   assert.match(JSON.stringify(entry.component({ controller })), new RegExp('Delta 桌面'))
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-preference-row/)
   controller.setMode('official')
+  assert.equal(controller.getSnapshot().themeReady, false)
   assert.equal(app.layers.size, 0)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
   assert.equal(app.components.has('sidebar.brand.mark'), false, 'official theme restores the native mark fallback')
@@ -157,6 +159,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   controller.toggleSidebar()
   assert.deepEqual(app.changes, [null, 'sidebar'])
   controller.setMode('delta')
+  assert.equal(controller.getSnapshot().themeReady, true)
   assert.equal(app.layers.size, 1)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('sidebar.brand.mark'), true, 'Delta mark returns only in Delta theme')
@@ -193,6 +196,8 @@ test('missing theme keeps the independent Settings entry usable', () => {
   assert.equal(entry.spec.label(), '个性设置')
   const controller = entry.spec.inject().controller
   assert.equal(controller.getSnapshot().error, true)
+  assert.equal(controller.getSnapshot().themeReady, false)
+  assert.ok(JSON.stringify(entry.component({ controller })).includes('Delta 配色未就绪'))
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-error/)
   controller.setMode('official')
   assert.equal(controller.getSnapshot().error, false)
@@ -247,4 +252,26 @@ test('workspace deletion remains Host owned regardless of appearance mode', asyn
   assert.equal(app.workspaces.delete, app.originalDelete)
   app.cleanup()
   assert.deepEqual(app.deletedWorkspaces, ['other'])
+})
+
+test('Delta integration reports missing Host contracts instead of claiming completed layout', () => {
+  const app = harness()
+  const entry = app.components.get('settings.section')
+  const controller = entry.spec.inject().controller
+  let rendered = JSON.stringify(entry.component({ controller }))
+  assert.ok(rendered.includes('data-delta-contract-version'), 'the integration diagnostic must be versioned')
+  assert.ok(rendered.includes('incomplete'), 'the current Host must never report full layout readiness')
+  assert.ok(rendered.includes('完整侧栏导航重排'))
+  assert.ok(rendered.includes('工作区默认折叠'))
+  assert.ok(rendered.includes('默认工作区删除保护'))
+  assert.ok(rendered.includes('原生聊天运行文案'))
+  assert.equal(app.workspaces.delete, app.originalDelete, 'diagnostics cannot modify Host deletion permissions')
+  const css = readFileSync(fixture('packages/dsh-delta-desktop/src/theme.css'), 'utf8')
+  assert.ok(css.includes('grid-template-columns: minmax(0, 1fr)'),
+    'Delta quick actions must appear as ordered, full-width sidebar rows')
+  controller.setMode('official')
+  rendered = JSON.stringify(entry.component({ controller }))
+  assert.equal(rendered.includes('dtd-integration'), false,
+    'the compatibility panel is inactive while the native appearance is selected')
+  app.cleanup()
 })

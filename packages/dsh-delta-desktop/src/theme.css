@@ -35,6 +35,10 @@
 .dtd-page :focus-visible { outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
 .dtd-page .dtd-error { color: var(--dsw-alias-state-error-primary, #B91C1C); }
 .dtd-page .dtd-current, .dtd-page .dtd-recovery, .dtd-page .dtd-capability { font-size: 12px; }
+.dtd-integration { padding: 16px 20px; border: 1px solid var(--dtd-border); border-radius: 12px; background: var(--dtd-surface); }
+.dtd-integration h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
+.dtd-page .dtd-integration p { margin: 0 0 8px; font-size: 12px; }
+.dtd-integration ul { margin: 0; padding-inline-start: 18px; font-size: 12px; line-height: 1.8; color: var(--dtd-muted); }
 @media (max-width: 600px) {
   .dtd-page-head, .dtd-preference-row { padding: 16px; }
   .dtd-segment { width: 100%; }
@@ -47,7 +51,9 @@
 .dtd-brand-name { font-weight: 650; letter-spacing: -0.015em; }
 
 /* The official hover card owns timestamps and status. Delta adds an identity row. */
-.dtd-session-meta { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 12px; }
+.dtd-session-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; font-size: 12px; }
+.dtd-session-meta-status { color: var(--dsw-alias-brand-primary, #286F78); font-weight: 600; }
+.dtd-session-meta-time { color: var(--dsw-alias-label-secondary, #737a84); font-size: 11px; }
 .dtd-session-meta-label { opacity: .7; }
 .dtd-session-meta-id { font-family: var(--ds-font-family-code, monospace); overflow: hidden; text-overflow: ellipsis; }
 .dtd-session-meta-copy { margin-inline-start: auto; border: 0; background: transparent; color: var(--dsw-alias-brand-primary, #286F78); cursor: pointer; }
@@ -181,3 +187,58 @@
   text-overflow: ellipsis;
 }
 :root[data-delta-ui="delta"] .dtd-host-search-hint { padding: 6px 9px; }
+
+/* Service-backed quick actions are additive; native navigation remains present. */
+:root[data-delta-ui="delta"] .dtd-host-quick-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+:root[data-delta-ui="delta"] .dtd-host-quick-action {
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #172126);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: start;
+  cursor: pointer;
+}
+:root[data-delta-ui="delta"] .dtd-host-quick-action:hover,
+:root[data-delta-ui="delta"] .dtd-host-quick-action:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, #e5e9eb);
+  outline: 1px solid var(--dsw-alias-brand-primary, #286f78);
+}
+:root[data-delta-ui="delta"] .dtd-host-action-feedback {
+  margin: 0;
+  padding: 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-state-error-primary, #b91c1c);
+}
+:root[data-delta-ui="delta"] .dtd-host-action-feedback[hidden] { display: none; }
+
+/* Workspace result is a title-only, Host-navigated entry. Never render its path. */
+:root[data-delta-ui="delta"] .dtd-host-search-result-kind {
+  color: var(--dsw-alias-label-secondary, #737a84);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Match native session/create grants: unauthorized New Session is not shown. */
+:root[data-delta-ui="delta"] .dtd-host-quick-action[hidden] { display: none; }
+
+
+/* Read-only Host-confirmed session state in the plugin-owned search list. */
+:root[data-delta-ui="delta"] .dtd-host-search-result-status {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dsw-alias-brand-primary, #286f78);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result[aria-disabled="true"] {
+  opacity: .7;
+}

@@ -30,6 +30,25 @@
     "copied": "Session ID copied",
     "copyFailed": "Unable to copy",
     "searching": "Searching sessions…",
-    "noResults": "No matching sessions"
+    "noResults": "No matching sessions",
+    "pluginManagement": "Plugins",
+    "scheduledTasks": "Schedules",
+    "searchReady": "Search and shortcuts: mounted in the native sidebar.",
+    "searchWaitingServices": "Search and shortcuts: waiting for Harness session and navigation services.",
+    "searchWaitingSidebar": "Search and shortcuts: waiting for the Harness sidebar.",
+    "searchDisabled": "Search and shortcuts: disabled in official appearance.",
+    "workspaceResult": "Workspace",
+    "archivedSession": "This session is archived. Restore it in the native workspace list before opening.",
+    "sessionStateUnknown": "Session archive status is unavailable. Open it through the native session list.",
+    "sessionRunning": "Running",
+    "sessionUpdated": "Last updated",
+    "sessionArchived": "Archived",
+    "integrationTitle": "Delta compatibility assessment v1",
+    "integrationSummary": "The verified Harness 0.2.2-rc.1 does not expose four required extension contracts. Delta enables only supported additive features; the full desktop layout has not been activated.",
+    "integrationSidebar": "Full sidebar navigation composition: no public composition seat",
+    "integrationCollapse": "Default-collapsed Workspaces: no public view-state initializer",
+    "integrationDeletion": "Default Workspace deletion guard: no business-layer guard hook",
+    "integrationRunning": "Native chat running copy: no dedicated localization override",
+    "themeWaiting": "Delta palette unavailable"
   }
 }
