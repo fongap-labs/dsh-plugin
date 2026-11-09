@@ -40,6 +40,10 @@ function harness({ stored = null, failTheme = false } = {}) {
     }
   })
   const ctx = {
+    inject(services, callback) {
+      assert.deepEqual(services, ['slots', 'theme', 'layout'])
+      callback(ctx)
+    },
     effect(create) { effects.push(create()) },
     theme: { overrideTokens(id, values) {
       if (failTheme) throw new Error('theme unavailable')
@@ -64,6 +68,36 @@ test('lazy ModuleLoader registration and browser-safe artifact', () => {
   assert.equal(loaded.id, '@fongap-labs/dsh-theme-delta')
   assert.equal(typeof loaded.factory, 'function')
   assert.doesNotMatch(source, /__DELTA_THEME_|process\.env|from\s+['"]/)
+})
+test('web boot stays active while waiting for UI services or when React is unavailable', () => {
+  let entry
+  const diagnostic = []
+  vm.runInNewContext(source, {
+    window: { __ModuleLoader__: { load(value) { entry = value } } },
+    console: { error(...args) { diagnostic.push(args) } },
+  })
+  const react = entry.factory(id => {
+    assert.equal(id, 'react')
+    return { createElement() {}, useState() {}, useSyncExternalStore() {} }
+  })
+  assert.deepEqual(Array.from(react.inject), [])
+  let deferred
+  assert.doesNotThrow(() => react.apply({
+    inject(required, install) {
+      assert.deepEqual(required, ['slots', 'theme', 'layout'])
+      deferred = install
+    },
+  }))
+  assert.equal(typeof deferred, 'function')
+  assert.doesNotThrow(() => deferred({ theme: null, layout: null, slots: null }))
+  assert.ok(diagnostic.some(record => String(record[0]).includes('UI mount failed')))
+  assert.doesNotThrow(() => react.apply({ inject() { throw new Error('service unavailable') } }))
+  assert.ok(diagnostic.some(record => String(record[0]).includes('deferred UI registration failed')))
+
+  const missingReact = entry.factory(() => { throw new Error('missing react platform module') })
+  assert.deepEqual(Array.from(missingReact.inject), [])
+  assert.doesNotThrow(() => missingReact.apply({}))
+  assert.ok(diagnostic.some(record => String(record[0]).includes('React unavailable')))
 })
 test('appearance, official layout actions, and cleanup are reversible', () => {
   const app = harness()
