@@ -379,35 +379,6 @@ window.__ModuleLoader__.load({
                 id: 'delta.session.identity',
                 order: 500,
               }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
-              // Guard Host workspace mutations at the client service boundary,
-              // not merely by hiding a delete menu item. Restore on plugin unload.
-              scope.inject(['workspaces'], workspaceScope => {
-                const workspaces = workspaceScope.workspaces
-                if (!workspaces || typeof workspaces.delete !== 'function') return
-                const originalDelete = workspaces.delete
-                const guardedDelete = (id: string): Promise<unknown> => {
-                  const items = workspaces.list.getSnapshot().items
-                  const target = items.find(item => item.workspaceId === id)
-                  const path = target?.path.replace(/\\/g, '/').toLowerCase()
-                  const protectedDefault = path?.endsWith('/deepseek-harness/default-workspace') === true
-                  if (controller.getSnapshot().mode === 'delta' && protectedDefault) {
-                    const hasOtherWorkspace = items.some(item => item.workspaceId !== id)
-                    const hasSessions = target?.sessionIds === undefined || target.sessionIds.length > 0
-                    if (!hasOtherWorkspace || hasSessions) {
-                      return Promise.reject(new Error('delta/protected-default-workspace'))
-                    }
-                  }
-                  return originalDelete.call(workspaces, id)
-                }
-                try {
-                  workspaces.delete = guardedDelete
-                  workspaceScope.effect(() => () => {
-                    if (workspaces.delete === guardedDelete) workspaces.delete = originalDelete
-                  }, 'dsh-delta-desktop: workspace deletion guard')
-                } catch (error) {
-                  console.error('[dsh-delta-desktop] Workspace guard unavailable:', error)
-                }
-              })
               // Theme is optional: delayed service readiness never blocks Settings.
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
