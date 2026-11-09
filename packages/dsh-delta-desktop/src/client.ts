@@ -185,7 +185,7 @@ window.__ModuleLoader__.load({
       return el('span', { 'aria-hidden': true, className: 'dtd-brand-mark' }, 'Δ')
     }
     function DeltaBrandName(): unknown {
-      return el('span', { className: 'dtd-brand-name' }, language() === 'zh' ? 'Delta 桌面' : 'Delta Desktop')
+      return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
