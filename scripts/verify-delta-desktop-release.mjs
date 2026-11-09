@@ -74,11 +74,13 @@ export function verifyEntries(entries, version, format) {
   const patch = entries.get('cordis.patch.yml').toString()
   ensure(patch.includes('id: dsh-delta-desktop') && patch.includes(packageName), format + ' patch')
   const host = entries.get('lib/index.js').toString()
-  ensure(host.includes('workspaceRegistry') && host.includes('protected-default-workspace'), format + ' Host guard')
+  ensure(host.includes('negotiateHostCapabilities') && host.includes('DELTA_HOST_CONTRACT_VERSION'), format + ' Host capability contract')
+  ensure(!host.includes('workspaceRegistry') && !host.includes('protected-default-workspace'), format + ' unsafe Host patch')
   const client = entries.get('lib/client.js').toString()
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
-  ensure(client.includes('data-delta-compat') && client.includes('data-delta-ui'), format + ' fallback')
+  ensure(client.includes('data-delta-ui'), format + ' appearance lifecycle')
+  ensure(!client.includes('installSidebarCompatibility') && !client.includes('data-sidebar-scrollport'), format + ' private DOM coupling')
   ensure(!client.includes('__DELTA_DESKTOP_STYLE__') &&
     !client.includes('__DELTA_DESKTOP_LOCALES__'), format + ' build markers')
   for (const lang of ['en', 'zh']) {
