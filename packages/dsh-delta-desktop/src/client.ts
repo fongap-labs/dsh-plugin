@@ -17,6 +17,7 @@ interface DeltaCopy {
     sessionRunning: string; sessionArchived: string; sessionUpdated: string;
     integrationTitle: string; integrationSummary: string; integrationSidebar: string;
     integrationCollapse: string; integrationDeletion: string; integrationRunning: string;
+    themeWaiting: string;
     copied: string; copyFailed: string;
   }
 }
@@ -25,7 +26,7 @@ type Mode = 'delta' | 'official'
 type SearchStatus = 'waiting-services' | 'waiting-sidebar' | 'active' | 'disabled'
 type DeltaState = Readonly<{
   mode: Mode; language: Language; error: boolean; searchStatus: SearchStatus;
-  createAllowed: boolean; revision: number
+  createAllowed: boolean; themeReady: boolean; revision: number
 }>
 interface DeltaController {
   getSnapshot(): DeltaState
@@ -152,7 +153,7 @@ function createController(): DeltaController {
   const initialMode = readMode()
   let snapshot: DeltaState = Object.freeze({ mode: initialMode, language: language(), error: false,
     searchStatus: initialMode === 'official' ? 'disabled' : 'waiting-services',
-    createAllowed: false, revision: 0 })
+    createAllowed: false, themeReady: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
   let activeLayout: LayoutApi | undefined
@@ -196,9 +197,10 @@ function createController(): DeltaController {
     setMode: (mode) => {
       if (isDisposed || (mode !== 'delta' && mode !== 'official')) return
       const success = applyPalette(mode)
-      if (!success) { publish({ error: true }); return }
+      if (!success) { publish({ error: true, themeReady: false }); return }
       writeMode(mode)
-      publish({ mode, error: false, searchStatus: mode === 'official' ? 'disabled' : 'waiting-services' })
+      publish({ mode, error: false, themeReady: mode === 'delta',
+        searchStatus: mode === 'official' ? 'disabled' : 'waiting-services' })
     },
     toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
     openConversation: () => { safeLayout(layout => layout.selectPanel(null)) },
@@ -223,7 +225,8 @@ function createController(): DeltaController {
     bindTheme: (theme: ThemeApi | undefined) => {
       if (isDisposed) return
       activeTheme = theme
-      publish({ error: !applyPalette(snapshot.mode) })
+      const hasPalette = applyPalette(snapshot.mode)
+      publish({ error: !hasPalette, themeReady: snapshot.mode === 'delta' && hasPalette })
     },
     bindLayout: (layout: LayoutApi | undefined) => {
       if (!isDisposed) activeLayout = layout
@@ -785,7 +788,9 @@ window.__ModuleLoader__.load({
             el('div', null,
               el('h2', null, copy.meta.title),
               el('p', null, copy.ui.personalizationDescription))),
-          el('span', { className: 'dtd-enabled', role: 'status' }, copy.ui.enabled)),
+          el('span', { className: 'dtd-enabled', role: 'status' },
+          state.mode === 'official' ? copy.ui.official
+            : state.themeReady ? copy.ui.enabled : copy.ui.themeWaiting)),
         el('div', { className: 'dtd-preference-row' },
           el('div', { className: 'dtd-preference-copy' },
             el('strong', null, copy.ui.appearance),
