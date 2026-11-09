@@ -198,16 +198,15 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(results.children[0].children.some(x => String(x.textContent).includes('private')), false,
     'only the workspace title may appear; the filesystem path must stay private')
   results.children[0].emit('click')
-  await Promise.resolve()
-  await Promise.resolve()
+  // The simulated Host returns a cross-vm Promise; wait for Promise assimilation.
+  await new Promise(resolve => setImmediate(resolve))
   assert.deepEqual(actions.at(-1), ['workspace', 'design'])
   assert.equal(results.hidden, true, 'successful Host workspace navigation clears search')
   workspaceNavigationFails = true
   input.value = 'design'
   input.emit('input')
   results.children[0].emit('click')
-  await Promise.resolve()
-  await Promise.resolve()
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(results.hidden, false, 'rejected Host navigation retains search and shows failure')
   assert.equal(results.children.at(-1).textContent, '此版本缺少必要能力或操作失败，请停用此插件并恢复官方界面。')
   workspaceNavigationFails = false
