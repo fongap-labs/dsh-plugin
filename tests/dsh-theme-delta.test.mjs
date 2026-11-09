@@ -1,9 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
-const source = readFileSync(new URL('../packages/dsh-theme-delta/lib/client.js', import.meta.url), 'utf8')
+// Central CI invokes node --test directly, so build the actual client artifact here.
+const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
+execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
+  fixture('packages/dsh-theme-delta/tsconfig.client.json')], { stdio: 'pipe' })
+execFileSync(process.execPath, [fixture('packages/dsh-theme-delta/scripts/finalize-client.mjs')],
+  { stdio: 'pipe' })
+const source = readFileSync(fixture('packages/dsh-theme-delta/lib/client.js'), 'utf8')
 function harness({ stored = null, failTheme = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
