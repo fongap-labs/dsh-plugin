@@ -55,9 +55,9 @@ class NodeStub {
   focus() { fixture.activeElement = this }
   click() { this.dispatchEvent({ type: 'click' }) }
   querySelector(selector) {
-    if (selector === ':scope > nav') return fixture.navigation
+    if (selector === ':scope > nav' || selector === 'nav') return fixture.navigation
     if (selector === '[data-sidebar-workspace-header]') return fixture.header
-    if (selector === 'input[type="text"]') return fixture.nativeInput
+    if (selector === 'input[type="text"]') return fixture.nativeInputReady ? fixture.nativeInput : null
     if (selector === 'button[aria-expanded]') return fixture.nativeSearch
     if (selector === 'input') return this.children.find(child => child.name === 'input') ?? null
     return null
@@ -76,6 +76,7 @@ const fixture = {
   nativeNew: new NodeStub('button'),
   group: new NodeStub('div'),
   activeElement: null,
+  nativeInputReady: false,
   nativeClicks: 0,
   newClicks: 0,
   groupClicks: 0,
@@ -90,7 +91,7 @@ fixture.header.appendChild(fixture.nativeSearch)
 fixture.group.setAttribute('data-row-key', 'workspace:abc')
 fixture.group.setAttribute('aria-expanded', 'true')
 fixture.nativeSearch.setAttribute('aria-expanded', 'false')
-fixture.nativeSearch.click = () => { fixture.nativeClicks++; fixture.nativeSearch.setAttribute('aria-expanded', 'true') }
+fixture.nativeSearch.click = () => { fixture.nativeClicks++; fixture.nativeInputReady = true; fixture.nativeSearch.setAttribute('aria-expanded', 'true') }
 fixture.nativeNew.click = () => { fixture.newClicks++ }
 fixture.group.click = () => { fixture.groupClicks++; fixture.group.setAttribute('aria-expanded', 'false') }
 fixture.nativeInput.dispatchEvent = event => { fixture.nativeInputs.push({ type: event.type, value: fixture.nativeInput.value }) }
@@ -104,7 +105,8 @@ test('Delta native navigation mounts, dispatches host actions, folds, and restor
     createElement: tag => new NodeStub(tag),
     querySelector(selector) {
       if (selector === '[data-sidebar-scrollport]') return fixture.viewport
-      if (selector.includes('input[type="text"]')) return fixture.nativeInput
+      if (selector === '[data-sidebar-workspace-header]') return fixture.header
+      if (selector.includes('input[type="text"]')) return fixture.nativeInputReady ? fixture.nativeInput : null
       if (selector.includes('button[aria-expanded]')) return fixture.nativeSearch
       if (selector.includes('button[class*="newSession"]')) return fixture.nativeNew
       return null
@@ -117,7 +119,7 @@ test('Delta native navigation mounts, dispatches host actions, folds, and restor
     MutationObserver: class { observe() {} disconnect() {} },
     navigator: { language: 'zh-CN' },
     localStorage: { getItem() { return null }, setItem() {} },
-    window: { __ModuleLoader__: { load(entry) { registration = entry } } },
+    window: { __ModuleLoader__: { load(entry) { registration = entry } }, requestAnimationFrame(fn) { fn() } },
   }
   vm.runInNewContext(code, context)
   const plugin = registration.factory(() => ({
@@ -139,6 +141,7 @@ test('Delta native navigation mounts, dispatches host actions, folds, and restor
   }
   plugin.apply(ctx)
   assert.equal(fixture.root.getAttribute('data-delta-compat'), '1')
+  assert.equal(fixture.root.getAttribute('data-delta-compat-status'), 'mounted')
   assert.equal(fixture.viewport.children[0].getAttribute('data-delta-search'), '')
   assert.equal(fixture.viewport.children[1], fixture.navigation)
   assert.equal(fixture.groupClicks, 1)
@@ -146,6 +149,7 @@ test('Delta native navigation mounts, dispatches host actions, folds, and restor
   input.value = 'example'
   input.dispatchEvent({ type: 'input' })
   assert.equal(fixture.nativeClicks, 1)
+  assert.equal(fixture.nativeInputReady, true)
   assert.equal(fixture.nativeInputs.at(-1).value, 'example')
   const newButton = fixture.viewport.children.find(node => node.className === 'dtd-native-new-session')
   assert.ok(newButton)
@@ -159,4 +163,5 @@ test('Delta native navigation mounts, dispatches host actions, folds, and restor
   assert.equal(fixture.root.getAttribute('data-delta-compat'), '1')
   effects.forEach(fn => fn?.())
   assert.equal(fixture.root.getAttribute('data-delta-compat'), null)
+  assert.equal(fixture.root.getAttribute('data-delta-compat-status'), null)
 })
