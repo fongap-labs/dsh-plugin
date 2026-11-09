@@ -15,6 +15,8 @@ interface DeltaCopy {
     searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
     workspaceResult: string; archivedSession: string; sessionStateUnknown: string;
     sessionRunning: string; sessionArchived: string; sessionUpdated: string;
+    integrationTitle: string; integrationSummary: string; integrationSidebar: string;
+    integrationCollapse: string; integrationDeletion: string; integrationRunning: string;
     copied: string; copyFailed: string;
   }
 }
@@ -378,7 +380,22 @@ function installHostSearch(
         // Workspace snapshots may be unavailable during Host reconnect; keep Session search alive.
       }
     }
-    const sessionSnapshot = sessions.list.getSnapshot()
+    // The published Session list may temporarily reject reads while the Host
+    // remounts. A transient failure must not tear down the Delta sidebar.
+    let sessionSnapshot: ReturnType<SearchSessionsApi['list']['getSnapshot']>
+    try {
+      sessionSnapshot = sessions.list.getSnapshot()
+      if (sessionSnapshot.phase !== undefined && sessionSnapshot.phase !== 'ready') {
+        throw new Error('Session catalog not ready')
+      }
+    } catch {
+      const message = document.createElement('p')
+      message.className = 'dtd-host-search-hint'
+      message.setAttribute('role', 'status')
+      message.textContent = copy.searchWaitingServices
+      results.appendChild(message)
+      return
+    }
     const currentSessions = sessionSnapshot.byId
     const seen = new Set<string>()
     const matches: { id: string; title: string; snippet?: string }[] = []
@@ -789,7 +806,20 @@ window.__ModuleLoader__.load({
           state.searchStatus === 'active' ? copy.ui.searchReady
             : state.searchStatus === 'waiting-sidebar' ? copy.ui.searchWaitingSidebar
               : state.searchStatus === 'disabled' ? copy.ui.searchDisabled
-                : copy.ui.searchWaitingServices))
+                : copy.ui.searchWaitingServices),
+        state.mode === 'delta' ? el('section', {
+          className: 'dtd-integration',
+          'aria-label': copy.ui.integrationTitle,
+          'data-delta-contract-version': '1',
+          'data-delta-integration': 'incomplete',
+        },
+        el('h3', null, copy.ui.integrationTitle),
+        el('p', null, copy.ui.integrationSummary),
+        el('ul', null,
+          el('li', null, copy.ui.integrationSidebar),
+          el('li', null, copy.ui.integrationCollapse),
+          el('li', null, copy.ui.integrationDeletion),
+          el('li', null, copy.ui.integrationRunning))) : null)
     }
     return {
       // The parent plugin remains active even if UI services or a theme API are unavailable.
