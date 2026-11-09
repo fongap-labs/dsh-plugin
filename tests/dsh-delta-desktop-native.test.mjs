@@ -110,8 +110,10 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'sidebar.brand.mark', 'sidebar.brand.name'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
+  assert.match(JSON.stringify(app.components.get('sidebar.brand.name').component({})), /Delta 桌面/)
+  assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
   assert.equal(app.components.has('shell.overlay'), false)
   const palette = app.layers.get(app.registration.id)
   assert.equal(palette['--dsw-alias-brand-primary'].light, '#286F78')
