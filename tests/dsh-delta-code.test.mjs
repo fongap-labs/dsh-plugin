@@ -1,5 +1,5 @@
 /**
- * dsh-delta-code 集成/回归测试
+ * dsh-delta-code integration and regression tests
  * 通过 mock 的 Cordis ctx 捕获插件真实注册的工具，并直接执行它们。
  * 运行：pnpm test
  */

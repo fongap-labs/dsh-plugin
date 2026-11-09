@@ -112,7 +112,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   const app = harness()
   assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'sidebar.brand.mark', 'sidebar.brand.name'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
-  assert.match(JSON.stringify(app.components.get('sidebar.brand.name').component({})), /Delta 桌面/)
+  assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 桌面'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
   assert.equal(app.components.has('shell.overlay'), false)
   const palette = app.layers.get(app.registration.id)

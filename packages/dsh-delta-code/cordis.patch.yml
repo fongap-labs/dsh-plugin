@@ -1,7 +1,7 @@
 # Delta Code Worker bundle patch
 #
 # 该文件是 dsh.bundle.patch 层：通过 `dsh plugin --profile <name> add` 安装后，
-# 管理器会读取本声明并把 dsh-delta-code 追加到 dsh.profile.bundles，profile 启动时
+# The plugin manager adds dsh-delta-code to dsh.profile.bundles at profile startup.
 # 合并本 patch（一条 insert 行）。
 - insert:
     - id: dsh-delta-code
