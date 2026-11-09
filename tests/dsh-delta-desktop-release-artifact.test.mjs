@@ -88,10 +88,10 @@ test('comment-only Host patch references do not invalidate a compiled archive', 
     ' * Never access Host workspaceRegistry; do not patch protected-default-workspace.',
     ' */',
     'export function apply() { return () => {} }',
-  ].join('\\n')
+  ].join('\n')
   assert.equal(hasUnsafeHostPatch(markerOnly), false)
   const entries = validEntries()
-  entries.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + '\\n' + markerOnly))
+  entries.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + '\n' + markerOnly))
   assert.doesNotThrow(() => verifyEntries(entries, '0.1.0-beta.2', 'ZIP'))
 })
 
@@ -102,7 +102,7 @@ test('executable Host service references still block release', () => {
     'const key = "protected-default-workspace"',
   ]) {
     const entries = validEntries()
-    entries.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + '\\n' + statement))
+    entries.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + '\n' + statement))
     assert.equal(hasUnsafeHostPatch(statement), true)
     assert.throws(() => verifyEntries(entries, '0.1.0-beta.2', 'ZIP'), /unsafe Host patch/)
   }
