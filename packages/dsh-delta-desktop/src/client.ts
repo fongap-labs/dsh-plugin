@@ -406,6 +406,21 @@ function installHostSearch(
       button.append(kind, heading)
       button.addEventListener('click', () => {
         if (!active() || typeof navigation.openWorkspace !== 'function') return
+        // A rendered result is not a grant to navigate: the Host can remove,
+        // rename or reload a Workspace between painting this button and click.
+        // Recheck its public snapshot at activation, before calling the Host.
+        let stillAvailable = false
+        try {
+          const snapshot = getWorkspaces()?.list.getSnapshot()
+          stillAvailable = !!snapshot && workspaceReady(snapshot) &&
+            snapshot.items.some(item => item.workspaceId === workspace.id &&
+              typeof item.title === 'string' && item.title.trim() === workspace.title)
+        } catch { /* A reconnecting Host must fail closed. */ }
+        if (!stillAvailable) {
+          feedback.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.unavailable
+          feedback.hidden = false
+          return
+        }
         clearRequest()
         isSearching = false
         const navigationRequest = serial
