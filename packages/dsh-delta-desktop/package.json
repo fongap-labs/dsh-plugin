@@ -33,12 +33,13 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "COMPATIBILITY.md"
+    "COMPATIBILITY.md",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=22.0.0"
   },
-  "license": "Apache-2.0",
+  "license": "MIT",
   "publishConfig": {
     "access": "public"
   }
