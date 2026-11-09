@@ -791,7 +791,7 @@ window.__ModuleLoader__.load({
           },
         }, copy.ui.copy))
     }
-    function SessionHoverExtension(props: SessionHoverProps): unknown {
+    function SessionHoverExtension(props: SessionHoverProps, controller: DeltaController): unknown {
       // Keep the hook unconditional across appearance switches.
       const state = React.useSyncExternalStore(subscribeHoverSessions,
         () => readHoverState(props.sessionId))
@@ -956,7 +956,7 @@ window.__ModuleLoader__.load({
                 name: 'sidebar.session.row.hover',
                 id: 'delta.session.identity',
                 order: 500,
-              }, SessionHoverExtension))
+              }, props => SessionHoverExtension(props, controller)))
               // The published Workspace Controller is optional for name-only search.
               // It never grants control of workspace deletion or the private expansion store.
               let workspaceService: WorkspacesApi | undefined
