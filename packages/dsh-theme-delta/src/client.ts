@@ -171,6 +171,14 @@ window.__ModuleLoader__.load({
         callback => controller.subscribe(callback), () => controller.getSnapshot())
       return { state, copy: DICTIONARIES[state.language] ?? DICTIONARIES.en }
     }
+    function SettingsSectionIcon(): unknown {
+      return el('svg', { viewBox: '0 0 24 24', width: 17, height: 17,
+        fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, 'aria-hidden': true },
+        el('line', { x1: 4, y1: 7, x2: 20, y2: 7 }),
+        el('circle', { cx: 9, cy: 7, r: 2, fill: 'currentColor' }),
+        el('line', { x1: 4, y1: 17, x2: 20, y2: 17 }),
+        el('circle', { cx: 15, cy: 17, r: 2, fill: 'currentColor' }))
+    }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       const { state, copy } = useCopy(controller)
       return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
@@ -236,6 +244,9 @@ window.__ModuleLoader__.load({
                 inject: () => ({ controller }),
               }, PersonalizationSection))
               // Theme is optional: delayed service readiness never blocks Settings.
+              scope.slots.inject('settings.section.icon', () => scope.slots.register({
+                name: 'settings.section.icon', id: 'delta.personalization',
+              }, SettingsSectionIcon))
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
                 themeScope.effect(() => () => controller.bindTheme(undefined),
