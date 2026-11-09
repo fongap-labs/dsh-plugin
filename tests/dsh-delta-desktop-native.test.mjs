@@ -14,7 +14,7 @@ execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p'
 execFileSync(process.execPath, [fixture('packages/dsh-delta-desktop/scripts/finalize-client.mjs')],
   { stdio: 'pipe' })
 const source = readFileSync(fixture('packages/dsh-delta-desktop/lib/client.js'), 'utf8')
-function harness({ stored = null, failTheme = false } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -58,7 +58,7 @@ function harness({ stored = null, failTheme = false } = {}) {
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
-      assert.ok(['slots', 'theme', 'workspaces'].includes(names.join(',')))
+      assert.ok(['slots', 'theme', 'layout', 'workspaces'].includes(names.join(',')))
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'locale') throw new Error('cannot get property "locale" without inject')
@@ -72,7 +72,7 @@ function harness({ stored = null, failTheme = false } = {}) {
       layers.set(id, values)
       return () => { layers.delete(id) }
     } },
-    layout: { toggleSidebar() { changes.push('sidebar') }, selectPanel(id) { changes.push(id) } },
+    layout: failLayout ? undefined : { toggleSidebar() { changes.push('sidebar') }, selectPanel(id) { changes.push(id) } },
     slots: {
       inject(name, register) {
         slots.push(name)
@@ -176,6 +176,17 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.layers.size, 0)
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
+test('missing native layout does not report successful no-op actions', () => {
+  const app = harness({ failLayout: true })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  controller.toggleSidebar()
+  assert.equal(controller.getSnapshot().error, true)
+  controller.openConversation()
+  assert.equal(controller.getSnapshot().error, true)
+  assert.deepEqual(app.changes, [])
+  app.cleanup()
+})
+
 test('missing theme keeps the independent Settings entry usable', () => {
   const app = harness({ failTheme: true })
   const entry = app.components.get('settings.section')
