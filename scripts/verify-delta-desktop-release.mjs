@@ -4,7 +4,6 @@ import { readFileSync } from 'node:fs'
 import { gunzipSync, inflateRawSync } from 'node:zlib'
 import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import ts from 'typescript'
 
 const packageName = '@fongap-labs/dsh-delta-desktop'
 const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/host-capabilities.js', 'lib/client.js',
@@ -66,26 +65,57 @@ export function readTgz(buffer) {
   return entries
 }
 /**
- * Inspect JavaScript syntax rather than searching generated source text.
- * The compiler retains source comments; a warning mentioning a forbidden
- * Host service must not turn a safe portable archive into a false failure.
- * Identifiers and string-literal property names remain forbidden.
+ * Scan emitted JavaScript without mistaking source comments for executable
+ * references. Keep string, template, and regular-expression text conservative:
+ * forbidden names in runtime text still block the release. No compiler API is
+ * used because the project installs native TypeScript 7 (CLI-only).
  */
 export function hasUnsafeHostPatch(source) {
-  const syntax = ts.createSourceFile('lib/index.js', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JS)
-  const denied = ['workspaceRegistry', 'protected-default-workspace']
-  let isUnsafe = false
-  const scan = node => {
-    if (isUnsafe) return
-    if ((ts.isIdentifier(node) || ts.isStringLiteralLike(node)) &&
-        denied.some(value => node.text.includes(value))) {
-      isUnsafe = true
-      return
+  let executable = ''
+  let quote = null
+  let isEscaped = false
+  let isBlockComment = false
+  let isLineComment = false
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i]
+    const next = source[i + 1]
+    if (isLineComment) {
+      if (char === '\n' || char === '\r') {
+        isLineComment = false
+        executable += char
+      }
+      continue
     }
-    ts.forEachChild(node, scan)
+    if (isBlockComment) {
+      if (char === '*' && next === '/') {
+        isBlockComment = false
+        i++
+      } else if (char === '\n' || char === '\r') {
+        executable += char
+      }
+      continue
+    }
+    if (quote !== null) {
+      executable += char
+      if (isEscaped) isEscaped = false
+      else if (char === '\\') isEscaped = true
+      else if (char === quote) quote = null
+      continue
+    }
+    if (char === '"' || char === "'" || char === '\x60') {
+      quote = char
+      executable += char
+    } else if (char === '/' && next === '/') {
+      isLineComment = true
+      i++
+    } else if (char === '/' && next === '*') {
+      isBlockComment = true
+      i++
+    } else {
+      executable += char
+    }
   }
-  scan(syntax)
-  return isUnsafe
+  return executable.includes('workspaceRegistry') || executable.includes('protected-default-workspace')
 }
 
 export function verifyEntries(entries, version, format) {
