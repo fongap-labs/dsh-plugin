@@ -42,6 +42,12 @@
     "sessionStateUnknown": "无法确认会话归档状态，请使用官方会话列表打开。",
     "sessionRunning": "运行中",
     "sessionUpdated": "最近更新",
-    "sessionArchived": "已归档"
+    "sessionArchived": "已归档",
+    "integrationTitle": "宿主兼容性 · 扩展接口 v1",
+    "integrationSummary": "当前已验证的 Harness 0.2.2-rc.1 未开放以下四项必需接口。Delta 只启用受支持的附加功能，不能视为完整桌面布局已生效。",
+    "integrationSidebar": "完整侧栏导航重排：宿主未提供组合插槽",
+    "integrationCollapse": "工作区默认折叠：宿主未提供视图状态初始化接口",
+    "integrationDeletion": "默认工作区删除保护：宿主未提供业务层守卫接口",
+    "integrationRunning": "原生聊天运行文案：宿主未提供专用本地化覆盖接口"
   }
 }
