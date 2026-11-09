@@ -35,6 +35,10 @@
 .dtd-page :focus-visible { outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
 .dtd-page .dtd-error { color: var(--dsw-alias-state-error-primary, #B91C1C); }
 .dtd-page .dtd-current, .dtd-page .dtd-recovery, .dtd-page .dtd-capability { font-size: 12px; }
+.dtd-integration { padding: 16px 20px; border: 1px solid var(--dtd-border); border-radius: 12px; background: var(--dtd-surface); }
+.dtd-integration h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
+.dtd-page .dtd-integration p { margin: 0 0 8px; font-size: 12px; }
+.dtd-integration ul { margin: 0; padding-inline-start: 18px; font-size: 12px; line-height: 1.8; color: var(--dtd-muted); }
 @media (max-width: 600px) {
   .dtd-page-head, .dtd-preference-row { padding: 16px; }
   .dtd-segment { width: 100%; }
