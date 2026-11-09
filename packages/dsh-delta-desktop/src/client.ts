@@ -228,9 +228,9 @@ window.__ModuleLoader__.load({
                 observer?.observe(document.documentElement, {
                   attributes: true, attributeFilter: ['lang'],
                 })
-                const offLocale = scope.locale?.subscribe?.(() => controller.syncLanguage())
+                // Language changes are tracked through the document lang observer.
+                // Do not read ctx.locale without an explicit Cordis injection.
                 return () => {
-                  offLocale?.()
                   observer?.disconnect()
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
