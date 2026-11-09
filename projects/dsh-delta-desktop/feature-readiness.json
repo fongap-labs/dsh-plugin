@@ -12,7 +12,7 @@
     "workspace_initial_collapse": false,
     "default_workspace_delete_guard": false
   },
-  "note": "Release blocked until Host capability contracts and real Windows conversation/lifecycle acceptance pass. DOM-based compatibility takeover removed; supported theme, brand, and settings extensions retained. A source-level implementation or simulated test is not proof of host compatibility.",
+  "note": "Capability flags record incomplete Host contracts and pending Windows conversation/lifecycle acceptance; these are diagnostics only. Release timing and version are controlled exclusively by the operator. DOM-based compatibility takeover remains retired; supported theme, brand, sidebar and settings extensions are retained. Source-level tests do not prove Host compatibility.",
   "verification": {
     "native_client": "tests/dsh-delta-desktop-native.test.mjs",
     "dom_compat": "retired: no direct DOM sidebar takeover",
