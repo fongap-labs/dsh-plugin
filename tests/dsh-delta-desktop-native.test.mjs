@@ -248,3 +248,25 @@ test('workspace deletion remains Host owned regardless of appearance mode', asyn
   app.cleanup()
   assert.deepEqual(app.deletedWorkspaces, ['other'])
 })
+
+test('Delta integration reports missing Host contracts instead of claiming completed layout', () => {
+  const app = harness()
+  const entry = app.components.get('settings.section')
+  const controller = entry.spec.inject().controller
+  let rendered = JSON.stringify(entry.component({ controller }))
+  assert.ok(rendered.includes('data-delta-contract-version'), 'the integration diagnostic must be versioned')
+  assert.ok(rendered.includes('incomplete'), 'the current Host must never report full layout readiness')
+  assert.ok(rendered.includes('完整侧栏导航重排'))
+  assert.ok(rendered.includes('工作区默认折叠'))
+  assert.ok(rendered.includes('默认工作区删除保护'))
+  assert.ok(rendered.includes('原生聊天运行文案'))
+  assert.equal(app.workspaces.delete, app.originalDelete, 'diagnostics cannot modify Host deletion permissions')
+  const css = readFileSync(fixture('packages/dsh-delta-desktop/src/theme.css'), 'utf8')
+  assert.ok(css.includes('grid-template-columns: minmax(0, 1fr)'),
+    'Delta quick actions must appear as ordered, full-width sidebar rows')
+  controller.setMode('official')
+  rendered = JSON.stringify(entry.component({ controller }))
+  assert.equal(rendered.includes('dtd-integration'), false,
+    'the compatibility panel is inactive while the native appearance is selected')
+  app.cleanup()
+})
