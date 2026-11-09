@@ -216,14 +216,14 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
   results.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
   results.hidden = true
   shell.append(searchField, results)
-  let disposed = false
+  let isDisposed = false
   let timer: number | undefined
   let pending: AbortController | undefined
   let serial = 0
   let remoteItems: { sessionId: string; snippet: string }[] = []
-  let searching = false
-  let error = false
-  const active = (): boolean => !disposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
+  let isSearching = false
+  let hasError = false
+  const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
   const clearRequest = (): void => {
     if (timer !== undefined) window.clearTimeout(timer)
     timer = undefined
@@ -276,28 +276,28 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
           render()
         } catch (reason) {
           console.warn('[dsh-delta-desktop] native Session navigation failed', reason)
-          error = true
+          hasError = true
           render()
         }
       })
       results.appendChild(button)
     }
-    if (searching || error || matches.length === 0) {
+    if (isSearching || hasError || matches.length === 0) {
       const message = document.createElement('p')
       message.className = 'dtd-host-search-hint'
       message.setAttribute('role', 'status')
-      message.textContent = error ? copy.unavailable : searching ? copy.searching : copy.noResults
+      message.textContent = hasError ? copy.unavailable : isSearching ? copy.searching : copy.noResults
       results.appendChild(message)
     }
   }
   const onInput = (): void => {
     clearRequest()
     remoteItems = []
-    searching = false
-    error = false
+    isSearching = false
+    hasError = false
     const query = input.value.replaceAll('\0', '').trim().slice(0, 500)
     if (query) {
-      searching = true
+      isSearching = true
       const requestId = serial
       const aborter = new AbortController()
       pending = aborter
@@ -305,14 +305,14 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
         timer = undefined
         void sessions.search(query, aborter.signal).then(result => {
           if (!active() || serial !== requestId || aborter.signal.aborted) return
-          searching = false
-          error = !result.ok
+          isSearching = false
+          hasError = !result.ok
           remoteItems = result.ok ? (result.value?.items ?? []) : []
           render()
         }, reason => {
           if (!active() || serial !== requestId || aborter.signal.aborted) return
-          searching = false
-          error = true
+          isSearching = false
+          hasError = true
           console.warn('[dsh-delta-desktop] native Session search failed', reason)
           render()
         })
@@ -328,7 +328,7 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
     input.blur()
   })
   const sync = (): void => {
-    if (disposed) return
+    if (isDisposed) return
     if (controller.getSnapshot().mode !== 'delta') {
       clearRequest()
       shell.remove()
@@ -352,8 +352,8 @@ function installHostSearch(controller: DeltaController, sessions: SearchSessions
   const unsubscribe = controller.subscribe(sync)
   sync()
   return () => {
-    if (disposed) return
-    disposed = true
+    if (isDisposed) return
+    isDisposed = true
     clearRequest()
     unsubscribe()
     observer.disconnect()
