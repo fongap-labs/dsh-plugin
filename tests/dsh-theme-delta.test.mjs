@@ -63,7 +63,7 @@ test('appearance, official layout actions, and cleanup are reversible', () => {
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
   const entry = app.components.get('settings.general.item')
   const controller = entry.spec.inject().controller
-  assert.match(JSON.stringify(entry.component({ controller })), /Delta 主题/)
+  assert.match(JSON.stringify(entry.component({ controller })), new RegExp('Delta 主题'))
   controller.setMode('official')
   assert.equal(app.layers.size, 0)
   controller.openConversation()
