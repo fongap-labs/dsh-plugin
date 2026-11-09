@@ -42,7 +42,7 @@ interface SlotsApi {
   register<P = DeltaProps>(options: { name: string; id: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
 interface WorkspacesApi {
-  list: { getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string }[] } }
+  list: { getSnapshot(): { items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[] } }
   delete(workspaceId: string): Promise<unknown>
 }
 interface ClientContext {
@@ -501,11 +501,16 @@ window.__ModuleLoader__.load({
                 if (!workspaces || typeof workspaces.delete !== 'function') return
                 const originalDelete = workspaces.delete
                 const guardedDelete = (id: string): Promise<unknown> => {
-                  const target = workspaces.list.getSnapshot().items.find(item => item.workspaceId === id)
+                  const items = workspaces.list.getSnapshot().items
+                  const target = items.find(item => item.workspaceId === id)
                   const path = target?.path.replace(/\\/g, '/').toLowerCase()
                   const protectedDefault = path?.endsWith('/deepseek-harness/default-workspace') === true
                   if (controller.getSnapshot().mode === 'delta' && protectedDefault) {
-                    return Promise.reject(new Error('delta/protected-default-workspace'))
+                    const hasOtherWorkspace = items.some(item => item.workspaceId !== id)
+                    const hasSessions = target?.sessionIds === undefined || target.sessionIds.length > 0
+                    if (!hasOtherWorkspace || hasSessions) {
+                      return Promise.reject(new Error('delta/protected-default-workspace'))
+                    }
                   }
                   return originalDelete.call(workspaces, id)
                 }
