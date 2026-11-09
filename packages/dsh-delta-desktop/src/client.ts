@@ -12,6 +12,7 @@ interface DeltaCopy {
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
     searchSessions: string; newConversation: string;
+    copied: string; copyFailed: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -288,6 +289,30 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
+    const showDeltaToast = (message: string): void => {
+      try {
+        if (!document.body) return
+        const node = document.createElement('div')
+        node.className = 'dtd-toast'
+        node.setAttribute('role', 'status')
+        node.textContent = message
+        document.body.appendChild(node)
+        const entry = { node, timer: 0 }
+        entry.timer = window.setTimeout(() => {
+          node.remove()
+          toastEntries.delete(entry)
+        }, 3000)
+        toastEntries.add(entry)
+      } catch { /* Toasts must never prevent native interaction. */ }
+    }
+    const clearDeltaToasts = (): void => {
+      for (const entry of toastEntries) {
+        window.clearTimeout(entry.timer)
+        entry.node.remove()
+      }
+      toastEntries.clear()
+    }
     function useCopy(controller: DeltaController): { state: DeltaState; copy: DeltaCopy } {
       const state = React.useSyncExternalStore(
         callback => controller.subscribe(callback), () => controller.getSnapshot())
@@ -321,7 +346,12 @@ window.__ModuleLoader__.load({
         el('button', {
           type: 'button', className: 'dtd-session-meta-copy',
           'aria-label': copy.ui.copySessionId,
-          onClick: () => { void navigator.clipboard?.writeText(sessionId).catch(() => {}) },
+          onClick: () => {
+            const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+            const request = navigator.clipboard?.writeText(sessionId)
+            if (!request) { showDeltaToast(labels.copyFailed); return }
+            void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
+          },
         }, copy.ui.copy))
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
@@ -391,6 +421,7 @@ window.__ModuleLoader__.load({
                   observer?.disconnect()
                   stopAppearance()
                   stopCompat()
+                  clearDeltaToasts()
                   document.documentElement.removeAttribute?.('data-delta-ui')
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
