@@ -14,7 +14,7 @@
     "sidebar": "展开或收起侧栏",
     "status": "当前外观",
     "unavailable": "此版本缺少必要能力或操作失败，请停用此插件并恢复官方界面。",
-    "recovery": "无法显示设置时，请从宿主 Profile 禁用 dsh-desktop-delta 条目并重启。",
+    "recovery": "无法显示设置时，请从宿主 Profile 禁用 dsh-delta-desktop 条目并重启。",
     "shortcut": "快捷键由官方布局管理，本插件不覆盖既有按键。",
     "personalization": "个性设置",
     "personalizationDescription": "当前可设置桌面外观，后续功能模块可独立扩展设置栏目。",

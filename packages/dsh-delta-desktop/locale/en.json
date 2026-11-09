@@ -14,7 +14,7 @@
     "sidebar": "Toggle sidebar",
     "status": "Current appearance",
     "unavailable": "A required capability is unavailable or an action failed. Disable this plugin to restore the official UI.",
-    "recovery": "If Settings cannot open, disable dsh-desktop-delta in the Host Profile and restart.",
+    "recovery": "If Settings cannot open, disable dsh-delta-desktop in the Host Profile and restart.",
     "shortcut": "The official layout owns shortcuts; this plugin does not override existing keys.",
     "personalization": "Personalization",
     "personalizationDescription": "Desktop appearance preferences. Additional settings can be provided by future Delta features.",
