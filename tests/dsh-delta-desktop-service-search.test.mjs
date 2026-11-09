@@ -1,15 +1,23 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
+import ts from 'typescript'
 
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
-execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-  file('packages/dsh-delta-desktop/tsconfig.client.json')], { stdio: 'pipe' })
-execFileSync(process.execPath, [file('packages/dsh-delta-desktop/scripts/finalize-client.mjs')], { stdio: 'pipe' })
-const source = readFileSync(file('packages/dsh-delta-desktop/lib/client.js'), 'utf8')
+// Transpile into this test's memory: node --test runs files in parallel, and a
+// second finalize-client execution can race the native artifact test.
+const raw = readFileSync(file('packages/dsh-delta-desktop/src/client.ts'), 'utf8')
+const locales = Object.fromEntries(['en', 'zh'].map(lang =>
+  [lang, JSON.parse(readFileSync(file('packages/dsh-delta-desktop/locale/' + lang + '.json'), 'utf8'))]))
+const compiled = ts.transpileModule(raw, { compilerOptions: { target: ts.ScriptTarget.ES2022,
+  module: ts.ModuleKind.None } }).outputText
+assert.equal(compiled.split("'__DELTA_DESKTOP_LOCALES__'").length, 2)
+assert.equal(compiled.split("'__DELTA_DESKTOP_STYLE__'").length, 2)
+const source = compiled.replace("'__DELTA_DESKTOP_LOCALES__'", JSON.stringify(locales))
+  .replace("'__DELTA_DESKTOP_STYLE__'", JSON.stringify(
+    readFileSync(file('packages/dsh-delta-desktop/src/theme.css'), 'utf8')))
 
 class Element {
   constructor(tag) {
