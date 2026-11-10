@@ -244,4 +244,24 @@ describe("dsh-delta-code", () => {
     disposer();
     assert.equal(unregisterCtx.registered.size, 0);
   });
+  it("code_lsp_probe: nonzero exit is not an available server", async () => {
+    const fresh = createContext();
+    const subprocess = { spawn() {
+      return {
+        done: Promise.resolve({ exitCode: 1 }),
+        collected: {
+          stdout: { readFrom: () => ({ text: "no", lossy: false }) },
+          stderr: { readFrom: () => ({ text: "error", lossy: false }) },
+        },
+      };
+    }};
+    fresh.subprocess = subprocess;
+    codeWorker.apply(fresh, { workspaceRoot: workspace,
+      lsp: { servers: [{ language: "broken", command: "broken-language-server" }] } });
+    const tool = fresh.registered.get("code_lsp_probe");
+    const result = await tool.execute({}, { signal: new AbortController().signal });
+    assert.equal(result.servers[0].available, false);
+    assert.match(result.servers[0].note, /exit code 1/);
+  });
+
 });
