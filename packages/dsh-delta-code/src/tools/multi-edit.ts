@@ -84,7 +84,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
         }> = []
         const checked: EditResult[] = []
         const targets = new Set<string>()
-        let invalid = false
+        let isInvalid = false
         for (const edit of edits) {
           const path = typeof edit?.path === 'string' ? edit.path : ''
           try {
@@ -112,7 +112,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               checked.push({ path, action: 'overwrite', ok: true, note: edit.content.length + ' characters' })
             }
           } catch (error) {
-            invalid = true
+            isInvalid = true
             checked.push({
               path,
               action: 'skipped',
@@ -121,7 +121,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             })
           }
         }
-        if (invalid) {
+        if (isInvalid) {
           return {
             applied: 0,
             results: checked.map(item => item.ok
