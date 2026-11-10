@@ -28,6 +28,29 @@ describe('DSH Host filesystem authority', () => {
     }
   })
 
+  it('blocks the entire preflight batch when mounted Host FS lacks write capability', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-host-fs-'))
+    try {
+      await writeFile(join(root, 'existing.txt'), 'original', 'utf8')
+      const ctx = { get: name => name === 'fs' ? {
+        resolve: async path => path,
+        readText: async () => 'original',
+      } : undefined }
+      const tool = createMultiEditTool(ctx, normalizeConfig({ workspaceRoot: root }))
+      const result = await tool.execute({ preflight: true, edits: [
+        { path: 'existing.txt', content: 'must not overwrite' },
+        { path: 'second.txt', content: 'must not write' },
+      ] }, execution())
+      assert.equal(result.applied, 0)
+      assert.ok(result.results.every(item => !item.ok))
+      assert.match(result.results[0].note, /Host FS missing resolve\/writeText/)
+      assert.equal(await readFile(join(root, 'existing.txt'), 'utf8'), 'original')
+      await assert.rejects(readFile(join(root, 'second.txt'), 'utf8'), { code: 'ENOENT' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('refuses local fallback when the mounted Host FS lacks resolve', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-host-fs-'))
     try {
