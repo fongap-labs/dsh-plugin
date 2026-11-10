@@ -327,6 +327,15 @@ async function openAnchoredLocalFile(
       throw error
     }
     return file
+  } catch (error) {
+    // A symlink or non-directory component is a sandbox refusal, not a
+    // raw /proc/self/fd path error; keep the established tool error contract.
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ELOOP' || code === 'ENOTDIR') {
+      throw new SandboxViolationError('symbolic-link or invalid directory blocked by workspace sandbox',
+        { root, target: absolute })
+    }
+    throw error
   } finally {
     for (const directory of opened.reverse()) await directory.close()
   }
