@@ -165,6 +165,24 @@ async function assertLocalPathInside(root: string, target: string, isWrite: bool
   }
 }
 
+/** Validate an edit target before a batch begins.
+ * Local fallback checks the real existing path; native Host FS owns its path policy.
+ */
+export async function validateWriteTargetSafe(
+  ctx: Context,
+  exec: ToolRunContext,
+  root: string,
+  relPath: string,
+): Promise<void> {
+  const absolute = resolveInside(root, relPath)
+  const fs = ctx.get('fs')
+  if (fs && typeof fs.resolve === 'function') {
+    await fs.resolve(absolute, { cwd: root, signal: exec.signal })
+    return
+  }
+  await assertLocalPathInside(root, absolute, true)
+}
+
 export async function readTextSafe(
   ctx: Context,
   exec: ToolRunContext,
