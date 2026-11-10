@@ -32,6 +32,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       },
       dryRun: { type: 'boolean', description: 'When true, validate without writing.' },
       preflight: { type: 'boolean', description: 'Check the entire batch before writing. Preflight failure writes nothing; write-stage failures may still leave earlier edits (not an atomic transaction).' },
+      rollbackOnFailure: { type: 'boolean', description: 'Opt-in guarded compensation for existing files only; requires preflight=true and execution.fsWriteContract=guarded-intent. Restores confirmed earlier writes only if the Host write version is unchanged. Not atomic.' },
     },
     output: {
       schema: {
@@ -55,12 +56,26 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             },
           },
           dryRun: { type: 'boolean' },
+          rollback: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              attempted: { type: 'integer', required: true },
+              restored: { type: 'integer', required: true },
+              failed: { type: 'integer', required: true },
+              skippedReason: { type: 'string' },
+            },
+          },
         },
       },
       render(_args, value) {
         const lines = [
           `MultiEdit: ${value.applied} edit(s)${value.dryRun ? ' (dry run)' : ''} applied.`,
         ]
+        if (value.rollback) {
+          lines.push(`  Recovery: ${value.rollback.restored}/${value.rollback.attempted} restored; ${value.rollback.failed} failed.`)
+          if (value.rollback.skippedReason) lines.push(`  Recovery skipped: ${value.rollback.skippedReason}`)
+        }
         for (const result of value.results) {
           const flag = result.ok ? 'ok' : 'fail'
           lines.push(
@@ -75,6 +90,19 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       const results: EditResult[] = []
       let applied = 0
       const edits = Array.isArray(args.edits) ? args.edits : []
+      const shouldRollback = args.rollbackOnFailure === true
+      if (shouldRollback && (!args.preflight || args.dryRun || settings.fsWriteContract !== 'guarded-intent')) {
+        return {
+          applied: 0,
+          results: edits.map((edit) => ({
+            path: typeof edit?.path === 'string' ? edit.path : '',
+            action: 'skipped' as const,
+            ok: false,
+            note: 'rollbackOnFailure requires preflight=true, dryRun=false and guarded-intent Host FS',
+          })),
+          dryRun: Boolean(args.dryRun),
+        }
+      }
       if (args.preflight || args.dryRun) {
         // Every dry run must validate targets and Host permissions before claiming success.
         // Real writes without explicit preflight retain the existing best-effort mode.
@@ -98,6 +126,9 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             targets.add(target)
             // Check symlinks and Host FS permissions before any batch write.
             const pinnedIntent = await validateWriteTargetSafe(ctx, exec, root, path, settings)
+            if (shouldRollback && pinnedIntent?.kind !== 'replaceIfVersion') {
+              throw new Error('rollbackOnFailure requires an existing file with a Host version')
+            }
             const isReplace = edit.find !== undefined
             if (isReplace === (edit.content !== undefined)) {
               throw new Error('provide exactly one of content or find/replace')
@@ -108,6 +139,9 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
                 throw new Error('find must be non-empty and replace must be a string')
               }
               const original = await readTextSafe(ctx, exec, root, path)
+              if (shouldRollback && Buffer.byteLength(original, 'utf8') > 2 * 1024 * 1024) {
+                throw new Error('rollbackOnFailure snapshot exceeds 2 MiB')
+              }
               const index = original.indexOf(edit.find)
               if (index === -1) throw new Error('find substring not present')
               const content = original.slice(0, index) + edit.replace + original.slice(index + edit.find.length)
@@ -116,12 +150,18 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             } else {
               if (typeof edit.content !== 'string') throw new Error('content must be a string')
               let original: string | undefined
+              if (shouldRollback) {
+                original = await readTextSafe(ctx, exec, root, path)
+                if (Buffer.byteLength(original, 'utf8') > 2 * 1024 * 1024) {
+                  throw new Error('rollbackOnFailure snapshot exceeds 2 MiB')
+                }
+              }
               if (edit.expectedSha256 !== undefined) {
                 if (!args.preflight) throw new Error('expectedSha256 requires preflight=true')
                 if (typeof edit.expectedSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(edit.expectedSha256)) {
                   throw new Error('expectedSha256 must be a 64-character lowercase SHA-256 digest')
                 }
-                original = await readTextSafe(ctx, exec, root, path)
+                original ??= await readTextSafe(ctx, exec, root, path)
                 const actualSha256 = createHash('sha256').update(original, 'utf8').digest('hex')
                 if (actualSha256 !== edit.expectedSha256) throw new Error('expectedSha256 mismatch; file changed')
               }
@@ -152,6 +192,43 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
           return { applied: prepared.length, results: checked, dryRun: true }
         }
         const written: EditResult[] = []
+        const confirmed: Array<{ resultIndex: number; path: string; original: string; version: string }> = []
+        const compensate = async (): Promise<{
+          attempted: number; restored: number; failed: number; skippedReason?: string
+        }> => {
+          const rollback = { attempted: 0, restored: 0, failed: 0, skippedReason: undefined as string | undefined }
+          if (exec.signal.aborted) {
+            // Do not use a new signal to circumvent a cancelled Host operation.
+            rollback.skippedReason = 'operation cancelled; no further writes authorized'
+            return rollback
+          }
+          for (const entry of confirmed.reverse()) {
+            if (exec.signal.aborted) {
+              rollback.skippedReason = 'operation cancelled during recovery'
+              break
+            }
+            rollback.attempted += 1
+            try {
+              // The exact version returned by OUR write is mandatory.
+              // Never fetch a newer version and treat it as permission to restore.
+              await writeTextSafe(ctx, exec, root, entry.path, entry.original, settings,
+                { kind: 'replaceIfVersion', version: entry.version })
+              rollback.restored += 1
+              applied -= 1
+              written[entry.resultIndex] = {
+                ...written[entry.resultIndex]!,
+                ok: false, note: 'restored after later batch failure',
+              }
+            } catch (error) {
+              rollback.failed += 1
+              written[entry.resultIndex] = {
+                ...written[entry.resultIndex]!,
+                note: 'write retained; recovery refused: ' + errorMessage(error),
+              }
+            }
+          }
+          return rollback
+        }
         for (const [index, item] of prepared.entries()) {
           try {
             if (exec.signal.aborted) throw new Error('operation cancelled')
@@ -159,9 +236,24 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               const current = await readTextSafe(ctx, exec, root, item.path)
               if (current !== item.original) throw new Error('file changed after preflight')
             }
-            await writeTextSafe(ctx, exec, root, item.path, item.content, settings, item.pinnedIntent)
+            const outcome = await writeTextSafe(ctx, exec, root, item.path, item.content, settings, item.pinnedIntent)
             applied += 1
             written.push({ path: item.path, action: item.action, ok: true, note: item.note })
+            if (shouldRollback) {
+              const version = (outcome as { version?: unknown } | null)?.version
+              if (typeof version !== 'string' || version.length === 0) {
+                // The current file has been written but cannot be safely restored:
+                // do not risk a blind rollback or execute additional batch writes.
+                written[index]!.note = 'write succeeded; Host returned no version, recovery unavailable'
+                const rollback = await compensate()
+                rollback.skippedReason = 'Host write outcome lacked version for ' + item.path
+                for (const pending of prepared.slice(index + 1)) {
+                  written.push({ path: pending.path, action: 'skipped', ok: false, note: 'recovery unavailable; batch stopped' })
+                }
+                return { applied, results: written, dryRun: false, rollback }
+              }
+              confirmed.push({ resultIndex: index, path: item.path, original: item.original!, version })
+            }
           } catch (error) {
             written.push({
               path: item.path,
@@ -171,6 +263,12 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             })
             for (const pending of prepared.slice(index + 1)) {
               written.push({ path: pending.path, action: 'skipped', ok: false, note: 'earlier batch write failed' })
+            }
+            if (shouldRollback) {
+              const rollback = await compensate()
+              // The failing Host write may have partially mutated its own target.
+              // Only earlier confirmed writes have an authoritative version.
+              return { applied, results: written, dryRun: false, rollback }
             }
             break
           }

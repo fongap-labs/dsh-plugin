@@ -6,7 +6,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 | 工具 | 说明 |
 | --- | --- |
-| `code_multi_edit` | 在工作区内顺序批量编辑，支持覆盖、字面量替换、`dryRun` 及可选 `preflight` 整批预检；拒绝同条编辑混合 `content` 与 `find`，写入阶段不保证事务原子性；普通逐项查找替换会在写盘前复核来源内容。 |
+| `code_multi_edit` | 在工作区内顺序批量编辑，支持覆盖、字面量替换、`dryRun` 及可选 `preflight` 整批预检；拒绝同条编辑混合 `content` 与 `find`，写入阶段不保证事务原子性；可选版本保护补偿恢复；普通逐项查找替换会在写盘前复核来源内容。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
@@ -26,6 +26,14 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 当 DSH 未挂载 Host FS 时，Linux 本地兼容路径通过 `/proc/self/fd` 与逐级打开的目录句柄进行文件读取和写入；父目录在打开后被替换，不会把后续路径解析转向工作区外目录。写入也拒绝最终符号链接、非普通文件与多重硬链接（避免经硬链接覆盖外部文件）。该路径需要可用的 `/proc/self/fd`；无法使用时明确失败，不回退到非锚定写入。
 
 Windows、macOS 保留现有真实路径检查与最终文件 `O_NOFOLLOW`（平台支持时）防护，**仍存在父目录并发置换风险**。目录句柄锚定并不提供跨文件事务原子性，也不代替 DSH 原生权限审批；挂载 Host FS 时只使用宿主接口。
+
+### 批量编辑部分失败与受控恢复
+
+`code_multi_edit` 新增可选参数 `rollbackOnFailure: true`，**仅在** `preflight: true`、非 Dry Run、`execution.fsWriteContract: guarded-intent` 且所有目标均为现有、可读取、带版本的文件时启用。开启后，预检保存每个文件修改前的内容（单文件上限 2 MiB）；成功写入必须由宿主返回该次写入的版本。若后续写入失败，插件按逆序尝试以 `replaceIfVersion` 恢复已确认成功的写入。
+
+恢复遵守宿主原生授权和取消信号；如果文件已再次改变、宿主拒绝、写入结果缺失版本或操作已取消，**不允许无条件回写**。响应包含可见的 `rollback` 统计，并在逐项结果中说明已恢复或仍保留的修改。失败的那一次写入可能有不确定结果，需人工核对。
+
+不支持自动删除本批次新建的文件，不保证跨文件事务原子性，也不自动开启恢复。默认批量编辑行为保持不变。该能力仍需真实 DSH Host 验收。
 
 ### DSH Host FS 写入协议
 

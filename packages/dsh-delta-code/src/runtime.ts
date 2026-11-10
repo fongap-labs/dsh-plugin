@@ -388,7 +388,7 @@ export async function writeTextSafe(
   content: string,
   settings?: Pick<Settings, 'fsWriteContract'>,
   pinnedIntent?: GuardedWriteIntent,
-): Promise<void> {
+): Promise<unknown> {
   if (pinnedIntent && settings?.fsWriteContract !== 'guarded-intent') {
     throw new Error('pinned write intent requires guarded-intent Host FS')
   }
@@ -403,8 +403,7 @@ export async function writeTextSafe(
       const { target, intent } = await guardedWriteTarget(fs, root, absolute, signal)
       // Never replace the preflight snapshot's version with a newer one:
       // the Host must atomically reject concurrent changes, not adopt them.
-      await fs.writeText(target, content, pinnedIntent ?? intent, signal)
-      return
+      return fs.writeText(target, content, pinnedIntent ?? intent, signal)
     }
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
     await fs.writeText(resolved, content, 'overwrite', signal)
