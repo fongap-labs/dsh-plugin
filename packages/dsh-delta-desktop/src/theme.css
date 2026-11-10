@@ -242,3 +242,26 @@
 :root[data-delta-ui="delta"] .dtd-host-search-result[aria-disabled="true"] {
   opacity: .7;
 }
+
+/* Delta Desktop v2 refinements: scope changes to plugin-owned widgets only. */
+.dtd-page {
+  --dtd-accent: var(--dsw-alias-brand-primary, #286F78);
+  --dtd-accent-subtle: var(--dsw-alias-button-ghost-active-fill, #EAF3F4);
+}
+.dtd-page button:focus-visible,
+.dtd-host-search-input:focus-visible,
+.dtd-host-search-result:focus-visible {
+  outline: 2px solid var(--dtd-accent, #286F78);
+  outline-offset: 2px;
+}
+.dtd-host-search-result:hover,
+.dtd-host-search-result:focus-visible {
+  background: var(--dtd-accent-subtle, #EAF3F4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dtd-page *, .dtd-host-search * {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

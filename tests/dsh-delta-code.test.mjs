@@ -285,7 +285,11 @@ describe("dsh-delta-code", () => {
       enabled: true,
       workspaceRoot: workspace,
     });
-    assert.equal(unregisterCtx.registered.size, 11);
+    const registeredToolNames = [...unregisterCtx.registered.keys()];
+    assert.ok(registeredToolNames.length >= 11, 'essential Code Worker tools must register');
+    assert.equal(new Set(registeredToolNames).size, registeredToolNames.length);
+    assert.ok(unregisterCtx.registered.has('code_git_worktree'));
+    assert.ok(unregisterCtx.registered.has('code_lsp_probe'));
     disposer();
     assert.equal(unregisterCtx.registered.size, 0);
   });

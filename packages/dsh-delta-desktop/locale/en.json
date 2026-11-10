@@ -49,6 +49,18 @@
     "integrationCollapse": "Default-collapsed Workspaces: no public view-state initializer",
     "integrationDeletion": "Default Workspace deletion guard: no business-layer guard hook",
     "integrationRunning": "Native chat running copy: no dedicated localization override",
-    "themeWaiting": "Delta palette unavailable"
+    "themeWaiting": "Delta palette unavailable",
+    "protectedDefaultWorkspace": "The default workspace is protected and cannot be deleted.",
+    "deepDiving": "Executing task",
+    "deepDivingFor": "Executing task · {duration} …",
+    "updateNotification": "Updates",
+    "settings": "Settings",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signedIn": "Signed in",
+    "latestVersion": "Already up to date",
+    "signedOut": "Signed out",
+    "signInRequired": "Please sign in",
+    "signOutFromMenu": "Please sign out from the account menu"
   }
 }
