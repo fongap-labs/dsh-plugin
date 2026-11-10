@@ -61,10 +61,11 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
             timeoutMs: 8_000,
             maxOutputBytes: 4 * 1024,
           })
-          isAvailable = result.exitCode === 0 || result.exitCode !== null
+          isAvailable = result.exitCode === 0 && !result.timedOut && !result.signal
           if (result.timedOut) {
-            isAvailable = false
             note = 'timed out'
+          } else if (!isAvailable) {
+            note = result.signal ? 'terminated by signal ' + result.signal : 'exit code ' + String(result.exitCode)
           }
         } catch (error) {
           isAvailable = false
