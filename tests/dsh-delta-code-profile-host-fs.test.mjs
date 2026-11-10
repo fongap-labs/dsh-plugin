@@ -7,7 +7,7 @@ import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 const workspace = resolve('dsh-virtual-host-profile')
 const exec = () => ({ signal: new AbortController().signal })
 
-function fakeHost(files, { denyStat = false, denyRead = false } = {}) {
+function fakeHost(files, { denyStat = false, denyRead = false, isDirectory = true, abortOnRead } = {}) {
   const observed = []
   const fs = {
     async resolve(path) {
@@ -20,11 +20,13 @@ function fakeHost(files, { denyStat = false, denyRead = false } = {}) {
     async stat(target) {
       observed.push('stat')
       if (denyStat) throw new Error('Host FS denied metadata')
+      if (target.targetKey === workspace) return isDirectory ? { type: 'directory' } : { type: 'file' }
       return Object.hasOwn(files, target.targetKey) ? { type: 'file' } : undefined
     },
     async readText(target) {
       observed.push('readText')
       if (denyRead) throw new Error('Host FS denied read')
+      if (abortOnRead) abortOnRead.abort()
       return files[target.targetKey]
     },
   }
@@ -66,6 +68,22 @@ describe('Code Worker project profiling via DSH Host FS', () => {
     const ctx = { get: key => key === 'fs' ? { resolve: async path => path } : undefined }
     const tool = createProjectProfileTool(ctx, normalizeConfig({ workspaceRoot: workspace }))
     await assert.rejects(tool.execute({}, exec()), /Host FS missing resolve\/contains\/stat\/readText/)
+  })
+
+  it('rejects a Host FS cwd that is a file before probing project manifests', async () => {
+    const host = fakeHost({ [join(workspace, 'package.json')]: '{}' }, { isDirectory: false })
+    const tool = createProjectProfileTool(host.ctx, normalizeConfig({ workspaceRoot: workspace }))
+    await assert.rejects(tool.execute({}, exec()), /Host-authorized directory/)
+    assert.equal(host.observed.includes('readText'), false)
+  })
+
+  it('does not return profile evidence after Host manifest read is cancelled', async () => {
+    const controller = new AbortController()
+    const host = fakeHost({
+      [join(workspace, 'package.json')]: '{"scripts":{"test":"node --test"}}',
+    }, { abortOnRead: controller })
+    const tool = createProjectProfileTool(host.ctx, normalizeConfig({ workspaceRoot: workspace }))
+    await assert.rejects(tool.execute({}, { signal: controller.signal }), /project profile cancelled/)
   })
 
   it('honors Host containment decisions for returned targets', async () => {
