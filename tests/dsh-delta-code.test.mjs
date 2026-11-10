@@ -285,7 +285,7 @@ describe("dsh-delta-code", () => {
       enabled: true,
       workspaceRoot: workspace,
     });
-    assert.equal(unregisterCtx.registered.size, 11);
+    assert.equal(unregisterCtx.registered.size, 12);
     disposer();
     assert.equal(unregisterCtx.registered.size, 0);
   });
