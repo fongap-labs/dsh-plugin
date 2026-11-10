@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: 工作区仓库发现与工作树创建遵守 DSH Host FS 权限。
+
 - 修复 [security]: LSP 探测遵循 Host FS 授权路径与子进程权限。
 
 - 修复 [security]: 工程概况验证宿主目录类型及取消状态。

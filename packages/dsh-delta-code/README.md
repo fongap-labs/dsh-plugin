@@ -55,6 +55,10 @@ Windows/macOS 的本地兼容路径改为**先打开文件句柄，复核工作�
 无法安全地通过函数参数数量或写入探测判断宿主协议，因此不会自动切换。选择新模式却缺失 Host FS、文件版本、路径权限或必需方法时，将明确拒绝操作；所选协议不匹配时需要人工校正设置。此适配只证明接口调用与模拟测试，**不等于实际 DSH 写入审批或端到端验收完成**。
 
 
+### 多仓库与工作树隔离
+
+`code_workspace_map` 在 Host FS 挂载时通过原生 `listDir/lstat/resolve/contains` 发现直属子仓库，所有 Git 文件枚举走 Host subprocess，绝不退回插件本地目录读取；有界发现、符号链接拒绝及跨仓路径过滤仍保留。`code_git_worktree` 的列举与显式授权创建均使用宿主 `processPath`，目标和已有父目录由 Host FS 检查，父目录符号链接或目标已存在时阻断；并发同名工作树由 Git 的分支/目录唯一性最终拒绝冲突。未挂载 Host FS 时继续使用本地兼容路径。
+
 ### Git 工作区宿主授权
 
 `code_resume` 和 `code_delivery_gate` 的 Git 工作目录统一遵循宿主权限：安装了 DSH Host FS 时，使用原生 `resolve/contains/stat/processPath` 确认目录并获取子进程的执行路径，Git 和交付测试均使用同一宿主执行路径；宿主拒绝、接口缺失、目标不是目录或路径越界均直接阻断，绝不改用 Node 本地 `realpath`。仅在未安装 Host FS 时使用原有本地真实路径检查；Git 命令仍必须通过 Host subprocess 执行。此变更需要真实 DSH 运行验证，不以模拟测试代替宿主验收。
