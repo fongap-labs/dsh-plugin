@@ -1,8 +1,8 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, lstat, realpath } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
-import { resolveInside } from '@fongap-labs/shared'
+import { resolveInside, isPathInside, SandboxViolationError } from '@fongap-labs/shared'
 import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
 
 export const TOOL_PREFIX = 'code_'
@@ -126,6 +126,45 @@ export async function resolveRoot(
   return process.cwd()
 }
 
+
+/**
+ * Check the real filesystem path when the optional Host FS is unavailable.
+ * Purely lexical resolveInside() is insufficient for existing symlinks.
+ * The Host FS remains authoritative when it is present.
+ */
+async function assertLocalPathInside(root: string, target: string, forWrite: boolean): Promise<void> {
+  const canonicalRoot = await realpath(root)
+  if (forWrite) {
+    // Refuse final-path symlinks even if their target does not yet exist.
+    try {
+      if ((await lstat(target)).isSymbolicLink()) {
+        throw new SandboxViolationError('symbolic-link edits are not allowed', { root, target })
+      }
+    } catch (error) {
+      if (error instanceof SandboxViolationError) throw error
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+  let probe = forWrite ? dirname(target) : target
+  while (true) {
+    try {
+      const canonicalPath = await realpath(probe)
+      if (!isPathInside(canonicalRoot, canonicalPath)) {
+        throw new SandboxViolationError('path escapes workspace through a symbolic link', { root, target })
+      }
+      return
+    } catch (error) {
+      if (error instanceof SandboxViolationError) throw error
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      const parent = dirname(probe)
+      if (parent === probe) {
+        throw new SandboxViolationError('cannot resolve path inside workspace', { root, target })
+      }
+      probe = parent
+    }
+  }
+}
+
 export async function readTextSafe(
   ctx: Context,
   exec: ToolRunContext,
@@ -139,6 +178,7 @@ export async function readTextSafe(
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
     return fs.readText(resolved, signal)
   }
+  await assertLocalPathInside(root, absolute, false)
   return readFile(absolute, 'utf8')
 }
 
@@ -156,6 +196,9 @@ export async function writeTextSafe(
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
     return fs.writeText(resolved, content, 'overwrite', signal)
   }
+  await assertLocalPathInside(root, absolute, true)
   await mkdir(dirname(absolute), { recursive: true })
+  // Recheck after directory creation; do not write through a pre-existing link.
+  await assertLocalPathInside(root, absolute, true)
   await writeFile(absolute, content, 'utf8')
 }
