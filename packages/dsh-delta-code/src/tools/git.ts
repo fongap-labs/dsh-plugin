@@ -1,23 +1,60 @@
-import { realpath } from 'node:fs/promises'
 import { relative } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { GitStatusResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot } from '../runtime.js'
+import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 
+
+interface HostPathFs {
+  resolve(path: string, options: { cwd: string; signal?: AbortSignal }): Promise<unknown>
+  contains(parent: unknown, child: unknown): boolean
+}
 
 /**
- * Resolve a Git work directory without following workspace symlinks outside
- * its real root. Keep the original pathname for Git's own pathspec semantics.
+ * The public diff path is workspace-root-relative, not a Git pathspec.
+ * Derive a literal pathspec within the selected checkout. For a mounted Host
+ * FS, resolve actual targets through the Host and reject cross-repo aliases.
  */
-async function resolveGitCwd(root: string, requested?: string): Promise<string> {
-  const cwd = requested ? resolveInside(root, requested) : root
-  const [canonicalRoot, canonicalCwd] = await Promise.all([realpath(root), realpath(cwd)])
-  if (!isPathInside(canonicalRoot, canonicalCwd)) {
-    throw new Error('git cwd escapes workspace through a symbolic link')
+async function resolveDiffPath(
+  ctx: Context, root: string, requestedCwd: string | undefined,
+  path: string, signal: AbortSignal,
+): Promise<string> {
+  if (!path || path.startsWith('/') || path.includes('\\') || path.includes('\0') ||
+      /^[a-zA-Z]:/.test(path) ||
+      path.split('/').some(segment => !segment || segment === '.' || segment === '..')) {
+    throw new Error('git diff requires a safe workspace-relative path')
   }
-  return cwd
+  const mounted: unknown = ctx.get('fs')
+  if (mounted) {
+    if (requestedCwd && (requestedCwd.startsWith('/') || requestedCwd.includes('\\') ||
+        /^[a-zA-Z]:/.test(requestedCwd) ||
+        requestedCwd.split('/').some(segment => !segment || segment === '.' || segment === '..'))) {
+      throw new Error('git diff cwd must be a workspace-relative directory')
+    }
+    const fs = mounted as Partial<HostPathFs>
+    if (typeof fs.resolve !== 'function' || typeof fs.contains !== 'function') {
+      throw new Error('DSH Host FS missing diff path containment methods')
+    }
+    const rootTarget = await fs.resolve(requestedCwd ?? root, { cwd: root, signal })
+    const target = await fs.resolve(path, { cwd: root, signal })
+    if (!fs.contains(rootTarget, target)) throw new Error('git diff path escapes selected repository')
+    if (signal.aborted) throw new Error('git diff cancelled during path authorization')
+    const prefix = requestedCwd ? requestedCwd + '/' : ''
+    if (prefix && !path.startsWith(prefix)) {
+      throw new Error('git diff path must be relative to the selected repository')
+    }
+    const relativePath = prefix ? path.slice(prefix.length) : path
+    return ':(literal)' + relativePath
+  }
+  const localCwd = requestedCwd ? resolveInside(root, requestedCwd) : root
+  const localPath = resolveInside(root, path)
+  if (!isPathInside(localCwd, localPath) || localPath === localCwd) {
+    throw new Error('git diff path escapes selected repository')
+  }
+  const relativePath = relative(localCwd, localPath)
+  return ':(literal)' + relativePath
 }
 
 function assertGitResult(result: { exitCode: number | null; timedOut: boolean; signal: string | null }, operation: string): void {
@@ -70,7 +107,7 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
     },
     async execute(args, exec) {
       const root = await resolveRoot(ctx, exec, settings)
-      const cwd = await resolveGitCwd(root, args.cwd)
+      const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
       const result = await runCommand(ctx, {
         command: settings.gitCommand,
         args: ['status', '--porcelain=v1', '--branch', '-z'],
@@ -78,7 +115,7 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
         signal: exec.signal,
         timeoutMs: 30_000,
         // A denied or failing DSH Host subprocess may never silently retry as Node.
-        hostOnly: isSubprocessMounted(ctx),
+        hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
       })
       assertGitResult(result, 'code_git_status')
       if (result.lossy) throw new Error('code_git_status: output truncated; refusing partial status')
@@ -177,12 +214,12 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
     },
     async execute(args, exec) {
       const root = await resolveRoot(ctx, exec, settings)
-      const cwd = await resolveGitCwd(root, args.cwd)
+      const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
       const gitArgs = ['diff', '--no-color']
       if (args.staged) gitArgs.push('--cached')
       if (args.path) {
-        const rel = resolveInside(root, args.path)
-        gitArgs.push('--', relative(cwd, rel) || rel)
+        const pathspec = await resolveDiffPath(ctx, root, args.cwd, args.path, exec.signal)
+        gitArgs.push('--', pathspec)
       }
       const result = await runCommand(ctx, {
         command: settings.gitCommand,
@@ -191,7 +228,7 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
         signal: exec.signal,
         timeoutMs: 30_000,
         maxOutputBytes: 256 * 1024,
-        hostOnly: isSubprocessMounted(ctx),
+        hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
       })
       assertGitResult(result, 'code_git_diff')
       return {

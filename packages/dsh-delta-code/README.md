@@ -65,6 +65,10 @@ Windows/macOS 的本地兼容路径改为**先打开文件句柄，复核工作�
 
 `code_workspace_map` 在 Host FS 挂载时通过原生 `listDir/lstat/resolve/contains` 发现直属子仓库，所有 Git 文件枚举走 Host subprocess，绝不退回插件本地目录读取；有界发现、符号链接拒绝及跨仓路径过滤仍保留。`code_git_worktree` 的列举与显式授权创建均使用宿主 `processPath`，目标和已有父目录由 Host FS 检查，父目录符号链接或目标已存在时阻断；并发同名工作树由 Git 的分支/目录唯一性最终拒绝冲突。未挂载 Host FS 时继续使用本地兼容路径。
 
+### 基础 Git 与 GitHub Origin 的跨模块一致性
+
+`code_git_status`、`code_git_diff` 和未显式指定仓库时的 GitHub `origin` 检查使用同一 Host FS 工作区授权与 `processPath` 执行目录。挂载 Host FS 后，禁止从本地 Node 读取远程工作区或在宿主子进程拒绝后降级执行。Diff 的 `path` 以工作区根目录为基准，必须处于所选 `cwd` 仓库内，且被转换为 Git 字面量 pathspec；远程 Host 以原生 `resolve/contains` 决定真实路径，避免从 A 仓库探查 B 仓库或逃逸符号链接。无 Host FS 时保留本地路径兼容校验。以上为自动化契约测试，不代替真实 DSH 宿主验收。
+
 ### Git 工作区宿主授权
 
 `code_resume` 和 `code_delivery_gate` 的 Git 工作目录统一遵循宿主权限：安装了 DSH Host FS 时，使用原生 `resolve/contains/stat/processPath` 确认目录并获取子进程的执行路径，Git 和交付测试均使用同一宿主执行路径；宿主拒绝、接口缺失、目标不是目录或路径越界均直接阻断，绝不改用 Node 本地 `realpath`。仅在未安装 Host FS 时使用原有本地真实路径检查；Git 命令仍必须通过 Host subprocess 执行。此变更需要真实 DSH 运行验证，不以模拟测试代替宿主验收。

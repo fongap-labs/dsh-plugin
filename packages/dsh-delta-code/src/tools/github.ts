@@ -3,6 +3,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, isSubprocessMounted } from '@fongap-labs/shared'
 import type { GitHubAccountConfig, Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
+import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 
 const API = 'https://api.github.com'
 const COMMIT_SHA = /^[a-f0-9]{40}$/
@@ -60,14 +61,21 @@ async function resolveRepository(ctx: Context, exec: Parameters<ToolDefinition['
     if (!REPOSITORY.test(supplied)) throw new Error('repository must be owner/name')
     return supplied
   }
-  const cwd = await resolveRoot(ctx, exec, settings)
+  const root = await resolveRoot(ctx, exec, settings)
+  const cwd = await resolveAuthorizedGitCwd(ctx, root, undefined, exec)
   const result = await runCommand(ctx, {
     command: settings.gitCommand,
     args: ['remote', 'get-url', 'origin'],
-    cwd, signal: exec.signal, timeoutMs: 10_000,
-    hostOnly: isSubprocessMounted(ctx),
+    cwd, signal: exec.signal, timeoutMs: 10_000, maxOutputBytes: 8 * 1024,
+    // If the workspace belongs to a mounted Host FS, never call local Git
+    // after the Host subprocess rejects or is unavailable.
+    hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
   })
-  const repo = result.exitCode === 0 ? repositoryFromRemote(result.stdout) : undefined
+  if (result.exitCode !== 0 || result.timedOut || result.signal || result.lossy ||
+      exec.signal.aborted) {
+    throw new Error('GitHub origin inspection failed or returned incomplete Host evidence')
+  }
+  const repo = repositoryFromRemote(result.stdout)
   if (!repo) throw new Error('cannot detect a GitHub origin; supply repository=owner/name')
   return repo
 }
