@@ -172,6 +172,9 @@ Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不
 
 ### 连续工程验证
 
+预检项目清单、锁文件和脚本声明时，已挂载 DSH Host FS 的环境仅使用宿主 `resolve/contains/stat/readText`：宿主拒绝、符号链接越界或接口不完整都直接失败，不回退 Node 本地读取。未挂载 Host FS 的旧环境保留本地真实路径校验。这一限制同时适用于 `code_verify` 与 `code_verify_suite`。
+
+
 对复杂任务可调用 `code_verify_suite`，例如 `scripts: ["typecheck", "test", "build"]`。检查必须是工作区中已声明或预置的项目验证命令；先验证**整个清单**，再按指定顺序通过 DSH Host subprocess 执行，任一检查失败、超时、输出不完整或被宿主拒绝则停止，后续项标记为未执行。每项输出均保留脱敏和长度限制。最多 5 项且不得重复。
 
 权限仍由 `execution.allowCommands` 控制；不会新增 shell 命令入口或绕过 DSH 审批。原有 `code_verify` 接口不变。

@@ -20,16 +20,6 @@ export function redactKnownTokens(text: string, settings: Settings): string {
   return value.replace(/\b(?:github_pat_[a-zA-Z0-9_]{12,}|gh[pousr]_[a-zA-Z0-9]{20,})\b/g, '[REDACTED]')
 }
 
-async function choosePackageManager(cwd: string): Promise<'pnpm' | 'yarn' | 'bun' | 'npm'> {
-  for (const [file, manager] of [
-    ['pnpm-lock.yaml', 'pnpm'], ['yarn.lock', 'yarn'],
-    ['bun.lockb', 'bun'], ['bun.lock', 'bun'],
-  ] as const) {
-    try { await access(join(cwd, file)); return manager } catch { /* next */ }
-  }
-  return 'npm'
-}
-
 export function createVerifyTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
     name: 'code_verify',
@@ -67,63 +57,129 @@ export interface PreparedVerification {
 }
 
 /** Prepare and validate a check without executing a command. */
+
+type DetectedProject = Exclude<VerificationProject, 'auto'>
+
+interface HostVerificationFs {
+  resolve(path: string, options?: { cwd?: string; signal?: AbortSignal }): Promise<unknown>
+  contains(parent: unknown, child: unknown): boolean
+  stat(target: unknown, signal?: AbortSignal): Promise<{ type: string } | undefined>
+  readText(target: unknown, signal?: AbortSignal): Promise<string>
+}
+
+const MANIFESTS = [
+  ['node', 'package.json'], ['rust', 'Cargo.toml'],
+  ['python', 'pyproject.toml'], ['python', 'requirements.txt'],
+  ['go', 'go.mod'],
+] as const
+const LOCKFILES = ['pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'bun.lock', 'Cargo.lock'] as const
+
+/** All Host-mounted metadata reads use DSH Host FS; no local filesystem fallback. */
 export async function prepareVerify(
   ctx: Context, settings: Settings, exec: ToolRunContext,
   args: { script: VerificationScript; cwd?: string; project?: VerificationProject; timeoutMs?: number },
 ): Promise<PreparedVerification> {
-      if (!settings.allowCommands) throw new Error('script execution disabled; set execution.allowCommands=true')
-      if (!isSubprocessAvailable(ctx)) throw new Error('host subprocess service is required for script execution')
-      if (!SCRIPTS.has(args.script)) throw new Error('script is not allowlisted')
-      const timeoutMs = args.timeoutMs ?? 120_000
-      if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 600_000) {
-        throw new Error('timeoutMs must be between 10000 and 600000')
+  const checkCancelled = () => {
+    if (exec.signal.aborted) throw new Error('verification cancelled')
+  }
+  checkCancelled()
+  if (!settings.allowCommands) throw new Error('script execution disabled; set execution.allowCommands=true')
+  if (!isSubprocessAvailable(ctx)) throw new Error('host subprocess service is required for script execution')
+  if (!SCRIPTS.has(args.script)) throw new Error('script is not allowlisted')
+  const timeoutMs = args.timeoutMs ?? 120_000
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 600_000) {
+    throw new Error('timeoutMs must be between 10000 and 600000')
+  }
+  const project = args.project ?? 'auto'
+  if (typeof project !== 'string' || !PROJECTS.has(project)) throw new Error('project type is not allowlisted')
+  const root = await resolveRoot(ctx, exec, settings)
+  const cwd = args.cwd ? resolveInside(root, args.cwd) : root
+  const files = new Set<string>()
+  const fileNames = [...new Set([...MANIFESTS.map(([, name]) => name), ...LOCKFILES])]
+  let canonicalCwd = cwd
+  let hostPackage: unknown
+  let hostFs: HostVerificationFs | undefined
+  const mounted: unknown = ctx.get('fs')
+  if (mounted) {
+    const candidate = mounted as Partial<HostVerificationFs>
+    if (typeof candidate.resolve !== 'function' ||
+        typeof candidate.contains !== 'function' ||
+        typeof candidate.stat !== 'function' ||
+        typeof candidate.readText !== 'function') {
+      throw new Error('DSH Host FS missing resolve/contains/stat/readText; refusing local verification fallback')
+    }
+    hostFs = candidate as HostVerificationFs
+    checkCancelled()
+    const canonicalRoot = await hostFs.resolve(root, { cwd: root, signal: exec.signal })
+    const canonicalDirectory = await hostFs.resolve(cwd, { cwd: root, signal: exec.signal })
+    if (!hostFs.contains(canonicalRoot, canonicalDirectory)) {
+      throw new Error('script directory escapes the workspace')
+    }
+    for (const name of fileNames) {
+      checkCancelled()
+      const target = await hostFs.resolve(join(cwd, name), { cwd, signal: exec.signal })
+      if (!hostFs.contains(canonicalRoot, target)) {
+        throw new Error(name + ' escapes the workspace')
       }
-      const root = await resolveRoot(ctx, exec, settings)
-      const cwd = args.cwd ? resolveInside(root, args.cwd) : root
-      const canonicalRoot = await realpath(root)
-      const canonicalCwd = await realpath(cwd)
-      if (!isPathInside(canonicalRoot, canonicalCwd)) throw new Error('script directory escapes the workspace')
-      const project = args.project ?? 'auto'
-      if (typeof project !== 'string' || !PROJECTS.has(project)) throw new Error('project type is not allowlisted')
-      const manifests = [
-        ['node', 'package.json'], ['rust', 'Cargo.toml'],
-        ['python', 'pyproject.toml'], ['python', 'requirements.txt'],
-        ['go', 'go.mod'],
-      ] as const
-      const found = new Set<'node' | 'rust' | 'python' | 'go'>()
-      for (const [language, name] of manifests) {
-        try {
-          const manifest = await realpath(join(canonicalCwd, name))
-          if (!isPathInside(canonicalRoot, manifest)) throw new Error(name + ' escapes the workspace')
-          await access(manifest)
-          found.add(language)
-        } catch (error) {
-          if (error instanceof Error && error.message.includes('escapes the workspace')) throw error
+      const metadata = await hostFs.stat(target, exec.signal)
+      if (metadata?.type === 'file') {
+        files.add(name)
+        if (name === 'package.json') hostPackage = target
+      }
+    }
+  } else {
+    const canonicalRoot = await realpath(root)
+    canonicalCwd = await realpath(cwd)
+    if (!isPathInside(canonicalRoot, canonicalCwd)) {
+      throw new Error('script directory escapes the workspace')
+    }
+    for (const name of fileNames) {
+      checkCancelled()
+      try {
+        const file = await realpath(join(canonicalCwd, name))
+        if (!isPathInside(canonicalRoot, file)) {
+          throw new Error(name + ' escapes the workspace')
         }
+        await access(file)
+        files.add(name)
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('escapes the workspace')) throw error
       }
-      const nodeScripts: string[] = []
-      if (found.has('node')) {
-        const raw = await readTextSafe(ctx, exec, canonicalCwd, 'package.json')
-        if (Buffer.byteLength(raw) > 1024 * 1024) throw new Error('package.json is too large')
-        const pkg: unknown = JSON.parse(raw)
-        if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('invalid package.json')
-        const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
-        for (const script of SCRIPTS) {
-          if (typeof scripts?.[script] === 'string') nodeScripts.push(script)
-        }
-      }
-      const manager = found.has('node') ? await choosePackageManager(canonicalCwd) : 'npm'
-      const hasRustLock = found.has('rust') && await realpath(join(canonicalCwd, 'Cargo.lock'))
-        .then(path => isPathInside(canonicalRoot, path), () => false)
-      const plan = chooseVerificationCommand(
-        args.script, project as VerificationProject, [...found], manager, nodeScripts, hasRustLock,
-      )
-      return { script: args.script, plan, cwd: canonicalCwd, timeoutMs }
+    }
+  }
+  const found = new Set<DetectedProject>()
+  for (const [language, name] of MANIFESTS) {
+    if (files.has(name)) found.add(language)
+  }
+  const nodeScripts: string[] = []
+  if (found.has('node')) {
+    checkCancelled()
+    const raw = hostFs
+      ? await hostFs.readText(hostPackage, exec.signal)
+      : await readTextSafe(ctx, exec, canonicalCwd, 'package.json')
+    if (Buffer.byteLength(raw, 'utf8') > 1024 * 1024) throw new Error('package.json is too large')
+    const pkg: unknown = JSON.parse(raw)
+    if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('invalid package.json')
+    const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
+    for (const script of SCRIPTS) {
+      if (typeof scripts?.[script] === 'string') nodeScripts.push(script)
+    }
+  }
+  const manager = files.has('pnpm-lock.yaml') ? 'pnpm'
+    : files.has('yarn.lock') ? 'yarn'
+    : files.has('bun.lockb') || files.has('bun.lock') ? 'bun'
+    : 'npm'
+  const plan = chooseVerificationCommand(
+    args.script, project, [...found], manager, nodeScripts, files.has('Cargo.lock'),
+  )
+  checkCancelled()
+  return { script: args.script, plan, cwd: canonicalCwd, timeoutMs }
 }
 
 export async function runPreparedVerify(
   ctx: Context, settings: Settings, exec: ToolRunContext, prepared: PreparedVerification,
 ) {
+  if (exec.signal.aborted) throw new Error('verification cancelled')
   const { plan, cwd: canonicalCwd, timeoutMs } = prepared
       const result = await runCommand(ctx, {
         command: plan.command, args: plan.args, cwd: canonicalCwd, signal: exec.signal,

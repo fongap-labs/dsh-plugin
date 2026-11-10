@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 工程验证预检遵循 DSH Host FS，拒绝权限回退。
+
 - 修复: Delta Desktop 侧栏监听器仅在快捷入口文案变化时更新 DOM，防止 MutationObserver 自触发循环，并补充回归测试。
 
 - 修复 [security]: Code Worker 本地写盘使用 O_NOFOLLOW 防止最终符号链接竞态。
