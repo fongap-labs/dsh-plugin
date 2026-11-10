@@ -11,6 +11,7 @@ const exec = () => ({ signal: new AbortController().signal })
 function fakeHost(files, options = {}) {
   const observed = []
   const spawns = []
+  let processCalls = 0
   const fs = {
     async resolve(path) {
       observed.push('resolve:' + path)
@@ -31,7 +32,8 @@ function fakeHost(files, options = {}) {
     processPath(target) {
       observed.push('processPath:' + target.key)
       if (options.rejectProcessPath) throw new Error('Host FS denied process path')
-      return options.invalidProcessCwd ?? HOST_EXECUTION_CWD
+      const value = options.processPaths?.[processCalls++]
+      return value ?? (options.invalidProcessCwd ?? HOST_EXECUTION_CWD)
     },
     async readText(target) {
       observed.push('readText:' + target.key)
@@ -126,6 +128,16 @@ describe('Code Worker verification through DSH Host FS', () => {
       ['npm', 'run', 'test'], ['npm', 'run', 'build'],
     ])
     assert.ok(host.spawns.every(item => item.cwd === HOST_EXECUTION_CWD))
+  })
+  it('blocks a suite before its first command if Host processPath changes between scripts', async () => {
+    const host = fakeHost({
+      [join(root, 'package.json')]: JSON.stringify({ scripts: { test: 'node --test', build: 'tsc' } }),
+    }, { processPaths: [HOST_EXECUTION_CWD, '/different-host-process-cwd'] })
+    await assert.rejects(
+      createVerifySuiteTool(host.ctx, settings).execute({ scripts: ['test', 'build'] }, exec()),
+      /execution directory changed/,
+    )
+    assert.deepEqual(host.spawns, [])
   })
   it('rejects absent, denied and malformed Host process paths before spawning commands', async () => {
     const files = { [join(root, 'package.json')]: '{"scripts":{"test":"ok","build":"ok"}}' }
