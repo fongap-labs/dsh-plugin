@@ -366,9 +366,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const failedAvatarUrls = new Set<string>()
   let isDisposed = false
   let isSyncing = false
-  let allowSilentMenu = false
+  let isSilentMenuAllowed = false
   let silentMenuTimer: number | undefined
-  let updateBusy = false
+  let isUpdateBusy = false
   let desktopUpdatePhase: string | undefined
   let stopDesktopUpdates: (() => void) | undefined
   let observer: MutationObserver | undefined
@@ -831,8 +831,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       cancelTimer(silentMenuTimer)
       silentMenuTimer = undefined
     }
-    allowSilentMenu = false
-    updateBusy = false
+    isSilentMenuAllowed = false
+    isUpdateBusy = false
     try { document?.body?.removeAttribute?.('data-dtd-silent-menu') } catch {}
     for (const [btn, orig] of mutatedNavButtons) {
       try {
@@ -1249,7 +1249,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           boundTriggers.add(nativeTrigger)
           nativeTrigger.classList?.add?.('dtd-native-profile-trigger')
           nativeTrigger.addEventListener('click', (e) => {
-            if (isDisposed || allowSilentMenu || controller.getSnapshot().mode !== 'delta') return
+            if (isDisposed || isSilentMenuAllowed || controller.getSnapshot().mode !== 'delta') return
             e.stopImmediatePropagation?.()
             e.preventDefault?.()
           }, true)
@@ -1354,12 +1354,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           } catch {}
         }
 
-        const updateAuthButton = (btn: HTMLButtonElement, signedIn: boolean): void => {
+        const updateAuthButton = (btn: HTMLButtonElement, isSignedIn: boolean): void => {
           const uiCopy = getUiCopy()
-          const label = signedIn ? uiCopy.signOut : uiCopy.signIn
+          const label = isSignedIn ? uiCopy.signOut : uiCopy.signIn
           if (btn.title !== label) btn.title = label
           if (btn.getAttribute?.('aria-label') !== label) btn.setAttribute('aria-label', label)
-          const stateKey = signedIn ? '1' : '0'
+          const stateKey = isSignedIn ? '1' : '0'
           if (btn.getAttribute?.('data-signed-in') === stateKey) return
           btn.setAttribute('data-signed-in', stateKey)
           clearNodeChildren(btn)
@@ -1373,7 +1373,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
           })
-          if (signedIn) {
+          if (isSignedIn) {
             authSvg.appendChild(createSvgEl('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }))
             authSvg.appendChild(createSvgEl('polyline', { points: '16 17 21 12 16 7' }))
             authSvg.appendChild(createSvgEl('line', { x1: 21, y1: 12, x2: 9, y2: 12 }))
@@ -1430,11 +1430,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           document.body?.setAttribute?.('data-dtd-silent-menu', '1')
 
           if (liveTrigger.getAttribute?.('aria-expanded') !== 'true') {
-            allowSilentMenu = true
+            isSilentMenuAllowed = true
             try {
               liveTrigger.click()
             } finally {
-              allowSilentMenu = false
+              isSilentMenuAllowed = false
             }
           }
 
@@ -1472,8 +1472,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             attempts += 1
             if (attempts >= 24) {
               if (liveTrigger.getAttribute?.('aria-expanded') === 'true') {
-                allowSilentMenu = true
-                try { liveTrigger.click() } finally { allowSilentMenu = false }
+                isSilentMenuAllowed = true
+                try { liveTrigger.click() } finally { isSilentMenuAllowed = false }
               }
               finishSilent()
               if (kind === 'settings') {
@@ -1535,18 +1535,18 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           updateSvg.appendChild(createSvgEl('path', { d: 'M13.73 21a2 2 0 0 1-3.46 0' }))
           btnUpdate.appendChild(updateSvg)
           btnUpdate.addEventListener('click', () => {
-            if (updateBusy) return
+            if (isUpdateBusy) return
             const dshDesktop = (window as unknown as { dshDesktop?: { updates?: { open?: () => unknown } } }).dshDesktop
             if (typeof dshDesktop?.updates?.open === 'function') {
-              updateBusy = true
+              isUpdateBusy = true
               try {
                 Promise.resolve(dshDesktop.updates.open()).catch(() => {
                   showDeltaToast(getUiCopy().latestVersion)
                 }).finally(() => {
-                  updateBusy = false
+                  isUpdateBusy = false
                 })
               } catch {
-                updateBusy = false
+                isUpdateBusy = false
                 showDeltaToast(getUiCopy().latestVersion)
               }
               return
@@ -2039,7 +2039,7 @@ window.__ModuleLoader__.load({
                 const stopCompat = installSidebarCompatibility(controller)
 
                 // Adapt runtime chat status: "深度求索中" -> "任务执行中"
-                let effectDisposed = false
+                let isEffectDisposed = false
                 let stopLocaleSync: (() => void) | undefined
                 let restoreLocaleOnDispose: (() => void) | undefined
                 try {
@@ -2050,7 +2050,7 @@ window.__ModuleLoader__.load({
                       slotsObj.__deltaEntriesWrapped = true
                       slotsObj.entries = function(this: any, slotName: string) {
                         const list = origSlotsEntries.apply(this, arguments)
-                        if (!effectDisposed && controller.getSnapshot().mode === 'delta' && slotName === 'settings.section' && Array.isArray(list)) {
+                        if (!isEffectDisposed && controller.getSnapshot().mode === 'delta' && slotName === 'settings.section' && Array.isArray(list)) {
                           return list.map((item: any) => item?.options?.id === 'agent-presets'
                             ? { ...item, options: { ...item.options, order: 9999 } }
                             : item)
@@ -2060,14 +2060,14 @@ window.__ModuleLoader__.load({
                     } catch { /* Slots entries wrapper is optional */ }
                   }
                   const origDictValues = new Map<Record<string, string>, Record<string, string | undefined>>()
-                  const setDictEntry = (dict: Record<string, string>, key: string, nextValue: string, active: boolean): void => {
+                  const setDictEntry = (dict: Record<string, string>, key: string, nextValue: string, isActive: boolean): void => {
                     let origMap = origDictValues.get(dict)
                     if (!origMap) {
                       origMap = {}
                       origDictValues.set(dict, origMap)
                     }
                     if (!(key in origMap)) origMap[key] = dict[key]
-                    if (active) {
+                    if (isActive) {
                       dict[key] = nextValue
                     } else if (origMap[key] !== undefined) {
                       dict[key] = origMap[key]
@@ -2078,8 +2078,8 @@ window.__ModuleLoader__.load({
                   const attachLocalePatch = (localeRuntime: any): void => {
                     if (!localeRuntime || localeRuntime.__deltaLocaleAttached) return
                     localeRuntime.__deltaLocaleAttached = true
-                    const syncLocaleDict = (notify: boolean): void => {
-                      const activeMode = !effectDisposed && controller.getSnapshot().mode === 'delta'
+                    const syncLocaleDict = (shouldNotify: boolean): void => {
+                      const activeMode = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
                       const chatLocales = localeRuntime.dicts?.get?.('chat')
                       const zhDict = chatLocales?.get?.('zh')
                       if (zhDict) {
@@ -2110,7 +2110,7 @@ window.__ModuleLoader__.load({
                           }
                         })
                       }
-                      if (notify) {
+                      if (shouldNotify) {
                         try {
                           const active = localeRuntime.snapshot?.active
                           if (active && typeof localeRuntime.publish === 'function') {
@@ -2141,7 +2141,7 @@ window.__ModuleLoader__.load({
                       localeRuntime.__deltaTranslatePatched = true
                       const origTranslate = localeRuntime.translate
                       localeRuntime.translate = function(this: any, ns: string, key: string, params: any) {
-                        const activeMode = !effectDisposed && controller.getSnapshot().mode === 'delta'
+                        const activeMode = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
                         if (activeMode && ns === 'chat') {
                           if (key === 'chat.deepDiving') return '任务执行中'
                           if (key === 'chat.deepDivingFor') {
@@ -2203,7 +2203,7 @@ window.__ModuleLoader__.load({
                 } catch { /* Locale runtime is optional and gracefully degraded */ }
 
                 return () => {
-                  effectDisposed = true
+                  isEffectDisposed = true
                   observer?.disconnect()
                   stopLocaleSync?.()
                   restoreLocaleOnDispose?.()
