@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Code Worker 复用 DSH 原生 todo_write 实施可执行规划、逐项验证和连续交付；保持现有 Agent、Skills 与权限体系，不新增第二套运行时。
+
 - 修复: Code Worker 原生自动路由识别“继续推进任务链”等续接指令，保留同一 Agent 工作流。
 - 修复 [security]: Code Worker 工程验证结果正确脱敏 GitHub 令牌，并将 LSP 非零退出码判定为不可用。
 
