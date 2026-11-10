@@ -183,6 +183,10 @@ github:
 
 写入默认关闭。设为 `github.allowWrites: true` 后才允许创建远程分支、提交文件或创建 PR，但不会直接修改 `main` 或自动合并 PR。正式 CI 和合并门禁继续由 Action Worker 管理。
 
+`code_github_commit_file` 使用 GitHub 的 Git Trees/Commits API 创建基于当前 feature HEAD 的提交，最后执行 `force:false` 的分支引用更新。可传入 `expectedHead`（40 位 Git SHA）要求与审阅时的 HEAD 一致；分支被并发推进时，非快进更新由 GitHub 拒绝，不自动重试、不强制推送。读取已有文件时使用固定 HEAD 的树证据并保留普通文件执行权限；拒绝符号链接目标。写入可能在创建未引用 Git 对象后失败，但不能据此声明分支已更新。
+
+`code_github_create_pr` 先查询相同仓库、head、base 下的开放 PR；发现已有 PR 就返回现有号码和 `reused: true`，不重复创建。并发创建被 GitHub 拒绝或 POST 响应丢失时，只进行一次只读查询，不再次发起 POST。401/403 权限错误直接停止；API 或网络异常的写入结果可能不确定，需要核对远程状态。此机制不自行合并或发布版本。
+
 ## 一体化工程工具
 
 不用安装额外编程插件或 Skill 包。Code Worker 直接注册以下工具，运行时复用 Harness 的宿主能力与项目已有工具链。

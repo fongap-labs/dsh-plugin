@@ -5,6 +5,36 @@ import type { GitHubAccountConfig, Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 
 const API = 'https://api.github.com'
+const COMMIT_SHA = /^[a-f0-9]{40}$/
+
+class GitHubApiFailure extends Error {
+  constructor(readonly status: number, repository: string, method: string) {
+    const reason = status === 401 || status === 403
+      ? 'authentication or repository permission denied; inspect token access'
+      : status === 409 || status === 422
+        ? 'conflict or rejected GitHub validation; inspect remote state'
+        : status === 429
+          ? 'rate limit exceeded; do not blindly retry writes'
+          : 'request rejected'
+    super('GitHub API ' + status + ' for ' + repository + ' (' + method + '): ' + reason)
+    this.name = 'GitHubApiFailure'
+  }
+}
+
+class GitHubWriteUncertain extends Error {
+  constructor(method: string, repository: string) {
+    super('GitHub ' + method + ' outcome unconfirmed for ' + repository +
+      '; inspect remote state before retrying a write')
+    this.name = 'GitHubWriteUncertain'
+  }
+}
+
+function validatedCommitSha(value: unknown, subject: string): string {
+  if (typeof value !== 'string' || !COMMIT_SHA.test(value)) {
+    throw new Error('invalid ' + subject + ' commit SHA')
+  }
+  return value
+}
 const REPOSITORY = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?\/(?!\.{1,2}$)[a-zA-Z0-9_.-]{1,100}$/
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\x00-\x1f]+$/
 const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*[\\\x00-\x20])[^/]+(?:\/[^/]+)*$/
@@ -57,22 +87,26 @@ async function githubRequest(
   if (!token?.trim()) throw new Error('GitHub credential unavailable for repository owner ' + account.owner + ' (set env ' + account.tokenEnv + ')')
   const url = API + path(repo)
   if (!url.startsWith(API + '/') || !new URL(url).hostname.endsWith('github.com')) throw new Error('invalid GitHub API URL')
-  const response = await fetch(url, {
-    method,
-    headers: {
-      Authorization: 'Bearer ' + token.trim(),
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      'User-Agent': 'dsh-delta-code',
-      ...(data === undefined ? {} : { 'Content-Type': 'application/json' }),
-    },
-    ...(data === undefined ? {} : { body: JSON.stringify(data) }),
-    signal: exec.signal,
-    redirect: 'error',
-  })
-  if (!response.ok) {
-    throw new Error('GitHub API ' + response.status + ' for ' + repo + ' (' + account.owner + ')')
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: 'Bearer ' + token.trim(),
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'dsh-delta-code',
+        ...(data === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+      signal: exec.signal,
+      redirect: 'error',
+    })
+  } catch (error) {
+    if (method !== 'GET') throw new GitHubWriteUncertain(method, repo)
+    throw error
   }
+  if (!response.ok) throw new GitHubApiFailure(response.status, repo, method)
   return { repository: repo, account: account.owner, data: response.status === 204 ? null : await response.json() }
 }
 
@@ -198,40 +232,150 @@ export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinit
       const result = await githubRequest(ctx, exec, settings, source.repository, 'POST', (repo) => encodeRepo(repo) + '/git/refs', { ref: 'refs/heads/' + branch, sha: source.data.object.sha })
       return envelope(result, { branch, sha: result.data.object.sha })
     }),
-    tool('commit_file', 'Commit one UTF-8 file to an existing feature branch, never directly to the repository default branch.', {
-      repository: optional, branch: string, path: string, content: string, message: string,
-    }, async (args, exec) => {
-      requireWrites(settings)
-      const branch = validBranch(args.branch)
-      if (branch === 'main' || branch === 'master') throw new Error('refusing to write to the default branch')
-      const path = validPath(args.path)
-      const info = await repositoryDefault(exec, args.repository)
-      if (branch === info.defaultBranch) throw new Error('refusing to write to the default branch')
-      const ref = await githubRequest(ctx, exec, settings, info.repository, 'GET', (repo) => encodeRepo(repo) + '/git/ref/heads/' + branch.split('/').map(encodeURIComponent).join('/'))
-      const endpoint = (repo: string) => encodeRepo(repo) + '/contents/' + path
-      const existing = await githubRequest(ctx, exec, settings, ref.repository, 'GET', (repo) => endpoint(repo) + '?ref=' + encodeURIComponent(branch))
-        .catch((error: Error) => { if (error.message.startsWith('GitHub API 404 ')) return null; throw error })
-      if (existing?.data?.type && existing.data.type !== 'file') throw new Error('target is not a file')
-      const result = await githubRequest(ctx, exec, settings, ref.repository, 'PUT', endpoint, {
-        message: args.message,
-        content: Buffer.from(args.content, 'utf8').toString('base64'),
-        branch,
-        ...(existing?.data?.sha ? { sha: existing.data.sha } : {}),
-      })
-      return envelope(result, { path: args.path, branch, commit: result.data.commit.sha })
-    }),
-    tool('create_pr', 'Open a pull request from a feature branch; merging remains governed by GitHub and Action Worker.', {
-      repository: optional, head: string, base: optional, title: string, body: optional,
-    }, async (args, exec) => {
-      requireWrites(settings)
-      const head = validBranch(args.head)
-      const info = await repositoryDefault(exec, args.repository)
-      const base = validBranch(args.base ?? info.defaultBranch)
-      if (head === base) throw new Error('head must differ from base')
-      const result = await githubRequest(ctx, exec, settings, info.repository, 'POST', (repo) => encodeRepo(repo) + '/pulls', {
-        head, base, title: args.title, body: args.body ?? '',
-      })
-      return envelope(result, { number: result.data.number, url: result.data.html_url })
-    }),
+    tool('commit_file',
+      'Commit one UTF-8 file to a feature branch with a non-force fast-forward ref update; stale branch heads and concurrent commits fail closed.',
+      { repository: optional, branch: string, path: string, content: string, message: string, expectedHead: optional },
+      async (args, exec) => {
+        requireWrites(settings)
+        const branch = validBranch(args.branch)
+        if (branch === 'main' || branch === 'master') throw new Error('refusing to write to the default branch')
+        const path = validPath(args.path)
+        if (typeof args.content !== 'string' || Buffer.byteLength(args.content, 'utf8') > 262144) {
+          throw new Error('GitHub file content must be UTF-8 text no larger than 256 KiB')
+        }
+        if (typeof args.message !== 'string' || !args.message.trim()) throw new Error('commit message required')
+        if (args.expectedHead !== undefined) validatedCommitSha(args.expectedHead, 'expectedHead')
+        const info = await repositoryDefault(exec, args.repository)
+        if (branch === info.defaultBranch) throw new Error('refusing to write to the default branch')
+        const endpoint = (repo: string) => encodeRepo(repo) + '/git/ref/heads/' + branch.split('/').map(encodeURIComponent).join('/')
+        const branchRef = await githubRequest(ctx, exec, settings, info.repository, 'GET', endpoint)
+        const previousHead = validatedCommitSha(branchRef.data?.object?.sha, 'branch HEAD')
+        if (args.expectedHead && previousHead !== args.expectedHead) {
+          throw new Error('GitHub branch HEAD differs from expectedHead; fetch latest state before editing')
+        }
+        // Pin all observations to the same snapshot. A changing branch must
+        // not silently select a new base after the user reviewed the file.
+        const fileEndpoint = (repo: string) => encodeRepo(repo) + '/contents/' + path
+        const existing = await githubRequest(ctx, exec, settings, info.repository, 'GET',
+          (repo) => fileEndpoint(repo) + '?ref=' + previousHead)
+          .catch((error: unknown) => {
+            if (error instanceof GitHubApiFailure && error.status === 404) return null
+            throw error
+          })
+        if (existing && (Array.isArray(existing.data) || existing.data?.type !== 'file')) {
+          throw new Error('target is not a regular GitHub file')
+        }
+        const parent = await githubRequest(ctx, exec, settings, info.repository, 'GET',
+          (repo) => encodeRepo(repo) + '/git/commits/' + previousHead)
+        const treeSha = validatedCommitSha(parent.data?.tree?.sha, 'parent tree')
+        // Preserve executable bits when replacing an existing regular file.
+        // Git Contents API does not expose the Git tree mode, so walk only
+        // this path's ancestor trees rather than enumerating the repository.
+        let fileMode = '100644'
+        if (existing) {
+          let currentTree = treeSha
+          const segments = args.path.split('/')
+          for (const [index, segment] of segments.entries()) {
+            const listing = await githubRequest(ctx, exec, settings, info.repository, 'GET',
+              (repo) => encodeRepo(repo) + '/git/trees/' + currentTree)
+            if (!Array.isArray(listing.data?.tree) || listing.data.truncated === true) {
+              throw new Error('GitHub tree evidence is incomplete')
+            }
+            const entry = listing.data.tree.find((item: any) => item.path === segment)
+            if (!entry) throw new Error('file missing from pinned Git tree; inspect repository state')
+            if (index === segments.length - 1) {
+              if (entry.type !== 'blob' || !['100644', '100755'].includes(entry.mode)) {
+                throw new Error('GitHub file is not a regular blob; refusing write')
+              }
+              fileMode = entry.mode
+            } else {
+              if (entry.type !== 'tree') throw new Error('GitHub file ancestor is not a directory')
+              currentTree = validatedCommitSha(entry.sha, 'nested tree')
+            }
+          }
+        }
+        // Git Trees API can create the text blob while preserving the full
+        // base tree. Unlike Contents PUT, the ref update below is a separate
+        // non-force fast-forward operation, so racing branches cannot overwrite.
+        const tree = await githubRequest(ctx, exec, settings, info.repository, 'POST',
+          (repo) => encodeRepo(repo) + '/git/trees', {
+            base_tree: treeSha,
+            tree: [{ path: args.path, mode: fileMode, type: 'blob', content: args.content }],
+          })
+        const nextTree = validatedCommitSha(tree.data?.sha, 'new tree')
+        const commit = await githubRequest(ctx, exec, settings, info.repository, 'POST',
+          (repo) => encodeRepo(repo) + '/git/commits', {
+            message: args.message, tree: nextTree, parents: [previousHead],
+          })
+        const commitSha = validatedCommitSha(commit.data?.sha, 'new')
+        try {
+          await githubRequest(ctx, exec, settings, info.repository, 'PATCH', endpoint, {
+            sha: commitSha, force: false,
+          })
+        } catch (error) {
+          if (error instanceof GitHubApiFailure &&
+              (error.status === 409 || error.status === 422)) {
+            throw new Error('GitHub non-fast-forward branch conflict; nothing was force-pushed; inspect HEAD and rebase before retry')
+          }
+          if (error instanceof GitHubWriteUncertain) {
+            // Only a GET is allowed after an ambiguous PATCH outcome.
+            const current = await githubRequest(ctx, exec, settings, info.repository, 'GET', endpoint)
+              .catch(() => null)
+            if (current?.data?.object?.sha === commitSha) {
+              return envelope(current, { path: args.path, branch, commit: commitSha, previousHead, confirmedAfterRead: true })
+            }
+          }
+          throw error
+        }
+        return envelope(commit, { path: args.path, branch, commit: commitSha, previousHead })
+      }),
+    tool('create_pr',
+      'Create or reuse one open pull request for a feature head and base. Never duplicate an existing PR or retry a write blindly.',
+      { repository: optional, head: string, base: optional, title: string, body: optional },
+      async (args, exec) => {
+        requireWrites(settings)
+        const head = validBranch(args.head)
+        const info = await repositoryDefault(exec, args.repository)
+        const base = validBranch(args.base ?? info.defaultBranch)
+        if (head === base) throw new Error('head must differ from base')
+        if (typeof args.title !== 'string' || !args.title.trim()) throw new Error('PR title required')
+        const owner = info.repository.split('/')[0]!
+        const findExisting = async () => {
+          const response = await githubRequest(ctx, exec, settings, info.repository, 'GET', (repo) =>
+            encodeRepo(repo) + '/pulls?state=open&per_page=100&head=' +
+              encodeURIComponent(owner + ':' + head) + '&base=' + encodeURIComponent(base))
+          if (!Array.isArray(response.data)) throw new Error('GitHub PR listing is incomplete')
+          const matching = response.data.find((pr: any) =>
+            pr.head?.ref === head && pr.base?.ref === base &&
+            pr.head?.repo?.full_name?.toLowerCase() === info.repository.toLowerCase())
+          if (!matching) return null
+          if (!Number.isSafeInteger(matching.number) || matching.number <= 0 ||
+              typeof matching.html_url !== 'string') throw new Error('invalid existing GitHub PR response')
+          return envelope(response, { number: matching.number, url: matching.html_url, reused: true })
+        }
+        const existing = await findExisting()
+        if (existing) return existing
+        try {
+          const result = await githubRequest(ctx, exec, settings, info.repository, 'POST', (repo) =>
+            encodeRepo(repo) + '/pulls', {
+              head, base, title: args.title, body: args.body ?? '',
+            })
+          return envelope(result, { number: result.data.number, url: result.data.html_url, reused: false })
+        } catch (error) {
+          // Concurrent callers can both observe no PR. GitHub rejects the
+          // second with 422; an ambiguous POST might already have created it.
+          // Re-read once but NEVER retry POST, and never turn a 401/403 into
+          // an apparently successful operation.
+          const isRecoverable = error instanceof GitHubWriteUncertain ||
+            (error instanceof GitHubApiFailure &&
+              (error.status === 409 || error.status === 422))
+          if (isRecoverable) {
+            const recovered = await findExisting().catch(() => null)
+            if (recovered) return recovered
+          }
+          throw error
+        }
+      }),
+
   ]
 }

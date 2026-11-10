@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: GitHub 文件提交使用非强制快进，PR 创建支持幂等恢复。
+
 - 修复 [security]: 批量编辑拒绝宿主文件别名冲突，写入失败时标记状态未确认。
 
 - 修复 [security]: 工作区仓库发现与工作树创建遵守 DSH Host FS 权限。
