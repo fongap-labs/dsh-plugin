@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand } from '@fongap-labs/shared'
+import { defineTool, runCommand, isSubprocessAvailable } from '@fongap-labs/shared'
 import type { GitHubAccountConfig, Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 
@@ -35,6 +35,7 @@ async function resolveRepository(ctx: Context, exec: Parameters<ToolDefinition['
     command: settings.gitCommand,
     args: ['remote', 'get-url', 'origin'],
     cwd, signal: exec.signal, timeoutMs: 10_000,
+    hostOnly: isSubprocessAvailable(ctx),
   })
   const repo = result.exitCode === 0 ? repositoryFromRemote(result.stdout) : undefined
   if (!repo) throw new Error('cannot detect a GitHub origin; supply repository=owner/name')
