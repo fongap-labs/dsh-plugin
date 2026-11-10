@@ -78,7 +78,6 @@ describe('Code Worker optional multi-edit preflight', () => {
   })
 
   it('stops subsequent writes when a replacement target changes after preflight', async () => {
-    const files = new Map([['root/file.txt', 'alpha']])
     let reads = 0
     let writes = 0
     const host = {
@@ -88,11 +87,10 @@ describe('Code Worker optional multi-edit preflight', () => {
           resolve: async target => target,
           readText: async target => {
             reads += 1
-            return reads === 1 ? files.get(target) : 'concurrently-changed'
+            return reads === 1 ? 'alpha' : 'concurrently-changed'
           },
           writeText: async (target, content) => {
             writes += 1
-            files.set(target, content)
           },
         }
       },
