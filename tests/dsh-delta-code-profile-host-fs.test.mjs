@@ -1,9 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { join, resolve, sep } from 'node:path'
 import { createProjectProfileTool } from '../packages/dsh-delta-code/lib/tools/profile.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 
-const workspace = '/dsh/isolated-remote-workspace'
+const workspace = resolve('dsh-virtual-host-profile')
 const exec = () => ({ signal: new AbortController().signal })
 
 function fakeHost(files, { denyStat = false, denyRead = false } = {}) {
@@ -14,7 +15,7 @@ function fakeHost(files, { denyStat = false, denyRead = false } = {}) {
       return { targetKey: path, displayPath: path }
     },
     contains(parent, target) {
-      return target.targetKey === parent.targetKey || target.targetKey.startsWith(parent.targetKey + '/')
+      return target.targetKey === parent.targetKey || target.targetKey.startsWith(parent.targetKey + sep)
     },
     async stat(target) {
       observed.push('stat')
@@ -33,9 +34,9 @@ function fakeHost(files, { denyStat = false, denyRead = false } = {}) {
 describe('Code Worker project profiling via DSH Host FS', () => {
   it('discovers files and scripts in a virtual Host workspace without local Node reads', async () => {
     const host = fakeHost({
-      [workspace + '/package.json']: JSON.stringify({ scripts: { test: 'node --test', typecheck: 'tsc --noEmit' } }),
-      [workspace + '/AGENTS.md']: '# instructions',
-      [workspace + '/tsconfig.json']: '{}',
+      [join(workspace, 'package.json')]: JSON.stringify({ scripts: { test: 'node --test', typecheck: 'tsc --noEmit' } }),
+      [join(workspace, 'AGENTS.md')]: '# instructions',
+      [join(workspace, 'tsconfig.json')]: '{}',
     })
     const tool = createProjectProfileTool(host.ctx, normalizeConfig({ workspaceRoot: workspace }))
     const result = await tool.execute({}, exec())
@@ -56,7 +57,7 @@ describe('Code Worker project profiling via DSH Host FS', () => {
   })
 
   it('does not retry Host read refusal using local Node filesystem', async () => {
-    const host = fakeHost({ [workspace + '/package.json']: '{}' }, { denyRead: true })
+    const host = fakeHost({ [join(workspace, 'package.json')]: '{}' }, { denyRead: true })
     const tool = createProjectProfileTool(host.ctx, normalizeConfig({ workspaceRoot: workspace }))
     await assert.rejects(tool.execute({}, exec()), /Host FS denied read/)
   })
@@ -68,13 +69,13 @@ describe('Code Worker project profiling via DSH Host FS', () => {
   })
 
   it('honors Host containment decisions for returned targets', async () => {
-    const host = fakeHost({ [workspace + '/package.json']: '{}' })
+    const host = fakeHost({ [join(workspace, 'package.json')]: '{}' })
     const originalGet = host.ctx.get
     host.ctx.get = key => {
       const fs = originalGet(key)
       if (!fs) return undefined
       return { ...fs, contains(parent, target) {
-        if (target.targetKey.endsWith('/package.json')) return false
+        if (target.targetKey.endsWith(sep + 'package.json')) return false
         return fs.contains(parent, target)
       } }
     }
