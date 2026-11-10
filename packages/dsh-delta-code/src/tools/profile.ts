@@ -100,8 +100,15 @@ export async function inspectProjectWithHost(
   const fs = candidate as HostProfileFs
   if (exec.signal.aborted) throw new Error('project profile cancelled')
   const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
+  if (exec.signal.aborted) throw new Error('project profile cancelled')
   const cwdTarget = await fs.resolve(cwd, { cwd: root, signal: exec.signal })
   if (!fs.contains(rootTarget, cwdTarget)) throw new Error('project directory escapes workspace')
+  if (exec.signal.aborted) throw new Error('project profile cancelled')
+  const directoryInfo = await fs.stat(cwdTarget, exec.signal)
+  if (!directoryInfo || directoryInfo.type !== 'directory') {
+    throw new Error('project cwd is not a Host-authorized directory')
+  }
+  if (exec.signal.aborted) throw new Error('project profile cancelled')
   const files: string[] = []
   let packageTarget: unknown
   for (const name of PROJECT_FILES) {
@@ -109,6 +116,7 @@ export async function inspectProjectWithHost(
     const target = await fs.resolve(join(cwd, name), { cwd, signal: exec.signal })
     if (!fs.contains(rootTarget, target)) continue
     const info = await fs.stat(target, exec.signal)
+    if (exec.signal.aborted) throw new Error('project profile cancelled')
     if (info?.type !== 'file') continue
     files.push(name)
     if (name === 'package.json') packageTarget = target
@@ -117,6 +125,7 @@ export async function inspectProjectWithHost(
   if (packageTarget !== undefined) {
     // Never read Host-backed manifest content through node:fs.
     const raw = await fs.readText(packageTarget, exec.signal)
+    if (exec.signal.aborted) throw new Error('project profile cancelled')
     if (Buffer.byteLength(raw, 'utf8') <= 1024 * 1024) {
       try {
         const parsed: unknown = JSON.parse(raw)
@@ -134,6 +143,7 @@ export async function inspectProjectWithHost(
   const suggestedChecks: string[] = scripts.filter(name =>
     name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
   if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
+  if (exec.signal.aborted) throw new Error('project profile cancelled')
   return {
     cwd: cwd.slice(0, MAX_DESCRIPTION), files,
     technologies: technologies(present), scripts, guidance, suggestedChecks,
