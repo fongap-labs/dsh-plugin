@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop 侧栏监听器仅在快捷入口文案变化时更新 DOM，防止 MutationObserver 自触发循环，并补充回归测试。
+
 - 修复: Code Worker 原生自动路由识别“继续推进任务链”等续接指令，保留同一 Agent 工作流。
 - 修复 [security]: Code Worker 工程验证结果正确脱敏 GitHub 令牌，并将 LSP 非零退出码判定为不可用。
 
