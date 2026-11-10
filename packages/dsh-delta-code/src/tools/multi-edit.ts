@@ -101,6 +101,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               throw new Error('provide exactly one of content or find/replace')
             }
             if (isReplace) {
+              if (edit.expectedSha256 !== undefined) throw new Error('expectedSha256 is only supported for content overwrite')
               if (typeof edit.find !== 'string' || edit.find.length === 0 || typeof edit.replace !== 'string') {
                 throw new Error('find must be non-empty and replace must be a string')
               }
