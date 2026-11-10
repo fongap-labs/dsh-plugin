@@ -37,6 +37,12 @@ Windows/macOS 的本地兼容路径改为**先打开文件句柄，复核工作�
 
 该策略可缩小普通并发修改和路径替换导致的风险，但**无法完全消除恶意父目录并发置换竞态**：Node 文件路径检查无法替代操作系统的目录句柄相对寻址，尤其 Windows reparse point/junction。严格隔离场景应挂载受信任的 DSH Host FS；Linux 的目录句柄锚定同样不提供跨文件事务原子性。所有宿主授权继续由 DSH 负责。
 
+### 批量编辑宿主身份与写入不确定性
+
+`code_multi_edit` 在预检时，若 DSH Host FS 提供 `resolve/contains`，会对每个目标的宿主规范身份进行对比；同一文件即使通过不同路径、别名或大小写访问，也拒绝在同一批次中重复修改。对旧版未提供 `contains` 的 FS，保留原有路径去重行为；严格的 `guarded-intent` 写入仍要求宿主包含关系校验。
+
+预检写入或逐项写入如果在调用宿主写入后出现异常，结果会明确提示「Host write outcome unconfirmed」，要求检查目标后再重试；不能把抛错等同于确认未修改。开启受控恢复时，只回滚宿主返回版本的已确认早期写入；失败目标不能凭空重写或自动删除。本能力不提供跨文件事务原子性。
+
 ### 批量编辑部分失败与受控恢复
 
 `code_multi_edit` 新增可选参数 `rollbackOnFailure: true`，**仅在** `preflight: true`、非 Dry Run、`execution.fsWriteContract: guarded-intent` 且所有目标均为现有、可读取、带版本的文件时启用。开启后，预检保存每个文件修改前的内容（单文件上限 2 MiB）；成功写入必须由宿主返回该次写入的版本。若后续写入失败，插件按逆序尝试以 `replaceIfVersion` 恢复已确认成功的写入。
