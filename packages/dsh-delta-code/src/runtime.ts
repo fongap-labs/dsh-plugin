@@ -219,9 +219,9 @@ export async function writeTextSafe(
     }
     const signal = exec.signal
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
-    // The current DSH FileSystem API takes an optional FsWriteIntent here;
-    // omit the intent for an unconditional write, not the legacy string 'overwrite'.
-    return fs.writeText(resolved, content, undefined, signal)
+    // Follow the currently compiled DSH Host FS contract for this plugin.
+    // The newer upstream FsWriteIntent contract requires a separate versioned adapter.
+    return fs.writeText(resolved, content, 'overwrite', signal)
   }
   await assertLocalPathInside(root, absolute, true)
   await mkdir(dirname(absolute), { recursive: true })
