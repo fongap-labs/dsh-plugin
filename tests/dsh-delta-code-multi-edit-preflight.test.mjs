@@ -105,4 +105,34 @@ describe('Code Worker optional multi-edit preflight', () => {
     assert.match(result.results[1].note, /earlier batch write failed/)
     assert.equal(writes, 0)
   })
+
+  it('reports partial writes accurately and stops after the first write-stage failure', async () => {
+    const attempts = []
+    const host = {
+      get(name) {
+        if (name !== 'fs') return undefined
+        return {
+          resolve: async target => target,
+          readText: async () => '',
+          writeText: async (target, content) => {
+            attempts.push({ target, content })
+            if (attempts.length === 2) throw new Error('host denied second write')
+          },
+        }
+      },
+    }
+    const tool = createMultiEditTool(host, normalizeConfig({ workspaceRoot: 'root' }))
+    const result = await tool.execute({ preflight: true, edits: [
+      { path: 'first.txt', content: 'one' },
+      { path: 'second.txt', content: 'two' },
+      { path: 'third.txt', content: 'three' },
+    ] }, exec())
+    assert.equal(result.applied, 1)
+    assert.equal(result.results[0].ok, true)
+    assert.equal(result.results[1].ok, false)
+    assert.match(result.results[1].note, /host denied second write/)
+    assert.match(result.results[2].note, /earlier batch write failed/)
+    assert.equal(attempts.length, 2)
+  })
+
 })
