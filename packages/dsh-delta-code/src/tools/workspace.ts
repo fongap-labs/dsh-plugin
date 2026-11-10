@@ -2,7 +2,7 @@
 import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand, resolveInside, isPathInside } from '@fongap-labs/shared'
+import { defineTool, runCommand, isSubprocessAvailable, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 
@@ -62,6 +62,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       const command = await runCommand(ctx, {
         command: settings.gitCommand, args: ['ls-files', '-z', '--cached'],
         cwd: canonicalCwd, signal: exec.signal, timeoutMs: 15_000, maxOutputBytes: 1024 * 1024,
+        hostOnly: isSubprocessAvailable(ctx),
       })
       if (command.exitCode !== 0 || command.timedOut || command.lossy) {
         throw new Error('unable to enumerate tracked files without truncation')
