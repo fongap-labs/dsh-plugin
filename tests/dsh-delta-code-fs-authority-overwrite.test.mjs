@@ -13,7 +13,7 @@ const execution = () => ({ signal: new AbortController().signal })
 const digest = text => createHash('sha256').update(text, 'utf8').digest('hex')
 
 describe('DSH Host filesystem authority', () => {
-  it('uses the current DSH writeText intent signature rather than a legacy overwrite string', async () => {
+  it('uses the installed DSH Host FS overwrite mode signature', async () => {
     const signal = new AbortController().signal
     const target = { targetKey: 'host-target-id', displayPath: 'host/file.txt' }
     let writes = 0
@@ -23,7 +23,7 @@ describe('DSH Host filesystem authority', () => {
         writes += 1
         assert.strictEqual(receivedTarget, target)
         assert.equal(content, 'updated')
-        assert.equal(expected, undefined)
+        assert.equal(expected, 'overwrite')
         assert.strictEqual(receivedSignal, signal)
         return { operation: 'update', version: 'opaque-version', before: null }
       },
