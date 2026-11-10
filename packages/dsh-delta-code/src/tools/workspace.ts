@@ -214,6 +214,12 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         } else {
           if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
+          const rootEntries = await fs.listDir(rootTarget, exec.signal)
+          if (!Array.isArray(rootEntries)) throw new Error('invalid Host workspace directory listing')
+          const rootMarker = rootEntries.find(entry => entry.name === '.git')
+          if (rootMarker && (rootMarker.type === 'file' || rootMarker.type === 'directory')) {
+            throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
+          }
           const scan = await discoverHostRepositories(ctx, settings, root, fs, rootTarget, exec.signal, exec)
           repositories = scan.repositories
           paths = scan.paths
