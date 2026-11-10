@@ -125,6 +125,7 @@ interface HostWorkspaceFs {
   contains(parent: unknown, child: unknown): boolean
   listDir(target: unknown, signal?: AbortSignal): Promise<HostWorkspaceEntry[]>
   lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<{ type: string } | undefined>
+  processPath(target: unknown): string
 }
 
 /** Discover only immediate Host FS directories; never probe Node's filesystem. */
@@ -148,15 +149,14 @@ async function discoverHostRepositories(
         entry.name.includes('/') || entry.name.includes('\\') || entry.name.includes('\0')) {
       throw new Error('invalid Host directory entry')
     }
-    const directory = join(root, entry.name)
-    const info = await fs.lstat(directory, { cwd: root }, signal)
+    const info = await fs.lstat(entry.name, { cwd: root }, signal)
     if (info?.type !== 'directory') continue // no symlinked child repositories
     if (!fs.contains(rootTarget, entry.target)) throw new Error('Host repository escapes workspace')
     const contents = await fs.listDir(entry.target, signal)
     if (!Array.isArray(contents)) throw new Error('invalid Host repository listing')
     const marker = contents.find(child => child.name === '.git')
     if (!marker || (marker.type !== 'file' && marker.type !== 'directory')) continue
-    const markerInfo = await fs.lstat(join(directory, '.git'), { cwd: directory }, signal)
+    const markerInfo = await fs.lstat('.git', { cwd: fs.processPath(entry.target) }, signal)
     if (markerInfo?.type !== marker.type || !fs.contains(rootTarget, marker.target)) continue
     if (repositories.length >= MAX_DISCOVERY_REPOSITORIES) {
       throw new Error('workspace has too many Git repositories; specify cwd')
@@ -164,8 +164,8 @@ async function discoverHostRepositories(
     const processCwd = await resolveAuthorizedGitCwd(ctx, root, entry.name, exec)
     const tracked = await listTrackedFiles(ctx, settings, processCwd, signal)
     if (!tracked.isGitRepository) throw new Error('discovered Git repository could not be indexed; check Host permission')
-    repositories.push(directory)
-    paths.push(...tracked.paths.map(path => rootRelativePath(root, directory, path)))
+    repositories.push(entry.name)
+    paths.push(...tracked.paths.map(path => entry.name + '/' + path))
   }
   return { repositories, paths }
 }
@@ -201,16 +201,22 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       if (mounted) {
         const candidate = mounted as Partial<HostWorkspaceFs>
         if (typeof candidate.resolve !== 'function' || typeof candidate.contains !== 'function' ||
-            typeof candidate.listDir !== 'function' || typeof candidate.lstat !== 'function') {
+            typeof candidate.listDir !== 'function' || typeof candidate.lstat !== 'function' ||
+            typeof candidate.processPath !== 'function') {
           throw new Error('DSH Host FS missing resolve/contains/listDir/lstat; refusing local discovery fallback')
+        }
+        if (args.cwd && (args.cwd.startsWith('/') || args.cwd.includes('\\') ||
+            /^[a-zA-Z]:/.test(args.cwd) ||
+            args.cwd.split('/').some(segment => !segment || segment === '.' || segment === '..'))) {
+          throw new Error('Host workspace cwd must be a relative subdirectory')
         }
         const fs = candidate as HostWorkspaceFs
         const processCwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
         const base = await listTrackedFiles(ctx, settings, processCwd, exec.signal)
-        let repositories = [args.cwd ? resolveInside(root, args.cwd) : root]
+        let repositories = [args.cwd ?? '.']
         let paths: string[]
         if (base.isGitRepository) {
-          paths = base.paths.map(path => rootRelativePath(root, repositories[0]!, path))
+          paths = base.paths.map(path => args.cwd ? args.cwd + '/' + path : path)
         } else {
           if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
@@ -231,7 +237,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         const selected = rankTrackedFiles(paths, args.query ?? '', limit)
         return {
           total: paths.length, selected, truncated: paths.length > selected.length,
-          repositories: repositories.map(directory => relative(root, directory).split(sep).join('/') || '.'),
+          repositories,
         }
       }
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
