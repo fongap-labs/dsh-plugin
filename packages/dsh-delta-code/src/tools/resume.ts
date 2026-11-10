@@ -64,7 +64,7 @@ export interface NativeResumeReader {
  * is read from this plugin. A missing/older Host service fails closed.
  */
 export function registerNativeResume(ctx: Context): NativeResumeReader {
-  let active = true
+  let isActive = true
   let handle: ProjectionHandle | undefined
   const definition = {
     key: 'deltaCodeNativeResume',
@@ -75,9 +75,9 @@ export function registerNativeResume(ctx: Context): NativeResumeReader {
   }
   ctx.inject(['sessionProjections'], (child) => {
     const registry = (child as unknown as { sessionProjections?: ProjectionRegistry }).sessionProjections
-    if (!active || typeof registry?.register !== 'function') return
+    if (!isActive || typeof registry?.register !== 'function') return
     void Promise.resolve(registry.register(definition)).then(async registered => {
-      if (!active) { await registered.dispose(); return }
+      if (!isActive) { await registered.dispose(); return }
       handle = registered
     }).catch(() => {
       ctx.logger?.warn?.('dsh-delta-code: native resume projection registration failed')
@@ -91,7 +91,7 @@ export function registerNativeResume(ctx: Context): NativeResumeReader {
       return parseResumeState(handle.stateOf(session))
     },
     dispose() {
-      active = false
+      isActive = false
       const old = handle
       handle = undefined
       if (old) void old.dispose().catch(() => {
