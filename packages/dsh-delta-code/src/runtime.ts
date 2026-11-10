@@ -23,6 +23,7 @@ export const DEFAULT_GUIDANCE = [
   'If a Code Worker tool fails due to missing Host services or permission rejection, do not retry identical arguments. Switch to the permitted native Host file search or ask for the right repository; never bypass Host approval or read a giant file index.',
   'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
   'For substantial tasks keep the authoritative task list in DSH native todo_write. On continuation, inspect pending/in_progress items instead of blindly repeating work.',
+  'At the start of a resumed coding turn, call code_resume to recover the native session Todo history and inspect Git state. A new turn clears the ordinary todos view, not the durable todo/write log; do not invent completed work or replay old edits. Reconcile HEAD and existing work before continuing.',
   'Before declaring coding work verified, use code_delivery_gate with the full native Todo list, current Git HEAD and fresh allowlisted checks. An unfinished task, Host denial, failing check, untracked file or changing HEAD blocks verified completion. The gate does not replace review or release authorization.',
   'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
   'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
