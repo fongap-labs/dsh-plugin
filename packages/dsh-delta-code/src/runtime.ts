@@ -132,9 +132,9 @@ export async function resolveRoot(
  * Purely lexical resolveInside() is insufficient for existing symlinks.
  * The Host FS remains authoritative when it is present.
  */
-async function assertLocalPathInside(root: string, target: string, forWrite: boolean): Promise<void> {
+async function assertLocalPathInside(root: string, target: string, isWrite: boolean): Promise<void> {
   const canonicalRoot = await realpath(root)
-  if (forWrite) {
+  if (isWrite) {
     // Refuse final-path symlinks even if their target does not yet exist.
     try {
       if ((await lstat(target)).isSymbolicLink()) {
@@ -145,7 +145,7 @@ async function assertLocalPathInside(root: string, target: string, forWrite: boo
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     }
   }
-  let probe = forWrite ? dirname(target) : target
+  let probe = isWrite ? dirname(target) : target
   while (true) {
     try {
       const canonicalPath = await realpath(probe)
