@@ -19,11 +19,12 @@ function hostOutput(code, stdout = '') {
     },
   }
 }
-async function fixture({ failScript = false, drift = false, untracked = false, deny = false, allowCommands = true } = {}) {
+async function fixture({ failScript = false, drift = false, driftPatch = false, untracked = false, deny = false, allowCommands = true } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'dsh-delivery-gate-'))
   await writeFile(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'node --test', typecheck: 'tsc' } }))
   const commands = []
   let headCalls = 0
+  let patchCalls = 0
   const ctx = {
     get: () => undefined,
     subprocess: { spawn(spec) {
@@ -36,7 +37,13 @@ async function fixture({ failScript = false, drift = false, untracked = false, d
           return hostOutput(0, (drift && headCalls > 1 ? NEXT_HEAD : HEAD) + '\n')
         }
         if (argv[1] === 'status') return hostOutput(0, untracked ? '## main\0?? new-file.ts\0' : '## main\0 M src.ts\0')
-        if (argv[1] === 'diff') return hostOutput(0)
+        if (argv[1] === 'diff') {
+          if (argv.includes('--binary')) {
+            patchCalls += 1
+            return hostOutput(0, driftPatch && patchCalls > 2 ? 'new patch' : 'original patch')
+          }
+          return hostOutput(0)
+        }
         throw Error('unexpected Git argv ' + argv.join(' '))
       }
       if (argv[0] === 'npm') return hostOutput(failScript && argv.at(-1) === 'test' ? 2 : 0, 'check result')
@@ -105,10 +112,14 @@ describe('Delta Code Worker execution delivery gate', () => {
         ['git', 'status', '--porcelain=v1', '--branch', '-z'],
         ['git', 'diff', '--check'],
         ['git', 'diff', '--cached', '--check'],
+        ['git', 'diff', '--no-ext-diff', '--binary'],
+        ['git', 'diff', '--cached', '--no-ext-diff', '--binary'],
         ['npm', 'run', 'typecheck'],
         ['npm', 'run', 'test'],
         ['git', 'rev-parse', '--verify', 'HEAD'],
         ['git', 'status', '--porcelain=v1', '--branch', '-z'],
+        ['git', 'diff', '--no-ext-diff', '--binary'],
+        ['git', 'diff', '--cached', '--no-ext-diff', '--binary'],
       ])
       assert.ok(f.commands.every(x => !x.includes('sh')))
     } finally { await f.cleanup() }
@@ -129,7 +140,7 @@ describe('Delta Code Worker execution delivery gate', () => {
   })
 
   it('blocks when HEAD changes during tests or untracked files escape diff coverage', async () => {
-    for (const config of [{ drift: true }, { untracked: true }]) {
+    for (const config of [{ drift: true }, { driftPatch: true }, { untracked: true }]) {
       const f = await fixture(config)
       try {
         const result = await f.tool.execute({
@@ -137,7 +148,7 @@ describe('Delta Code Worker execution delivery gate', () => {
         }, execution())
         assert.equal(result.stage, 'blocked')
         assert.equal(result.ready, false)
-        assert.match(result.blockers.join(' '), config.drift ? /repository changed/ : /untracked/)
+        assert.match(result.blockers.join(' '), config.drift || config.driftPatch ? /repository changed/ : /untracked/)
       } finally { await f.cleanup() }
     }
   })

@@ -66,10 +66,11 @@ function gate(
 /** A Host-only Git read. Never fall back to Node after an absent/denying Host subprocess. */
 async function hostGit(
   ctx: Context, settings: Settings, cwd: string, exec: ToolRunContext, args: string[],
+  maxOutputBytes = 64 * 1024,
 ): Promise<string> {
   const result = await runCommand(ctx, {
     command: settings.gitCommand, args, cwd, signal: exec.signal, hostOnly: true,
-    timeoutMs: 30_000, maxOutputBytes: 64 * 1024,
+    timeoutMs: 30_000, maxOutputBytes,
   })
   if (result.exitCode !== 0 || result.signal || result.timedOut || result.lossy) {
     throw new Error('Git result incomplete, denied, truncated or failed')
@@ -194,7 +195,14 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings): ToolDe
         }
         await hostGit(ctx, settings, cwd, exec, ['diff', '--check'])
         await hostGit(ctx, settings, cwd, exec, ['diff', '--cached', '--check'])
-        evidence.push('Git baseline and staged/unstaged diff hygiene checked through DSH Host')
+        // Git porcelain status records file names/status, not their contents.
+        // Fingerprint BOTH tracked diff streams before/after running tests,
+        // so edits to already-dirty files cannot silently pass the gate.
+        const beforePatches = [
+          await hostGit(ctx, settings, cwd, exec, ['diff', '--no-ext-diff', '--binary'], 1024 * 1024),
+          await hostGit(ctx, settings, cwd, exec, ['diff', '--cached', '--no-ext-diff', '--binary'], 1024 * 1024),
+        ]
+        evidence.push('Git HEAD, tracked diff content and staged/unstaged diff hygiene checked through DSH Host')
         // Execute in order, stop on the first failed check and never turn a
         // Host denial into a local Node retry.
         for (const step of prepared) {
@@ -210,7 +218,11 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings): ToolDe
         if (checks.length === prepared.length && checks.every(check => check.passed)) {
           const finalHead = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
           const after = await hostGit(ctx, settings, cwd, exec, ['status', '--porcelain=v1', '--branch', '-z'])
-          if (finalHead !== head || after !== before) {
+          const afterPatches = [
+            await hostGit(ctx, settings, cwd, exec, ['diff', '--no-ext-diff', '--binary'], 1024 * 1024),
+            await hostGit(ctx, settings, cwd, exec, ['diff', '--cached', '--no-ext-diff', '--binary'], 1024 * 1024),
+          ]
+          if (finalHead !== head || after !== before || afterPatches.some((patch, i) => patch !== beforePatches[i])) {
             blockers.push('repository changed during verification; inspect and rerun')
           }
         }
