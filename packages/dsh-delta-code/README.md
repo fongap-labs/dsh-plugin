@@ -6,7 +6,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 | 工具 | 说明 |
 | --- | --- |
-| `code_multi_edit` | 在工作区内原子地批量改文件：整文件覆盖，或 `find` / `replace` 字面量替换；支持 `dryRun` 预演。 |
+| `code_multi_edit` | 在工作区内顺序批量编辑，支持覆盖、字面量替换、`dryRun` 及可选 `preflight` 整批预检；写入阶段不保证事务原子性。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
@@ -138,3 +138,15 @@ execution:
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - GitHub 多账号只通过 `tokenEnv` 环境变量名引用凭据；Token 永不写入配置，页面也不会回显。
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
+
+## 原生规划与执行闭环
+
+Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不绑定任何特定模型，也不新建 Agent Runtime：
+
+- **小任务**：识别影响范围，执行最小修改，运行针对性验证，再检查 Diff；不强制生成计划。
+- **复杂任务**：先给出目标、非目标、受影响文件、依赖顺序、验收条件和验证命令。使用宿主原生 `todo_write`（如果已挂载）记录 `pending`、`in_progress`、`completed`，每次更新完整列表。
+- **执行**：一次完成一个就绪任务；先定位与测试，再修改、验证、检查差异；只有确实通过验收才标记完成。新证据推翻原计划时更新剩余步骤，不盲目重试。
+- **复核**：有原生子 Agent 时，可以将独立审查交给不同 Agent；否则明确使用同一 Agent 自审，不声称完成了独立复核。PR 和合并继续由既有 CI 门禁把关。
+- **权限**：规划不等于授权修改文件、执行命令、远程推送或发布；所有危险操作仍经过 DSH 原生权限边界。
+
+该方案只调整现有编程 Skills 的策略，不新增工具名称、模型调用、持久化数据库或 MCP 服务。宿主未提供 `todo_write` 时使用对话内计划，不假装任务已被持久化。
