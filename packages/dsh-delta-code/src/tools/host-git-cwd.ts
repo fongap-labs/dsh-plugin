@@ -24,7 +24,11 @@ export async function resolveAuthorizedGitCwd(
   ctx: Context, root: string, requested: string | undefined, exec: ToolRunContext,
 ): Promise<string> {
   if (exec.signal.aborted) throw new Error('Git workspace validation cancelled')
-  const cwd = requested ? resolveInside(root, requested) : root
+  // Host filesystem paths can belong to a different OS. Never use the
+  // plugin's Node path.join/resolveInside for a mounted remote Host cwd.
+  if (requested && (requested.includes('\0') || requested.trim() === '')) {
+    throw new Error('invalid Host workspace relative path')
+  }
   const mounted: unknown = ctx.get('fs')
   if (mounted) {
     const candidate = mounted as Partial<HostGitFs>
@@ -37,7 +41,7 @@ export async function resolveAuthorizedGitCwd(
     const fs = candidate as HostGitFs
     const parent = await fs.resolve(root, { cwd: root, signal: exec.signal })
     if (exec.signal.aborted) throw new Error('Git workspace validation cancelled')
-    const target = await fs.resolve(cwd, { cwd: root, signal: exec.signal })
+    const target = await fs.resolve(requested ?? root, { cwd: root, signal: exec.signal })
     if (!fs.contains(parent, target)) throw new Error('Git cwd escapes Host workspace')
     if (exec.signal.aborted) throw new Error('Git workspace validation cancelled')
     const info = await fs.stat(target, exec.signal)
@@ -50,6 +54,7 @@ export async function resolveAuthorizedGitCwd(
     return processCwd
   }
   // Legacy local-only FS: check real paths and symlinks, not just lexical path.
+  const cwd = requested ? resolveInside(root, requested) : root
   const [canonicalRoot, canonicalCwd] = await Promise.all([realpath(root), realpath(cwd)])
   if (!isPathInside(canonicalRoot, canonicalCwd)) throw new Error('Git cwd escapes workspace')
   if (exec.signal.aborted) throw new Error('Git workspace validation cancelled')
