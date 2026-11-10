@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { join } from 'node:path'
+import { posix } from 'node:path'
+const join = posix.join
 import { createWorkspaceMapTool } from '../packages/dsh-delta-code/lib/tools/workspace.js'
 import { createWorktreeTool } from '../packages/dsh-delta-code/lib/tools/worktree.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
@@ -25,10 +26,10 @@ function fixture(options = {}) {
   const writtenBranches = new Set()
   const targetPath = join(ROOT, '.dsh-delta-code', 'worktrees', 'task-1')
   const fs = {
-    async resolve(path) {
+    async resolve(path, opts = {}) {
       accesses.push('resolve:' + path)
       if (options.denyResolve) throw new Error('Host FS denied resolution')
-      return { p: path }
+      return { p: posix.resolve(opts.cwd ?? ROOT, path) }
     },
     contains(parent, child) {
       accesses.push('contains')
@@ -44,14 +45,18 @@ function fixture(options = {}) {
       }
       return undefined
     },
-    async lstat(path) {
-      accesses.push('lstat:' + path)
-      if (options.parentSymlink && path === join(ROOT, '.dsh-delta-code')) return { type: 'symlink' }
-      if (path === targetPath && options.existingTarget) return { type: 'directory' }
-      if (path === join(ROOT, 'repo-a') || path === join(ROOT, 'repo-b')) return { type: 'directory' }
-      if (path === join(ROOT, 'repo-a', '.git')) return { type: 'directory' }
-      if (path === join(ROOT, 'repo-b', '.git')) return { type: 'file' }
-      if (path === join(ROOT, 'repo-external')) return { type: 'directory' }
+    async lstat(path, opts = {}) {
+      const cwd = opts.cwd?.startsWith(PROCESS_ROOT)
+        ? ROOT + opts.cwd.slice(PROCESS_ROOT.length)
+        : (opts.cwd ?? ROOT)
+      const absolute = posix.resolve(cwd, path)
+      accesses.push('lstat:' + absolute)
+      if (options.parentSymlink && absolute === join(ROOT, '.dsh-delta-code')) return { type: 'symlink' }
+      if (absolute === targetPath && options.existingTarget) return { type: 'directory' }
+      if (absolute === join(ROOT, 'repo-a') || absolute === join(ROOT, 'repo-b')) return { type: 'directory' }
+      if (absolute === join(ROOT, 'repo-a', '.git')) return { type: 'directory' }
+      if (absolute === join(ROOT, 'repo-b', '.git')) return { type: 'file' }
+      if (absolute === join(ROOT, 'repo-external')) return { type: 'directory' }
       return undefined
     },
     async listDir(target) {
