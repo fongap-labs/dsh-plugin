@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Code Worker 普通批量编辑拒绝冲突字段，保留逐项结果。
+
 - 新增: Code Worker 顺序验证多项检查，失败立即停止。
 
 - 新增: Code Worker 宿主只读能力诊断，支持 DSH 真实运行验收。

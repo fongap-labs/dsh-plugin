@@ -176,8 +176,14 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
         return { applied, results: written, dryRun: false }
       }
       for (const edit of edits) {
-        const rel = String(edit.path ?? '')
+        const rel = typeof edit?.path === 'string' ? edit.path : ''
         try {
+          if (!edit || typeof edit !== 'object' || Array.isArray(edit) || typeof edit.path !== 'string') {
+            throw new Error('edit must be an object with a string path')
+          }
+          if (edit.content !== undefined && edit.find !== undefined) {
+            throw new Error('provide exactly one of content or find/replace')
+          }
           if (edit.expectedSha256 !== undefined) {
             throw new Error('expectedSha256 requires preflight=true')
           }

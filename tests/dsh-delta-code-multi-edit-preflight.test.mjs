@@ -193,4 +193,25 @@ describe('Code Worker optional multi-edit preflight', () => {
     }
   })
 
+  it('rejects conflicting content and find in legacy mode without aborting later edits', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-multi-edit-conflict-'))
+    try {
+      await writeFile(join(root, 'original.txt'), 'original content', 'utf8')
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const result = await tool.execute({ edits: [
+        { path: 'original.txt', content: 'overwrite', find: 'original', replace: 'changed' },
+        { path: 'next.txt', content: 'valid edit' },
+      ] }, exec())
+      assert.equal(result.applied, 1)
+      assert.equal(result.results.length, 2)
+      assert.equal(result.results[0].ok, false)
+      assert.match(result.results[0].note, /exactly one/)
+      assert.equal(result.results[1].ok, true)
+      assert.equal(await readFile(join(root, 'original.txt'), 'utf8'), 'original content')
+      assert.equal(await readFile(join(root, 'next.txt'), 'utf8'), 'valid edit')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
 })
