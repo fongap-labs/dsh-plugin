@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 修复 [security]: Code Worker 的 `code_resume` 和 `code_delivery_gate` 使用 DSH Host FS 校验 Git 工作区并转换子进程路径；宿主拒绝、能力缺失或目录越界时不回退本地文件系统。
+- 修复 [security]: Code Worker 的 Git 目录检查统一遵守 DSH Host FS 权限。
 
 - 修复 [security]: Delta Code Worker 严格校验 Git porcelain 状态证据，异常、缺失或不完整记录不能误判为干净工作区，恢复与交付门禁一律安全阻断。
 
