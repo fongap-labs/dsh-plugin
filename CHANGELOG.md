@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Code Worker 通过宿主待办事件投影跨轮恢复，并核对 Git 基线后续接。
+
 - 新增: Delta Code Worker 交付核验与继续任务检查，检查实际 Git 基线和 Host 运行的测试，阻断未完成或失败结果。
 
 - 修复: Code Worker 工具卸载测试同步纳入 Git Worktree 工具，保证注册数量与注销验证一致。

@@ -16,6 +16,7 @@ import { createWorktreeTool } from './tools/worktree.js'
 import { createVerifyTool } from './tools/verify.js'
 import { createVerifySuiteTool } from './tools/verify-suite.js'
 import { createDeliveryGateTool } from './tools/delivery-gate.js'
+import { createNativeResumeTool, registerNativeResume, type NativeResumeReader } from './tools/resume.js'
 import { createGitHubTools } from './tools/github.js'
 import { createProjectProfileTool } from './tools/profile.js'
 import { createHostProbeTool } from './tools/host-probe.js'
@@ -35,9 +36,11 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   const toolDisposers: Array<() => void> = []
   const promptDisposers: Array<() => void> = []
   const cleanup: Array<() => void> = []
+  const nativeResume = registerNativeResume(ctx)
+  cleanup.push(() => nativeResume.dispose())
 
   const register = () => {
-    for (const tool of createTools(ctx, settings)) {
+    for (const tool of createTools(ctx, settings, nativeResume)) {
     const result = registerTool(ctx, tool)
     if (result.registered && typeof result.disposer === 'function') {
       toolDisposers.push(result.disposer)
@@ -94,7 +97,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   }
 }
 
-function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
+function createTools(ctx: Context, settings: Settings, nativeResume: NativeResumeReader): ToolDefinition[] {
   if (settings.enabled === false) return []
 
   const tools: ToolDefinition[] = [
@@ -107,6 +110,7 @@ function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
     createVerifyTool(ctx, settings),
     createVerifySuiteTool(ctx, settings),
     createDeliveryGateTool(ctx, settings),
+    createNativeResumeTool(ctx, settings, nativeResume),
   ]
   if (settings.gitEnabled) {
     tools.push(createGitStatusTool(ctx, settings))
