@@ -1,6 +1,6 @@
 import { readFile, open, mkdir, lstat, realpath } from 'node:fs/promises'
 import { constants } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, relative, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside, isPathInside, SandboxViolationError } from '@fongap-labs/shared'
@@ -253,8 +253,107 @@ export async function readTextSafe(
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
     return fs.readText(resolved, signal)
   }
+  if (process.platform === 'linux') return readLocalTextAnchored(root, absolute, exec.signal)
   await assertLocalPathInside(root, absolute, false)
   return readFile(absolute, 'utf8')
+}
+
+/**
+ * Anchor each directory traversal to an open descriptor on Linux. Unlike
+ * path-based realpath/open sequences, renaming or replacing an intermediate
+ * directory cannot redirect a subsequent lookup outside the opened parent.
+ * Windows/macOS keep the existing compatibility fallback.
+ */
+async function openAnchoredLocalFile(
+  root: string, absolute: string, forWrite: boolean, signal?: AbortSignal,
+): Promise<Awaited<ReturnType<typeof open>>> {
+  if (process.platform !== 'linux') throw new Error('anchored local file access requires Linux')
+  signal?.throwIfAborted()
+  const parts = relative(resolve(root), absolute).split(sep)
+  if (parts.length === 0 || parts.some(part => !part || part === '.' || part === '..')) {
+    throw new SandboxViolationError('anchored file path escapes workspace', { root, target: absolute })
+  }
+  // A trusted root is captured once; each child is opened relative to its
+  // parent's descriptor. Do not use absolute names for child traversal.
+  const canonicalRoot = await realpath(root)
+  const rootBefore = await lstat(canonicalRoot)
+  if (!rootBefore.isDirectory()) throw new Error('workspace root must be a directory')
+  const opened: Array<Awaited<ReturnType<typeof open>>> = []
+  try {
+    const rootHandle = await open(canonicalRoot,
+      constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW)
+    opened.push(rootHandle)
+    const rootAfter = await rootHandle.stat()
+    if (!rootAfter.isDirectory() ||
+        rootBefore.dev !== rootAfter.dev || rootBefore.ino !== rootAfter.ino) {
+      throw new SandboxViolationError('workspace root changed while opening', { root, target: absolute })
+    }
+    for (const part of parts.slice(0, -1)) {
+      signal?.throwIfAborted()
+      const parent = opened[opened.length - 1]!
+      const child = '/proc/self/fd/' + parent.fd + '/' + part
+      let directory: Awaited<ReturnType<typeof open>>
+      try {
+        directory = await open(child,
+          constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW)
+      } catch (error) {
+        if (!forWrite || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        try {
+          await mkdir(child)
+        } catch (mkdirError) {
+          if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError
+        }
+        // If another process substituted a symlink, O_NOFOLLOW refuses it.
+        directory = await open(child,
+          constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW)
+      }
+      opened.push(directory)
+    }
+    signal?.throwIfAborted()
+    const parent = opened[opened.length - 1]!
+    const target = '/proc/self/fd/' + parent.fd + '/' + parts[parts.length - 1]!
+    const flags = forWrite
+      ? constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW
+      : constants.O_RDONLY | constants.O_NOFOLLOW
+    const file = await open(target, flags, 0o666)
+    try {
+      const metadata = await file.stat()
+      if (!metadata.isFile() || (forWrite && metadata.nlink > 1)) {
+        throw new SandboxViolationError('anchored target is not a regular unshared file',
+          { root, target: absolute })
+      }
+    } catch (error) {
+      await file.close()
+      throw error
+    }
+    return file
+  } finally {
+    for (const directory of opened.reverse()) await directory.close()
+  }
+}
+
+export async function readLocalTextAnchored(
+  root: string, absolute: string, signal?: AbortSignal,
+): Promise<string> {
+  const file = await openAnchoredLocalFile(root, absolute, false, signal)
+  try {
+    return await file.readFile('utf8')
+  } finally {
+    await file.close()
+  }
+}
+
+export async function writeLocalTextAnchored(
+  root: string, absolute: string, content: string, signal?: AbortSignal,
+): Promise<void> {
+  const file = await openAnchoredLocalFile(root, absolute, true, signal)
+  try {
+    signal?.throwIfAborted()
+    await file.truncate(0)
+    await file.writeFile(content, 'utf8')
+  } finally {
+    await file.close()
+  }
 }
 
 /**
@@ -304,6 +403,10 @@ export async function writeTextSafe(
   }
   if (settings?.fsWriteContract === 'guarded-intent') {
     throw new Error('guarded-intent requires a mounted DSH Host FS')
+  }
+  if (process.platform === 'linux') {
+    await writeLocalTextAnchored(root, absolute, content, exec.signal)
+    return
   }
   await assertLocalPathInside(root, absolute, true)
   await mkdir(dirname(absolute), { recursive: true })
