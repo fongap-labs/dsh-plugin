@@ -29,6 +29,7 @@ export const Config: Schema<Record<string, unknown>> = Schema.object({
   execution: Schema.object({
     allowWorktreeWrites: Schema.boolean().default(false),
     allowCommands: Schema.boolean().default(false),
+    fsWriteContract: Schema.string().default('legacy-overwrite'),
   }).volatile(),
   github: Schema.object({
     enabled: Schema.boolean().default(true),

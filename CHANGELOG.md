@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Code Worker 提供显式版本保护型 DSH Host FS 写入协议。
+
 - 修复 [security]: Code Worker 工程验证预检遵循 DSH Host FS，拒绝权限回退。
 
 - 修复: Delta Desktop 侧栏监听器仅在快捷入口文案变化时更新 DOM，防止 MutationObserver 自触发循环，并补充回归测试。

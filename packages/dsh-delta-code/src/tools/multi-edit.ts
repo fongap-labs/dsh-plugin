@@ -95,7 +95,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             if (targets.has(target)) throw new Error('duplicate edit target in preflight batch')
             targets.add(target)
             // Check symlinks and Host FS permissions before any batch write.
-            await validateWriteTargetSafe(ctx, exec, root, path)
+            await validateWriteTargetSafe(ctx, exec, root, path, settings)
             const isReplace = edit.find !== undefined
             if (isReplace === (edit.content !== undefined)) {
               throw new Error('provide exactly one of content or find/replace')
@@ -157,7 +157,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               const current = await readTextSafe(ctx, exec, root, item.path)
               if (current !== item.original) throw new Error('file changed after preflight')
             }
-            await writeTextSafe(ctx, exec, root, item.path, item.content)
+            await writeTextSafe(ctx, exec, root, item.path, item.content, settings)
             applied += 1
             written.push({ path: item.path, action: item.action, ok: true, note: item.note })
           } catch (error) {
@@ -218,11 +218,11 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               original.slice(0, index) +
               String(edit.replace ?? '') +
               original.slice(index + String(edit.find).length)
-            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, next)
+            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, next, settings)
             note = 'replaced 1 occurrence'
           } else {
             if (typeof edit.content !== 'string') throw new Error('content must be a string')
-            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, edit.content)
+            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, edit.content, settings)
             note = `${String(edit.content ?? '').length} bytes`
           }
           applied += 1

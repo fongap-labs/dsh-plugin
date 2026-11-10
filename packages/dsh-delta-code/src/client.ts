@@ -21,6 +21,7 @@ interface Draft {
   githubAllowWrites: boolean
   allowWorktreeWrites: boolean
   allowCommands: boolean
+  fsWriteContract: 'legacy-overwrite' | 'guarded-intent'
   systemPromptText: string
   accounts: Account[]
   servers: Server[]
@@ -63,7 +64,9 @@ function readDraft(value: any): Draft {
     gitEnabled: git.enabled !== false, gitCommand: git.command ?? 'git',
     githubEnabled: github.enabled !== false, githubAllowWrites: github.allowWrites === true,
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
-    allowCommands: execution.allowCommands === true, systemPromptText: value?.systemPromptText ?? '',
+    allowCommands: execution.allowCommands === true,
+    fsWriteContract: execution.fsWriteContract === 'guarded-intent' ? 'guarded-intent' : 'legacy-overwrite',
+    systemPromptText: value?.systemPromptText ?? '',
     accounts: (github.accounts ?? []).map((item: any, index: number) => ({
       owner: item.owner ?? '', tokenEnv: item.tokenEnv ?? '', sourceIndex: index,
     })),
@@ -102,6 +105,7 @@ function operations(draft: Draft, value: any): Op[] {
     ['githubEnabled', ['github', 'enabled']], ['githubAllowWrites', ['github', 'allowWrites']],
     ['allowWorktreeWrites', ['execution', 'allowWorktreeWrites']],
     ['allowCommands', ['execution', 'allowCommands']],
+    ['fsWriteContract', ['execution', 'fsWriteContract']],
     ['systemPromptText', ['systemPromptText']],
   ]
   for (const [name, path] of scalars) {
@@ -202,6 +206,14 @@ function installClient(require: (id: string) => unknown) {
       section(t('执行与写入权限', 'Execution & write permissions'),
         toggle(t('允许创建 Worktree', 'Allow worktree writes'), draft.allowWorktreeWrites, v => patch({ allowWorktreeWrites: v })),
         toggle(t('允许执行项目脚本', 'Allow project commands'), draft.allowCommands, v => patch({ allowCommands: v })),
+        h('label', { style: { display: 'grid', gap: '5px', fontSize: '13px' } },
+          h('span', null, t('DSH 文件写入协议', 'DSH file write contract')),
+          h('select', { style: inputStyle, disabled, value: draft.fsWriteContract,
+            onChange: (e: any) => patch({ fsWriteContract: e.target.value }) },
+            h('option', { value: 'legacy-overwrite' }, t('旧版覆盖协议（默认）', 'Legacy overwrite (default)')),
+            h('option', { value: 'guarded-intent' }, t('新版版本保护协议', 'Guarded intent / version checks')))),
+        hint(t('协议必须与实际 DSH 版本匹配，不以写入进行自动探测。',
+          'Choose the installed DSH contract explicitly; no write-based detection.')),
         hint(t('执行脚本仅适用于可信工作区。', 'Only enable project commands in trusted workspaces.'))),
       section(t('GitHub 多账号', 'GitHub accounts'),
         toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),

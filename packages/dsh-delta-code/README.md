@@ -21,6 +21,15 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 已发布的旧版包不会因为仓库源码更新而自行改变依赖声明。修复合并并发布新版本后，需要安装新版本才能解除旧版本的安装拦截。
 
+### DSH Host FS 写入协议
+
+使用 `execution.fsWriteContract` 明确选择实际宿主的写入契约：
+
+- `legacy-overwrite`（默认）：沿用当前锁定 DSH SDK 的 `writeText(target, content, 'overwrite', signal)` 行为，不修改现有用户配置。
+- `guarded-intent`（显式开启）：对照上游 `FsWriteIntent`，必须具备宿主 `resolve/contains/stat/writeText`。宿主返回已有文件的版本后执行 `replaceIfVersion`；不存在则执行 `createIfAbsent`。并发导致版本变化时由宿主拒绝，插件不会改为无条件覆盖。
+
+无法安全地通过函数参数数量或写入探测判断宿主协议，因此不会自动切换。选择新模式却缺失 Host FS、文件版本、路径权限或必需方法时，将明确拒绝操作；所选协议不匹配时需要人工校正设置。此适配只证明接口调用与模拟测试，**不等于实际 DSH 写入审批或端到端验收完成**。
+
 ## 安装到本地 Profile
 
 ```bash

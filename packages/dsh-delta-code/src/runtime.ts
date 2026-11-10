@@ -83,6 +83,10 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
   const execution = cfg.execution && typeof cfg.execution === 'object' ? cfg.execution : {}
   const github = cfg.github && typeof cfg.github === 'object' ? cfg.github : {}
   const accounts = validateGitHubAccounts(github.accounts)
+  const fsWriteContract = execution.fsWriteContract ?? 'legacy-overwrite'
+  if (fsWriteContract !== 'legacy-overwrite' && fsWriteContract !== 'guarded-intent') {
+    throw new Error('execution.fsWriteContract must be legacy-overwrite or guarded-intent')
+  }
   const servers =
     Array.isArray(lsp.servers) && lsp.servers.length > 0 ? lsp.servers : DEFAULT_LSP_SERVERS
   return {
@@ -94,6 +98,7 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
       typeof git.command === 'string' && git.command.trim() !== '' ? git.command.trim() : 'git',
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
     allowCommands: execution.allowCommands === true,
+    fsWriteContract,
     githubEnabled: github.enabled !== false && accounts.length > 0,
     githubAllowWrites: github.allowWrites === true,
     githubAccounts: accounts,
@@ -167,11 +172,46 @@ async function assertLocalPathInside(root: string, target: string, isWrite: bool
 /** Validate an edit target before a batch begins.
  * Local fallback checks the real existing path; native Host FS owns its path policy.
  */
+/**
+ * Guarded writes use an explicit upstream FsWriteIntent. We never infer this
+ * signature by making probe writes or checking function arity.
+ */
+async function guardedWriteTarget(
+  fs: {
+    resolve(path: string, opts: { cwd: string; signal?: AbortSignal }): Promise<unknown>
+    contains?(parent: unknown, child: unknown): boolean
+    stat?(target: unknown, signal?: AbortSignal): Promise<{ type: string; version?: unknown } | undefined>
+    writeText(target: unknown, content: string, intent: unknown, signal?: AbortSignal): Promise<unknown>
+  },
+  root: string,
+  absolute: string,
+  signal: AbortSignal,
+): Promise<{ target: unknown; intent: { kind: 'createIfAbsent' } | { kind: 'replaceIfVersion'; version: string } }> {
+  if (typeof fs.contains !== 'function' || typeof fs.stat !== 'function') {
+    throw new Error('guarded-intent requires DSH Host FS resolve/contains/stat/writeText')
+  }
+  signal.throwIfAborted()
+  const parent = await fs.resolve(root, { cwd: root, signal })
+  const target = await fs.resolve(absolute, { cwd: root, signal })
+  if (!fs.contains(parent, target)) {
+    throw new SandboxViolationError('Host FS write target escapes workspace', { root, target: absolute })
+  }
+  const info = await fs.stat(target, signal)
+  if (info && (info.type !== 'file' || typeof info.version !== 'string' || !info.version)) {
+    throw new Error('guarded-intent requires a regular file with an opaque version')
+  }
+  signal.throwIfAborted()
+  return { target, intent: info
+    ? { kind: 'replaceIfVersion', version: info.version as string }
+    : { kind: 'createIfAbsent' } }
+}
+
 export async function validateWriteTargetSafe(
   ctx: Context,
   exec: ToolRunContext,
   root: string,
   relPath: string,
+  settings?: Pick<Settings, 'fsWriteContract'>,
 ): Promise<void> {
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
@@ -179,8 +219,15 @@ export async function validateWriteTargetSafe(
     if (typeof fs.resolve !== 'function' || typeof fs.writeText !== 'function') {
       throw new Error('DSH Host FS missing resolve/writeText; refusing local fallback')
     }
-    await fs.resolve(absolute, { cwd: root, signal: exec.signal })
+    if (settings?.fsWriteContract === 'guarded-intent') {
+      await guardedWriteTarget(fs, root, absolute, exec.signal)
+    } else {
+      await fs.resolve(absolute, { cwd: root, signal: exec.signal })
+    }
     return
+  }
+  if (settings?.fsWriteContract === 'guarded-intent') {
+    throw new Error('guarded-intent requires a mounted DSH Host FS')
   }
   await assertLocalPathInside(root, absolute, true)
 }
@@ -226,6 +273,7 @@ export async function writeTextSafe(
   root: string,
   relPath: string,
   content: string,
+  settings?: Pick<Settings, 'fsWriteContract'>,
 ): Promise<void> {
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
@@ -234,10 +282,17 @@ export async function writeTextSafe(
       throw new Error('DSH Host FS missing resolve/writeText; refusing local fallback')
     }
     const signal = exec.signal
+    if (settings?.fsWriteContract === 'guarded-intent') {
+      const { target, intent } = await guardedWriteTarget(fs, root, absolute, signal)
+      await fs.writeText(target, content, intent, signal)
+      return
+    }
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
-    // Follow the currently compiled DSH Host FS contract for this plugin.
-    // The newer upstream FsWriteIntent contract requires a separate versioned adapter.
-    return fs.writeText(resolved, content, 'overwrite', signal)
+    await fs.writeText(resolved, content, 'overwrite', signal)
+    return
+  }
+  if (settings?.fsWriteContract === 'guarded-intent') {
+    throw new Error('guarded-intent requires a mounted DSH Host FS')
   }
   await assertLocalPathInside(root, absolute, true)
   await mkdir(dirname(absolute), { recursive: true })
