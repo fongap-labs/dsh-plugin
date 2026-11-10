@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 的 Git 目录检查统一遵守 DSH Host FS 权限。
+
 - 修复 [security]: Delta Code Worker 严格校验 Git porcelain 状态证据，异常、缺失或不完整记录不能误判为干净工作区，恢复与交付门禁一律安全阻断。
 
 - 新增: Code Worker 通过宿主待办事件投影跨轮恢复，并核对 Git 基线后续接。

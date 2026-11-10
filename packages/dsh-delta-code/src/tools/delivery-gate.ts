@@ -1,9 +1,9 @@
-import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
-import { defineTool, isPathInside, resolveInside, runCommand } from '@fongap-labs/shared'
+import { defineTool, runCommand } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
+import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { parseGitStatus } from './git.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
 import type { VerificationScript } from './verify-presets.js'
@@ -177,11 +177,12 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings): ToolDe
       const checks: GateCheck[] = []
       try {
         const root = await resolveRoot(ctx, exec, settings)
-        const requested = args.cwd ? resolveInside(root, args.cwd) : root
-        const [canonicalRoot, cwd] = await Promise.all([realpath(root), realpath(requested)])
-        if (!isPathInside(canonicalRoot, cwd)) {
-          throw new Error('Git cwd escapes workspace')
-        }
+        const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
+        // prepareVerify resolves manifests through Host FS before this point,
+        // but its cwd is the configured workspace spelling. The Host's
+        // processPath is authoritative for BOTH Git and verification commands.
+        // Never run tests against a different filesystem execution world.
+        for (const step of prepared) step.cwd = cwd
         head = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
         if (head !== args.expectedHead) {
           return gate('blocked', 'Reconcile the changed repository HEAD, refresh the plan, then verify again.',
