@@ -61,7 +61,7 @@ describe('Code Worker GitHub default branch guard', () => {
         repository: 'fongap-labs/demo', head: 'feat/improvement', title: 'Test',
       }, exec)
       assert.equal(JSON.parse(pr.result).number, 12)
-      assert.equal(JSON.parse(requests.find(request => request.path.endsWith('/pulls')).body).base, 'release/2026')
+      assert.equal(JSON.parse(requests.find(request => request.method === 'POST' && request.path.endsWith('/pulls')).body).base, 'release/2026')
     } finally {
       if (savedToken === undefined) delete process.env[key]
       else process.env[key] = savedToken
