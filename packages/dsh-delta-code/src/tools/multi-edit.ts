@@ -301,6 +301,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       }
       for (const edit of edits) {
         const rel = typeof edit?.path === 'string' ? edit.path : ''
+        let isWriteAttempted = false
         try {
           if (!edit || typeof edit !== 'object' || Array.isArray(edit) || typeof edit.path !== 'string') {
             throw new Error('edit must be an object with a string path')
@@ -349,11 +350,15 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             // Legacy Host FS cannot guarantee atomicity; guarded intent can.
             const current = await readTextSafe(ctx, exec, root, rel)
             if (current !== original) throw new Error('file changed before replacement')
+            isWriteAttempted = true
             await writeTextSafe(ctx, exec, root, rel, next, settings, pinnedIntent)
             note = 'replaced 1 occurrence'
           } else {
             if (typeof edit.content !== 'string') throw new Error('content must be a string')
-            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, edit.content, settings)
+            if (!args.dryRun) {
+              isWriteAttempted = true
+              await writeTextSafe(ctx, exec, root, rel, edit.content, settings)
+            }
             note = `${String(edit.content ?? '').length} bytes`
           }
           applied += 1
@@ -364,9 +369,10 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             action: 'skipped',
             ok: false,
             note:
-              error instanceof SandboxViolationError
+              (error instanceof SandboxViolationError
                 ? 'path escapes workspace sandbox'
-                : errorMessage(error),
+                : errorMessage(error)) +
+              (isWriteAttempted ? '; Host write outcome unconfirmed; inspect target before retry' : ''),
           })
         }
       }
