@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 工程概况读取遵循 DSH Host 文件服务权限。
+
 - 修复: Code Worker 普通批量编辑拒绝冲突字段，保留逐项结果。
 
 - 新增: Code Worker 顺序验证多项检查，失败立即停止。
