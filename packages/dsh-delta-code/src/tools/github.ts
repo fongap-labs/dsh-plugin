@@ -268,13 +268,39 @@ export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinit
         const parent = await githubRequest(ctx, exec, settings, info.repository, 'GET',
           (repo) => encodeRepo(repo) + '/git/commits/' + previousHead)
         const treeSha = validatedCommitSha(parent.data?.tree?.sha, 'parent tree')
+        // Preserve executable bits when replacing an existing regular file.
+        // Git Contents API does not expose the Git tree mode, so walk only
+        // this path's ancestor trees rather than enumerating the repository.
+        let fileMode = '100644'
+        if (existing) {
+          let currentTree = treeSha
+          const segments = args.path.split('/')
+          for (const [index, segment] of segments.entries()) {
+            const listing = await githubRequest(ctx, exec, settings, info.repository, 'GET',
+              (repo) => encodeRepo(repo) + '/git/trees/' + currentTree)
+            if (!Array.isArray(listing.data?.tree) || listing.data.truncated === true) {
+              throw new Error('GitHub tree evidence is incomplete')
+            }
+            const entry = listing.data.tree.find((item: any) => item.path === segment)
+            if (!entry) throw new Error('file missing from pinned Git tree; inspect repository state')
+            if (index === segments.length - 1) {
+              if (entry.type !== 'blob' || !['100644', '100755'].includes(entry.mode)) {
+                throw new Error('GitHub file is not a regular blob; refusing write')
+              }
+              fileMode = entry.mode
+            } else {
+              if (entry.type !== 'tree') throw new Error('GitHub file ancestor is not a directory')
+              currentTree = validatedCommitSha(entry.sha, 'nested tree')
+            }
+          }
+        }
         // Git Trees API can create the text blob while preserving the full
         // base tree. Unlike Contents PUT, the ref update below is a separate
         // non-force fast-forward operation, so racing branches cannot overwrite.
         const tree = await githubRequest(ctx, exec, settings, info.repository, 'POST',
           (repo) => encodeRepo(repo) + '/git/trees', {
             base_tree: treeSha,
-            tree: [{ path: args.path, mode: '100644', type: 'blob', content: args.content }],
+            tree: [{ path: args.path, mode: fileMode, type: 'blob', content: args.content }],
           })
         const nextTree = validatedCommitSha(tree.data?.sha, 'new tree')
         const commit = await githubRequest(ctx, exec, settings, info.repository, 'POST',
