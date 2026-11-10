@@ -3,12 +3,12 @@
  * events, not a competing task store or a background agent scheduler.
  * Unlike DSH's UI-facing todos projection, it survives turn/start.
  */
-import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
-import { defineTool, isPathInside, resolveInside, runCommand } from '@fongap-labs/shared'
+import { defineTool, runCommand } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
+import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { remainingDeliveryTasks, type DeliveryTask } from './delivery-gate.js'
 import { parseGitStatus } from './git.js'
 
@@ -197,9 +197,7 @@ export function createNativeResumeTool(
       let head = ''
       try {
         const root = await resolveRoot(ctx, exec, settings)
-        const requested = args.cwd ? resolveInside(root, args.cwd) : root
-        const [canonicalRoot, cwd] = await Promise.all([realpath(root), realpath(requested)])
-        if (!isPathInside(canonicalRoot, cwd)) throw new Error('Git cwd escapes workspace')
+        const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
         head = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
         if (!HEAD_PATTERN.test(head)) throw new Error('Host returned invalid Git HEAD')
         if (args.expectedHead && head !== args.expectedHead) {
