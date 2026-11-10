@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand, resolveInside } from '@fongap-labs/shared'
+import { defineTool, runCommand, isSubprocessMounted, resolveInside } from '@fongap-labs/shared'
 import type { LspProbeResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot, errorMessage } from '../runtime.js'
 
@@ -60,7 +60,7 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
             signal: exec.signal,
             timeoutMs: 8_000,
             maxOutputBytes: 4 * 1024,
-            hostOnly: ctx.subprocess != null,
+            hostOnly: isSubprocessMounted(ctx),
           })
           isAvailable = result.exitCode === 0 && !result.timedOut && !result.signal
           if (result.timedOut) {
