@@ -175,8 +175,8 @@ export async function validateWriteTargetSafe(
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
   if (fs) {
-    if (typeof fs.resolve !== 'function') {
-      throw new Error('DSH Host FS missing resolve; refusing local fallback')
+    if (typeof fs.resolve !== 'function' || typeof fs.writeText !== 'function') {
+      throw new Error('DSH Host FS missing resolve/writeText; refusing local fallback')
     }
     await fs.resolve(absolute, { cwd: root, signal: exec.signal })
     return
