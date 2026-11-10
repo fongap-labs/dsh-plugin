@@ -1,9 +1,9 @@
-import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInside } from '@fongap-labs/shared'
+import { defineTool, runCommand, isSubprocessMounted } from '@fongap-labs/shared'
 import type { LspProbeResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot, errorMessage } from '../runtime.js'
+import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 
 export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
@@ -49,11 +49,10 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
     async execute(args, exec) {
       if (exec.signal.aborted) throw new Error('lsp probe cancelled')
       const root = await resolveRoot(ctx, exec, settings)
-      const cwd = args.cwd ? resolveInside(root, args.cwd) : root
-      const [canonicalRoot, canonicalCwd] = await Promise.all([realpath(root), realpath(cwd)])
-      if (!isPathInside(canonicalRoot, canonicalCwd)) {
-        throw new Error('lsp cwd escapes workspace through a symbolic link')
-      }
+      // Host FS is authoritative for virtual/remote workspaces and symlink
+      // containment. Never inspect a mounted Host workspace with Node realpath.
+      const canonicalCwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
+      const isHostFsMounted = Boolean(ctx.get('fs'))
       const servers: LspProbeResult[] = []
       for (const server of settings.lspServers) {
         if (exec.signal.aborted) throw new Error('lsp probe cancelled')
@@ -67,7 +66,7 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
             signal: exec.signal,
             timeoutMs: 8_000,
             maxOutputBytes: 4 * 1024,
-            hostOnly: isSubprocessMounted(ctx),
+            hostOnly: isHostFsMounted || isSubprocessMounted(ctx),
           })
           if (exec.signal.aborted) throw new Error('lsp probe cancelled')
           isAvailable = result.exitCode === 0 && !result.timedOut && !result.signal
