@@ -66,6 +66,12 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
           script, cwd: args.cwd, project: args.project, timeoutMs: args.timeoutMs,
         }))
       }
+      // Every step must target the same Host execution filesystem.
+      // A changing processPath during preflight is not safe to execute.
+      const executionCwd = prepared[0]!.cwd
+      if (prepared.some(step => step.cwd !== executionCwd)) {
+        throw new Error('Host verification execution directory changed during preflight')
+      }
       const results = []
       for (const step of prepared) {
         if (exec.signal.aborted) throw new Error('verification cancelled')
