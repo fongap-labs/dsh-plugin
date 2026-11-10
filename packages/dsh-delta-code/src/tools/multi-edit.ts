@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, SandboxViolationError, resolveInside } from '@fongap-labs/shared'
 import type { EditResult, Settings } from '../types.js'
-import { TOOL_PREFIX, resolveRoot, readTextSafe, writeTextSafe, errorMessage } from '../runtime.js'
+import { TOOL_PREFIX, resolveRoot, readTextSafe, writeTextSafe, validateWriteTargetSafe, errorMessage } from '../runtime.js'
 
 export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
@@ -92,6 +92,8 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             const target = resolveInside(root, path)
             if (targets.has(target)) throw new Error('duplicate edit target in preflight batch')
             targets.add(target)
+            // Check symlinks and Host FS permissions before any batch write.
+            await validateWriteTargetSafe(ctx, exec, root, path)
             const isReplace = edit.find !== undefined
             if (isReplace === (edit.content !== undefined)) {
               throw new Error('provide exactly one of content or find/replace')
