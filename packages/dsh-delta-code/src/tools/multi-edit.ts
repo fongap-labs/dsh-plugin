@@ -74,9 +74,9 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       const results: EditResult[] = []
       let applied = 0
       const edits = Array.isArray(args.edits) ? args.edits : []
-      if (args.preflight) {
-        // Opt-in mode: validate all edits and compute replacements before writing.
-        // Existing default stays a per-edit best-effort workflow.
+      if (args.preflight || args.dryRun) {
+        // Every dry run must validate targets and Host permissions before claiming success.
+        // Real writes without explicit preflight retain the existing best-effort mode.
         const prepared: Array<{
           path: string
           action: EditResult['action']
@@ -115,6 +115,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               if (typeof edit.content !== 'string') throw new Error('content must be a string')
               let original: string | undefined
               if (edit.expectedSha256 !== undefined) {
+                if (!args.preflight) throw new Error('expectedSha256 requires preflight=true')
                 if (typeof edit.expectedSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(edit.expectedSha256)) {
                   throw new Error('expectedSha256 must be a 64-character lowercase SHA-256 digest')
                 }

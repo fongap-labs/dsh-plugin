@@ -135,4 +135,62 @@ describe('Code Worker optional multi-edit preflight', () => {
     assert.equal(attempts.length, 2)
   })
 
+  it('validates unsafe paths and duplicate targets even when only dryRun is specified', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-dry-run-preflight-'))
+    try {
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const result = await tool.execute({ dryRun: true, edits: [
+        { path: 'safe.txt', content: 'would-write' },
+        { path: '../escape.txt', content: 'must-not-write' },
+        { path: 'same.txt', content: 'first' },
+        { path: 'nested/../same.txt', content: 'duplicate' },
+      ] }, exec())
+      assert.equal(result.dryRun, true)
+      assert.equal(result.applied, 0)
+      assert.ok(result.results.every(item => item.ok === false))
+      assert.match(result.results[1].note, /sandbox/)
+      assert.match(result.results[3].note, /duplicate/)
+      await assert.rejects(readFile(join(root, 'safe.txt')), { code: 'ENOENT' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('honors Host FS denial during dryRun instead of reporting a false preview success', async () => {
+    let writes = 0
+    const host = {
+      get(name) {
+        if (name !== 'fs') return undefined
+        return {
+          resolve: async () => { throw new Error('host refused dry run target') },
+          readText: async () => '',
+          writeText: async () => { writes += 1 },
+        }
+      },
+    }
+    const tool = createMultiEditTool(host, normalizeConfig({ workspaceRoot: 'root' }))
+    const result = await tool.execute({ dryRun: true, edits: [
+      { path: 'denied.txt', content: 'not-written' },
+    ] }, exec())
+    assert.equal(result.applied, 0)
+    assert.equal(result.results[0].ok, false)
+    assert.match(result.results[0].note, /host refused dry run target/)
+    assert.equal(writes, 0)
+  })
+
+  it('does not silently enable expectedSha256 without explicit preflight', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-dry-run-hash-'))
+    try {
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const result = await tool.execute({ dryRun: true, edits: [
+        { path: 'new.txt', content: 'no', expectedSha256: '0'.repeat(64) },
+      ] }, exec())
+      assert.equal(result.applied, 0)
+      assert.match(result.results[0].note, /requires preflight=true/)
+      await assert.rejects(readFile(join(root, 'new.txt')), { code: 'ENOENT' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
 })
