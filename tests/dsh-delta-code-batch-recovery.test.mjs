@@ -94,7 +94,7 @@ describe('Code Worker guarded batch compensation', () => {
     assert.equal(result.rollback.restored, 0)
     assert.equal(result.rollback.failed, 1)
     assert.equal(result.results[0].ok, true)
-    assert.match(result.results[0].note, /recovery refused: FS_STALE_VERSION/)
+    assert.match(result.results[0].note, /recovery unconfirmed or refused: FS_STALE_VERSION/)
     assert.equal(host.files.get(resolve(root, 'first.txt')).content, 'external change')
   })
 
