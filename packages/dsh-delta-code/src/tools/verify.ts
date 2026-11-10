@@ -17,7 +17,7 @@ export function redactKnownTokens(text: string, settings: Settings): string {
     const token = account.tokenEnv ? process.env[account.tokenEnv] : undefined
     if (token && token.length >= 8) value = value.split(token).join('[REDACTED]')
   }
-  return value.replace(/\\b(?:github_pat_[a-zA-Z0-9_]{12,}|gh[pousr]_[a-zA-Z0-9]{20,})\\b/g, '[REDACTED]')
+  return value.replace(/\b(?:github_pat_[a-zA-Z0-9_]{12,}|gh[pousr]_[a-zA-Z0-9]{20,})\b/g, '[REDACTED]')
 }
 
 async function choosePackageManager(cwd: string): Promise<'pnpm' | 'yarn' | 'bun' | 'npm'> {
