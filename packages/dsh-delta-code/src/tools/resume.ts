@@ -207,10 +207,18 @@ export function createNativeResumeTool(
             state, head, [], ['Git HEAD differs from previous checkpoint'])
         }
         const before = await hostGit(ctx, settings, cwd, exec, ['status', '--porcelain=v1', '--branch', '-z'])
+        // A clean first status is not enough: another writer can change the
+        // worktree while the Host inspection is in progress. Re-read status
+        // before accepting a resume recommendation; no local Git fallback.
+        const after = await hostGit(ctx, settings, cwd, exec, ['status', '--porcelain=v1', '--branch', '-z'])
         const afterHead = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
         if (head !== afterHead) {
           return result('blocked', 'HEAD changed during read; reconcile repository and retry.',
             state, afterHead, [], ['Git HEAD changed while inspecting'])
+        }
+        if (before !== after) {
+          return result('blocked', 'Git status changed during inspection; refresh the repository state.',
+            state, head, [], ['Git status changed while inspecting'])
         }
         const current = reader.read(exec.agent)
         if (!current || current.writeSeq !== state.writeSeq) {
