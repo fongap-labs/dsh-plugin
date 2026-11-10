@@ -13,6 +13,25 @@ const execution = () => ({ signal: new AbortController().signal })
 const digest = text => createHash('sha256').update(text, 'utf8').digest('hex')
 
 describe('DSH Host filesystem authority', () => {
+  it('uses the current DSH writeText intent signature rather than a legacy overwrite string', async () => {
+    const signal = new AbortController().signal
+    const target = { targetKey: 'host-target-id', displayPath: 'host/file.txt' }
+    let writes = 0
+    const ctx = { get: name => name === 'fs' ? {
+      resolve: async () => target,
+      writeText: async (receivedTarget, content, expected, receivedSignal) => {
+        writes += 1
+        assert.strictEqual(receivedTarget, target)
+        assert.equal(content, 'updated')
+        assert.equal(expected, undefined)
+        assert.strictEqual(receivedSignal, signal)
+        return { operation: 'update', version: 'opaque-version', before: null }
+      },
+    } : undefined }
+    await writeTextSafe(ctx, { signal }, 'root', 'file.txt', 'updated')
+    assert.equal(writes, 1)
+  })
+
   it('refuses local fallback when Host FS has resolve but lacks read or write', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-host-fs-'))
     try {
