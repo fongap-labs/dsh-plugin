@@ -238,6 +238,10 @@ Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不
 
 权限仍由 `execution.allowCommands` 控制；不会新增 shell 命令入口或绕过 DSH 审批。原有 `code_verify` 接口不变。
 
+### LSP 探测与宿主路径权限
+
+`code_lsp_probe` 在 DSH Host FS 已挂载时，沿用 `resolveAuthorizedGitCwd` 目录校验并获取 `processPath`，不使用 Node `realpath` 读取宿主虚拟路径。目录越界、非目录、缺失接口或授权拒绝会阻断探测；Host FS 存在但宿主 subprocess 不可用时，不回退本地进程。未挂载 Host FS 时保留原有真实路径越界检查。该功能仍需要真实 DSH Host 集成验收。
+
 ### 工程概况与宿主文件服务
 
 当 DeepSeek Harness 已注入 `fs` 服务时，`code_project_profile` 仅通过该 Host FS 的 `resolve`、`contains`、`stat` 和 `readText` 识别项目文件与脚本；宿主拒绝访问或缺少必需能力会明确失败，**不会退回 Node 本地读取**。没有 Host FS 的旧兼容路径保持原有行为。工具只输出文件名和脚本名，不输出脚本定义或文件正文。
