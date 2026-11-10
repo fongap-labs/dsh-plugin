@@ -33,8 +33,10 @@ async function resolveHostWorktreeTarget(
 ): Promise<string> {
   signal.throwIfAborted()
   const rootTarget = await fs.resolve(root, { cwd: root, signal })
-  const workspace = join(root, '.dsh-delta-code')
-  const storage = join(workspace, 'worktrees')
+  // Paths passed to Host FS are relative to its own execution world.
+  // Do not format them with Node's platform-dependent path.join.
+  const workspace = '.dsh-delta-code'
+  const storage = '.dsh-delta-code/worktrees'
   let storageTarget: unknown
   for (const path of [workspace, storage]) {
     signal.throwIfAborted()
@@ -46,7 +48,7 @@ async function resolveHostWorktreeTarget(
     if (!fs.contains(rootTarget, target)) throw new Error('worktree storage escapes Host workspace')
     if (path === storage) storageTarget = target
   }
-  const targetPath = join(storage, task)
+  const targetPath = storage + '/' + task
   signal.throwIfAborted()
   const existing = await fs.lstat(targetPath, { cwd: root }, signal)
   if (existing) throw new Error('worktree directory already exists')
