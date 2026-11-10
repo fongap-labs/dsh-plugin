@@ -178,11 +178,13 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings): ToolDe
       try {
         const root = await resolveRoot(ctx, exec, settings)
         const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
-        // prepareVerify resolves manifests through Host FS before this point,
-        // but its cwd is the configured workspace spelling. The Host's
-        // processPath is authoritative for BOTH Git and verification commands.
-        // Never run tests against a different filesystem execution world.
-        for (const step of prepared) step.cwd = cwd
+        // The Git and verification evidence must refer to exactly the
+        // same Host execution filesystem. Never silently override a
+        // different preflight processPath and proceed to execution.
+        if (prepared.some(step => step.cwd !== cwd)) {
+          return gate('blocked', 'Reconcile the Host verification and Git execution directories.',
+            [], '', ['Host verification directory differs from Git directory'])
+        }
         head = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
         if (head !== args.expectedHead) {
           return gate('blocked', 'Reconcile the changed repository HEAD, refresh the plan, then verify again.',
