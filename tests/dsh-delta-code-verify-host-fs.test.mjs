@@ -6,6 +6,7 @@ import { createVerifySuiteTool } from '../packages/dsh-delta-code/lib/tools/veri
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 
 const root = resolve('dsh-virtual-host-verification-workspace')
+const HOST_EXECUTION_CWD = '/dsh-host-only-verify-execution-path'
 const exec = () => ({ signal: new AbortController().signal })
 function fakeHost(files, options = {}) {
   const observed = []
@@ -18,12 +19,19 @@ function fakeHost(files, options = {}) {
     },
     contains(parent, target) {
       if (options.rejectContain && target.key.endsWith(sep + 'package.json')) return false
+      if (options.rejectDirectoryContain && target.key === root) return false
       return target.key === parent.key || target.key.startsWith(parent.key + sep)
     },
     async stat(target) {
       observed.push('stat:' + target.key)
       if (options.rejectStat) throw new Error('Host FS denied metadata')
+      if (target.key === root) return { type: options.notDirectory ? 'file' : 'directory' }
       return Object.hasOwn(files, target.key) ? { type: 'file' } : undefined
+    },
+    processPath(target) {
+      observed.push('processPath:' + target.key)
+      if (options.rejectProcessPath) throw new Error('Host FS denied process path')
+      return options.invalidProcessCwd ?? HOST_EXECUTION_CWD
     },
     async readText(target) {
       observed.push('readText:' + target.key)
@@ -31,6 +39,7 @@ function fakeHost(files, options = {}) {
       return files[target.key]
     },
   }
+  if (options.noProcessPath) delete fs.processPath
   const ctx = {
     get: key => key === 'fs' ? (options.incompleteFs ? { resolve: fs.resolve } : fs) : undefined,
     subprocess: { spawn(spec) {
@@ -57,6 +66,8 @@ describe('Code Worker verification through DSH Host FS', () => {
     assert.equal(result.passed, true)
     assert.equal(result.project, 'node')
     assert.deepEqual(host.spawns.map(item => item.argv), [['pnpm', 'run', 'test']])
+    assert.equal(host.spawns[0].cwd, HOST_EXECUTION_CWD)
+    assert.ok(host.observed.includes('processPath:' + root))
     assert.ok(host.observed.some(item => item.startsWith('readText:')))
   })
   it('uses Host metadata for Rust lockfile detection', async () => {
@@ -67,6 +78,7 @@ describe('Code Worker verification through DSH Host FS', () => {
     const result = await createVerifyTool(host.ctx, settings).execute({ script: 'test' }, exec())
     assert.equal(result.project, 'rust')
     assert.deepEqual(host.spawns[0].argv, ['cargo', 'test', '--locked'])
+    assert.equal(host.spawns[0].cwd, HOST_EXECUTION_CWD)
   })
   it('fails closed on Host resolution, stat and read denial', async () => {
     for (const options of [{ rejectStat: true }, { rejectRead: true }, { rejectResolve: true }]) {
@@ -101,6 +113,43 @@ describe('Code Worker verification through DSH Host FS', () => {
     )
     assert.equal(host.spawns.length, 0)
     assert.ok(host.observed.some(item => item.startsWith('readText:')))
+  })
+  it('runs the entire verification suite in the same Host process cwd', async () => {
+    const host = fakeHost({
+      [join(root, 'package.json')]: JSON.stringify({ scripts: { test: 'node --test', build: 'tsc' } }),
+    })
+    const result = await createVerifySuiteTool(host.ctx, settings).execute({
+      scripts: ['test', 'build'],
+    }, exec())
+    assert.equal(result.passed, true)
+    assert.deepEqual(host.spawns.map(item => item.argv), [
+      ['npm', 'run', 'test'], ['npm', 'run', 'build'],
+    ])
+    assert.ok(host.spawns.every(item => item.cwd === HOST_EXECUTION_CWD))
+  })
+  it('rejects absent, denied and malformed Host process paths before spawning commands', async () => {
+    const files = { [join(root, 'package.json')]: '{"scripts":{"test":"ok","build":"ok"}}' }
+    for (const options of [
+      { noProcessPath: true },
+      { rejectProcessPath: true },
+      { invalidProcessCwd: '' },
+      { invalidProcessCwd: '\\0forbidden' },
+      { notDirectory: true },
+      { rejectDirectoryContain: true },
+    ]) {
+      const host = fakeHost(files, options)
+      await assert.rejects(
+        createVerifyTool(host.ctx, settings).execute({ script: 'test' }, exec()),
+        /Host|Git|process path|directory|workspace/,
+        JSON.stringify(options),
+      )
+      await assert.rejects(
+        createVerifySuiteTool(host.ctx, settings).execute({ scripts: ['test', 'build'] }, exec()),
+        /Host|Git|process path|directory|workspace/,
+        JSON.stringify(options),
+      )
+      assert.deepEqual(host.spawns, [], JSON.stringify(options))
+    }
   })
   it('never starts a subprocess when cancelled during Host metadata', async () => {
     const controller = new AbortController()
