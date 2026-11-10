@@ -24,6 +24,9 @@ describe('Code Worker GitHub default branch guard', () => {
         if (method === 'POST' && address.pathname === '/repos/fongap-labs/demo/git/refs') {
           return new Response(JSON.stringify({ object: { sha: 'a'.repeat(40) } }), { status: 201 })
         }
+        if (method === 'GET' && address.pathname === '/repos/fongap-labs/demo/pulls') {
+          return new Response(JSON.stringify([]), { status: 200 })
+        }
         if (method === 'POST' && address.pathname === '/repos/fongap-labs/demo/pulls') {
           return new Response(JSON.stringify({ number: 12, html_url: 'https://github.com/fongap-labs/demo/pull/12' }), { status: 201 })
         }
