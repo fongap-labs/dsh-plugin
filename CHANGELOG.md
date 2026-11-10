@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: 单项及批量验证统一使用 DSH Host FS 授权的执行目录。
+
 - 修复 [security]: Code Worker 的 Git 目录检查统一遵守 DSH Host FS 权限。
 
 - 修复 [security]: Delta Code Worker 严格校验 Git porcelain 状态证据，异常、缺失或不完整记录不能误判为干净工作区，恢复与交付门禁一律安全阻断。
