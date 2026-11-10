@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 修复: Code Worker 的 `code_multi_edit` 普通 dryRun 现在执行目标路径、宿主文件权限及整批参数预检，不再误报未验证的覆盖为成功；实际编辑默认行为不变。
+- 修复: Code Worker dryRun 执行完整预检，拒绝无效路径和宿主权限。
 
 - 修复 [security]: Code Worker 遇到不完整的 DSH 子进程服务时拒绝本地命令回退。
 
