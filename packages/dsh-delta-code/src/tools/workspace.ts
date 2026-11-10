@@ -5,6 +5,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
+import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 250
@@ -92,14 +93,81 @@ async function listTrackedFiles(
   const command = await runCommand(ctx, {
     command: settings.gitCommand, args: ['ls-files', '-z', '--cached'],
     cwd: directory, signal, timeoutMs: 15_000, maxOutputBytes: 1024 * 1024,
-    hostOnly: isSubprocessMounted(ctx),
+    hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
   })
   if (command.timedOut || command.signal || command.lossy) {
     throw new Error('unable to enumerate tracked files without timeout or truncation')
   }
   if (command.exitCode !== 0) return { isGitRepository: false, paths: [] }
-  return { isGitRepository: true, paths: command.stdout.split('\0').filter(Boolean)
-    .filter((path) => !path.startsWith('.dsh-delta-code/')) }
+  if (command.stdout && !command.stdout.endsWith('\0')) {
+    throw new Error('incomplete Git tracked-file evidence')
+  }
+  const paths = command.stdout ? command.stdout.slice(0, -1).split('\0') : []
+  // Paths returned by an external Git provider are not an authorization
+  // grant. Reject malformed/escaping names before displaying or joining.
+  for (const path of paths) {
+    if (!path || path.includes('\\') || path.startsWith('/') ||
+        path.split('/').some(segment => !segment || segment === '.' || segment === '..')) {
+      throw new Error('unsafe Git tracked-file path')
+    }
+  }
+  return { isGitRepository: true, paths: paths.filter(path => !path.startsWith('.dsh-delta-code/')) }
+}
+
+
+interface HostWorkspaceEntry {
+  name: string
+  type: string
+  target: unknown
+}
+interface HostWorkspaceFs {
+  resolve(path: string, opts: { cwd: string; signal?: AbortSignal }): Promise<unknown>
+  contains(parent: unknown, child: unknown): boolean
+  listDir(target: unknown, signal?: AbortSignal): Promise<HostWorkspaceEntry[]>
+  lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<{ type: string } | undefined>
+}
+
+/** Discover only immediate Host FS directories; never probe Node's filesystem. */
+async function discoverHostRepositories(
+  ctx: Context, settings: Settings, root: string, fs: HostWorkspaceFs,
+  rootTarget: unknown, signal: AbortSignal, exec: Parameters<ReturnType<typeof createWorkspaceMapTool>['execute']>[1],
+): Promise<{ repositories: string[]; paths: string[] }> {
+  signal.throwIfAborted()
+  const children = await fs.listDir(rootTarget, signal)
+  if (!Array.isArray(children)) throw new Error('invalid Host workspace directory listing')
+  const candidates = children.filter(entry => entry.type === 'directory')
+    .sort((a, b) => a.name.localeCompare(b.name))
+  if (candidates.length > MAX_DISCOVERY_DIRECTORIES) {
+    throw new Error('workspace has too many subdirectories to scan safely; specify cwd')
+  }
+  const repositories: string[] = []
+  const paths: string[] = []
+  for (const entry of candidates) {
+    signal.throwIfAborted()
+    if (!entry.name || entry.name === '.' || entry.name === '..' ||
+        entry.name.includes('/') || entry.name.includes('\\') || entry.name.includes('\0')) {
+      throw new Error('invalid Host directory entry')
+    }
+    const directory = join(root, entry.name)
+    const info = await fs.lstat(directory, { cwd: root }, signal)
+    if (info?.type !== 'directory') continue // no symlinked child repositories
+    if (!fs.contains(rootTarget, entry.target)) throw new Error('Host repository escapes workspace')
+    const contents = await fs.listDir(entry.target, signal)
+    if (!Array.isArray(contents)) throw new Error('invalid Host repository listing')
+    const marker = contents.find(child => child.name === '.git')
+    if (!marker || (marker.type !== 'file' && marker.type !== 'directory')) continue
+    const markerInfo = await fs.lstat(join(directory, '.git'), { cwd: directory }, signal)
+    if (markerInfo?.type !== marker.type || !fs.contains(rootTarget, marker.target)) continue
+    if (repositories.length >= MAX_DISCOVERY_REPOSITORIES) {
+      throw new Error('workspace has too many Git repositories; specify cwd')
+    }
+    const processCwd = await resolveAuthorizedGitCwd(ctx, root, entry.name, exec)
+    const tracked = await listTrackedFiles(ctx, settings, processCwd, signal)
+    if (!tracked.isGitRepository) throw new Error('discovered Git repository could not be indexed; check Host permission')
+    repositories.push(directory)
+    paths.push(...tracked.paths.map(path => rootRelativePath(root, directory, path)))
+  }
+  return { repositories, paths }
 }
 
 /** Read only tracked paths; scan at most one level when the workspace is a multi-repo parent. */
@@ -129,6 +197,37 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       const limit = args.limit ?? DEFAULT_LIMIT
       if (limit < 1 || limit > MAX_LIMIT) throw new Error('limit must be between 1 and 250')
       const root = await resolveRoot(ctx, exec, settings)
+      const mounted: unknown = ctx.get('fs')
+      if (mounted) {
+        const candidate = mounted as Partial<HostWorkspaceFs>
+        if (typeof candidate.resolve !== 'function' || typeof candidate.contains !== 'function' ||
+            typeof candidate.listDir !== 'function' || typeof candidate.lstat !== 'function') {
+          throw new Error('DSH Host FS missing resolve/contains/listDir/lstat; refusing local discovery fallback')
+        }
+        const fs = candidate as HostWorkspaceFs
+        const processCwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
+        const base = await listTrackedFiles(ctx, settings, processCwd, exec.signal)
+        let repositories = [args.cwd ? resolveInside(root, args.cwd) : root]
+        let paths: string[]
+        if (base.isGitRepository) {
+          paths = base.paths.map(path => rootRelativePath(root, repositories[0]!, path))
+        } else {
+          if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
+          const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
+          const scan = await discoverHostRepositories(ctx, settings, root, fs, rootTarget, exec.signal, exec)
+          repositories = scan.repositories
+          paths = scan.paths
+          if (!repositories.length) {
+            throw new Error('no Git repository at workspace root or in immediate subdirectories; specify cwd')
+          }
+        }
+        exec.signal.throwIfAborted()
+        const selected = rankTrackedFiles(paths, args.query ?? '', limit)
+        return {
+          total: paths.length, selected, truncated: paths.length > selected.length,
+          repositories: repositories.map(directory => relative(root, directory).split(sep).join('/') || '.'),
+        }
+      }
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
       const canonicalRoot = await realpath(root)
       const canonicalCwd = await realpath(cwd)
