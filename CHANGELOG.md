@@ -2,8 +2,6 @@
 
 ## [Unreleased]
 
-- 新增: 同步本地 Delta Desktop 插件源码，更新原生客户端适配与外观样式。
-
 - 修复: Delta Desktop 侧栏监听器仅在快捷入口文案变化时更新 DOM，防止 MutationObserver 自触发循环，并补充回归测试。
 
 - 修复: Code Worker 原生自动路由识别“继续推进任务链”等续接指令，保留同一 Agent 工作流。
