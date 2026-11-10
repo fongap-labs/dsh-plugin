@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 遵守宿主工作区拒绝与索引命令拒绝结果，不再回退本地执行。
+
 - 新增: Code Worker 复用 DSH 任务列表，按计划逐项执行和验证。
 - 修复 [security]: Code Worker 本地文件服务回退验证真实路径和最终目标符号链接，拦截工作区外读取与写入。
 - 修复: Code Worker Git 状态正确解析重命名文件，并明确报告命令失败或输出截断。
