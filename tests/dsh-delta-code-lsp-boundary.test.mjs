@@ -1,8 +1,8 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, rm, symlink } from 'node:fs/promises'
+import { mkdtemp, mkdir, realpath, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
 import { createLspProbeTool } from '../packages/dsh-delta-code/lib/tools/lsp.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 
@@ -53,7 +53,7 @@ describe('Code Worker LSP workspace and cancellation safety', () => {
       const result = await tool.execute({ cwd: 'src' }, exec())
       assert.equal(result.servers[0].available, true)
       assert.equal(calls.length, 1)
-      assert.equal(resolve(calls[0].cwd), resolve(inner))
+      assert.equal(await realpath(calls[0].cwd), await realpath(inner))
     } finally {
       await rm(root, { recursive: true, force: true })
     }
