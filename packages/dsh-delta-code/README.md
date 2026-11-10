@@ -75,6 +75,12 @@ dsh plugin --profile desktop add link:/absolute/path/to/packages/dsh-delta-code
 pnpm test
 ```
 
+## DSH 宿主能力诊断
+
+在隔离的真实 DSH Profile 加载本插件后，调用 `code_host_probe` 检查本次会话实际可访问的 FS、子进程、工作目录和工具注册方法。诊断只枚举方法是否存在，不读取内容、不执行命令、不写文件，也不会探测或回显 Token。
+
+**注意：方法存在不代表拥有写入/命令权限，也不代表 `writeText` 的调用协议兼容。** 工具始终返回 `writeContract: unverified`；必须在真实 DSH Host 上另行运行拒绝/允许编辑、Skills、工作树和 LSP 冒烟测试，记录 DSH 版本、Profile 和结果，才能完成端到端验收。
+
 ## GitHub 多账号连接
 
 在本机 **用户 Profile** 的 `cordis.patch.yml` 中，对 `dsh-delta-code` 配置 `github.accounts`。每个 GitHub 账号需填写 **用户名或组织名 `owner` 与 Token 环境变量名 `tokenEnv`**。Token 真实值**永不写入配置文件**，而是由运行环境在启动前注入对应环境变量。账号数量不限：

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Code Worker 宿主只读能力诊断，支持 DSH 真实运行验收。
+
 - 修复: Code Worker dryRun 执行完整预检，拒绝无效路径和宿主权限。
 
 - 修复 [security]: Code Worker 遇到不完整的 DSH 子进程服务时拒绝本地命令回退。
