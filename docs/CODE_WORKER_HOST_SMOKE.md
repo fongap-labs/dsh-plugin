@@ -16,6 +16,22 @@
 4. 在真实 DSH 对话中首先调用 `code_host_probe`。记录全部布尔值。若 `fsAccessible` / `fsResolve` / `fsReadText` / `fsWriteText` 任一为 `false`，**标记阻断**，不得将本地 Node 回退当作宿主权限通过的证据。
 5. `code_host_probe` 只检查接口存在，不调用方法；`writeContract: unverified` 是固定输出，绝非协议兼容性的判断。
 
+## 自动化真实 Host 启动预检（不等于完成 H01–H10）
+
+本仓库提供 `scripts/code-worker-host-preflight.mjs`，可在**已实际安装 DSH 的机器**上运行。它使用临时 `DSH_HOME`、隔离工作区和官方 `sdk-minimal` Profile，不触碰已有 Profile；启动后会自动清理临时目录。先在插件仓库执行 `pnpm install --frozen-lockfile && pnpm build`，再运行：
+
+```sh
+node scripts/code-worker-host-preflight.mjs \
+  --dsh /absolute/path/to/dsh-cli/bin.js \
+  --plugin-dir /absolute/path/to/dsh-plugin/packages/dsh-delta-code
+```
+
+若 `dsh` 已作为原生命令在 PATH 中，`--dsh` 可省略。Windows 的 npm `.cmd` shim 若无法由 Node 直接启动，应传入真正的 `bin.js` 路径，脚本会通过当前 Node 执行。上游 DSH 源码当前要求 Node.js 24.9+；应根据所安装的 DSH 版本确定运行时，不能拿插件构建使用的 Node 22 作为宿主兼容证明。
+
+脚本逐项检查官方 CLI 版本、隔离 Profile 初始化、官方 `dsh plugin add link:...` 安装、最终配置包含本插件，以及无模型交互时原生 `sdk-minimal` 进程在观察窗口内仍运行。它不调用模型、不尝试宿主文件写入、不使用真实 GitHub 凭据。子进程只继承运行所需的少量环境变量，**不转发 API Token 或模型密钥**，输出限定为状态和阶段，不回显完整 DSH 配置、命令输出或文件内容。
+
+`status: preflight-pass` 只说明这些准备步骤通过，`nativeProfileProcessObserved` 只说明进程保持运行，**不证明工具真正注册、可调用或通过了 Host 权限审批**。`h01Complete` 和 `h02ToH10Complete` 始终为 `false`。请在该隔离环境的真实 DSH 会话中继续逐项执行 H01–H10，并提交脱敏证据。若没有安装可调用的真实 DSH，本阶段仍标记阻断；仅运行仓库内 mock CLI 单测不能冒充真实宿主验收。
+
 ## 验收矩阵
 
 | 序号 | 真实宿主操作 | 验收证据 |
