@@ -125,10 +125,10 @@ export function parseGitStatus(raw: string): GitStatusResult {
     const file = record.slice(3)
     // Git porcelain v1 uses exactly two status columns. Reject unknown or
     // partially present pairs rather than silently dropping a changed file.
-    const special = (x === '?' && y === '?') || (x === '!' && y === '!')
-    const normal = ' MADRCUT'.includes(x) && ' MADRCUT'.includes(y) &&
+    const isSpecial = (x === '?' && y === '?') || (x === '!' && y === '!')
+    const isNormal = ' MADRCUT'.includes(x) && ' MADRCUT'.includes(y) &&
       (x !== ' ' || y !== ' ')
-    if (!file || !(special || normal)) {
+    if (!file || !(isSpecial || isNormal)) {
       throw new Error('invalid Git porcelain status pair or path')
     }
     if (x === 'R' || x === 'C' || y === 'R' || y === 'C') {
@@ -136,7 +136,7 @@ export function parseGitStatus(raw: string): GitStatusResult {
       const source = records[++index]
       if (!source) throw new Error('incomplete git rename/copy record')
     }
-    if (special) {
+    if (isSpecial) {
       // Ignored entries cannot appear with the current Git invocation;
       // conservatively count them as dirty if a Host returns them anyway.
       untracked.push(file)
