@@ -25,7 +25,7 @@ function hostOutput(stdout, exitCode = 0) {
   }
 }
 
-async function fixture({ status = '## main\0', deny = false, drift = false, mounted = true, allowGit = true } = {}) {
+async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-native-resume-'))
   const commands = []
   const agent = { session: { id: 'session-one' } }
@@ -33,6 +33,7 @@ async function fixture({ status = '## main\0', deny = false, drift = false, moun
   let state
   let disposed = false
   let headReads = 0
+  let statusReads = 0
   const ctx = {
     get: () => undefined,
     inject(dependencies, callback) {
@@ -61,7 +62,10 @@ async function fixture({ status = '## main\0', deny = false, drift = false, moun
           headReads++
           return hostOutput((drift && headReads > 1 ? SECOND_HEAD : HEAD) + '\n')
         }
-        if (spec.argv[1] === 'status') return hostOutput(status)
+        if (spec.argv[1] === 'status') {
+          statusReads++
+          return hostOutput(statusReads > 1 && statusAfter !== undefined ? statusAfter : status)
+        }
         throw new Error('Unexpected Git args')
       },
     },
@@ -105,6 +109,7 @@ describe('Delta Code Worker native session resume', () => {
       assert.deepEqual(f.commands, [
         ['git', 'rev-parse', '--verify', 'HEAD'],
         ['git', 'status', '--porcelain=v1', '--branch', '-z'],
+        ['git', 'status', '--porcelain=v1', '--branch', '-z'],
         ['git', 'rev-parse', '--verify', 'HEAD'],
       ])
     } finally { await f.cleanup() }
@@ -143,6 +148,20 @@ describe('Delta Code Worker native session resume', () => {
         assert.equal(output.remaining[0], 'Fix bug')
       } finally { await f.cleanup() }
     }
+  })
+
+  it('blocks when Git status changes during the resume inspection without moving HEAD', async () => {
+    const f = await fixture({ statusAfter: '## main\0 M appeared.ts\0' })
+    try {
+      f.emit(TASKS)
+      const output = await f.tool.execute({ expectedHead: HEAD }, execute(f.agent))
+      assert.equal(output.stage, 'blocked')
+      assert.match(output.blockers.join(' '), /Git status changed/)
+      assert.equal(output.head, HEAD)
+      assert.deepEqual(f.commands.map(args => args[1]), [
+        'rev-parse', 'status', 'status', 'rev-parse',
+      ])
+    } finally { await f.cleanup() }
   })
 
   it('denies recovery without an owning agent or native projection', async () => {
