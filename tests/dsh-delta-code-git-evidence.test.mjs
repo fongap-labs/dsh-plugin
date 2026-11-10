@@ -42,6 +42,27 @@ describe('Code Worker Git evidence handling', () => {
     assert.throws(() => parseGitStatus('## main\0R  new.ts\0'), /incomplete/)
   })
 
+  it('refuses empty, truncated or malformed porcelain evidence instead of claiming a clean tree', () => {
+    assert.deepEqual(parseGitStatus('## main\0').clean, true)
+    assert.deepEqual(parseGitStatus('## HEAD (no branch)\0').clean, true)
+    const malformed = [
+      '',
+      '## main',
+      '## main\0\0',
+      '## main\0 M changed.ts',
+      '?? orphan.ts\0',
+      '## main\0unexpected\0',
+      '## main\0 M \0',
+      '## main\0Z  file.ts\0',
+      '## main\0   file.ts\0',
+      '## main\0?  file.ts\0',
+      '## main\0 M changed.ts\0garbage\0',
+    ]
+    for (const raw of malformed) {
+      assert.throws(() => parseGitStatus(raw), /invalid|incomplete|missing/, JSON.stringify(raw))
+    }
+  })
+
   it('does not return a fabricated clean or empty status on Git failure', async () => {
     const host = fakeHost('', 128)
     const tool = createGitStatusTool(host.ctx, normalizeConfig({ workspaceRoot: process.cwd() }))
