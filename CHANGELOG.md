@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Delta Code Worker 严格校验 Git porcelain 状态证据，异常、缺失或不完整记录不能误判为干净工作区，恢复与交付门禁一律安全阻断。
+
 - 新增: Code Worker 通过宿主待办事件投影跨轮恢复，并核对 Git 基线后续接。
 
 - 新增: Delta Code Worker 交付核验与继续任务检查，检查实际 Git 基线和 Host 运行的测试，阻断未完成或失败结果。
