@@ -1,7 +1,7 @@
 import { lstat, readdir, realpath } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
+import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
@@ -130,7 +130,7 @@ interface HostWorkspaceFs {
 /** Discover only immediate Host FS directories; never probe Node's filesystem. */
 async function discoverHostRepositories(
   ctx: Context, settings: Settings, root: string, fs: HostWorkspaceFs,
-  rootTarget: unknown, signal: AbortSignal, exec: Parameters<ReturnType<typeof createWorkspaceMapTool>['execute']>[1],
+  rootTarget: unknown, signal: AbortSignal, exec: ToolRunContext,
 ): Promise<{ repositories: string[]; paths: string[] }> {
   signal.throwIfAborted()
   const children = await fs.listDir(rootTarget, signal)
