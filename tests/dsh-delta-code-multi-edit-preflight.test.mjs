@@ -1,0 +1,110 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createMultiEditTool } from '../packages/dsh-delta-code/lib/tools/multi-edit.js'
+import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+
+const exec = () => ({ signal: new AbortController().signal })
+const context = { get: () => undefined }
+
+describe('Code Worker optional multi-edit preflight', () => {
+  it('blocks all writes if a later edit fails preflight, while preserving legacy behavior', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-preflight-'))
+    try {
+      await writeFile(join(root, 'existing.txt'), 'before')
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const result = await tool.execute({ preflight: true, edits: [
+        { path: 'valid.txt', content: 'should-not-be-written' },
+        { path: 'existing.txt', find: 'missing', replace: 'new' },
+      ] }, exec())
+      assert.equal(result.applied, 0)
+      assert.ok(result.results.every(item => item.ok === false))
+      await assert.rejects(readFile(join(root, 'valid.txt')), { code: 'ENOENT' })
+      assert.equal(await readFile(join(root, 'existing.txt'), 'utf8'), 'before')
+      const old = await tool.execute({ edits: [
+        { path: 'valid.txt', content: 'legacy-success' },
+        { path: 'existing.txt', find: 'missing', replace: 'new' },
+      ] }, exec())
+      assert.equal(old.applied, 1)
+      assert.equal(await readFile(join(root, 'valid.txt'), 'utf8'), 'legacy-success')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects duplicate aliases, conflicting edit fields and path escapes before any write', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-preflight-'))
+    try {
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const result = await tool.execute({ preflight: true, edits: [
+        { path: 'safe.txt', content: 'one' },
+        { path: 'nested/../safe.txt', content: 'two' },
+        { path: 'mixed.txt', content: 'overwrite', find: 'x', replace: 'y' },
+        { path: '../outside.txt', content: 'bad' },
+      ] }, exec())
+      assert.equal(result.applied, 0)
+      assert.match(result.results[1].note, /duplicate/)
+      assert.match(result.results[2].note, /exactly one/)
+      assert.match(result.results[3].note, /sandbox/)
+      await assert.rejects(readFile(join(root, 'safe.txt')), { code: 'ENOENT' })
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('writes all valid edits after preflight and dryRun never writes', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-preflight-'))
+    try {
+      await writeFile(join(root, 'existing.txt'), 'alpha')
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const edits = [
+        { path: 'existing.txt', find: 'alpha', replace: 'beta' },
+        { path: 'new.txt', content: 'value' },
+      ]
+      const preview = await tool.execute({ preflight: true, dryRun: true, edits }, exec())
+      assert.equal(preview.applied, 2)
+      assert.equal(await readFile(join(root, 'existing.txt'), 'utf8'), 'alpha')
+      await assert.rejects(readFile(join(root, 'new.txt')), { code: 'ENOENT' })
+      const applied = await tool.execute({ preflight: true, edits }, exec())
+      assert.equal(applied.applied, 2)
+      assert.ok(applied.results.every(item => item.ok))
+      assert.equal(await readFile(join(root, 'existing.txt'), 'utf8'), 'beta')
+      assert.equal(await readFile(join(root, 'new.txt'), 'utf8'), 'value')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('stops subsequent writes when a replacement target changes after preflight', async () => {
+    const files = new Map([['root/file.txt', 'alpha']])
+    let reads = 0
+    let writes = 0
+    const host = {
+      get(name) {
+        if (name !== 'fs') return undefined
+        return {
+          resolve: async target => target,
+          readText: async target => {
+            reads += 1
+            return reads === 1 ? files.get(target) : 'concurrently-changed'
+          },
+          writeText: async (target, content) => {
+            writes += 1
+            files.set(target, content)
+          },
+        }
+      },
+    }
+    const tool = createMultiEditTool(host, normalizeConfig({ workspaceRoot: 'root' }))
+    const result = await tool.execute({ preflight: true, edits: [
+      { path: 'file.txt', find: 'alpha', replace: 'beta' },
+      { path: 'later.txt', content: 'not-written' },
+    ] }, exec())
+    assert.equal(result.applied, 0)
+    assert.match(result.results[0].note, /changed after preflight/)
+    assert.match(result.results[1].note, /earlier batch write failed/)
+    assert.equal(writes, 0)
+  })
+})
