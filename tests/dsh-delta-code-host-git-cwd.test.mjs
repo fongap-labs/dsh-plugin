@@ -28,6 +28,7 @@ function mockOutput(stdout = '') {
 function fakeHost(options = {}) {
   const accesses = []
   const commands = []
+  let processCalls = 0
   const fs = {
     async resolve(path) {
       accesses.push('resolve:' + path)
@@ -55,7 +56,8 @@ function fakeHost(options = {}) {
     },
     processPath() {
       accesses.push('processPath')
-      return options.invalidPath ?? PROCESS_CWD
+      const value = options.processPaths?.[processCalls++]
+      return value ?? (options.invalidPath ?? PROCESS_CWD)
     },
   }
   if (options.incomplete) delete fs.processPath
@@ -112,6 +114,15 @@ describe('Delta Code Worker Host FS Git cwd authority', () => {
     assert.ok(f.commands.every(item => item.cwd === PROCESS_CWD))
   })
 
+  it('blocks delivery before Git or tests if Host verification and Git directories disagree', async () => {
+    const f = fakeHost({ processPaths: [PROCESS_CWD, '/another-host-process-cwd'] })
+    const result = await createDeliveryGateTool(f.ctx, f.settings).execute({
+      tasks: completed, scripts: ['test'], expectedHead: HEAD,
+    }, exec())
+    assert.equal(result.stage, 'blocked')
+    assert.match(result.blockers.join(' '), /directory differs/)
+    assert.deepEqual(f.commands, [])
+  })
   it('rejects incomplete or denied Host FS capabilities without local or subprocess fallback', async () => {
     for (const options of [
       { incomplete: true }, { denyResolve: true }, { denyContain: true },
