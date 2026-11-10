@@ -116,7 +116,7 @@ interface ResumeResult {
 function result(stage: ResumeStage, nextAction: string, state?: ResumeState,
   head = '', changed: string[] = [], blockers: string[] = []): ResumeResult {
   return { stage, head, sourceSeq: state?.writeSeq ?? -1, nextAction,
-    tasks: state?.tasks ?? [], remaining: state?.tasks ? remainingDeliveryTasks(state.tasks) : [],
+    tasks: state?.tasks ?? [], remaining: state?.tasks?.length ? remainingDeliveryTasks(state.tasks) : [],
     changed, blockers }
 }
 
