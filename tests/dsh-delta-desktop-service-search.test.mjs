@@ -209,6 +209,18 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     ['plugins', 'schedules', 'new-session'])
   assert.deepEqual(quickActions.children.map(button => button.textContent), ['插件管理', '定时任务', '开始对话'])
   assert.equal(quickActions.children[2].hidden, false, 'owner grant enables New Session')
+  // A real MutationObserver sees textContent replacements as childList changes.
+  // Repeated observer deliveries must not keep writing an unchanged button label:
+  // that would enqueue another observer delivery indefinitely in the browser.
+  let labelWrites = 0
+  let pluginLabel = quickActions.children[0].textContent
+  Object.defineProperty(quickActions.children[0], 'textContent', {
+    configurable: true,
+    get() { return pluginLabel },
+    set(value) { labelWrites++; pluginLabel = value },
+  })
+  for (let i = 0; i < 6; i++) env.observers.forEach(update => update())
+  assert.equal(labelWrites, 0, 'unchanged sidebar labels must not self-trigger the DOM observer')
   quickActions.children[0].emit('click')
   quickActions.children[1].emit('click')
   quickActions.children[2].emit('click')
