@@ -1,5 +1,5 @@
-import { lstat, mkdir, realpath } from 'node:fs/promises'
-import { join } from 'node:path'
+import { lstat, realpath } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, isPathInside, isSubprocessAvailable } from '@fongap-labs/shared'
@@ -42,10 +42,24 @@ export function createWorktreeTool(ctx: Context, settings: Settings): ToolDefini
       validateWorktreeName(task, base)
       const canonicalRoot = await realpath(root)
       const dir = join(canonicalRoot, '.dsh-delta-code', 'worktrees')
-      await mkdir(dir, { recursive: true })
-      const canonicalDir = await realpath(dir)
-      if (!isPathInside(canonicalRoot, canonicalDir)) throw new Error('worktree storage escapes workspace')
-      const target = join(canonicalDir, task)
+      // Read-only containment check: the Host subprocess must own all writes.
+      // Git worktree add creates missing parent directories itself once allowed.
+      let ancestor = dir
+      while (true) {
+        try {
+          const canonicalAncestor = await realpath(ancestor)
+          if (!isPathInside(canonicalRoot, canonicalAncestor)) {
+            throw new Error('worktree storage escapes workspace')
+          }
+          break
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+          const parent = dirname(ancestor)
+          if (parent === ancestor) throw new Error('cannot resolve worktree storage inside workspace')
+          ancestor = parent
+        }
+      }
+      const target = join(dir, task)
       try {
         await lstat(target)
         throw new Error('worktree directory already exists')
