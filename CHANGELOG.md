@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: GitHub 写入保护读取仓库真实默认分支，防止直接提交至自定义主分支。
+
 - 修复: Code Worker 原生自动路由识别“继续推进任务链”等续接指令，保留同一 Agent 工作流。
 - 修复 [security]: Code Worker 工程验证结果正确脱敏 GitHub 令牌，并将 LSP 非零退出码判定为不可用。
 
