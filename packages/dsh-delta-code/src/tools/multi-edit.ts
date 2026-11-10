@@ -116,6 +116,10 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
         }> = []
         const checked: EditResult[] = []
         const targets = new Set<string>()
+        // A Host can map two lexical paths (case-folding, aliases or
+        // symlinks) to the same canonical file. Keep opaque targets and use
+        // bidirectional Host containment to reject duplicate identities.
+        const hostIdentities: unknown[] = []
         let isInvalid = false
         for (const edit of edits) {
           const path = typeof edit?.path === 'string' ? edit.path : ''
@@ -126,6 +130,17 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             targets.add(target)
             // Check symlinks and Host FS permissions before any batch write.
             const pinnedIntent = await validateWriteTargetSafe(ctx, exec, root, path, settings)
+            const hostFs = ctx.get('fs')
+            if (hostFs && typeof hostFs.resolve === 'function' &&
+                typeof hostFs.contains === 'function') {
+              const canonicalTarget = await hostFs.resolve(target, { cwd: root, signal: exec.signal })
+              exec.signal.throwIfAborted()
+              if (hostIdentities.some(previous =>
+                hostFs.contains!(previous, canonicalTarget) && hostFs.contains!(canonicalTarget, previous))) {
+                throw new Error('duplicate Host FS target identity in preflight batch')
+              }
+              hostIdentities.push(canonicalTarget)
+            }
             if (shouldRollback && pinnedIntent?.kind !== 'replaceIfVersion') {
               throw new Error('rollbackOnFailure requires an existing file with a Host version')
             }
@@ -236,12 +251,14 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
           return rollback
         }
         for (const [index, item] of prepared.entries()) {
+          let isWriteAttempted = false
           try {
             if (exec.signal.aborted) throw new Error('operation cancelled')
             if (item.original !== undefined) {
               const current = await readTextSafe(ctx, exec, root, item.path)
               if (current !== item.original) throw new Error('file changed after preflight')
             }
+            isWriteAttempted = true
             const outcome = await writeTextSafe(ctx, exec, root, item.path, item.content, settings, item.pinnedIntent)
             applied += 1
             written.push({ path: item.path, action: item.action, ok: true, note: item.note })
@@ -265,7 +282,8 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               path: item.path,
               action: 'skipped',
               ok: false,
-              note: error instanceof SandboxViolationError ? 'path escapes workspace sandbox' : errorMessage(error),
+              note: (error instanceof SandboxViolationError ? 'path escapes workspace sandbox' : errorMessage(error)) +
+                (isWriteAttempted ? '; Host write outcome unconfirmed; inspect target before retry' : ''),
             })
             for (const pending of prepared.slice(index + 1)) {
               written.push({ path: pending.path, action: 'skipped', ok: false, note: 'earlier batch write failed' })
