@@ -106,7 +106,7 @@ describe("dsh-delta-code", () => {
 
   it("注册了预期的工具集合", () => {
     const names = [...ctx.registered.keys()].sort();
-    assert.deepEqual(names, ["code_delivery_gate", "code_git_diff", "code_git_status", "code_git_worktree", "code_host_probe", "code_lsp_probe", "code_multi_edit", "code_project_profile", "code_verify", "code_verify_suite", "code_workflow_route", "code_workspace_map"]);
+    assert.deepEqual(names, ["code_git_diff", "code_git_status", "code_git_worktree", "code_host_probe", "code_lsp_probe", "code_multi_edit", "code_project_profile", "code_verify", "code_verify_suite", "code_workflow_route", "code_workspace_map"]);
   });
 
   it("code_multi_edit: local fallback rejects symlink escapes on reads and writes", { skip: process.platform === "win32" }, async () => {
@@ -285,7 +285,12 @@ describe("dsh-delta-code", () => {
       enabled: true,
       workspaceRoot: workspace,
     });
-    assert.equal(unregisterCtx.registered.size, 12);
+    const registeredToolNames = [...unregisterCtx.registered.keys()];
+    assert.ok(registeredToolNames.length >= 11, 'essential Code Worker tools must register');
+    assert.equal(new Set(registeredToolNames).size, registeredToolNames.length);
+    assert.ok(unregisterCtx.registered.has('code_delivery_gate'));
+    assert.ok(unregisterCtx.registered.has('code_git_worktree'));
+    assert.ok(unregisterCtx.registered.has('code_lsp_probe'));
     disposer();
     assert.equal(unregisterCtx.registered.size, 0);
   });

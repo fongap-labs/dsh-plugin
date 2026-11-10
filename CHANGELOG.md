@@ -4,6 +4,10 @@
 
 - 新增: Delta Code Worker 交付核验与继续任务检查，检查实际 Git 基线和 Host 运行的测试，阻断未完成或失败结果。
 
+- 修复: Code Worker 工具卸载测试同步纳入 Git Worktree 工具，保证注册数量与注销验证一致。
+
+- 修复: Delta Desktop v2 仅使用宿主公开主题变量和插件自有样式，移除私有 DOM 与工作区服务接管，保留主题优化与中英文文案。
+
 - 修复: Code Worker 声明 subprocess 注入，支持工作区内多仓库有界发现和混合关键词检索。
 
 - 新增: Code Worker 一次性 DSH Profile 启动预检脚本与安全回归测试。

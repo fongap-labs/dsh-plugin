@@ -128,6 +128,26 @@ const TOKENS: Record<string, { light: string; dark: string }> = {
   '--dsw-alias-bg-layer-1': { light: '#FFFFFF', dark: '#1C1E22' },
   '--dsw-alias-border-l1': { light: '#E5E9EB', dark: '#31363B' },
   '--dsw-specific-sidebar-fill': { light: '#F5F6F7', dark: '#171A1D' },
+  // v2 visual refinements through the public Host token override API.
+  '--dsw-alias-brand-primary-invert': { light: '#70B1BA', dark: '#286F78' },
+  '--dsw-alias-brand-text': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-button-info-fill': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-button-info-hover': { light: '#1D5E66', dark: '#75CBD5' },
+  '--dsw-alias-button-ghost-active-fill': { light: '#EAF3F4', dark: '#1C3B40' },
+  '--dsw-alias-button-ghost-active-border': { light: '#9AC9CE', dark: '#357079' },
+  '--dsw-alias-label-primary-bluish': { light: '#10373C', dark: '#E4F4F6' },
+  '--dsw-alias-label-deep-diving': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-label-deep-diving-shimmer': { light: '#5CA1AA', dark: '#8EE0EA' },
+  '--dsw-alias-state-business-primary': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-state-business-tertiary': { light: '#EAF3F4', dark: '#1C3B40' },
+  '--dsw-alias-bg-overlay': { light: '#FFFFFF', dark: '#1E1E20' },
+  '--dsw-alias-bg-document-selection': { light: 'rgba(40, 111, 120, 0.22)', dark: 'rgba(96, 180, 191, 0.28)' },
+  '--dsw-specific-sidebar-nav-item-active-accent': { light: '#DCEBEC', dark: '#1C3B40' },
+  '--dsw-specific-bubble': { light: '#F4F8F8', dark: '#132225' },
+  '--dsw-specific-bubble-highlight': { light: '#C2DFE2', dark: '#244E55' },
+  '--dsw-focus-ring-color': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-focus-stroke': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-border-focus': { light: '#286F78', dark: '#60B4BF' },
 }
 
 function language(): Language {
