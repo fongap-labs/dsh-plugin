@@ -133,7 +133,7 @@ describe('Code Worker verification through DSH Host FS', () => {
       { noProcessPath: true },
       { rejectProcessPath: true },
       { invalidProcessCwd: '' },
-      { invalidProcessCwd: '\\0forbidden' },
+      { invalidProcessCwd: '\0forbidden' },
       { notDirectory: true },
       { rejectDirectoryContain: true },
     ]) {
