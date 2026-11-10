@@ -13,6 +13,14 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 除工具外，插件还通过 `ctx.systemPrompt.section()` 注入一段编码工作流指引（与 `TOOL_EDIT` 同级排序），提示模型优先使用批量编辑与 Git 工具。
 
+### 实测问题修复：子进程注入与多仓库检索
+
+Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，避免工具已注册但调用时产生 `cannot get property "subprocess" without inject`。若 Host 未挂载原生 `subprocess`，插件保持未激活，不用 Node 本地进程绕过权限；修复后需重新构建并安装插件才能生效。
+
+`code_workspace_map` 默认工作区不是 Git 仓库时，会只扫描直属子目录，按安全边界及数量限制发现真正的 Git 仓库，返回附带子目录前缀的相对路径。查询使用正向关键词匹配：中英文混合、不匹配的额外词不再抵消已命中的文件名。显式 `cwd` 仅检索指定路径，不擅自跨仓库搜索；宿主拒绝执行、超时、截断或不完整的 Host subprocess 均不允许退回 Node。
+
+工作区搜索失败后应使用宿主原生文件搜索定位，而不是重复相同失败调用或读取完整的大型文件索引。自动降级仅限已授权的发现/只读操作；不提供绕过权限的进程或文件访问。
+
 ## 宿主兼容与依赖
 
 与 `dsh-ui-delta` 一致，Code Worker 使用 Harness 的原生 `ctx.tools` 工具注册服务，不将 `@deepseek-ai/dsh-tools` 作为发布包的运行时或 peer 依赖。它的 TypeScript 类型仅供开发时校验，编译后不会强制安装另一份 Host tools。工具注册前仍检查宿主服务是否存在；缺少服务时工具不可用，不会绕过 Harness 的权限或沙箱。

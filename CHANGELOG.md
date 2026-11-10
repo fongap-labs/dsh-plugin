@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Code Worker 声明 subprocess 注入，支持工作区内多仓库有界发现和混合关键词检索。
+
 - 新增: Code Worker 一次性 DSH Profile 启动预检脚本与安全回归测试。
 
 - 修复 [security]: Code Worker Windows/macOS 本地读写改用句柄身份复核后操作。
