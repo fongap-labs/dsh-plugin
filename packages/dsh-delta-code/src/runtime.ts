@@ -176,6 +176,11 @@ async function assertLocalPathInside(root: string, target: string, isWrite: bool
  * Guarded writes use an explicit upstream FsWriteIntent. We never infer this
  * signature by making probe writes or checking function arity.
  */
+/** Preserve a specific Host version or absence condition across read/modify/write. */
+export type GuardedWriteIntent =
+  | { kind: 'createIfAbsent' }
+  | { kind: 'replaceIfVersion'; version: string }
+
 async function guardedWriteTarget(
   fs: {
     resolve(path: string, opts: { cwd: string; signal?: AbortSignal }): Promise<unknown>
@@ -186,7 +191,7 @@ async function guardedWriteTarget(
   root: string,
   absolute: string,
   signal: AbortSignal,
-): Promise<{ target: unknown; intent: { kind: 'createIfAbsent' } | { kind: 'replaceIfVersion'; version: string } }> {
+): Promise<{ target: unknown; intent: GuardedWriteIntent }> {
   if (typeof fs.contains !== 'function' || typeof fs.stat !== 'function') {
     throw new Error('guarded-intent requires DSH Host FS resolve/contains/stat/writeText')
   }
@@ -212,7 +217,7 @@ export async function validateWriteTargetSafe(
   root: string,
   relPath: string,
   settings?: Pick<Settings, 'fsWriteContract'>,
-): Promise<void> {
+): Promise<GuardedWriteIntent | undefined> {
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
   if (fs) {
@@ -220,11 +225,11 @@ export async function validateWriteTargetSafe(
       throw new Error('DSH Host FS missing resolve/writeText; refusing local fallback')
     }
     if (settings?.fsWriteContract === 'guarded-intent') {
-      await guardedWriteTarget(fs, root, absolute, exec.signal)
-    } else {
-      await fs.resolve(absolute, { cwd: root, signal: exec.signal })
+      const { intent } = await guardedWriteTarget(fs, root, absolute, exec.signal)
+      return intent
     }
-    return
+    await fs.resolve(absolute, { cwd: root, signal: exec.signal })
+    return undefined
   }
   if (settings?.fsWriteContract === 'guarded-intent') {
     throw new Error('guarded-intent requires a mounted DSH Host FS')
@@ -274,7 +279,11 @@ export async function writeTextSafe(
   relPath: string,
   content: string,
   settings?: Pick<Settings, 'fsWriteContract'>,
+  pinnedIntent?: GuardedWriteIntent,
 ): Promise<void> {
+  if (pinnedIntent && settings?.fsWriteContract !== 'guarded-intent') {
+    throw new Error('pinned write intent requires guarded-intent Host FS')
+  }
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
   if (fs) {
@@ -284,7 +293,9 @@ export async function writeTextSafe(
     const signal = exec.signal
     if (settings?.fsWriteContract === 'guarded-intent') {
       const { target, intent } = await guardedWriteTarget(fs, root, absolute, signal)
-      await fs.writeText(target, content, intent, signal)
+      // Never replace the preflight snapshot's version with a newer one:
+      // the Host must atomically reject concurrent changes, not adopt them.
+      await fs.writeText(target, content, pinnedIntent ?? intent, signal)
       return
     }
     const resolved = await fs.resolve(absolute, { cwd: root, signal })

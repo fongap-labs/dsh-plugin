@@ -4,6 +4,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, SandboxViolationError, resolveInside } from '@fongap-labs/shared'
 import type { EditResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot, readTextSafe, writeTextSafe, validateWriteTargetSafe, errorMessage } from '../runtime.js'
+import type { GuardedWriteIntent } from '../runtime.js'
 
 export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
@@ -83,6 +84,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
           content: string
           note: string
           original?: string
+          pinnedIntent?: GuardedWriteIntent
         }> = []
         const checked: EditResult[] = []
         const targets = new Set<string>()
@@ -95,7 +97,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             if (targets.has(target)) throw new Error('duplicate edit target in preflight batch')
             targets.add(target)
             // Check symlinks and Host FS permissions before any batch write.
-            await validateWriteTargetSafe(ctx, exec, root, path, settings)
+            const pinnedIntent = await validateWriteTargetSafe(ctx, exec, root, path, settings)
             const isReplace = edit.find !== undefined
             if (isReplace === (edit.content !== undefined)) {
               throw new Error('provide exactly one of content or find/replace')
@@ -109,7 +111,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               const index = original.indexOf(edit.find)
               if (index === -1) throw new Error('find substring not present')
               const content = original.slice(0, index) + edit.replace + original.slice(index + edit.find.length)
-              prepared.push({ path, action: 'replace', content, original, note: 'replaced 1 occurrence' })
+              prepared.push({ path, action: 'replace', content, original, pinnedIntent, note: 'replaced 1 occurrence' })
               checked.push({ path, action: 'replace', ok: true, note: 'replaced 1 occurrence' })
             } else {
               if (typeof edit.content !== 'string') throw new Error('content must be a string')
@@ -123,7 +125,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
                 const actualSha256 = createHash('sha256').update(original, 'utf8').digest('hex')
                 if (actualSha256 !== edit.expectedSha256) throw new Error('expectedSha256 mismatch; file changed')
               }
-              prepared.push({ path, action: 'overwrite', content: edit.content, original, note: edit.content.length + ' characters' })
+              prepared.push({ path, action: 'overwrite', content: edit.content, original, pinnedIntent, note: edit.content.length + ' characters' })
               checked.push({ path, action: 'overwrite', ok: true, note: edit.content.length + ' characters' })
             }
           } catch (error) {
@@ -157,7 +159,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               const current = await readTextSafe(ctx, exec, root, item.path)
               if (current !== item.original) throw new Error('file changed after preflight')
             }
-            await writeTextSafe(ctx, exec, root, item.path, item.content, settings)
+            await writeTextSafe(ctx, exec, root, item.path, item.content, settings, item.pinnedIntent)
             applied += 1
             written.push({ path: item.path, action: item.action, ok: true, note: item.note })
           } catch (error) {
@@ -202,6 +204,9 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             if (typeof edit.find !== 'string' || edit.find.length === 0 || typeof edit.replace !== 'string') {
               throw new Error('find must be non-empty and replace must be a string')
             }
+            const pinnedIntent = settings.fsWriteContract === 'guarded-intent'
+              ? await validateWriteTargetSafe(ctx, exec, root, rel, settings)
+              : undefined
             const original = await readTextSafe(ctx, exec, root, rel)
             const index = original.indexOf(String(edit.find))
             if (index === -1) {
@@ -218,7 +223,11 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               original.slice(0, index) +
               String(edit.replace ?? '') +
               original.slice(index + String(edit.find).length)
-            if (!args.dryRun) await writeTextSafe(ctx, exec, root, rel, next, settings)
+            // Catch a stale read before attempting a best-effort replacement.
+            // Legacy Host FS cannot guarantee atomicity; guarded intent can.
+            const current = await readTextSafe(ctx, exec, root, rel)
+            if (current !== original) throw new Error('file changed before replacement')
+            await writeTextSafe(ctx, exec, root, rel, next, settings, pinnedIntent)
             note = 'replaced 1 occurrence'
           } else {
             if (typeof edit.content !== 'string') throw new Error('content must be a string')

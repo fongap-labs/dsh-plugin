@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 批量编辑固定预检版本，拒绝并发覆盖。
+
 - 新增: Code Worker 提供显式版本保护型 DSH Host FS 写入协议。
 
 - 修复 [security]: Code Worker 工程验证预检遵循 DSH Host FS，拒绝权限回退。

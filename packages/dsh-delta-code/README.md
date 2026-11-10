@@ -6,7 +6,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 | 工具 | 说明 |
 | --- | --- |
-| `code_multi_edit` | 在工作区内顺序批量编辑，支持覆盖、字面量替换、`dryRun` 及可选 `preflight` 整批预检；拒绝同条编辑混合 `content` 与 `find`，写入阶段不保证事务原子性。 |
+| `code_multi_edit` | 在工作区内顺序批量编辑，支持覆盖、字面量替换、`dryRun` 及可选 `preflight` 整批预检；拒绝同条编辑混合 `content` 与 `find`，写入阶段不保证事务原子性；普通逐项查找替换会在写盘前复核来源内容。 |
 | `code_git_status` | 解析 `git status --porcelain=v1 --branch`，返回分支、领先/落后、已暂存/未暂存/未跟踪清单。 |
 | `code_git_diff` | 返回 `git diff` 原文，可用 `staged` 取暂存区差异、用 `path` 限定单文件。 |
 | `code_lsp_probe` | 探测配置的 LSP 服务端是否在 PATH 中可用（`--version` 探测），输出逐语言结论。 |
@@ -26,7 +26,7 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 使用 `execution.fsWriteContract` 明确选择实际宿主的写入契约：
 
 - `legacy-overwrite`（默认）：沿用当前锁定 DSH SDK 的 `writeText(target, content, 'overwrite', signal)` 行为，不修改现有用户配置。
-- `guarded-intent`（显式开启）：对照上游 `FsWriteIntent`，必须具备宿主 `resolve/contains/stat/writeText`。宿主返回已有文件的版本后执行 `replaceIfVersion`；不存在则执行 `createIfAbsent`。并发导致版本变化时由宿主拒绝，插件不会改为无条件覆盖。
+- `guarded-intent`（显式开启）：对照上游 `FsWriteIntent`，必须具备宿主 `resolve/contains/stat/writeText`。宿主返回已有文件的版本后执行 `replaceIfVersion`；不存在则执行 `createIfAbsent`。批量预检时会固定版本或“文件不存在”的条件，后续写入不得改用更新后的版本；并发导致版本变化时由宿主拒绝，插件不会改为无条件覆盖。
 
 无法安全地通过函数参数数量或写入探测判断宿主协议，因此不会自动切换。选择新模式却缺失 Host FS、文件版本、路径权限或必需方法时，将明确拒绝操作；所选协议不匹配时需要人工校正设置。此适配只证明接口调用与模拟测试，**不等于实际 DSH 写入审批或端到端验收完成**。
 
