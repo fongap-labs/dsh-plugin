@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 宿主 FS 能力不完整时禁止本地回退，批量覆盖支持版本校验。
+
 - 修复 [security]: Code Worker 遵守宿主工作区拒绝与索引命令拒绝结果，不再回退本地执行。
 
 - 新增: Code Worker 复用 DSH 任务列表，按计划逐项执行和验证。
