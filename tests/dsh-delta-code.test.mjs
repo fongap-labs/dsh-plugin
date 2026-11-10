@@ -50,6 +50,19 @@ function createContext() {
   return ctx;
 }
 
+
+function createGitSubprocess(output, exitCode = 0) {
+  return { spawn() {
+    return {
+      done: Promise.resolve({ exitCode }),
+      collected: {
+        stdout: { readFrom: () => ({ text: output, lossy: false }) },
+        stderr: { readFrom: () => ({ text: "", lossy: false }) },
+      },
+    };
+  } };
+}
+
 describe("dsh-delta-code", () => {
   let workspace;
   let ctx;
@@ -189,19 +202,24 @@ describe("dsh-delta-code", () => {
   });
 
   it("code_git_status: 返回结构化结果", async () => {
-    const tool = ctx.registered.get("code_git_status");
-    const result = await tool.execute({}, { signal: new AbortController().signal });
-    assert.ok(Array.isArray(result.staged));
-    assert.ok(Array.isArray(result.unstaged));
-    assert.ok(Array.isArray(result.untracked));
-    assert.equal(typeof result.clean, "boolean");
+    const host = createContext();
+    host.subprocess = createGitSubprocess("## main\\0?? demo.txt\\0".replaceAll("\\0", "\0"));
+    const dispose = codeWorker.apply(host, { workspaceRoot: workspace });
+    const result = await host.registered.get("code_git_status").execute({}, { signal: new AbortController().signal });
+    assert.equal(result.branch, "main");
+    assert.deepEqual(result.untracked, ["demo.txt"]);
+    assert.equal(result.clean, false);
+    dispose();
   });
 
   it("code_git_diff: 返回 diff 字段", async () => {
-    const tool = ctx.registered.get("code_git_diff");
-    const result = await tool.execute({}, { signal: new AbortController().signal });
-    assert.equal(typeof result.diff, "string");
-    assert.equal(typeof result.truncated, "boolean");
+    const host = createContext();
+    host.subprocess = createGitSubprocess("diff --git a/a.txt b/a.txt\n");
+    const dispose = codeWorker.apply(host, { workspaceRoot: workspace });
+    const result = await host.registered.get("code_git_diff").execute({}, { signal: new AbortController().signal });
+    assert.match(result.diff, /diff --git/);
+    assert.equal(result.truncated, false);
+    dispose();
   });
 
   it("code_lsp_probe: 返回逐服务探测结论", async () => {
