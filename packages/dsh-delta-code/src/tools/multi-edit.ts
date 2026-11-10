@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, SandboxViolationError, resolveInside } from '@fongap-labs/shared'
@@ -8,7 +9,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
   return defineTool({
     name: `${TOOL_PREFIX}multi_edit`,
     description:
-      'Apply workspace edits with per-edit results (not a filesystem transaction). Each edit either overwrites content or performs literal find/replace. Optional preflight validates the batch before writing; dryRun does not write.',
+      'Apply workspace edits with per-edit results (not a filesystem transaction). Each edit either overwrites content or performs literal find/replace. Optional preflight validates the batch before writing; overwrite edits may specify expectedSha256 to reject stale source content. dryRun does not write.',
     parameters: {
       edits: {
         type: 'array',
@@ -24,6 +25,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             content: { type: 'string', description: 'Full replacement content for the file.' },
             find: { type: 'string', description: 'Literal substring to locate (used with `replace`).' },
             replace: { type: 'string', description: 'Replacement text for the located substring.' },
+            expectedSha256: { type: 'string', description: 'Optional SHA-256 of the current UTF-8 file content for a preflight overwrite. Rejects stale edits; requires preflight=true.' },
           },
         },
       },
@@ -110,7 +112,16 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               checked.push({ path, action: 'replace', ok: true, note: 'replaced 1 occurrence' })
             } else {
               if (typeof edit.content !== 'string') throw new Error('content must be a string')
-              prepared.push({ path, action: 'overwrite', content: edit.content, note: edit.content.length + ' characters' })
+              let original: string | undefined
+              if (edit.expectedSha256 !== undefined) {
+                if (typeof edit.expectedSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(edit.expectedSha256)) {
+                  throw new Error('expectedSha256 must be a 64-character lowercase SHA-256 digest')
+                }
+                original = await readTextSafe(ctx, exec, root, path)
+                const actualSha256 = createHash('sha256').update(original, 'utf8').digest('hex')
+                if (actualSha256 !== edit.expectedSha256) throw new Error('expectedSha256 mismatch; file changed')
+              }
+              prepared.push({ path, action: 'overwrite', content: edit.content, original, note: edit.content.length + ' characters' })
               checked.push({ path, action: 'overwrite', ok: true, note: edit.content.length + ' characters' })
             }
           } catch (error) {
@@ -165,6 +176,9 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       for (const edit of edits) {
         const rel = String(edit.path ?? '')
         try {
+          if (edit.expectedSha256 !== undefined) {
+            throw new Error('expectedSha256 requires preflight=true')
+          }
           if (edit.content === undefined && edit.find === undefined) {
             results.push({
               path: rel,
