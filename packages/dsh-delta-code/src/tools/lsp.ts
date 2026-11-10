@@ -51,7 +51,17 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
       const root = await resolveRoot(ctx, exec, settings)
       // Host FS is authoritative for virtual/remote workspaces and symlink
       // containment. Never inspect a mounted Host workspace with Node realpath.
-      const canonicalCwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
+      let canonicalCwd: string
+      try {
+        canonicalCwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
+      } catch (error) {
+        // Retain the public LSP workspace error contract while surfacing
+        // the reason from the shared Host FS containment check.
+        if (error instanceof Error && /^Git cwd escapes (?:Host )?workspace/.test(error.message)) {
+          throw new Error('lsp cwd escapes workspace: ' + error.message)
+        }
+        throw error
+      }
       const isHostFsMounted = Boolean(ctx.get('fs'))
       const servers: LspProbeResult[] = []
       for (const server of settings.lspServers) {
