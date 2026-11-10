@@ -138,3 +138,9 @@ execution:
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - GitHub 多账号只通过 `tokenEnv` 环境变量名引用凭据；Token 永不写入配置，页面也不会回显。
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
+
+## 扩展边界（保持 DSH 原生集成）
+
+当前仅将 **编程意图识别**（`src/core/coding-intent.ts`）和 **工作流决策**（`src/core/workflow-policy.ts`）抽取为无宿主依赖的纯逻辑；这是未来接入其他调用接口的最小扩展口，不提供第二套 Runtime、MCP Server 或新调度器。
+
+`src/auto-routing.ts` 继续负责 DSH 的 `agent/inbox/claimed` 生命周期监听与 `systemPrompt.context` 动态注入；`src/workflow-route.ts` 继续负责原生 `code_workflow_route` 工具注册。旧导出和工具协议不变，现有 DSH Skills、审批与执行边界不变。未来其他宿主通过独立 Adapter 复用 `core/`，不得直接继承 DSH 的宿主权限。
