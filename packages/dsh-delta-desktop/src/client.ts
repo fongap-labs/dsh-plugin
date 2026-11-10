@@ -637,9 +637,18 @@ function installHostSearch(
     input.placeholder = copy.searchSessions
     input.setAttribute('aria-label', copy.searchSessions)
     results.setAttribute('aria-label', copy.searchSessions)
-    pluginsButton.textContent = copy.pluginManagement
-    schedulesButton.textContent = copy.scheduledTasks
-    newSessionButton.textContent = copy.newConversation
+    // The observer watches the whole sidebar subtree. Writing an unchanged
+    // textContent still mutates child nodes in browsers and can queue another
+    // observer callback, creating an unbounded self-triggering sync loop.
+    if (pluginsButton.textContent !== copy.pluginManagement) {
+      pluginsButton.textContent = copy.pluginManagement
+    }
+    if (schedulesButton.textContent !== copy.scheduledTasks) {
+      schedulesButton.textContent = copy.scheduledTasks
+    }
+    if (newSessionButton.textContent !== copy.newConversation) {
+      newSessionButton.textContent = copy.newConversation
+    }
     newSessionButton.hidden = !controller.getSnapshot().createAllowed || !getNavigation()
     newSessionButton.disabled = !controller.getSnapshot().createAllowed || !getNavigation()
     const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
