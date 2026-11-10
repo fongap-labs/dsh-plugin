@@ -125,6 +125,15 @@ export function isSubprocessAvailable(ctx: SubprocessContext | null | undefined)
   return Boolean(ctx?.subprocess) && typeof ctx?.subprocess?.spawn === 'function'
 }
 
+/**
+ * Report whether a Host subprocess provider was mounted, even if its spawn
+ * capability is incomplete. A mounted but broken provider must never trigger
+ * the local Node fallback just because isSubprocessAvailable() is false.
+ */
+export function isSubprocessMounted(ctx: SubprocessContext | null | undefined): boolean {
+  return ctx?.subprocess !== undefined && ctx?.subprocess !== null
+}
+
 function readCollected(reader: HostCollectedReader | undefined): { text: string; lossy: boolean } {
   if (!reader || typeof reader.readFrom !== 'function') return { text: '', lossy: false }
   const out = reader.readFrom(0)
