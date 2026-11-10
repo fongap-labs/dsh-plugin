@@ -174,7 +174,10 @@ export async function validateWriteTargetSafe(
 ): Promise<void> {
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
-  if (fs && typeof fs.resolve === 'function') {
+  if (fs) {
+    if (typeof fs.resolve !== 'function') {
+      throw new Error('DSH Host FS missing resolve; refusing local fallback')
+    }
     await fs.resolve(absolute, { cwd: root, signal: exec.signal })
     return
   }
@@ -189,7 +192,10 @@ export async function readTextSafe(
 ): Promise<string> {
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
-  if (fs && typeof fs.readText === 'function') {
+  if (fs) {
+    if (typeof fs.resolve !== 'function' || typeof fs.readText !== 'function') {
+      throw new Error('DSH Host FS missing resolve/readText; refusing local fallback')
+    }
     const signal = exec.signal
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
     return fs.readText(resolved, signal)
@@ -207,7 +213,10 @@ export async function writeTextSafe(
 ): Promise<void> {
   const absolute = resolveInside(root, relPath)
   const fs = ctx.get('fs')
-  if (fs && typeof fs.writeText === 'function') {
+  if (fs) {
+    if (typeof fs.resolve !== 'function' || typeof fs.writeText !== 'function') {
+      throw new Error('DSH Host FS missing resolve/writeText; refusing local fallback')
+    }
     const signal = exec.signal
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
     return fs.writeText(resolved, content, 'overwrite', signal)
