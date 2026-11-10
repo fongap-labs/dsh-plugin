@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { resolveAuthorizedGitCwd } from '../packages/dsh-delta-code/lib/tools/host-git-cwd.js'
@@ -159,7 +159,7 @@ describe('Delta Code Worker Host FS Git cwd authority', () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-git-cwd-legacy-'))
     try {
       const ctx = { get: () => undefined }
-      assert.equal(await resolveAuthorizedGitCwd(ctx, root, undefined, exec()), root)
+      assert.equal(await resolveAuthorizedGitCwd(ctx, root, undefined, exec()), await realpath(root))
       await assert.rejects(
         resolveAuthorizedGitCwd(ctx, root, 'nonexistent', exec()),
       )
