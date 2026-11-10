@@ -35,6 +35,12 @@ function makeTestFixture(callback = () => null) {
       return json({ type: 'file', sha: 'e'.repeat(40), path: 'src/worker.ts' })
     }
     if (uri.pathname === ROOT + '/git/commits/' + HEAD && method === 'GET') return json({ tree: { sha: BASE_TREE } })
+    if (uri.pathname === ROOT + '/git/trees/' + BASE_TREE && method === 'GET') {
+      return json({ tree: [{ path: 'src', type: 'tree', sha: 'f'.repeat(40) }] })
+    }
+    if (uri.pathname === ROOT + '/git/trees/' + 'f'.repeat(40) && method === 'GET') {
+      return json({ tree: [{ path: 'worker.ts', type: 'blob', mode: '100644' }] })
+    }
     if (uri.pathname === ROOT + '/git/trees' && method === 'POST') return json({ sha: NEW_TREE }, 201)
     if (uri.pathname === ROOT + '/git/commits' && method === 'POST') return json({ sha: NEW_COMMIT }, 201)
     if (uri.pathname === ROOT + '/git/ref/heads/feat/improve' && method === 'PATCH') {
@@ -105,6 +111,33 @@ describe('Delta Code Worker GitHub remote write safety', () => {
       assert.deepEqual(patch.body, { sha: NEW_COMMIT, force: false })
       assert.ok(f.requests.every(req => req.authorization === 'Bearer test-private-token'))
       assert.doesNotMatch(JSON.stringify(response), /test-private-token/)
+    } finally { f.restore() }
+  })
+
+  it('retains executable Git file mode when updating through the Git Trees API', async () => {
+    const f = makeTestFixture(req => {
+      if (req.method === 'GET' && req.path === ROOT + '/git/trees/' + 'f'.repeat(40)) {
+        return json({ tree: [{ path: 'worker.ts', type: 'blob', mode: '100755' }] })
+      }
+      return null
+    })
+    try {
+      await f.tool('commit_file').execute(commitArgs, exec())
+      assert.equal(f.requests.find(x => x.method === 'POST' && x.path.endsWith('/git/trees'))
+        .body.tree[0].mode, '100755')
+    } finally { f.restore() }
+  })
+
+  it('refuses a pinned tree symlink without modifying the branch', async () => {
+    const f = makeTestFixture(req => {
+      if (req.method === 'GET' && req.path === ROOT + '/git/trees/' + 'f'.repeat(40)) {
+        return json({ tree: [{ path: 'worker.ts', type: 'blob', mode: '120000' }] })
+      }
+      return null
+    })
+    try {
+      await assert.rejects(f.tool('commit_file').execute(commitArgs, exec()), /not a regular blob/)
+      assert.equal(f.requests.filter(x => x.method !== 'GET').length, 0)
     } finally { f.restore() }
   })
 
