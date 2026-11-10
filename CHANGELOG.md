@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop v2 仅使用宿主公开主题变量和插件自有样式，移除私有 DOM 与工作区服务接管，保留主题优化与中英文文案。
+
 - 修复: Code Worker 声明 subprocess 注入，支持工作区内多仓库有界发现和混合关键词检索。
 
 - 新增: Code Worker 一次性 DSH Profile 启动预检脚本与安全回归测试。
