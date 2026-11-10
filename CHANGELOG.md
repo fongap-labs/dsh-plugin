@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code Worker 交付核验与继续任务检查，检查实际 Git 基线和 Host 运行的测试，阻断未完成或失败结果。
+
 - 修复: Code Worker 声明 subprocess 注入，支持工作区内多仓库有界发现和混合关键词检索。
 
 - 新增: Code Worker 一次性 DSH Profile 启动预检脚本与安全回归测试。

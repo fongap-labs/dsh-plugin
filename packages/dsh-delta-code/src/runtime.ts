@@ -22,6 +22,8 @@ export const DEFAULT_GUIDANCE = [
   'Use `code_workspace_map` to find relevant tracked files before opening large source trees; for a workspace containing several Git repositories, use its returned repository-relative paths or explicitly set cwd.',
   'If a Code Worker tool fails due to missing Host services or permission rejection, do not retry identical arguments. Switch to the permitted native Host file search or ask for the right repository; never bypass Host approval or read a giant file index.',
   'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
+  'For substantial tasks keep the authoritative task list in DSH native todo_write. On continuation, inspect pending/in_progress items instead of blindly repeating work.',
+  'Before declaring coding work verified, use code_delivery_gate with the full native Todo list, current Git HEAD and fresh allowlisted checks. An unfinished task, Host denial, failing check, untracked file or changing HEAD blocks verified completion. The gate does not replace review or release authorization.',
   'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
   'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
   'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',

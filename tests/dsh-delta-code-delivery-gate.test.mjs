@@ -1,0 +1,177 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createDeliveryGateTool, remainingDeliveryTasks } from '../packages/dsh-delta-code/lib/tools/delivery-gate.js'
+import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+
+const HEAD = 'a'.repeat(40)
+const NEXT_HEAD = 'b'.repeat(40)
+const execution = () => ({ signal: new AbortController().signal })
+const done = [{ content: 'Locate source', status: 'completed' }, { content: 'Fix and test', status: 'completed' }]
+function hostOutput(code, stdout = '') {
+  return {
+    done: Promise.resolve({ exitCode: code, signal: null }),
+    collected: {
+      stdout: { readFrom: () => ({ text: stdout, lossy: false }) },
+      stderr: { readFrom: () => ({ text: '', lossy: false }) },
+    },
+  }
+}
+async function fixture({ failScript = false, drift = false, untracked = false, deny = false, allowCommands = true } = {}) {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-delivery-gate-'))
+  await writeFile(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'node --test', typecheck: 'tsc' } }))
+  const commands = []
+  let headCalls = 0
+  const ctx = {
+    get: () => undefined,
+    subprocess: { spawn(spec) {
+      const argv = spec.argv
+      commands.push(argv)
+      if (deny) throw new Error('Host rejected command')
+      if (argv[0] === 'git') {
+        if (argv[1] === 'rev-parse') {
+          headCalls += 1
+          return hostOutput(0, (drift && headCalls > 1 ? NEXT_HEAD : HEAD) + '\n')
+        }
+        if (argv[1] === 'status') return hostOutput(0, untracked ? '## main\0?? new-file.ts\0' : '## main\0 M src.ts\0')
+        if (argv[1] === 'diff') return hostOutput(0)
+        throw Error('unexpected Git argv ' + argv.join(' '))
+      }
+      if (argv[0] === 'npm') return hostOutput(failScript && argv.at(-1) === 'test' ? 2 : 0, 'check result')
+      throw Error('unexpected command ' + argv.join(' '))
+    } },
+  }
+  const settings = normalizeConfig({ workspaceRoot: root, execution: { allowCommands } })
+  const tool = createDeliveryGateTool(ctx, settings)
+  return { root, tool, commands, cleanup: () => rm(root, { force: true, recursive: true }) }
+}
+
+describe('Delta Code Worker execution delivery gate', () => {
+  it('validates native Todo tasks and preserves their exact pending order', () => {
+    assert.deepEqual(remainingDeliveryTasks([
+      { content: 'Inspect', status: 'completed' },
+      { content: 'Edit', status: 'in_progress' },
+      { content: 'Verify', status: 'pending' },
+    ]), ['Edit', 'Verify'])
+    assert.throws(() => remainingDeliveryTasks([]), /1..32/)
+    assert.throws(() => remainingDeliveryTasks([
+      { content: 'Same', status: 'completed' }, { content: 'Same', status: 'pending' },
+    ]), /duplicate/)
+  })
+
+  it('resumes unfinished Todo steps without performing any command', async () => {
+    const f = await fixture()
+    try {
+      const value = await f.tool.execute({ tasks: [
+        { content: 'Inspect', status: 'completed' },
+        { content: 'Write regression test', status: 'in_progress' },
+        { content: 'Run tests', status: 'pending' },
+      ] }, execution())
+      assert.equal(value.stage, 'continue')
+      assert.equal(value.ready, false)
+      assert.deepEqual(value.remaining, ['Write regression test', 'Run tests'])
+      assert.match(value.nextAction, /Write regression test/)
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
+  it('blocks missing baseline and missing final tests without starting Host processes', async () => {
+    const f = await fixture()
+    try {
+      const noTests = await f.tool.execute({ tasks: done, expectedHead: HEAD }, execution())
+      assert.equal(noTests.stage, 'blocked')
+      const noHead = await f.tool.execute({ tasks: done, scripts: ['test'] }, execution())
+      assert.equal(noHead.stage, 'blocked')
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
+  it('checks Git HEAD and staged/unstaged diff, executes fresh verification, then rechecks Git', async () => {
+    const f = await fixture()
+    try {
+      const result = await f.tool.execute({
+        tasks: done, expectedHead: HEAD, scripts: ['typecheck', 'test'],
+      }, execution())
+      assert.equal(result.stage, 'verified')
+      assert.equal(result.ready, true)
+      assert.equal(result.head, HEAD)
+      assert.deepEqual(result.checks.map(x => [x.script, x.passed, x.exitCode]), [
+        ['typecheck', true, 0], ['test', true, 0],
+      ])
+      assert.deepEqual(f.commands, [
+        ['git', 'rev-parse', '--verify', 'HEAD'],
+        ['git', 'status', '--porcelain=v1', '--branch', '-z'],
+        ['git', 'diff', '--check'],
+        ['git', 'diff', '--cached', '--check'],
+        ['npm', 'run', 'typecheck'],
+        ['npm', 'run', 'test'],
+        ['git', 'rev-parse', '--verify', 'HEAD'],
+        ['git', 'status', '--porcelain=v1', '--branch', '-z'],
+      ])
+      assert.ok(f.commands.every(x => !x.includes('sh')))
+    } finally { await f.cleanup() }
+  })
+
+  it('stops on a test failure and never reports verified completion', async () => {
+    const f = await fixture({ failScript: true })
+    try {
+      const result = await f.tool.execute({
+        tasks: done, expectedHead: HEAD, scripts: ['test', 'typecheck'],
+      }, execution())
+      assert.equal(result.ready, false)
+      assert.equal(result.stage, 'blocked')
+      assert.deepEqual(result.checks.map(x => x.script), ['test'])
+      assert.match(result.blockers.join(' '), /verification failed/)
+      assert.ok(!f.commands.some(x => x.includes('typecheck')))
+    } finally { await f.cleanup() }
+  })
+
+  it('blocks when HEAD changes during tests or untracked files escape diff coverage', async () => {
+    for (const config of [{ drift: true }, { untracked: true }]) {
+      const f = await fixture(config)
+      try {
+        const result = await f.tool.execute({
+          tasks: done, expectedHead: HEAD, scripts: ['test'],
+        }, execution())
+        assert.equal(result.stage, 'blocked')
+        assert.equal(result.ready, false)
+        assert.match(result.blockers.join(' '), config.drift ? /repository changed/ : /untracked/)
+      } finally { await f.cleanup() }
+    }
+  })
+
+  it('does not fall back to local Node when the Host denies Git execution', async () => {
+    const f = await fixture({ deny: true })
+    try {
+      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      assert.equal(result.stage, 'blocked')
+      assert.equal(result.ready, false)
+      assert.match(result.blockers.join(' '), /Host Git or verification/)
+      assert.equal(f.commands.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('respects script execution permissions and fails closed without commands', async () => {
+    const f = await fixture({ allowCommands: false })
+    try {
+      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      assert.equal(result.ready, false)
+      assert.match(result.blockers.join(' '), /script execution is disabled/)
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
+  it('prevalidates every verification script before any Host Git or npm command', async () => {
+    const f = await fixture()
+    try {
+      const result = await f.tool.execute({
+        tasks: done, expectedHead: HEAD, scripts: ['test', 'build'],
+      }, execution())
+      assert.equal(result.ready, false)
+      assert.match(result.blockers.join(' '), /preflight rejected/)
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+})

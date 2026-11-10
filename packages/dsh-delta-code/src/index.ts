@@ -15,6 +15,7 @@ import { createWorkspaceMapTool } from './tools/workspace.js'
 import { createWorktreeTool } from './tools/worktree.js'
 import { createVerifyTool } from './tools/verify.js'
 import { createVerifySuiteTool } from './tools/verify-suite.js'
+import { createDeliveryGateTool } from './tools/delivery-gate.js'
 import { createGitHubTools } from './tools/github.js'
 import { createProjectProfileTool } from './tools/profile.js'
 import { createHostProbeTool } from './tools/host-probe.js'
@@ -105,6 +106,7 @@ function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
     createWorktreeTool(ctx, settings),
     createVerifyTool(ctx, settings),
     createVerifySuiteTool(ctx, settings),
+    createDeliveryGateTool(ctx, settings),
   ]
   if (settings.gitEnabled) {
     tools.push(createGitStatusTool(ctx, settings))
