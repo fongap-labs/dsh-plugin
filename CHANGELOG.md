@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker LSP 探测拦截符号链接越界，及时响应取消。
+
 - 修复 [security]: Code Worker 工程概况读取遵循 DSH Host 文件服务权限。
 
 - 修复: Code Worker 普通批量编辑拒绝冲突字段，保留逐项结果。

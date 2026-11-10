@@ -1,6 +1,7 @@
+import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand, isSubprocessMounted, resolveInside } from '@fongap-labs/shared'
+import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { LspProbeResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot, errorMessage } from '../runtime.js'
 
@@ -46,22 +47,29 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
       },
     },
     async execute(args, exec) {
+      if (exec.signal.aborted) throw new Error('lsp probe cancelled')
       const root = await resolveRoot(ctx, exec, settings)
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
+      const [canonicalRoot, canonicalCwd] = await Promise.all([realpath(root), realpath(cwd)])
+      if (!isPathInside(canonicalRoot, canonicalCwd)) {
+        throw new Error('lsp cwd escapes workspace through a symbolic link')
+      }
       const servers: LspProbeResult[] = []
       for (const server of settings.lspServers) {
+        if (exec.signal.aborted) throw new Error('lsp probe cancelled')
         let isAvailable = false
         let note = ''
         try {
           const result = await runCommand(ctx, {
             command: server.command,
             args: ['--version'],
-            cwd,
+            cwd: canonicalCwd,
             signal: exec.signal,
             timeoutMs: 8_000,
             maxOutputBytes: 4 * 1024,
             hostOnly: isSubprocessMounted(ctx),
           })
+          if (exec.signal.aborted) throw new Error('lsp probe cancelled')
           isAvailable = result.exitCode === 0 && !result.timedOut && !result.signal
           if (result.timedOut) {
             note = 'timed out'
@@ -69,8 +77,10 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
             note = result.signal ? 'terminated by signal ' + result.signal : 'exit code ' + String(result.exitCode)
           }
         } catch (error) {
+          // Cancellation is a control signal, not a failed language-server probe.
+          if (exec.signal.aborted) throw new Error('lsp probe cancelled')
           isAvailable = false
-          note = errorMessage(error).split('\n')[0]!
+          note = errorMessage(error).split('\n')[0]!.slice(0, 240)
         }
         servers.push({
           language: server.language,
