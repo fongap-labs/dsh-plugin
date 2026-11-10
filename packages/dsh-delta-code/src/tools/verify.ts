@@ -6,6 +6,7 @@ import { defineTool, isSubprocessAvailable, runCommand, resolveInside, isPathIns
 import type { Settings } from '../types.js'
 import { readTextSafe, resolveRoot } from '../runtime.js'
 import { chooseVerificationCommand, type VerificationProject, type VerificationCommand, type VerificationScript } from './verify-presets.js'
+import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 
 const SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
@@ -173,7 +174,14 @@ export async function prepareVerify(
     args.script, project, [...found], manager, nodeScripts, files.has('Cargo.lock'),
   )
   checkCancelled()
-  return { script: args.script, plan, cwd: canonicalCwd, timeoutMs }
+  // A Host FS path need not exist in the plugin's own filesystem.
+  // Reuse the same Host FS authorization and processPath contract as Git:
+  // never spawn in the raw workspace spelling after Host FS was mounted.
+  const executionCwd = hostFs
+    ? await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
+    : canonicalCwd
+  checkCancelled()
+  return { script: args.script, plan, cwd: executionCwd, timeoutMs }
 }
 
 export async function runPreparedVerify(

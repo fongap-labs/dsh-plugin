@@ -228,6 +228,9 @@ Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不
 
 ### 连续工程验证
 
+`code_verify` 与 `code_verify_suite` 在挂载 DSH Host FS 时，预检项目文件后还会通过相同的宿主工作区校验取得 `processPath`，并将该路径传给 Host subprocess。插件本地路径仅用于识别工作区范围，不作为 Host 执行目录；Host FS 缺失必要能力、拒绝目录元数据或返回无效进程路径时，不执行脚本，也不退回本地文件系统。未挂载 Host FS 的旧兼容路径继续使用真实路径检查。真实 DSH 环境验收仍留待集中执行。
+
+
 预检项目清单、锁文件和脚本声明时，已挂载 DSH Host FS 的环境仅使用宿主 `resolve/contains/stat/readText`：宿主拒绝、符号链接越界或接口不完整都直接失败，不回退 Node 本地读取。未挂载 Host FS 的旧环境保留本地真实路径校验。这一限制同时适用于 `code_verify` 与 `code_verify_suite`。
 
 
