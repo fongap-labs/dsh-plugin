@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+- 新增: Code Worker 复用 DSH 任务列表，按计划逐项执行和验证。
+- 修复 [security]: Code Worker 本地文件服务回退验证真实路径和最终目标符号链接，拦截工作区外读取与写入。
+- 修复: Code Worker Git 状态正确解析重命名文件，并明确报告命令失败或输出截断。
+- 修复 [security]: Code Worker 的 LSP 探测和 GitHub Origin 检测在 DSH 宿主拒绝执行时不再回退本地进程。
+- 修复 [security]: GitHub 写入保护读取仓库真实默认分支，防止直接提交至自定义主分支。
+- 新增: Code Worker 批量编辑支持可选整批预检，预检失败时不写文件。
+
 - 修复: Code Worker 原生自动路由识别“继续推进任务链”等续接指令，保留同一 Agent 工作流。
 - 修复 [security]: Code Worker 工程验证结果正确脱敏 GitHub 令牌，并将 LSP 非零退出码判定为不可用。
 
