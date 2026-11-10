@@ -78,6 +78,10 @@ function invoke(bin, args, options, timeoutMs = 90000) {
 function bootProfile(bin, prefix, options, bootMs) {
   return new Promise((resolveResult, rejectResult) => {
     let completed = false
+    let observedAlive = false
+    let exitedEarly = false
+    let terminationRequested = false
+    let closeDeadline
     const child = spawn(bin, [...prefix, '--profile', 'sdk-minimal'], {
       cwd: options.cwd, env: options.env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     })
@@ -87,13 +91,38 @@ function bootProfile(bin, prefix, options, bootMs) {
       if (completed) return
       completed = true
       clearTimeout(timer)
+      clearTimeout(closeDeadline)
       if (error) rejectResult(error)
       else resolveResult()
-      child.kill()
     }
+    // On Windows, kill() requests termination but does not guarantee the child
+    // has released its cwd. The caller must wait for 'close' before rm(scratch).
     child.on('error', error => finish(new Error('Host startup failed: ' + (error.code ?? 'UNKNOWN'))))
-    child.on('exit', (code) => finish(new Error('Host exited before boot observation window: ' + code)))
-    const timer = setTimeout(() => finish(), bootMs)
+    child.on('exit', () => {
+      if (!observedAlive) exitedEarly = true
+    })
+    child.on('close', code => {
+      if (exitedEarly || !observedAlive) {
+        finish(new Error('Host exited before boot observation window: ' + code))
+      } else if (!terminationRequested) {
+        finish(new Error('Host termination was not requested'))
+      } else {
+        finish()
+      }
+    })
+    const timer = setTimeout(() => {
+      if (completed || exitedEarly) return
+      observedAlive = true
+      terminationRequested = child.kill()
+      if (!terminationRequested) {
+        // Preserve a failed verdict even if the process closes concurrently.
+        finish(new Error('Host termination request failed'))
+        return
+      }
+      closeDeadline = setTimeout(() => {
+        finish(new Error('Host did not close after termination'))
+      }, 15000)
+    }, bootMs)
   })
 }
 
