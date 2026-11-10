@@ -265,7 +265,7 @@ export async function readTextSafe(
  * Windows/macOS keep the existing compatibility fallback.
  */
 async function openAnchoredLocalFile(
-  root: string, absolute: string, forWrite: boolean, signal?: AbortSignal,
+  root: string, absolute: string, isWrite: boolean, signal?: AbortSignal,
 ): Promise<Awaited<ReturnType<typeof open>>> {
   if (process.platform !== 'linux') throw new Error('anchored local file access requires Linux')
   signal?.throwIfAborted()
@@ -297,7 +297,7 @@ async function openAnchoredLocalFile(
         directory = await open(child,
           constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW)
       } catch (error) {
-        if (!forWrite || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        if (!isWrite || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
         try {
           await mkdir(child)
         } catch (mkdirError) {
@@ -312,13 +312,13 @@ async function openAnchoredLocalFile(
     signal?.throwIfAborted()
     const parent = opened[opened.length - 1]!
     const target = '/proc/self/fd/' + parent.fd + '/' + parts[parts.length - 1]!
-    const flags = forWrite
+    const flags = isWrite
       ? constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW
       : constants.O_RDONLY | constants.O_NOFOLLOW
     const file = await open(target, flags, 0o666)
     try {
       const metadata = await file.stat()
-      if (!metadata.isFile() || (forWrite && metadata.nlink > 1)) {
+      if (!metadata.isFile() || (isWrite && metadata.nlink > 1)) {
         throw new SandboxViolationError('anchored target is not a regular unshared file',
           { root, target: absolute })
       }
