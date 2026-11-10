@@ -1,186 +1,6 @@
-/* Centralized Design Tokens & Surface System for Delta Desktop */
-:root[data-delta-ui="delta"],
-:root[data-delta-ui="delta"] body {
-  /* Centralized Semantic Popup / Overlay Surface (Light) */
-  --dtd-popup-bg: #FFFFFF;
-  --dtd-popup-fg: #18181B;
-  --dtd-popup-muted: #71717A;
-  --dtd-popup-border: #E5E9EB;
-  --dtd-popup-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-
-  /* Brand & Palette (Teal scale covering all static & alias tokens) */
-  --dsw-alias-brand-primary: #286F78 !important;
-  --dsw-alias-brand-primary-invert: #70B1BA !important;
-  --dsw-alias-brand-primary-new-colorprimary-new-color: #286F78 !important;
-  --dsw-alias-brand-text: #286F78 !important;
-  --dsw-alias-state-business-primary: #286F78 !important;
-  --dsw-alias-state-business-tertiary: #EAF3F4 !important;
-  --dsw-alias-button-primary-fill: #286F78 !important;
-  --dsw-alias-button-primary-hover: #1D5E66 !important;
-  --dsw-alias-button-info-fill: #286F78 !important;
-  --dsw-alias-button-info-hover: #1D5E66 !important;
-  --dsw-alias-button-ghost-active-fill: #EAF3F4 !important;
-  --dsw-alias-button-ghost-active-border: #9AC9CE !important;
-  --dsw-alias-label-primary-inverted: #FFFFFF !important;
-  --dsw-alias-label-primary-foreground: #FFFFFF !important;
-  --dsw-alias-label-primary-bluish: #10373C !important;
-  --dsw-alias-label-deep-diving: #286F78 !important;
-  --dsw-alias-label-deep-diving-shimmer: #5CA1AA !important;
-  --dsw-alias-link: #286F78 !important;
-  --dsw-alias-bg-document-selection: rgba(40, 111, 120, 0.22) !important;
-  --dsw-specific-sidebar-fill: #F5F6F7 !important;
-  --dsw-specific-sidebar-nav-item-active-accent: #DCEBEC !important;
-  --dsw-specific-bubble: #F4F8F8 !important;
-  --dsw-specific-bubble-highlight: #C2DFE2 !important;
-  --dsw-alias-bg-module-platform: #EAF3F4 !important;
-
-  /* Complete DeepSeek & Blue static scales unified to Brand Teal */
-  --dsw-static-deepseek-50: #F4F8F8 !important;
-  --dsw-static-deepseek-100: #EAF3F4 !important;
-  --dsw-static-deepseek-200: #C2DFE2 !important;
-  --dsw-static-deepseek-300: #9AC9CE !important;
-  --dsw-static-deepseek-400: #45939D !important;
-  --dsw-static-deepseek-450: #337F89 !important;
-  --dsw-static-deepseek-500: #286F78 !important;
-  --dsw-static-deepseek-600: #1D5E66 !important;
-  --dsw-static-deepseek-800: #16484E !important;
-  --dsw-static-deepseek-900: #10373C !important;
-  --dsw-static-blue-50: #F4F8F8 !important;
-  --dsw-static-blue-50p: #F4F8F8 !important;
-  --dsw-static-blue-75: #EAF3F4 !important;
-  --dsw-static-blue-100: #DCEBEC !important;
-  --dsw-static-blue-300: #9AC9CE !important;
-  --dsw-static-blue-400: #5CA1AA !important;
-  --dsw-static-blue-450: #337F89 !important;
-  --dsw-static-blue-500: #286F78 !important;
-  --dsw-static-blue-600: #1D5E66 !important;
-  --dsw-static-blue-800: #16484E !important;
-  --dsw-static-blue-900: #10373C !important;
-  --dsw-static-blue-950: #0A2528 !important;
-
-  /* Centralized Focus, Popup & Spinner Tokens */
-  --dsw-focus-ring-width: 1px !important;
-  --dsw-focus-ring-color: #286F78 !important;
-  --dsw-alias-focus-stroke: #286F78 !important;
-  --dsw-alias-border-focus: #286F78 !important;
-  --dsw-alias-bg-overlay: var(--dtd-popup-bg) !important;
-  --dsw-menu-surface-fill: var(--dtd-popup-bg) !important;
-  --dsw-specific-menu: var(--dtd-popup-bg) !important;
-  --dsw-hovercard-bg: var(--dtd-popup-bg) !important;
-  --dsw-alias-tooltip-bg: var(--dtd-popup-bg) !important;
-  --dsw-alias-tooltip-key-bg: #EEF0F2 !important;
-  --dsw-alias-toast-bg: var(--dtd-popup-bg) !important;
-  --dsw-alias-toast-label: var(--dtd-popup-fg) !important;
-  --dsw-alias-menu-group-header-fill: #F8F9FA !important;
-  --dtd-accent: #286F78 !important;
-  --dtd-spinner-color: #286F78;
-
-  accent-color: var(--dsw-alias-brand-primary, #286F78);
-  caret-color: var(--dsw-alias-brand-primary, #286F78);
-}
-
-:root[data-delta-ui="delta"] [data-ds-dark-theme],
-:root[data-delta-ui="delta"][data-ds-dark-theme],
-:root[data-delta-ui="delta"] body[data-ds-dark-theme] {
-  /* Centralized Semantic Popup / Overlay Surface (Dark) */
-  --dtd-popup-bg: #1E1E20;
-  --dtd-popup-fg: #FAFAFA;
-  --dtd-popup-muted: #A1A1AA;
-  --dtd-popup-border: rgba(255, 255, 255, 0.12);
-  --dtd-popup-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
-
-  --dsw-alias-brand-primary: #60B4BF !important;
-  --dsw-alias-brand-primary-invert: #286F78 !important;
-  --dsw-alias-brand-primary-new-colorprimary-new-color: #60B4BF !important;
-  --dsw-alias-brand-text: #60B4BF !important;
-  --dsw-alias-state-business-primary: #60B4BF !important;
-  --dsw-alias-state-business-tertiary: #1C3B40 !important;
-  --dsw-alias-button-primary-fill: #60B4BF !important;
-  --dsw-alias-button-primary-hover: #75CBD5 !important;
-  --dsw-alias-button-info-fill: #60B4BF !important;
-  --dsw-alias-button-info-hover: #75CBD5 !important;
-  --dsw-alias-button-ghost-active-fill: #1C3B40 !important;
-  --dsw-alias-button-ghost-active-border: #357079 !important;
-  --dsw-alias-label-primary-inverted: #0E1A1C !important;
-  --dsw-alias-label-primary-foreground: #0E1A1C !important;
-  --dsw-alias-label-primary-bluish: #E4F4F6 !important;
-  --dsw-alias-label-deep-diving: #60B4BF !important;
-  --dsw-alias-label-deep-diving-shimmer: #8EE0EA !important;
-  --dsw-alias-link: #60B4BF !important;
-  --dsw-alias-bg-document-selection: rgba(96, 180, 191, 0.28) !important;
-  --dsw-specific-sidebar-fill: #171A1D !important;
-  --dsw-specific-sidebar-nav-item-active-accent: #1C3B40 !important;
-  --dsw-specific-bubble: #132225 !important;
-  --dsw-specific-bubble-highlight: #244E55 !important;
-  --dsw-alias-bg-module-platform: #1C2A2D !important;
-
-  --dsw-static-deepseek-50: #132225 !important;
-  --dsw-static-deepseek-100: #1C3B40 !important;
-  --dsw-static-deepseek-200: #244E55 !important;
-  --dsw-static-deepseek-300: #357079 !important;
-  --dsw-static-deepseek-400: #60B4BF !important;
-  --dsw-static-deepseek-450: #75CBD5 !important;
-  --dsw-static-deepseek-500: #60B4BF !important;
-  --dsw-static-deepseek-600: #4A98A3 !important;
-  --dsw-static-deepseek-800: #8EE0EA !important;
-  --dsw-static-deepseek-900: #B2ECF3 !important;
-  --dsw-static-blue-50: #132225 !important;
-  --dsw-static-blue-50p: #132225 !important;
-  --dsw-static-blue-75: #172B2E !important;
-  --dsw-static-blue-100: #1C3B40 !important;
-  --dsw-static-blue-300: #357079 !important;
-  --dsw-static-blue-400: #60B4BF !important;
-  --dsw-static-blue-450: #75CBD5 !important;
-  --dsw-static-blue-500: #60B4BF !important;
-  --dsw-static-blue-600: #75CBD5 !important;
-  --dsw-static-blue-800: #8EE0EA !important;
-  --dsw-static-blue-900: #B2ECF3 !important;
-  --dsw-static-blue-950: #D8F6F9 !important;
-
-  --dsw-focus-ring-width: 1px !important;
-  --dsw-focus-ring-color: #60B4BF !important;
-  --dsw-alias-focus-stroke: #60B4BF !important;
-  --dsw-alias-border-focus: #60B4BF !important;
-  --dsw-alias-tooltip-key-bg: rgba(255, 255, 255, 0.12) !important;
-  --dsw-alias-menu-group-header-fill: #242427 !important;
-  --dtd-accent: #60B4BF !important;
-  --dtd-spinner-color: #60B4BF;
-
-  accent-color: var(--dsw-alias-brand-primary, #60B4BF);
-  caret-color: var(--dsw-alias-brand-primary, #60B4BF);
-}
-
-:root[data-delta-ui="delta"] ::selection {
-  background: var(--dsw-alias-bg-document-selection, rgba(40, 111, 120, 0.22));
-}
-
-/* Primary actions and composer Send button */
-:root[data-delta-ui="delta"] button[class*="primary"][class*="GRgSLq"],
-:root[data-delta-ui="delta"] .GRgSLq_primary {
-  background: var(--dsw-alias-button-info-fill, #286F78) !important;
-  color: #fff !important;
-}
-:root[data-delta-ui="delta"][data-ds-dark-theme] button[class*="primary"][class*="GRgSLq"],
-:root[data-delta-ui="delta"] body[data-ds-dark-theme] button[class*="primary"][class*="GRgSLq"],
-:root[data-delta-ui="delta"][data-ds-dark-theme] .GRgSLq_primary,
-:root[data-delta-ui="delta"] body[data-ds-dark-theme] .GRgSLq_primary {
-  background: var(--dsw-alias-button-info-fill, #60B4BF) !important;
-  color: #0E1A1C !important;
-}
-@media (hover: hover) {
-  :root[data-delta-ui="delta"] button[class*="primary"][class*="GRgSLq"]:hover:not(:disabled),
-  :root[data-delta-ui="delta"] .GRgSLq_primary:hover:not(:disabled) {
-    background: var(--dsw-alias-button-info-hover, #1D5E66) !important;
-  }
-  :root[data-delta-ui="delta"][data-ds-dark-theme] button[class*="primary"][class*="GRgSLq"]:hover:not(:disabled),
-  :root[data-delta-ui="delta"] body[data-ds-dark-theme] button[class*="primary"][class*="GRgSLq"]:hover:not(:disabled),
-  :root[data-delta-ui="delta"][data-ds-dark-theme] .GRgSLq_primary:hover:not(:disabled),
-  :root[data-delta-ui="delta"] body[data-ds-dark-theme] .GRgSLq_primary:hover:not(:disabled) {
-    background: var(--dsw-alias-button-info-hover, #75CBD5) !important;
-  }
-}
-
+/* Theme-owned Settings elements only. Native sidebar/chat DOM is not manipulated. */
 .dtd-page {
+  --dtd-accent: var(--dsw-alias-brand-primary, #286F78);
   --dtd-surface: var(--dsw-alias-bg-layer-1, Canvas);
   --dtd-border: var(--dsw-alias-border-l1, #D8DEE1);
   --dtd-text: var(--dsw-alias-label-primary, CanvasText);
@@ -212,9 +32,13 @@
   cursor: pointer; background: transparent; color: inherit; font: inherit; }
 .dtd-segment button.dtd-active { background: var(--dtd-accent);
   color: var(--dsw-alias-label-primary-inverted, white); }
-.dtd-page :focus-visible { outline: 1px solid var(--dtd-accent); outline-offset: 1px; }
+.dtd-page :focus-visible { outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
 .dtd-page .dtd-error { color: var(--dsw-alias-state-error-primary, #B91C1C); }
 .dtd-page .dtd-current, .dtd-page .dtd-recovery, .dtd-page .dtd-capability { font-size: 12px; }
+.dtd-integration { padding: 16px 20px; border: 1px solid var(--dtd-border); border-radius: 12px; background: var(--dtd-surface); }
+.dtd-integration h3 { margin: 0 0 8px; font-size: 14px; font-weight: 650; }
+.dtd-page .dtd-integration p { margin: 0 0 8px; font-size: 12px; }
+.dtd-integration ul { margin: 0; padding-inline-start: 18px; font-size: 12px; line-height: 1.8; color: var(--dtd-muted); }
 @media (max-width: 600px) {
   .dtd-page-head, .dtd-preference-row { padding: 16px; }
   .dtd-segment { width: 100%; }
@@ -226,85 +50,27 @@
 .dtd-brand-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; font-size: 20px; font-weight: 650; color: var(--dsw-alias-brand-primary, #286F78); }
 .dtd-brand-name { font-weight: 650; letter-spacing: -0.015em; }
 
-/* Brand identity hidden cleanly while preserving the fixed Windows sidebar collapse toggle button */
-:root[data-delta-ui="delta"] [class*="wtg9ga_topStrip"],
-:root[data-delta-compat="1"] [class*="wtg9ga_topStrip"],
-:root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:root[data-delta-compat="1"] [class*="wtg9ga_logoRow"],
-:root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"],
-:root[data-delta-compat="1"] [class*="SidebarRoot_logoRow"] {
-  order: 0 !important;
-  overflow: visible !important;
-  visibility: visible !important;
-}
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-compat="1"] [class*="wtg9ga_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-compat="1"] [class*="SidebarRoot_logoRow"] {
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-:root[data-delta-ui="delta"] [data-sidebar-toggle],
-:root[data-delta-compat="1"] [data-sidebar-toggle] {
-  display: inline-flex !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-}
-:root[data-delta-ui="delta"] [class*="wtg9ga_brand"],
-:root[data-delta-compat="1"] [class*="wtg9ga_brand"],
-:root[data-delta-ui="delta"] [class*="wtg9ga_brandIdentity"],
-:root[data-delta-compat="1"] [class*="wtg9ga_brandIdentity"],
-:root[data-delta-ui="delta"] [class*="wtg9ga_brandMark"],
-:root[data-delta-compat="1"] [class*="wtg9ga_brandMark"],
-:root[data-delta-ui="delta"] [class*="wtg9ga_brandName"],
-:root[data-delta-compat="1"] [class*="wtg9ga_brandName"],
-:root[data-delta-ui="delta"] [class*="SidebarRoot_brand"],
-:root[data-delta-compat="1"] [class*="SidebarRoot_brand"],
-:root[data-delta-ui="delta"] [class*="FishLogo"],
-:root[data-delta-compat="1"] [class*="FishLogo"],
-:root[data-delta-ui="delta"] .dtd-brand-mark,
-:root[data-delta-compat="1"] .dtd-brand-mark,
-:root[data-delta-ui="delta"] .dtd-brand-name,
-:root[data-delta-compat="1"] .dtd-brand-name {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-}
+/* The official hover card owns timestamps and status. Delta adds an identity row. */
+.dtd-session-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; font-size: 12px; }
+.dtd-session-meta-status { color: var(--dsw-alias-brand-primary, #286F78); font-weight: 600; }
+.dtd-session-meta-time { color: var(--dsw-alias-label-secondary, #737a84); font-size: 11px; }
+.dtd-session-meta-label { opacity: .7; }
+.dtd-session-meta-id { font-family: var(--ds-font-family-code, monospace); overflow: hidden; text-overflow: ellipsis; }
+.dtd-session-meta-copy { margin-inline-start: auto; border: 0; background: transparent; color: var(--dsw-alias-brand-primary, #286F78); cursor: pointer; }
+.dtd-session-meta-copy:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
-/* Session hover card identity row and wrapper: removed per requirement */
-:root[data-delta-ui="delta"] .dtd-session-meta,
-:root[data-delta-compat="1"] .dtd-session-meta,
-:root[data-delta-ui="delta"] [data-slot="sidebar.session.row.hover"]:has(.dtd-session-meta),
-:root[data-delta-ui="delta"] [class*="hoverContent"] > :has(.dtd-session-meta) {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  overflow: hidden !important;
-}
+/* Stable host scrollport contract: cosmetic spacing only, no DOM reordering. */
+:root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav { row-gap: 8px; }
+:root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav button { min-height: 36px; }
+:root[data-delta-ui="delta"] [data-sidebar-scrollport] > nav + div { margin-block-start: 8px; }
 
-/* Hide path line inside official session hover card */
-:root[data-delta-ui="delta"] [class*="hoverContent"] > [class*="hoverPath"],
-:root[data-delta-ui="delta"] [class*="SessionHoverContent"] [class*="cwd"],
-:root[data-delta-ui="delta"] [class*="hoverPath"] { display: none !important; }
+/* Hide only the path line inside the official session hover card. */
+:root[data-delta-ui="delta"] [class*="hoverContent"] > [class*="hoverPath"] { display: none; }
 
-/* Delta conversation row layout: native status data and actions remain unchanged */
+/* Delta conversation row layout: native status data and actions remain unchanged. */
 :root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"] {
   min-height: 36px;
   border-radius: 9px;
-  transition: background-color 0.15s ease;
-}
-:root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"]:hover {
-  background-color: var(--dsw-alias-interactive-bg-hover);
 }
 :root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"] [class*="rowResting"] {
   gap: 8px;
@@ -313,684 +79,166 @@
 :root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"] [class*="time"] {
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  opacity: 0.7;
 }
-
-/* Centralized Popup, Tooltip, HoverCard, ContextMenu & Toast Surface System */
-:root[data-delta-ui="delta"] :is(
-  [class*="_bubble_44yfq"],
-  .dtd-session-hover-card,
-  [class*="_card_bgejw"],
-  [class*="_preview_bgejw"],
-  div:has(> [class*="hoverContent"]),
-  div:has(> .wnFoaW_hoverContent),
-  [role="menu"],
-  [data-context-menu],
-  [data-radix-menu-content],
-  [class*="_surface_1w4el"],
-  [class*="_list_1p5el"],
-  [class*="_submenu_1p5el"],
-  [class*="contextMenu" i],
-  [class*="moreMenu"],
-  [class*="viewsMoreMenu"],
-  .dtd-host-search-results,
-  .dtd-toast
-) {
-  background: var(--dtd-popup-bg) !important;
-  background-color: var(--dtd-popup-bg) !important;
-  color: var(--dtd-popup-fg) !important;
-  border: 1px solid var(--dtd-popup-border) !important;
-  box-shadow: var(--dtd-popup-shadow) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-:root[data-delta-ui="delta"] :is(
-  .dtd-session-hover-card,
-  [class*="_card_bgejw"],
-  [class*="_preview_bgejw"],
-  div:has(> [class*="hoverContent"]),
-  div:has(> .wnFoaW_hoverContent),
-  [role="menu"],
-  [class*="_surface_1w4el"],
-  [class*="_list_1p5el"],
-  [class*="_submenu_1p5el"]
-) {
-  border-radius: 12px !important;
-}
-:root[data-delta-ui="delta"] [class*="_backing_1w4el"] {
-  background: transparent !important;
-  backdrop-filter: none !important;
-}
-:root[data-delta-ui="delta"] [class*="_material_1w4el"],
-:root[data-delta-ui="delta"] [class*="_surface_1w4el"] > :is([class*="_list_1p5el"], [role="menu"]) {
-  background: transparent !important;
-  background-color: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-:root[data-delta-ui="delta"] [class*="_copied_bgejw"] {
-  color: var(--dtd-popup-fg) !important;
-}
-
-/* Hover Content layout: CSS Grid keeps React nodes in place (Title row 1, Status left / Time right on row 2) */
-:root[data-delta-ui="delta"] [class*="hoverContent"],
-:root[data-delta-ui="delta"] .dtd-session-hover-card [class*="hoverContent"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverContent {
+:root[data-delta-ui="delta"] [class*="hoverContent"] {
   min-width: 0;
   max-width: min(350px, calc(100vw - 36px));
-  border-radius: 12px;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto !important;
-  align-items: center !important;
-  row-gap: 8px !important;
-  column-gap: 12px !important;
-  padding: 0 !important;
-  box-sizing: border-box !important;
-  background: transparent !important;
 }
-:root[data-delta-ui="delta"] [class*="hoverTitle"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverTitle {
-  grid-column: 1 / -1 !important;
-  grid-row: 1 !important;
-  color: var(--dtd-popup-fg) !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  line-height: 18px !important;
+:root[data-delta-ui="delta"] [class*="hoverContent"] > [class*="hoverStatus"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-:root[data-delta-ui="delta"] [class*="hoverTime"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverTime {
-  grid-column: 2 !important;
-  grid-row: 2 !important;
-  justify-self: end !important;
-  align-self: center !important;
-  color: var(--dtd-popup-muted) !important;
-  font-size: 12px !important;
-  line-height: 18px !important;
-  white-space: nowrap !important;
+:root[data-delta-ui="delta"] :is(textarea, [contenteditable="true"]):focus-visible {
+  outline: 1px solid var(--dsw-alias-brand-primary, #286F78);
+  outline-offset: 0;
 }
-:root[data-delta-ui="delta"] [class*="hoverStatus"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverStatus {
-  grid-column: 1 !important;
-  justify-self: start !important;
-  align-self: center !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  color: var(--dtd-popup-fg) !important;
-  font-size: 12px !important;
-  line-height: 18px !important;
-  white-space: nowrap !important;
-}
-:root[data-delta-ui="delta"] [class*="hoverStatus"][class*="hoverArchived"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverStatus.wnFoaW_hoverArchived {
-  grid-row: 3 !important;
-}
-
-/* Centralized Spinner & Running Status Color (shared across sidebar rows, hover cards, composer & boot) */
-:root[data-delta-ui="delta"] :is(
-  [class*="_spinner_1i3xo"],
-  [class*="sendingSpinner"],
-  .dtd-spinner
-) {
-  color: var(--dtd-spinner-color) !important;
-}
-
-/* Fallback footer styling if present */
-:root[data-delta-ui="delta"] .dtd-hover-footer {
-  grid-column: 1 / -1 !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  margin-top: 6px !important;
-  padding-top: 6px !important;
-  border-top: 1px solid var(--dtd-popup-border) !important;
-  font-size: 12px !important;
-}
-
-:root[data-delta-ui="delta"] body[data-dtd-silent-menu="1"] :is([role="menu"], [class*="_surface_1w4el"], [class*="_backing_1w4el"], [class*="_list_1p5el"]) {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  animation: none !important;
-  transition: none !important;
-}
-
-/* Single crisp 1px focus treatment; inner search inputs handle focus via their wrapper only */
-:root[data-delta-ui="delta"] :is(input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]), textarea, [contenteditable="true"]):focus-visible,
-:root[data-delta-ui="delta"] :is(input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]), textarea, [contenteditable="true"]):focus {
-  outline: none !important;
-  box-shadow: none !important;
-  border-color: var(--dsw-alias-brand-primary, #286F78) !important;
-}
-:root[data-delta-ui="delta"][data-ds-dark-theme] :is(input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]), textarea, [contenteditable="true"]):focus-visible,
-:root[data-delta-ui="delta"] body[data-ds-dark-theme] :is(input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]), textarea, [contenteditable="true"]):focus-visible,
-:root[data-delta-ui="delta"][data-ds-dark-theme] :is(input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]), textarea, [contenteditable="true"]):focus,
-:root[data-delta-ui="delta"] body[data-ds-dark-theme] :is(input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]), textarea, [contenteditable="true"]):focus {
-  border-color: var(--dsw-alias-brand-primary, #60B4BF) !important;
-}
-
-/* Sidebar structure, search, and navigation reordering */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
-:root[data-delta-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0 !important;
-  height: 100% !important;
-  box-sizing: border-box !important;
-  padding: 12px 8px !important;
-}
-html[data-windows-titlebar]:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
-  padding: 11px 8px 12px !important;
-}
-
-/* 1. Search Box at very top (below Windows titlebar toggle area) */
-:root[data-delta-compat="1"] .dtd-host-search,
-:root[data-delta-ui="delta"] .dtd-host-search {
-  order: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  box-sizing: border-box !important;
-  width: 100% !important;
-  position: relative !important;
-  margin: 0 0 8px 0 !important;
-}
-:root[data-delta-compat="1"] .dtd-native-search {
-  order: 1 !important;
-  position: relative !important;
-  width: 100% !important;
-  margin: 0 0 8px 0 !important;
-}
-:root[data-delta-compat="1"] .dtd-native-search,
-:root[data-delta-compat="1"] .dtd-host-search-field,
-:root[data-delta-ui="delta"] .dtd-host-search-field {
-  display: flex !important;
-  flex-direction: row !important;
-  box-sizing: border-box !important;
-  min-height: 36px !important;
-  height: 36px !important;
-  align-items: center !important;
-  border: 1px solid var(--dsw-alias-border-l1, #E5E9EB) !important;
-  border-radius: 8px !important;
-  background: var(--dsw-alias-bg-layer-1, #fff) !important;
-  padding: 0 10px !important;
-  gap: 8px !important;
-  outline: none !important;
-  box-shadow: none !important;
-  transition: border-color 0.15s ease !important;
-}
-:root[data-delta-compat="1"] .dtd-search-icon,
-:root[data-delta-ui="delta"] .dtd-search-icon {
-  display: inline-block !important;
-  width: 15px !important;
-  height: 15px !important;
-  flex-shrink: 0 !important;
-  color: var(--dsw-alias-label-secondary, #737A84) !important;
-  stroke: var(--dsw-alias-label-secondary, #737A84) !important;
-}
-:root[data-delta-compat="1"] .dtd-native-search-input,
-:root[data-delta-compat="1"] .dtd-host-search-field input,
-:root[data-delta-ui="delta"] .dtd-host-search-field input {
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  flex: 1 1 auto !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  height: 100% !important;
-  border: none !important;
-  outline: none !important;
-  outline-offset: 0 !important;
-  box-shadow: none !important;
-  color: var(--dsw-alias-label-primary, #172126) !important;
-  background: transparent !important;
-  font: inherit !important;
-  font-size: 13px !important;
-  line-height: 20px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-:root[data-delta-compat="1"] .dtd-native-search-input:focus,
-:root[data-delta-compat="1"] .dtd-native-search-input:focus-visible,
-:root[data-delta-compat="1"] .dtd-host-search-field input:focus,
-:root[data-delta-compat="1"] .dtd-host-search-field input:focus-visible,
-:root[data-delta-ui="delta"] .dtd-host-search-field input:focus,
-:root[data-delta-ui="delta"] .dtd-host-search-field input:focus-visible {
-  border: none !important;
-  outline: none !important;
-  outline-offset: 0 !important;
-  box-shadow: none !important;
-}
-:root[data-delta-compat="1"] :is(.dtd-native-search-input, .dtd-host-search-field input)::-webkit-search-cancel-button,
-:root[data-delta-ui="delta"] .dtd-host-search-field input::-webkit-search-cancel-button {
-  cursor: pointer;
-  filter: grayscale(1) opacity(0.65);
-}
-:root[data-delta-ui="delta"] :is([data-ds-dark-theme] :is(.dtd-native-search-input, .dtd-host-search-field input), [data-ds-dark-theme].dtd-native-search-input)::-webkit-search-cancel-button {
-  filter: grayscale(1) invert(1) opacity(0.75);
-}
-/* Crisp 1px focus border - NO double ring */
-:root[data-delta-compat="1"] .dtd-native-search:focus-within,
-:root[data-delta-ui="delta"] .dtd-native-search:focus-within,
-:root[data-delta-compat="1"] .dtd-host-search-field:focus-within,
-:root[data-delta-ui="delta"] .dtd-host-search-field:focus-within {
-  border-color: var(--dsw-alias-brand-primary, #286F78) !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-:root[data-delta-ui="delta"][data-ds-dark-theme] .dtd-native-search:focus-within,
-:root[data-delta-ui="delta"] body[data-ds-dark-theme] .dtd-native-search:focus-within,
-:root[data-delta-ui="delta"] [data-ds-dark-theme] .dtd-native-search:focus-within,
-:root[data-delta-ui="delta"][data-ds-dark-theme] .dtd-host-search-field:focus-within,
-:root[data-delta-ui="delta"] body[data-ds-dark-theme] .dtd-host-search-field:focus-within,
-:root[data-delta-ui="delta"] [data-ds-dark-theme] .dtd-host-search-field:focus-within {
-  border-color: var(--dsw-alias-brand-primary, #60B4BF) !important;
-}
-:root[data-delta-compat="1"] .dtd-host-search-results,
-:root[data-delta-ui="delta"] .dtd-host-search-results {
-  position: absolute !important;
-  top: calc(100% + 4px) !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 50 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-  min-width: 0 !important;
-  max-height: min(320px, 55vh) !important;
-  overflow-y: auto !important;
-  padding: 6px !important;
-  border-radius: 10px !important;
-}
-:root[data-delta-compat="1"] .dtd-host-search-results[hidden],
-:root[data-delta-ui="delta"] .dtd-host-search-results[hidden] {
-  display: none !important;
-}
-:root[data-delta-compat="1"] .dtd-host-search-result,
-:root[data-delta-ui="delta"] .dtd-host-search-result {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-  min-width: 0 !important;
-  padding: 8px 10px !important;
-  border: 0 !important;
-  border-radius: 8px !important;
-  background: transparent !important;
-  color: var(--dsw-alias-label-primary, #172126) !important;
-  font: inherit !important;
-  text-align: left !important;
-  cursor: pointer !important;
-  transition: background-color 0.15s ease !important;
-}
-:root[data-delta-compat="1"] .dtd-host-search-result:hover,
-:root[data-delta-ui="delta"] .dtd-host-search-result:hover {
-  background: var(--dsw-alias-interactive-bg-hover, #EEF0F2) !important;
-}
-:root[data-delta-compat="1"] .dtd-host-search-result-title,
-:root[data-delta-ui="delta"] .dtd-host-search-result-title {
-  overflow: hidden !important;
-  white-space: nowrap !important;
-  text-overflow: ellipsis !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-}
-:root[data-delta-compat="1"] .dtd-host-search-result-snippet,
-:root[data-delta-ui="delta"] .dtd-host-search-result-snippet,
-:root[data-delta-compat="1"] .dtd-host-search-hint,
-:root[data-delta-ui="delta"] .dtd-host-search-hint {
-  margin: 0 !important;
-  overflow: hidden !important;
-  color: var(--dsw-alias-label-secondary, #737A84) !important;
-  font-size: 12px !important;
-  text-overflow: ellipsis !important;
-}
-:root[data-delta-compat="1"] .dtd-host-search-hint,
-:root[data-delta-ui="delta"] .dtd-host-search-hint {
-  padding: 8px 10px !important;
-}
-:root[data-delta-compat="1"] [data-sidebar-workspace-header] [class*="searchSlot"],
-:root[data-delta-compat="1"] [class*="sectionHeader"] [class*="searchSlot"],
-:root[data-delta-compat="1"] [class*="GAkraW_searchSlot"] {
-  position: absolute !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden !important;
-}
-
-/* 2. Navigation items: plugins and scheduled tasks; hide overflow menu. */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav,
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] {
-  order: 2 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-  margin: 0 0 2px 0 !important;
-  padding: 0 !important;
-}
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav button,
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav button,
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] button {
-  min-height: 36px !important;
-  height: 36px !important;
-  border-radius: var(--dsw-radius-md, 10px) !important;
-}
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="插件管理"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="插件"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="Plugins"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="插件管理"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="插件"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="Plugins"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="插件管理"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="插件"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="Plugins"]) {
-  order: 0 !important;
-}
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="定时任务"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="自动化任务"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="Schedules"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="Tasks"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="定时任务"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="自动化任务"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="Schedules"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="Tasks"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="定时任务"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="自动化任务"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="Schedules"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="Tasks"]) {
-  order: 1 !important;
-}
-/* Hide "更多" / "More" completely */
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="更多"]),
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > nav > :has(button[aria-label="More"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="更多"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"] > nav > :has(button[aria-label="More"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="更多"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button[aria-label="More"]),
-:root[data-delta-compat="1"] nav > :has(button[aria-label="更多"]),
-:root[data-delta-compat="1"] nav > :has(button[aria-label="More"]) {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  overflow: hidden !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-/* 3. New conversation button: match native navigation row dimensions. */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) button[class*="newSession"]:not([data-delta-action]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) button[class*="newSession"]:not([data-delta-action]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_newSession"]:not([data-delta-action]) {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  overflow: hidden !important;
-}
-:root[data-delta-compat="1"] [data-sidebar-scrollport] > .dtd-native-new-session,
-:root[data-delta-compat="1"] .dtd-native-new-session {
-  order: 3 !important;
-  display: flex !important;
-  box-sizing: border-box !important;
-  width: 100% !important;
-  min-height: 36px !important;
-  height: 36px !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  padding: 7px calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px)) !important;
-  text-align: left !important;
-  border: none !important;
-  border-inline: var(--dsh-sidebar-paint-inset, 3px) solid transparent !important;
-  border-radius: var(--dsw-radius-md, 10px) !important;
-  background: transparent padding-box padding-box !important;
-  color: var(--dsw-alias-label-primary, #172126) !important;
-  cursor: pointer !important;
-  font: inherit !important;
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  line-height: 22px !important;
-  gap: var(--dsh-sidebar-label-gap, 6px) !important;
-  margin: 0 0 8px 0 !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session:focus-visible {
-  outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary, #286F78)) !important;
-  outline-offset: -2px !important;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session .dtd-new-session-icon,
-:root[data-delta-compat="1"] .dtd-native-new-session svg {
-  width: 16px !important;
-  height: 16px !important;
-  flex-shrink: 0 !important;
-  color: currentColor !important;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session:hover {
-  background-color: var(--dsw-alias-interactive-bg-hover, #EEF0F2) !important;
-  color: var(--dsw-alias-label-primary, #172126) !important;
-}
-
-/* 4. Workspace & Session list (stretches to fill remaining vertical height) */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > div:has([data-sidebar-workspace-header]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > [class*="wtg9ga_regionArea"],
-:root[data-delta-compat="1"] [class*="regionArea"] {
-  order: 4 !important;
-  flex: 1 1 0% !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  margin: 0 !important;
-}
-:root[data-delta-compat="1"] [class*="sectionHeader"],
-:root[data-delta-compat="1"] [class*="GAkraW_sectionHeader"],
-:root[data-delta-compat="1"] [data-sidebar-workspace-header] {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 0 4px !important;
-  min-height: 28px !important;
-  margin-top: 4px !important;
-  margin-bottom: 4px !important;
-}
-:root[data-delta-compat="1"] [class*="sectionLabel"],
-:root[data-delta-compat="1"] [class*="GAkraW_sectionLabel"] {
-  margin-right: auto !important;
-  max-width: none !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  color: var(--dsw-alias-label-secondary, #737A84) !important;
-}
-
-/* Center column header: session title left-aligned, agent-preset/actions right-aligned */
-:root[data-delta-ui="delta"] [class*="an3WzG_titleCluster"] {
-  justify-content: space-between !important;
-  mask-image: none !important;
-  margin-right: 0 !important;
-  padding-right: 4px !important;
-}
-:root[data-delta-ui="delta"] [class*="an3WzG_crumbs"] {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  margin-right: auto !important;
-  justify-content: flex-start !important;
-}
-:root[data-delta-ui="delta"] [class*="an3WzG_headerActions"] {
-  margin-left: auto !important;
-  flex: none !important;
-  justify-content: flex-end !important;
-}
-
-/* 5. Footer Bar (Pinned to the very bottom: Left Avatar/Logo, Right Action Icons; divider removed) */
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_footArea"],
-:root[data-delta-compat="1"] [class*="footArea"] {
-  order: 5 !important;
-  margin-top: auto !important;
-  flex-shrink: 0 !important;
-  position: relative !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 8px 10px !important;
-  min-height: 44px !important;
-  box-sizing: border-box !important;
-  border-top: none !important;
-  background: transparent !important;
-}
-
-/* Collapsed sidebar hides wide custom chrome while keeping Windows titlebar controls working */
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] .dtd-native-search,
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] .dtd-host-search,
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] .dtd-native-new-session,
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] .dtd-footer-avatar-box,
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] .dtd-footer-actions {
-  display: none !important;
-}
-
-/* Collapse native wrapper slots out of flex flow so settingsArea (width: 100%) does not push .dtd-footer-actions offscreen */
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] > [class*="settingsArea"],
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] > [class*="footerActions"],
-:root[data-delta-compat="1"] [class*="footArea"] > [class*="settingsArea"],
-:root[data-delta-compat="1"] [class*="footArea"] > [class*="footerActions"] {
-  position: absolute !important;
-  flex: 0 0 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: visible !important;
-  pointer-events: none !important;
-}
-
-/* Offscreen hide ONLY native interactive trigger rows — preserves mounted React modals & state */
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="AnXs9G_triggerRow"],
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_root"] > button,
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_trigger"],
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] .dtd-native-profile-trigger,
-:root[data-delta-compat="1"] [class*="footArea"] > button:not(.dtd-footer-btn) {
-  position: absolute !important;
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  overflow: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-.dtd-footer-avatar-box {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 28px !important;
-  height: 28px !important;
-  flex-shrink: 0 !important;
-  cursor: default !important;
-}
-
-.dtd-avatar-img {
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 50% !important;
-  object-fit: cover !important;
-  display: block !important;
-}
-
-.dtd-user-avatar-fallback {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 50% !important;
-  background: var(--dsw-alias-brand-primary, #286F78) !important;
-  color: #FFFFFF !important;
-  flex-shrink: 0 !important;
-}
-
-.dtd-harness-logo {
-  width: 28px !important;
-  height: 28px !important;
-  border-radius: 8px !important;
-  flex-shrink: 0 !important;
-  display: block !important;
-}
-
-.dtd-footer-actions {
-  position: relative !important;
-  z-index: 2 !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  flex: none !important;
-  gap: 4px !important;
-  margin-left: auto !important;
-}
-
-.dtd-footer-btn {
-  position: relative !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 28px !important;
-  height: 28px !important;
-  padding: 0 !important;
-  border: 1px solid transparent !important;
-  border-radius: 6px !important;
-  background: transparent !important;
-  color: var(--dsw-alias-label-secondary, #737A84) !important;
-  cursor: pointer !important;
-  outline: none !important;
-  box-shadow: none !important;
-  transition: background-color 0.15s ease, color 0.15s ease !important;
-}
-
-.dtd-footer-btn[hidden] {
-  display: none !important;
-}
-
-.dtd-footer-btn svg {
-  display: block !important;
-  flex-shrink: 0 !important;
-}
-
-.dtd-btn-update[data-has-update="1"]::after {
-  content: "" !important;
-  position: absolute !important;
-  top: 4px !important;
-  right: 4px !important;
-  width: 6px !important;
-  height: 6px !important;
-  border-radius: 50% !important;
-  background: var(--dsw-alias-brand-primary, #286F78) !important;
-}
-
-.dtd-footer-btn:hover {
-  background: var(--dsw-alias-interactive-bg-hover, #EEF0F2) !important;
-  color: var(--dsw-alias-label-primary, #172126) !important;
-}
-
-.dtd-footer-btn:focus-visible {
-  border: 1px solid var(--dsw-alias-brand-primary, #286F78) !important;
-  outline: none !important;
-}
-
-@media (max-width: 600px) {
-  :root[data-delta-compat="1"] .dtd-native-search { min-height: 36px; }
-}
-
-.dtd-toast {
-  position: fixed; right: 24px; bottom: 24px; z-index: 2147483000;
+.dtd-toast { position: fixed; right: 24px; bottom: 24px; z-index: 2147483000;
   max-width: min(360px, calc(100vw - 48px)); padding: 11px 15px;
-  border-radius: 10px;
+  border-radius: 10px; box-shadow: 0 8px 24px #0002;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dsw-alias-label-primary, #172126);
+  border: 1px solid var(--dsw-alias-border-l1, #D8DEE1);
   font: inherit; font-size: 13px;
+}
+
+
+/* Additive sidebar search using official Sessions and UiWorkspace APIs.
+   Only Delta-owned nodes are styled; the native search and action buttons stay available. */
+:root[data-delta-ui="delta"] .dtd-host-search {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 0 8px;
+  padding: 2px 0;
+  min-width: 0;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-field {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding-inline: 11px;
+  gap: 8px;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  border: 1px solid var(--dsw-alias-border-l1, #d8dee1);
+  border-radius: 11px;
+  color: var(--dsw-alias-label-secondary, #737a84);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-field:focus-within {
+  outline: 2px solid var(--dsw-alias-brand-primary, #286f78);
+  outline-offset: 1px;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-icon { flex: none; font-size: 20px; line-height: 1; }
+:root[data-delta-ui="delta"] .dtd-host-search-input {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0;
+  border: none;
+  outline: none;
+  color: var(--dsw-alias-label-primary, #172126);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  max-height: min(320px, 55vh);
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--dsw-alias-border-l1, #d8dee1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-results[hidden] { display: none; }
+:root[data-delta-ui="delta"] .dtd-host-search-result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #172126);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result:hover,
+:root[data-delta-ui="delta"] .dtd-host-search-result:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, #e5e9eb);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result-snippet,
+:root[data-delta-ui="delta"] .dtd-host-search-hint {
+  margin: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary, #737a84);
+  font-size: 12px;
+  text-overflow: ellipsis;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-hint { padding: 6px 9px; }
+
+/* Service-backed quick actions are additive; native navigation remains present. */
+:root[data-delta-ui="delta"] .dtd-host-quick-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+:root[data-delta-ui="delta"] .dtd-host-quick-action {
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #172126);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: start;
+  cursor: pointer;
+}
+:root[data-delta-ui="delta"] .dtd-host-quick-action:hover,
+:root[data-delta-ui="delta"] .dtd-host-quick-action:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, #e5e9eb);
+  outline: 1px solid var(--dsw-alias-brand-primary, #286f78);
+}
+:root[data-delta-ui="delta"] .dtd-host-action-feedback {
+  margin: 0;
+  padding: 6px;
+  font-size: 12px;
+  color: var(--dsw-alias-state-error-primary, #b91c1c);
+}
+:root[data-delta-ui="delta"] .dtd-host-action-feedback[hidden] { display: none; }
+
+/* Workspace result is a title-only, Host-navigated entry. Never render its path. */
+:root[data-delta-ui="delta"] .dtd-host-search-result-kind {
+  color: var(--dsw-alias-label-secondary, #737a84);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Match native session/create grants: unauthorized New Session is not shown. */
+:root[data-delta-ui="delta"] .dtd-host-quick-action[hidden] { display: none; }
+
+
+/* Read-only Host-confirmed session state in the plugin-owned search list. */
+:root[data-delta-ui="delta"] .dtd-host-search-result-status {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dsw-alias-brand-primary, #286f78);
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result[aria-disabled="true"] {
+  opacity: .7;
 }
