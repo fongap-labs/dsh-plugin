@@ -101,7 +101,7 @@ describe("dsh-delta-code", () => {
 
   it("插件声明元信息正确", () => {
     assert.equal(codeWorker.name, "@fongap-labs/dsh-delta-code");
-    assert.deepEqual(codeWorker.inject, ["tools"]);
+    assert.deepEqual(codeWorker.inject, ["tools", "subprocess"]);
   });
 
   it("注册了预期的工具集合", () => {
