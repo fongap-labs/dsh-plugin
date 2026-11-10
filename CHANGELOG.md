@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 修复 [security]: LSP 探测遵循 Host FS 授权路径与子进程权限。
+
+- 修复 [security]: 工程概况验证宿主目录类型及取消状态。
+
 - 修复 [security]: 单项及批量验证统一使用 DSH Host FS 授权的执行目录。
 
 - 修复 [security]: Code Worker 的 Git 目录检查统一遵守 DSH Host FS 权限。
