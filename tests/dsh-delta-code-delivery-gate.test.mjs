@@ -19,7 +19,7 @@ function hostOutput(code, stdout = '') {
     },
   }
 }
-async function fixture({ failScript = false, drift = false, driftPatch = false, untracked = false, deny = false, allowCommands = true } = {}) {
+async function fixture({ failScript = false, drift = false, driftPatch = false, untracked = false, malformedStatus, deny = false, allowCommands = true } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'dsh-delivery-gate-'))
   await writeFile(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'node --test', typecheck: 'tsc' } }))
   const commands = []
@@ -36,7 +36,7 @@ async function fixture({ failScript = false, drift = false, driftPatch = false, 
           headCalls += 1
           return hostOutput(0, (drift && headCalls > 1 ? NEXT_HEAD : HEAD) + '\n')
         }
-        if (argv[1] === 'status') return hostOutput(0, untracked ? '## main\0?? new-file.ts\0' : '## main\0 M src.ts\0')
+        if (argv[1] === 'status') return hostOutput(0, malformedStatus ?? (untracked ? '## main\0?? new-file.ts\0' : '## main\0 M src.ts\0'))
         if (argv[1] === 'diff') {
           if (argv.includes('--binary')) {
             patchCalls += 1
@@ -149,6 +149,19 @@ describe('Delta Code Worker execution delivery gate', () => {
         assert.equal(result.stage, 'blocked')
         assert.equal(result.ready, false)
         assert.match(result.blockers.join(' '), config.drift || config.driftPatch ? /repository changed/ : /untracked/)
+      } finally { await f.cleanup() }
+    }
+  })
+
+  it('blocks verification before test execution if Host Git status evidence is malformed', async () => {
+    for (const malformedStatus of ['', '## main\0unexpected\0', '## main\0 M changed.ts']) {
+      const f = await fixture({ malformedStatus })
+      try {
+        const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+        assert.equal(result.stage, 'blocked')
+        assert.equal(result.ready, false)
+        assert.deepEqual(result.checks, [])
+        assert.ok(!f.commands.some(args => args[0] === 'npm'))
       } finally { await f.cleanup() }
     }
   })

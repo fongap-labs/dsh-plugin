@@ -164,6 +164,19 @@ describe('Delta Code Worker native session resume', () => {
     } finally { await f.cleanup() }
   })
 
+  it('fails closed when Host returns a successful but malformed Git status response', async () => {
+    for (const status of ['', '## main\0unknown\0', '## main\0 M unfinished.ts']) {
+      const f = await fixture({ status })
+      try {
+        f.emit(TASKS)
+        const result = await f.tool.execute({ expectedHead: HEAD }, execute(f.agent))
+        assert.equal(result.stage, 'blocked')
+        assert.equal(result.blockers.length > 0, true)
+        assert.notEqual(result.stage, 'resume')
+      } finally { await f.cleanup() }
+    }
+  })
+
   it('denies recovery without an owning agent or native projection', async () => {
     const f = await fixture({ mounted: false })
     try {
