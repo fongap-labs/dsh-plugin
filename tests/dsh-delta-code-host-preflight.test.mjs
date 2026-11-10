@@ -46,6 +46,18 @@ describe('Code Worker actual-CLI host preflight contract (fake CLI only)', () =>
     })
   })
 
+  it('rejects a Host that exits before the observation window', async () => {
+    await withFakeHost(async ({ dir, bin }) => {
+      const source = await readFile(bin, 'utf8')
+      await writeFile(bin, source.replace('setInterval(() => {}, 1000)', 'process.exit(0)'))
+      const report = await preflight({ dsh: bin, pluginDir: dir, bootMs: 350 })
+      assert.equal(report.status, 'blocked')
+      assert.equal(report.nativeProfileProcessObserved, false)
+      assert.match(report.reason, /boot-native-host: Host exited before boot observation window/)
+      assert.equal(report.stages.includes('native-sdk-minimal-process-alive'), false)
+    })
+  })
+
   it('fails closed when effective Host configuration omits the plugin', async () => {
     await withFakeHost(async ({ dir, bin }) => {
       const source = await readFile(bin, 'utf8')
