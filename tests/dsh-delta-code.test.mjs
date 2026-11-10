@@ -6,7 +6,7 @@
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -48,6 +48,19 @@ function createContext() {
     },
   };
   return ctx;
+}
+
+
+function createGitSubprocess(output, exitCode = 0) {
+  return { spawn() {
+    return {
+      done: Promise.resolve({ exitCode }),
+      collected: {
+        stdout: { readFrom: () => ({ text: output, lossy: false }) },
+        stderr: { readFrom: () => ({ text: "", lossy: false }) },
+      },
+    };
+  } };
 }
 
 describe("dsh-delta-code", () => {
@@ -94,6 +107,33 @@ describe("dsh-delta-code", () => {
   it("注册了预期的工具集合", () => {
     const names = [...ctx.registered.keys()].sort();
     assert.deepEqual(names, ["code_git_diff", "code_git_status", "code_git_worktree", "code_lsp_probe", "code_multi_edit", "code_project_profile", "code_verify", "code_workflow_route", "code_workspace_map"]);
+  });
+
+  it("code_multi_edit: local fallback rejects symlink escapes on reads and writes", { skip: process.platform === "win32" }, async () => {
+    const outside = await mkdtemp(join(tmpdir(), "dsh-delta-code-outside-"));
+    const linkedFile = join(workspace, "external-file.txt");
+    const linkedDir = join(workspace, "external-dir");
+    try {
+      const secret = join(outside, "secret.txt");
+      await writeFile(secret, "must-not-change", "utf8");
+      await symlink(secret, linkedFile);
+      await symlink(outside, linkedDir, "dir");
+      const tool = ctx.registered.get("code_multi_edit");
+      const result = await tool.execute({ edits: [
+        { path: "external-file.txt", content: "outside-overwrite" },
+        { path: "external-file.txt", find: "must-not-change", replace: "outside-replace" },
+        { path: "external-dir/created.txt", content: "outside-created" },
+      ] }, { signal: new AbortController().signal });
+      assert.equal(result.applied, 0);
+      assert.equal(result.results.length, 3);
+      assert.ok(result.results.every(entry => !entry.ok && /sandbox|symbolic.link|escapes/i.test(entry.note)));
+      assert.equal(await readFile(secret, "utf8"), "must-not-change");
+      await assert.rejects(readFile(join(outside, "created.txt"), "utf8"), { code: "ENOENT" });
+    } finally {
+      await rm(linkedFile, { force: true });
+      await rm(linkedDir, { force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("code_multi_edit: dryRun 不写盘", async () => {
@@ -189,19 +229,24 @@ describe("dsh-delta-code", () => {
   });
 
   it("code_git_status: 返回结构化结果", async () => {
-    const tool = ctx.registered.get("code_git_status");
-    const result = await tool.execute({}, { signal: new AbortController().signal });
-    assert.ok(Array.isArray(result.staged));
-    assert.ok(Array.isArray(result.unstaged));
-    assert.ok(Array.isArray(result.untracked));
-    assert.equal(typeof result.clean, "boolean");
+    const host = createContext();
+    host.subprocess = createGitSubprocess("## main\\0?? demo.txt\\0".replaceAll("\\0", "\0"));
+    const dispose = codeWorker.apply(host, { workspaceRoot: workspace });
+    const result = await host.registered.get("code_git_status").execute({}, { signal: new AbortController().signal });
+    assert.equal(result.branch, "main");
+    assert.deepEqual(result.untracked, ["demo.txt"]);
+    assert.equal(result.clean, false);
+    dispose();
   });
 
   it("code_git_diff: 返回 diff 字段", async () => {
-    const tool = ctx.registered.get("code_git_diff");
-    const result = await tool.execute({}, { signal: new AbortController().signal });
-    assert.equal(typeof result.diff, "string");
-    assert.equal(typeof result.truncated, "boolean");
+    const host = createContext();
+    host.subprocess = createGitSubprocess("diff --git a/a.txt b/a.txt\n");
+    const dispose = codeWorker.apply(host, { workspaceRoot: workspace });
+    const result = await host.registered.get("code_git_diff").execute({}, { signal: new AbortController().signal });
+    assert.match(result.diff, /diff --git/);
+    assert.equal(result.truncated, false);
+    dispose();
   });
 
   it("code_lsp_probe: 返回逐服务探测结论", async () => {
