@@ -125,6 +125,12 @@ export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinit
     account: response.account,
     result: JSON.stringify(result),
   })
+  const repositoryDefault = async (exec: Parameters<ToolDefinition['execute']>[1], supplied?: string) => {
+    const info = await githubRequest(ctx, exec, settings, supplied, 'GET', encodeRepo)
+    const name = info.data?.default_branch
+    if (typeof name !== 'string' || !name.trim()) throw new Error('GitHub default branch unavailable')
+    return { repository: info.repository, defaultBranch: validBranch(name) }
+  }
   return [
     tool('connection', 'Verify the selected GitHub account for a repository. Automatically use the local origin when omitted.', { repository: optional }, async (args, exec) => {
       const response = await githubRequest(ctx, exec, settings, args.repository, 'GET', encodeRepo)
@@ -180,23 +186,27 @@ export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinit
         })),
       })
     }),
-    tool('branch', 'Create a feature branch from a known base branch without changing main.', { repository: optional, branch: string, base: optional }, async (args, exec) => {
+    tool('branch', 'Create a feature branch from the repository default (or a supplied base) without modifying protected branches.', { repository: optional, branch: string, base: optional }, async (args, exec) => {
       requireWrites(settings)
       const branch = validBranch(args.branch)
-      const base = validBranch(args.base ?? 'main')
-      if (branch === base || branch === 'main' || branch === 'master') throw new Error('refusing to write to the default branch')
-      const source = await githubRequest(ctx, exec, settings, args.repository, 'GET', (repo) => encodeRepo(repo) + '/git/ref/heads/' + base.split('/').map(encodeURIComponent).join('/'))
+      if (branch === 'main' || branch === 'master') throw new Error('refusing to write to the default branch')
+      const info = await repositoryDefault(exec, args.repository)
+      const base = validBranch(args.base ?? info.defaultBranch)
+      if (branch === base || branch === info.defaultBranch) throw new Error('refusing to write to the default branch')
+      const source = await githubRequest(ctx, exec, settings, info.repository, 'GET', (repo) => encodeRepo(repo) + '/git/ref/heads/' + base.split('/').map(encodeURIComponent).join('/'))
       const result = await githubRequest(ctx, exec, settings, source.repository, 'POST', (repo) => encodeRepo(repo) + '/git/refs', { ref: 'refs/heads/' + branch, sha: source.data.object.sha })
       return envelope(result, { branch, sha: result.data.object.sha })
     }),
-    tool('commit_file', 'Commit one UTF-8 file to an existing feature branch, never directly to main.', {
+    tool('commit_file', 'Commit one UTF-8 file to an existing feature branch, never directly to the repository default branch.', {
       repository: optional, branch: string, path: string, content: string, message: string,
     }, async (args, exec) => {
       requireWrites(settings)
       const branch = validBranch(args.branch)
       if (branch === 'main' || branch === 'master') throw new Error('refusing to write to the default branch')
       const path = validPath(args.path)
-      const ref = await githubRequest(ctx, exec, settings, args.repository, 'GET', (repo) => encodeRepo(repo) + '/git/ref/heads/' + branch.split('/').map(encodeURIComponent).join('/'))
+      const info = await repositoryDefault(exec, args.repository)
+      if (branch === info.defaultBranch) throw new Error('refusing to write to the default branch')
+      const ref = await githubRequest(ctx, exec, settings, info.repository, 'GET', (repo) => encodeRepo(repo) + '/git/ref/heads/' + branch.split('/').map(encodeURIComponent).join('/'))
       const endpoint = (repo: string) => encodeRepo(repo) + '/contents/' + path
       const existing = await githubRequest(ctx, exec, settings, ref.repository, 'GET', (repo) => endpoint(repo) + '?ref=' + encodeURIComponent(branch))
         .catch((error: Error) => { if (error.message.startsWith('GitHub API 404 ')) return null; throw error })
@@ -214,9 +224,10 @@ export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinit
     }, async (args, exec) => {
       requireWrites(settings)
       const head = validBranch(args.head)
-      const base = validBranch(args.base ?? 'main')
+      const info = await repositoryDefault(exec, args.repository)
+      const base = validBranch(args.base ?? info.defaultBranch)
       if (head === base) throw new Error('head must differ from base')
-      const result = await githubRequest(ctx, exec, settings, args.repository, 'POST', (repo) => encodeRepo(repo) + '/pulls', {
+      const result = await githubRequest(ctx, exec, settings, info.repository, 'POST', (repo) => encodeRepo(repo) + '/pulls', {
         head, base, title: args.title, body: args.body ?? '',
       })
       return envelope(result, { number: result.data.number, url: result.data.html_url })
