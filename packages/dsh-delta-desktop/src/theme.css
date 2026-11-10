@@ -664,7 +664,7 @@ html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="SidebarRoot_roo
   overflow: hidden !important;
 }
 
-/* 2. Navigation items (插件管理, 定时任务) - "更多" is completely hidden */
+/* 2. Navigation items: plugins and scheduled tasks; hide overflow menu. */
 :root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav,
 :root[data-delta-compat="1"] [class*="wtg9ga_panelList"] {
@@ -724,7 +724,7 @@ html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="SidebarRoot_roo
   padding: 0 !important;
 }
 
-/* 3. New conversation button (开始对话) - pixel-identical to nav rows (.wtg9ga_panelRow) */
+/* 3. New conversation button: match native navigation row dimensions. */
 :root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) button[class*="newSession"]:not([data-delta-action]),
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) button[class*="newSession"]:not([data-delta-action]),
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_newSession"]:not([data-delta-action]) {

@@ -656,7 +656,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
       processHoverCards()
 
-      // 8, 9, 10. Footer bar: Left Avatar/Logo, Right Action Icons (更新通知, 设置, 登录/登出)
+      // Footer bar: left profile and right-side update, settings, and authentication controls.
       const footArea = (viewport.querySelector?.<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]') ??
         document.querySelector<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]')) as HTMLElement | null
       if (footArea) {
@@ -780,7 +780,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           const stateKey = signedIn ? '1' : '0'
           if (btn.getAttribute?.('data-signed-in') === stateKey) return
           btn.setAttribute('data-signed-in', stateKey)
-          const label = signedIn ? '退出登录' : '登录'
+          const label = signedIn
+            ? '退出登录'
+            : '登录'
           btn.title = label
           btn.setAttribute('aria-label', label)
           clearNodeChildren(btn)
@@ -830,7 +832,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
               triggerNativeSettingsShortcut()
             } else {
               const signedInNow = actionsBox?.querySelector?.('.dtd-btn-auth')?.getAttribute?.('data-signed-in') === '1'
-              showDeltaToast(signedInNow ? '已退出登录' : '请前往登录')
+              showDeltaToast(signedInNow
+                ? '已退出登录'
+                : '请前往登录')
             }
             return
           }
@@ -862,12 +866,15 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             const newItems = allItems.filter(el => !preExisting.has(el))
             const candidates = newItems.length > 0 ? newItems : allItems
             if (candidates.length === 0) return undefined
+            const settingsPattern = new RegExp('设置|Settings', 'i')
+            const otherActionPattern = new RegExp('反馈|Feedback|退出|Sign|Log', 'i')
+            const authPattern = new RegExp('退出登录|登录|Sign\\s*(Out|In)|Log\\s*(Out|In)', 'i')
             if (kind === 'settings') {
-              return candidates.find(el => /设置|Settings/i.test(el.textContent ?? ''))
-                ?? candidates.find(el => !/反馈|Feedback|退出|Sign|Log/i.test(el.textContent ?? ''))
+              return candidates.find(el => settingsPattern.test(el.textContent ?? ''))
+                ?? candidates.find(el => !otherActionPattern.test(el.textContent ?? ''))
                 ?? candidates[0]
             }
-            return candidates.find(el => /退出登录|登录|Sign\s*(Out|In)|Log\s*(Out|In)/i.test(el.textContent ?? ''))
+            return candidates.find(el => authPattern.test(el.textContent ?? ''))
               ?? candidates[candidates.length - 1]
           }
 
@@ -898,7 +905,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
                 triggerNativeSettingsShortcut()
               } else {
                 const signedInNow = liveTrigger.getAttribute?.('data-signed-out') === 'false'
-                showDeltaToast(signedInNow ? '请点击登录账户菜单退出登录' : '请前往登录')
+                showDeltaToast(signedInNow
+                  ? '请点击登录账户菜单退出登录'
+                  : '请前往登录')
               }
               return
             }
@@ -925,13 +934,13 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           }
         }
 
-        // Right-side 3 action buttons (Item 10: 更新通知 [仅在有更新时显示], 设置, 登录/登出)
+        // Right-side action buttons: update (when available), settings, and authentication.
         let actionsBox = footArea.querySelector?.<HTMLElement>('.dtd-footer-actions')
         if (!actionsBox) {
           actionsBox = document.createElement('div')
           actionsBox.className = 'dtd-footer-actions'
 
-          // 1. 更新通知（有更新时才显示）
+          // 1. Update notification (visible only when an update is available).
           const btnUpdate = document.createElement('button')
           btnUpdate.type = 'button'
           btnUpdate.className = 'dtd-footer-btn dtd-btn-update'
@@ -977,7 +986,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           })
           syncUpdateButtonState(btnUpdate, footArea)
 
-          // 2. 设置
+          // 2. Settings.
           const btnSettings = document.createElement('button')
           btnSettings.type = 'button'
           btnSettings.className = 'dtd-footer-btn dtd-btn-settings'
@@ -1002,7 +1011,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             triggerAccountMenuAction('settings')
           })
 
-          // 3. 登录/登出
+          // 3. Sign in/out.
           const btnAuth = document.createElement('button')
           btnAuth.type = 'button'
           btnAuth.className = 'dtd-footer-btn dtd-btn-auth'
@@ -1033,7 +1042,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             let node = walker.nextNode()
             while (node) {
               if (node.nodeValue && node.nodeValue.includes('深度求索中')) {
-                node.nodeValue = node.nodeValue.replace(/深度求索中/g, '任务执行中')
+                node.nodeValue = node.nodeValue.split('深度求索中').join('任务执行中')
               }
               node = walker.nextNode()
             }
