@@ -176,7 +176,7 @@ export async function preflight(options) {
     report.reason = stage + ': ' + (error instanceof Error ? error.message : 'unknown failure')
     return report
   } finally {
-    await rm(scratch, { recursive: true, force: true })
+    await rm(scratch, { recursive: true, force: true, maxRetries: 8, retryDelay: 100 })
   }
 }
 
