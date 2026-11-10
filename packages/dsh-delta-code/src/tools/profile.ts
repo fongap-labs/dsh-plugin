@@ -76,6 +76,70 @@ export async function inspectProject(cwd: string, root: string): Promise<Project
   }
 }
 
+
+interface HostProfileFs {
+  resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }): Promise<unknown>
+  contains(parent: unknown, child: unknown): boolean
+  stat(target: unknown, signal?: AbortSignal): Promise<{ type: string } | undefined>
+  readText(target: unknown, signal?: AbortSignal): Promise<string>
+}
+
+/** DSH FS is authoritative when mounted; do not switch to local Node reads on refusal. */
+export async function inspectProjectWithHost(
+  ctx: Context, exec: { signal: AbortSignal }, cwd: string, root: string,
+): Promise<ProjectProfile> {
+  const mounted: unknown = ctx.get('fs')
+  if (!mounted) return inspectProject(cwd, root)
+  const candidate = mounted as Partial<HostProfileFs>
+  if (typeof candidate.resolve !== 'function' ||
+      typeof candidate.contains !== 'function' ||
+      typeof candidate.stat !== 'function' ||
+      typeof candidate.readText !== 'function') {
+    throw new Error('DSH Host FS missing resolve/contains/stat/readText; refusing local profile fallback')
+  }
+  const fs = candidate as HostProfileFs
+  if (exec.signal.aborted) throw new Error('project profile cancelled')
+  const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
+  const cwdTarget = await fs.resolve(cwd, { cwd: root, signal: exec.signal })
+  if (!fs.contains(rootTarget, cwdTarget)) throw new Error('project directory escapes workspace')
+  const files: string[] = []
+  let packageTarget: unknown
+  for (const name of PROJECT_FILES) {
+    if (exec.signal.aborted) throw new Error('project profile cancelled')
+    const target = await fs.resolve(join(cwd, name), { cwd, signal: exec.signal })
+    if (!fs.contains(rootTarget, target)) continue
+    const info = await fs.stat(target, exec.signal)
+    if (info?.type !== 'file') continue
+    files.push(name)
+    if (name === 'package.json') packageTarget = target
+  }
+  const scripts: string[] = []
+  if (packageTarget !== undefined) {
+    // Never read Host-backed manifest content through node:fs.
+    const raw = await fs.readText(packageTarget, exec.signal)
+    if (Buffer.byteLength(raw, 'utf8') <= 1024 * 1024) {
+      try {
+        const parsed: unknown = JSON.parse(raw)
+        const defined = (parsed as { scripts?: unknown } | null)?.scripts
+        if (defined && typeof defined === 'object' && !Array.isArray(defined)) {
+          for (const name of SCRIPT_NAMES) {
+            if (typeof (defined as Record<string, unknown>)[name] === 'string') scripts.push(name)
+          }
+        }
+      } catch { /* invalid package.json: preserve file presence without scripts */ }
+    }
+  }
+  const present = new Set(files)
+  const guidance = files.filter(name => name === 'AGENTS.md' || name === 'CLAUDE.md')
+  const suggestedChecks: string[] = scripts.filter(name =>
+    name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
+  if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
+  return {
+    cwd: cwd.slice(0, MAX_DESCRIPTION), files,
+    technologies: technologies(present), scripts, guidance, suggestedChecks,
+  }
+}
+
 export function createProjectProfileTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
     name: 'code_project_profile',
@@ -106,7 +170,7 @@ export function createProjectProfileTool(ctx: Context, settings: Settings): Tool
     async execute(args, exec) {
       const root = await resolveRoot(ctx, exec, settings)
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
-      return inspectProject(cwd, root)
+      return inspectProjectWithHost(ctx, exec, cwd, root)
     },
   })
 }

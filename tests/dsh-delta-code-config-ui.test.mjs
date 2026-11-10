@@ -32,6 +32,15 @@ describe('code worker native settings contract', () => {
     assert.match(read('src/client.ts'), /plugins\.row\.config/)
     assert.match(read('src/client.ts'), /mutate\(ops, state\.revision\)/)
   })
+  it('supports an explicit legacy and guarded Host FS write contract in native settings', () => {
+    const client = read('src/client.ts')
+    const schema = read('src/config.ts')
+    assert.match(client, /fsWriteContract/)
+    assert.match(client, /legacy-overwrite/)
+    assert.match(client, /guarded-intent/)
+    assert.match(client, /\['fsWriteContract', \['execution', 'fsWriteContract'\]\]/)
+    assert.match(schema, /fsWriteContract: Schema\.string\(\)\.default\('legacy-overwrite'\)/)
+  })
   it('stores only tokenEnv references with path-level updates', () => {
     const source=read('src/client.ts')
     assert.match(source, /sourceIndex/)

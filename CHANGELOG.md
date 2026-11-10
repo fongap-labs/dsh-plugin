@@ -2,7 +2,50 @@
 
 ## [Unreleased]
 
+- 新增: Code Worker 一次性 DSH Profile 启动预检脚本与安全回归测试。
+
+- 修复 [security]: Code Worker Windows/macOS 本地读写改用句柄身份复核后操作。
+
+- 修复 [security]: Code Worker 补偿恢复必须验证宿主回传版本，缺失时标记状态未确认。
+
+- 新增: Code Worker 批量编辑支持显式版本保护补偿恢复，失败时报告留存写入。
+
+- 修复 [security]: Code Worker Linux 本地文件读写通过目录句柄锚定父路径。
+
+- 修复 [security]: Code Worker 批量编辑固定预检版本，拒绝并发覆盖。
+
+- 新增: Code Worker 提供显式版本保护型 DSH Host FS 写入协议。
+
+- 修复 [security]: Code Worker 工程验证预检遵循 DSH Host FS，拒绝权限回退。
+
 - 修复: Delta Desktop 侧栏监听器仅在快捷入口文案变化时更新 DOM，防止 MutationObserver 自触发循环，并补充回归测试。
+
+- 修复 [security]: Code Worker 本地写盘使用 O_NOFOLLOW 防止最终符号链接竞态。
+
+- 修复 [security]: Code Worker LSP 探测拦截符号链接越界，及时响应取消。
+
+- 修复 [security]: Code Worker 工程概况读取遵循 DSH Host 文件服务权限。
+
+- 修复: Code Worker 普通批量编辑拒绝冲突字段，保留逐项结果。
+
+- 新增: Code Worker 顺序验证多项检查，失败立即停止。
+
+- 新增: Code Worker 宿主只读能力诊断，支持 DSH 真实运行验收。
+
+- 修复: Code Worker dryRun 执行完整预检，拒绝无效路径和宿主权限。
+
+- 修复 [security]: Code Worker 遇到不完整的 DSH 子进程服务时拒绝本地命令回退。
+
+- 修复 [security]: Code Worker 宿主 FS 能力不完整时禁止本地回退，批量覆盖支持版本校验。
+
+- 修复 [security]: Code Worker 遵守宿主工作区拒绝与索引命令拒绝结果，不再回退本地执行。
+
+- 新增: Code Worker 复用 DSH 任务列表，按计划逐项执行和验证。
+- 修复 [security]: Code Worker 本地文件服务回退验证真实路径和最终目标符号链接，拦截工作区外读取与写入。
+- 修复: Code Worker Git 状态正确解析重命名文件，并明确报告命令失败或输出截断。
+- 修复 [security]: Code Worker 的 LSP 探测和 GitHub Origin 检测在 DSH 宿主拒绝执行时不再回退本地进程。
+- 修复 [security]: GitHub 写入保护读取仓库真实默认分支，防止直接提交至自定义主分支。
+- 新增: Code Worker 批量编辑支持可选整批预检，预检失败时不写文件。
 
 - 修复: Code Worker 原生自动路由识别“继续推进任务链”等续接指令，保留同一 Agent 工作流。
 - 修复 [security]: Code Worker 工程验证结果正确脱敏 GitHub 令牌，并将 LSP 非零退出码判定为不可用。

@@ -41,3 +41,26 @@ test('workflow has honest verification and no duplicate runtime claims', () => {
   assert.match(byName.get('code-request-review'), /security, performance and maintainability/)
   assert.match(byName.get('code-incident-diagnosis'), /learning loop/)
 })
+
+test('native planning and execution share Host todo state and evidence checkpoints', () => {
+  const byName = new Map(ALL_CODING_SKILLS.map(skill => [skill.name, skill.instructions.join('\n')]))
+  const planning = byName.get('code-writing-plans')
+  const executing = byName.get('code-executing-plans')
+  const feature = byName.get('code-feature-delivery')
+  assert.match(planning, /goal|observable goal/)
+  assert.match(planning, /acceptance criteria/)
+  assert.match(planning, /dependencies/)
+  assert.match(planning, /todo_write/)
+  assert.match(planning, /execution waves/)
+  assert.match(planning, /Planning-only requests must not edit source/)
+  assert.match(executing, /one ready plan item at a time/)
+  assert.match(executing, /todo_write/)
+  assert.match(executing, /exact evidence/)
+  assert.match(executing, /revise the remaining steps/)
+  assert.match(executing, /without asking for redundant confirmation/)
+  assert.match(feature, /executable plan/)
+  assert.match(feature, /focused verification/)
+  for (const skill of [planning, executing, feature]) {
+    assert.doesNotMatch(skill, /second planner runtime|another agent runtime.*required/i)
+  }
+})

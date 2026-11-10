@@ -40,10 +40,10 @@ export const CODING_SKILLS: readonly CodingSkill[] = [
     instructions: [
       'Identify user goal, constraints, non-goals and observable acceptance tests. Ask only when a consequential ambiguity blocks safe progress.',
       'Read project rules and use code_project_profile. Prefer existing modules and Host tools before introducing a package or architectural layer.',
-      'Split implementation into small, independently testable changes. Use native todo/goal services for progress; do not build a second task ledger.',
+      'For multi-step work write an executable plan: goal, non-goals, affected files, dependencies, acceptance checks and per-task verification. Use native todo_write if mounted; avoid a second planner, task store or model call.',
       'If configured, use code_git_worktree for isolation; otherwise respect the current branch and existing uncommitted changes.',
-      'For behavior changes, create or adjust a failing test first when practical; implement the minimum change and run the focused test.',
-      'Run focused code_verify scripts during iteration and all relevant declared scripts before claiming completion, when command execution is enabled. Review the final diff and tests.',
+      'For each ready task, create or adjust a failing test when practical, make the minimum change, run focused verification and inspect the diff; update Host todo_write only when that task has concrete completion evidence.',
+      'Run focused code_verify scripts during iteration; when 2–5 checks are needed, use code_verify_suite for ordered fail-fast checks and per-step evidence. Replan on contradictory failures before completion. Preserve exact commands, results and final diff as evidence.',
       'If GitHub writes are enabled, open a feature-branch PR. Never auto-merge, bypass CI or treat a pending check as a pass.',
     ],
   },

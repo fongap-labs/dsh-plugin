@@ -14,8 +14,10 @@ import { createLspProbeTool } from './tools/lsp.js'
 import { createWorkspaceMapTool } from './tools/workspace.js'
 import { createWorktreeTool } from './tools/worktree.js'
 import { createVerifyTool } from './tools/verify.js'
+import { createVerifySuiteTool } from './tools/verify-suite.js'
 import { createGitHubTools } from './tools/github.js'
 import { createProjectProfileTool } from './tools/profile.js'
+import { createHostProbeTool } from './tools/host-probe.js'
 import { createWorkflowRouteTool } from './workflow-route.js'
 import { registerCodingSkills } from './skills.js'
 import { registerAutomaticCodingRouter } from './auto-routing.js'
@@ -95,10 +97,12 @@ function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
   const tools: ToolDefinition[] = [
     createMultiEditTool(ctx, settings),
     createProjectProfileTool(ctx, settings),
+    createHostProbeTool(ctx),
     createWorkflowRouteTool(),
     createWorkspaceMapTool(ctx, settings),
     createWorktreeTool(ctx, settings),
     createVerifyTool(ctx, settings),
+    createVerifySuiteTool(ctx, settings),
   ]
   if (settings.gitEnabled) {
     tools.push(createGitStatusTool(ctx, settings))

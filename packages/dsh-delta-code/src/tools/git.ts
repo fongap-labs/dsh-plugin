@@ -1,9 +1,32 @@
+import { realpath } from 'node:fs/promises'
 import { relative } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand, resolveInside } from '@fongap-labs/shared'
+import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { GitStatusResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot } from '../runtime.js'
+
+
+/**
+ * Resolve a Git work directory without following workspace symlinks outside
+ * its real root. Keep the original pathname for Git's own pathspec semantics.
+ */
+async function resolveGitCwd(root: string, requested?: string): Promise<string> {
+  const cwd = requested ? resolveInside(root, requested) : root
+  const [canonicalRoot, canonicalCwd] = await Promise.all([realpath(root), realpath(cwd)])
+  if (!isPathInside(canonicalRoot, canonicalCwd)) {
+    throw new Error('git cwd escapes workspace through a symbolic link')
+  }
+  return cwd
+}
+
+function assertGitResult(result: { exitCode: number | null; timedOut: boolean; signal: string | null }, operation: string): void {
+  if (result.timedOut) throw new Error(operation + ': git command timed out')
+  if (result.signal) throw new Error(operation + ': git command terminated by signal')
+  if (result.exitCode !== 0) {
+    throw new Error(operation + ': git command failed with exit code ' + String(result.exitCode))
+  }
+}
 
 export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
@@ -47,29 +70,18 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
     },
     async execute(args, exec) {
       const root = await resolveRoot(ctx, exec, settings)
-      const cwd = args.cwd ? resolveInside(root, args.cwd) : root
+      const cwd = await resolveGitCwd(root, args.cwd)
       const result = await runCommand(ctx, {
         command: settings.gitCommand,
         args: ['status', '--porcelain=v1', '--branch', '-z'],
         cwd,
         signal: exec.signal,
         timeoutMs: 30_000,
+        // A denied or failing DSH Host subprocess may never silently retry as Node.
+        hostOnly: isSubprocessMounted(ctx),
       })
-      if (result.exitCode !== 0) {
-        // `_stderr` is deliberately carried as a diagnostic outside the declared
-        // schema; the registry never validated it and the renderer ignores it.
-        const failure: GitStatusResult & { _stderr?: string } = {
-          branch: '',
-          ahead: 0,
-          behind: 0,
-          staged: [],
-          unstaged: [],
-          untracked: [],
-          clean: false,
-          _stderr: result.stderr,
-        }
-        return failure
-      }
+      assertGitResult(result, 'code_git_status')
+      if (result.lossy) throw new Error('code_git_status: output truncated; refusing partial status')
       return parseGitStatus(result.stdout)
     },
   })
@@ -83,7 +95,8 @@ export function parseGitStatus(raw: string): GitStatusResult {
   let branch = ''
   let ahead = 0
   let behind = 0
-  for (const part of parts) {
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]!
     if (part.startsWith('## ')) {
       const head = part.slice(3)
       // Porcelain -z emits a single branch header, optionally followed by
@@ -100,6 +113,13 @@ export function parseGitStatus(raw: string): GitStatusResult {
     const file = part.slice(3)
     const x = xy[0]!
     const y = xy[1]!
+    // In porcelain=v1 -z, a rename/copy is a two-path record:
+    //   XY new-path NUL old-path NUL
+    // The second pathname is NOT a new status record.
+    if (x === 'R' || x === 'C' || y === 'R' || y === 'C') {
+      if (index + 1 >= parts.length) throw new Error('incomplete git rename/copy record')
+      index += 1
+    }
     if (x === '?') {
       untracked.push(file)
     } else {
@@ -144,7 +164,7 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
     },
     async execute(args, exec) {
       const root = await resolveRoot(ctx, exec, settings)
-      const cwd = args.cwd ? resolveInside(root, args.cwd) : root
+      const cwd = await resolveGitCwd(root, args.cwd)
       const gitArgs = ['diff', '--no-color']
       if (args.staged) gitArgs.push('--cached')
       if (args.path) {
@@ -158,7 +178,9 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
         signal: exec.signal,
         timeoutMs: 30_000,
         maxOutputBytes: 256 * 1024,
+        hostOnly: isSubprocessMounted(ctx),
       })
+      assertGitResult(result, 'code_git_diff')
       return {
         diff: result.stdout,
         truncated: result.lossy,
