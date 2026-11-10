@@ -11,13 +11,14 @@ export function inspectHostCapabilities(ctx: Context) {
   const has = (value: unknown, method: string): boolean =>
     value !== null && typeof value === 'object'
     && typeof (value as Record<string, unknown>)[method] === 'function'
+  const host = ctx as Context & { subprocess?: { spawn?: unknown } | null }
   return {
     fsAccessible: Boolean(fs),
     fsResolve: has(fs, 'resolve'),
     fsReadText: has(fs, 'readText'),
     fsWriteText: has(fs, 'writeText'),
-    subprocessMounted: ctx.subprocess !== null && ctx.subprocess !== undefined,
-    subprocessSpawn: has(ctx.subprocess, 'spawn'),
+    subprocessMounted: host.subprocess !== null && host.subprocess !== undefined,
+    subprocessSpawn: has(host.subprocess, 'spawn'),
     workspaceAccessible: Boolean(workingDirectory),
     workspaceEnsure: has(workingDirectory, 'ensure'),
     toolRegistry: has(ctx.tools, 'register'),
