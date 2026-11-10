@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Code Worker 顺序验证多项检查，失败立即停止。
+
 - 新增: Code Worker 宿主只读能力诊断，支持 DSH 真实运行验收。
 
 - 修复: Code Worker dryRun 执行完整预检，拒绝无效路径和宿主权限。

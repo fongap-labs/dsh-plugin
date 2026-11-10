@@ -14,6 +14,7 @@ import { createLspProbeTool } from './tools/lsp.js'
 import { createWorkspaceMapTool } from './tools/workspace.js'
 import { createWorktreeTool } from './tools/worktree.js'
 import { createVerifyTool } from './tools/verify.js'
+import { createVerifySuiteTool } from './tools/verify-suite.js'
 import { createGitHubTools } from './tools/github.js'
 import { createProjectProfileTool } from './tools/profile.js'
 import { createHostProbeTool } from './tools/host-probe.js'
@@ -101,6 +102,7 @@ function createTools(ctx: Context, settings: Settings): ToolDefinition[] {
     createWorkspaceMapTool(ctx, settings),
     createWorktreeTool(ctx, settings),
     createVerifyTool(ctx, settings),
+    createVerifySuiteTool(ctx, settings),
   ]
   if (settings.gitEnabled) {
     tools.push(createGitStatusTool(ctx, settings))

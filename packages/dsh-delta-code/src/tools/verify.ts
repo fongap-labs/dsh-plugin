@@ -1,11 +1,11 @@
 import { access, realpath } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
+import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, isSubprocessAvailable, runCommand, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { readTextSafe, resolveRoot } from '../runtime.js'
-import { chooseVerificationCommand, type VerificationProject } from './verify-presets.js'
+import { chooseVerificationCommand, type VerificationProject, type VerificationCommand, type VerificationScript } from './verify-presets.js'
 
 const SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
@@ -53,6 +53,24 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       return [{ type: 'text', text: value.command + ': ' + (value.passed ? 'PASS' : 'FAIL') + ' (exit ' + value.exitCode + ')\n' + value.output }]
     } },
     async execute(args, exec) {
+      const prepared = await prepareVerify(ctx, settings, exec, args)
+      return runPreparedVerify(ctx, settings, exec, prepared)
+    },
+  })
+}
+
+export interface PreparedVerification {
+  script: VerificationScript
+  plan: VerificationCommand
+  cwd: string
+  timeoutMs: number
+}
+
+/** Prepare and validate a check without executing a command. */
+export async function prepareVerify(
+  ctx: Context, settings: Settings, exec: ToolRunContext,
+  args: { script: VerificationScript; cwd?: string; project?: VerificationProject; timeoutMs?: number },
+): Promise<PreparedVerification> {
       if (!settings.allowCommands) throw new Error('script execution disabled; set execution.allowCommands=true')
       if (!isSubprocessAvailable(ctx)) throw new Error('host subprocess service is required for script execution')
       if (!SCRIPTS.has(args.script)) throw new Error('script is not allowlisted')
@@ -100,6 +118,13 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       const plan = chooseVerificationCommand(
         args.script, project as VerificationProject, [...found], manager, nodeScripts, hasRustLock,
       )
+      return { script: args.script, plan, cwd: canonicalCwd, timeoutMs }
+}
+
+export async function runPreparedVerify(
+  ctx: Context, settings: Settings, exec: ToolRunContext, prepared: PreparedVerification,
+) {
+  const { plan, cwd: canonicalCwd, timeoutMs } = prepared
       const result = await runCommand(ctx, {
         command: plan.command, args: plan.args, cwd: canonicalCwd, signal: exec.signal,
         timeoutMs, maxOutputBytes: MAX_OUTPUT, hostOnly: true,
@@ -107,7 +132,7 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       const exitCode = result.exitCode ?? -1
       const combined = result.stdout + '\n' + result.stderr
       return {
-        script: args.script,
+        script: prepared.script,
         project: plan.project,
         command: [plan.command, ...plan.args].join(' '),
         exitCode,
@@ -116,6 +141,4 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
         output: redactKnownTokens(combined.slice(0, MAX_OUTPUT), settings),
         truncated: result.lossy || combined.length > MAX_OUTPUT,
       }
-    },
-  })
-}
+ }
