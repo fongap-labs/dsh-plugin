@@ -25,7 +25,7 @@ function hostOutput(stdout, exitCode = 0) {
   }
 }
 
-async function fixture({ status = '## main\\0', deny = false, drift = false, mounted = true, allowGit = true } = {}) {
+async function fixture({ status = '## main\0', deny = false, drift = false, mounted = true, allowGit = true } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-native-resume-'))
   const commands = []
   const agent = { session: { id: 'session-one' } }
@@ -59,7 +59,7 @@ async function fixture({ status = '## main\\0', deny = false, drift = false, mou
         if (spec.argv[0] !== 'git') throw new Error('Unexpected command')
         if (spec.argv[1] === 'rev-parse') {
           headReads++
-          return hostOutput((drift && headReads > 1 ? SECOND_HEAD : HEAD) + '\\n')
+          return hostOutput((drift && headReads > 1 ? SECOND_HEAD : HEAD) + '\n')
         }
         if (spec.argv[1] === 'status') return hostOutput(status)
         throw new Error('Unexpected Git args')
@@ -133,7 +133,7 @@ describe('Delta Code Worker native session resume', () => {
   })
 
   it('requires inspection of pre-existing modified and untracked files', async () => {
-    for (const status of ['## main\\0 M touched.ts\\0', '## main\\0?? new.ts\\0']) {
+    for (const status of ['## main\0 M touched.ts\0', '## main\0?? new.ts\0']) {
       const f = await fixture({ status })
       try {
         f.emit(TASKS)
