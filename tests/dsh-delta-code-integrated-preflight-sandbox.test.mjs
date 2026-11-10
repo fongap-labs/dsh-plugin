@@ -28,4 +28,33 @@ describe('DSH Code Worker integrated P0 security', () => {
       await rm(outside, { recursive: true, force: true })
     }
   })
+  it('respects DSH Host FS resolution denial before starting the batch writes', async () => {
+    let writes = 0
+    let resolutions = 0
+    const ctx = {
+      get(name) {
+        if (name !== 'fs') return undefined
+        return {
+          resolve: async target => {
+            resolutions += 1
+            if (target.endsWith('blocked.txt')) throw new Error('host denied edit target')
+            return target
+          },
+          readText: async () => '',
+          writeText: async () => { writes += 1 },
+        }
+      },
+    }
+    const tool = createMultiEditTool(ctx, normalizeConfig({ workspaceRoot: process.cwd() }))
+    const result = await tool.execute({ preflight: true, edits: [
+      { path: 'safe.txt', content: 'do not write' },
+      { path: 'blocked.txt', content: 'also do not write' },
+    ] }, { signal: new AbortController().signal })
+    assert.equal(result.applied, 0)
+    assert.equal(resolutions, 2)
+    assert.equal(writes, 0)
+    assert.match(result.results[1].note, /host denied edit target/)
+    assert.ok(result.results.every(item => !item.ok))
+  })
+
 })
