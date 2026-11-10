@@ -19,7 +19,7 @@ const STEP_SCHEMA = {
     output: { type: 'string' as const, required: true },
     truncated: { type: 'boolean' as const, required: true },
   },
-}
+} as const
 
 /** Bounded sequential execution; every requested step is checked before the first spawn. */
 export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDefinition {
