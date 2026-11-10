@@ -211,8 +211,14 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             try {
               // The exact version returned by OUR write is mandatory.
               // Never fetch a newer version and treat it as permission to restore.
-              await writeTextSafe(ctx, exec, root, entry.path, entry.original, settings,
+              const restoredOutcome = await writeTextSafe(ctx, exec, root, entry.path, entry.original, settings,
                 { kind: 'replaceIfVersion', version: entry.version })
+              const restoredVersion = (restoredOutcome as { version?: unknown } | null)?.version
+              if (typeof restoredVersion !== 'string' || restoredVersion.length === 0) {
+                // The Host may have applied the restoration but its final state
+                // is unconfirmed. Do not count it as a successful rollback.
+                throw new Error('recovery outcome missing a valid Host version; state unconfirmed')
+              }
               rollback.restored += 1
               applied -= 1
               written[entry.resultIndex] = {
@@ -223,7 +229,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               rollback.failed += 1
               written[entry.resultIndex] = {
                 ...written[entry.resultIndex]!,
-                note: 'write retained; recovery refused: ' + errorMessage(error),
+                note: 'write may remain; recovery unconfirmed or refused: ' + errorMessage(error),
               }
             }
           }

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 补偿恢复必须验证宿主回传版本，缺失时标记状态未确认。
+
 - 新增: Code Worker 批量编辑支持显式版本保护补偿恢复，失败时报告留存写入。
 
 - 修复 [security]: Code Worker Linux 本地文件读写通过目录句柄锚定父路径。

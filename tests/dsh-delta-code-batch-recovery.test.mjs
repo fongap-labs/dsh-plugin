@@ -56,6 +56,8 @@ function simulatedHost(options = {}) {
       const version = 'v' + ++sequence
       files.set(target.key, { content, version })
       options.afterWrite?.({ target, content, version, files, writes })
+      if (options.omitRecoveryOutcome && content === 'original-first') return undefined
+      if (options.invalidRecoveryOutcome && content === 'original-first') return { operation: 'update', version: '' }
       if (options.omitOutcome) return undefined
       return { operation: previous ? 'update' : 'create', version, before: previous?.content ?? null, after: content }
     },
@@ -103,6 +105,31 @@ describe('Code Worker guarded batch compensation', () => {
     assert.equal(result.rollback.failed, 1)
     assert.match(result.results[0].note, /Host refused compensation/)
     assert.equal(host.files.get(resolve(root, 'first.txt')).content, 'our-first')
+  })
+
+  it('does not report recovery success when Host acknowledges without a version', async () => {
+    const host = simulatedHost({ denySecond: true, omitRecoveryOutcome: true })
+    const result = await host.tool.execute({ preflight: true, rollbackOnFailure: true, edits }, exec())
+    assert.equal(result.applied, 1)
+    assert.equal(result.rollback.attempted, 1)
+    assert.equal(result.rollback.restored, 0)
+    assert.equal(result.rollback.failed, 1)
+    assert.equal(result.results[0].ok, true)
+    assert.match(result.results[0].note, /state unconfirmed/)
+    // The mocked Host did restore bytes, but without a version there is no
+    // trustworthy recovery evidence, so the tool must not claim success.
+    assert.equal(host.files.get(resolve(root, 'first.txt')).content, 'original-first')
+    assert.equal(host.writes.length, 3)
+  })
+
+  it('does not accept an empty recovery version as evidence of restoration', async () => {
+    const host = simulatedHost({ denySecond: true, invalidRecoveryOutcome: true })
+    const result = await host.tool.execute({ preflight: true, rollbackOnFailure: true, edits }, exec())
+    assert.equal(result.applied, 1)
+    assert.equal(result.rollback.attempted, 1)
+    assert.equal(result.rollback.restored, 0)
+    assert.equal(result.rollback.failed, 1)
+    assert.match(result.results[0].note, /recovery unconfirmed/)
   })
 
   it('refuses automatic restoration of newly created files at preflight', async () => {
