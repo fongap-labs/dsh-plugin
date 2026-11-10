@@ -115,12 +115,10 @@ export async function resolveRoot(
     exec.agent !== undefined &&
     typeof workingDirectory.ensure === 'function'
   ) {
-    try {
-      const dir = await workingDirectory.ensure(exec.agent, exec.signal)
-      if (dir) return dir
-    } catch {
-      /* fall through to config / cwd */
-    }
+    // A Host error is an explicit failure, not permission to use process.cwd().
+    // Only an absent Host-provided directory may use the configured fallback.
+    const dir = await workingDirectory.ensure(exec.agent, exec.signal)
+    if (dir) return dir
   }
   if (settings.workspaceRoot) return settings.workspaceRoot
   return process.cwd()
