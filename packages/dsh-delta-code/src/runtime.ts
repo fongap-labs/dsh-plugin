@@ -219,7 +219,9 @@ export async function writeTextSafe(
     }
     const signal = exec.signal
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
-    return fs.writeText(resolved, content, 'overwrite', signal)
+    // The current DSH FileSystem API takes an optional FsWriteIntent here;
+    // omit the intent for an unconditional write, not the legacy string 'overwrite'.
+    return fs.writeText(resolved, content, undefined, signal)
   }
   await assertLocalPathInside(root, absolute, true)
   await mkdir(dirname(absolute), { recursive: true })
