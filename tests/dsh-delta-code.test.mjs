@@ -285,7 +285,8 @@ describe("dsh-delta-code", () => {
       enabled: true,
       workspaceRoot: workspace,
     });
-    assert.equal(unregisterCtx.registered.size, 11);
+    assert.equal(unregisterCtx.registered.size, 12);
+    assert.ok(unregisterCtx.registered.has('code_git_worktree'));
     disposer();
     assert.equal(unregisterCtx.registered.size, 0);
   });
