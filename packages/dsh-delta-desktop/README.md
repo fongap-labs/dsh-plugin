@@ -6,9 +6,9 @@
 - 插件配置条目：`dsh-delta-desktop`
 - 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
 
-## 功能实现与 7 大模块交付
+## 目标功能与 7 大模块
 
-本插件针对 DeepSeek Harness 原生界面，完整实现了 7 大核心模块的功能与视觉重塑：
+本版本针对 DeepSeek Harness 原生界面探索以下 7 个功能模块；实际交付状态以 CI 和 Windows 宿主验证为准：
 
 1. **左侧导航**：移除顶部 DeepSeek Harness Logo，统一调整搜索框、插件管理、定时任务、开始对话的排列顺序，保持 8px 统一间距与组件圆角高度。
 2. **会话搜索**：保留 Harness 原生搜索能力，将入口移至左侧导航顶部，通过原生事件代理与 React setter 联动，并在 Escape 键时快速清空恢复。
@@ -18,7 +18,7 @@
 6. **视觉体验**：应用浅色 `#286F78`、深色 `#60B4BF` 核心品牌青，覆盖品牌、主要按钮、发送按钮（`.GRgSLq_primary`）、输入框焦点环（2px teal）及状态提示。
 7. **插件生命周期**：启用立即生效；切换至官方外观或停用插件时完全释放所有 DOM 节点与样式注入，恢复原生界面，不影响原生对话、会话历史与第三方插件。
 
-当前 `projects/dsh-delta-desktop/feature-readiness.json` 的 10 项能力校验全部通过。参考 [兼容性说明](COMPATIBILITY.md)。
+`projects/dsh-delta-desktop/feature-readiness.json` 中仍存在未完成的宿主能力标记，不能据此声称已完成实机验收。标记属于诊断信息，版本发布由操作者依据验证结果决定。参考 [兼容性说明](COMPATIBILITY.md)。
 
 ## 模块规划
 
