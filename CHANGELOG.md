@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker 本地写盘使用 O_NOFOLLOW 防止最终符号链接竞态。
+
 - 修复 [security]: Code Worker LSP 探测拦截符号链接越界，及时响应取消。
 
 - 修复 [security]: Code Worker 工程概况读取遵循 DSH Host 文件服务权限。

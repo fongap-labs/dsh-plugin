@@ -1,4 +1,5 @@
-import { readFile, writeFile, mkdir, lstat, realpath } from 'node:fs/promises'
+import { readFile, open, mkdir, lstat, realpath } from 'node:fs/promises'
+import { constants } from 'node:fs'
 import { dirname } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
@@ -204,6 +205,21 @@ export async function readTextSafe(
   return readFile(absolute, 'utf8')
 }
 
+/**
+ * Open a file without following its final path component on supported OSes.
+ * This narrows the check-to-open symlink race, but parent swaps remain possible.
+ */
+export async function writeLocalTextNoFollow(absolute: string, content: string): Promise<void> {
+  const noFollow = constants.O_NOFOLLOW ?? 0
+  const flags = constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | noFollow
+  const handle = await open(absolute, flags, 0o666)
+  try {
+    await handle.writeFile(content, 'utf8')
+  } finally {
+    await handle.close()
+  }
+}
+
 export async function writeTextSafe(
   ctx: Context,
   exec: ToolRunContext,
@@ -227,5 +243,5 @@ export async function writeTextSafe(
   await mkdir(dirname(absolute), { recursive: true })
   // Recheck after directory creation; do not write through a pre-existing link.
   await assertLocalPathInside(root, absolute, true)
-  await writeFile(absolute, content, 'utf8')
+  await writeLocalTextNoFollow(absolute, content)
 }
