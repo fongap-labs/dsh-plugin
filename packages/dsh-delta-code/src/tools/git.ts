@@ -2,7 +2,7 @@ import { realpath } from 'node:fs/promises'
 import { relative } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand, isSubprocessAvailable, resolveInside, isPathInside } from '@fongap-labs/shared'
+import { defineTool, runCommand, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { GitStatusResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot } from '../runtime.js'
 
@@ -78,7 +78,7 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
         signal: exec.signal,
         timeoutMs: 30_000,
         // A denied or failing DSH Host subprocess may never silently retry as Node.
-        hostOnly: isSubprocessAvailable(ctx),
+        hostOnly: ctx.subprocess != null,
       })
       assertGitResult(result, 'code_git_status')
       if (result.lossy) throw new Error('code_git_status: output truncated; refusing partial status')
@@ -178,7 +178,7 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
         signal: exec.signal,
         timeoutMs: 30_000,
         maxOutputBytes: 256 * 1024,
-        hostOnly: isSubprocessAvailable(ctx),
+        hostOnly: ctx.subprocess != null,
       })
       assertGitResult(result, 'code_git_diff')
       return {
