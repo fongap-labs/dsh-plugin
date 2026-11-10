@@ -25,7 +25,9 @@ import { registerAutomaticCodingRouter } from './auto-routing.js'
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 const PROMPT_SECTION_NAME = 'dsh-delta-code:guidance'
 export const name = '@fongap-labs/dsh-delta-code'
-export const inject = ['tools']
+// Both services are required for the plugin's Git, search and verification tools.
+// Cordis forbids undeclared ctx.subprocess reads during tool execution.
+export const inject = ['tools', 'subprocess']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   let settings = normalizeConfig(config)
