@@ -1,4 +1,4 @@
-import { readFile, open, mkdir, lstat, realpath } from 'node:fs/promises'
+import { open, mkdir, lstat, realpath, stat } from 'node:fs/promises'
 import { constants } from 'node:fs'
 import { dirname, relative, resolve, sep } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
@@ -254,8 +254,7 @@ export async function readTextSafe(
     return fs.readText(resolved, signal)
   }
   if (process.platform === 'linux') return readLocalTextAnchored(root, absolute, exec.signal)
-  await assertLocalPathInside(root, absolute, false)
-  return readFile(absolute, 'utf8')
+  return readLocalTextVerified(root, absolute, exec.signal)
 }
 
 /**
@@ -366,6 +365,95 @@ export async function writeLocalTextAnchored(
 }
 
 /**
+ * Portable fallback for Hosts without FS: open without truncation, then verify
+ * the opened file matches the resolved workspace path before reading/writing.
+ *
+ * Unlike Linux's descriptor-relative traversal, these checks cannot close a
+ * malicious parent's rename/reparse-point TOCTOU window on Windows/macOS.
+ * Environments requiring strong isolation must mount an authoritative Host FS.
+ */
+async function openVerifiedLocalFile(
+  root: string, absolute: string, isWrite: boolean, signal?: AbortSignal,
+): Promise<Awaited<ReturnType<typeof open>>> {
+  signal?.throwIfAborted()
+  await assertLocalPathInside(root, absolute, isWrite)
+  const canonicalRoot = await realpath(root)
+  const canonicalParent = await realpath(dirname(absolute))
+  if (!isPathInside(canonicalRoot, canonicalParent)) {
+    throw new SandboxViolationError('parent directory escapes the workspace', { root, target: absolute })
+  }
+
+  // O_TRUNC is deliberately absent: no existing bytes change until the
+  // post-open validation has completed. Never fall back to a path write.
+  const flags = isWrite
+    ? constants.O_WRONLY | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0)
+    : constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0)
+  const handle = await open(absolute, flags, 0o666)
+  try {
+    const metadata = await handle.stat()
+    if (!metadata.isFile() || (isWrite && metadata.nlink > 1)) {
+      throw new SandboxViolationError('target is not a regular unshared file',
+        { root, target: absolute })
+    }
+    signal?.throwIfAborted()
+
+    // On platforms without O_NOFOLLOW, lstat and realpath catch persistent
+    // symlinks and junctions, and fstat/stat detects most path substitutions.
+    const named = await lstat(absolute)
+    if (named.isSymbolicLink()) {
+      throw new SandboxViolationError('symbolic-link file access is not allowed',
+        { root, target: absolute })
+    }
+    const rootAfter = await realpath(root)
+    const parentAfter = await realpath(dirname(absolute))
+    const targetAfter = await realpath(absolute)
+    if (rootAfter !== canonicalRoot || parentAfter !== canonicalParent
+        || !isPathInside(rootAfter, targetAfter)) {
+      throw new SandboxViolationError('workspace path changed while opening file',
+        { root, target: absolute })
+    }
+    const namedMetadata = await stat(absolute)
+    if (!namedMetadata.isFile() || metadata.dev !== namedMetadata.dev
+        || metadata.ino !== namedMetadata.ino
+        || (isWrite && namedMetadata.nlink > 1)) {
+      throw new SandboxViolationError('opened file does not match workspace path',
+        { root, target: absolute })
+    }
+    signal?.throwIfAborted()
+    return handle
+  } catch (error) {
+    await handle.close()
+    throw error
+  }
+}
+
+/** Opened-handle read: never reopen the target by its mutable pathname. */
+export async function readLocalTextVerified(
+  root: string, absolute: string, signal?: AbortSignal,
+): Promise<string> {
+  const handle = await openVerifiedLocalFile(root, absolute, false, signal)
+  try {
+    return await handle.readFile('utf8')
+  } finally {
+    await handle.close()
+  }
+}
+
+/** Opened-handle write: truncate only after the target has been validated. */
+export async function writeLocalTextVerified(
+  root: string, absolute: string, content: string, signal?: AbortSignal,
+): Promise<void> {
+  const handle = await openVerifiedLocalFile(root, absolute, true, signal)
+  try {
+    signal?.throwIfAborted()
+    await handle.truncate(0)
+    await handle.writeFile(content, 'utf8')
+  } finally {
+    await handle.close()
+  }
+}
+
+/**
  * Open a file without following its final path component on supported OSes.
  * This narrows the check-to-open symlink race, but parent swaps remain possible.
  */
@@ -418,7 +506,7 @@ export async function writeTextSafe(
   }
   await assertLocalPathInside(root, absolute, true)
   await mkdir(dirname(absolute), { recursive: true })
-  // Recheck after directory creation; do not write through a pre-existing link.
+  // Check again after creation and before opening the verified handle.
   await assertLocalPathInside(root, absolute, true)
-  await writeLocalTextNoFollow(absolute, content)
+  await writeLocalTextVerified(root, absolute, content, exec.signal)
 }

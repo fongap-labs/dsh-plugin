@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复 [security]: Code Worker Windows/macOS 本地读写改用句柄身份复核后操作。
+
 - 修复 [security]: Code Worker 补偿恢复必须验证宿主回传版本，缺失时标记状态未确认。
 
 - 新增: Code Worker 批量编辑支持显式版本保护补偿恢复，失败时报告留存写入。
