@@ -11,15 +11,19 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export function parseArgs(argv) {
-  const options = { dsh: 'dsh', pluginDir: resolve(import.meta.dirname, '../packages/dsh-delta-code'), bootMs: 3500 }
+  const options = { dsh: 'dsh', pluginDir: resolve(import.meta.dirname, '../packages/dsh-delta-code'), profile: 'sdk', bootMs: 3500 }
   for (let index = 0; index < argv.length; index++) {
     const flag = argv[index]
-    if (!['--dsh', '--plugin-dir', '--boot-ms'].includes(flag) || !argv[index + 1]) {
-      throw new Error('expected --dsh PATH, --plugin-dir PATH or --boot-ms INTEGER')
+    if (!['--dsh', '--plugin-dir', '--profile', '--boot-ms'].includes(flag) || !argv[index + 1]) {
+      throw new Error('expected --dsh PATH, --plugin-dir PATH, --profile sdk|sdk-minimal or --boot-ms INTEGER')
     }
     const value = argv[++index]
     if (flag === '--dsh') options.dsh = value
     if (flag === '--plugin-dir') options.pluginDir = resolve(value)
+    if (flag === '--profile') {
+      if (value !== 'sdk' && value !== 'sdk-minimal') throw new Error('--profile must be sdk or sdk-minimal')
+      options.profile = value
+    }
     if (flag === '--boot-ms') {
       const number = Number(value)
       if (!Number.isInteger(number) || number < 250 || number > 30000) {
@@ -75,14 +79,14 @@ function invoke(bin, args, options, timeoutMs = 90000) {
   })
 }
 
-function bootProfile(bin, prefix, options, bootMs) {
+function bootProfile(bin, prefix, options, bootMs, profile) {
   return new Promise((resolveResult, rejectResult) => {
     let completed = false
     let observedAlive = false
     let exitedEarly = false
     let terminationRequested = false
     let closeDeadline
-    const child = spawn(bin, [...prefix, '--profile', 'sdk-minimal'], {
+    const child = spawn(bin, [...prefix, '--profile', profile], {
       cwd: options.cwd, env: options.env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
     })
     child.stdout.on('data', () => {})
@@ -127,7 +131,10 @@ function bootProfile(bin, prefix, options, bootMs) {
 }
 
 export async function preflight(options) {
+  const profile = options.profile ?? 'sdk'
+  if (profile !== 'sdk' && profile !== 'sdk-minimal') throw new Error('profile must be sdk or sdk-minimal')
   const report = {
+    profile,
     kind: 'dsh-code-worker-host-preflight',
     nativeProfileProcessObserved: false, // Process liveness is not a Host tool acceptance result.
     h01Complete: false, // Tool invocation must be verified separately inside a session.
@@ -157,18 +164,18 @@ export async function preflight(options) {
     report.dshVersion = version.trim().slice(0, 120)
     report.stages.push('dsh-version')
     stage = 'initialize-profile'
-    await invoke(cli.binary, [...cli.prefix, '--profile', 'sdk-minimal', '--dump-default-config'], runtime)
+    await invoke(cli.binary, [...cli.prefix, '--profile', profile, '--dump-default-config'], runtime)
     report.stages.push('isolated-profile-initialized')
     stage = 'install-plugin'
-    await invoke(cli.binary, [...cli.prefix, 'plugin', '--profile', 'sdk-minimal', 'add', 'link:' + options.pluginDir], runtime)
+    await invoke(cli.binary, [...cli.prefix, 'plugin', '--profile', profile, 'add', 'link:' + options.pluginDir], runtime)
     report.stages.push('plugin-linked-in-isolated-profile')
     stage = 'inspect-composition'
-    const composition = await invoke(cli.binary, [...cli.prefix, '--profile', 'sdk-minimal', '--dump-config'], runtime)
+    const composition = await invoke(cli.binary, [...cli.prefix, '--profile', profile, '--dump-config'], runtime)
     if (!composition.includes('dsh-delta-code')) throw new Error('plugin absent from effective Host profile composition')
     report.stages.push('effective-profile-includes-plugin')
     stage = 'boot-native-host'
-    await bootProfile(cli.binary, cli.prefix, runtime, options.bootMs)
-    report.stages.push('native-sdk-minimal-process-alive')
+    await bootProfile(cli.binary, cli.prefix, runtime, options.bootMs, profile)
+    report.stages.push('native-' + profile + '-process-alive')
     report.nativeProfileProcessObserved = true
     report.status = 'preflight-pass'
     return report
