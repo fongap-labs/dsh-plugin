@@ -31,7 +31,7 @@ node scripts/code-worker-host-preflight.mjs \
 
 脚本逐项检查官方 CLI 版本、隔离 Profile 初始化、官方 `dsh plugin add link:...` 安装、最终配置包含本插件，以及无模型交互时原生 `sdk-minimal` 进程在观察窗口内仍运行。它不调用模型、不尝试宿主文件写入、不使用真实 GitHub 凭据。子进程只继承运行所需的少量环境变量，**不转发 API Token 或模型密钥**，输出限定为 Profile、版本、状态和阶段，不回显完整 DSH 配置、命令输出或文件内容。
 
-`status: preflight-pass` 只说明这些准备步骤通过，`nativeProfileProcessObserved` 只说明进程保持运行，**不证明工具真正注册、可调用或通过了 Host 权限审批**。`h01Complete` 和 `h02ToH10Complete` 始终为 `false`。请在该隔离环境的真实 DSH 会话中继续逐项执行 H01–H10，并提交脱敏证据。若没有安装可调用的真实 DSH，本阶段仍标记阻断；仅运行仓库内 mock CLI 单测不能冒充真实宿主验收。
+`status: preflight-pass` 只说明这些准备步骤通过，`nativeProfileProcessObserved` 只说明进程保持运行，**不证明工具真正注册、可调用或通过了 Host 权限审批**。`h01Complete` 和 `h02ToH10Complete` 始终为 `false`。预检结束后临时 `DSH_HOME` 会自动清理；**不能在已清理的临时 Profile 中继续验收**。请在另行创建的隔离 `DSH_HOME` 与完整 `sdk`（或实际桌面）Profile 内执行 H01–H13，提交脱敏证据。若没有安装可调用的真实 DSH，本阶段仍标记阻断；仅运行仓库内 mock CLI 单测不能冒充真实宿主验收。
 
 ## 验收矩阵
 
