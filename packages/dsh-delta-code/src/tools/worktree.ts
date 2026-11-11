@@ -31,7 +31,7 @@ interface WorktreeHostFs {
  */
 async function resolveHostWorktreeTarget(
   fs: WorktreeHostFs, root: string, task: string, signal: AbortSignal,
-  mustExist = false,
+  shouldExist = false,
 ): Promise<string> {
   signal.throwIfAborted()
   const rootTarget = await fs.resolve(root, { cwd: root, signal })
@@ -53,10 +53,10 @@ async function resolveHostWorktreeTarget(
   const targetPath = storage + '/' + task
   signal.throwIfAborted()
   const existing = await fs.lstat(targetPath, { cwd: root }, signal)
-  if (mustExist && (!existing || existing.type !== 'directory')) {
+  if (shouldExist && (!existing || existing.type !== 'directory')) {
     throw new Error('managed worktree directory does not exist or is not a real directory')
   }
-  if (!mustExist && existing) throw new Error('worktree directory already exists')
+  if (!shouldExist && existing) throw new Error('worktree directory already exists')
   const target = await fs.resolve(targetPath, { cwd: root, signal })
   if (!fs.contains(rootTarget, target) || !fs.contains(storageTarget, target)) {
     throw new Error('worktree target escapes Host workspace')
@@ -88,7 +88,7 @@ function registeredTaskWorktree(output: string, target: string, branch: string):
 /** Host-Git only: refuse to remove non-managed, dirty or detached worktrees. */
 async function removeManagedWorktree(
   ctx: Context, settings: Settings, root: string, cwd: string,
-  target: string, task: string, signal: AbortSignal, deleteMergedBranch: boolean,
+  target: string, task: string, signal: AbortSignal, shouldDeleteMergedBranch: boolean,
 ): Promise<string> {
   const branch = 'code-worker/' + task
   const list = await runCommand(ctx, {
@@ -117,7 +117,7 @@ async function removeManagedWorktree(
   if (removed.exitCode !== 0 || removed.signal || removed.timedOut || removed.lossy) {
     throw new Error('worktree removal failed or outcome is uncertain; inspect Git state before retry')
   }
-  if (!deleteMergedBranch) return 'Removed managed worktree for ' + task + '; branch retained: ' + branch
+  if (!shouldDeleteMergedBranch) return 'Removed managed worktree for ' + task + '; branch retained: ' + branch
   const deleted = await runCommand(ctx, {
     command: settings.gitCommand, args: ['branch', '-d', branch],
     cwd, timeoutMs: 15_000, maxOutputBytes: 8 * 1024, signal, hostOnly: true,
