@@ -159,6 +159,40 @@ describe('Delta Code Worker execution delivery gate', () => {
     ]), /duplicate/)
   })
 
+
+  it('allows one terminal self-referential gate Todo to verify, without falsely claiming completion', async () => {
+    const finalTask = '检查最终差异并通过交付验证门禁'
+    const tasks = [...done, { content: finalTask, status: 'in_progress' }]
+    const f = await fixture({ nativeTasks: tasks })
+    try {
+      const result = await f.tool.execute({
+        tasks, expectedHead: HEAD, scripts: ['test'],
+        taskAcceptance: [...acceptance, {
+          task: finalTask, criterion: 'Final verification is recorded', checks: ['test'],
+        }],
+      }, execution())
+      assert.equal(result.stage, 'continue')
+      assert.equal(result.ready, false)
+      assert.deepEqual(result.remaining, [finalTask])
+      assert.deepEqual(result.checks.map(item => item.passed), [true])
+      assert.match(result.nextAction, /Mark only the final gate-only native Todo completed/)
+      assert.ok(f.commands.some(args => args[0] === 'npm'))
+    } finally { await f.cleanup() }
+  })
+
+  it('blocks an incomplete gate Todo immediately when execution is disabled', async () => {
+    const tasks = [...done, { content: '通过交付验证门禁', status: 'in_progress' }]
+    const f = await fixture({ allowCommands: false, nativeTasks: tasks })
+    try {
+      const result = await f.tool.execute({ tasks }, execution())
+      assert.equal(result.stage, 'blocked')
+      assert.equal(result.ready, false)
+      assert.deepEqual(result.remaining, ['通过交付验证门禁'])
+      assert.match(result.nextAction, /Stop invoking this gate/)
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
   it('resumes unfinished Todo steps without performing any command', async () => {
     const f = await fixture()
     try {

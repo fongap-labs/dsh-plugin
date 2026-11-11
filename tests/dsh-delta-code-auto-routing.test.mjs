@@ -49,6 +49,24 @@ describe('Code Worker automatic user-task routing', () => {
     assert.equal(routeCodingTask('接着做', 'code-review-readiness'), 'code-review-readiness')
     assert.equal(routeCodingTask('继续推进任务链'), undefined)
   })
+
+  it('prioritizes the instruction after a long CI log instead of stale failure text', () => {
+    const log = 'GitHub Actions CI failed: error 500\n'.repeat(240)
+    assert.ok(log.length > 4096)
+    assert.equal(routeCodingTask(log + '\n请设计 API 架构方案'), 'code-writing-plans')
+    assert.equal(routeCodingTask(log + '\n请修复 GitHub CI 红叉'), 'code-ci-repair')
+  })
+  it('adds only lightweight guidance to fast changes', () => {
+    const f = fixture()
+    try {
+      const agent = {}
+      f.claim(agent, '只修改一个 TypeScript 函数名称')
+      assert.match(f.render(agent), /minimal fast change/)
+      assert.match(f.render(agent), /optional, not required/)
+      assert.doesNotMatch(f.render(agent), /automatically selected coding workflow/)
+    } finally { f.dispose() }
+  })
+
   it('does not route general conversation, explanations, or opt-outs', () => {
     assert.equal(routeCodingTask('今天有什么新闻'), undefined)
     assert.equal(routeCodingTask('解释一下 Python 是什么'), undefined)

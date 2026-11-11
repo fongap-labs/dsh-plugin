@@ -20,9 +20,17 @@ const SMALL = /(?:\u53ea|\u4ec5|\u5c31|\u7b80\u5355|\u5c0f\u6539|\u5fae\u8c03|\u
  * Short follow-ups inherit the current task route. A general discussion has no route.
  */
 export function routeCodingTask(text: string, previous?: CodingRoute): CodingRoute | undefined {
-  const input = text.trim().slice(0, 4096)
-  if (!input || OPT_OUT.test(input)) return undefined
-  if (CONTINUE.test(input)) return previous
+  const trimmed = text.trim()
+  // Long logs often precede the actual user instruction. Favor the tail
+  // when it contains a coding action, rather than routing on old CI errors.
+  const head = trimmed.length > 4096 ? trimmed.slice(0, 2048) : ''
+  const tail = trimmed.length > 4096 ? trimmed.slice(-2048) : trimmed
+  const finalLine = tail.split(/\r?\n/).map(line => line.trim()).filter(Boolean).at(-1) || tail
+  const tailIntent = CODE_ACTION.test(finalLine) &&
+    (CODE_OBJECT.test(finalLine) || (PLAN.test(finalLine) && CODE_OBJECT.test(head)))
+  const input = tailIntent ? finalLine : head ? head + '\n' + tail : tail
+  if (!input || OPT_OUT.test(tail)) return undefined
+  if (CONTINUE.test(finalLine)) return previous
   if (CI_FAILURE.test(input)) return 'code-ci-repair'
   if (!CODE_OBJECT.test(input) || !CODE_ACTION.test(input)) return undefined
   if (REVIEW.test(input)) return 'code-review-readiness'
@@ -75,7 +83,7 @@ export function registerAutomaticCodingRouter(ctx: Context, settings: () => Sett
       if (message.source?.kind !== 'user') return
       const text = Array.isArray(message.content)
         ? message.content.filter(item => item.type === 'text' && typeof item.text === 'string')
-          .map(item => item.text).join('\n').slice(0, 4096)
+          .map(item => item.text).join('\n')
         : ''
       const next = routeCodingTask(text, routed.get(agent))
       if (next) routed.set(agent, next)
@@ -99,6 +107,13 @@ export function registerAutomaticCodingRouter(ctx: Context, settings: () => Sett
         if (!route) return ''
         const skill = byName.get(route)
         if (!skill) return ''
+        if (route === 'code-fast-change') {
+          return [
+            '# Code Worker: minimal fast change',
+            'Use native DSH editing and the smallest meaningful native test first. Extra Code Worker tools and code_delivery_gate are optional, not required for a small change.',
+            'Report actual changes, checks and any unverified outcome; never claim unrun tests passed.',
+          ].join('\n')
+        }
         return [
           '# Code Worker: automatically selected coding workflow',
           'The current user message is a coding request. Follow the user and repository instructions first.',
