@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 多文件编辑隐式预检时支持 expectedSha256，拒绝过期内容哈希并阻断整批写入。
+
 - 修复: Delta Code 配置快照增加循环引用及深度防护；验证工具支持仅限安全命名且在 Node package.json 中声明的 test:unit 等检查脚本。
 
 - 修复: Delta Code Host 验证增加有界超时与取消信号，结果不确定时阻断重试；区分权限、环境、临时故障与测试失败，交付门禁提示具体处置动作。

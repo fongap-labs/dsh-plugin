@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -105,6 +106,33 @@ describe('Code Worker safe-by-default multi-edit preflight', () => {
       assert.ok(applied.results.every(item => item.ok))
       assert.equal(await readFile(join(root, 'existing.txt'), 'utf8'), 'beta')
       assert.equal(await readFile(join(root, 'new.txt'), 'utf8'), 'value')
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('honors expectedSha256 in the implicit multi-file preflight', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-preflight-hash-'))
+    try {
+      await writeFile(join(root, 'existing.txt'), 'original')
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const digest = createHash('sha256').update('original').digest('hex')
+      const bad = await tool.execute({ edits: [
+        { path: 'existing.txt', content: 'changed', expectedSha256: '0'.repeat(64) },
+        { path: 'created.txt', content: 'must-not-be-written' },
+      ] }, exec())
+      assert.equal(bad.applied, 0)
+      assert.match(bad.results[0].note, /mismatch/)
+      assert.equal(await readFile(join(root, 'existing.txt'), 'utf8'), 'original')
+      await assert.rejects(readFile(join(root, 'created.txt')), { code: 'ENOENT' })
+      const good = await tool.execute({ edits: [
+        { path: 'existing.txt', content: 'changed', expectedSha256: digest },
+        { path: 'created.txt', content: 'new' },
+      ] }, exec())
+      assert.equal(good.applied, 2)
+      assert.ok(good.results.every(result => result.ok))
+      assert.equal(await readFile(join(root, 'existing.txt'), 'utf8'), 'changed')
+      assert.equal(await readFile(join(root, 'created.txt'), 'utf8'), 'new')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
