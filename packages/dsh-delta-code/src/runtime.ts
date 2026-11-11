@@ -17,19 +17,19 @@ const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
 
 export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
-  'Use the `code_multi_edit` tool for batch file edits instead of repeated single edits.',
-  'Use `code_git_status` and `code_git_diff` to inspect repository state before and after changes.',
-  'Use `code_workspace_map` to find relevant tracked files before opening large source trees; for a workspace containing several Git repositories, use its returned repository-relative paths or explicitly set cwd.',
+  'Prefer DSH native editing tools for ordinary changes. Use code_multi_edit only when a multi-file preflight or guarded batch edit offers a concrete benefit; avoid redundant tool calls.',
+  'Use DSH native Git tools where available; code_git_status/code_git_diff are optional for Git worktrees, never prerequisites for ordinary code edits.',
+  'Prefer focused native search and file reads; use code_workspace_map only for large Git workspaces where a tracked-file map would reduce exploration.',
   'If a Code Worker tool fails due to missing Host services or permission rejection, do not retry identical arguments. Switch to the permitted native Host file search or ask for the right repository; never bypass Host approval or read a giant file index.',
   'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
   'For substantial tasks keep the authoritative task list in DSH native todo_write. On continuation, inspect pending/in_progress items instead of blindly repeating work.',
-  'At the start of a resumed coding turn, call code_resume to recover the native session Todo history and inspect Git state. A new turn clears the ordinary todos view, not the durable todo/write log; do not invent completed work or replay old edits. Reconcile HEAD and existing work before continuing.',
-  'Before declaring coding work verified, use code_delivery_gate with the full native Todo list, current Git HEAD and fresh allowlisted checks. An unfinished task, Host denial, failing check, untracked file or changing HEAD blocks verified completion. The gate does not replace review or release authorization.',
+  'On resumed multi-step coding work, consult native Todo/session history first; use code_resume only if native progress is missing and the Host exposes a compatible checkpoint. Reconcile real repository state before replaying edits.',
+  'Use code_delivery_gate only for substantial Git-backed work when Host script execution is authorized, declared scripts exist, and implementation Todos are complete. Never create a self-referential Todo to pass the gate. In non-Git projects or when execution is denied, rely on permitted native evidence and explicitly report verification as incomplete; do not repeatedly call the gate or claim a pass.',
   'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
   'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
   'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',
   'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
-  'Use `code_lsp_probe` to detect available language servers in the current workspace.',
+  'Use code_lsp_probe only to diagnose missing language-server availability; it is not a substitute for Host LSP diagnostics.',
   'Always pass paths relative to the workspace root; absolute paths outside the workspace are rejected by the sandbox.',
 ].join('\n')
 

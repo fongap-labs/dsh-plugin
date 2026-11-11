@@ -11,6 +11,15 @@ import type { NativeResumeReader } from './resume.js'
 
 const ALLOWED_SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const STATUS = new Set(['pending', 'in_progress', 'completed'])
+// The gate itself is not an implementation task. Legacy plans sometimes put
+// it in the final native Todo, which otherwise makes verification recursive.
+function isTerminalGateTodo(tasks: DeliveryTask[], remaining: string[]): boolean {
+  if (remaining.length !== 1 || tasks.length < 2) return false
+  const final = tasks[tasks.length - 1]!
+  if (final.status === 'completed' || final.content.trim() !== remaining[0]) return false
+  if (!tasks.slice(0, -1).every(task => task.status === 'completed')) return false
+  return /(?:交付.{0,16}(?:验证|门禁)|(?:最终|最后).{0,20}(?:验证|验收|门禁)|(?:验证|验收).{0,12}门禁|(?:delivery|verification|acceptance).{0,16}(?:gate|check)|(?:gate|check).{0,16}(?:delivery|verification))/i.test(final.content)
+}
 
 export interface DeliveryTask {
   content: string
@@ -123,7 +132,7 @@ async function hostGit(
 export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeResume?: NativeResumeReader): ToolDefinition {
   return defineTool({
     name: 'code_delivery_gate',
-    description: 'Check the latest DSH native Todo snapshot against supplied task statuses, current Git HEAD/diff hygiene and fresh allowlisted tests before claiming verified completion. Requires the native projection when provided by the plugin. Not a merge approval or task store.',
+    description: 'Optional strict completion gate for Git-backed work with authorized Host execution and declared verification scripts. Not suitable for non-Git workspaces or denied execution; do not call repeatedly if blocked. Requires the native Todo projection when provided. Not a merge approval.',
     parameters: {
       tasks: {
         type: 'array', required: true,
@@ -219,8 +228,16 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
         }
         nativeWriteSeq = checkpoint.writeSeq
       }
-      if (remaining.length > 0) {
-        return gate('continue', 'Resume the first pending or in-progress native Todo item and verify it before marking complete: ' + remaining[0], remaining)
+      if (!settings.allowCommands) {
+        return gate('blocked',
+          'Host script execution is disabled. Stop invoking this gate; use authorized native checks and report any verification gap explicitly.',
+          remaining, '', ['script execution is disabled'])
+      }
+      const terminalGateTodo = isTerminalGateTodo(tasks, remaining)
+      if (remaining.length > 0 && !terminalGateTodo) {
+        return gate('continue',
+          'Complete and verify remaining implementation work before using this gate. Do not add a Todo whose only purpose is to pass the gate: ' + remaining[0],
+          remaining)
       }
 
       const scripts = args.scripts as VerificationScript[] | undefined
@@ -239,10 +256,6 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
       if (typeof args.expectedHead !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(args.expectedHead)) {
         return gate('blocked', 'Read the current Git HEAD through the authorized Host and retry with expectedHead.',
           [], '', ['Git baseline is missing or invalid'])
-      }
-      if (!settings.allowCommands) {
-        return gate('blocked', 'Request Host permission to enable execution.allowCommands; do not bypass the Host.',
-          [], '', ['script execution is disabled'])
       }
       if (exec.signal.aborted) throw new Error('delivery verification cancelled')
 
@@ -337,6 +350,11 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
           task: item.task, criterion: item.criterion,
           checks: item.checks.map(script => checks.find(check => check.script === script)!),
         }))
+        if (terminalGateTodo) {
+          return gate('continue',
+            'Fresh final checks passed. Mark only the final gate-only native Todo completed, then request a fully-completed certificate if needed. Do not rerun blocked checks or claim full completion before the native checkpoint is updated.',
+            remaining, head, [], changes, checks, evidence, taskEvidence)
+        }
         return gate('verified', 'Review acceptance semantics and the actual diff before merge or release.',
           [], head, [], changes, checks, evidence, taskEvidence)
       } catch {
