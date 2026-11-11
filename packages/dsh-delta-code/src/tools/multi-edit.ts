@@ -26,7 +26,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             content: { type: 'string', description: 'Full replacement content for the file.' },
             find: { type: 'string', description: 'Literal substring to locate (used with `replace`).' },
             replace: { type: 'string', description: 'Replacement text for the located substring.' },
-            expectedSha256: { type: 'string', description: 'Optional SHA-256 of the current UTF-8 file content for a preflight overwrite. Rejects stale edits; requires preflight=true.' },
+            expectedSha256: { type: 'string', description: 'Optional SHA-256 of the current UTF-8 file content; requires active preflight (automatic for multi-file batches).' },
           },
         },
       },
@@ -175,7 +175,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
                 }
               }
               if (edit.expectedSha256 !== undefined) {
-                if (!args.preflight) throw new Error('expectedSha256 requires preflight=true')
+                if (!usePreflight) throw new Error('expectedSha256 requires preflight=true')
                 if (typeof edit.expectedSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(edit.expectedSha256)) {
                   throw new Error('expectedSha256 must be a 64-character lowercase SHA-256 digest')
                 }
