@@ -46,7 +46,8 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       return [{ type: 'text', text: value.command + ': ' + (value.passed ? 'PASS' : 'FAIL') + ' (exit ' + value.exitCode + ')\n' + value.output + '\nNext: ' + value.nextAction }]
     } },
     async execute(args, exec) {
-      const prepared = await prepareVerify(ctx, settings, exec, args)
+      if (!isAllowedVerificationScript(args.script)) throw new Error('script is not allowlisted')
+      const prepared = await prepareVerify(ctx, settings, exec, { ...args, script: args.script })
       const evidence = await runPreparedVerify(ctx, settings, exec, prepared)
       const failureKind = classifyVerificationEvidence(evidence)
       return { ...evidence, failureKind, nextAction: verificationNextAction(failureKind) }
