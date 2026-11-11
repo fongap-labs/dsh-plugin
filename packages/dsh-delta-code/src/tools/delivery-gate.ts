@@ -8,6 +8,7 @@ import { parseGitStatus } from './git.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
 import type { VerificationScript } from './verify-presets.js'
 import type { NativeResumeReader } from './resume.js'
+import { classifyFailure, classifyVerificationEvidence, verificationNextAction, type FailureKind } from './failure-policy.js'
 
 const ALLOWED_SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const STATUS = new Set(['pending', 'in_progress', 'completed'])
@@ -267,10 +268,11 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
             script, cwd: args.cwd, project: args.project,
           }))
         }
-      } catch {
+      } catch (error) {
         if (exec.signal.aborted) throw new Error('delivery verification cancelled')
-        return gate('blocked', 'Inspect verification configuration, Host permissions and declared project scripts.',
-          [], '', ['final verification preflight rejected'])
+        const failureKind = classifyFailure(error)
+        return gate('blocked', verificationNextAction(failureKind),
+          [], '', ['final verification preflight rejected (' + failureKind + ')'])
       }
 
       let head = ''
@@ -278,6 +280,7 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
       const blockers: string[] = []
       const evidence: string[] = []
       const checks: GateCheck[] = []
+      let verificationFailure: FailureKind | 'none' = 'none'
       try {
         const root = await resolveRoot(ctx, exec, settings)
         const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
@@ -316,7 +319,8 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
           const result = await runPreparedVerify(ctx, settings, exec, step)
           checks.push({ script: result.script, exitCode: result.exitCode, passed: result.passed })
           if (!result.passed) {
-            blockers.push('verification failed: ' + result.script)
+            verificationFailure = classifyVerificationEvidence(result)
+            blockers.push('verification failed (' + verificationFailure + '): ' + result.script)
             break
           }
         }
@@ -343,7 +347,9 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
           }
         }
         if (blockers.length > 0) {
-          return gate('blocked', 'Resolve blockers, update the native Todo if needed, then rerun checks.',
+          return gate('blocked', verificationFailure === 'none'
+            ? 'Resolve repository or native Todo blockers before requesting fresh verification.'
+            : verificationNextAction(verificationFailure),
             [], head, blockers, changes, checks, evidence)
         }
         const taskEvidence = acceptance.map(item => ({
@@ -357,10 +363,11 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
         }
         return gate('verified', 'Review acceptance semantics and the actual diff before merge or release.',
           [], head, [], changes, checks, evidence, taskEvidence)
-      } catch {
+      } catch (error) {
         if (exec.signal.aborted) throw new Error('delivery verification cancelled')
-        return gate('blocked', 'Inspect the failing Host operation or Git diff; do not retry using unapproved local subprocess.',
-          [], head, ['Host Git or verification operation denied, failed or returned incomplete evidence'],
+        const failureKind = classifyFailure(error)
+        return gate('blocked', verificationNextAction(failureKind),
+          [], head, ['Host Git or verification operation denied, failed or returned incomplete evidence (' + failureKind + ')'],
           changes, checks, evidence)
       }
     },
