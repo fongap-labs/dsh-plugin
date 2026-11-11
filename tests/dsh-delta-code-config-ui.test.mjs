@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
+import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 const root = new URL('../packages/dsh-delta-code/', import.meta.url)
 const read = (p) => readFileSync(new URL(p,root),'utf8')
 describe('code worker native settings contract', () => {
@@ -47,5 +48,28 @@ describe('code worker native settings contract', () => {
     assert.match(source,/set\(\[\.\.\.prefix, 'tokenEnv'\], a\.tokenEnv\)/)
     assert.doesNotMatch(source,/set\(\[\.\.\.prefix, 'token'\]/)
     assert.doesNotMatch(source,/type: 'password'/)
+  })
+})
+
+describe('code worker cyclic config protection', () => {
+  it('rejects cyclic objects, arrays, and volatile get() wrappers', () => {
+    const config = { enabled: true }
+    config.git = config
+    assert.throws(() => normalizeConfig(config), /circular configuration reference/)
+    const list = []
+    list.push(list)
+    assert.throws(() => normalizeConfig({ lsp: { servers: list } }), /circular configuration reference/)
+    const node = { get() { return node } }
+    assert.throws(() => normalizeConfig({ git: node }), /circular configuration reference/)
+  })
+
+  it('allows shared subobjects and limits excessive nesting', () => {
+    const shared = { command: 'git' }
+    const config = { git: shared, other: shared }
+    assert.equal(normalizeConfig(config).gitCommand, 'git')
+    assert.equal(config.git, shared)
+    let nested = {}
+    for (let i = 0; i < 75; i++) nested = { child: nested }
+    assert.throws(() => normalizeConfig({ nested }), /configuration nesting limit exceeded/)
   })
 })
