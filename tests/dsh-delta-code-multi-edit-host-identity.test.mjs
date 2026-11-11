@@ -117,11 +117,30 @@ describe('Code Worker Host multi-edit identity and uncertain write evidence', ()
     assert.equal(f.files.get(resolve(ROOT, 'second.txt')).content, 'new-two')
   })
 
-  it('marks an uncertain single-edit failure and does not hide later successful edits', async () => {
+
+  it('stops after an uncertain Host write under the default batch preflight', async () => {
+    const f = host({ 'first.txt': 'original-one', 'second.txt': 'original-two' }, {
+      throwAfterSecond: true,
+    })
+    const result = await f.tool.execute({
+      edits: [
+        { path: 'second.txt', content: 'new-two' },
+        { path: 'first.txt', content: 'new-one' },
+      ],
+    }, execution())
+    assert.equal(result.applied, 0)
+    assert.match(result.results[0].note, /Host write outcome unconfirmed/)
+    assert.match(result.results[1].note, /earlier batch write failed/)
+    assert.equal(f.files.get(resolve(ROOT, 'first.txt')).content, 'original-one')
+    assert.equal(f.writes.length, 1)
+  })
+
+  it('preserves explicit legacy best-effort continuation after an uncertain write', async () => {
     const f = host({ 'second.txt': 'original-two', 'first.txt': 'original-one' }, {
       throwAfterSecond: true,
     })
     const result = await f.tool.execute({
+      preflight: false,
       edits: [
         { path: 'second.txt', content: 'new-two' },
         { path: 'first.txt', content: 'new-one' },
