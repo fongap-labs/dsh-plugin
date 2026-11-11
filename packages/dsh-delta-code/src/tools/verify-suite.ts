@@ -4,7 +4,7 @@ import { defineTool } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import type { VerificationScript } from './verify-presets.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
-import { classifyFailure, type FailureKind } from './failure-policy.js'
+import { classifyFailure, classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
 
 const CHECKS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const STEP_SCHEMA = {
@@ -81,9 +81,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
         if (exec.signal.aborted) throw new Error('verification cancelled')
         try {
           const evidence = await runPreparedVerify(ctx, settings, exec, step)
-          const failureKind: FailureKind | 'none' = evidence.passed ? 'none'
-            : evidence.timedOut || evidence.truncated ? 'unknown'
-            : classifyFailure(evidence.output) === 'transient' ? 'transient' : 'verification'
+          const failureKind = classifyVerificationEvidence(evidence)
           results.push({ ...evidence, failureKind })
           if (!evidence.passed) break
         } catch (error) {
@@ -100,11 +98,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
       }
       const passed = results.length === prepared.length && results.every(result => result.passed)
       const failure = results.find(result => !result.passed)
-      const nextAction = passed ? 'Verification passed; inspect the diff and delivery requirements.'
-        : failure?.failureKind === 'permission' ? 'Request Host authorization; do not bypass permissions or retry automatically.'
-        : failure?.failureKind === 'transient' ? 'Investigate the temporary dependency/transport failure; rerun explicitly only after confirming safety.'
-        : failure?.failureKind === 'verification' ? 'Diagnose the failing check and change the hypothesis before rerunning.'
-        : 'Inspect the Host outcome before any rerun; the command may have executed.'
+      const nextAction = verificationNextAction(failure?.failureKind ?? 'none')
       return {
         passed, completed: results.length,
         skipped: prepared.slice(results.length).map(step => step.script),

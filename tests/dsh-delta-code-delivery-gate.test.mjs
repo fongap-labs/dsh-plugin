@@ -259,7 +259,8 @@ describe('Delta Code Worker execution delivery gate', () => {
       assert.equal(result.ready, false)
       assert.equal(result.stage, 'blocked')
       assert.deepEqual(result.checks.map(x => x.script), ['test'])
-      assert.match(result.blockers.join(' '), /verification failed/)
+      assert.match(result.blockers.join(' '), /verification failed \(verification\)/)
+      assert.match(result.nextAction, /Diagnose the failing check/)
       assert.ok(!f.commands.some(x => x.includes('typecheck')))
     } finally { await f.cleanup() }
   })
@@ -298,6 +299,7 @@ describe('Delta Code Worker execution delivery gate', () => {
       assert.equal(result.stage, 'blocked')
       assert.equal(result.ready, false)
       assert.match(result.blockers.join(' '), /Host Git or verification/)
+      assert.match(result.nextAction, /Host authorization/)
       assert.equal(f.commands.length, 1)
     } finally { await f.cleanup() }
   })

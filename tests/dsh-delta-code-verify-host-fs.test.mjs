@@ -66,6 +66,8 @@ describe('Code Worker verification through DSH Host FS', () => {
     })
     const result = await createVerifyTool(host.ctx, settings).execute({ script: 'test' }, exec())
     assert.equal(result.passed, true)
+    assert.equal(result.failureKind, 'none')
+    assert.match(result.nextAction, /Verification passed/)
     assert.equal(result.project, 'node')
     assert.deepEqual(host.spawns.map(item => item.argv), [['pnpm', 'run', 'test']])
     assert.equal(host.spawns[0].cwd, HOST_EXECUTION_CWD)

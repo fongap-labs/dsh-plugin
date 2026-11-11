@@ -98,6 +98,30 @@ describe('DSH Code Worker fail-fast verification suite', () => {
     } finally { await f.cleanup() }
   })
 
+  it('classifies a missing Host executable as environment failure without retry', async () => {
+    const f = await fixture({ test: 'node --test', build: 'tsc' }, () => { throw Error('spawn npm ENOENT') })
+    try {
+      const result = await f.tool.execute({ scripts: ['test', 'build'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].failureKind, 'environment')
+      assert.deepEqual(result.skipped, ['build'])
+      assert.match(result.nextAction, /Restore the missing Host subprocess or executable/)
+      assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('treats a missing Host exit status as uncertain, never as a passing check', async () => {
+    const f = await fixture({ test: 'node --test', build: 'tsc' }, () => hostResult(null))
+    try {
+      const result = await f.tool.execute({ scripts: ['test', 'build'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].failureKind, 'uncertain')
+      assert.deepEqual(result.skipped, ['build'])
+      assert.match(result.nextAction, /outcome is unconfirmed/)
+      assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
   it('keeps command execution disabled by default', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-verify-disabled-'))
     try {

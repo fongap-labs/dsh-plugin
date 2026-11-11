@@ -7,6 +7,7 @@ import type { Settings } from '../types.js'
 import { readTextSafe, resolveRoot } from '../runtime.js'
 import { chooseVerificationCommand, type VerificationProject, type VerificationCommand, type VerificationScript } from './verify-presets.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
+import { classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
 
 const SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
@@ -40,12 +41,16 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       timedOut: { type: 'boolean', required: true },
       output: { type: 'string', required: true },
       truncated: { type: 'boolean', required: true },
+      failureKind: { type: 'string', required: true },
+      nextAction: { type: 'string', required: true },
     } }, render(_args, value) {
-      return [{ type: 'text', text: value.command + ': ' + (value.passed ? 'PASS' : 'FAIL') + ' (exit ' + value.exitCode + ')\n' + value.output }]
+      return [{ type: 'text', text: value.command + ': ' + (value.passed ? 'PASS' : 'FAIL') + ' (exit ' + value.exitCode + ')\n' + value.output + '\nNext: ' + value.nextAction }]
     } },
     async execute(args, exec) {
       const prepared = await prepareVerify(ctx, settings, exec, args)
-      return runPreparedVerify(ctx, settings, exec, prepared)
+      const evidence = await runPreparedVerify(ctx, settings, exec, prepared)
+      const failureKind = classifyVerificationEvidence(evidence)
+      return { ...evidence, failureKind, nextAction: verificationNextAction(failureKind) }
     },
   })
 }
@@ -184,25 +189,54 @@ export async function prepareVerify(
   return { script: args.script, plan, cwd: executionCwd, timeoutMs }
 }
 
+/**
+ * Bound Host verification even if the Host never settles its done promise.
+ * A deadline requests cancellation, but does NOT prove the command stopped.
+ * No local fallback or automatic retry of an unconfirmed execution is allowed.
+ */
 export async function runPreparedVerify(
   ctx: Context, settings: Settings, exec: ToolRunContext, prepared: PreparedVerification,
 ) {
   if (exec.signal.aborted) throw new Error('verification cancelled')
-  const { plan, cwd: canonicalCwd, timeoutMs } = prepared
-      const result = await runCommand(ctx, {
-        command: plan.command, args: plan.args, cwd: canonicalCwd, signal: exec.signal,
+  const { plan, cwd, timeoutMs } = prepared
+  const stop = new AbortController()
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let onCancel: (() => void) | undefined
+  try {
+    const result = await Promise.race([
+      runCommand(ctx, {
+        command: plan.command, args: plan.args, cwd, signal: stop.signal,
         timeoutMs, maxOutputBytes: MAX_OUTPUT, hostOnly: true,
-      })
-      const exitCode = result.exitCode ?? -1
-      const combined = result.stdout + '\n' + result.stderr
-      return {
-        script: prepared.script,
-        project: plan.project,
-        command: [plan.command, ...plan.args].join(' '),
-        exitCode,
-        passed: exitCode === 0 && !result.timedOut && !result.lossy,
-        timedOut: result.timedOut,
-        output: redactKnownTokens(combined.slice(0, MAX_OUTPUT), settings),
-        truncated: result.lossy || combined.length > MAX_OUTPUT,
-      }
- }
+      }),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          reject(new Error('Host verification deadline exceeded; execution outcome unconfirmed'))
+          stop.abort()
+        }, timeoutMs)
+      }),
+      new Promise<never>((_resolve, reject) => {
+        onCancel = () => {
+          reject(new Error('verification cancelled'))
+          stop.abort()
+        }
+        exec.signal.addEventListener('abort', onCancel, { once: true })
+        if (exec.signal.aborted) onCancel()
+      }),
+    ])
+    const exitCode = result.exitCode ?? -1
+    const combined = result.stdout + '\n' + result.stderr
+    return {
+      script: prepared.script,
+      project: plan.project,
+      command: [plan.command, ...plan.args].join(' '),
+      exitCode,
+      passed: exitCode === 0 && !result.timedOut && !result.lossy,
+      timedOut: result.timedOut,
+      output: redactKnownTokens(combined.slice(0, MAX_OUTPUT), settings),
+      truncated: result.lossy || combined.length > MAX_OUTPUT,
+    }
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+    if (onCancel) exec.signal.removeEventListener('abort', onCancel)
+  }
+}
