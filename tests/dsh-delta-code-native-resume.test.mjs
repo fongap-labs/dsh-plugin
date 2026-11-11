@@ -25,7 +25,7 @@ function hostOutput(stdout, exitCode = 0) {
   }
 }
 
-async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true } = {}) {
+async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true, transientOnce = false } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-native-resume-'))
   const commands = []
   const agent = { session: { id: 'session-one' } }
@@ -56,6 +56,7 @@ async function fixture({ status = '## main\0', statusAfter, deny = false, drift 
     subprocess: {
       spawn(spec) {
         commands.push(spec.argv)
+        if (transientOnce && commands.length === 1) throw new Error('HTTP 503 Service Unavailable')
         if (deny) throw new Error('Host denied request')
         if (spec.argv[0] !== 'git') throw new Error('Unexpected command')
         if (spec.argv[1] === 'rev-parse') {
@@ -112,6 +113,27 @@ describe('Delta Code Worker native session resume', () => {
         ['git', 'status', '--porcelain=v1', '--branch', '-z'],
         ['git', 'rev-parse', '--verify', 'HEAD'],
       ])
+    } finally { await f.cleanup() }
+  })
+
+  it('rejects stale native Todo sequences without executing Git', async () => {
+    const f = await fixture()
+    try {
+      f.emit(TASKS, 7)
+      const result = await f.tool.execute({ expectedHead: HEAD, expectedSeq: 6 }, execute(f.agent))
+      assert.equal(result.stage, 'blocked')
+      assert.match(result.blockers.join(' '), /sequence differs/)
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
+  it('retries an explicit transient read-only Host Git failure only once', async () => {
+    const f = await fixture({ transientOnce: true })
+    try {
+      f.emit(TASKS, 7)
+      const result = await f.tool.execute({ expectedHead: HEAD, expectedSeq: 7 }, execute(f.agent))
+      assert.equal(result.stage, 'resume')
+      assert.equal(f.commands.filter(args => args[1] === 'rev-parse').length, 3)
     } finally { await f.cleanup() }
   })
 

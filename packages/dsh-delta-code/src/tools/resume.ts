@@ -11,6 +11,7 @@ import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { remainingDeliveryTasks, type DeliveryTask } from './delivery-gate.js'
 import { parseGitStatus } from './git.js'
+import { retryReadOnly, classifyFailure } from './failure-policy.js'
 
 type ResumeState = { tasks: DeliveryTask[] | null; writeSeq: number; invalid: boolean }
 type SessionEvent = { type: string; seq: number; data?: unknown }
@@ -122,14 +123,21 @@ function result(stage: ResumeStage, nextAction: string, state?: ResumeState,
 
 async function hostGit(ctx: Context, settings: Settings, cwd: string,
   exec: ToolRunContext, args: string[]): Promise<string> {
-  const output = await runCommand(ctx, {
-    command: settings.gitCommand, args, cwd, signal: exec.signal,
-    timeoutMs: 30_000, maxOutputBytes: 64 * 1024, hostOnly: true,
-  })
-  if (output.exitCode !== 0 || output.signal || output.timedOut || output.lossy) {
-    throw new Error('DSH Host Git inspection failed or returned incomplete data')
-  }
-  return output.stdout
+  return retryReadOnly(async () => {
+    const output = await runCommand(ctx, {
+      command: settings.gitCommand, args, cwd, signal: exec.signal,
+      timeoutMs: 30_000, maxOutputBytes: 64 * 1024, hostOnly: true,
+    })
+    if (output.exitCode !== 0 || output.signal || output.timedOut || output.lossy) {
+      // Only an explicit transient response can be retried; never retry
+      // truncated output, permission refusals, or unknown command outcomes.
+      const transient = !output.timedOut && !output.signal && !output.lossy &&
+        classifyFailure(output.stderr) === 'transient'
+      throw new Error(transient ? 'HTTP 503 transient Host Git response' :
+        'DSH Host Git inspection failed or returned incomplete data')
+    }
+    return output.stdout
+  }, exec.signal)
 }
 
 /** Explicit, read-only resume decision. Never replays edits or trusts Todo alone. */
@@ -141,6 +149,7 @@ export function createNativeResumeTool(
     description: 'Recover last native todo_write snapshot from DSH session history across turns, reconcile it with Host Git HEAD and status. No writes, no auto replay. Supply expectedHead if the previous checkpoint recorded one.',
     parameters: {
       expectedHead: { type: 'string', description: 'Optional checkpoint HEAD SHA; when supplied, a mismatch blocks continuation.' },
+      expectedSeq: { type: 'integer', description: 'Exact native todo/write sequence from the previous checkpoint; reject stale continuations when supplied.' },
       cwd: { type: 'string', description: 'Optional workspace-relative repository/worktree path.' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
@@ -186,6 +195,11 @@ export function createNativeResumeTool(
       if (pending.length === 0) {
         return result('complete', 'All historical Todo items say completed. Inspect actual evidence before starting a new task.', state)
       }
+      if (args.expectedSeq !== undefined &&
+          (!Number.isSafeInteger(args.expectedSeq) || args.expectedSeq < 0 || args.expectedSeq !== state.writeSeq)) {
+        return result('blocked', 'Native Todo checkpoint sequence differs; reload tasks before continuing.',
+          state, '', [], ['native Todo sequence differs from expected checkpoint'])
+      }
       if (!settings.gitEnabled) return result('blocked', 'Enable authorized Git inspection for task reconciliation.',
         state, '', [], ['Git tool is disabled'])
       if (args.expectedHead !== undefined && (typeof args.expectedHead !== 'string' ||
@@ -219,7 +233,8 @@ export function createNativeResumeTool(
             state, head, [], ['Git status changed while inspecting'])
         }
         const current = reader.read(exec.agent)
-        if (!current || current.writeSeq !== state.writeSeq) {
+        if (!current || current.invalid || current.writeSeq !== state.writeSeq ||
+            JSON.stringify(current.tasks) !== JSON.stringify(state.tasks)) {
           return result('blocked', 'Native task history changed during inspection; reload it.',
             state, head, [], ['native Todo changed during Git inspection'])
         }

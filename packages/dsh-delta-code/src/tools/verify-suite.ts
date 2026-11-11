@@ -4,6 +4,7 @@ import { defineTool } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import type { VerificationScript } from './verify-presets.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
+import { classifyFailure, type FailureKind } from './failure-policy.js'
 
 const CHECKS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const STEP_SCHEMA = {
@@ -18,6 +19,7 @@ const STEP_SCHEMA = {
     timedOut: { type: 'boolean' as const, required: true },
     output: { type: 'string' as const, required: true },
     truncated: { type: 'boolean' as const, required: true },
+    failureKind: { type: 'string' as const, required: true },
   },
 } as const
 
@@ -41,6 +43,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
         passed: { type: 'boolean', required: true },
         completed: { type: 'integer', required: true },
         skipped: { type: 'array', required: true, items: { type: 'string' } },
+        nextAction: { type: 'string', required: true },
         results: { type: 'array', required: true, items: STEP_SCHEMA },
       } },
       render(_args, value) {
@@ -48,6 +51,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
           'Verify suite: ' + (value.passed ? 'PASS' : 'FAIL') + ', ' + value.completed + ' run, ' + value.skipped.length + ' skipped.',
           ...value.results.map(step => step.command + ': ' + (step.passed ? 'PASS' : 'FAIL') + ' (' + step.exitCode + ')\n' + step.output),
           ...(value.skipped.length ? ['Skipped: ' + value.skipped.join(', ')] : []),
+          'Next: ' + value.nextAction,
         ].join('\n') }]
       },
     },
@@ -77,12 +81,16 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
         if (exec.signal.aborted) throw new Error('verification cancelled')
         try {
           const evidence = await runPreparedVerify(ctx, settings, exec, step)
-          results.push(evidence)
+          const failureKind: FailureKind | 'none' = evidence.passed ? 'none'
+            : evidence.timedOut || evidence.truncated ? 'unknown'
+            : classifyFailure(evidence.output) === 'transient' ? 'transient' : 'verification'
+          results.push({ ...evidence, failureKind })
           if (!evidence.passed) break
         } catch (error) {
           if (exec.signal.aborted) throw error
           results.push({
             script: step.script, project: step.plan.project,
+            failureKind: classifyFailure(error),
             command: [step.plan.command, ...step.plan.args].join(' '),
             exitCode: -1, passed: false, timedOut: false, truncated: false,
             output: 'Host subprocess refused or failed; inspect Host logs.',
@@ -90,11 +98,17 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
           break
         }
       }
+      const passed = results.length === prepared.length && results.every(result => result.passed)
+      const failure = results.find(result => !result.passed)
+      const nextAction = passed ? 'Verification passed; inspect the diff and delivery requirements.'
+        : failure?.failureKind === 'permission' ? 'Request Host authorization; do not bypass permissions or retry automatically.'
+        : failure?.failureKind === 'transient' ? 'Investigate the temporary dependency/transport failure; rerun explicitly only after confirming safety.'
+        : failure?.failureKind === 'verification' ? 'Diagnose the failing check and change the hypothesis before rerunning.'
+        : 'Inspect the Host outcome before any rerun; the command may have executed.'
       return {
-        passed: results.length === prepared.length && results.every(result => result.passed),
-        completed: results.length,
+        passed, completed: results.length,
         skipped: prepared.slice(results.length).map(step => step.script),
-        results,
+        nextAction, results,
       }
     },
   })

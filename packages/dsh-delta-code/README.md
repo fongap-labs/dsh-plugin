@@ -83,6 +83,8 @@ Windows/macOS 的本地兼容路径改为**先打开文件句柄，复核工作�
 
 ### 持续执行与交付核验（P0）
 
+`code_resume` 可使用 `expectedSeq`（原生 Todo 写入序号）与 `expectedHead`（Git 基线）拒绝过期续接，仅对明确临时故障有限重试只读 Git。`code_verify_suite` 区分权限、临时依赖故障、验证失败和未知结果，但不自动重跑可能有副作用的测试命令。
+
 `code_delivery_gate` 在最终完成声明前检查**真实 Git 状态和重新执行的测试**，而不是仅信任模型的完成描述。插件注册的原生 Todo 投影可用时，会先核对模型传入的任务列表与 DSH 持久化快照；快照缺失、状态不一致或验证期间出现新的 Todo 写入，均拒绝声称已验证。它使用 DSH 原生 `todo_write` 保存任务计划，**不创建第二套任务数据库或 Agent Runtime**。延续会话时先恢复原生 Todo 中尚未完成的任务，而不是重做已完成项目。此工具不会主动唤醒模型或在用户离线时后台执行。
 
 调用时提供完整任务状态 `tasks`（与最近一次 `todo_write` 一致）、当前仓库 `expectedHead`（40 或 64 位 Git HEAD SHA）、`scripts`（允许的 1–5 项 `test/typecheck/build/lint/check`）和可选 `cwd`。若仍有 `pending` 或 `in_progress`，直接返回下一项任务，**不执行任何命令**。
