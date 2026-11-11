@@ -5,11 +5,10 @@ import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, isSubprocessAvailable, runCommand, resolveInside, isPathInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { readTextSafe, resolveRoot } from '../runtime.js'
-import { chooseVerificationCommand, type VerificationProject, type VerificationCommand, type VerificationScript } from './verify-presets.js'
+import { chooseVerificationCommand, type VerificationProject, type VerificationCommand, type VerificationScript, isAllowedVerificationScript } from './verify-presets.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
 
-const SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
 const MAX_OUTPUT = 32 * 1024
 
@@ -27,7 +26,7 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
     name: 'code_verify',
     description: 'Run an allowlisted test/typecheck/build/lint/check for Node, Rust, Python or Go in the Host subprocess. Disabled unless execution.allowCommands=true; returns bounded evidence.',
     parameters: {
-      script: { type: 'string', required: true, enum: ['test', 'typecheck', 'build', 'lint', 'check'] },
+      script: { type: 'string', required: true, description: 'Allowlisted script or declared Node variant (test:unit).' },
       cwd: { type: 'string', description: 'Optional relative workspace subdirectory.' },
       project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'], description: 'Project type; auto requires exactly one manifest type.' },
       timeoutMs: { type: 'integer', description: 'Host subprocess timeout in ms, 10000..600000; default 120000.' },
@@ -91,7 +90,7 @@ export async function prepareVerify(
   checkCancelled()
   if (!settings.allowCommands) throw new Error('script execution disabled; set execution.allowCommands=true')
   if (!isSubprocessAvailable(ctx)) throw new Error('host subprocess service is required for script execution')
-  if (!SCRIPTS.has(args.script)) throw new Error('script is not allowlisted')
+  if (!isAllowedVerificationScript(args.script)) throw new Error('script is not allowlisted')
   const timeoutMs = args.timeoutMs ?? 120_000
   if (!Number.isInteger(timeoutMs) || timeoutMs < 10_000 || timeoutMs > 600_000) {
     throw new Error('timeoutMs must be between 10000 and 600000')
@@ -167,8 +166,13 @@ export async function prepareVerify(
     const pkg: unknown = JSON.parse(raw)
     if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('invalid package.json')
     const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
-    for (const script of SCRIPTS) {
-      if (typeof scripts?.[script] === 'string') nodeScripts.push(script)
+    if (scripts && (typeof scripts !== 'object' || Array.isArray(scripts))) {
+      throw new Error('package.json scripts must be an object')
+    }
+    for (const [script, command] of Object.entries(scripts ?? {})) {
+      if (isAllowedVerificationScript(script) && typeof command === 'string' && command.trim()) {
+        nodeScripts.push(script)
+      }
     }
   }
   const manager = files.has('pnpm-lock.yaml') ? 'pnpm'
