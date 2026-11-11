@@ -17,7 +17,7 @@ const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusP
 
 function makeHarness({ draft = 'Please explain the request clearly.', pressure, mainRunning = true,
   compactionStatus, command = async () => ({ matched: true }), persistedStorage = new Map(),
-  mcpSnapshot, mcpManager, mcpMutate = async () => true, deltaSettingsSnapshot,
+  mcpSnapshot, mcpNamespace = 'mcp-manager', mcpManager, mcpMutate = async () => true, deltaSettingsSnapshot,
   deltaSettingsMutate = async () => true, credentialsRemote } = {}) {
   let registration
   let nextSessionId = 0
@@ -33,6 +33,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   const tabs = []
   const dialogRoots = []
   const mcpMutations = []
+  const mcpFormQueries = []
   const deltaSettingsMutations = []
   const hookStates = new Map()
   let hookKey = 'default'
@@ -133,7 +134,10 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     },
   } : undefined
   const configForms = mcpForm || deltaForm ? { get(namespace) {
-    if (namespace === 'mcp') return mcpForm
+    if (namespace === 'mcp-manager' || namespace === 'mcp') {
+      mcpFormQueries.push(namespace)
+      return namespace === mcpNamespace ? mcpForm : undefined
+    }
     if (namespace === 'dsh-delta-desktop') return deltaForm
     throw new Error(`Unexpected config namespace ${namespace}`)
   } } : undefined
@@ -178,7 +182,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     inputActions: { setDraft(value) { draftValue = value }, persistDraft() { prompts.push({ persistedDraft: draftValue }) } },
   }
   return { components, effects, prompts, commands, created, opened, refCounts, storage, resources, tabs,
-    dialogRoots, mcpMutations, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
+    dialogRoots, mcpMutations, mcpFormQueries, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
     get draft() { return draftValue }, sessions }
 }
 function textOf(node) {
@@ -199,6 +203,13 @@ function findElement(tree, type) {
   if (!tree || typeof tree !== 'object') return undefined
   if (tree.type === type) return tree
   for (const child of tree.children || []) { const found = findElement(child, type); if (found) return found }
+  return undefined
+}
+function findClass(tree, className) {
+  if (Array.isArray(tree)) return tree.map(child => findClass(child, className)).find(Boolean)
+  if (!tree || typeof tree !== 'object') return undefined
+  if (tree.props?.className === className) return tree
+  for (const child of tree.children || []) { const found = findClass(child, className); if (found) return found }
   return undefined
 }
 function findField(tree, labelText) {
@@ -239,7 +250,21 @@ test('MCP manager entry follows the built-in install action and handles missing 
   assert.equal(dismissed, true)
   const rendered = app.dialogRoots[0].rendered
   const dialog = app.render('mcp-unavailable', rendered.type, rendered.props)
-  assert.match(textOf(dialog), /MCP configuration form is unavailable/i)
+  assert.match(textOf(dialog), /does not expose the MCP settings form/i)
+})
+
+test('MCP settings use the current Desktop entry id and retain a custom Profile fallback', () => {
+  const snapshot = { status: 'ready', revision: 1, writable: true,
+    value: { servers: {} }, base: { servers: {} }, user: { servers: {} } }
+  const desktop = makeHarness({ mcpSnapshot: snapshot })
+  const desktopTree = openMcpDialog(desktop)()
+  assert.ok(findButton(desktopTree, 'Add server'))
+  assert.deepEqual(desktop.mcpFormQueries, ['mcp-manager'])
+
+  const custom = makeHarness({ mcpSnapshot: snapshot, mcpNamespace: 'mcp' })
+  const customTree = openMcpDialog(custom)()
+  assert.ok(findButton(customTree, 'Add server'))
+  assert.deepEqual(custom.mcpFormQueries, ['mcp-manager', 'mcp'])
 })
 
 test('MCP server form writes one revision-fenced server path and preserves failures', async () => {
@@ -590,6 +615,12 @@ test('main-task corrections require a review step and are queued without steerin
     renderSlot: () => null,
   }
   let tree = app.render('sidebar', tab.component, props)
+  assert.ok(findElement(tree, 'details'), 'main task status stays available in a collapsed summary')
+  assert.ok(findClass(tree, 'dtd-assistant-conversation'), 'the main area remains the independent conversation')
+  assert.equal(findClass(tree, 'dtd-correction-box'), undefined, 'correction entry is opened only on request')
+  assert.equal(findElement(tree, 'textarea'), undefined, 'correction editor stays out of the conversation until requested')
+  await findButton(tree, 'Send guidance').props.onClick()
+  tree = app.render('sidebar', tab.component, props)
   const textarea = (() => {
     const walk = node => !node || typeof node !== 'object' ? undefined
       : node.type === 'textarea' ? node

@@ -11,7 +11,7 @@
 | `ctx.theme.overrideTokens(source,tokens)` | `packages/client/ui-theme/src/client/index.ts` | 插件配色，返回拥有者 disposer | 官方色保留/出错提示 | 模拟 |
 | `ctx.slots.inject/register` | `packages/client/ui-slots/README.md` | 安全等待插槽声明，自动释放贡献 | 对应控件不挂载 | 模拟 |
 | `plugins.add.actions` + `MenuItemButton` | `packages/client/ui-plugin-manager/README.md`、`packages/client/ui-agent-preset/src/client/CreatePluginMenuItem.tsx` | 在插件管理“添加插件”菜单中放置 MCP 服务器入口 | 不显示入口 | 模拟 |
-| `configForms.get('mcp')` + `remote.mcpManager` | `packages/client/ui-settings/README.md`、`packages/mcp/mcp-manager/README.md` | Revision fenced MCP 配置写入、状态订阅、探测与重启 | 提示 Host 未提供相应能力 | 模拟 |
+| `configForms.get('mcp-manager')`（兼容 `mcp`）+ `remote.mcpManager` | `packages/bundle/web-app/cordis.patch.yml`、`packages/client/ui-settings/README.md`、`packages/mcp/mcp-manager/README.md` | Revision fenced MCP 配置写入、状态订阅、探测与重启 | 提示 Host 未提供相应能力 | 模拟 |
 | `settings.section` | `packages/client/ui-settings/src/client/contract/slots.ts` | 独立设置栏目，停用后自动移除 | 设置入口不出现 | 模拟 |
 | `ctx.inject(['theme'])` | `packages/client/ui-theme/src/client/index.ts` | 主题提供者延迟就绪 | 独立设置仍显示，配色提示不可用 | 模拟 |
 | `ctx.layout.toggleSidebar/selectPanel` | `packages/client/ui-layout/src/client/service.ts` | 调用官方导航/侧栏动作 | 仅该动作错误提示 | 模拟 |
@@ -95,6 +95,6 @@ Harness 的压缩会把较早的模型上下文替换成一个带有固定 Markd
 
 插件管理页通过公开 `plugins.add.actions` list slot 提供 **添加 MCP 服务器**，用 `order: -100` 排在插件管理器内置的第三方安装项之后、默认 order 为 0 的 Agent Creator 项之前。菜单项使用 Harness 的 `MenuItemButton` primitive；管理弹窗由 Host 提供的 React root 模块挂载。
 
-配置经 `configForms.get('mcp')` 和路径级 `mutate(ops, expectedRevision)` 写入，每次只改一个 `servers.<name>` 节点，不整体替换服务器 map。状态通过 `remote.mcpManager.watch(signal)` 读取，探测与重启调用同一公开 manager API。无 manager、无配置表单或只读连接都会显示对应提示；这些能力未进入 Delta 的必需 Host 契约，其他插件功能仍可使用。
+配置按 Profile 中 MCP Manager 条目的实际 id 读取。Harness Desktop 当前使用 `mcp-manager`，MCP Manager 文档示例也可能将条目命名为 `mcp`；Delta 优先查找 `configForms.get('mcp-manager')`，再回退到 `mcp`。写入使用路径级 `mutate(ops, expectedRevision)`，每次只改一个 `servers.<name>` 节点，不整体替换服务器 map。状态通过 `remote.mcpManager.watch(signal)` 读取，探测与重启调用同一公开 manager API。无 manager、无配置表单或只读连接都会显示对应提示；这些能力未进入 Delta 的必需 Host 契约，其他插件功能仍可使用。
 
 本地模拟测试覆盖入口顺序、服务缺失、stdio 配置写入、拒绝写入、实时连接状态、探测与重启。目标 Harness Desktop 的 MCP Manager 装载、桌面 UI 表现和真实进程/HTTP 连接仍需在 Windows 实机验收。

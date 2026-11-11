@@ -38,12 +38,14 @@ interface DeltaCopy {
     contextBreakdown: string; loadedTurns: string; mainContext: string;
     checkpoint: string; noCheckpoint: string; compactUnavailable: string;
     automaticCompactionFailed: string;
-    correctionPlaceholder: string; reviewCorrection: string; confirmQueue: string;
+    correctionPlaceholder: string; queueCorrection: string; reviewCorrection: string; confirmQueue: string;
     queueOnly: string; correctionQueued: string; correctionFailed: string;
     directionChange: string; previewOptimization: string; applyOptimization: string;
     restoreOriginal: string; cancel: string; copyText: string; draftChanged: string;
     compactNow: string; compacting: string; compactFailed: string;
     mcpAddAction: string; mcpAddDescription: string; mcpTitle: string; mcpSubtitle: string;
+    mcpAddTitle: string; mcpBackToList: string; mcpBasics: string; mcpConnection: string;
+    mcpAuthentication: string; mcpSecurityNotice: string;
     mcpClose: string; mcpUnavailable: string; mcpNotConfigured: string; mcpReadOnly: string;
     mcpRefreshing: string; mcpAddServer: string; mcpEditServer: string; mcpSaveServer: string;
     mcpCancel: string; mcpName: string; mcpNameHint: string; mcpTransport: string;
@@ -1442,29 +1444,35 @@ window.__ModuleLoader__.load({
       }) : el('p', { className: 'dtd-mcp-empty' }, copy.mcpNoServers)
       const formPane = showForm
         ? el('form', { className: 'dtd-mcp-form', onSubmit: (event: { preventDefault(): void }) => { event.preventDefault(); void saveDraft() } },
-          el('h3', null, editingName ? copy.mcpEditServer : copy.mcpAddServer),
-          field(copy.mcpName, draft.name, value => setDraft(state => ({ ...state, name: value })), {
-            hint: copy.mcpNameHint, required: true, readOnly: editingName !== undefined,
-          }),
-          el('label', { className: 'dtd-mcp-field' }, el('span', null, copy.mcpTransport),
-            el('select', { value: draft.transport, onChange: (event: { currentTarget: { value: string } }) =>
-              setDraft(state => ({ ...state, transport: event.currentTarget.value === 'streamable-http' ? 'streamable-http' : 'stdio' })) },
-            el('option', { value: 'stdio' }, copy.mcpStdio), el('option', { value: 'streamable-http' }, copy.mcpHttp))),
-          draft.transport === 'stdio' ? el('div', { className: 'dtd-mcp-transport-fields' },
-            field(copy.mcpCommand, draft.command, value => setDraft(state => ({ ...state, command: value })), { required: true }),
-            field(copy.mcpArgs, draft.args, value => setDraft(state => ({ ...state, args: value })), { multiline: true, hint: copy.mcpArgsHint }),
-            field(copy.mcpEnv, draft.env, value => setDraft(state => ({ ...state, env: value })), { multiline: true, hint: copy.mcpEnvHint }),
-            field(copy.mcpCwd, draft.cwd, value => setDraft(state => ({ ...state, cwd: value })))
-          ) : el('div', { className: 'dtd-mcp-transport-fields' },
-            field(copy.mcpUrl, draft.url, value => setDraft(state => ({ ...state, url: value })), { required: true }),
-            field(copy.mcpHeaders, draft.headers, value => setDraft(state => ({ ...state, headers: value })), { multiline: true, hint: copy.mcpHeadersHint })),
+          el('section', { className: 'dtd-mcp-form-section' },
+            el('h3', null, copy.mcpBasics),
+            field(copy.mcpName, draft.name, value => setDraft(state => ({ ...state, name: value })), {
+              hint: copy.mcpNameHint, required: true, readOnly: editingName !== undefined,
+            })),
+          el('section', { className: 'dtd-mcp-form-section' },
+            el('h3', null, copy.mcpConnection),
+            el('label', { className: 'dtd-mcp-field' }, el('span', null, copy.mcpTransport),
+              el('select', { value: draft.transport, onChange: (event: { currentTarget: { value: string } }) =>
+                setDraft(state => ({ ...state, transport: event.currentTarget.value === 'streamable-http' ? 'streamable-http' : 'stdio' })) },
+              el('option', { value: 'stdio' }, copy.mcpStdio), el('option', { value: 'streamable-http' }, copy.mcpHttp))),
+            draft.transport === 'stdio' ? el('div', { className: 'dtd-mcp-transport-fields' },
+              field(copy.mcpCommand, draft.command, value => setDraft(state => ({ ...state, command: value })), { required: true }),
+              field(copy.mcpArgs, draft.args, value => setDraft(state => ({ ...state, args: value })), { multiline: true, hint: copy.mcpArgsHint }),
+              field(copy.mcpCwd, draft.cwd, value => setDraft(state => ({ ...state, cwd: value })))
+            ) : field(copy.mcpUrl, draft.url, value => setDraft(state => ({ ...state, url: value })), { required: true })),
+          el('section', { className: 'dtd-mcp-form-section' },
+            el('h3', null, copy.mcpAuthentication),
+            draft.transport === 'stdio'
+              ? field(copy.mcpEnv, draft.env, value => setDraft(state => ({ ...state, env: value })), { multiline: true, hint: copy.mcpEnvHint })
+              : field(copy.mcpHeaders, draft.headers, value => setDraft(state => ({ ...state, headers: value })), { multiline: true, hint: copy.mcpHeadersHint }),
+            el('p', { className: 'dtd-mcp-security' }, copy.mcpSecurityNotice)),
           el('label', { className: 'dtd-mcp-checkbox' }, el('input', { type: 'checkbox', checked: draft.enabled,
             onChange: (event: { currentTarget: { checked: boolean } }) => setDraft(state => ({ ...state, enabled: event.currentTarget.checked })) }),
           el('span', null, copy.mcpEnabled)),
-          el('p', { className: 'dtd-mcp-notice' }, draft.transport === 'stdio' ? copy.mcpStdioNotice : copy.mcpCredentialsNotice),
+          feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null,
           el('div', { className: 'dtd-mcp-form-actions' },
             el('button', { type: 'button', className: 'dtd-mcp-button', disabled: pending,
-              onClick: () => { setEditingName(undefined); setDraft(emptyMcpDraft()); setShowForm(false); setFeedback('') } }, copy.mcpCancel),
+              onClick: () => { setEditingName(undefined); setDraft(emptyMcpDraft()); setShowForm(false); setFeedback('') } }, copy.mcpBackToList),
             el('button', { type: 'submit', className: 'dtd-mcp-button is-primary', disabled: !writable },
               pending ? copy.mcpWorking : copy.mcpSaveServer))) : null
 
@@ -1473,22 +1481,30 @@ window.__ModuleLoader__.load({
       } },
         el('section', { className: 'dtd-mcp-dialog', role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'dtd-mcp-title' },
           el('header', { className: 'dtd-mcp-header' },
-            el('div', null, el('h2', { id: 'dtd-mcp-title' }, copy.mcpTitle), el('p', null, copy.mcpSubtitle)),
-            el('button', { type: 'button', className: 'dtd-mcp-close', 'aria-label': copy.mcpClose,
-              disabled: pending, onClick: props.onClose }, '×')),
-          !form ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpFormUnavailable)
-            : formSnapshot.status === 'loading' ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpFormPending) : null,
-          form && !manager ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpUnavailable) : null,
-          managerError ? el('p', { className: 'dtd-mcp-error', role: 'alert' }, managerError) : null,
-          formSnapshot.status === 'ready' && formSnapshot.writable === false
-            ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpReadOnly) : null,
-          el('div', { className: 'dtd-mcp-list', 'aria-live': 'polite' },
-            liveServers === undefined && manager?.watch ? el('p', { className: 'dtd-mcp-loading' }, copy.mcpRefreshing) : null,
-            serverRows),
-          feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null,
-          !formReady ? null : el('div', { className: 'dtd-mcp-footer' },
-            showForm ? formPane : el('button', { type: 'button', className: 'dtd-mcp-button is-primary', disabled: !writable,
-              onClick: beginAdd }, copy.mcpAddServer)))
+            el('div', { className: 'dtd-mcp-heading' },
+              el('h2', { id: 'dtd-mcp-title' }, showForm ? (editingName ? copy.mcpEditServer : copy.mcpAddTitle) : copy.mcpTitle),
+              el('p', null, showForm ? copy.mcpAddDescription : copy.mcpSubtitle)),
+            el('div', { className: 'dtd-mcp-header-actions' },
+              showForm
+                ? el('button', { type: 'button', className: 'dtd-mcp-button', disabled: pending,
+                  onClick: () => { setEditingName(undefined); setDraft(emptyMcpDraft()); setShowForm(false); setFeedback('') } }, copy.mcpBackToList)
+                : el('button', { type: 'button', className: 'dtd-mcp-button is-primary', disabled: !writable,
+                  onClick: beginAdd }, copy.mcpAddServer),
+              el('button', { type: 'button', className: 'dtd-mcp-close', 'aria-label': copy.mcpClose,
+                disabled: pending, onClick: props.onClose }, '×'))),
+          showForm
+            ? formReady ? formPane : el('p', { className: 'dtd-mcp-notice', role: 'alert' }, copy.mcpFormUnavailable)
+            : el('div', { className: 'dtd-mcp-list-view' },
+              !form ? el('p', { className: 'dtd-mcp-notice', role: 'alert' }, copy.mcpFormUnavailable)
+                : formSnapshot.status === 'loading' ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpFormPending) : null,
+              form && !manager ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpUnavailable) : null,
+              managerError ? el('p', { className: 'dtd-mcp-error', role: 'alert' }, managerError) : null,
+              formSnapshot.status === 'ready' && formSnapshot.writable === false
+                ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpReadOnly) : null,
+              el('div', { className: 'dtd-mcp-list', 'aria-live': 'polite' },
+                liveServers === undefined && manager?.watch ? el('p', { className: 'dtd-mcp-loading' }, copy.mcpRefreshing) : null,
+                serverRows),
+              feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null))
       )
     }
     let hoverSessionSource: SearchSessionsApi | undefined
@@ -2026,6 +2042,8 @@ window.__ModuleLoader__.load({
       const [correction, setCorrection] = React.useState('')
       const [confirm, setConfirm] = React.useState(false)
       const [feedback, setFeedback] = React.useState('')
+      const [correctionOpen, setCorrectionOpen] = React.useState(false)
+      const [queuePending, setQueuePending] = React.useState(false)
       const usage = readContextUsage(mainPressure)
       const turns = mainChat.timeline?.turnOrder?.length ?? 0
       const contextExcerpt = conversationContext(mainChat, 3000)
@@ -2034,41 +2052,66 @@ window.__ModuleLoader__.load({
         : mainState.awaitingFirstTurn ? copy.ui.assistantStarting : copy.ui.sessionIdle
       const checkpoint = latestCheckpoint(mainChat)
       const send = async (): Promise<void> => {
-        if (!confirm || !correction.trim()) return
-        const ok = await queueMainCorrection(parentId, correction)
-        setFeedback(ok ? copy.ui.correctionQueued : copy.ui.correctionFailed)
-        if (ok) { setCorrection(''); setConfirm(false) }
+        if (!confirm || !correction.trim() || queuePending) return
+        setQueuePending(true)
+        try {
+          const ok = await queueMainCorrection(parentId, correction.trim())
+          setFeedback(ok ? copy.ui.correctionQueued : copy.ui.correctionFailed)
+          if (ok) { setCorrection(''); setConfirm(false); setCorrectionOpen(false) }
+        } catch { setFeedback(copy.ui.correctionFailed) }
+        finally { setQueuePending(false) }
       }
       const conversation = resource?.value
         ? el(props.SessionProvider as any, { session: resource.value.reference },
           el('div', { className: 'dtd-assistant-conversation' }, props.renderSlot?.('delta.assistant.conversation', {}) ?? null)) : null
       return el('section', { className: 'dtd-assistant-panel', 'aria-label': copy.ui.discussTask },
         el('header', { className: 'dtd-assistant-header' },
-          el('div', null, el('strong', null, resource?.value?.purpose === 'optimization' ? copy.ui.optimizeDraft : copy.ui.discussTask),
+          el('div', { className: 'dtd-assistant-title-copy' },
+            el('strong', null, resource?.value?.purpose === 'optimization' ? copy.ui.optimizeDraft : copy.ui.discussTask),
             el('p', null, copy.ui.assistantContext)),
-          assistantServices?.sidebarRight.closeRightbar ? el('button', { type: 'button', 'aria-label': copy.ui.close,
-            onClick: () => assistantServices?.sidebarRight.closeRightbar?.() }, '×') : null),
-        el('section', { className: 'dtd-main-task-status', 'aria-label': copy.ui.mainTaskStatus },
-          el('strong', null, copy.ui.mainTaskStatus),
-          el('p', null, `${mainStatus} · ${copy.ui.loadedTurns}: ${turns}${mainState.lastAgentError ? ` · ${mainState.lastAgentError}` : ''}`),
-          usage ? el('p', null, `${copy.ui.contextUsage}: ${usage.percent}% (~${usage.used}/${usage.capacity})`) : null,
-          breakdown ? el('p', null, `${copy.ui.contextBreakdown}: system ${breakdown.systemTokens ?? 0} · tools ${breakdown.toolsTokens ?? 0} · messages ${breakdown.messageTokens ?? 0}`) : null,
-          contextExcerpt ? el('details', { className: 'dtd-checkpoint' },
-            el('summary', null, copy.ui.mainContext), el('pre', null, contextExcerpt)) : null,
-          checkpoint ? el('details', { className: 'dtd-checkpoint' },
-            el('summary', null, copy.ui.checkpoint), el('pre', null, checkpoint.summary)) : null),
-        el('section', { className: 'dtd-correction-box' },
-          el('label', null, copy.ui.reviewCorrection),
-          el('textarea', { value: correction, rows: 3, placeholder: copy.ui.correctionPlaceholder,
-            onChange: (event: { currentTarget: { value: string } }) => { setCorrection(event.currentTarget.value); setConfirm(false) } }),
-          confirm ? el('div', { className: 'dtd-correction-confirm' },
-            el('p', null, copy.ui.queueOnly), el('p', null, copy.ui.directionChange),
-            el('pre', null, correction),
-            el('button', { type: 'button', disabled: !correction.trim(), onClick: () => { void send() } }, copy.ui.confirmQueue),
-            el('button', { type: 'button', onClick: () => setConfirm(false) }, copy.ui.cancel))
-            : el('button', { type: 'button', disabled: !correction.trim(), onClick: () => setConfirm(true) }, copy.ui.reviewCorrection),
-          feedback ? el('p', { role: 'status' }, feedback) : null),
-        conversation)
+          el('div', { className: 'dtd-assistant-header-actions' },
+            resource?.value?.purpose === 'discussion' ? el('button', { type: 'button', className: 'dtd-assistant-action',
+              onClick: () => { setCorrectionOpen(true); setConfirm(false); setFeedback('') } }, copy.ui.queueCorrection) : null,
+            assistantServices?.sidebarRight.closeRightbar ? el('button', { type: 'button', className: 'dtd-assistant-close',
+              'aria-label': copy.ui.close, title: copy.ui.close,
+              onClick: () => assistantServices?.sidebarRight.closeRightbar?.() }, '×') : null)),
+        el('details', { className: 'dtd-main-task-status', 'aria-label': copy.ui.mainTaskStatus },
+          el('summary', { className: 'dtd-main-task-summary' },
+            el('span', { className: `dtd-task-state${mainState.running ? ' is-running' : ''}` }, mainStatus),
+            el('span', { className: 'dtd-task-turns' }, `${copy.ui.loadedTurns}: ${turns}`),
+            usage ? el('span', { className: 'dtd-task-context' }, `${usage.percent}%`) : null,
+            el('span', { className: 'dtd-task-details-label' }, copy.ui.mainTaskStatus)),
+          el('div', { className: 'dtd-main-task-details' },
+            mainState.lastAgentError ? el('p', { role: 'alert' }, mainState.lastAgentError) : null,
+            usage ? el('p', null, `${copy.ui.contextUsage}: ${usage.percent}% (~${usage.used}/${usage.capacity})`) : null,
+            breakdown ? el('p', null, `${copy.ui.contextBreakdown}: system ${breakdown.systemTokens ?? 0} · tools ${breakdown.toolsTokens ?? 0} · messages ${breakdown.messageTokens ?? 0}`) : null,
+            contextExcerpt ? el('details', { className: 'dtd-checkpoint' },
+              el('summary', null, copy.ui.mainContext), el('pre', null, contextExcerpt)) : null,
+            checkpoint ? el('details', { className: 'dtd-checkpoint' },
+              el('summary', null, copy.ui.checkpoint), el('pre', null, checkpoint.summary)) : null)),
+        feedback ? el('p', { className: 'dtd-assistant-feedback', role: 'status' }, feedback) : null,
+        conversation,
+        correctionOpen ? el('div', { className: 'dtd-correction-overlay', role: 'presentation',
+          onMouseDown: (event: { target: unknown; currentTarget: unknown }) => {
+            if (event.target === event.currentTarget && !queuePending) setCorrectionOpen(false)
+          } },
+          el('section', { className: 'dtd-correction-dialog', role: 'dialog', 'aria-modal': true,
+            'aria-label': copy.ui.queueCorrection },
+            el('header', { className: 'dtd-correction-dialog-header' },
+              el('strong', null, copy.ui.queueCorrection),
+              el('button', { type: 'button', className: 'dtd-assistant-close', 'aria-label': copy.ui.cancel,
+                disabled: queuePending, onClick: () => setCorrectionOpen(false) }, '×')),
+            el('p', null, copy.ui.queueOnly),
+            el('textarea', { value: correction, rows: 5, placeholder: copy.ui.correctionPlaceholder,
+              onChange: (event: { currentTarget: { value: string } }) => { setCorrection(event.currentTarget.value); setConfirm(false); setFeedback('') } }),
+            confirm ? el('div', { className: 'dtd-correction-confirm' },
+              el('p', null, copy.ui.directionChange), el('pre', null, correction),
+              el('button', { type: 'button', disabled: !correction.trim() || queuePending, onClick: () => { void send() } },
+                queuePending ? copy.ui.assistantStarting : copy.ui.confirmQueue),
+              el('button', { type: 'button', disabled: queuePending, onClick: () => setConfirm(false) }, copy.ui.cancel))
+              : el('button', { type: 'button', className: 'dtd-context-action', disabled: !correction.trim(),
+                onClick: () => setConfirm(true) }, copy.ui.reviewCorrection),
+            feedback && correctionOpen ? el('p', { className: 'dtd-assistant-feedback', role: 'status' }, feedback) : null)) : null)
     }
     function SettingsSectionIcon(): unknown {
       return el('svg', { viewBox: '0 0 24 24', width: 17, height: 17,
@@ -2239,7 +2282,9 @@ window.__ModuleLoader__.load({
                 }, 'dsh-delta-desktop: privacy and vision settings form')
                 mcpScope.effect(() => {
                   const current: McpServices = {
-                    form: candidate.configForms?.get('mcp'),
+                    // The current Desktop Profile names the official manager
+                    // entry `mcp-manager`; some custom Profiles use `mcp`.
+                    form: candidate.configForms?.get('mcp-manager') ?? candidate.configForms?.get('mcp'),
                     manager: candidate.remote?.mcpManager,
                   }
                   mcpServices = current
