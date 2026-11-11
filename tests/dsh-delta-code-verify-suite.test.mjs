@@ -39,7 +39,8 @@ describe('DSH Code Worker fail-fast verification suite', () => {
       assert.deepEqual(f.calls.map(c => c.argv), [
         ['npm','run','typecheck'], ['npm','run','test'], ['npm','run','build'],
       ])
-      assert.ok(result.results.every(step => step.passed && step.exitCode === 0))
+      assert.ok(result.results.every(step => step.passed && step.exitCode === 0 && step.failureKind === 'none'))
+      assert.match(result.nextAction, /Verification passed/)
       assert.ok(f.calls.every(c => c.stdio.stdin === 'ignore'))
     } finally { await f.cleanup() }
   })
@@ -55,6 +56,8 @@ describe('DSH Code Worker fail-fast verification suite', () => {
       assert.equal(f.calls.length, 2)
       assert.equal(result.results[1].exitCode, 2)
       assert.match(result.results[1].output, /failed/)
+      assert.equal(result.results[1].failureKind, 'verification')
+      assert.match(result.nextAction, /Diagnose/)
     } finally { await f.cleanup() }
   })
 
@@ -78,8 +81,20 @@ describe('DSH Code Worker fail-fast verification suite', () => {
       assert.equal(result.completed, 1)
       assert.deepEqual(result.skipped, ['build'])
       assert.equal(result.results[0].exitCode, -1)
+      assert.equal(result.results[0].failureKind, 'permission')
       assert.match(result.results[0].output, /Host subprocess refused/)
+      assert.match(result.nextAction, /Host authorization/)
       assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('does not auto-retry a test that fails due to an HTTP 503 dependency', async () => {
+    const f = await fixture({ test: 'node --test' }, () => hostResult(1, 'HTTP 503 Service Unavailable'))
+    try {
+      const result = await f.tool.execute({ scripts: ['test'] }, execute())
+      assert.equal(result.results[0].failureKind, 'transient')
+      assert.equal(f.calls.length, 1)
+      assert.match(result.nextAction, /rerun explicitly/)
     } finally { await f.cleanup() }
   })
 
