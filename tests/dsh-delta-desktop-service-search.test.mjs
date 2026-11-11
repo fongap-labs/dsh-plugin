@@ -181,6 +181,8 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const plugin = registered.factory(() => ({
     createElement(type, props, ...children) { return { type, props, children } },
     useState(initial) { return [initial, () => {}] },
+    useRef(value) { return { current: value } },
+    useEffect() {},
     useSyncExternalStore(subscribe, read) {
       const snapshot = read()
       if (typeof snapshot === 'string') {
@@ -494,6 +496,8 @@ test('Delta sidebar remains visible without optional Host Session services', () 
   const client = registration.factory(() => ({
     createElement(type, props, ...children) { return { type, props, children } },
     useState(value) { return [value, () => {}] },
+    useRef(initial) { return { current: initial } },
+    useEffect() {},
     useSyncExternalStore(_subscribe, get) { return get() },
   }))
   client.apply(ctx)

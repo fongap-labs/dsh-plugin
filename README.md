@@ -4,7 +4,7 @@
 
 ## 仓库结构
 
-- `packages/dsh-delta-desktop`：Delta Desktop，内部可扩展主题、设置、导航、搜索、对话、工作区及 Host 适配。当前仅实现主题和独立个性设置。
+- `packages/dsh-delta-desktop`：Delta Desktop，提供主题、搜索、会话辅助、Profile 级自动上下文压缩和独立设置；完整布局仍受 Harness 公开插槽能力限制。
 - `packages/dsh-delta-code`：独立的 Delta 编程助手。
 - `packages/shared`：无产品状态的通用工具和安全封装。
 - `projects/dsh-delta-desktop/release.manifest.json`：Action Worker 的单产品发布清单。
@@ -16,6 +16,8 @@
 这是一个插件包，内部允许多个功能模块及设置栏目，不会将后续功能强制限制在“个性设置”。
 
 每个模块须分别声明宿主依赖、配置/本地化、生命周期和失败回退。只有能力真正接通时才向 `settings.section` 注册独立设置页，避免出现无法生效的按钮或虚假开关。详见 [架构](docs/ARCHITECTURE.md) 和 [包内 README](packages/dsh-delta-desktop/README.md)。
+
+Delta Desktop 的上下文功能组合 Harness 原生 `dsh-compaction-basic`、`message-quotes` 和公开 Client 插槽。Profile 层压缩后端在主会话与侧栏会话的模型请求前处理高压力上下文，并将较早消息压成结构化 checkpoint；不会删除会话原始日志。引用、侧栏、输入优化及显示开关的使用方式和实机验收边界见 [包内说明](packages/dsh-delta-desktop/README.md)。
 
 ## 开发
 

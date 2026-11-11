@@ -10,13 +10,28 @@
     "conversation_status_presentation": false,
     "session_hover_card_layout": false,
     "workspace_initial_collapse": false,
-    "default_workspace_delete_guard": false
+    "default_workspace_delete_guard": false,
+    "profile_context_compaction": false,
+    "structured_checkpoint_view": false,
+    "native_selection_quotes": false,
+    "assistant_sidebar_collaboration": false,
+    "safe_input_optimization": false,
+    "generic_model_label_preference": false,
+    "deepseek_account_route_label_preference": false,
+    "deepseek_model_route_toggle": false,
+    "request_redaction": false,
+    "vision_bridge": false,
+    "vision_bridge_admission_adapter": false,
+    "generic_vision_protocols": false,
+    "mcp_server_management": false
   },
-  "note": "Capability flags record incomplete Host contracts and pending Windows conversation/lifecycle acceptance; these are diagnostics only. Release timing and version are controlled exclusively by the operator. DOM-based compatibility takeover remains retired; supported theme, brand, sidebar and settings extensions are retained. Source-level tests do not prove Host compatibility.",
+  "note": "Capability flags record incomplete Host contracts and pending Windows conversation/lifecycle acceptance; these are diagnostics only. Runtime capability detection is used without a fixed Harness version gate. Release timing and version are controlled exclusively by the operator. DOM-based compatibility takeover remains retired; supported theme, brand, sidebar, context, settings, privacy, vision and MCP extensions are retained. Source-level tests do not prove Host compatibility.",
   "verification": {
     "native_client": "tests/dsh-delta-desktop-native.test.mjs",
     "dom_compat": "retired: no direct DOM sidebar takeover",
     "host_guard": "tests/dsh-delta-desktop-host-guard.test.mjs",
-    "upstream_baseline": "deepseek-ai/deepseek-harness@fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159"
+    "mcp_management": "tests/dsh-delta-desktop-context.test.mjs",
+    "privacy_vision": "tests/dsh-delta-desktop-privacy.test.mjs",
+    "upstream_reference": "DeepSeek Harness public APIs; documentation reference only, no runtime version pin"
   }
 }
