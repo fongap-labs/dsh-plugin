@@ -147,6 +147,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Inspect current git status/diff and the task acceptance criteria. Ensure no unrelated files or secrets slipped into the change.',
       'Run the specific required tests and applicable typecheck/lint/build through the Host execution path when available and permitted.',
       'Record exact commands, process exit codes, failure output, scope and current commit SHA; do not convert a test that was skipped, timed out or not run into PASS.',
+      'For final code_delivery_gate verification, supply the exact native Todo snapshot and one ordered taskAcceptance criterion/check mapping per task; accept only checks freshly executed against this Git HEAD. Self-reported criteria are not proof of semantic correctness.',
       'Investigate failures rather than retrying blindly. If verification cannot run, report the blocker and offer a reproducible command without declaring success.',
       'For a PR, inspect the HEAD SHA and the required check/status conclusions through existing GitHub tools. A red or pending gate blocks a readiness claim.',
       'Summarize what changed, what passed, what remains unverified and any deployment or runtime smoke-test gaps.',

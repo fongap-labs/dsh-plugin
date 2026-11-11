@@ -10,6 +10,10 @@ const HEAD = 'a'.repeat(40)
 const NEXT_HEAD = 'b'.repeat(40)
 const execution = () => ({ agent: { session: { id: 'native-test-session' } }, signal: new AbortController().signal })
 const done = [{ content: 'Locate source', status: 'completed' }, { content: 'Fix and test', status: 'completed' }]
+const acceptance = [
+  { task: 'Locate source', criterion: 'Source located and regression tested', checks: ['test'] },
+  { task: 'Fix and test', criterion: 'Regression test passes on the final Git snapshot', checks: ['test'] },
+]
 function hostOutput(code, stdout = '') {
   return {
     done: Promise.resolve({ exitCode: code, signal: null }),
@@ -72,7 +76,7 @@ describe('Delta Code Worker execution delivery gate', () => {
       { content: 'Fix and test', status: 'pending' },
     ] })
     try {
-      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      const result = await f.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'] }, execution())
       assert.equal(result.stage, 'blocked')
       assert.match(result.blockers.join(' '), /supplied tasks differ/)
       assert.deepEqual(f.commands, [])
@@ -82,7 +86,7 @@ describe('Delta Code Worker execution delivery gate', () => {
   it('fails closed when the DSH native Todo projection is unavailable', async () => {
     const f = await fixture({ nativeUnavailable: true })
     try {
-      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      const result = await f.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'] }, execution())
       assert.equal(result.stage, 'blocked')
       assert.match(result.blockers.join(' '), /native Todo projection/)
       assert.deepEqual(f.commands, [])
@@ -92,20 +96,57 @@ describe('Delta Code Worker execution delivery gate', () => {
   it('accepts matching native Todo evidence and blocks checkpoint changes during checks', async () => {
     const stable = await fixture({ nativeTasks: done })
     try {
-      const result = await stable.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      const result = await stable.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'] }, execution())
       assert.equal(result.stage, 'verified')
       assert.equal(result.ready, true)
     } finally { await stable.cleanup() }
 
     const changed = await fixture({ nativeTasks: done, nativeAfterRun: done })
     try {
-      const result = await changed.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      const result = await changed.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'] }, execution())
       assert.equal(result.stage, 'blocked')
       assert.equal(result.ready, false)
       assert.match(result.blockers.join(' '), /native Todo changed/)
       assert.ok(changed.commands.some(args => args[0] === 'npm'))
     } finally { await changed.cleanup() }
   })
+  it('requires complete task-to-check acceptance evidence before any Host command', async () => {
+    const f = await fixture()
+    try {
+      const missing = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      assert.equal(missing.stage, 'blocked')
+      assert.match(missing.blockers.join(' '), /task acceptance/)
+      const mismatched = await f.tool.execute({
+        tasks: done, expectedHead: HEAD, scripts: ['test'],
+        taskAcceptance: [
+          { task: 'Locate source', criterion: 'Source found', checks: ['test'] },
+          { task: 'Unexpected task', criterion: 'Other requirement', checks: ['test'] },
+        ],
+      }, execution())
+      assert.equal(mismatched.stage, 'blocked')
+      const unexecuted = await f.tool.execute({
+        tasks: done, expectedHead: HEAD, scripts: ['test'],
+        taskAcceptance: acceptance.map(item => ({ ...item, checks: ['typecheck'] })),
+      }, execution())
+      assert.equal(unexecuted.stage, 'blocked')
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
+  it('returns actual final test evidence linked to each declared acceptance criterion', async () => {
+    const f = await fixture()
+    try {
+      const output = await f.tool.execute({
+        tasks: done, taskAcceptance: acceptance, scripts: ['test'], expectedHead: HEAD,
+      }, execution())
+      assert.equal(output.stage, 'verified')
+      assert.deepEqual(output.taskEvidence.map(item => item.task), done.map(item => item.content))
+      assert.equal(output.taskEvidence[0].checks[0].script, 'test')
+      assert.equal(output.taskEvidence[0].checks[0].passed, true)
+      assert.equal(output.taskEvidence[0].checks[0].exitCode, 0)
+    } finally { await f.cleanup() }
+  })
+
   it('validates native Todo tasks and preserves their exact pending order', () => {
     assert.deepEqual(remainingDeliveryTasks([
       { content: 'Inspect', status: 'completed' },
@@ -137,9 +178,9 @@ describe('Delta Code Worker execution delivery gate', () => {
   it('blocks missing baseline and missing final tests without starting Host processes', async () => {
     const f = await fixture()
     try {
-      const noTests = await f.tool.execute({ tasks: done, expectedHead: HEAD }, execution())
+      const noTests = await f.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD }, execution())
       assert.equal(noTests.stage, 'blocked')
-      const noHead = await f.tool.execute({ tasks: done, scripts: ['test'] }, execution())
+      const noHead = await f.tool.execute({ tasks: done, taskAcceptance: acceptance, scripts: ['test'] }, execution())
       assert.equal(noHead.stage, 'blocked')
       assert.deepEqual(f.commands, [])
     } finally { await f.cleanup() }
@@ -149,7 +190,7 @@ describe('Delta Code Worker execution delivery gate', () => {
     const f = await fixture()
     try {
       const result = await f.tool.execute({
-        tasks: done, expectedHead: HEAD, scripts: ['typecheck', 'test'],
+        tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['typecheck', 'test'],
       }, execution())
       assert.equal(result.stage, 'verified')
       assert.equal(result.ready, true)
@@ -179,7 +220,7 @@ describe('Delta Code Worker execution delivery gate', () => {
     const f = await fixture({ failScript: true })
     try {
       const result = await f.tool.execute({
-        tasks: done, expectedHead: HEAD, scripts: ['test', 'typecheck'],
+        tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test', 'typecheck'],
       }, execution())
       assert.equal(result.ready, false)
       assert.equal(result.stage, 'blocked')
@@ -194,7 +235,7 @@ describe('Delta Code Worker execution delivery gate', () => {
       const f = await fixture(config)
       try {
         const result = await f.tool.execute({
-          tasks: done, expectedHead: HEAD, scripts: ['test'],
+          tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'],
         }, execution())
         assert.equal(result.stage, 'blocked')
         assert.equal(result.ready, false)
@@ -207,7 +248,7 @@ describe('Delta Code Worker execution delivery gate', () => {
     for (const malformedStatus of ['', '## main\0unexpected\0', '## main\0 M changed.ts']) {
       const f = await fixture({ malformedStatus })
       try {
-        const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+        const result = await f.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'] }, execution())
         assert.equal(result.stage, 'blocked')
         assert.equal(result.ready, false)
         assert.deepEqual(result.checks, [])
@@ -219,7 +260,7 @@ describe('Delta Code Worker execution delivery gate', () => {
   it('does not fall back to local Node when the Host denies Git execution', async () => {
     const f = await fixture({ deny: true })
     try {
-      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      const result = await f.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'] }, execution())
       assert.equal(result.stage, 'blocked')
       assert.equal(result.ready, false)
       assert.match(result.blockers.join(' '), /Host Git or verification/)
@@ -230,7 +271,7 @@ describe('Delta Code Worker execution delivery gate', () => {
   it('respects script execution permissions and fails closed without commands', async () => {
     const f = await fixture({ allowCommands: false })
     try {
-      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      const result = await f.tool.execute({ tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'] }, execution())
       assert.equal(result.ready, false)
       assert.match(result.blockers.join(' '), /script execution is disabled/)
       assert.deepEqual(f.commands, [])
@@ -241,7 +282,7 @@ describe('Delta Code Worker execution delivery gate', () => {
     const f = await fixture()
     try {
       const result = await f.tool.execute({
-        tasks: done, expectedHead: HEAD, scripts: ['test', 'build'],
+        tasks: done, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test', 'build'],
       }, execution())
       assert.equal(result.ready, false)
       assert.match(result.blockers.join(' '), /preflight rejected/)

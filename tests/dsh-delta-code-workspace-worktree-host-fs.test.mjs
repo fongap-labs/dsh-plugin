@@ -105,7 +105,23 @@ function fixture(options = {}) {
             if (spec.cwd === join(PROCESS_ROOT, 'repo-b')) return result('src/runtime.ts\0')
             if (spec.cwd === PROCESS_ROOT && options.rootIsRepo) return result('README.md\0')
           }
-          if (args[1] === 'worktree' && args[2] === 'list') return result('worktree /ssh-process-workspace\n')
+          if (args[1] === 'worktree' && args[2] === 'list') {
+            const managed = join(PROCESS_ROOT, '.dsh-delta-code', 'worktrees', 'task-1')
+            return result('worktree ' + PROCESS_ROOT + '\nHEAD ' + 'a'.repeat(40) +
+              '\nbranch refs/heads/main\n\n' +
+              (options.existingTarget && !options.unregistered
+                ? 'worktree ' + managed + '\nHEAD ' + 'b'.repeat(40) +
+                  '\nbranch refs/heads/code-worker/task-1\n\n'
+                : ''))
+          }
+          if (args[1] === 'status' && spec.cwd.endsWith('/task-1')) {
+            return result(options.dirtyWorktree
+              ? '## code-worker/task-1\0 M changed.ts\0'
+              : '## code-worker/task-1\0')
+          }
+          if (args[1] === 'worktree' && args[2] === 'remove') return result()
+          if (args[1] === 'branch' && args[2] === '-d') return result('',
+            options.unmergedBranch ? 1 : 0)
           if (args[1] === 'worktree' && args[2] === 'add') {
             const branch = args[4]
             if (writtenBranches.has(branch)) return result('', 128)
@@ -219,6 +235,47 @@ describe('Delta Code Worker Host Git worktree authority', () => {
     assert.equal(results.filter(x => x.status === 'rejected').length, 1)
     assert.equal(f.writtenBranches.size, 1)
     assert.equal(f.commands.length, 2)
+  })
+
+
+  it('removes only a clean, registered managed worktree without --force', async () => {
+    const f = fixture({ rootIsRepo: true, existingTarget: true })
+    const removed = await createWorktreeTool(f.ctx, f.settings).execute({
+      action: 'remove', task: 'task-1',
+    }, execute())
+    assert.equal(removed.action, 'remove')
+    assert.match(removed.output, /branch retained/)
+    assert.deepEqual(f.commands.map(cmd => cmd.argv.slice(1, 3)), [
+      ['worktree', 'list'], ['status', '--porcelain=v1'], ['worktree', 'remove'],
+    ])
+    assert.ok(f.commands.every(cmd => !cmd.argv.includes('--force')))
+    assert.equal(f.commands[1].cwd, join(PROCESS_ROOT, '.dsh-delta-code', 'worktrees', 'task-1'))
+  })
+
+  it('rejects dirty or unregistered worktrees before any deletion', async () => {
+    for (const options of [
+      { existingTarget: true, dirtyWorktree: true },
+      { existingTarget: true, unregistered: true },
+      { existingTarget: false },
+      { existingTarget: true, parentSymlink: true },
+    ]) {
+      const f = fixture({ rootIsRepo: true, ...options })
+      await assert.rejects(createWorktreeTool(f.ctx, f.settings).execute({
+        action: 'remove', task: 'task-1',
+      }, execute()), /worktree|dirty|directory|registered/)
+      assert.ok(!f.commands.some(cmd => cmd.argv.includes('remove')), JSON.stringify(options))
+    }
+  })
+
+  it('only deletes merged task branches using git branch -d when requested', async () => {
+    for (const unmergedBranch of [false, true]) {
+      const f = fixture({ rootIsRepo: true, existingTarget: true, unmergedBranch })
+      const removed = await createWorktreeTool(f.ctx, f.settings).execute({
+        action: 'remove', task: 'task-1', deleteMergedBranch: true,
+      }, execute())
+      assert.match(removed.output, unmergedBranch ? /branch retained/ : /safely deleted/)
+      assert.deepEqual(f.commands.at(-1).argv, ['git', 'branch', '-d', 'code-worker/task-1'])
+    }
   })
 
   it('refuses missing Host subprocess rather than silently using a local Git process', async () => {

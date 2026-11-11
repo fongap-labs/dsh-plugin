@@ -44,6 +44,41 @@ interface GateCheck {
   passed: boolean
 }
 
+export interface TaskAcceptance {
+  task: string
+  criterion: string
+  checks: VerificationScript[]
+}
+
+interface TaskEvidence {
+  task: string
+  criterion: string
+  checks: GateCheck[]
+}
+
+/** Maps every native Todo task to a declared criterion and fresh allowed checks. */
+export function validateTaskAcceptance(
+  tasks: DeliveryTask[], scripts: VerificationScript[], raw: unknown,
+): TaskAcceptance[] {
+  if (!Array.isArray(raw) || raw.length !== tasks.length) {
+    throw new Error('task acceptance must cover every native Todo item exactly once')
+  }
+  return raw.map((entry: unknown, index): TaskAcceptance => {
+    if (!entry || typeof entry !== 'object') throw new Error('invalid task acceptance entry')
+    const item = entry as Partial<TaskAcceptance>
+    const task = tasks[index]!.content.trim()
+    if (item.task !== task) throw new Error('task acceptance order/content differs from native Todo')
+    if (typeof item.criterion !== 'string' || item.criterion.trim().length < 3 ||
+        item.criterion.length > 240) throw new Error('task acceptance criterion is missing or invalid')
+    if (!Array.isArray(item.checks) || item.checks.length < 1 || item.checks.length > scripts.length ||
+        new Set(item.checks).size !== item.checks.length ||
+        item.checks.some(check => !scripts.includes(check))) {
+      throw new Error('task acceptance checks must be distinct executed final scripts')
+    }
+    return { task, criterion: item.criterion.trim(), checks: [...item.checks] }
+  })
+}
+
 interface GateResult {
   stage: 'continue' | 'blocked' | 'verified'
   ready: boolean
@@ -54,14 +89,15 @@ interface GateResult {
   changes: string[]
   checks: GateCheck[]
   evidence: string[]
+  taskEvidence: TaskEvidence[]
 }
 
 function gate(
   stage: GateResult['stage'], nextAction: string, remaining: string[] = [],
   head = '', blockers: string[] = [], changes: string[] = [],
-  checks: GateCheck[] = [], evidence: string[] = [],
+  checks: GateCheck[] = [], evidence: string[] = [], taskEvidence: TaskEvidence[] = [],
 ): GateResult {
-  return { stage, ready: stage === 'verified', head, nextAction, remaining, blockers, changes, checks, evidence }
+  return { stage, ready: stage === 'verified', head, nextAction, remaining, blockers, changes, checks, evidence, taskEvidence }
 }
 
 /** A Host-only Git read. Never fall back to Node after an absent/denying Host subprocess. */
@@ -97,6 +133,17 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
           status: { type: 'string', required: true, enum: ['pending', 'in_progress', 'completed'] },
         } },
       },
+      taskAcceptance: {
+        type: 'array',
+        description: 'Required for final verification: one ordered entry per native Todo item with a concrete acceptance criterion and fresh final-check names.',
+        items: { type: 'object', additionalProperties: false, properties: {
+          task: { type: 'string', required: true },
+          criterion: { type: 'string', required: true },
+          checks: { type: 'array', required: true, items: {
+            type: 'string', enum: ['test', 'typecheck', 'build', 'lint', 'check'],
+          } },
+        } },
+      },
       expectedHead: { type: 'string', description: 'Current baseline Git HEAD SHA captured before final verification. Required to verify completion.' },
       scripts: {
         type: 'array',
@@ -122,6 +169,19 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
         },
       } },
       evidence: { type: 'array', required: true, items: { type: 'string' } },
+      taskEvidence: { type: 'array', required: true, items: {
+        type: 'object', additionalProperties: false, properties: {
+          task: { type: 'string', required: true },
+          criterion: { type: 'string', required: true },
+          checks: { type: 'array', required: true, items: {
+            type: 'object', additionalProperties: false, properties: {
+              script: { type: 'string', required: true },
+              exitCode: { type: 'integer', required: true },
+              passed: { type: 'boolean', required: true },
+            },
+          } },
+        },
+      } },
     } }, render(_args, result) {
       return [{ type: 'text', text: [
         'Code delivery gate: ' + result.stage,
@@ -132,6 +192,9 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
         ...result.checks.map(check => check.script + ': ' + (check.passed ? 'PASS' : 'FAIL') +
           ' (exit ' + check.exitCode + ')'),
         ...result.evidence,
+        ...result.taskEvidence.map(item => 'Acceptance: ' + item.task + ' — ' + item.criterion +
+          ' [' + item.checks.map(check => check.script + ' exit ' + check.exitCode).join(', ') + ']'),
+        'Fresh checks support declared acceptance, but do not prove semantic correctness. Review spec/diff before delivery.',
         'This gate does not replace independent review, Host approval or release governance.',
       ].join('\n') }]
     } },
@@ -165,6 +228,13 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
           new Set(scripts).size !== scripts.length || scripts.some(script => !ALLOWED_SCRIPTS.has(script))) {
         return gate('blocked', 'Declare 1..5 distinct allowlisted final verification scripts.',
           [], '', ['fresh final verification scripts are missing or invalid'])
+      }
+      let acceptance: TaskAcceptance[]
+      try {
+        acceptance = validateTaskAcceptance(tasks, scripts, args.taskAcceptance)
+      } catch {
+        return gate('blocked', 'Declare one acceptance criterion and fresh check mapping for every native Todo task.',
+          [], '', ['task acceptance evidence is missing, inconsistent or incomplete'])
       }
       if (typeof args.expectedHead !== 'string' || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(args.expectedHead)) {
         return gate('blocked', 'Read the current Git HEAD through the authorized Host and retry with expectedHead.',
@@ -263,8 +333,12 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
           return gate('blocked', 'Resolve blockers, update the native Todo if needed, then rerun checks.',
             [], head, blockers, changes, checks, evidence)
         }
-        return gate('verified', 'Review the actual diff and obtain independent approval before merge or release.',
-          [], head, [], changes, checks, evidence)
+        const taskEvidence = acceptance.map(item => ({
+          task: item.task, criterion: item.criterion,
+          checks: item.checks.map(script => checks.find(check => check.script === script)!),
+        }))
+        return gate('verified', 'Review acceptance semantics and the actual diff before merge or release.',
+          [], head, [], changes, checks, evidence, taskEvidence)
       } catch {
         if (exec.signal.aborted) throw new Error('delivery verification cancelled')
         return gate('blocked', 'Inspect the failing Host operation or Git diff; do not retry using unapproved local subprocess.',

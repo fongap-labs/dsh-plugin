@@ -13,6 +13,7 @@ const VIRTUAL_ROOT = join(tmpdir(), 'dsh-code-worker-virtual-host-fs-only', 'wor
 const PROCESS_CWD = '/host-process-workspace/authorized-git'
 const pending = [{ content: 'Implement task', status: 'pending' }]
 const completed = [{ content: 'Implement task', status: 'completed' }]
+const acceptance = [{ task: 'Implement task', criterion: 'Task verified by fresh tests', checks: ['test'] }]
 const exec = () => ({ agent: { session: { id: 'test-session' } }, signal: new AbortController().signal })
 
 function mockOutput(stdout = '') {
@@ -106,7 +107,7 @@ describe('Delta Code Worker Host FS Git cwd authority', () => {
 
     const gate = createDeliveryGateTool(f.ctx, f.settings)
     const checked = await gate.execute({
-      tasks: completed, scripts: ['test'], expectedHead: HEAD,
+      tasks: completed, taskAcceptance: acceptance, scripts: ['test'], expectedHead: HEAD,
     }, exec())
     assert.equal(checked.stage, 'verified')
     assert.deepEqual(checked.checks.map(x => x.passed), [true])
@@ -117,7 +118,7 @@ describe('Delta Code Worker Host FS Git cwd authority', () => {
   it('blocks delivery before Git or tests if Host verification and Git directories disagree', async () => {
     const f = fakeHost({ processPaths: [PROCESS_CWD, '/another-host-process-cwd'] })
     const result = await createDeliveryGateTool(f.ctx, f.settings).execute({
-      tasks: completed, scripts: ['test'], expectedHead: HEAD,
+      tasks: completed, taskAcceptance: acceptance, scripts: ['test'], expectedHead: HEAD,
     }, exec())
     assert.equal(result.stage, 'blocked')
     assert.match(result.blockers.join(' '), /directory differs/)
@@ -149,7 +150,7 @@ describe('Delta Code Worker Host FS Git cwd authority', () => {
     }, exec())
     assert.equal(resumed.stage, 'blocked')
     const gate = await createDeliveryGateTool(f.ctx, f.settings).execute({
-      tasks: completed, expectedHead: HEAD, scripts: ['test'],
+      tasks: completed, taskAcceptance: acceptance, expectedHead: HEAD, scripts: ['test'],
     }, exec())
     assert.equal(gate.stage, 'blocked')
     assert.deepEqual(f.commands, [])

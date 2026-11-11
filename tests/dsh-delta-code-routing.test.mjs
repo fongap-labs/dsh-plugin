@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ALL_CODING_SKILLS } from '../packages/dsh-delta-code/lib/skills.js'
-import { decideCodingWorkflow, createWorkflowRouteTool } from '../packages/dsh-delta-code/lib/workflow-route.js'
+import { decideCodingWorkflow, createWorkflowRouteTool, planCodingWaves } from '../packages/dsh-delta-code/lib/workflow-route.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 import { createVerifyTool } from '../packages/dsh-delta-code/lib/tools/verify.js'
 import { chooseVerificationCommand } from '../packages/dsh-delta-code/lib/tools/verify-presets.js'
@@ -35,15 +35,18 @@ test('routing is deterministic, lean for small changes and strict for higher ris
   assert.equal(complexFix.parallelCandidate, false)
   const risky = decideCodingWorkflow({
     taskKind: 'refactor', scope: 'large', risk: 'high', independentTasks: 4, nativeSubagents: true,
+    taskPaths: [['src/a.ts'], ['src/b.ts'], ['src/c.ts'], ['src/d.ts']],
   })
   assert.equal(risky.mode, 'planned')
   assert.equal(risky.parallelCandidate, true)
+  assert.deepEqual(risky.executionWaves, [[0, 1, 2, 3]])
   assert.ok(risky.skills.includes('code-subagent-delivery'))
   assert.ok(risky.skills.includes('code-review-readiness'))
   const noHost = decideCodingWorkflow({
     taskKind: 'feature', scope: 'large', risk: 'high', independentTasks: 4,
   })
   assert.equal(noHost.parallelCandidate, false)
+  assert.deepEqual(noHost.executionWaves, [[0], [1], [2], [3]])
   assert.ok(noHost.skills.includes('code-executing-plans'))
   assert.ok(!noHost.skills.includes('code-subagent-delivery'))
   const ci = decideCodingWorkflow({ taskKind: 'ci', scope: 'small', risk: 'high' })
@@ -57,6 +60,28 @@ test('routing is deterministic, lean for small changes and strict for higher ris
   assert.equal(tool.name, 'code_workflow_route')
   const actual = await tool.execute({ taskKind: 'feature', scope: 'small', risk: 'low' }, exec)
   assert.deepEqual(actual.skills, fast.skills)
+})
+
+test('parallel task plans require explicit disjoint write sets and obey dependencies', () => {
+  const missing = decideCodingWorkflow({
+    taskKind: 'feature', scope: 'large', risk: 'medium',
+    independentTasks: 3, nativeSubagents: true,
+  })
+  assert.equal(missing.parallelCandidate, false)
+  assert.deepEqual(missing.executionWaves, [[0], [1], [2]])
+  assert.deepEqual(planCodingWaves(3, [
+    ['src/a'], ['src/a/file.ts'], ['src/other.ts'],
+  ], [[], [], [0]], true), [[0], [1, 2]])
+  assert.deepEqual(planCodingWaves(3, [
+    ['src/a.ts'], ['src/b.ts'], ['src/c.ts'],
+  ], [[], [0], []], true), [[0, 2], [1]])
+  assert.deepEqual(planCodingWaves(2, [
+    ['src/a.ts'], ['src/b.ts'],
+  ], undefined, false), [[0], [1]])
+  assert.throws(() => planCodingWaves(2, [['src/a.ts'], ['../outside']], [], true), /taskDependencies|paths/)
+  assert.throws(() => planCodingWaves(2, [['src/a.ts'], ['../outside']], undefined, true), /taskPaths/)
+  assert.throws(() => planCodingWaves(2, [['src/a.ts'], ['src/b.ts']], [[], [1]], true), /taskDependencies/)
+  assert.throws(() => planCodingWaves(2, [['src/a.ts'], ['src/b.ts']], [[1], []], true), /taskDependencies/)
 })
 
 test('fixed verification commands never interpret model input as shell fragments', () => {
