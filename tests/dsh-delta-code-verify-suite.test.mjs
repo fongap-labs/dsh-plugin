@@ -45,6 +45,22 @@ describe('DSH Code Worker fail-fast verification suite', () => {
     } finally { await f.cleanup() }
   })
 
+  it('executes declared Node variants but rejects absent and malformed names before spawning', async () => {
+    const f = await fixture({ test: 'node --test', 'test:unit': 'node --test unit', 'lint:ci': 'eslint --quiet' },
+      () => hostResult(0))
+    try {
+      const result = await f.tool.execute({ scripts: ['test:unit', 'lint:ci'] }, execute())
+      assert.equal(result.passed, true)
+      assert.deepEqual(f.calls.map(c => c.argv), [
+        ['npm', 'run', 'test:unit'], ['npm', 'run', 'lint:ci'],
+      ])
+      await assert.rejects(f.tool.execute({ scripts: ['test', 'test:missing'] }, execute()),
+        /does not declare script test:missing/)
+      await assert.rejects(f.tool.execute({ scripts: ['test:unit;rm'] }, execute()), /not allowlisted/)
+      assert.equal(f.calls.length, 2)
+    } finally { await f.cleanup() }
+  })
+
   it('stops on nonzero exit and labels remaining checks skipped', async () => {
     const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'tsc' },
       (_, n) => hostResult(n === 2 ? 2 : 0, n === 2 ? 'failed' : 'ok'))
