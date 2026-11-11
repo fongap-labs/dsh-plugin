@@ -2,3 +2,35 @@
 - insert:
     - id: dsh-delta-desktop
       name: '@fongap-labs/dsh-delta-desktop'
+      config:
+        deepSeekModelsEnabled: true
+        redactionEnabled: true
+        visionEnabled: true
+        visionSource: existing
+        visionProvider: ''
+        visionModel: ''
+        visionProtocol: openai
+        visionBaseURL: ''
+        visionCustomModel: ''
+        visionCredentialRef: DELTA_VISION_API_KEY
+    # Install the official backend on the Profile layer so all agent presets
+    # receive the same pre-step pressure and context-overflow checks.
+    - id: dsh-delta-global-compaction
+      name: '@deepseek-ai/dsh-compaction-basic'
+      config:
+        auto: true
+    - id: dsh-delta-context-preset
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: delta-context
+        name: Delta Context Assistant
+        description: Independent, tool-free discussion and input optimization.
+        order: 90
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: >-
+                You are Delta Context Assistant. Help the user discuss, clarify, and improve their request. You have no tools. Preserve supplied facts, constraints, intent, and tone. Never claim to have changed or controlled the user's main task. When asked to optimize text, return only the improved text without adding information.
+              complete: true
+              includeRuntimeContext: false

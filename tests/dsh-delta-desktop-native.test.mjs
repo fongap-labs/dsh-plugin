@@ -48,17 +48,22 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
   vm.runInNewContext(source, context)
   const components = new Map()
   const client = registration.factory(id => {
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return { MenuItemButton() {} }
+    if (id === 'react-dom/client') return { createRoot() { return { render() {}, unmount() {} } } }
     assert.equal(id, 'react')
     return {
       createElement(type, props, ...children) { return { type, props, children } },
       useState(value) { return [value, () => {}] },
+      useRef(value) { return { current: value } },
+      useEffect() {},
       useSyncExternalStore(_subscribe, get) { return get() },
     }
   })
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
-      assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess'].includes(names.join(',')))
+      assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess',
+        'sessions,resources,sidebarRightTabs,sidebarRight', 'configForms,remote'].includes(names.join(',')))
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'locale') throw new Error('cannot get property "locale" without inject')
@@ -105,7 +110,7 @@ test('web boot stays active while waiting for UI services or when React is unava
   })
   const react = entry.factory(id => {
     assert.equal(id, 'react')
-    return { createElement() {}, useState() {}, useSyncExternalStore() {} }
+    return { createElement() {}, useState() {}, useRef() {}, useEffect() {}, useSyncExternalStore() {} }
   })
   assert.deepEqual(Array.from(react.inject), [])
   let deferred
@@ -128,7 +133,7 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
+  assert.deepEqual(app.slots, ['plugins.add.actions', 'settings.section', 'settings.section.icon', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 桌面'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)

@@ -39,6 +39,10 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "3.18.5",
+    "zod": "4.4.3"
+  },
   "license": "MIT",
   "publishConfig": {
     "access": "public"

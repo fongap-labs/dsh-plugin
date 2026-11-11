@@ -1,34 +1,87 @@
-# Delta Desktop · Delta 桌面
+# Delta Desktop
 
-独立的 DeepSeek Harness 原生界面插件。
+`@fongap-labs/dsh-delta-desktop` is a native DeepSeek Harness plugin. It adds Delta appearance, search, conversation helpers and settings through public Harness plugin and Client APIs. Harness still owns model routing, sessions, approvals and the underlying conversation log.
 
-- npm 包名：`@fongap-labs/dsh-delta-desktop`
-- 插件配置条目：`dsh-delta-desktop`
-- 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
+## Conversation and context tools
 
-## 已实现与受限能力
+### Automatic structured compaction
 
-设置页可查看服务驱动搜索适配状态（等待服务、等待侧栏、已挂载、官方外观已停用），用于区分外观已启用与实际搜索入口就绪。
+The package adds Harness's official `@deepseek-ai/dsh-compaction-basic` backend at the Profile layer. It checks context pressure before model steps and also uses Harness's context-overflow recovery path. This applies across agent presets; users do not need to switch the main task to the Delta Context Assistant preset. The backend uses Harness's own token meter, balanced-history selection, summary generation and durable checkpoint format.
 
-当前使用官方接口实现的是：个性设置、Delta/官方配色切换、侧栏品牌标识替换、通过宿主 Session Controller、Workspace Controller、UiWorkspace、Layout 服务提供的会话及工作区名称搜索、原生导航及插件管理/定时任务/开始对话快捷入口，以及在宿主已声明的会话悬浮插槽中附加会话编号和复制操作。新增“开始对话”快捷入口与原生侧栏一样受 Harness `remoteAccess.whenAccess('session/create')` 动态授权控制，权限未就绪或被撤销时隐藏并拒绝调用。官方会话、模型、插件、审批和窗口布局仍由宿主管理。
+Compaction does not delete the session's original log. Harness replaces older prompt-visible history with one summary checkpoint and keeps the recent conversation available to the model. The native checkpoint has these sections:
 
-工作区搜索仅匹配宿主公开列表的显示名称，并通过 `uiWorkspace.openWorkspace()` 导航；不检索、显示或复制工作目录路径。会话搜索实时订阅宿主公开的会话列表，只在已确认时展示“运行中／已归档”，并在打开前复核宿主公开的 `archivedSessionIds`、列表阶段与重连状态；已归档、加载中或无法验证归档状态时拒绝快捷导航，并提示使用宿主官方列表，以免绕过原生归档保护。没有原生导航面板时，插件自有搜索仍可独立挂载。工作区视图展开与删除操作完全由宿主拥有。
+- **Primary Request and Intent** — task goal and changes to it.
+- **Key Technical Concepts**, **Files and Code** — important facts and implementation details.
+- **Errors and Fixes**, **Current Work** — completed fixes and current progress.
+- **Pending Jobs**, **Next Step** — remaining tasks and the next action.
+- **Critical Context** — user preferences, constraints, decisions, open questions and other facts needed to continue.
 
-**尚未实现**：原生搜索框完全搬迁（当前采用插件自有搜索框和快捷操作并保留原生搜索与导航）、侧栏导航重排、会话状态文案替换、工作区默认折叠和默认工作区业务层删除校验。不修改 Harness 上游；当前采用可撤销的版本限定适配器，未来需要对上述缺失能力实现独立、可验证的兼容策略。旧版依靠私有 DOM 选择器和 `workspaceRegistry.delete` 方法替换的实现已撤销，因为在 Windows 实机不能可靠生效，且会绕过宿主正式业务边界。
+In a conversation, use **Latest structured checkpoint** below the composer to inspect the newest checkpoint. **Compact now** requests Harness's native `/compact` operation when the session is idle and a manual command is available. Automatic compaction does not require that command. If summarization fails, Harness records the failed attempt and does not use that attempt's summary to replace the conversation; Delta shows an alert below the composer from the session-projection event. The alert clears after a later successful attempt. Check the Host log for the failure reason, then retry after correcting the model or network issue.
 
-当前 `projects/dsh-delta-desktop/feature-readiness.json` 对未验收功能标记 `false`，仅用于如实记录功能完成度。**是否以及何时发布完全由项目发布操作者决定**；`build-release.mjs` 不因这些标记拒绝执行，仍进行正常编译、归档及完整性验证。设置页会明确说明“已启用”仅指外观模块，不代表完整桌面布局已生效。参考 [兼容性说明](COMPATIBILITY.md) 和 [功能任务 #190](https://github.com/fongap-labs/dsh-plugin/issues/190)。
+The pressure estimate is approximate. The automatic backend needs a routed model and enough context headroom to summarize. Very small context windows, missing model capacity, an indivisible oversized tool call or an unavailable summarization model can prevent compaction. A failure must not be treated as successful compression.
 
-## 模块规划
+### Quote selected text
 
-`Theme`（配色与语言） / `Sidebar`（导航重排和输入框） / `Search`（会话、内容、工作区及插件搜索） / `Conversation`（对话状态和预览标识） / `Workspace`（视图状态、删除前校验） / `Host Adapter`（公开服务和策略）。所有模块集成在**一个插件包**中，不添加新桌面进程。
+Harness's native message-quote action handles selected-text quoting. Select text in a message, open its context menu and choose the quote action to put it in the composer. The native flow supports copying or removing the quote before sending. Delta does not duplicate this feature. It depends on the Host's `message-quotes` client plugin being enabled.
 
-## 安装迁移
+### Independent sidebar discussion
 
-旧版 `dsh-theme-delta` **不会被此包自动覆盖**。在隔离 Profile 中先停用并卸载旧主题插件，再安装 `dsh-delta-desktop`，保留官方 `ui-layout`、`ui-renderer`、`ui-theme` 和第三方插件。新包使用独立的 Cordis ID、本地状态命名空间和 Release Key；不得启用新旧两个插件。如果新包启动或渲染失败，直接禁用 `dsh-delta-desktop` 并重启恢复原生界面，禁止修改 `app.asar` 或隐藏宿主业务按钮。
+Choose **Discuss independently** below the composer to open a separate, tool-free Delta Context Assistant session in the right sidebar. It receives a bounded excerpt of the loaded main conversation and a snapshot of its status; subsequent discussion does not pause or steer the main task. Harness's own right sidebar controls collapse and expand; the panel's close button closes it, and the composer action opens it again.
 
-历史 `dsh-delta-desktop` 标识曾出现于旧版更新日志，不能覆盖旧 GitHub Tag 或重复使用已发布的版本号。任何新版本都由手动发布任务明确输入。
+To send a correction to the main task, type it in the sidebar, choose **Review the content to queue for the main task**, inspect the impact notice and text, then choose **Confirm and queue**. The correction uses Harness's queue path and will not interrupt an active step. A failed queue leaves the text available for retry.
 
-## 开发
+### Input optimization
+
+Choose **Optimize input** to ask the separate tool-free assistant to improve the current draft. The result appears in the sidebar and must be previewed before it is used. Edit the preview, copy it, cancel it, or choose **Use this version** to write it into the composer; it is never sent automatically. **Restore original** restores the captured draft only while the main draft still matches the original or the version applied by the preview. If the user has typed something newer, Delta refuses to overwrite it.
+
+### Privacy, redaction, and vision bridge
+
+In **Settings → Personalization → Conversation and input assistance**, **Enable request redaction** is on by default. It masks recognized private-key blocks, labeled credentials, bearer/API tokens, valid payment-card numbers, date/checksum-valid Chinese resident-ID formats, email addresses, and phone numbers in the model-bound request, then restores matched values in assistant text shown by the UI. Values stay masked in tool-call arguments so they cannot be forwarded to external tools. The durable conversation stays in the Host session log. This is pattern-based protection; it is not a guarantee that every sensitive value is detected, so use the switch to disable it only when the request needs the literal text.
+
+**Enable vision bridge** is also on by default. Choose either **Use an existing model route** and enter its configured provider ID and image-capable model ID, or **Custom compatible endpoint** and select one of these generic protocols: OpenAI Chat Completions-compatible, Anthropic Messages, or Ollama. A custom API key is sent to Harness Credentials through the Host remote API and never written into the Delta configuration document.
+
+In **Model routes**, switch **Enable DeepSeek model routes** off to hide the `deepseek-official` and `deepseek-account` catalogs and reject new requests routed to them. The setting does not alter credentials or cancel a request already running. Turning it back on restores the catalog on the next Host model-list refresh.
+
+When a text-only route is selected and the bridge configuration is usable, Delta temporarily augments the public `llm.resolveModelInfo()` result so the Host's image admission check can reach Delta's `llm/stream` listener. The listener sends each bounded image to the selected vision route, replaces the image with an untrusted text description, and only then dispatches the text request. If the bridge fails, the original image is withheld, the request ends with a clear error, and the conversation log remains intact. The resolver wrapper is removed on plugin unload. This is a runtime-detected compatibility adapter, not a version gate or a version-pinned Harness dependency; a Host that makes the resolver non-writable cannot use the bridge until an extension seam is available.
+
+Custom endpoint limits are 12 MiB per image, 20 images per request, 30 seconds per vision call, and 16,000 characters per returned description. Requests do not follow redirects. OpenAI-compatible URLs use the Chat Completions endpoint, Anthropic uses Messages, and Ollama uses `/api/chat`.
+
+## MCP server management
+
+On **Plugins → Add plugin**, choose **Add MCP server**. The entry appears after the built-in **Install a third-party plugin** action and before **Let the agent create a plugin**. The dialog lists configured and plugin-registered MCP servers, shows live connection status, and offers edit, enable/disable, connection test, restart, and configuration removal where the server is user-managed.
+
+Choose **Local process (stdio)** to run a command on the Harness Host, or **Remote service (Streamable HTTP)** to connect to an HTTP endpoint. The server name must use 1–32 letters, digits, underscores, or hyphens. Save writes only that server's path through the revision-checked Settings form, so unrelated server entries are preserved. Removing a user override restores the inherited base value; the UI asks for a second click before removing.
+
+stdio runs the configured command on the Host. Use trusted commands and store credentials in Harness Credentials, then refer to them with `${credential:NAME}` in environment variables or HTTP headers. If the Profile does not provide the official MCP Manager and its Settings form, the dialog explains which Host capability is unavailable.
+
+## Other current capabilities and boundaries
+
+- Native-service session/workspace search, sidebar quick actions and session ID copy remain additive; the Host owns navigation and workspace actions.
+- Theme settings switch between Delta and official colors.
+- The **Show DeepSeek Account route** preference only controls the `deepseek-account` provider label in the composer; it does not hide account identity in other Host surfaces or alter sign-in, credentials, model selection, or requests. **Show model names** independently controls the selected model name. Delta does not display names for other provider routes.
+- Web Search endpoint and provider selection stay in Harness's built-in Web search settings; Delta does not create a second writer for the Host's provider selection. The legacy Messages search makes an auxiliary model request and consumes its input/output tokens. The standalone Search and Fetch APIs are billed per successful request instead; see [current Search and Fetch pricing](https://api-docs.deepseek.com/guides/search/) before choosing a route.
+- Full sidebar rearrangement, workspace default collapse and a Host business-layer delete guard remain unavailable through the current public APIs.
+- The package does not modify DeepSeek Harness source, `app.asar`, or private DOM structures.
+
+## Verification
+
+Automated source tests cover the Profile-level native backend declaration, latest compaction-outcome projection, settings persistence, separate assistant sessions, review-before-queue corrections, manual and automatic compaction failure handling, checkpoint viewing and protection against overwriting newer drafts. Privacy and vision tests cover request masking/restoration, chunk boundaries, Host resolver restoration, fail-closed image handling, and all three generic protocols. MCP tests cover menu ordering, missing Host services, revision-fenced per-server writes, write rejection, live status, probe, and restart.
+
+Before release, manually verify on the target Windows Harness build:
+
+1. Start a long task under both the standard and minimal presets. Confirm the checkpoint appears without a preset change and the task continues with its latest messages intact.
+2. Force a summary-model failure. Confirm the composer shows an alert, no failed summary replaces the conversation, and the Host log exposes the error; after fixing the model, confirm a successful attempt clears the alert.
+3. Select message text and use the native quote menu. Copy and remove the quote before sending.
+4. Open the sidebar while a main task is running; verify discussion leaves the main task running. Queue a correction only after reviewing and confirming it.
+5. Optimize a draft, edit the preview, apply it without sending, then test restore. Type a newer main draft before restore and confirm Delta preserves it.
+6. Confirm request redaction starts enabled, then test with synthetic credentials, contact details, card numbers and resident-ID-shaped values. Verify masked values reach the model route and are restored in the displayed response; disable the switch and verify requests pass unchanged.
+7. Configure an existing image-capable route, send an image while a text-only model is selected, and verify the text model receives only the description. Force the bridge to fail and confirm a clear error appears while the original message stays in the session. Repeat with custom OpenAI-compatible, Anthropic Messages, and Ollama endpoints; verify key storage and deletion through Harness Credentials.
+8. Disable DeepSeek model routes and confirm both official DeepSeek catalogs disappear and a stale selected route cannot send a new request; re-enable and confirm the catalogs return. Toggle the account-route label, model-name preference and input optimization separately; restart and confirm the display settings persist.
+9. Open **Plugins → Add plugin → Add MCP server**. Add and edit one stdio server and one Streamable HTTP server, verify credentials use `${credential:NAME}`, test the connection, disable and re-enable it, restart it, and remove it. Confirm a failed or stale write keeps the form values and reports an error, and that other configured servers remain unchanged.
+
+Static and simulated tests do not substitute for this Windows Harness acceptance. See [compatibility notes](COMPATIBILITY.md) and [feature readiness](../../projects/dsh-delta-desktop/feature-readiness.json).
+
+## Development
 
 ```sh
 pnpm install --frozen-lockfile
@@ -38,8 +91,4 @@ pnpm validate
 pnpm link:dev dsh-delta-desktop
 ```
 
-搜索结果支持方向键上下切换、Escape 返回输入框，语言变更会刷新可见状态文案；侧栏重新挂载时作废旧的搜索请求与结果，避免显示上一个宿主生命周期的数据。原生快捷键保持宿主所有权。
-
-## 验收
-
-运行 `pnpm build && pnpm test && pnpm validate` 并通过 Central CI 后，需在 Windows Harness 中实际检查插件加载、对话、搜索、工作区保护、主题切换、停用回退及第三方插件兼容性。任何未通过项不得声称已经完成实机交付。
+The source package version remains `0.0.0`; release versioning is controlled by the project operator.
