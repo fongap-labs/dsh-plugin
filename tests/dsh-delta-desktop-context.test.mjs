@@ -17,7 +17,7 @@ const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusP
 
 function makeHarness({ draft = 'Please explain the request clearly.', pressure, mainRunning = true,
   compactionStatus, command = async () => ({ matched: true }), persistedStorage = new Map(),
-  mcpSnapshot, mcpManager, mcpMutate = async () => true, deltaSettingsSnapshot,
+  mcpSnapshot, mcpNamespace = 'mcp-manager', mcpManager, mcpMutate = async () => true, deltaSettingsSnapshot,
   deltaSettingsMutate = async () => true, credentialsRemote } = {}) {
   let registration
   let nextSessionId = 0
@@ -33,6 +33,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   const tabs = []
   const dialogRoots = []
   const mcpMutations = []
+  const mcpFormQueries = []
   const deltaSettingsMutations = []
   const hookStates = new Map()
   let hookKey = 'default'
@@ -133,7 +134,10 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     },
   } : undefined
   const configForms = mcpForm || deltaForm ? { get(namespace) {
-    if (namespace === 'mcp') return mcpForm
+    if (namespace === 'mcp-manager' || namespace === 'mcp') {
+      mcpFormQueries.push(namespace)
+      return namespace === mcpNamespace ? mcpForm : undefined
+    }
     if (namespace === 'dsh-delta-desktop') return deltaForm
     throw new Error(`Unexpected config namespace ${namespace}`)
   } } : undefined
@@ -163,11 +167,16 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
       { kind: 'user', content: [{ type: 'text', text: "Implement the user's current task." }] },
       { kind: 'assistant', blocks: [{ kind: 'text', text: 'I am working on the requested feature.' }] },
       { kind: 'compaction', summary: '## Primary Request and Intent\n- Preserve the task goal.\n\n## Critical Context\n- Keep user constraints.' },
+      { kind: 'user', source: { kind: 'compact-checkpoint', compactionId: 'compact-1' },
+        content: [{ type: 'text', text: '## Primary Request and Intent\n- Preserve the task goal.\n\n## Critical Context\n- Keep user constraints.' }] },
     ] },
-    timeline: { turnOrder: [1] }, nodes: { values() { return [] } },
+    timeline: { turnOrder: [1] }, nodes: { values() { return [{ kind: 'assistant-step', data: {
+      finalNode: { messageId: 'main-assistant-1' },
+    } }] } },
   }
   const mainProps = {
     sessionId: 'main-1',
+    messageId: 'main-assistant-1',
     useInput: selector => selector({ draft: draftValue }),
     useSession: selector => selector({ sessionId: 'main-1', running: mainRunning, awaitingFirstTurn: false,
       lastAgentError: null, blank: false, promptAttempted: true }),
@@ -178,7 +187,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     inputActions: { setDraft(value) { draftValue = value }, persistDraft() { prompts.push({ persistedDraft: draftValue }) } },
   }
   return { components, effects, prompts, commands, created, opened, refCounts, storage, resources, tabs,
-    dialogRoots, mcpMutations, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
+    dialogRoots, mcpMutations, mcpFormQueries, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
     get draft() { return draftValue }, sessions }
 }
 function textOf(node) {
@@ -199,6 +208,13 @@ function findElement(tree, type) {
   if (!tree || typeof tree !== 'object') return undefined
   if (tree.type === type) return tree
   for (const child of tree.children || []) { const found = findElement(child, type); if (found) return found }
+  return undefined
+}
+function findClass(tree, className) {
+  if (Array.isArray(tree)) return tree.map(child => findClass(child, className)).find(Boolean)
+  if (!tree || typeof tree !== 'object') return undefined
+  if (tree.props?.className === className) return tree
+  for (const child of tree.children || []) { const found = findClass(child, className); if (found) return found }
   return undefined
 }
 function findField(tree, labelText) {
@@ -239,7 +255,21 @@ test('MCP manager entry follows the built-in install action and handles missing 
   assert.equal(dismissed, true)
   const rendered = app.dialogRoots[0].rendered
   const dialog = app.render('mcp-unavailable', rendered.type, rendered.props)
-  assert.match(textOf(dialog), /MCP configuration form is unavailable/i)
+  assert.match(textOf(dialog), /does not expose the MCP settings form/i)
+})
+
+test('MCP settings use the current Desktop entry id and retain a custom Profile fallback', () => {
+  const snapshot = { status: 'ready', revision: 1, writable: true,
+    value: { servers: {} }, base: { servers: {} }, user: { servers: {} } }
+  const desktop = makeHarness({ mcpSnapshot: snapshot })
+  const desktopTree = openMcpDialog(desktop)()
+  assert.ok(findButton(desktopTree, 'Add server'))
+  assert.deepEqual(desktop.mcpFormQueries, ['mcp-manager'])
+
+  const custom = makeHarness({ mcpSnapshot: snapshot, mcpNamespace: 'mcp' })
+  const customTree = openMcpDialog(custom)()
+  assert.ok(findButton(customTree, 'Add server'))
+  assert.deepEqual(custom.mcpFormQueries, ['mcp-manager', 'mcp'])
 })
 
 test('MCP server form writes one revision-fenced server path and preserves failures', async () => {
@@ -357,14 +387,25 @@ test('the package enables the official automatic compaction backend at Profile l
   assert.doesNotMatch(clientSource, /binding\.session\.cancel\(/)
 })
 
-test('the compaction status projection reports only the latest durable outcome', () => {
+test('the compaction status projection tracks automatic lifecycle and recoverable failures', () => {
   const unchanged = foldCompactionStatus(EMPTY_COMPACTION_STATUS, { type: 'user/message', seq: 0 })
   assert.equal(unchanged, EMPTY_COMPACTION_STATUS)
-  const failed = foldCompactionStatus(unchanged, { type: 'compaction/end', seq: 4,
+  const started = foldCompactionStatus(unchanged, { type: 'compaction/start', seq: 3 })
+  assert.deepEqual(started, { seq: 3, phase: 'running', failed: false })
+  const summarized = foldCompactionStatus(started, { type: 'compaction/summary', seq: 4,
+    data: { shadowedTokenCount: 2400 } })
+  assert.deepEqual(summarized, { seq: 4, phase: 'running', failed: false, shadowedTokenCount: 2400 })
+  const failed = foldCompactionStatus(summarized, { type: 'compaction/end', seq: 5,
     data: { error: 'summary model unavailable' } })
-  assert.deepEqual({ seq: failed.seq, failed: failed.failed }, { seq: 4, failed: true })
-  const recovered = foldCompactionStatus(failed, { type: 'compaction/end', seq: 9, data: {} })
-  assert.deepEqual({ seq: recovered.seq, failed: recovered.failed }, { seq: 9, failed: false })
+  assert.deepEqual({ seq: failed.seq, phase: failed.phase, failed: failed.failed },
+    { seq: 5, phase: 'failed', failed: true })
+  const recovered = foldCompactionStatus(failed, { type: 'compaction/start', seq: 8 })
+  const completed = foldCompactionStatus(recovered, { type: 'compaction/end', seq: 9, data: {} })
+  assert.deepEqual({ seq: completed.seq, phase: completed.phase, failed: completed.failed },
+    { seq: 9, phase: 'completed', failed: false })
+  const interrupted = foldCompactionStatus(recovered, { type: 'session/end-seed', seq: 10 })
+  assert.deepEqual({ seq: interrupted.seq, phase: interrupted.phase, failed: interrupted.failed },
+    { seq: 10, phase: 'failed', failed: true })
 })
 
 test('the optional session projection registers a client-readable result and disposes with the plugin', async () => {
@@ -381,7 +422,8 @@ test('the optional session projection registers a client-readable result and dis
   })
   await turn()
   assert.equal(definition.key, 'deltaContextCompactionStatus')
-  assert.deepEqual(definition.wire.viewSchema.parse({ seq: 4, failed: true }), { seq: 4, failed: true })
+  assert.deepEqual(definition.wire.viewSchema.parse({ seq: 4, phase: 'failed', failed: true }),
+    { seq: 4, phase: 'failed', failed: true })
   cleanup()
   await turn()
   assert.equal(disposed, true)
@@ -590,6 +632,12 @@ test('main-task corrections require a review step and are queued without steerin
     renderSlot: () => null,
   }
   let tree = app.render('sidebar', tab.component, props)
+  assert.ok(findElement(tree, 'details'), 'main task status stays available in a collapsed summary')
+  assert.ok(findClass(tree, 'dtd-assistant-conversation'), 'the main area remains the independent conversation')
+  assert.equal(findClass(tree, 'dtd-correction-box'), undefined, 'correction entry is opened only on request')
+  assert.equal(findElement(tree, 'textarea'), undefined, 'correction editor stays out of the conversation until requested')
+  await findButton(tree, 'Send guidance').props.onClick()
+  tree = app.render('sidebar', tab.component, props)
   const textarea = (() => {
     const walk = node => !node || typeof node !== 'object' ? undefined
       : node.type === 'textarea' ? node
@@ -608,45 +656,42 @@ test('main-task corrections require a review step and are queued without steerin
   assert.equal(app.commands.length, 0)
 })
 
-test('manual compaction uses Harness /compact only when requested and preserves the draft', async () => {
-  const app = makeHarness({ mainRunning: false,
-    pressure: { projectedTokens: 8_600, contextWindow: 10_000 }, command: async () => ({ matched: false }) })
+test('automatic compaction activity appears in the chat and not in the composer', () => {
+  const app = makeHarness({ pressure: { projectedTokens: 8_600, contextWindow: 10_000 },
+    compactionStatus: { seq: 4, phase: 'running', failed: false } })
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   const tree = app.render('input', input.component, app.mainProps)
-  await findButton(tree, 'Compact now').props.onClick()
-  await turn()
-  assert.equal(app.commands.length, 1)
-  assert.equal(app.commands[0].sessionId, 'main-1')
-  assert.equal(app.commands[0].line, '/compact')
-  assert.equal(app.prompts.length, 0, "compaction does not overwrite or send the user's draft")
-  const rerender = app.render('input', input.component, app.mainProps)
-  assert.match(textOf(rerender), /no manual \/compact command/i)
-  assert.match(textOf(tree), /86%/)
+  assert.doesNotMatch(textOf(tree), /86%|Compact now|Latest structured summary|Condensing earlier conversation/)
+  assert.equal(app.commands.length, 0)
+  assert.equal(app.draft, 'Please explain the request clearly.')
+  const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
+  const notice = app.render('compaction', activity.component, app.mainProps)
+  assert.match(textOf(notice), /Condensing earlier conversation/)
+  assert.equal(findClass(notice, 'dtd-compaction-event is-running')?.props.role, 'status')
 })
 
-test('the latest structured checkpoint is viewable from the composer', () => {
-  const app = makeHarness()
-  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
-  let tree = app.render('input', input.component, app.mainProps)
-  findButton(tree, 'Latest structured checkpoint').props.onClick()
-  tree = app.render('input', input.component, app.mainProps)
+test('a completed compaction shows its structured checkpoint in the chat activity row', () => {
+  const app = makeHarness({ compactionStatus: { seq: 12, phase: 'completed', failed: false } })
+  const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
+  const tree = app.render('compaction', activity.component, app.mainProps)
+  assert.match(textOf(tree), /Earlier conversation condensed/)
+  assert.match(textOf(tree), /View summary/)
   assert.match(textOf(tree), /Primary Request and Intent/)
   assert.match(textOf(tree), /Keep user constraints/)
 })
 
-test('a failed native compaction reports the failure and leaves the draft alone', async () => {
-  const app = makeHarness({ mainRunning: false,
-    pressure: { projectedTokens: 9_100, contextWindow: 10_000 },
-    compactionStatus: { seq: 12, failed: true },
-    command: async () => { throw new Error('summary model unavailable') } })
+test('a failed automatic compaction reports in the chat and preserves the draft', () => {
+  const app = makeHarness({ pressure: { projectedTokens: 9_100, contextWindow: 10_000 },
+    compactionStatus: { seq: 12, phase: 'failed', failed: true } })
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
-  const tree = app.render('input', input.component, app.mainProps)
-  await findButton(tree, 'Compact now').props.onClick()
-  await turn()
-  const rerender = app.render('input', input.component, app.mainProps)
-  assert.match(textOf(rerender), /Automatic context compaction failed/)
+  const composer = app.render('input', input.component, app.mainProps)
+  assert.doesNotMatch(textOf(composer), /compression failed/i)
+  const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
+  const notice = app.render('compaction', activity.component, app.mainProps)
+  assert.match(textOf(notice), /Context compression failed/)
+  assert.equal(findClass(notice, 'dtd-compaction-event is-failed')?.props.role, 'alert')
   assert.equal(app.draft, 'Please explain the request clearly.')
-  assert.equal(app.commands[0].line, '/compact')
+  assert.equal(app.commands.length, 0)
 })
 
 test('input optimization refuses to replace a draft edited while the result was being prepared', async () => {

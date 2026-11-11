@@ -16,7 +16,7 @@ Compaction does not delete the session's original log. Harness replaces older pr
 - **Pending Jobs**, **Next Step** — remaining tasks and the next action.
 - **Critical Context** — user preferences, constraints, decisions, open questions and other facts needed to continue.
 
-In a conversation, use **Latest structured checkpoint** below the composer to inspect the newest checkpoint. **Compact now** requests Harness's native `/compact` operation when the session is idle and a manual command is available. Automatic compaction does not require that command. If summarization fails, Harness records the failed attempt and does not use that attempt's summary to replace the conversation; Delta shows an alert below the composer from the session-projection event. The alert clears after a later successful attempt. Check the Host log for the failure reason, then retry after correcting the model or network issue.
+Compression runs in the background before a model request when context pressure requires it; users do not need to trigger it or put summary text in the composer. A compact activity notice appears in the chat while Harness is condensing earlier messages. On success, it offers an expandable view of the structured checkpoint. On failure, the chat shows a brief alert and Harness keeps the original conversation available. The composer contains only the discussion and input-optimization actions, not context meters, compression buttons or checkpoint text.
 
 The pressure estimate is approximate. The automatic backend needs a routed model and enough context headroom to summarize. Very small context windows, missing model capacity, an indivisible oversized tool call or an unavailable summarization model can prevent compaction. A failure must not be treated as successful compression.
 
@@ -26,9 +26,9 @@ Harness's native message-quote action handles selected-text quoting. Select text
 
 ### Independent sidebar discussion
 
-Choose **Discuss independently** below the composer to open a separate, tool-free Delta Context Assistant session in the right sidebar. It receives a bounded excerpt of the loaded main conversation and a snapshot of its status; subsequent discussion does not pause or steer the main task. Harness's own right sidebar controls collapse and expand; the panel's close button closes it, and the composer action opens it again.
+Choose **Discuss independently** below the composer to open a separate, tool-free Delta Context Assistant session in the right sidebar. It receives a bounded excerpt of the loaded main conversation and a snapshot of its status; subsequent discussion does not pause or steer the main task. The panel keeps the conversation and composer as its main area, with a compact header and a collapsed main-task status summary. Expand the summary to inspect progress, context use, recent context and the latest checkpoint. Harness's own right sidebar controls collapse and expand; the panel's close button closes it, and the composer action opens it again.
 
-To send a correction to the main task, type it in the sidebar, choose **Review the content to queue for the main task**, inspect the impact notice and text, then choose **Confirm and queue**. The correction uses Harness's queue path and will not interrupt an active step. A failed queue leaves the text available for retry.
+To send a correction to the main task, choose **Send guidance**, enter the correction, review its text and impact notice, then choose **Confirm and queue**. The correction uses Harness's queue path and will not interrupt an active step. A failed queue leaves the text available for retry.
 
 ### Input optimization
 
@@ -48,11 +48,11 @@ Custom endpoint limits are 12 MiB per image, 20 images per request, 30 seconds p
 
 ## MCP server management
 
-On **Plugins → Add plugin**, choose **Add MCP server**. The entry appears after the built-in **Install a third-party plugin** action and before **Let the agent create a plugin**. The dialog lists configured and plugin-registered MCP servers, shows live connection status, and offers edit, enable/disable, connection test, restart, and configuration removal where the server is user-managed.
+On **Plugins → Add plugin**, choose **Add MCP server**. The entry appears after the built-in **Install a third-party plugin** action and before **Let the agent create a plugin**. The dialog lists configured and plugin-registered MCP servers, shows live connection status, and offers edit, enable/disable, connection test, restart, and configuration removal where the server is user-managed. Choose **Add server** to open a form grouped into basic information, connection, and authentication sections.
 
-Choose **Local process (stdio)** to run a command on the Harness Host, or **Remote service (Streamable HTTP)** to connect to an HTTP endpoint. The server name must use 1–32 letters, digits, underscores, or hyphens. Save writes only that server's path through the revision-checked Settings form, so unrelated server entries are preserved. Removing a user override restores the inherited base value; the UI asks for a second click before removing.
+Choose **Local process (stdio)** to run a command on the Harness Host, or **Remote service (Streamable HTTP)** to connect to an HTTP endpoint. The server name must use 1–32 letters, digits, underscores, or hyphens. Save writes only that server's path through the revision-checked Settings form, so unrelated server entries are preserved. The default Desktop Profile registers the form under `mcp-manager`; custom Profiles using `mcp` are also supported. Removing a user override restores the inherited base value; the UI asks for a second click before removing.
 
-stdio runs the configured command on the Host. Use trusted commands and store credentials in Harness Credentials, then refer to them with `${credential:NAME}` in environment variables or HTTP headers. If the Profile does not provide the official MCP Manager and its Settings form, the dialog explains which Host capability is unavailable.
+stdio runs the configured command on the Host. Use trusted commands and store credentials in Harness Credentials, then refer to them with `${credential:NAME}` in environment variables or HTTP headers (for example `Authorization=Bearer ${credential:MCP_TOKEN}`). The Host MCP Manager supports stdio and Streamable HTTP entries; HTTP authentication is configured with headers. If the Profile does not provide the official MCP Manager and its Settings form, the dialog explains which Host capability is unavailable.
 
 ## Other current capabilities and boundaries
 

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: MCP 管理恢复 Harness Desktop Profile 的服务器配置表单；独立讨论采用聊天优先布局，自动上下文压缩状态与结构化摘要改在聊天活动提示中展示。
+
 - 新增: Delta Desktop 支持结构化上下文自动压缩、checkpoint 查看与失败提示、独立上下文助手和引用提问、默认脱敏与视觉桥、MCP 服务器管理、输入优化及 DeepSeek 模型路由开关。
 
 - 修复: Delta Code 真实 DSH 预检默认使用完整 SDK Profile，保留可选 sdk-minimal 兼容检查，并补充验证超时及交付收口宿主验收项。

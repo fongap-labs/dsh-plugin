@@ -2,7 +2,9 @@ import { z } from 'zod'
 
 export interface CompactionStatus {
   seq: number
+  phase: 'idle' | 'running' | 'completed' | 'failed'
   failed: boolean
+  shadowedTokenCount?: number
 }
 
 export interface CompactionEvent {
@@ -13,22 +15,33 @@ export interface CompactionEvent {
 
 const CompactionStatusSchema = z.object({
   seq: z.number().int(),
+  phase: z.enum(['idle', 'running', 'completed', 'failed']),
   failed: z.boolean(),
+  shadowedTokenCount: z.number().int().nonnegative().optional(),
 })
 
-export const EMPTY_COMPACTION_STATUS: CompactionStatus = Object.freeze({ seq: -1, failed: false })
+export const EMPTY_COMPACTION_STATUS: CompactionStatus = Object.freeze({ seq: -1, phase: 'idle', failed: false })
 
-/** Keep only the latest durable compaction outcome for a clear, recoverable UI signal. */
+/** Project the latest durable compaction lifecycle for a chat activity indicator. */
 export function foldCompactionStatus(state: CompactionStatus, event: CompactionEvent): CompactionStatus {
-  if (event.type !== 'compaction/end') return state
   const data = event.data && typeof event.data === 'object' ? event.data as Record<string, unknown> : undefined
-  return { seq: event.seq, failed: typeof data?.error === 'string' && data.error.length > 0 }
+  if (event.type === 'compaction/start') return { seq: event.seq, phase: 'running', failed: false }
+  if (event.type === 'session/end-seed' && state.phase === 'running') {
+    return { seq: event.seq, phase: 'failed', failed: true }
+  }
+  if (event.type === 'compaction/summary') {
+    return { ...state, seq: event.seq,
+      ...(typeof data?.shadowedTokenCount === 'number' ? { shadowedTokenCount: data.shadowedTokenCount } : {}) }
+  }
+  if (event.type !== 'compaction/end') return state
+  const failed = typeof data?.error === 'string' && data.error.length > 0
+  return { ...state, seq: event.seq, phase: failed ? 'failed' : 'completed', failed }
 }
 
 export const compactionStatusProjection = {
   key: 'deltaContextCompactionStatus',
   stateSchema: CompactionStatusSchema,
-  stateVersion: 1,
+  stateVersion: 2,
   init: () => EMPTY_COMPACTION_STATUS,
   apply: foldCompactionStatus,
   wire: {
