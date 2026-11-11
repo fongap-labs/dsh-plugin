@@ -80,9 +80,9 @@ Delta 在视觉桥配置有效时，运行时检查 `resolveModelInfo` 是否可
 
 `cordis.patch.yml` 在 Profile 层加入 Harness 官方 `@deepseek-ai/dsh-compaction-basic`，配置 `auto: true`。该后端使用公开的 `ctx.tokenMeter` / `ctx.compaction` 契约，并在 `agent/pre-step` 与上下文溢出恢复路径中执行结构化压缩；因此本实现不要求用户将主会话切换到 Delta Context Assistant 预设。这里的跨 Agent 覆盖范围是按 Harness Profile 级事件与 compaction backend 语义设计的，**尚待目标 Windows Desktop 构建实机验收**。
 
-Harness 的压缩会把较早的模型上下文替换成一个带有固定 Markdown 章节的 checkpoint，同时保留最近对话；原始会话日志仍由 Harness 持久化。官方 checkpoint 结构包括 `Primary Request and Intent`、`Key Technical Concepts`、`Files and Code`、`Errors and Fixes`、`Pending Jobs`、`Current Work`、`Next Step`、`Critical Context`。任务完成情况、偏好、约束、决定和未决问题分别归入相应章节；Delta 的输入区和侧栏可展开查看最近 checkpoint。
+Harness 的压缩会把较早的模型上下文替换成一个带有固定 Markdown 章节的 checkpoint，同时保留最近对话；原始会话日志仍由 Harness 持久化。官方 checkpoint 结构包括 `Primary Request and Intent`、`Key Technical Concepts`、`Files and Code`、`Errors and Fixes`、`Pending Jobs`、`Current Work`、`Next Step`、`Critical Context`。任务完成情况、偏好、约束、决定和未决问题分别归入相应章节。Delta 订阅 `compaction/start`、`compaction/summary` 与 `compaction/end`，在聊天的助手消息活动行显示处理中、完成或失败提示；成功后可在聊天中展开 checkpoint。输入框不再显示上下文百分比、手动压缩按钮或摘要文本。
 
-主会话中现有的 compaction backend 若与 Profile 层后端同时工作，会对同一个 Harness 会话逐步检查；持久化 compaction lock 由 Host 后端持有。是否在目标 Desktop 版本中会按预期串行通过所有预设，需在实机长对话和上下文溢出恢复场景中确认。Delta 通过公开 session projection 读取最近的 `compaction/end` 结果；失败时在 composer 提示，后续成功会清除提示。Projection 注入、事件传播及压缩恢复仍需在目标 Windows Desktop 构建实机验收。
+主会话中现有的 compaction backend 若与 Profile 层后端同时工作，会对同一个 Harness 会话逐步检查；持久化 compaction lock 由 Host 后端持有。是否在目标 Desktop 版本中会按预期串行通过所有预设，需在实机长对话和上下文溢出恢复场景中确认。Delta 通过公开 session projection 读取压缩生命周期；崩溃后未闭合的压缩会显示为未完成。Projection 注入、事件传播及压缩恢复仍需在目标 Windows Desktop 构建实机验收。
 
 - 选中文字的引用提问复用 Harness 原生 `message-quotes` 插件；该插件未由 Delta 复制，测试机器需启用原生插件。
 - 独立侧栏会话使用公开 `sessions`、`resources`、`sidebarRightTabs` 与 conversation 插槽；纠正主任务始终使用 `queue`，不使用 `steer` 或取消接口。

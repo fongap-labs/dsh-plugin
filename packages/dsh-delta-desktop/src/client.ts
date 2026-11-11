@@ -36,13 +36,14 @@ interface DeltaCopy {
     assistantUnavailable: string; assistantStarting: string; assistantReady: string; sessionIdle: string;
     assistantContext: string; mainTaskStatus: string; contextUsage: string;
     contextBreakdown: string; loadedTurns: string; mainContext: string;
-    checkpoint: string; noCheckpoint: string; compactUnavailable: string;
+    checkpoint: string; noCheckpoint: string;
     automaticCompactionFailed: string;
     correctionPlaceholder: string; queueCorrection: string; reviewCorrection: string; confirmQueue: string;
     queueOnly: string; correctionQueued: string; correctionFailed: string;
     directionChange: string; previewOptimization: string; applyOptimization: string;
     restoreOriginal: string; cancel: string; copyText: string; draftChanged: string;
-    compactNow: string; compacting: string; compactFailed: string;
+    compacting: string;
+    compactionCompleted: string; compactionInterrupted: string; viewCheckpoint: string;
     mcpAddAction: string; mcpAddDescription: string; mcpTitle: string; mcpSubtitle: string;
     mcpAddTitle: string; mcpBackToList: string; mcpBasics: string; mcpConnection: string;
     mcpAuthentication: string; mcpSecurityNotice: string;
@@ -360,6 +361,15 @@ function messageText(node: Record<string, any>): string {
   if (typeof data.summary === 'string') return data.summary
   return ''
 }
+function compactionCheckpointSource(node: Record<string, any>): boolean {
+  const data = (node.data && typeof node.data === 'object' ? node.data : node) as Record<string, any>
+  const sources = [node.source, data.source, data.message?.source, data.finalNode?.source,
+    data.finalNode?.data?.source, data.node?.source]
+  return sources.some(source => source?.kind === 'compact-checkpoint')
+}
+function isCompactionCheckpoint(node: Record<string, any>): boolean {
+  return node.kind === 'compaction' || compactionCheckpointSource(node)
+}
 function conversationContext(chat: AssistantChatSnapshot | undefined, maxChars = 6000): string {
   const nodes = chat?.legacy?.nodes
   if (!Array.isArray(nodes)) return ''
@@ -367,9 +377,10 @@ function conversationContext(chat: AssistantChatSnapshot | undefined, maxChars =
     if (!node || typeof node !== 'object') return []
     const text = messageText(node).trim()
     if (!text) return []
-    const kind = node.kind === 'user' || node.kind === 'steering' ? 'User'
+    const kind = isCompactionCheckpoint(node) ? 'Checkpoint'
+      : node.kind === 'user' || node.kind === 'steering' ? 'User'
       : node.kind === 'assistant' ? 'Assistant'
-        : node.kind === 'compaction' ? 'Checkpoint' : undefined
+        : undefined
     return kind ? [`${kind}: ${text.slice(0, 1600)}`] : []
   })
   let result = ''
@@ -385,9 +396,10 @@ function conversationContext(chat: AssistantChatSnapshot | undefined, maxChars =
   return result
 }
 function latestCheckpoint(chat: AssistantChatSnapshot | undefined): { summary: string; count?: number; tokens?: number } | undefined {
-  const node = chat?.legacy?.nodes?.filter(value => value?.kind === 'compaction').at(-1)
-  const summary = typeof node?.summary === 'string' ? node.summary
-    : typeof node?.data?.summary === 'string' ? node.data.summary : undefined
+  const nodes = chat?.legacy?.nodes ?? []
+  const node = nodes.filter(value => value && typeof value === 'object' && isCompactionCheckpoint(value)).at(-1)
+  const summary = node ? messageText(node) || (typeof node.summary === 'string' ? node.summary
+    : typeof node.data?.summary === 'string' ? node.data.summary : undefined) : undefined
   if (!summary) return undefined
   const shadowedItemCount = node?.shadowedItemCount ?? node?.data?.shadowedItemCount
   const shadowedTokenCount = node?.shadowedTokenCount ?? node?.data?.shadowedTokenCount
@@ -395,9 +407,15 @@ function latestCheckpoint(chat: AssistantChatSnapshot | undefined): { summary: s
     ...(typeof shadowedItemCount === 'number' ? { count: shadowedItemCount } : {}),
     ...(typeof shadowedTokenCount === 'number' ? { tokens: shadowedTokenCount } : {}) }
 }
-function latestCompactionFailed(chat: AssistantChatSnapshot | undefined): boolean {
-  const command = chat?.legacy?.nodes?.filter(value => value?.kind === 'command' && value?.name === 'compact').at(-1)
-  return command?.outcome?.kind === 'error'
+function latestAssistantMessageId(chat: AssistantChatSnapshot | undefined): string | undefined {
+  const nodes = chat?.nodes?.values?.() ?? []
+  for (let index = nodes.length - 1; index >= 0; index--) {
+    const node = nodes[index]
+    const data = node?.data as Record<string, any> | undefined
+    const id = data?.finalNode?.messageId ?? data?.messageId
+    if (node?.kind === 'assistant-step' && typeof id === 'string') return id
+  }
+  return undefined
 }
 interface Loader {
   load(entry: { id: string; factory(require: (id: string) => unknown): { inject: string[]; apply(ctx: ClientContext): void } }): void
@@ -1638,6 +1656,10 @@ window.__ModuleLoader__.load({
         name: 'conversation.chat.assistant-actions', id: 'delta.context.optimizer-apply', order: 90,
         label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.applyOptimization,
       }, OptimizerApplyAction))
+      scope.slots.inject('conversation.chat.assistant-actions', () => scope.slots.register({
+        name: 'conversation.chat.assistant-actions', id: 'delta.context.compaction-activity', order: 80,
+        label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.compacting,
+      }, CompactionActivityAction))
       scope.slots.inject('conversation.input.model.label', () => scope.slots.register({
         name: 'conversation.input.model.label',
       }, ModelLabelExtension))
@@ -1691,19 +1713,6 @@ window.__ModuleLoader__.load({
         }], 'queue')
         return result.ok
       } finally { reference.release() }
-    }
-    async function requestNativeCompaction(sessionId: string): Promise<'started' | 'unavailable' | 'failed' | 'running'> {
-      const services = assistantServices
-      if (!services) return 'unavailable'
-      const reference = services.sessions.retain(sessionId, { source: 'sidebarChat' })
-      try {
-        await reference.ready
-        if (reference.binding.session.getSnapshot?.().running) return 'running'
-        if (typeof reference.binding.session.command !== 'function') return 'unavailable'
-        const result = await reference.binding.session.command('/compact')
-        return result.matched ? 'started' : 'unavailable'
-      } catch { return 'failed' }
-      finally { reference.release() }
     }
     function preferenceRow(title: string, description: string, isEnabled: boolean, onChange: (next: boolean) => void): unknown {
       return el('div', { className: 'dtd-preference-row' },
@@ -1903,24 +1912,15 @@ window.__ModuleLoader__.load({
       const draft = props.useInput(state => state.draft)
       const session = props.useSession(state => state)
       const chat = props.useChat(state => state)
-      const pressure = props.useProjection('contextPressure')
-      const compactionStatus = props.useProjection<{ failed?: boolean }>('deltaContextCompactionStatus')
-      const usage = readContextUsage(pressure)
       const draftRef = React.useRef(draft)
       draftRef.current = draft
       const sessionRef = React.useRef(props.sessionId)
       sessionRef.current = props.sessionId
       const [message, setMessage] = React.useState('')
-      const [compacting, setCompacting] = React.useState(false)
-      const [showCheckpoint, setShowCheckpoint] = React.useState(false)
-      const checkpoint = latestCheckpoint(chat)
-      const manualCompactError = latestCompactionFailed(chat)
-      const automaticCompactError = compactionStatus?.failed === true
-      const compactError = manualCompactError || automaticCompactError
       const openDiscussion = async (): Promise<void> => {
         const context = conversationContext(chat)
         const status = session.running ? 'running' : session.awaitingFirstTurn ? 'waiting for first turn' : 'idle'
-        const prompt = `You are an independent discussion assistant for the user's main task. Discuss ideas, clarify requirements, and help plan corrections. This is a separate session: do not claim to have changed or interrupted the main task.\n\nMain task session: ${props.sessionId}\nMain task status: ${status}\nContext pressure estimate: ${usage ? `${usage.percent}% (${usage.used}/${usage.capacity} tokens)` : 'not available'}\n\nRecent loaded conversation context (may be incomplete):\n${context || '(no conversation excerpt available)'}`
+        const prompt = `You are an independent discussion assistant for the user's main task. Discuss ideas, clarify requirements, and help plan corrections. This is a separate session: do not claim to have changed or interrupted the main task.\n\nMain task session: ${props.sessionId}\nMain task status: ${status}\n\nRecent loaded conversation context (may be incomplete):\n${context || '(no conversation excerpt available)'}`
         try {
           setMessage(copy.ui.assistantStarting)
           await openAssistantSession(props.sessionId, 'discussion', prompt)
@@ -1943,31 +1943,12 @@ window.__ModuleLoader__.load({
           setMessage(copy.ui.assistantReady)
         } catch (error) { setMessage(error instanceof Error ? error.message : copy.ui.assistantUnavailable) }
       }
-      const compactNow = async (): Promise<void> => {
-        if (!usage || session.running || session.awaitingFirstTurn || compacting) return
-        setCompacting(true)
-        const result = await requestNativeCompaction(props.sessionId)
-        setMessage(result === 'started' ? copy.ui.compacting
-          : result === 'unavailable' ? copy.ui.compactUnavailable
-            : result === 'running' ? copy.ui.compacting : copy.ui.compactFailed)
-        setCompacting(false)
-      }
       return el('div', { className: 'dtd-context-controls' },
         el('div', { className: 'dtd-context-actions' },
           el('button', { type: 'button', className: 'dtd-context-action', onClick: () => { void openDiscussion() } }, copy.ui.discussTask),
           prefs.inputOptimization ? el('button', { type: 'button', className: 'dtd-context-action', disabled: !draft.trim(),
-            onClick: () => { void optimize() } }, copy.ui.optimizeDraft) : null,
-          usage ? el('span', { className: 'dtd-context-meter', title: copy.ui.contextUsage }, `${usage.percent}%`) : null,
-          usage && usage.percent >= 70 ? el('button', { type: 'button', className: 'dtd-context-action',
-            disabled: !!session.running || !!session.awaitingFirstTurn || compacting, onClick: () => { void compactNow() } },
-          compacting ? copy.ui.compacting : copy.ui.compactNow) : null,
-          checkpoint ? el('button', { type: 'button', className: 'dtd-context-action',
-            'aria-expanded': showCheckpoint, onClick: () => setShowCheckpoint(!showCheckpoint) }, copy.ui.checkpoint) : null),
-        (compactError || message) ? el('span', { role: compactError ? 'alert' : 'status', className: 'dtd-context-feedback' },
-          compactError ? (automaticCompactError ? copy.ui.automaticCompactionFailed : copy.ui.compactFailed) : message) : null,
-        checkpoint && showCheckpoint ? el('details', { className: 'dtd-checkpoint', open: true },
-          el('summary', null, `${copy.ui.checkpoint}${checkpoint.count === undefined ? '' : ` · ${checkpoint.count}`}`),
-          el('pre', null, checkpoint.summary)) : null)
+            onClick: () => { void optimize() } }, copy.ui.optimizeDraft) : null),
+        message ? el('span', { role: 'status', className: 'dtd-context-feedback' }, message) : null)
     }
     function OptimizerApplyAction(props: AssistantSlotProps): unknown {
       const workflow = assistantWorkflows.get(props.sessionId)
@@ -2020,6 +2001,27 @@ window.__ModuleLoader__.load({
               else setMessage(copy.ui.copyFailed)
             } }, copy.ui.copyText),
             el('button', { type: 'button', onClick: () => setOpen(false) }, copy.ui.cancel))) : null)
+    }
+    function CompactionActivityAction(props: AssistantSlotProps): unknown {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const chat = props.useChat(state => state)
+      const status = props.useProjection<{ seq?: number; phase?: 'idle' | 'running' | 'completed' | 'failed'; failed?: boolean }>(
+        'deltaContextCompactionStatus')
+      if (!props.messageId || props.messageId !== latestAssistantMessageId(chat) || !status || (status.seq ?? -1) < 0) return null
+      const phase = status.failed ? 'failed' : status.phase ?? 'idle'
+      if (phase === 'idle') return null
+      const checkpoint = latestCheckpoint(chat)
+      const failed = phase === 'failed'
+      const label = failed ? copy.ui.automaticCompactionFailed
+        : phase === 'running' ? copy.ui.compacting : copy.ui.compactionCompleted
+      return el('div', { className: `dtd-compaction-event is-${failed ? 'failed' : phase}`,
+        role: failed ? 'alert' : 'status', 'aria-live': 'polite' },
+        el('span', { className: 'dtd-compaction-event-icon', 'aria-hidden': true },
+          failed ? '!' : phase === 'running' ? el('span', { className: 'dtd-compaction-spinner' }) : '✓'),
+        el('span', { className: 'dtd-compaction-event-label' }, label),
+        !failed && checkpoint ? el('details', { className: 'dtd-compaction-summary-details' },
+          el('summary', null, copy.ui.viewCheckpoint),
+          el('pre', { className: 'dtd-compaction-summary' }, checkpoint.summary)) : null)
     }
     function EmbeddedAssistantConversation(props: AssistantSlotProps): unknown {
       const session = props.useSession(state => state)
