@@ -237,6 +237,13 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
                 // is unconfirmed. Do not count it as a successful rollback.
                 throw new Error('recovery outcome missing a valid Host version; state unconfirmed')
               }
+              // A Host version acknowledges the write but is not evidence
+              // that the restored bytes are readable and equal to our snapshot.
+              // Fail closed if readback is denied, cancelled, or mismatched.
+              const recoveredText = await readTextSafe(ctx, exec, root, entry.path)
+              if (recoveredText !== entry.original) {
+                throw new Error('recovery readback mismatch; state unconfirmed')
+              }
               rollback.restored += 1
               applied -= 1
               written[entry.resultIndex] = {
