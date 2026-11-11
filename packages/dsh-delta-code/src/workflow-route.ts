@@ -57,7 +57,11 @@ export function decideCodingWorkflow(input: RouteInput): RouteResult {
   if (input.taskKind === 'bugfix') return {
     mode: 'diagnose',
     skills: [
-      'code-root-cause-debugging', 'code-test-driven-development',
+      'code-root-cause-debugging',
+      // Diagnose before planning, then execute one verified step at a time.
+      // Avoid speculative parallel writes while the root cause is unsettled.
+      ...(shouldPlan ? ['code-writing-plans', 'code-executing-plans'] : []),
+      'code-test-driven-development',
       ...(isHighRisk || isLarge ? ['code-request-review'] : []),
       'code-verification-gate', 'code-finish-branch',
     ],

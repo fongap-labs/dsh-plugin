@@ -24,6 +24,15 @@ test('routing is deterministic, lean for small changes and strict for higher ris
   const fix = decideCodingWorkflow({ taskKind: 'bugfix', scope: 'small', risk: 'low' })
   assert.equal(fix.mode, 'diagnose')
   assert.ok(fix.skills.includes('code-root-cause-debugging'))
+  assert.ok(!fix.skills.includes('code-writing-plans'))
+  const complexFix = decideCodingWorkflow({
+    taskKind: 'bugfix', scope: 'large', risk: 'high', independentTasks: 4, nativeSubagents: true,
+  })
+  assert.equal(complexFix.mode, 'diagnose')
+  assert.deepEqual(complexFix.skills.slice(0, 3), [
+    'code-root-cause-debugging', 'code-writing-plans', 'code-executing-plans',
+  ])
+  assert.equal(complexFix.parallelCandidate, false)
   const risky = decideCodingWorkflow({
     taskKind: 'refactor', scope: 'large', risk: 'high', independentTasks: 4, nativeSubagents: true,
   })
@@ -40,7 +49,7 @@ test('routing is deterministic, lean for small changes and strict for higher ris
   const ci = decideCodingWorkflow({ taskKind: 'ci', scope: 'small', risk: 'high' })
   assert.deepEqual(ci.skills, ['code-ci-repair', 'code-verification-gate'])
   const ids = new Set(ALL_CODING_SKILLS.map(skill => skill.name))
-  for (const result of [fast, fix, risky, noHost, ci]) {
+  for (const result of [fast, fix, complexFix, risky, noHost, ci]) {
     for (const skill of result.skills) assert.ok(ids.has(skill), skill)
   }
   assert.throws(() => decideCodingWorkflow({ taskKind: 'feature', scope: 'large', risk: 'high', independentTasks: 0 }), /independentTasks/)
