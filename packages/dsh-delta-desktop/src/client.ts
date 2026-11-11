@@ -739,7 +739,6 @@ function installHostSearch(
   })
   input.addEventListener('click', () => openSearchDialog())
   input.addEventListener('input', () => {
-    if (!isSearchDialogOpen) openSearchDialog()
     feedback.hidden = true
     onInput()
   })
