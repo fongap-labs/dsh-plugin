@@ -203,6 +203,7 @@ describe("dsh-delta-code", () => {
     const tool = ctx.registered.get("code_multi_edit");
     const result = await tool.execute(
       {
+        preflight: false,
         edits: [
           { path: "../../../../escape.txt", content: "nope" },
           { path: "safe.txt", content: "yes" },

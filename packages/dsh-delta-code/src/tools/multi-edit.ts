@@ -32,7 +32,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       },
       dryRun: { type: 'boolean', description: 'When true, validate without writing.' },
       preflight: { type: 'boolean', description: 'Check the entire batch before writing; enabled by default for more than one edit. Explicit false selects legacy best-effort semantics. Preflight does not guarantee atomic writes.' },
-      rollbackOnFailure: { type: 'boolean', description: 'Opt-in guarded compensation for existing files only; requires preflight=true and execution.fsWriteContract=guarded-intent. Restores confirmed earlier writes only if the Host write version is unchanged. Not atomic.' },
+      rollbackOnFailure: { type: 'boolean', description: 'Opt-in guarded compensation for existing files only; requires preflight (default for multi-file batches) and execution.fsWriteContract=guarded-intent. Restores confirmed earlier writes only if the Host write version is unchanged. Not atomic.' },
     },
     output: {
       schema: {
@@ -101,7 +101,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             path: typeof edit?.path === 'string' ? edit.path : '',
             action: 'skipped' as const,
             ok: false,
-            note: 'rollbackOnFailure requires preflight=true, dryRun=false and guarded-intent Host FS',
+            note: 'rollbackOnFailure requires active preflight, dryRun=false and guarded-intent Host FS',
           })),
           dryRun: Boolean(args.dryRun),
         }

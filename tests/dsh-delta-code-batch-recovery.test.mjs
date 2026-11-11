@@ -144,12 +144,12 @@ describe('Code Worker guarded batch compensation', () => {
     assert.equal(host.files.has(resolve(root, 'new.txt')), false)
   })
 
-  it('requires opt-in, full preflight and guarded Host contract', async () => {
+  it('requires opt-in, active preflight and guarded Host contract', async () => {
     const host = simulatedHost()
-    const noPreflight = await host.tool.execute({ rollbackOnFailure: true, edits }, exec())
+    const noPreflight = await host.tool.execute({ preflight: false, rollbackOnFailure: true, edits }, exec())
     assert.equal(noPreflight.applied, 0)
     assert.equal(host.writes.length, 0)
-    assert.match(noPreflight.results[0].note, /requires preflight=true/)
+    assert.match(noPreflight.results[0].note, /requires active preflight/)
     const legacy = createMultiEditTool(host.ctx, normalizeConfig({ workspaceRoot: root }))
     const result = await legacy.execute({ preflight: true, rollbackOnFailure: true, edits }, exec())
     assert.equal(result.applied, 0)
