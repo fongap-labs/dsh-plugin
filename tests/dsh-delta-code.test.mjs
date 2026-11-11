@@ -119,7 +119,7 @@ describe("dsh-delta-code", () => {
       await symlink(secret, linkedFile);
       await symlink(outside, linkedDir, "dir");
       const tool = ctx.registered.get("code_multi_edit");
-      const result = await tool.execute({ edits: [
+      const result = await tool.execute({ preflight: false, edits: [
         { path: "external-file.txt", content: "outside-overwrite" },
         { path: "external-file.txt", find: "must-not-change", replace: "outside-replace" },
         { path: "external-dir/created.txt", content: "outside-created" },
@@ -203,6 +203,7 @@ describe("dsh-delta-code", () => {
     const tool = ctx.registered.get("code_multi_edit");
     const result = await tool.execute(
       {
+        preflight: false,
         edits: [
           { path: "../../../../escape.txt", content: "nope" },
           { path: "safe.txt", content: "yes" },

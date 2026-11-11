@@ -10,7 +10,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
   return defineTool({
     name: `${TOOL_PREFIX}multi_edit`,
     description:
-      'Apply workspace edits with per-edit results (not a filesystem transaction). Each edit either overwrites content or performs literal find/replace. Optional preflight validates the batch before writing; overwrite edits may specify expectedSha256 to reject stale source content. dryRun does not write.',
+      'Apply workspace edits with per-edit results (not a filesystem transaction). Multi-file batches are preflight-validated by default, so invalid later edits cannot trigger earlier writes. Set preflight=false only for explicit legacy best-effort behavior. Compensation remains opt-in and requires guarded-intent Host FS. dryRun does not write.',
     parameters: {
       edits: {
         type: 'array',
@@ -31,8 +31,8 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
         },
       },
       dryRun: { type: 'boolean', description: 'When true, validate without writing.' },
-      preflight: { type: 'boolean', description: 'Check the entire batch before writing. Preflight failure writes nothing; write-stage failures may still leave earlier edits (not an atomic transaction).' },
-      rollbackOnFailure: { type: 'boolean', description: 'Opt-in guarded compensation for existing files only; requires preflight=true and execution.fsWriteContract=guarded-intent. Restores confirmed earlier writes only if the Host write version is unchanged. Not atomic.' },
+      preflight: { type: 'boolean', description: 'Check the entire batch before writing; enabled by default for more than one edit. Explicit false selects legacy best-effort semantics. Preflight does not guarantee atomic writes.' },
+      rollbackOnFailure: { type: 'boolean', description: 'Opt-in guarded compensation for existing files only; requires preflight (default for multi-file batches) and execution.fsWriteContract=guarded-intent. Restores confirmed earlier writes only if the Host write version is unchanged. Not atomic.' },
     },
     output: {
       schema: {
@@ -90,22 +90,25 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       const results: EditResult[] = []
       let applied = 0
       const edits = Array.isArray(args.edits) ? args.edits : []
+      // Invalid later edits should not mutate earlier files by default.
+      // Preserve explicit legacy opt-out and single-edit behavior.
+      const usePreflight = args.preflight === true || (args.preflight !== false && edits.length > 1)
       const shouldRollback = args.rollbackOnFailure === true
-      if (shouldRollback && (!args.preflight || args.dryRun || settings.fsWriteContract !== 'guarded-intent')) {
+      if (shouldRollback && (!usePreflight || args.dryRun || settings.fsWriteContract !== 'guarded-intent')) {
         return {
           applied: 0,
           results: edits.map((edit) => ({
             path: typeof edit?.path === 'string' ? edit.path : '',
             action: 'skipped' as const,
             ok: false,
-            note: 'rollbackOnFailure requires preflight=true, dryRun=false and guarded-intent Host FS',
+            note: 'rollbackOnFailure requires active preflight, dryRun=false and guarded-intent Host FS',
           })),
           dryRun: Boolean(args.dryRun),
         }
       }
-      if (args.preflight || args.dryRun) {
+      if (usePreflight || args.dryRun) {
         // Every dry run must validate targets and Host permissions before claiming success.
-        // Real writes without explicit preflight retain the existing best-effort mode.
+        // Multi-file writes are preflighted unless the caller explicitly opts out.
         const prepared: Array<{
           path: string
           action: EditResult['action']
