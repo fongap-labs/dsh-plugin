@@ -19,6 +19,12 @@ describe('cross-language validation command boundaries', () => {
     assert.throws(() => chooseVerificationCommand('test', 'python', ['go']), /manifest not found/)
     assert.deepEqual(chooseVerificationCommand('build', 'python', ['python']), { project: 'python', command: 'python', args: ['-m', 'build'] })
     assert.throws(() => chooseVerificationCommand('lint', 'node', ['node'], 'npm', ['test']), /does not declare/)
+    assert.deepEqual(chooseVerificationCommand('test:unit', 'node', ['node'], 'pnpm', ['test:unit']),
+      { project: 'node', command: 'pnpm', args: ['run', 'test:unit'] })
+    assert.throws(() => chooseVerificationCommand('test:unit', 'node', ['node'], 'npm', ['test']), /does not declare/)
+    assert.throws(() => chooseVerificationCommand('test:unit', 'rust', ['rust']), /require a Node/)
+    assert.throws(() => chooseVerificationCommand('test:unit;rm', 'node', ['node'], 'npm', ['test:unit;rm']), /not allowlisted/)
+    assert.throws(() => chooseVerificationCommand('pretest', 'node', ['node'], 'npm', ['pretest']), /not allowlisted/)
   })
 
   it('uses the actual DSH subprocess boundary with no shell or arbitrary commands', async () => {
