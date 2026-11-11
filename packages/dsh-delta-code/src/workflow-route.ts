@@ -39,7 +39,7 @@ function overlaps(left: string, right: string): boolean {
 
 /** Pure dependency-wave planning: never dispatches agents or touches a worktree. */
 export function planCodingWaves(
-  count: number, paths?: string[][], dependencies?: number[][], parallel = false,
+  count: number, paths?: string[][], dependencies?: number[][], canParallelize = false,
 ): number[][] {
   if (!Number.isSafeInteger(count) || count < 1 || count > 100) {
     throw new Error('independentTasks must be an integer from 1 to 100')
@@ -72,7 +72,7 @@ export function planCodingWaves(
   for (let index = 0; index < count; index++) {
     const earliest = prerequisites[index]!.reduce((wave, dependency) =>
       Math.max(wave, assigned[dependency]! + 1), 0)
-    let waveIndex = parallel && writeSets ? earliest : Math.max(earliest, waves.length)
+    let waveIndex = canParallelize && writeSets ? earliest : Math.max(earliest, waves.length)
     while (waves[waveIndex]?.some(other =>
       writeSets && writeSets[index]!.some(path =>
         writeSets[other]!.some(existing => overlaps(path, existing))))) {
