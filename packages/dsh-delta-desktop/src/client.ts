@@ -347,8 +347,8 @@ function installHostSearch(
   let isSearching = false
   let hasError = false
   let displayedLanguage = language()
-  let searchDialogOpen = false
-  let suppressSearchFocus = false
+  let isSearchDialogOpen = false
+  let isSearchFocusSuppressed = false
   const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
   const workspaceReady = (snapshot: ReturnType<WorkspacesApi['list']['getSnapshot']>): boolean =>
     (snapshot.phase === undefined || snapshot.phase === 'ready') &&
@@ -378,14 +378,14 @@ function installHostSearch(
   }
   // Search results are native buttons; support arrow navigation in both
   // directions without hijacking the Host's global keyboard shortcuts.
-  const closeSearchDialog = (restoreFocus = true, clearQuery = true): void => {
-    if (!searchDialogOpen) return
-    searchDialogOpen = false
+  const closeSearchDialog = (shouldRestoreFocus = true, shouldClearQuery = true): void => {
+    if (!isSearchDialogOpen) return
+    isSearchDialogOpen = false
     searchBackdrop.hidden = true
     if (searchField.parentElement !== shell) shell.insertBefore(searchField, quickActions)
     if (results.parentElement !== shell) shell.appendChild(results)
     searchBackdrop.remove()
-    if (clearQuery) {
+    if (shouldClearQuery) {
       clearRequest()
       input.value = ''
       remoteItems = []
@@ -395,38 +395,38 @@ function installHostSearch(
       results.hidden = true
       results.replaceChildren()
     }
-    if (restoreFocus && input.isConnected) {
-      suppressSearchFocus = true
+    if (shouldRestoreFocus && input.isConnected) {
+      isSearchFocusSuppressed = true
       input.focus({ preventScroll: true })
-      suppressSearchFocus = false
+      isSearchFocusSuppressed = false
     }
   }
   const openSearchDialog = (): void => {
-    if (searchDialogOpen || !active() || !document.body) return
-    searchDialogOpen = true
+    if (isSearchDialogOpen || !active() || !document.body) return
+    isSearchDialogOpen = true
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
     searchDialogTitle.textContent = copy.searchSessions
     searchDialogClose.setAttribute('aria-label', copy.close)
-    suppressSearchFocus = true
+    isSearchFocusSuppressed = true
     searchDialogSearch.appendChild(searchField)
     searchDialogResults.appendChild(results)
     document.body.appendChild(searchBackdrop)
     searchBackdrop.hidden = false
     render()
     input.focus({ preventScroll: true })
-    suppressSearchFocus = false
+    isSearchFocusSuppressed = false
   }
   searchDialogClose.addEventListener('click', () => closeSearchDialog())
   searchBackdrop.addEventListener('pointerdown', event => {
     if (event.target === searchBackdrop) closeSearchDialog()
   })
   searchDialog.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && searchDialogOpen) {
+    if (event.key === 'Escape' && isSearchDialogOpen) {
       event.preventDefault()
       closeSearchDialog()
       return
     }
-    if (event.key !== 'Tab' || !searchDialogOpen) return
+    if (event.key !== 'Tab' || !isSearchDialogOpen) return
     const focusable = Array.from(searchDialog.querySelectorAll<HTMLElement>(
       'input:not([disabled]), button:not([disabled])',
     ))
@@ -454,7 +454,7 @@ function installHostSearch(
         focusResult(button, event.key === 'ArrowDown' ? 1 : -1)
       } else if (event.key === 'Escape') {
         event.preventDefault()
-        if (searchDialogOpen) closeSearchDialog()
+        if (isSearchDialogOpen) closeSearchDialog()
         else {
           input.value = ''
           onInput()
@@ -479,7 +479,7 @@ function installHostSearch(
     if (!active()) { results.hidden = true; return }
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
     if (!query) {
-      if (!searchDialogOpen) { results.hidden = true; return }
+      if (!isSearchDialogOpen) { results.hidden = true; return }
       results.hidden = false
       const prompt = document.createElement('p')
       prompt.className = 'dtd-host-search-hint dtd-search-dialog-prompt'
@@ -735,11 +735,11 @@ function installHostSearch(
       navigation.startSession()
     }))
   input.addEventListener('focus', () => {
-    if (!suppressSearchFocus) openSearchDialog()
+    if (!isSearchFocusSuppressed) openSearchDialog()
   })
   input.addEventListener('click', () => openSearchDialog())
   input.addEventListener('input', () => {
-    if (!searchDialogOpen) openSearchDialog()
+    if (!isSearchDialogOpen) openSearchDialog()
     feedback.hidden = true
     onInput()
   })
@@ -751,7 +751,7 @@ function installHostSearch(
     }
     if (event.key !== 'Escape') return
     event.preventDefault()
-    if (searchDialogOpen) {
+    if (isSearchDialogOpen) {
       closeSearchDialog()
       return
     }
