@@ -2,11 +2,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
-import type { VerificationScript } from './verify-presets.js'
+import { isAllowedVerificationScript, type VerificationScript } from './verify-presets.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
 import { classifyFailure, classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
 
-const CHECKS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const STEP_SCHEMA = {
   type: 'object' as const,
   additionalProperties: false,
@@ -31,8 +30,8 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
     parameters: {
       scripts: {
         type: 'array', required: true,
-        description: 'Ordered distinct checks: test, typecheck, build, lint, check (1..5).',
-        items: { type: 'string', enum: ['test', 'typecheck', 'build', 'lint', 'check'] },
+        description: '1..5 distinct allowlisted base checks or declared Node variants such as test:unit.',
+        items: { type: 'string' },
       },
       cwd: { type: 'string', description: 'Optional workspace-relative directory.' },
       project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'], description: 'Project type; auto requires exactly one manifest type.' },
@@ -61,7 +60,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
         throw new Error('verification suite requires 1..5 scripts')
       }
       if (new Set(scripts).size !== scripts.length) throw new Error('verification scripts must not be duplicated')
-      if (scripts.some(script => !CHECKS.has(script))) throw new Error('script is not allowlisted')
+      if (scripts.some(script => !isAllowedVerificationScript(script))) throw new Error('script is not allowlisted')
       // No command may run if a later script is undeclared or the workspace is unsafe.
       const prepared = []
       for (const script of scripts) {
