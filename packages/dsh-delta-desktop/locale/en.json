@@ -26,6 +26,7 @@
     "copySessionId": "Copy session ID",
     "copy": "Copy",
     "searchSessions": "Search sessions",
+    "searchDialogPrompt": "Type to search sessions and workspaces.",
     "newConversation": "New conversation",
     "copied": "Session ID copied",
     "copyFailed": "Unable to copy",

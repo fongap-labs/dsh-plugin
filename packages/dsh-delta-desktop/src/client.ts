@@ -11,7 +11,7 @@ interface DeltaCopy {
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
-    searchSessions: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
+    searchSessions: string; searchDialogPrompt: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
     searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
     workspaceResult: string; archivedSession: string; sessionStateUnknown: string;
     sessionRunning: string; sessionArchived: string; sessionUpdated: string;
@@ -312,6 +312,32 @@ function installHostSearch(
   results.setAttribute('role', 'region')
   results.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
   results.hidden = true
+  const initialSearchUi = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+  const searchBackdrop = document.createElement('div')
+  searchBackdrop.className = 'dtd-search-dialog-backdrop'
+  searchBackdrop.hidden = true
+  const searchDialog = document.createElement('section')
+  searchDialog.className = 'dtd-search-dialog'
+  searchDialog.setAttribute('role', 'dialog')
+  searchDialog.setAttribute('aria-modal', 'true')
+  const searchDialogTitle = document.createElement('h2')
+  searchDialogTitle.id = 'dtd-search-dialog-title'
+  searchDialogTitle.textContent = initialSearchUi.searchSessions
+  searchDialog.setAttribute('aria-labelledby', searchDialogTitle.id)
+  const searchDialogClose = document.createElement('button')
+  searchDialogClose.type = 'button'
+  searchDialogClose.className = 'dtd-search-dialog-close'
+  searchDialogClose.setAttribute('aria-label', initialSearchUi.close)
+  searchDialogClose.textContent = '×'
+  const searchDialogHeader = document.createElement('header')
+  searchDialogHeader.className = 'dtd-search-dialog-header'
+  searchDialogHeader.append(searchDialogTitle, searchDialogClose)
+  const searchDialogSearch = document.createElement('div')
+  searchDialogSearch.className = 'dtd-search-dialog-search'
+  const searchDialogResults = document.createElement('div')
+  searchDialogResults.className = 'dtd-search-dialog-results'
+  searchDialog.append(searchDialogHeader, searchDialogSearch, searchDialogResults)
+  searchBackdrop.appendChild(searchDialog)
   shell.append(searchField, quickActions, feedback, results)
   let isDisposed = false
   let timer: number | undefined
@@ -321,6 +347,8 @@ function installHostSearch(
   let isSearching = false
   let hasError = false
   let displayedLanguage = language()
+  let isSearchDialogOpen = false
+  let isSearchFocusSuppressed = false
   const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
   const workspaceReady = (snapshot: ReturnType<WorkspacesApi['list']['getSnapshot']>): boolean =>
     (snapshot.phase === undefined || snapshot.phase === 'ready') &&
@@ -350,6 +378,68 @@ function installHostSearch(
   }
   // Search results are native buttons; support arrow navigation in both
   // directions without hijacking the Host's global keyboard shortcuts.
+  const closeSearchDialog = (shouldRestoreFocus = true, shouldClearQuery = true): void => {
+    if (!isSearchDialogOpen) return
+    isSearchDialogOpen = false
+    searchBackdrop.hidden = true
+    if (searchField.parentElement !== shell) shell.insertBefore(searchField, quickActions)
+    if (results.parentElement !== shell) shell.appendChild(results)
+    searchBackdrop.remove()
+    if (shouldClearQuery) {
+      clearRequest()
+      input.value = ''
+      remoteItems = []
+      isSearching = false
+      hasError = false
+      feedback.hidden = true
+      results.hidden = true
+      results.replaceChildren()
+    }
+    if (shouldRestoreFocus && input.isConnected) {
+      isSearchFocusSuppressed = true
+      input.focus({ preventScroll: true })
+      isSearchFocusSuppressed = false
+    }
+  }
+  const openSearchDialog = (): void => {
+    if (isSearchDialogOpen || !active() || !document.body) return
+    isSearchDialogOpen = true
+    const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+    searchDialogTitle.textContent = copy.searchSessions
+    searchDialogClose.setAttribute('aria-label', copy.close)
+    isSearchFocusSuppressed = true
+    searchDialogSearch.appendChild(searchField)
+    searchDialogResults.appendChild(results)
+    document.body.appendChild(searchBackdrop)
+    searchBackdrop.hidden = false
+    render()
+    input.focus({ preventScroll: true })
+    isSearchFocusSuppressed = false
+  }
+  searchDialogClose.addEventListener('click', () => closeSearchDialog())
+  searchBackdrop.addEventListener('pointerdown', event => {
+    if (event.target === searchBackdrop) closeSearchDialog()
+  })
+  searchDialog.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && isSearchDialogOpen) {
+      event.preventDefault()
+      closeSearchDialog()
+      return
+    }
+    if (event.key !== 'Tab' || !isSearchDialogOpen) return
+    const focusable = Array.from(searchDialog.querySelectorAll<HTMLElement>(
+      'input:not([disabled]), button:not([disabled])',
+    ))
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last?.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first?.focus()
+    }
+  })
   const focusResult = (current: HTMLButtonElement | null, step: number): void => {
     const buttons = Array.from(results.children)
       .filter((node): node is HTMLButtonElement => node.tagName.toLowerCase() === 'button')
@@ -364,9 +454,12 @@ function installHostSearch(
         focusResult(button, event.key === 'ArrowDown' ? 1 : -1)
       } else if (event.key === 'Escape') {
         event.preventDefault()
-        input.value = ''
-        onInput()
-        input.focus()
+        if (isSearchDialogOpen) closeSearchDialog()
+        else {
+          input.value = ''
+          onInput()
+          input.focus()
+        }
       }
     })
   }
@@ -383,9 +476,19 @@ function installHostSearch(
   const render = (): void => {
     results.replaceChildren()
     const query = input.value.trim().toLocaleLowerCase()
-    if (!query || !active()) { results.hidden = true; return }
-    results.hidden = false
+    if (!active()) { results.hidden = true; return }
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+    if (!query) {
+      if (!isSearchDialogOpen) { results.hidden = true; return }
+      results.hidden = false
+      const prompt = document.createElement('p')
+      prompt.className = 'dtd-host-search-hint dtd-search-dialog-prompt'
+      prompt.setAttribute('role', 'status')
+      prompt.textContent = copy.searchDialogPrompt
+      results.appendChild(prompt)
+      return
+    }
+    results.hidden = false
     // Workspaces are an optional read-only enhancement. No filesystem paths, IDs,
     // permissions, or private viewing-store keys are exposed in search results.
     const workspaceMatches: { id: string; title: string }[] = []
@@ -476,6 +579,7 @@ function installHostSearch(
         try {
           void Promise.resolve(currentNavigation.openWorkspace(workspace.id)).then(() => {
             if (!active() || serial !== navigationRequest) return
+            closeSearchDialog(false, false)
             input.value = ''
             clearRequest()
             remoteItems = []
@@ -536,6 +640,7 @@ function installHostSearch(
           if (typeof currentNavigation?.openSession !== 'function') throw new Error('Host Session navigation unavailable')
           feedback.hidden = true
           currentNavigation.openSession(match.id)
+          closeSearchDialog(false, false)
           input.value = ''
           clearRequest()
           remoteItems = []
@@ -629,6 +734,10 @@ function installHostSearch(
       if (typeof navigation?.startSession !== 'function') return false
       navigation.startSession()
     }))
+  input.addEventListener('focus', () => {
+    if (!isSearchFocusSuppressed) openSearchDialog()
+  })
+  input.addEventListener('click', () => openSearchDialog())
   input.addEventListener('input', () => {
     feedback.hidden = true
     onInput()
@@ -640,6 +749,11 @@ function installHostSearch(
       return
     }
     if (event.key !== 'Escape') return
+    event.preventDefault()
+    if (isSearchDialogOpen) {
+      closeSearchDialog()
+      return
+    }
     input.value = ''
     onInput()
     input.blur()
@@ -647,6 +761,7 @@ function installHostSearch(
   const sync = (): void => {
     if (isDisposed) return
     if (controller.getSnapshot().mode !== 'delta') {
+      closeSearchDialog(false, false)
       resetSearch()
       shell.remove()
       root.removeAttribute('data-delta-search-adapter')
@@ -654,9 +769,19 @@ function installHostSearch(
       return
     }
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
-    input.placeholder = copy.searchSessions
-    input.setAttribute('aria-label', copy.searchSessions)
-    results.setAttribute('aria-label', copy.searchSessions)
+    if (input.getAttribute('placeholder') !== copy.searchSessions) {
+      input.placeholder = copy.searchSessions
+    }
+    if (input.getAttribute('aria-label') !== copy.searchSessions) {
+      input.setAttribute('aria-label', copy.searchSessions)
+    }
+    if (results.getAttribute('aria-label') !== copy.searchSessions) {
+      results.setAttribute('aria-label', copy.searchSessions)
+    }
+    if (searchDialogTitle.textContent !== copy.searchSessions) searchDialogTitle.textContent = copy.searchSessions
+    if (searchDialogClose.getAttribute('aria-label') !== copy.close) {
+      searchDialogClose.setAttribute('aria-label', copy.close)
+    }
     // The observer watches the whole sidebar subtree. Writing an unchanged
     // textContent still mutates child nodes in browsers and can queue another
     // observer callback, creating an unbounded self-triggering sync loop.
@@ -675,6 +800,7 @@ function installHostSearch(
     // The Host only renders <nav> when it has main-panel entries; search must
     // still work with no panels, above the unchanged workspace browsing region.
     if (!viewport) {
+      closeSearchDialog(false)
       // A detached sidebar can be rebuilt for a different Host generation.
       // Drop all pending RPCs, prior results and focus context before remount.
       if (shell.parentElement !== null) resetSearch()
@@ -684,6 +810,7 @@ function installHostSearch(
       return
     }
     if (shell.parentElement !== viewport || viewport.firstElementChild !== shell) {
+      closeSearchDialog(false)
       viewport.insertBefore(shell, viewport.firstElementChild)
     }
     const hasSearchServices = !!getSessions() && !!getNavigation()
@@ -708,11 +835,13 @@ function installHostSearch(
   sync()
   return () => {
     if (isDisposed) return
+    closeSearchDialog(false, false)
     isDisposed = true
     clearRequest()
     unsubscribe()
     observer.disconnect()
     bindWorkspaceRefresh(undefined)
+    searchBackdrop.remove()
     shell.remove()
     root.removeAttribute('data-delta-search-adapter')
     controller.setSearchStatus(controller.getSnapshot().mode === 'official' ? 'disabled' : 'waiting-services')
