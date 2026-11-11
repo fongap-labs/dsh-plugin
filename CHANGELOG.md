@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 复杂缺陷修复路由补齐根因分析、分步规划与执行流程，避免未经确认的并行修改。
+
 - 修复: Delta Code 交付门禁核对 DSH 原生 Todo 快照，避免未完成或验证期间变更的任务误报已交付。
 
 - 修复 [security]: 基础 Git 与 GitHub origin 检查统一遵守 Host FS 目录权限。
