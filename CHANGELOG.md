@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 真实 DSH 预检默认使用完整 SDK Profile，保留可选 sdk-minimal 兼容检查，并补充验证超时及交付收口宿主验收项。
+
 - 修复: Delta Code 受控恢复须核对回写后文件内容；宿主返回版本但读回失败或不匹配时不再误报恢复成功。
 
 - 修复: Delta Code 多文件编辑隐式预检时支持 expectedSha256，拒绝过期内容哈希并阻断整批写入。
