@@ -109,7 +109,7 @@ function createTools(ctx: Context, settings: Settings, nativeResume: NativeResum
     createWorktreeTool(ctx, settings),
     createVerifyTool(ctx, settings),
     createVerifySuiteTool(ctx, settings),
-    createDeliveryGateTool(ctx, settings),
+    createDeliveryGateTool(ctx, settings, nativeResume),
     createNativeResumeTool(ctx, settings, nativeResume),
   ]
   if (settings.gitEnabled) {
