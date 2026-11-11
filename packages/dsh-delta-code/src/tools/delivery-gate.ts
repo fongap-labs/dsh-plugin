@@ -18,7 +18,7 @@ function isTerminalGateTodo(tasks: DeliveryTask[], remaining: string[]): boolean
   const final = tasks[tasks.length - 1]!
   if (final.status === 'completed' || final.content.trim() !== remaining[0]) return false
   if (!tasks.slice(0, -1).every(task => task.status === 'completed')) return false
-  return /(?:交付.{0,16}(?:验证|门禁)|(?:最终|最后).{0,20}(?:验证|验收|门禁)|(?:验证|验收).{0,12}门禁|(?:delivery|verification|acceptance).{0,16}(?:gate|check)|(?:gate|check).{0,16}(?:delivery|verification))/i.test(final.content)
+  return /(?:\u4ea4\u4ed8.{0,16}(?:\u9a8c\u8bc1|\u95e8\u7981)|(?:\u6700\u7ec8|\u6700\u540e).{0,20}(?:\u9a8c\u8bc1|\u9a8c\u6536|\u95e8\u7981)|(?:\u9a8c\u8bc1|\u9a8c\u6536).{0,12}\u95e8\u7981|(?:delivery|verification|acceptance).{0,16}(?:gate|check)|(?:gate|check).{0,16}(?:delivery|verification))/i.test(final.content)
 }
 
 export interface DeliveryTask {
