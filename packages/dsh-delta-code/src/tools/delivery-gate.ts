@@ -6,11 +6,10 @@ import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { parseGitStatus } from './git.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
-import type { VerificationScript } from './verify-presets.js'
+import { isAllowedVerificationScript, type VerificationScript } from './verify-presets.js'
 import type { NativeResumeReader } from './resume.js'
 import { classifyFailure, classifyVerificationEvidence, verificationNextAction, type FailureKind } from './failure-policy.js'
 
-const ALLOWED_SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const STATUS = new Set(['pending', 'in_progress', 'completed'])
 // The gate itself is not an implementation task. Legacy plans sometimes put
 // it in the final native Todo, which otherwise makes verification recursive.
@@ -150,7 +149,7 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
           task: { type: 'string', required: true },
           criterion: { type: 'string', required: true },
           checks: { type: 'array', required: true, items: {
-            type: 'string', enum: ['test', 'typecheck', 'build', 'lint', 'check'],
+            type: 'string',
           } },
         } },
       },
@@ -158,7 +157,7 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
       scripts: {
         type: 'array',
         description: 'Final checks to execute fresh, e.g. test and typecheck (1..5). Required to verify completion.',
-        items: { type: 'string', enum: ['test', 'typecheck', 'build', 'lint', 'check'] },
+        items: { type: 'string' },
       },
       cwd: { type: 'string', description: 'Optional workspace-relative Git repository / worktree.' },
       project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'] },
@@ -243,7 +242,7 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
 
       const scripts = args.scripts as VerificationScript[] | undefined
       if (!Array.isArray(scripts) || scripts.length < 1 || scripts.length > 5 ||
-          new Set(scripts).size !== scripts.length || scripts.some(script => !ALLOWED_SCRIPTS.has(script))) {
+          new Set(scripts).size !== scripts.length || scripts.some(script => !isAllowedVerificationScript(script))) {
         return gate('blocked', 'Declare 1..5 distinct allowlisted final verification scripts.',
           [], '', ['fresh final verification scripts are missing or invalid'])
       }
