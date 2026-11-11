@@ -1,4 +1,14 @@
-export type VerificationScript = 'test' | 'typecheck' | 'build' | 'lint' | 'check'
+export type VerificationBaseScript = 'test' | 'typecheck' | 'build' | 'lint' | 'check'
+export type VerificationScript = VerificationBaseScript | `${VerificationBaseScript}:${string}`
+const BASE_SCRIPTS = new Set<string>(['test', 'typecheck', 'build', 'lint', 'check'])
+const SAFE_SCRIPT = /^(?:test|typecheck|build|lint|check)(?::[a-z0-9][a-z0-9_-]{0,63})?$/
+/** Named variants run only if declared in the selected Node project's package.json. */
+export function isAllowedVerificationScript(script: unknown): script is VerificationScript {
+  return typeof script === 'string' && SAFE_SCRIPT.test(script)
+}
+function isBaseVerificationScript(script: string): script is VerificationBaseScript {
+  return BASE_SCRIPTS.has(script)
+}
 export type VerificationProject = 'auto' | 'node' | 'rust' | 'python' | 'go'
 
 export interface VerificationCommand {
@@ -7,7 +17,7 @@ export interface VerificationCommand {
   args: string[]
 }
 
-const PRESETS: Record<Exclude<VerificationProject, 'auto' | 'node'>, Partial<Record<VerificationScript, [string, ...string[]]>>> = {
+const PRESETS: Record<Exclude<VerificationProject, 'auto' | 'node'>, Partial<Record<VerificationBaseScript, [string, ...string[]]>>> = {
   rust: {
     test: ['cargo', 'test'],
     typecheck: ['cargo', 'check'],
@@ -40,6 +50,7 @@ export function chooseVerificationCommand(
   nodeScripts: readonly string[] = [],
   isRustLocked = false,
 ): VerificationCommand {
+  if (!isAllowedVerificationScript(script)) throw new Error('script is not allowlisted')
   const discovered = [...new Set(present)]
   if (project !== 'auto' && !discovered.includes(project)) {
     throw new Error(project + ' project manifest not found in the selected directory')
@@ -54,6 +65,7 @@ export function chooseVerificationCommand(
     if (!nodeScripts.includes(script)) throw new Error('package.json does not declare script ' + script)
     return { project: 'node', command: manager, args: ['run', script] }
   }
+  if (!isBaseVerificationScript(script)) throw new Error('named verification scripts require a Node package.json declaration')
   const preset = PRESETS[selected]?.[script]
   if (!preset) throw new Error(selected + ' does not provide a safe preset for ' + script)
   const args = preset.slice(1)

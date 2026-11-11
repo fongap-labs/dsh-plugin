@@ -75,11 +75,19 @@ export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[]
 export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings {
   // Cordis volatile configuration nodes expose get(); project them into a
   // normal immutable snapshot before existing validation/default resolution.
-  const unwrap = (value: any): any => {
-    if (value && typeof value === 'object' && typeof value.get === 'function') return unwrap(value.get())
-    if (Array.isArray(value)) return value.map(unwrap)
-    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k,v]) => [k, unwrap(v)]))
-    return value
+  const unwrap = (value: any, active = new WeakSet<object>(), depth = 0): any => {
+    if (!value || typeof value !== 'object') return value
+    if (depth > 64) throw new Error('configuration nesting limit exceeded')
+    if (active.has(value)) throw new Error('circular configuration reference')
+    active.add(value)
+    try {
+      if (typeof value.get === 'function') return unwrap(value.get(), active, depth + 1)
+      if (Array.isArray(value)) return value.map(item => unwrap(item, active, depth + 1))
+      return Object.fromEntries(Object.entries(value).map(([key, item]) =>
+        [key, unwrap(item, active, depth + 1)]))
+    } finally {
+      active.delete(value)
+    }
   }
   const cfg: CodeWorkerConfig = unwrap(config && typeof config === 'object' ? config : {})
   const git = cfg.git && typeof cfg.git === 'object' ? cfg.git : {}
