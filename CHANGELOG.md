@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 会话搜索框左右间距与侧栏其他元素对齐。
+
 - 新增: 会话搜索改用官方风格的居中弹窗，保留 titleBarOverlay 颜色。
 
 - 维护: 将 Delta Desktop v3 插件压缩包存入对应插件目录。

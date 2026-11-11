@@ -116,6 +116,7 @@
 :root[data-delta-ui="delta"] .dtd-host-search-field {
   display: flex;
   align-items: center;
+  margin-inline: 8px;
   min-height: 38px;
   padding-inline: 11px;
   gap: 8px;
