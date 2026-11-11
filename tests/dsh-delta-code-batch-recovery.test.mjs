@@ -18,6 +18,7 @@ function simulatedHost(options = {}) {
   ])
   const writes = []
   let sequence = 1
+  let recoveredOnce = false
   const fs = {
     async resolve(path) { return { key: path } },
     contains(parent, target) {
@@ -28,6 +29,7 @@ function simulatedHost(options = {}) {
       return f ? { type: 'file', version: f.version } : undefined
     },
     async readText(target) {
+      if (options.failRecoveryReadback && recoveredOnce) throw new Error('Host denied recovery readback')
       const f = files.get(target.key)
       if (!f) throw new Error('Host FS file absent')
       return f.content
@@ -55,6 +57,10 @@ function simulatedHost(options = {}) {
       }
       const version = 'v' + ++sequence
       files.set(target.key, { content, version })
+      if (content === 'original-first') {
+        recoveredOnce = true
+        if (options.corruptRecovery) files.set(target.key, { content: 'unexpected post-recovery content', version })
+      }
       options.afterWrite?.({ target, content, version, files, writes })
       if (options.omitRecoveryOutcome && content === 'original-first') return undefined
       if (options.invalidRecoveryOutcome && content === 'original-first') return { operation: 'update', version: '' }
@@ -130,6 +136,30 @@ describe('Code Worker guarded batch compensation', () => {
     assert.equal(result.rollback.restored, 0)
     assert.equal(result.rollback.failed, 1)
     assert.match(result.results[0].note, /recovery unconfirmed/)
+  })
+
+  it('does not claim recovery when Host returns a version but readback contents differ', async () => {
+    const host = simulatedHost({ denySecond: true, corruptRecovery: true })
+    const result = await host.tool.execute({ preflight: true, rollbackOnFailure: true, edits }, exec())
+    assert.equal(result.applied, 1)
+    assert.equal(result.rollback.attempted, 1)
+    assert.equal(result.rollback.restored, 0)
+    assert.equal(result.rollback.failed, 1)
+    assert.equal(result.results[0].ok, true)
+    assert.match(result.results[0].note, /recovery readback mismatch; state unconfirmed/)
+    assert.equal(host.files.get(resolve(root, 'first.txt')).content, 'unexpected post-recovery content')
+    assert.equal(host.writes.length, 3)
+  })
+
+  it('does not claim recovery if the Host refuses the post-write readback', async () => {
+    const host = simulatedHost({ denySecond: true, failRecoveryReadback: true })
+    const result = await host.tool.execute({ preflight: true, rollbackOnFailure: true, edits }, exec())
+    assert.equal(result.applied, 1)
+    assert.equal(result.rollback.attempted, 1)
+    assert.equal(result.rollback.restored, 0)
+    assert.equal(result.rollback.failed, 1)
+    assert.match(result.results[0].note, /Host denied recovery readback/)
+    assert.equal(host.files.get(resolve(root, 'first.txt')).content, 'original-first')
   })
 
   it('refuses automatic restoration of newly created files at preflight', async () => {
