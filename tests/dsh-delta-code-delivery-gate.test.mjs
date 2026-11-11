@@ -8,7 +8,7 @@ import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 
 const HEAD = 'a'.repeat(40)
 const NEXT_HEAD = 'b'.repeat(40)
-const execution = () => ({ signal: new AbortController().signal })
+const execution = () => ({ agent: { session: { id: 'native-test-session' } }, signal: new AbortController().signal })
 const done = [{ content: 'Locate source', status: 'completed' }, { content: 'Fix and test', status: 'completed' }]
 function hostOutput(code, stdout = '') {
   return {
@@ -19,7 +19,7 @@ function hostOutput(code, stdout = '') {
     },
   }
 }
-async function fixture({ failScript = false, drift = false, driftPatch = false, untracked = false, malformedStatus, deny = false, allowCommands = true } = {}) {
+async function fixture({ failScript = false, drift = false, driftPatch = false, untracked = false, malformedStatus, deny = false, allowCommands = true, nativeTasks, nativeAfterRun, nativeUnavailable = false } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'dsh-delivery-gate-'))
   await writeFile(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'node --test', typecheck: 'tsc' } }))
   const commands = []
@@ -51,11 +51,61 @@ async function fixture({ failScript = false, drift = false, driftPatch = false, 
     } },
   }
   const settings = normalizeConfig({ workspaceRoot: root, execution: { allowCommands } })
-  const tool = createDeliveryGateTool(ctx, settings)
+  let nativeReads = 0
+  const nativeResume = nativeTasks === undefined && !nativeUnavailable ? undefined : {
+    read() {
+      nativeReads++
+      if (nativeUnavailable) return undefined
+      const changed = nativeReads > 1 && nativeAfterRun !== undefined
+      return { tasks: changed ? nativeAfterRun : nativeTasks, writeSeq: changed ? 8 : 7, invalid: false }
+    },
+  }
+  const tool = createDeliveryGateTool(ctx, settings, nativeResume)
   return { root, tool, commands, cleanup: () => rm(root, { force: true, recursive: true }) }
 }
 
 describe('Delta Code Worker execution delivery gate', () => {
+
+  it('rejects model-claimed completion when native Todo still contains pending work', async () => {
+    const f = await fixture({ nativeTasks: [
+      { content: 'Locate source', status: 'completed' },
+      { content: 'Fix and test', status: 'pending' },
+    ] })
+    try {
+      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      assert.equal(result.stage, 'blocked')
+      assert.match(result.blockers.join(' '), /supplied tasks differ/)
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
+  it('fails closed when the DSH native Todo projection is unavailable', async () => {
+    const f = await fixture({ nativeUnavailable: true })
+    try {
+      const result = await f.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      assert.equal(result.stage, 'blocked')
+      assert.match(result.blockers.join(' '), /native Todo projection/)
+      assert.deepEqual(f.commands, [])
+    } finally { await f.cleanup() }
+  })
+
+  it('accepts matching native Todo evidence and blocks checkpoint changes during checks', async () => {
+    const stable = await fixture({ nativeTasks: done })
+    try {
+      const result = await stable.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      assert.equal(result.stage, 'verified')
+      assert.equal(result.ready, true)
+    } finally { await stable.cleanup() }
+
+    const changed = await fixture({ nativeTasks: done, nativeAfterRun: done })
+    try {
+      const result = await changed.tool.execute({ tasks: done, expectedHead: HEAD, scripts: ['test'] }, execution())
+      assert.equal(result.stage, 'blocked')
+      assert.equal(result.ready, false)
+      assert.match(result.blockers.join(' '), /native Todo changed/)
+      assert.ok(changed.commands.some(args => args[0] === 'npm'))
+    } finally { await changed.cleanup() }
+  })
   it('validates native Todo tasks and preserves their exact pending order', () => {
     assert.deepEqual(remainingDeliveryTasks([
       { content: 'Inspect', status: 'completed' },

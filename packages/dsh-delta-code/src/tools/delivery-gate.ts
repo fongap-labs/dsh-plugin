@@ -7,6 +7,7 @@ import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { parseGitStatus } from './git.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
 import type { VerificationScript } from './verify-presets.js'
+import type { NativeResumeReader } from './resume.js'
 
 const ALLOWED_SCRIPTS = new Set(['test', 'typecheck', 'build', 'lint', 'check'])
 const STATUS = new Set(['pending', 'in_progress', 'completed'])
@@ -83,10 +84,10 @@ async function hostGit(
  * allowlisted verification scripts. This does not authorize a merge, replace
  * an independent review, or claim that self-reported task statuses are proven.
  */
-export function createDeliveryGateTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeResume?: NativeResumeReader): ToolDefinition {
   return defineTool({
     name: 'code_delivery_gate',
-    description: 'Check native Todo progress, current Git HEAD/diff hygiene and freshly run allowlisted tests before claiming verified completion. Read-only Git; tests require execution.allowCommands and DSH Host subprocess. Not a merge approval or persistent task store.',
+    description: 'Check the latest DSH native Todo snapshot against supplied task statuses, current Git HEAD/diff hygiene and fresh allowlisted tests before claiming verified completion. Requires the native projection when provided by the plugin. Not a merge approval or task store.',
     parameters: {
       tasks: {
         type: 'array', required: true,
@@ -135,7 +136,26 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings): ToolDe
       ].join('\n') }]
     } },
     async execute(args, exec) {
-      const remaining = remainingDeliveryTasks(args.tasks as DeliveryTask[])
+      const tasks = args.tasks as DeliveryTask[]
+      const remaining = remainingDeliveryTasks(tasks)
+      // Tool arguments are authored by a model; they are not the authority for
+      // completion. A real DSH Session must agree with the Host's durable Todo
+      // projection before final verification begins.
+      const claimed = JSON.stringify(tasks.map(task => ({ content: task.content.trim(), status: task.status })))
+      let nativeWriteSeq: number | undefined
+      if (nativeResume) {
+        let checkpoint
+        try { checkpoint = nativeResume.read(exec.agent) } catch { /* fail closed below */ }
+        if (!checkpoint || checkpoint.invalid || !checkpoint.tasks || checkpoint.writeSeq < 0) {
+          return gate('blocked', 'Restore or inspect the native DSH Todo checkpoint before final verification.',
+            remaining, '', ['native Todo projection is missing or invalid'])
+        }
+        if (JSON.stringify(checkpoint.tasks) !== claimed) {
+          return gate('blocked', 'Reload the latest native Todo tasks and reconcile their statuses before verifying.',
+            remaining, '', ['supplied tasks differ from the native Todo checkpoint'])
+        }
+        nativeWriteSeq = checkpoint.writeSeq
+      }
       if (remaining.length > 0) {
         return gate('continue', 'Resume the first pending or in-progress native Todo item and verify it before marking complete: ' + remaining[0], remaining)
       }
@@ -227,6 +247,16 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings): ToolDe
           ]
           if (finalHead !== head || after !== before || afterPatches.some((patch, i) => patch !== beforePatches[i])) {
             blockers.push('repository changed during verification; inspect and rerun')
+          }
+        }
+        // A new Todo write during checks makes earlier completion claims stale,
+        // even when the model supplied the same text and task statuses.
+        if (nativeResume && nativeWriteSeq !== undefined) {
+          let latest
+          try { latest = nativeResume.read(exec.agent) } catch { /* fail closed below */ }
+          if (!latest || latest.invalid || latest.writeSeq !== nativeWriteSeq ||
+              JSON.stringify(latest.tasks) !== claimed) {
+            blockers.push('native Todo changed during verification; refresh checkpoint and rerun')
           }
         }
         if (blockers.length > 0) {
