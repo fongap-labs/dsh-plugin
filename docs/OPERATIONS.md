@@ -23,6 +23,8 @@ projects/<plugin>/release.manifest.json
 4. 各插件的 `build-release.mjs` 是薄入口，调用通用 `scripts/build-release.mjs`。
 5. 构建产物、SBOM 和来源证明通过验证后，由中央流程发布 GitHub Release。
 
+每个产品的 Release 摘要应在对应清单的 `changelog_entries` 中单独列出。它会覆盖仓库共用 `CHANGELOG.md` 的未发布区块；多插件仓库若省略该字段，摘要会包含其他插件的更新。发布前只填写本次目标插件的变更。
+
 纯 JavaScript/TypeScript 插件使用 `linux-standard` Runner 和 `portable` 目标，不安装 Rust。生成的 ZIP/TGZ 不包含操作系统原生二进制，供 Windows、macOS、Linux 上兼容版本的 DeepSeek Harness 安装。宿主 API 和行为仍应分别进行跨系统验证；插件依赖若引入原生模块，需重新评估发布矩阵。Action Worker 仍为其他原生应用保留 PowerShell 和 Windows 构建能力。
 
 ## 3. 产物与校验

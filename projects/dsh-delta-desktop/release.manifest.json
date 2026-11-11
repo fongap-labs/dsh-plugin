@@ -6,6 +6,9 @@
   "release_key": "dsh-delta-desktop",
   "release_name": "Delta Desktop",
   "release_notes": "",
+  "changelog_entries": [
+    "修复: 会话搜索框左右间距与侧栏其他元素对齐。"
+  ],
   "license_expression": "MIT",
   "node_version_file": ".nvmrc",
   "python_version_file": "",
