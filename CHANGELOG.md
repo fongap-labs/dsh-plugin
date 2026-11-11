@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 更新: 用最新附件替换 Delta Desktop 插件目录中的 V3 ZIP 归档。
+
 - 新增: Delta Desktop 支持结构化上下文自动压缩、checkpoint 查看与失败提示、独立上下文助手和引用提问、默认脱敏与视觉桥、MCP 服务器管理、输入优化及 DeepSeek 模型路由开关。
 
 - 修复: Delta Code 真实 DSH 预检默认使用完整 SDK Profile，保留可选 sdk-minimal 兼容检查，并补充验证超时及交付收口宿主验收项。
