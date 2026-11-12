@@ -23,6 +23,7 @@ import { createHostProbeTool } from './tools/host-probe.js'
 import { createWorkflowRouteTool } from './workflow-route.js'
 import { registerCodingSkills } from './skills.js'
 import { registerAutomaticCodingRouter } from './auto-routing.js'
+import { ExecutionStats, createExecutionStatsTool } from './execution-stats.js'
 
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 const PROMPT_SECTION_NAME = 'dsh-delta-code:guidance'
@@ -37,10 +38,13 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   const promptDisposers: Array<() => void> = []
   const cleanup: Array<() => void> = []
   const nativeResume = registerNativeResume(ctx)
+  const executionStats = new ExecutionStats()
   cleanup.push(() => nativeResume.dispose())
+  cleanup.push(() => executionStats.clear())
 
   const register = () => {
-    for (const tool of createTools(ctx, settings, nativeResume)) {
+    for (const definition of createTools(ctx, settings, nativeResume, executionStats)) {
+    const tool = executionStats.wrap(definition)
     const result = registerTool(ctx, tool)
     if (result.registered && typeof result.disposer === 'function') {
       toolDisposers.push(result.disposer)
@@ -97,13 +101,15 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   }
 }
 
-function createTools(ctx: Context, settings: Settings, nativeResume: NativeResumeReader): ToolDefinition[] {
+function createTools(ctx: Context, settings: Settings, nativeResume: NativeResumeReader,
+  executionStats: ExecutionStats): ToolDefinition[] {
   if (settings.enabled === false) return []
 
   const tools: ToolDefinition[] = [
     createMultiEditTool(ctx, settings),
     createProjectProfileTool(ctx, settings),
     createHostProbeTool(ctx),
+    createExecutionStatsTool(executionStats),
     createWorkflowRouteTool(),
     createWorkspaceMapTool(ctx, settings),
     createWorktreeTool(ctx, settings),
