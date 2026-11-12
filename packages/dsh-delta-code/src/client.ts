@@ -3,6 +3,8 @@
  * Single, self-contained lazy-CJS client module; no DOM patching or Host fetch endpoints.
  * All writes use the Host's revision-fenced ConfigForm, with path-level secret edits.
  */
+// Self-contained classic script: DSH may evaluate multiple clients in one lexical scope.
+;(() => {
 interface ReactApi {
   createElement(type: string | ((props: any) => unknown), props?: Record<string, unknown> | null, ...children: unknown[]): unknown
   useState<T>(init: T | (() => T)): [T, (value: T | ((old: T) => T)) => void]
@@ -269,3 +271,5 @@ function installClient(require: (id: string) => unknown) {
 }
 (window as unknown as { __ModuleLoader__: { load(entry: { id: string; factory: (require: (id: string) => unknown) => unknown }): void } })
   .__ModuleLoader__.load({ id: NAME, factory: installClient })
+
+})()
