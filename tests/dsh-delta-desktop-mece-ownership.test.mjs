@@ -61,6 +61,8 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
     'discovery.session-search', 'sessions.session-operations', 'integrations.proxy-settings']) {
     assert.ok(host.includes("id: '" + id + "'"), 'unregistered Host feature: ' + id)
   }
+  assert.doesNotMatch(host, /id:\s*'integrations\.gateway-retry-guard'/,
+    'Desktop must not register another gateway retry listener alongside Code Worker')
   assert.ok(host.includes("throw new Error('Delta privacy bridge requires"),
     'configured privacy enforcement cannot be silently bypassed')
 })

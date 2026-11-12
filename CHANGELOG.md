@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop 不再自动注册与 Delta Code Worker 重复的网关重试监听；由 Code Worker 统一协调网关冷却与 DSH 原生重试，避免双重拦截。
+
 - 新增: Delta Code 内置会话级自动 A/B 评估，随机分配不注入动态引导及注入动态引导两组；按 DSH 原生事件统计工具调用、错误、重复请求、完成轮次和 Token，只保留聚合指标。
 
 - 修复: Delta Code 尊重网关故障耗尽的等待提示；长冷却阻止 DSH 立即回放整个故障计划，短冷却仅补齐原生决策后剩余等待。
