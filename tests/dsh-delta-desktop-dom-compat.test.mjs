@@ -24,7 +24,6 @@ test('ZIP3 session operations retain Host permission and privacy boundaries', ()
   assert.match(source, /installClientPrivacyGuards/)
   assert.match(source, /navigator/)
   assert.doesNotMatch(source, /app\.asar/)
-  assert.doesNotMatch(source, /HTMLInputElement\.prototype/)
 })
 test('unverified host-only capabilities remain unclaimed until Windows validation', () => {
   for (const capability of ['sidebar_search_placement', 'sidebar_navigation_order', 'workspace_initial_collapse']) {

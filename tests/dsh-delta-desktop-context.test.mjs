@@ -32,6 +32,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   const resources = []
   const tabs = []
   const dialogRoots = []
+  const diagnosticMessages = []
   const mcpMutations = []
   const mcpFormQueries = []
   const deltaSettingsMutations = []
@@ -54,7 +55,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     document, navigator: { language: 'en-US' }, URL, URLSearchParams, AbortController,
     localStorage: { getItem(key) { return storage.get(key) ?? null }, setItem(key, value) { storage.set(key, value) } },
     MutationObserver: class { observe() {} disconnect() {} },
-    console: { error() {} },
+    console: { error(...values) { diagnosticMessages.push(values.map(String).join(' ')) }, warn(...values) { diagnosticMessages.push(values.map(String).join(' ')) } },
   }
   vm.runInNewContext(clientSource, context)
   const react = {
@@ -187,7 +188,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     inputActions: { setDraft(value) { draftValue = value }, persistDraft() { prompts.push({ persistedDraft: draftValue }) } },
   }
   return { components, effects, prompts, commands, created, opened, refCounts, storage, resources, tabs,
-    dialogRoots, mcpMutations, mcpFormQueries, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
+    dialogRoots, diagnosticMessages, mcpMutations, mcpFormQueries, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
     get draft() { return draftValue }, sessions }
 }
 function textOf(node) {
@@ -247,7 +248,7 @@ function openMcpDialog(app) {
 test('MCP manager entry follows the built-in install action and handles missing Host services', () => {
   const app = makeHarness()
   const action = app.components.get('plugins.add.actions:delta.mcp.add-server')
-  assert.ok(action)
+  assert.ok(action, 'MCP slot missing; registered: ' + [...app.components.keys()].join(', ') + '; diagnostic: ' + app.diagnosticMessages.join(' | '))
   assert.equal(action.spec.order, -100)
   let dismissed = false
   const menuItem = action.component({ onDismiss() { dismissed = true } })
