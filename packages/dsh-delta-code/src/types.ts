@@ -1,4 +1,5 @@
 import type { HostFsService } from './host-fs.js'
+import type { LanguageConventionRule } from './consistency.js'
 
 /**
  * Internal host contracts and public Code Worker configuration types.
@@ -55,6 +56,7 @@ export interface CodeWorkerConfig {
     allowWorktreeWrites?: boolean
     allowCommands?: boolean
     fsWriteContract?: HostFsWriteContract
+    languageConventions?: LanguageConventionRule[]
   }
   github?: {
     enabled?: boolean
@@ -77,6 +79,7 @@ export interface Settings {
   allowWorktreeWrites: boolean
   allowCommands: boolean
   fsWriteContract: HostFsWriteContract
+  languageConventions: LanguageConventionRule[]
   githubEnabled: boolean
   githubAllowWrites: boolean
   githubAccounts: GitHubAccountConfig[]

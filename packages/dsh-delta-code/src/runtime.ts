@@ -6,6 +6,7 @@ import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside, isPathInside, SandboxViolationError } from '@fongap-labs/shared'
 import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
 import { requireHostFs } from './host-fs.js'
+import { normalizeLanguageConventions } from './consistency.js'
 import type { HostFsCapabilities, HostWriteIntent } from './host-fs.js'
 
 export const TOOL_PREFIX = 'code_'
@@ -113,6 +114,7 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
     allowCommands: execution.allowCommands === true,
     fsWriteContract,
+    languageConventions: normalizeLanguageConventions(execution.languageConventions),
     githubEnabled: github.enabled !== false && accounts.length > 0,
     githubAllowWrites: github.allowWrites === true,
     githubAccounts: accounts,
