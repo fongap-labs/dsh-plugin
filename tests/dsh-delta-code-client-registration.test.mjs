@@ -10,7 +10,7 @@ const manifest = JSON.parse(read('package.json'))
 describe('Delta Code Web client registration', () => {
   it('registers the exact package id under a colliding client global, including reload', () => {
     const emitted = read('lib/client.js')
-    assert.match(emitted, /^;\(\(\) => \{\n/)
+    assert.match(emitted, /__ModuleLoader__\.load\(/)
     assert.doesNotThrow(() => verifyCodeClient(emitted, manifest.name))
   })
   it('rejects an unisolated client, even if its id is correct', () => {
