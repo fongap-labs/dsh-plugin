@@ -164,6 +164,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     documentElement: root, body,
     head: { appendChild(tag) { tag.parentNode = { removeChild() {} } } },
     createElement(tag) { return new Element(tag) },
+    createTextNode(text) { const node = new Element('#text'); node.textContent = text; return node },
     querySelector(selector) { return selector === '[data-sidebar-scrollport]' && body.children.includes(viewport) ? viewport : null },
   }
   const env = {
@@ -289,6 +290,7 @@ test('ZIP sidebar search activates only after public Host Session and navigation
       body,
       head: { appendChild(tag) { tag.parentNode = { removeChild() {} } } },
       createElement(tag) { return new Element(tag) },
+    createTextNode(text) { const node = new Element('#text'); node.textContent = text; return node },
       querySelector(selector) {
         return selector === '[data-sidebar-scrollport]' ? viewport : null
       },
