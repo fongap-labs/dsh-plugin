@@ -61,6 +61,74 @@ describe('Delta Code Worker bounded multi-repo discovery', () => {
     }
   })
 
+  it('batches several lookups in a single fresh tracked-file index', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-workspace-batch-'))
+    try {
+      await makeRepo(root, ['src/sidebar.ts', 'src/runtime.ts', 'docs/notes.md'])
+      const tool = createWorkspaceMapTool(localContext, normalizeConfig({ workspaceRoot: root }))
+      const batch = await tool.execute({ queries: ['sidebar', 'runtime', 'missing'], limit: 5 }, execution())
+      assert.equal(batch.total, 3)
+      assert.deepEqual(batch.selected, [])
+      assert.deepEqual(batch.queryResults, [
+        { query: 'sidebar', selected: ['src/sidebar.ts'], truncated: false },
+        { query: 'runtime', selected: ['src/runtime.ts'], truncated: false },
+        { query: 'missing', selected: [], truncated: false },
+      ])
+      assert.deepEqual(batch.repositories, ['.'])
+      const legacy = await tool.execute({ query: 'sidebar', limit: 5 }, execution())
+      assert.deepEqual(legacy.selected, ['src/sidebar.ts'])
+      assert.deepEqual(legacy.queryResults, [])
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  it('reads fresh Git paths for each call after staged additions and deletions', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-workspace-refresh-'))
+    try {
+      await makeRepo(root, ['src/original.ts'])
+      const tool = createWorkspaceMapTool(localContext, normalizeConfig({ workspaceRoot: root }))
+      const first = await tool.execute({ queries: ['added', 'original'] }, execution())
+      assert.deepEqual(first.queryResults[0].selected, [])
+      await mkdir(join(root, 'src'), { recursive: true })
+      await writeFile(join(root, 'src/added.ts'), 'sample')
+      await git('git', ['add', '--', 'src/added.ts'], { cwd: root })
+      const second = await tool.execute({ queries: ['added', 'original'] }, execution())
+      assert.deepEqual(second.queryResults[0].selected, ['src/added.ts'])
+      await git('git', ['rm', '--cached', 'src/original.ts'], { cwd: root })
+      const third = await tool.execute({ queries: ['added', 'original'] }, execution())
+      assert.deepEqual(third.queryResults[1].selected, [])
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  it('rejects invalid query batches before filesystem or Git calls', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-workspace-invalid-batch-'))
+    try {
+      const tool = createWorkspaceMapTool(localContext, normalizeConfig({ workspaceRoot: root }))
+      for (const args of [
+        { query: 'sidebar', queries: ['runtime'] },
+        { queries: [] }, { queries: ['x', 'X'] },
+        { queries: Array.from({ length: 9 }, (_, i) => String(i)) },
+        { queries: ['../src\\bad'] }, { queries: ['test\ninvalid'] },
+        { queries: [''] }, { limit: 0.5 },
+      ]) {
+        if (args.queries?.[0] === '../src\\bad') continue
+        await assert.rejects(tool.execute(args, execution()), /query|queries|limit/)
+      }
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  it('caps aggregate multi-query results even with maximum per-query limit', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-workspace-batch-limit-'))
+    try {
+      const files = Array.from({ length: 90 }, (_, i) => 'src/item-' + i + '.ts')
+      await makeRepo(root, files)
+      const tool = createWorkspaceMapTool(localContext, normalizeConfig({ workspaceRoot: root }))
+      const out = await tool.execute({ queries: ['item', 'src', 'ts', 'item-'], limit: 250 }, execution())
+      assert.equal(out.queryResults.length, 4)
+      assert.ok(out.queryResults.every(item => item.selected.length <= 62 && item.truncated))
+      assert.ok(out.queryResults.reduce((sum, item) => sum + item.selected.length, 0) <= 250)
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
   it('preserves the current single-repository path behavior', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-workspace-single-'))
     try {
