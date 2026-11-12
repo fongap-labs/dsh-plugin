@@ -19,18 +19,18 @@ export type PlannedTextEdit =
  * Preflight requires exactly one operation; the legacy mode retains its
  * distinct skipped result for an edit with neither operation specified.
  */
-export function planTextEdit(edit: TextEditInput, preflight: boolean): PlannedTextEdit | undefined {
+export function planTextEdit(edit: TextEditInput, isPreflight: boolean): PlannedTextEdit | undefined {
   const hasContent = edit.content !== undefined
   const hasFind = edit.find !== undefined
-  if (preflight ? hasContent === hasFind : hasContent && hasFind) {
+  if (isPreflight ? hasContent === hasFind : hasContent && hasFind) {
     throw new Error('provide exactly one of content or find/replace')
   }
-  if (!preflight && edit.expectedSha256 !== undefined) {
+  if (!isPreflight && edit.expectedSha256 !== undefined) {
     throw new Error('expectedSha256 requires preflight=true')
   }
   if (!hasContent && !hasFind) return undefined
   if (hasFind) {
-    if (preflight && edit.expectedSha256 !== undefined) {
+    if (isPreflight && edit.expectedSha256 !== undefined) {
       throw new Error('expectedSha256 is only supported for content overwrite')
     }
     if (typeof edit.find !== 'string' || edit.find.length === 0 || typeof edit.replace !== 'string') {
