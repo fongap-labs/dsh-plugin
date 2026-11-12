@@ -6,6 +6,7 @@ import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside, isPathInside, SandboxViolationError } from '@fongap-labs/shared'
 import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
 import { requireHostFs } from './host-fs.js'
+import { lookupDshWorkingDirectory } from './host-adapter.js'
 import { normalizeLanguageConventions } from './consistency.js'
 import type { HostFsCapabilities, HostWriteIntent } from './host-fs.js'
 import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'
@@ -124,12 +125,13 @@ export async function resolveRoot(
   exec: ToolRunContext,
   settings: Settings,
 ): Promise<string> {
-  const workingDirectory = ctx.get('workingDirectory')
-  if (
-    workingDirectory &&
-    exec.agent !== undefined &&
-    typeof workingDirectory.ensure === 'function'
-  ) {
+  const workingDirectory = lookupDshWorkingDirectory(ctx) as
+    | { ensure?: (agent: unknown, signal?: AbortSignal) => Promise<string | undefined | null> }
+    | undefined
+  if (workingDirectory && typeof workingDirectory.ensure !== 'function') {
+    throw new Error('DSH Host workingDirectory missing ensure; refusing local fallback')
+  }
+  if (workingDirectory && exec.agent !== undefined) {
     // A Host error is an explicit failure, not permission to use process.cwd().
     // Only an absent Host-provided directory may use the configured fallback.
     const dir = await workingDirectory.ensure(exec.agent, exec.signal)

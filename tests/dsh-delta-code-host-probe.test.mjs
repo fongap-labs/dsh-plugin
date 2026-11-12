@@ -22,6 +22,9 @@ describe('DSH Code Worker native Host diagnostics', () => {
       tools: { register() { calls.push('register') } },
     }
     const result = await run(createHostProbeTool(ctx))
+    assert.equal(result.adapterVersion, 'dsh-cordis-v1')
+    assert.equal(result.fsState, 'mounted')
+    assert.equal(result.workspaceState, 'mounted')
     assert.equal(result.fsAccessible, true)
     assert.equal(result.fsWriteText, true)
     assert.equal(result.subprocessSpawn, true)
@@ -41,6 +44,9 @@ describe('DSH Code Worker native Host diagnostics', () => {
       tools: {},
     }
     const result = inspectHostCapabilities(ctx)
+    assert.equal(result.adapterVersion, 'dsh-cordis-v1')
+    assert.equal(result.fsState, 'inaccessible')
+    assert.equal(result.workspaceState, 'mounted')
     assert.equal(result.fsAccessible, false)
     assert.equal(result.fsResolve, false)
     assert.equal(result.fsWriteText, false)

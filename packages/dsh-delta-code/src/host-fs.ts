@@ -1,4 +1,5 @@
 /** Centralized DSH Host FS capability contract. */
+import { lookupDshHostFs } from './host-adapter.js'
 export type HostWriteIntent =
   | { kind: 'createIfAbsent' }
   | { kind: 'replaceIfVersion'; version: string }
@@ -30,7 +31,7 @@ export function requireHostFs<K extends keyof HostFsCapabilities>(
   required: readonly K[],
   refusal: string,
 ): HostFs<K> | undefined {
-  const mounted: unknown = ctx.get('fs')
+  const mounted: unknown = lookupDshHostFs(ctx)
   if (!mounted) return undefined
   const candidate = mounted as HostFsCapabilities
   for (const capability of required) {

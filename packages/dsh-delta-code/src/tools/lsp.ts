@@ -4,6 +4,7 @@ import { defineTool, runCommand, isSubprocessMounted } from '@fongap-labs/shared
 import type { LspProbeResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot, errorMessage } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
+import { lookupDshHostFs } from '../host-adapter.js'
 
 export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
@@ -62,7 +63,7 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
         }
         throw error
       }
-      const isHostFsMounted = Boolean(ctx.get('fs'))
+      const isHostFsMounted = Boolean(lookupDshHostFs(ctx))
       const servers: LspProbeResult[] = []
       for (const server of settings.lspServers) {
         if (exec.signal.aborted) throw new Error('lsp probe cancelled')

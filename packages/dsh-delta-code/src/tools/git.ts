@@ -6,6 +6,7 @@ import type { GitStatusResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { requireHostFs } from '../host-fs.js'
+import { lookupDshHostFs } from '../host-adapter.js'
 import { assertGitExit } from './git-execution.js'
 
 
@@ -100,7 +101,7 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
         signal: exec.signal,
         timeoutMs: 30_000,
         // A denied or failing DSH Host subprocess may never silently retry as Node.
-        hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
+        hostOnly: Boolean(lookupDshHostFs(ctx)) || isSubprocessMounted(ctx),
       })
       assertGitExit(result, 'code_git_status')
       if (result.lossy) throw new Error('code_git_status: output truncated; refusing partial status')
@@ -213,7 +214,7 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
         signal: exec.signal,
         timeoutMs: 30_000,
         maxOutputBytes: 256 * 1024,
-        hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
+        hostOnly: Boolean(lookupDshHostFs(ctx)) || isSubprocessMounted(ctx),
       })
       assertGitExit(result, 'code_git_diff')
       return {

@@ -7,6 +7,7 @@ import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { requireHostFs } from '../host-fs.js'
+import { lookupDshHostFs } from '../host-adapter.js'
 import type { HostFs } from '../host-fs.js'
 
 const DEFAULT_LIMIT = 100
@@ -145,7 +146,7 @@ async function listTrackedFiles(
   const command = await runCommand(ctx, {
     command: settings.gitCommand, args: ['ls-files', '-z', '--cached'],
     cwd: directory, signal, timeoutMs: 15_000, maxOutputBytes: 1024 * 1024,
-    hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
+    hostOnly: Boolean(lookupDshHostFs(ctx)) || isSubprocessMounted(ctx),
   })
   if (command.timedOut || command.signal || command.lossy) {
     throw new Error('unable to enumerate tracked files without timeout or truncation')
