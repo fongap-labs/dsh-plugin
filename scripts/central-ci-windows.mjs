@@ -32,7 +32,6 @@ const configurations = [
   'packages/shared/tsconfig.json',
   'packages/dsh-delta-code/tsconfig.json',
   'packages/dsh-delta-desktop/tsconfig.json',
-  'packages/plugin-template/tsconfig.json',
   'packages/dsh-delta-desktop/tsconfig.client.json',
 ]
 for (const config of configurations) {
