@@ -7,6 +7,7 @@ import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { parseGitStatus } from './git.js'
+import { hasCompleteGitEvidence } from './git-execution.js'
 import { requireHostFs } from '../host-fs.js'
 import type { HostFs } from '../host-fs.js'
 
@@ -92,7 +93,7 @@ async function removeManagedWorktree(
     command: settings.gitCommand, args: ['worktree', 'list', '--porcelain'],
     cwd, timeoutMs: 15_000, maxOutputBytes: 32 * 1024, signal, hostOnly: true,
   })
-  if (list.exitCode !== 0 || list.signal || list.timedOut || list.lossy ||
+  if (!hasCompleteGitEvidence(list) ||
       !registeredTaskWorktree(list.stdout, target, branch)) {
     throw new Error('managed worktree is not registered at the expected branch and Host path')
   }
@@ -100,7 +101,7 @@ async function removeManagedWorktree(
     command: settings.gitCommand, args: ['status', '--porcelain=v1', '--branch', '-z'],
     cwd: target, timeoutMs: 15_000, maxOutputBytes: 64 * 1024, signal, hostOnly: true,
   })
-  if (status.exitCode !== 0 || status.signal || status.timedOut || status.lossy) {
+  if (!hasCompleteGitEvidence(status)) {
     throw new Error('Host Git worktree status unavailable; refusing removal')
   }
   const parsed = parseGitStatus(status.stdout)
@@ -111,7 +112,7 @@ async function removeManagedWorktree(
     command: settings.gitCommand, args: ['worktree', 'remove', target],
     cwd, timeoutMs: 45_000, maxOutputBytes: 8 * 1024, signal, hostOnly: true,
   })
-  if (removed.exitCode !== 0 || removed.signal || removed.timedOut || removed.lossy) {
+  if (!hasCompleteGitEvidence(removed)) {
     throw new Error('worktree removal failed or outcome is uncertain; inspect Git state before retry')
   }
   if (!shouldDeleteMergedBranch) return 'Removed managed worktree for ' + task + '; branch retained: ' + branch
@@ -119,7 +120,7 @@ async function removeManagedWorktree(
     command: settings.gitCommand, args: ['branch', '-d', branch],
     cwd, timeoutMs: 15_000, maxOutputBytes: 8 * 1024, signal, hostOnly: true,
   })
-  if (deleted.exitCode !== 0 || deleted.signal || deleted.timedOut || deleted.lossy) {
+  if (!hasCompleteGitEvidence(deleted)) {
     return 'Removed managed worktree for ' + task + '; branch retained (not merged or deletion unconfirmed): ' + branch
   }
   return 'Removed managed worktree and safely deleted merged branch: ' + branch
@@ -146,7 +147,7 @@ export function createWorktreeTool(ctx: Context, settings: Settings): ToolDefini
       if (args.action === 'list') {
         const result = await runCommand(ctx, { command: settings.gitCommand, args: ['worktree', 'list', '--porcelain'],
           cwd: processCwd, timeoutMs: 15_000, maxOutputBytes: 32 * 1024, signal: exec.signal, hostOnly: true })
-        if (result.exitCode !== 0 || result.timedOut || result.lossy || result.signal) throw new Error('git worktree list failed')
+        if (!hasCompleteGitEvidence(result)) throw new Error('git worktree list failed')
         return { action: 'list', output: result.stdout }
       }
       if (!settings.allowWorktreeWrites) throw new Error('worktree mutation is disabled; set execution.allowWorktreeWrites=true')
@@ -206,7 +207,7 @@ export function createWorktreeTool(ctx: Context, settings: Settings): ToolDefini
         command: settings.gitCommand, args: ['worktree', 'add', '-b', branch, target, base],
         cwd: processCwd, signal: exec.signal, timeoutMs: 45_000, maxOutputBytes: 8 * 1024, hostOnly: true,
       })
-      if (result.exitCode !== 0 || result.timedOut || result.lossy || result.signal) {
+      if (!hasCompleteGitEvidence(result)) {
         throw new Error('git worktree add failed or returned incomplete evidence: ' + result.stderr.slice(0, 1000))
       }
       return { action: 'create', output: 'Created ' + branch + ' in ' + target }
