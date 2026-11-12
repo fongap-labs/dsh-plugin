@@ -110,7 +110,6 @@ describe('Delta Code Worker bounded multi-repo discovery', () => {
         { queries: ['../src\\bad'] }, { queries: ['test\ninvalid'] },
         { queries: [''] }, { limit: 0.5 },
       ]) {
-        if (args.queries?.[0] === '../src\\bad') continue
         await assert.rejects(tool.execute(args, execution()), /query|queries|limit/)
       }
     } finally { await rm(root, { recursive: true, force: true }) }
