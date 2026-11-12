@@ -105,7 +105,7 @@ export function selectImpactVerification(
   for (const value of changedPaths) {
     if (typeof value !== 'string' || value.length < 1 || value.length > 240 ||
         value.startsWith('/') || /^[a-zA-Z]:/.test(value) || value.includes('\\') ||
-        value.includes('\\0') || value.split('/').some(segment => !segment || segment === '.' || segment === '..')) {
+        value.includes('\0') || value.split('/').some(segment => !segment || segment === '.' || segment === '..')) {
       throw new Error('changedPaths must contain safe repository-relative paths')
     }
     paths.push(value)
