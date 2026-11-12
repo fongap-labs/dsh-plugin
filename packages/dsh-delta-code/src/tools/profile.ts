@@ -52,7 +52,7 @@ function declaredScripts(raw: string): string[] {
 }
 
 function profileSummary(cwd: string, files: string[], scripts: string[]): ProjectProfile {
-  const suggestedChecks = scripts.filter(name =>
+  const suggestedChecks: string[] = scripts.filter(name =>
     name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
   if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
   return {
