@@ -14,6 +14,25 @@ const MAX_LIMIT = 250
 // Discover direct child checkouts only. Never recurse through the full workspace.
 const MAX_DISCOVERY_DIRECTORIES = 96
 const MAX_DISCOVERY_REPOSITORIES = 12
+
+/** The same bounded, deterministic candidate ordering in Node and Host mode. */
+function boundedDirectories<T extends { name: string }>(entries: T[]): T[] {
+  const sorted = entries.sort((a, b) => a.name.localeCompare(b.name))
+  if (sorted.length > MAX_DISCOVERY_DIRECTORIES) {
+    throw new Error('workspace has too many subdirectories to scan safely; specify cwd')
+  }
+  return sorted
+}
+
+function assertRepositoryCapacity(count: number): void {
+  if (count >= MAX_DISCOVERY_REPOSITORIES) {
+    throw new Error('workspace has too many Git repositories; specify cwd')
+  }
+}
+
+function prefixTrackedPaths(paths: string[], prefix: string): string[] {
+  return prefix ? paths.map(path => prefix + '/' + path) : paths
+}
 const SOURCE_EXTENSIONS = new Set(['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'py', 'rs', 'go', 'java', 'kt', 'cs', 'c', 'cc', 'cpp', 'h', 'hpp', 'vue', 'svelte', 'swift'])
 
 export function rankTrackedFiles(paths: string[], query: string, limit: number): string[] {
@@ -54,12 +73,8 @@ async function hasGitMarker(directory: string): Promise<boolean> {
 
 async function discoverDirectRepositories(root: string, signal: AbortSignal): Promise<string[]> {
   signal.throwIfAborted()
-  const children = (await readdir(root, { withFileTypes: true }))
-    .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink())
-    .sort((a, b) => a.name.localeCompare(b.name))
-  if (children.length > MAX_DISCOVERY_DIRECTORIES) {
-    throw new Error('workspace has too many subdirectories to scan safely; specify cwd')
-  }
+  const children = boundedDirectories((await readdir(root, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory() && !entry.isSymbolicLink()))
   const repositories: string[] = []
   for (const entry of children) {
     signal.throwIfAborted()
@@ -67,17 +82,10 @@ async function discoverDirectRepositories(root: string, signal: AbortSignal): Pr
     const canonicalChild = await realpath(child)
     if (!isPathInside(root, canonicalChild) || canonicalChild === root) continue
     if (!(await hasGitMarker(child))) continue
+    assertRepositoryCapacity(repositories.length)
     repositories.push(child)
-    if (repositories.length > MAX_DISCOVERY_REPOSITORIES) {
-      throw new Error('workspace has too many Git repositories; specify cwd')
-    }
   }
   return repositories
-}
-
-function rootRelativePath(root: string, directory: string, path: string): string {
-  const prefix = relative(root, directory).split(sep).join('/')
-  return prefix ? prefix + '/' + path : path
 }
 
 interface TrackedFiles {
@@ -116,6 +124,28 @@ async function listTrackedFiles(
   return { isGitRepository: true, paths: paths.filter(path => !path.startsWith('.dsh-delta-code/')) }
 }
 
+/**
+ * Common post-authorization indexing for discovered repositories.
+ * The caller must validate the directory using its own Host or Node FS.
+ */
+async function indexDiscoveredRepository(
+  ctx: Context, settings: Settings, processCwd: string, displayPrefix: string, signal: AbortSignal,
+): Promise<string[]> {
+  const tracked = await listTrackedFiles(ctx, settings, processCwd, signal)
+  if (!tracked.isGitRepository) {
+    throw new Error('discovered Git repository could not be indexed; check Host permission')
+  }
+  return prefixTrackedPaths(tracked.paths, displayPrefix)
+}
+
+function workspaceMapResult(paths: string[], repositories: string[], query: string, limit: number) {
+  const selected = rankTrackedFiles(paths, query, limit)
+  return {
+    total: paths.length, selected, truncated: paths.length > selected.length,
+    repositories,
+  }
+}
+
 
 interface HostWorkspaceEntry {
   name: string
@@ -128,16 +158,13 @@ type WorkspaceHostFs = HostFs<'resolve' | 'contains' | 'listDir' | 'lstat' | 'pr
 /** Discover only immediate Host FS directories; never probe Node's filesystem. */
 async function discoverHostRepositories(
   ctx: Context, settings: Settings, root: string, fs: WorkspaceHostFs,
-  rootTarget: unknown, signal: AbortSignal, exec: ToolRunContext,
+  rootTarget: unknown, children: HostWorkspaceEntry[],
+  signal: AbortSignal, exec: ToolRunContext,
 ): Promise<{ repositories: string[]; paths: string[] }> {
   signal.throwIfAborted()
-  const children = (await fs.listDir(rootTarget, signal)) as HostWorkspaceEntry[]
-  if (!Array.isArray(children)) throw new Error('invalid Host workspace directory listing')
-  const candidates = children.filter(entry => entry.type === 'directory')
-    .sort((a, b) => a.name.localeCompare(b.name))
-  if (candidates.length > MAX_DISCOVERY_DIRECTORIES) {
-    throw new Error('workspace has too many subdirectories to scan safely; specify cwd')
-  }
+  // The root listing was already validated during the .git marker check.
+  // Reuse it rather than asking the Host to enumerate the same root twice.
+  const candidates = boundedDirectories(children.filter(entry => entry.type === 'directory'))
   const repositories: string[] = []
   const paths: string[] = []
   for (const entry of candidates) {
@@ -155,14 +182,11 @@ async function discoverHostRepositories(
     if (!marker || (marker.type !== 'file' && marker.type !== 'directory')) continue
     const markerInfo = await fs.lstat('.git', { cwd: fs.processPath(entry.target) }, signal)
     if (markerInfo?.type !== marker.type || !fs.contains(rootTarget, marker.target)) continue
-    if (repositories.length >= MAX_DISCOVERY_REPOSITORIES) {
-      throw new Error('workspace has too many Git repositories; specify cwd')
-    }
+    assertRepositoryCapacity(repositories.length)
     const processCwd = await resolveAuthorizedGitCwd(ctx, root, entry.name, exec)
-    const tracked = await listTrackedFiles(ctx, settings, processCwd, signal)
-    if (!tracked.isGitRepository) throw new Error('discovered Git repository could not be indexed; check Host permission')
+    const indexed = await indexDiscoveredRepository(ctx, settings, processCwd, entry.name, signal)
     repositories.push(entry.name)
-    paths.push(...tracked.paths.map(path => entry.name + '/' + path))
+    paths.push(...indexed)
   }
   return { repositories, paths }
 }
@@ -206,7 +230,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         let repositories = [args.cwd ?? '.']
         let paths: string[]
         if (base.isGitRepository) {
-          paths = base.paths.map(path => args.cwd ? args.cwd + '/' + path : path)
+          paths = prefixTrackedPaths(base.paths, args.cwd ?? '')
         } else {
           if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
@@ -216,7 +240,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
           if (rootMarker && (rootMarker.type === 'file' || rootMarker.type === 'directory')) {
             throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           }
-          const scan = await discoverHostRepositories(ctx, settings, root, fs, rootTarget, exec.signal, exec)
+          const scan = await discoverHostRepositories(ctx, settings, root, fs, rootTarget, rootEntries, exec.signal, exec)
           repositories = scan.repositories
           paths = scan.paths
           if (!repositories.length) {
@@ -224,11 +248,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
           }
         }
         exec.signal.throwIfAborted()
-        const selected = rankTrackedFiles(paths, args.query ?? '', limit)
-        return {
-          total: paths.length, selected, truncated: paths.length > selected.length,
-          repositories,
-        }
+        return workspaceMapResult(paths, repositories, args.query ?? '', limit)
       }
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
       const canonicalRoot = await realpath(root)
@@ -240,7 +260,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       let repositories = [canonicalCwd]
       let paths: string[] = []
       if (base.isGitRepository) {
-        paths = base.paths.map((path) => rootRelativePath(canonicalRoot, canonicalCwd, path))
+        paths = prefixTrackedPaths(base.paths, relative(canonicalRoot, canonicalCwd).split(sep).join('/'))
       } else {
         // Do not turn a damaged/denied explicit repository into an unrequested search.
         if (args.cwd || await hasGitMarker(canonicalCwd)) {
@@ -252,18 +272,13 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         }
         for (const directory of repositories) {
           exec.signal.throwIfAborted()
-          const result = await listTrackedFiles(ctx, settings, directory, exec.signal)
-          if (!result.isGitRepository) {
-            throw new Error('discovered Git repository could not be indexed; check Host permission')
-          }
-          paths.push(...result.paths.map((path) => rootRelativePath(canonicalRoot, directory, path)))
+          const prefix = relative(canonicalRoot, directory).split(sep).join('/')
+          paths.push(...await indexDiscoveredRepository(ctx, settings, directory, prefix, exec.signal))
         }
       }
-      const selected = rankTrackedFiles(paths, args.query ?? '', limit)
-      return {
-        total: paths.length, selected, truncated: paths.length > selected.length,
-        repositories: repositories.map((directory) => relative(canonicalRoot, directory).split(sep).join('/') || '.'),
-      }
+      return workspaceMapResult(paths,
+        repositories.map(directory => relative(canonicalRoot, directory).split(sep).join('/') || '.'),
+        args.query ?? '', limit)
     },
   })
 }

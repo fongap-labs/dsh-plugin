@@ -64,6 +64,12 @@ function fixture(options = {}) {
       accesses.push('listDir:' + target.p)
       if (options.denyList) throw new Error('Host FS refused directory listing')
       if (target.p === ROOT) {
+        if (options.tooManyDirectories) {
+          return Array.from({ length: 97 }, (_, index) => ({
+            name: 'directory-' + index, type: 'directory',
+            target: { p: join(ROOT, 'directory-' + index) },
+          }))
+        }
         if (options.rootIsRepo) {
           return [{ name: '.git', type: 'directory', target: { p: join(ROOT, '.git') } }]
         }
@@ -148,8 +154,20 @@ describe('Delta Code Worker Host multi-repository isolation', () => {
     assert.deepEqual(data.selected, ['repo-a/src/sidebar.ts'])
     assert.deepEqual(data.repositories, ['repo-a', 'repo-b'])
     assert.ok(f.commands.every(command => command.cwd.startsWith(PROCESS_ROOT)))
-    assert.ok(f.accesses.some(x => x === 'listDir:' + ROOT))
+    assert.equal(f.accesses.filter(x => x === 'listDir:' + ROOT).length, 1,
+      'Host root listing must be reused for marker check and child discovery')
     assert.ok(!f.accesses.some(x => x.includes('repo-link/.git')))
+  })
+
+  it('uses the same bounded direct-child limit on Host FS without probing children', async () => {
+    const f = fixture({ tooManyDirectories: true })
+    await assert.rejects(
+      createWorkspaceMapTool(f.ctx, f.settings).execute({}, execute()),
+      /too many subdirectories to scan safely/,
+    )
+    assert.equal(f.accesses.filter(x => x === 'listDir:' + ROOT).length, 1)
+    assert.ok(!f.accesses.some(x => x.startsWith('lstat:')))
+    assert.equal(f.commands.length, 1, 'only the initial Git root probe may run')
   })
 
   it('limits explicit Host indexing to the authorized selected repository', async () => {

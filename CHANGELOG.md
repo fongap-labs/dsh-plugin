@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: workspace_map 本地与 Host FS 发现路径复用边界计数、已授权仓库索引和结果组装；Host 根目录列表只读取一次，保留逐仓库的 Host 身份与权限检查。
+
 - 维护: multi-edit 的 preflight / legacy 路径统一纯函数校验与首项字面量替换，同时保留分支独立的 Host FS 授权、TOCTOU 双读、SHA-256、版本写入与回滚约束。
 
 - 维护: 统一六组 Host FS 测试夹具的路径包含判断与上下文能力模拟，并用类型注释、边界测试校验虚拟目标身份和宿主能力缺失。
