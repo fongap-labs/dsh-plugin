@@ -53,6 +53,24 @@ phase_begin install
 pnpm install --frozen-lockfile
 phase_end
 
+phase_begin build-hygiene
+# Git-ignored lib/ output is produced exclusively by the pinned compiler.
+# Reject any tracked compiler files; they can mask TypeScript failures.
+tracked_build_files="$(git ls-files -- ':(glob)packages/*/lib/**')"
+if [ -n "$tracked_build_files" ]; then
+  echo "central-ci: tracked generated compiler output is forbidden:" >&2
+  printf '%s\n' "$tracked_build_files" >&2
+  exit 65
+fi
+# Always rebuild from zero output, including when a runner reuses its workspace.
+# The glob discovers packages dynamically; it is not a fixed package list.
+for output_dir in packages/*/lib; do
+  if [ -e "$output_dir" ] || [ -L "$output_dir" ]; then
+    rm -rf -- "$output_dir"
+  fi
+done
+phase_end
+
 # Invoke the underlying commands directly (not "pnpm test"/"pnpm build") so a pull request cannot
 # weaken CI by editing package.json scripts. Type checking and compilation use the pinned local
 # TypeScript binary; plugin output under packages/*/lib is what plugin tests and bundles load.
