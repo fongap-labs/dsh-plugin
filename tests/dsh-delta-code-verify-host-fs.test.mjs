@@ -4,6 +4,7 @@ import { join, resolve, sep } from 'node:path'
 import { createVerifyTool } from '../packages/dsh-delta-code/lib/tools/verify.js'
 import { createVerifySuiteTool } from '../packages/dsh-delta-code/lib/tools/verify-suite.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostPathContains, mockHostFsContext } from './helpers/host-fs-mock.mjs'
 import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
 
 const root = resolve('dsh-virtual-host-verification-workspace')
@@ -22,7 +23,7 @@ function fakeHost(files, options = {}) {
     contains(parent, target) {
       if (options.rejectContain && target.key.endsWith(sep + 'package.json')) return false
       if (options.rejectDirectoryContain && target.key === root) return false
-      return target.key === parent.key || target.key.startsWith(parent.key + sep)
+      return mockHostPathContains(parent, target, 'key')
     },
     async stat(target) {
       observed.push('stat:' + target.key)
@@ -43,13 +44,12 @@ function fakeHost(files, options = {}) {
     },
   }
   if (options.noProcessPath) delete fs.processPath
-  const ctx = {
-    get: key => key === 'fs' ? (options.incompleteFs ? { resolve: fs.resolve } : fs) : undefined,
+  const ctx = mockHostFsContext(options.incompleteFs ? { resolve: fs.resolve } : fs, {
     subprocess: { spawn(spec) {
       spawns.push(spec)
       return mockHostCommandResult({ stdout: 'ok' })
     } },
-  }
+  })
   return { ctx, observed, spawns }
 }
 const settings = normalizeConfig({ workspaceRoot: root, execution: { allowCommands: true } })

@@ -2,9 +2,10 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, rm, symlink } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, sep } from 'node:path'
+import { join } from 'node:path'
 import { createLspProbeTool } from '../packages/dsh-delta-code/lib/tools/lsp.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostPathContains, mockHostFsContext } from './helpers/host-fs-mock.mjs'
 
 const ROOT = join(tmpdir(), 'dsh-code-lsp-virtual-host-only-workspace')
 const HOST_CWD = '/host-authorized-lsp-workspace'
@@ -32,7 +33,7 @@ function fixture(options = {}) {
     contains(root, target) {
       accesses.push('contains')
       if (options.denyContain) return false
-      return target.path === root.path || target.path.startsWith(root.path + sep)
+      return mockHostPathContains(root, target, 'path')
     },
     async stat(target, signal) {
       accesses.push('stat:' + target.path)
@@ -47,15 +48,14 @@ function fixture(options = {}) {
     },
   }
   if (options.incompleteFs) delete fs.processPath
-  const ctx = {
-    get: name => name === 'fs' ? fs : undefined,
+  const ctx = mockHostFsContext(fs, {
     ...(options.noSubprocess ? {} : { subprocess: {
       spawn(spec) {
         calls.push(spec)
         return hostOutput()
       },
     } }),
-  }
+  })
   const settings = normalizeConfig({
     workspaceRoot: ROOT,
     lsp: { servers: [{ language: 'typescript', command: 'typescript-language-server' }] },

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 统一六组 Host FS 测试夹具的路径包含判断与上下文能力模拟，并用类型注释、边界测试校验虚拟目标身份和宿主能力缺失。
+
 - 维护: 多个 Delta Code Host subprocess 测试共用可配置的结果与拒绝夹具，减少重复 Mock，保留场景专属的 Host FS 安全断言。
 
 - 维护: Git 状态、差异、Worktree、交付门禁和 GitHub Origin 共用结果校验，统一失败判定并保留 diff 截断语义。

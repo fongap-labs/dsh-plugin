@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { join, resolve, sep } from 'node:path'
 import { createProjectProfileTool } from '../packages/dsh-delta-code/lib/tools/profile.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostPathContains, mockHostFsContext } from './helpers/host-fs-mock.mjs'
 
 const workspace = resolve('dsh-virtual-host-profile')
 const exec = () => ({ signal: new AbortController().signal })
@@ -15,7 +16,7 @@ function fakeHost(files, { denyStat = false, denyRead = false, isDirectory = tru
       return { targetKey: path, displayPath: path }
     },
     contains(parent, target) {
-      return target.targetKey === parent.targetKey || target.targetKey.startsWith(parent.targetKey + sep)
+      return mockHostPathContains(parent, target, 'targetKey')
     },
     async stat(target) {
       observed.push('stat')
@@ -30,7 +31,7 @@ function fakeHost(files, { denyStat = false, denyRead = false, isDirectory = tru
       return files[target.targetKey]
     },
   }
-  return { ctx: { get: key => key === 'fs' ? fs : undefined }, observed }
+  return { ctx: mockHostFsContext(fs), observed }
 }
 
 describe('Code Worker project profiling via DSH Host FS', () => {
@@ -65,7 +66,7 @@ describe('Code Worker project profiling via DSH Host FS', () => {
   })
 
   it('rejects an incomplete Host FS instead of falling back', async () => {
-    const ctx = { get: key => key === 'fs' ? { resolve: async path => path } : undefined }
+    const ctx = mockHostFsContext({ resolve: async path => path })
     const tool = createProjectProfileTool(ctx, normalizeConfig({ workspaceRoot: workspace }))
     await assert.rejects(tool.execute({}, exec()), /Host FS missing resolve\/contains\/stat\/readText/)
   })

@@ -2,11 +2,12 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, sep } from 'node:path'
+import { join } from 'node:path'
 import { resolveAuthorizedGitCwd } from '../packages/dsh-delta-code/lib/tools/host-git-cwd.js'
 import { createNativeResumeTool } from '../packages/dsh-delta-code/lib/tools/resume.js'
 import { createDeliveryGateTool } from '../packages/dsh-delta-code/lib/tools/delivery-gate.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostPathContains, mockHostFsContext } from './helpers/host-fs-mock.mjs'
 import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
 
 const HEAD = 'a'.repeat(40)
@@ -34,7 +35,7 @@ function fakeHost(options = {}) {
     contains(root, target) {
       accesses.push('contains')
       if (options.denyContain) return false
-      return target.path === root.path || target.path.startsWith(root.path + sep)
+      return mockHostPathContains(root, target, 'path')
     },
     async stat(target, signal) {
       accesses.push('stat:' + target.path)
@@ -57,8 +58,7 @@ function fakeHost(options = {}) {
     },
   }
   if (options.incomplete) delete fs.processPath
-  const ctx = {
-    get: name => name === 'fs' ? fs : undefined,
+  const ctx = mockHostFsContext(fs, {
     subprocess: {
       spawn(spec) {
         commands.push({ argv: spec.argv, cwd: spec.cwd })
@@ -71,7 +71,7 @@ function fakeHost(options = {}) {
         throw new Error('unexpected Host command: ' + spec.argv.join(' '))
       },
     },
-  }
+  })
   const settings = normalizeConfig({
     workspaceRoot: VIRTUAL_ROOT,
     execution: { allowCommands: true },
