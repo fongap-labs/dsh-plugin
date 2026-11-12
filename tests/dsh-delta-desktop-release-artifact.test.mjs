@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readZip, readTgz, verifyEntries, hasUnsafeHostPatch } from '../scripts/verify-delta-desktop-release.mjs'
 
+const approvedTheme = readFileSync(join(import.meta.dirname, '../packages/dsh-delta-desktop/src/theme.css'), 'utf8')
+
 function validEntries(version = '0.1.0-beta.2') {
   const files = {
     'package.json': JSON.stringify({
@@ -15,7 +17,14 @@ function validEntries(version = '0.1.0-beta.2') {
     'cordis.patch.yml': 'id: dsh-delta-desktop\nname: @fongap-labs/dsh-delta-desktop',
     'lib/index.js': 'export { negotiateHostCapabilities, DELTA_HOST_CONTRACT_VERSION } from "./host-capabilities.js"',
     'lib/host-capabilities.js': 'export function negotiateHostCapabilities() {}',
-    'lib/client.js': 'window.__ModuleLoader__.load({ settings.section sidebar.brand.mark data-delta-ui',
+    'lib/client.js': [
+      'window.__ModuleLoader__.load({ settings.section sidebar.brand.mark data-delta-ui',
+      'function installSidebarCompatibility() {}',
+      'function installHostSearch() {}',
+      'data-delta-compat',
+      'dtd-native-search',
+      'const OWNED_CSS = ' + JSON.stringify(approvedTheme) + ';',
+    ].join('\n'),
     'locale/en.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'New conversation' } }),
     'locale/zh.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'Start' } }),
     'icon.svg': '<svg/>',
@@ -67,11 +76,12 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
   unsafeHost.set('lib/index.js', Buffer.from(entries.get('lib/index.js').toString() + ' workspaceRegistry'))
   assert.throws(() => verifyEntries(unsafeHost, '0.1.0-beta.2', 'ZIP'), /unsafe Host patch/)
   const unsafeClient = new Map(entries)
-  unsafeClient.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + ' installSidebarCompatibility'))
-  assert.throws(() => verifyEntries(unsafeClient, '0.1.0-beta.2', 'ZIP'), /private DOM coupling/)
+  unsafeClient.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + '\nfunction installSidebarCompatibility() {}'))
+  assert.throws(() => verifyEntries(unsafeClient, '0.1.0-beta.2', 'ZIP'), /duplicated/)
   const unsafeCss = new Map(entries)
-  unsafeCss.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + ' data-delta-compat'))
-  assert.throws(() => verifyEntries(unsafeCss, '0.1.0-beta.2', 'ZIP'), /private DOM coupling/)
+  unsafeCss.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString()
+    .replace('--dtd-brand:', '--dtd-unapproved-brand:')))
+  assert.throws(() => verifyEntries(unsafeCss, '0.1.0-beta.2', 'ZIP'), /approved theme differs/)
 })
 
 test('central manual release verifies both packaged archives after build', () => {

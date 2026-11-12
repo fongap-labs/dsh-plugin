@@ -1,4 +1,5 @@
 import { test } from 'node:test'
+import { buildDesktopClientFixture } from './helpers/build-desktop-client.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -7,11 +8,8 @@ import vm from 'node:vm'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/dsh-delta-desktop/tsconfig.client.json')], { stdio: 'pipe' })
-execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/dsh-delta-desktop/tsconfig.json')], { stdio: 'pipe' })
-execFileSync(process.execPath, [fixture('packages/dsh-delta-desktop/scripts/finalize-client.mjs')], { stdio: 'pipe' })
-const clientSource = readFileSync(fixture('packages/dsh-delta-desktop/lib/client.js'), 'utf8')
+const clientSource = buildDesktopClientFixture()
 const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusProjection } = await import(pathToFileURL(
   fixture('packages/dsh-delta-desktop/lib/context-projection.js')).href)
 
