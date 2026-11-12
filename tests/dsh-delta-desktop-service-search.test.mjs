@@ -191,255 +191,61 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
       return snapshot
     },
   }))
+  const windowKeyHandlers = new Map()
+  env.window.addEventListener = (name, callback) => windowKeyHandlers.set(name, callback)
+  env.window.removeEventListener = name => windowKeyHandlers.delete(name)
   plugin.apply(ctx)
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
-  const controller = inserted.find(([spec]) => spec.name === 'settings.section')[0].inject().controller
-  assert.equal(controller.getSnapshot().searchStatus, 'waiting-sidebar')
   body.appendChild(viewport)
   env.observers.forEach(update => update())
   const shell = viewport.children[0]
   assert.equal(shell.getAttribute('data-delta-search'), 'sessions')
+  assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
   assert.equal(viewport.children[1], nav)
   assert.equal(viewport.children[2], nativeWorkspace)
-  assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
-  assert.equal(controller.getSnapshot().searchStatus, 'active')
 
-  const input = shell.children[0].children[1]
-  const quickActions = shell.children[1]
-  const feedback = shell.children[2]
-  assert.deepEqual(quickActions.children.map(button => button.getAttribute('data-delta-action')),
-    ['plugins', 'schedules', 'new-session'])
-  assert.deepEqual(quickActions.children.map(button => button.textContent), ['插件管理', '定时任务', '开始对话'])
-  assert.equal(quickActions.children[2].hidden, false, 'owner grant enables New Session')
-  // A real MutationObserver sees textContent replacements as childList changes.
-  // Repeated observer deliveries must not keep writing an unchanged button label:
-  // that would enqueue another observer delivery indefinitely in the browser.
-  let labelWrites = 0
-  let pluginLabel = quickActions.children[0].textContent
-  Object.defineProperty(quickActions.children[0], 'textContent', {
-    configurable: true,
-    get() { return pluginLabel },
-    set(value) { labelWrites++; pluginLabel = value },
+  const searchField = shell.children[0]
+  const input = searchField.children.find(node => node.tagName === 'input')
+  const results = shell.children[1]
+  assert.ok(input, 'ZIP owns the sidebar search input')
+  assert.equal(input.placeholder, locales.zh.searchPalette.sidebarPlaceholder)
+  assert.equal(results.hidden, true)
+  input.value = 'Example'
+  input.emit('input')
+  assert.ok(results.children.some(node => node.className === 'dtd-host-search-result'),
+    'typing presents inline matches')
+  assert.equal(body.children.some(node => node.className === 'dtd-search-backdrop'), false,
+    'clicking or typing must not force the full-screen palette')
+
+  const firstHit = results.children.find(node => node.className === 'dtd-host-search-result')
+  firstHit.emit('click')
+  assert.ok(actions.some(action => action[0] === 'open' && action[1] === 'local'),
+    'search navigation uses the public Host API')
+
+  input.value = 'Example'
+  input.emit('keydown', { key: 'Enter', preventDefault() {} })
+  assert.ok(body.children.some(node => node.className === 'dtd-search-backdrop'),
+    'Enter explicitly opens the 7-category SearchPalette')
+  const modal = body.children.find(node => node.className === 'dtd-search-backdrop')
+  const dialog = modal.children[0]
+  assert.equal(dialog.className, 'dtd-search-modal')
+  assert.equal(dialog.children[1].children.length, 7)
+
+  windowKeyHandlers.get('keydown')?.({ key: 'Escape', preventDefault() {}, stopPropagation() {} })
+  assert.equal(body.children.some(node => node.className === 'dtd-search-backdrop'), false)
+  windowKeyHandlers.get('keydown')?.({
+    key: 'k', code: 'KeyK', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false,
+    preventDefault() {}, stopPropagation() {},
   })
-  for (let i = 0; i < 6; i++) env.observers.forEach(update => update())
-  assert.equal(labelWrites, 0, 'unchanged sidebar labels must not self-trigger the DOM observer')
-  quickActions.children[0].emit('click')
-  quickActions.children[1].emit('click')
-  quickActions.children[2].emit('click')
-  assert.deepEqual(actions, [['panel', 'plugins'], ['panel', 'schedules'], ['new-session']])
-  assert.equal(feedback.hidden, true)
-  revokeSessionCreate()
-  assert.equal(quickActions.children[2].hidden, true, 'revoked grant hides New Session')
-  assert.equal(quickActions.children[2].disabled, true)
-  quickActions.children[2].emit('click')
-  assert.deepEqual(actions, [['panel', 'plugins'], ['panel', 'schedules'], ['new-session']],
-    'revoked grants cannot dispatch even a synthetic click')
-  assert.equal(feedback.hidden, false)
-  grantSessionCreate()
-  assert.equal(quickActions.children[2].hidden, false, 'restored grant shows New Session')
-  quickActions.children[2].emit('click')
-  assert.deepEqual(actions.at(-1), ['new-session'])
-  assert.equal(feedback.hidden, true)
-  input.value = 'example'
-  input.emit('input')
-  const results = shell.children[3]
-  assert.equal(results.hidden, false)
-  assert.equal(results.children[0].textContent, '')
-  assert.equal(results.children[0].children[0].textContent, 'Example Session')
-  let keyboardPrevented = false
-  input.emit('keydown', { key: 'ArrowDown', preventDefault() { keyboardPrevented = true } })
-  assert.equal(keyboardPrevented, true)
-  assert.equal(results.children[0].focused, true, 'ArrowDown focuses first search result')
-  results.children[0].emit('keydown', { key: 'ArrowUp', preventDefault() {} })
-  assert.equal(input.focused, true, 'ArrowUp from first result restores search input')
-  sessionRunning = true
-  refreshSessions()
-  assert.equal(results.children[0].children[1].textContent, '运行中',
-    'active Host Session status refreshes plugin search results')
-  isSessionSnapshotUnavailable = true
-  assert.doesNotThrow(() => refreshSessions(), 'Host catalog reconnect must not unmount Delta search')
-  assert.equal(results.children[0].textContent, '搜索与快捷入口：等待 Harness 会话与导航服务。')
-  isSessionSnapshotUnavailable = false
-  refreshSessions()
-  assert.equal(results.children[0].children[0].textContent, 'Example Session',
-    'Host catalog recovery restores search without replacing the native sidebar')
-  const nativeHover = inserted.find(([spec]) => spec.name === 'sidebar.session.row.hover')[1]
-  const hoverText = JSON.stringify(nativeHover({ sessionId: 'local' }))
-  assert.ok(hoverText.includes('运行中'), 'native Session hover exposes Host-confirmed running state')
-  assert.ok(hoverText.includes('最近更新'), 'native Session hover includes public updatedAt metadata')
-  assert.doesNotMatch(hoverText, /private\\\\secret/, 'native Session hover must never contain a path')
-  assert.equal(sessionListeners.size, 2, 'hover subscribes without starting another Session')
-  sessionRunning = false
-  refreshSessions()
-  assert.equal(hoverSignals.at(-1), '0:1760000000000',
-    'Host running-state changes signal the mounted native hover')
-  assert.equal(JSON.stringify(nativeHover({ sessionId: 'local' })).includes('运行中'), false,
-    'a stopped Session must not retain the previous running badge')
-  sessionPhase = 'pending'
-  assert.equal(JSON.stringify(nativeHover({ sessionId: 'local' })).includes('最近更新'), false,
-    'pending Host snapshots must not show stale activity metadata')
-  sessionPhase = 'ready'
-  isSessionSnapshotUnavailable = true
-  assert.doesNotThrow(() => nativeHover({ sessionId: 'local' }),
-    'a reconnecting Host must leave the identity-only hover usable')
-  isSessionSnapshotUnavailable = false
-  hoverDisposers.forEach(dispose => dispose())
-  assert.equal(sessionListeners.size, 1, 'unmounted hover removes its Host subscription')
-  assert.equal(results.children[0].children.length, 1)
-  const fire = timers.values().next().value
-  assert.equal(typeof fire, 'function')
-  fire()
-  await Promise.resolve()
-  await Promise.resolve()
-  assert.deepEqual(actions.at(-1), ['search', 'example'])
-  assert.equal(results.children.length, 2)
-  assert.equal(results.children[1].children[1].textContent, 'Example content match')
-  input.emit('keydown', { key: 'ArrowDown', preventDefault() {} })
-  results.children[0].emit('keydown', { key: 'ArrowDown', preventDefault() {} })
-  assert.equal(results.children[1].focused, true, 'ArrowDown advances through result buttons')
-  results.children[1].emit('keydown', { key: 'Escape', preventDefault() {} })
-  assert.equal(input.value, '', 'Escape clears the search')
-  assert.equal(results.hidden, true)
-  const startedSearchCount = actions.filter(([action]) => action === 'search').length
-  fire()
-  assert.equal(actions.filter(([action]) => action === 'search').length, startedSearchCount,
-    'a queued debounce callback must not start a Host RPC after Escape cancels it')
-  input.value = 'example'
-  input.emit('input')
-  // The debounced request is no longer needed here: the Host list still contains the local row.
-  // Reuse a fresh remote search response for archive checks below.
-  const fireAgain = [...timers.values()].at(-1)
-  assert.equal(typeof fireAgain, 'function')
-  fireAgain()
-  await Promise.resolve()
-  await Promise.resolve()
-  assert.equal(results.children.length, 2)
-  archivedSessionIds = ['remote']
-  refreshWorkspaces()
-  assert.equal(results.children[1].getAttribute('aria-disabled'), 'true')
-  assert.equal(results.children[1].children.at(-1).textContent, '已归档')
-  results.children[1].emit('click')
-  assert.equal(feedback.hidden, false)
-  assert.equal(feedback.textContent, '此会话已归档。请先通过官方工作区列表恢复后再打开。')
-  assert.equal(actions.filter(([action]) => action === 'open').length, 0,
-    'archived search results must not bypass native WorkspaceBrowser guardedOpen')
-  archivedSessionIds = []
-  workspacePhase = 'loading'
-  results.children[1].emit('click')
-  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
-  workspacePhase = 'ready'
-  archivedSessionIds = undefined
-  results.children[1].emit('click')
-  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
-  archivedSessionIds = []
-  workspaceState = 'loading'
-  results.children[1].emit('click')
-  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。',
-    'loading Workspace streams must not expose stale archive grants')
-  workspaceState = 'error'
-  results.children[1].emit('click')
-  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。')
-  workspaceState = 'idle'
-  sessionPhase = 'pending'
-  results.children[1].emit('click')
-  assert.equal(feedback.textContent, '无法确认会话归档状态，请使用官方会话列表打开。',
-    'reconnecting Session streams must not navigate using a stale Workspace snapshot')
-  sessionPhase = 'ready'
-  results.children[1].emit('click')
-  assert.deepEqual(actions.at(-1), ['open', 'remote'])
-  assert.equal(results.hidden, true)
-
-  workspaceState = 'loading'
-  input.value = 'design'
-  input.emit('input')
-  assert.notEqual(results.children[0].getAttribute('data-delta-result-kind'), 'workspace',
-    'reconnecting workspace lists do not expose stale title navigation')
-  workspaceState = 'idle'
-  refreshWorkspaces()
-  assert.equal(results.children[0].getAttribute('data-delta-result-kind'), 'workspace')
-  assert.equal(results.children[0].children[0].textContent, '工作区')
-  assert.equal(results.children[0].children[1].textContent, 'Design Workspace')
-  assert.equal(results.children[0].children.some(x => String(x.textContent).includes('private')), false,
-    'only the workspace title may appear; the filesystem path must stay private')
-  // Host state may change after the row is rendered but before click.
-  // Never use a stale Workspace button as authority for navigation.
-  const beforeWorkspaceClicks = actions.filter(([kind]) => kind === 'workspace').length
-  workspaceState = 'loading'
-  results.children[0].emit('click')
-  assert.equal(actions.filter(([kind]) => kind === 'workspace').length, beforeWorkspaceClicks,
-    'a stale row must not open a Workspace while the Host is reconnecting')
-  assert.equal(feedback.hidden, false, 'stale workspace navigation must report a visible error')
-  workspaceState = 'idle'
-  workspaceTitle = 'Renamed Workspace'
-  results.children[0].emit('click')
-  assert.equal(actions.filter(([kind]) => kind === 'workspace').length, beforeWorkspaceClicks,
-    'a Workspace renamed since paint must not be opened from the stale row')
-  workspaceTitle = 'Design Workspace'
-  results.children[0].emit('click')
-  // The simulated Host returns a cross-vm Promise; wait for Promise assimilation.
-  await new Promise(resolve => setImmediate(resolve))
-  assert.deepEqual(actions.at(-1), ['workspace', 'design'])
-  assert.equal(results.hidden, true, 'successful Host workspace navigation clears search')
-  assert.equal(feedback.hidden, true, 'successful navigation must also clear stale Host-reconnect errors')
-  workspaceNavigationFails = true
-  input.value = 'design'
-  input.emit('input')
-  results.children[0].emit('click')
-  await new Promise(resolve => setImmediate(resolve))
-  assert.equal(results.hidden, false, 'rejected Host navigation retains search and shows failure')
-  assert.equal(results.children.at(-1).textContent, '此版本缺少必要能力或操作失败，请停用此插件并恢复官方界面。')
-  workspaceNavigationFails = false
-
-  input.value = 'example'
-  input.emit('input')
-  sessionRunning = true
-  refreshSessions()
-  assert.equal(results.children[0].children[1].textContent, '运行中')
-  root.lang = 'en-US'
-  controller.syncLanguage()
-  assert.equal(results.children[0].children[1].textContent, 'Running',
-    'language switch updates visible status copy without repeating search')
-  assert.match(JSON.stringify(nativeHover({ sessionId: 'local' })), /Last updated/,
-    'native hover time label follows the active Host language')
-  sessionRunning = false
-  refreshSessions()
-  assert.equal(input.placeholder, 'Search sessions')
-  assert.deepEqual(quickActions.children.map(button => button.textContent), ['Plugins', 'Schedules', 'New conversation'])
-  controller.bindLayout(undefined)
-  quickActions.children[0].emit('click')
-  assert.equal(feedback.hidden, false, 'unavailable Host panel must report a visible error')
-  controller.setMode('official')
-  assert.equal(viewport.children[0], nav)
-  assert.equal(root.getAttribute('data-delta-search-adapter'), null)
-  assert.equal(controller.getSnapshot().searchStatus, 'disabled')
-  nav.remove()
-  controller.setMode('delta')
-  assert.equal(controller.getSnapshot().searchStatus, 'active')
-  assert.equal(viewport.children[0], shell, 'search mounts even if Host does not render a nav list')
-  assert.equal(viewport.children[1], nativeWorkspace)
-  viewport.insertBefore(nav, nativeWorkspace)
-  assert.equal(input.value, '', 'switching themes discards stale search state')
-  assert.equal(feedback.hidden, true)
-  assert.equal(results.hidden, true)
-  input.value = 'old-search'
-  input.emit('input')
-  viewport.remove()
-  env.observers.forEach(update => update())
-  assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
-  assert.equal(input.value, '', 'unmounted Host sidebar invalidates stale search')
-  assert.equal(results.hidden, true)
-  assert.equal(viewport.children[0], nav, 'native sidebar children are not replaced')
-  body.appendChild(viewport)
-  env.observers.forEach(update => update())
-  assert.equal(viewport.children[0], shell)
-  assert.equal(input.value, '', 'Host sidebar remount does not replay prior query')
+  assert.ok(body.children.some(node => node.className === 'dtd-search-backdrop'),
+    'Ctrl+K opens the same ZIP SearchPalette')
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
 })
 
-test('Delta sidebar remains visible without optional Host Session services', () => {
+test('ZIP sidebar search activates only after public Host Session and navigation services arrive', () => {
   const root = new Element('html')
   const body = new Element('body')
   root.appendChild(body)
@@ -501,40 +307,28 @@ test('Delta sidebar remains visible without optional Host Session services', () 
     useSyncExternalStore(_subscribe, get) { return get() },
   }))
   client.apply(ctx)
-  assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-services')
-  const shell = viewport.children[0]
-  assert.equal(shell.getAttribute('data-delta-search'), 'sessions')
-  assert.equal(viewport.children[1], nativeNav, 'the native navigation remains available')
-  assert.deepEqual(shell.children[1].children.map(button => button.textContent),
-    ['插件管理', '定时任务', '开始对话'])
-  shell.children[1].children[0].emit('click')
-  assert.deepEqual(actions, ['plugins'], 'Plugins uses native layout with no Session service')
-  const input = shell.children[0].children[1]
-  input.value = 'example'
-  input.emit('input')
-  assert.equal(shell.children[3].children[0].textContent,
-    '搜索与快捷入口：等待 Harness 会话与导航服务。')
-  // Simulate Cordis resolving late optional services.
-  const sessionListeners = new Set()
+  assert.equal(root.getAttribute('data-delta-search-adapter'), null,
+    'no counterfeit search adapter is installed before public services exist')
+  assert.equal(viewport.children[0], nativeNav)
+
   ctx.sessions = {
-    list: {
-      getSnapshot() { return { phase: 'ready',
-        byId: { local: { id: 'local', title: 'Example Session', running: false } } } },
-      subscribe(listener) {
-        sessionListeners.add(listener)
-        return () => { sessionListeners.delete(listener) }
-      },
-    },
-    search: async () => ({ ok: true, value: { items: [], hasMore: false } }),
+    list: { getSnapshot() { return { phase: 'ready', byId: {
+      local: { id: 'local', title: 'A local conversation' },
+    } } }, subscribe() { return () => {} } },
+    async search() { return { ok: true, value: { items: [], hasMore: false } } },
   }
-  ctx.uiWorkspace = { openSession() {}, startSession() {} }
-  for (const entry of delayed) {
-    if (entry.names.every(name => ctx[name] !== undefined)) entry.callback(ctx)
+  ctx.uiWorkspace = {
+    openSession(id) { actions.push(['open', id]) },
+    startSession() { actions.push(['new']) },
+  }
+  for (const pending of delayed.filter(entry =>
+    entry.names.includes('sessions') && entry.names.includes('uiWorkspace'))) {
+    pending.callback(ctx)
   }
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
-  assert.equal(viewport.children[0], shell, 'service activation does not remount the search input')
-  assert.equal(shell.children[3].children[0].children[0].textContent, 'Example Session')
-  effects.reverse().forEach(dispose => dispose())
-  assert.equal(sessionListeners.size, 0, 'cleanup releases Host Session subscriptions')
-  assert.equal(shell.parentElement, null)
+  assert.equal(viewport.children[0].getAttribute('data-delta-search'), 'sessions')
+  assert.equal(viewport.children[1], nativeNav)
+  effects.forEach(dispose => dispose?.())
+  assert.equal(root.getAttribute('data-delta-search-adapter'), null)
+  assert.equal(viewport.children[0], nativeNav)
 })
