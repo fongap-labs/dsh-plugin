@@ -722,7 +722,7 @@
   letter-spacing: -0.015em;
 }
 
-/* Remove "预览版" badge next to headline */
+/* Remove preview badge next to headline */
 :root[data-delta-ui="delta"] [class*="WOwLGG_previewBadge"] {
   display: none !important;
 }
@@ -1088,7 +1088,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   overflow: hidden !important;
 }
 
-/* 6.2 Navigation Rows (插件管理, 定时任务; "更多" suppressed) */
+/* 6.2 Navigation rows (plugin manager, scheduled tasks; hide More) */
 :root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav,
 :root[data-delta-compat="1"] [class*="wtg9ga_panelList"] {
@@ -1124,7 +1124,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   padding: 0 !important;
 }
 
-/* 6.3 New Session Button (开始对话) */
+/* 6.3 New conversation button */
 :root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) button[class*="newSession"]:not([data-delta-action]),
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) button[class*="newSession"]:not([data-delta-action]),
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_newSession"]:not([data-delta-action]) {
@@ -2526,7 +2526,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   overflow: visible !important;
 }
 
-/* Floating context menu for "未分组" (Ungrouped) permanent deletion */
+/* Floating context menu for permanent deletion from the Ungrouped bucket */
 .dtd-context-menu {
   position: fixed;
   z-index: 2147483100;
