@@ -38,13 +38,13 @@ describe('automatic internal Code Worker A/B', () => {
     const f = fixture(() => assignments.shift())
     try {
       const a = { session: {} }, b = { session: {} }, c = {}
-      f.claim(a, '修复 GitHub CI 红叉')
-      f.claim(b, '实现 React 新功能')
-      f.claim(c, '实现 React 新功能')
+      f.claim(a, '\u4fee\u590d GitHub CI \u7ea2\u53c9')
+      f.claim(b, '\u5b9e\u73b0 React \u65b0\u529f\u80fd')
+      f.claim(c, '\u5b9e\u73b0 React \u65b0\u529f\u80fd')
       assert.equal(f.render(a), '')
       assert.match(f.render(b), /code-feature-delivery/)
       assert.match(f.render(c), /code-feature-delivery/, 'missing session keeps current behavior')
-      f.claim(a, '继续')
+      f.claim(a, '\u7ee7\u7eed')
       assert.equal(f.render(a), '', 'group remains fixed for continuation')
       const groups = f.experiment.report()
       assert.equal(groups.native.sessions, 1)
@@ -59,7 +59,7 @@ describe('automatic internal Code Worker A/B', () => {
     const session = {}
     const agent = { session }
     try {
-      f.claim(agent, '修复 PR #77 CI 红叉')
+      f.claim(agent, '\u4fee\u590d PR #77 CI \u7ea2\u53c9')
       const args = JSON.stringify({ path: 'sensitive/private.txt', token: 'secret-value' })
       f.experiment.observe(session, toolCall(1, 'a', 'read', args))
       f.experiment.observe(session, toolResult(2, 'a', true))
@@ -94,9 +94,9 @@ describe('automatic internal Code Worker A/B', () => {
       const ignored = {}
       f.experiment.observe(ignored, toolCall(1, 'a', 'read'))
       assert.equal(f.experiment.report().guided.toolCalls, 0)
-      f.claim({ session: ignored }, '今晚吃什么')
+      f.claim({ session: ignored }, '\u4eca\u665a\u5403\u4ec0\u4e48')
       assert.equal(f.experiment.report().guided.sessions, 0)
-      f.claim({ session: ignored }, '实现 React 新功能')
+      f.claim({ session: ignored }, '\u5b9e\u73b0 React \u65b0\u529f\u80fd')
       f.experiment.observe(ignored, event('tool/call', 1, { name: 'read', arguments: '{"secret":1}' }))
       f.experiment.observe(ignored, event('tool/result', 2, { message: { toolCallId: 'a', isError: true } }))
       assert.equal(f.experiment.report().guided.toolCalls, 0)
@@ -111,7 +111,7 @@ describe('automatic internal Code Worker A/B', () => {
     const f = fixture(() => arms.shift())
     const a = { session: {} }, b = { session: {} }
     try {
-      f.claim(a, '修复 CI 红叉'); f.claim(b, '修复 CI 红叉')
+      f.claim(a, '\u4fee\u590d CI \u7ea2\u53c9'); f.claim(b, '\u4fee\u590d CI \u7ea2\u53c9')
       f.experiment.observe(a.session, toolCall(1, 'x', 'read', 'x'.repeat(20_000)))
       f.experiment.observe(a.session, toolCall(2, 'y', 'read', 'x'.repeat(20_000)))
       f.experiment.observe(a.session, event('turn/end', 3, { reason: { kind: 'error' } }))
