@@ -143,6 +143,52 @@ describe("shared/subprocess.js", () => {
     }), /mock host rejection/);
   });
 
+  it("runCommand: Node fallback timeout returns a timed-out result", async () => {
+    const started = Date.now();
+    const result = await subprocess.runCommand(null, {
+      command: process.execPath,
+      args: ["-e", "setInterval(() => {}, 1000)"],
+      timeoutMs: 300,
+      graceMs: 120,
+    });
+    assert.equal(result.source, "node");
+    assert.equal(result.timedOut, true);
+    assert.notEqual(result.exitCode, 0);
+    assert.ok(Date.now() - started < 5000, "timeout must settle within a bounded deadline");
+  });
+
+  it("runCommand: Node fallback escalates an ignored SIGTERM after graceMs", {
+    skip: process.platform === "win32",
+  }, async () => {
+    const started = Date.now();
+    const result = await subprocess.runCommand(null, {
+      command: process.execPath,
+      args: [
+        "-e",
+        "process.on('SIGTERM', () => {}); process.stdout.write('ready'); setInterval(() => {}, 1000)",
+      ],
+      timeoutMs: 700,
+      graceMs: 120,
+    });
+    assert.equal(result.source, "node");
+    assert.equal(result.timedOut, true);
+    assert.match(result.stdout, /ready/);
+    assert.ok(Date.now() - started >= 700, "SIGTERM must not bypass the configured timeout");
+    assert.ok(Date.now() - started < 5000, "SIGKILL or fallback must settle the command");
+  });
+
+  it("runCommandOrThrow: Node timeout is classified as SubprocessError", async () => {
+    await assert.rejects(
+      subprocess.runCommandOrThrow(null, {
+        command: process.execPath,
+        args: ["-e", "setInterval(() => {}, 1000)"],
+        timeoutMs: 300,
+        graceMs: 100,
+      }),
+      error => error instanceof subprocess.SubprocessError && error.timedOut === true,
+    );
+  });
+
   it("runCommandOrThrow: 非零退出码抛出 SubprocessError", async () => {
     let thrown = false;
     try {
