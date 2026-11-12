@@ -34,30 +34,72 @@ function prefixTrackedPaths(paths: string[], prefix: string): string[] {
   return prefix ? paths.map(path => prefix + '/' + path) : paths
 }
 const SOURCE_EXTENSIONS = new Set(['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'py', 'rs', 'go', 'java', 'kt', 'cs', 'c', 'cc', 'cpp', 'h', 'hpp', 'vue', 'svelte', 'swift'])
+const MAX_BATCH_QUERIES = 8
 
-export function rankTrackedFiles(paths: string[], query: string, limit: number): string[] {
-  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-  const ranked = paths.map((path) => {
+interface TrackedFileEntry {
+  path: string
+  lower: string
+  file: string
+  baseScore: number
+}
+
+/** Normalize tracked paths once for every query in the same authorized index read. */
+function indexTrackedFiles(paths: readonly string[]): TrackedFileEntry[] {
+  return paths.map(path => {
     const lower = path.toLowerCase()
     const file = lower.split('/').at(-1) ?? lower
     const extension = file.split('.').at(-1) ?? ''
-    let score = SOURCE_EXTENSIONS.has(extension) ? 1 : 0
+    const baseScore = (SOURCE_EXTENSIONS.has(extension) ? 1 : 0) +
+      (file === 'package.json' || file === 'cargo.toml' || file === 'pyproject.toml' ||
+       file === 'go.mod' || file === 'readme.md' || file === 'agents.md' ? 2 : 0)
+    return { path, lower, file, baseScore }
+  })
+}
+
+function rankIndexedFiles(index: readonly TrackedFileEntry[], query: string, limit: number) {
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const ranked = index.map(entry => {
+    let score = entry.baseScore
     let matches = 0
     for (const term of terms) {
       let weight = 0
-      if (file === term) weight = 12
-      else if (file.includes(term)) weight = 8
-      else if (lower.includes(term)) weight = 4
+      if (entry.file === term) weight = 12
+      else if (entry.file.includes(term)) weight = 8
+      else if (entry.lower.includes(term)) weight = 4
       // One unmatched language/alias must not cancel a genuine match.
       score += weight
-      if (weight > 0) matches += 1
+      if (weight > 0) matches++
     }
-    if (file === 'package.json' || file === 'cargo.toml' || file === 'pyproject.toml' ||
-        file === 'go.mod' || file === 'readme.md' || file === 'agents.md') score += 2
-    return { path, score, matches }
-  }).filter((entry) => terms.length === 0 || entry.matches > 0)
+    return { path: entry.path, score, matches }
+  }).filter(entry => terms.length === 0 || entry.matches > 0)
     .sort((a, b) => b.score - a.score || b.matches - a.matches || a.path.localeCompare(b.path))
-  return ranked.slice(0, limit).map((entry) => entry.path)
+  return { selected: ranked.slice(0, limit).map(entry => entry.path), matches: ranked.length }
+}
+
+/** Preserve the original one-query ranking API and tie-break order. */
+export function rankTrackedFiles(paths: string[], query: string, limit: number): string[] {
+  return rankIndexedFiles(indexTrackedFiles(paths), query, limit).selected
+}
+
+/** Reject invalid batches before calling Host FS or spawning Git. */
+function parseBatchQueries(value: unknown, singleQuery: unknown): string[] | undefined {
+  if (value === undefined) return undefined
+  if (singleQuery !== undefined) throw new Error('query and queries are mutually exclusive')
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_BATCH_QUERIES) {
+    throw new Error('queries must contain 1..8 distinct terms')
+  }
+  const seen = new Set<string>()
+  return value.map(item => {
+    if (typeof item !== 'string' || !item.trim() || item.length > 160 || item.includes('\\') ||
+        /[\u0000-\u001f\u007f]/.test(item)) {
+      throw new Error('queries must contain safe nonempty strings of at most 160 characters')
+    }
+    const query = item.trim()
+    const normalized = query.toLowerCase()
+    if (seen.has(normalized)) throw new Error('queries must not contain duplicates')
+    seen.add(normalized)
+    return query
+  })
 }
 
 /** Refuse a symbolic-link .git marker; accept both directory repos and linked worktree files. */
@@ -138,14 +180,24 @@ async function indexDiscoveredRepository(
   return prefixTrackedPaths(tracked.paths, displayPrefix)
 }
 
-function workspaceMapResult(paths: string[], repositories: string[], query: string, limit: number) {
-  const selected = rankTrackedFiles(paths, query, limit)
-  return {
-    total: paths.length, selected, truncated: paths.length > selected.length,
-    repositories,
+function workspaceMapResult(
+  paths: string[], repositories: string[], query: string, limit: number, queries?: readonly string[],
+) {
+  const indexed = indexTrackedFiles(paths)
+  if (queries) {
+    // Never return an unbounded multiplied list when several queries are batched.
+    const perQueryLimit = Math.min(limit, Math.floor(MAX_LIMIT / queries.length))
+    const queryResults = queries.map(value => {
+      const ranked = rankIndexedFiles(indexed, value, perQueryLimit)
+      return { query: value, selected: ranked.selected, truncated: ranked.matches > ranked.selected.length }
+    })
+    return { total: paths.length, selected: [], truncated: queryResults.some(item => item.truncated),
+      repositories, queryResults }
   }
+  const selected = rankIndexedFiles(indexed, query, limit).selected
+  return { total: paths.length, selected, truncated: paths.length > selected.length,
+    repositories, queryResults: [] as Array<{ query: string; selected: string[]; truncated: boolean }> }
 }
-
 
 interface HostWorkspaceEntry {
   name: string
@@ -195,9 +247,11 @@ async function discoverHostRepositories(
 export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
     name: 'code_workspace_map',
-    description: 'Return a compact query-ranked map of tracked Git files. If the workspace is not a repository, discover its immediate child repositories (bounded, no full tree dump). Returned paths are workspace-relative.',
+    description: 'Return a compact ranked map of tracked Git paths. Use queries to search up to 8 terms from one fresh index read; otherwise use legacy query. Never caches paths across calls. Discovers only immediate child repositories.',
     parameters: {
-      query: { type: 'string', description: 'Optional keywords, symbols or filename fragments.' },
+      query: { type: 'string', description: 'Optional single search; cannot be combined with queries.' },
+      queries: { type: 'array', description: 'Optional 1..8 distinct searches sharing one fresh Git enumeration; results are capped at 250 paths total.',
+        items: { type: 'string' } },
       cwd: { type: 'string', description: 'Optional relative subdirectory or task worktree. When provided, only this directory is indexed.' },
       limit: { type: 'integer', description: 'Maximum paths, 1..250; defaults to 100.' },
     },
@@ -207,16 +261,32 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         selected: { type: 'array', required: true, items: { type: 'string' } },
         truncated: { type: 'boolean', required: true },
         repositories: { type: 'array', required: true, items: { type: 'string' } },
+        queryResults: { type: 'array', required: true, items: {
+          type: 'object', additionalProperties: false, properties: {
+            query: { type: 'string', required: true },
+            selected: { type: 'array', required: true, items: { type: 'string' } },
+            truncated: { type: 'boolean', required: true },
+          },
+        } },
       } },
       render(_args, result) {
-        return [{ type: 'text', text: 'Repositories: ' + result.repositories.join(', ') +
-          '\nTracked files: ' + result.total + '\n' + result.selected.join('\n') +
+        const header = 'Repositories: ' + result.repositories.join(', ') +
+          '\nTracked files: ' + result.total
+        if (result.queryResults.length) {
+          return [{ type: 'text', text: header + '\n' + result.queryResults.map(item =>
+            'Query: ' + item.query + '\n' + item.selected.join('\n') +
+            (item.truncated ? '\n(more matching files omitted)' : '')).join('\n') }]
+        }
+        return [{ type: 'text', text: header + '\n' + result.selected.join('\n') +
           (result.truncated ? '\n(more files omitted or did not match query)' : '') }]
       },
     },
     async execute(args, exec) {
       const limit = args.limit ?? DEFAULT_LIMIT
-      if (limit < 1 || limit > MAX_LIMIT) throw new Error('limit must be between 1 and 250')
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+        throw new Error('limit must be an integer between 1 and 250')
+      }
+      const queries = parseBatchQueries(args.queries, args.query)
       const root = await resolveRoot(ctx, exec, settings)
       const fs = requireHostFs(ctx, ['resolve', 'contains', 'listDir', 'lstat', 'processPath'], 'refusing local discovery fallback')
       if (fs) {
@@ -248,7 +318,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
           }
         }
         exec.signal.throwIfAborted()
-        return workspaceMapResult(paths, repositories, args.query ?? '', limit)
+        return workspaceMapResult(paths, repositories, args.query ?? '', limit, queries)
       }
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
       const canonicalRoot = await realpath(root)
@@ -278,7 +348,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       }
       return workspaceMapResult(paths,
         repositories.map(directory => relative(canonicalRoot, directory).split(sep).join('/') || '.'),
-        args.query ?? '', limit)
+        args.query ?? '', limit, queries)
     },
   })
 }

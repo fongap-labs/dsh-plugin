@@ -159,6 +159,19 @@ describe('Delta Code Worker Host multi-repository isolation', () => {
     assert.ok(!f.accesses.some(x => x.includes('repo-link/.git')))
   })
 
+  it('shares one Host Git enumeration across a multi-query search without a local fallback', async () => {
+    const f = fixture()
+    const tool = createWorkspaceMapTool(f.ctx, f.settings)
+    const batch = await tool.execute({ queries: ['sidebar', 'runtime'], limit: 10 }, execute())
+    assert.deepEqual(batch.queryResults, [
+      { query: 'sidebar', selected: ['repo-a/src/sidebar.ts'], truncated: false },
+      { query: 'runtime', selected: ['repo-b/src/runtime.ts'], truncated: false },
+    ])
+    assert.equal(f.commands.filter(command => command.argv[1] === 'ls-files').length, 3)
+    assert.ok(f.commands.every(command => command.cwd.startsWith(PROCESS_ROOT)))
+    assert.equal(f.accesses.filter(value => value === 'listDir:' + ROOT).length, 1)
+  })
+
   it('uses the same bounded direct-child limit on Host FS without probing children', async () => {
     const f = fixture({ tooManyDirectories: true })
     await assert.rejects(
