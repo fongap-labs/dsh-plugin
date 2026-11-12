@@ -97,7 +97,7 @@ describe('automatic internal Code Worker A/B', () => {
     const f = fixture()
     const session = {}
     try {
-      f.claim({ session }, '\\u4fee\\u590d CI \\u7ea2\\u53c9')
+      f.claim({ session }, 'fix CI failure')
       f.experiment.observe(session, toolCall(1, 'a', 'read'))
       f.experiment.observe(session, event('tool/result', 2, {
         message: { toolCallId: 'a', isError: true },
