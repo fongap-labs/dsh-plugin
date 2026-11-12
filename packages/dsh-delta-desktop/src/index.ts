@@ -10,6 +10,7 @@ import {
 import { installHostPrivacyGuards } from './host-privacy.js'
 import type { PrivacyHostContext } from './host-privacy.js'
 import { installHostProxyManager } from './host-proxy.js'
+import { installGatewayRetryGuard } from './host-gateway-retry-guard.js'
 import { installHostSessionSearch } from './host-search.js'
 import { installHostSessionOps } from './host-sessions.js'
 import { createHostStateStore } from './host-state.js'
@@ -36,6 +37,7 @@ export {
   selectStaleAuthCookieNames,
 } from './host-auth-cookies.js'
 export { installHostPrivacyGuards, shouldBlockPrivacyHttpRequest } from './host-privacy.js'
+export { installGatewayRetryGuard, isDeferredGatewayExhaustion } from './host-gateway-retry-guard.js'
 export {
   DELTA_SESSION_SEARCH_PATH,
   extractConversationBlocks,
@@ -133,6 +135,12 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
     install: () => installHostSessionOps(ctx, store, {
       onSessionChanged: sessionId => { invalidateSearchCache?.(sessionId) },
     }),
+  })
+  registry.register({
+    id: 'integrations.gateway-retry-guard',
+    owner: 'integrations',
+    optional: true,
+    install: () => installGatewayRetryGuard(ctx),
   })
   registry.register({
     id: 'integrations.proxy-settings',
