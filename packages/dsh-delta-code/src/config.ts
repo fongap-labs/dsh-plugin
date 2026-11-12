@@ -13,6 +13,10 @@ const Server = Schema.object({
   command: Schema.string().required(),
   args: Schema.array(Schema.string()).default([]),
 })
+const LanguageConvention = Schema.object({
+  directory: Schema.string().required(),
+  language: Schema.union(['typescript', 'javascript']).required(),
+})
 
 // The native schema resolves Volatile<T> references, while the runtime
 // CodeWorkerConfig describes the unwrapped values passed to the tools.
@@ -30,6 +34,7 @@ export const Config: Schema<Record<string, unknown>> = Schema.object({
     allowWorktreeWrites: Schema.boolean().default(false),
     allowCommands: Schema.boolean().default(false),
     fsWriteContract: Schema.string().default('legacy-overwrite'),
+    languageConventions: Schema.array(LanguageConvention).default([]),
   }).volatile(),
   github: Schema.object({
     enabled: Schema.boolean().default(true),

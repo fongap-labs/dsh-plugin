@@ -5,6 +5,7 @@ import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { parseGitStatus } from './git.js'
+import { identifyAddedFiles, checkLanguageConventions, describeLanguageViolations } from '../consistency.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
 import { isAllowedVerificationScript, type VerificationScript } from './verify-presets.js'
 import type { NativeResumeReader } from './resume.js'
@@ -300,6 +301,21 @@ export function createDeliveryGateTool(ctx: Context, settings: Settings, nativeR
         changes = [...status.staged, ...status.unstaged, ...status.untracked]
         if (status.untracked.length > 0) {
           blockers.push('untracked files are not covered by git diff --check; review and stage or remove them')
+        }
+        // Policy is optional and explicit. Read the committed HEAD tree, not
+        // merely the index: git add must not hide an added file from the gate.
+        // --cached plus --others includes staged and untracked new paths,
+        // whereas staged deletions cannot appear in that current-file set.
+        // A mounted Host subprocess remains mandatory; errors fail closed.
+        if (settings.languageConventions.length > 0) {
+          const headFiles = await hostGit(ctx, settings, cwd, exec,
+            ['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--'], 1024 * 1024)
+          const currentFiles = await hostGit(ctx, settings, cwd, exec,
+            ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], 1024 * 1024)
+          const addedFiles = identifyAddedFiles(headFiles, currentFiles)
+          blockers.push(...describeLanguageViolations(
+            checkLanguageConventions(addedFiles, settings.languageConventions),
+          ))
         }
         await hostGit(ctx, settings, cwd, exec, ['diff', '--check'])
         await hostGit(ctx, settings, cwd, exec, ['diff', '--cached', '--check'])

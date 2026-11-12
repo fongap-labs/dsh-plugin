@@ -211,7 +211,15 @@ github:
 execution:
   allowWorktreeWrites: false
   allowCommands: false
+  # 只有显式声明时，交付门禁才核查新增文件的语言；默认 []
+  languageConventions:
+    - directory: packages/dsh-delta-code/src
+      language: typescript
+    - directory: tests
+      language: javascript
 ```
+
+`execution.languageConventions` 是可选的目录级规则（`directory` 为 Git 仓库相对路径，`.` 代表整个仓库；子目录规则优先于父目录）。仅检查相对于 `HEAD` 真正新增的 TS/JS 代码文件；已修改文件、暂存删除、声明文件（`.d.ts` 等）不受影响。通过 `git ls-tree`、`git ls-files --cached --others --exclude-standard` 获取真实 Git 文件证据，而非依照目录里 TS/JS 文件的多数派推断规则。没有声明时不执行额外的语言检查，不阻止渐进迁移。宿主拒绝文件检查时仍按现有 fail-closed 语义阻止交付。
 
 启用 `allowCommands` 后只允许调用项目 `package.json` 中已存在的 `test`、`typecheck`、`build`、`lint`、`check` 脚本。运行项目脚本可能执行该仓库中的任意代码，应仅对可信工作区开启。没有 Harness 子进程服务时，这两项高权限工具拒绝执行，不绕过宿主执行能力与审批边界。
 
