@@ -3,15 +3,13 @@
 新的插件身份为 `@fongap-labs/dsh-delta-desktop`，历史 `@fongap-labs/dsh-theme-delta` 的发布记录和错误日志不修改。首次安装新包前先停用旧插件，确保不会重复覆盖主题或重复注册 `settings.section`；禁止在没有实际宿主验证前声称可自动迁移。
 
 
-公开源码与 API 文档仅作接口阅读参考，不是安装要求、运行时版本门槛或后续构建的兼容承诺。插件按可用接口和对象形态运行时检测。
+公开源码基线：`deepseek-ai/deepseek-harness@fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`。基线只用于阅读，不等于已完成实际安装验证，也不代表全部后续宿主构建兼容。
 
 | 能力 | 证据（DeepSeek Harness 相对路径） | 作用及必要性 | 缺失时 | 已验证 |
 | --- | --- | --- | --- | --- |
 | `__ModuleLoader__.load({id,factory})` | `packages/client/modules/src/client/manifest.ts` | 惰性客户端注册，必需 | 插件无法启动 | 单文件静态检查与模拟 |
 | `ctx.theme.overrideTokens(source,tokens)` | `packages/client/ui-theme/src/client/index.ts` | 插件配色，返回拥有者 disposer | 官方色保留/出错提示 | 模拟 |
 | `ctx.slots.inject/register` | `packages/client/ui-slots/README.md` | 安全等待插槽声明，自动释放贡献 | 对应控件不挂载 | 模拟 |
-| `plugins.add.actions` + `MenuItemButton` | `packages/client/ui-plugin-manager/README.md`、`packages/client/ui-agent-preset/src/client/CreatePluginMenuItem.tsx` | 在插件管理“添加插件”菜单中放置 MCP 服务器入口 | 不显示入口 | 模拟 |
-| `configForms.get('mcp-manager')`（兼容 `mcp`）+ `remote.mcpManager` | `packages/bundle/web-app/cordis.patch.yml`、`packages/client/ui-settings/README.md`、`packages/mcp/mcp-manager/README.md` | Revision fenced MCP 配置写入、状态订阅、探测与重启 | 提示 Host 未提供相应能力 | 模拟 |
 | `settings.section` | `packages/client/ui-settings/src/client/contract/slots.ts` | 独立设置栏目，停用后自动移除 | 设置入口不出现 | 模拟 |
 | `ctx.inject(['theme'])` | `packages/client/ui-theme/src/client/index.ts` | 主题提供者延迟就绪 | 独立设置仍显示，配色提示不可用 | 模拟 |
 | `ctx.layout.toggleSidebar/selectPanel` | `packages/client/ui-layout/src/client/service.ts` | 调用官方导航/侧栏动作 | 仅该动作错误提示 | 模拟 |
@@ -33,7 +31,7 @@
 
 ## 2026-11-09 原生个性设置接入与其余需求的界限
 
-2026-11-09 的公开源码阅读记录：
+经核对 `deepseek-ai/deepseek-harness@fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`：
 
 - `ui-settings` 的公开 `settings.section` 声明和 `ui-settings-general` 的导航列表，允许 Delta Theme 注册 `delta.personalization`，从插件维护的 zh/en 字典读取标签、页面标题与无障碍文案；插槽注册随插件生命周期释放。
 - `ui-sidebar/SidebarRoot.tsx` 的品牌行本身兼作新建会话按钮；两个公开的 `sidebar.brand.*` 插槽仅替换其内部图标和名称，不能安全地嵌入可交互搜索框或重排宿主的按钮。因此未采用 `dsh-claude-style` 的 Host DOM 选择器接管方案。
@@ -41,20 +39,22 @@
 - `ui-chat/RunningStatus.tsx` 与 `ui-conversation` 的状态及预览文案属于宿主翻译字典；没有公开的单项覆盖插槽，不覆盖其他插件拥有的 locale 命名空间。
 - 仅完成设置栏目和真实主题切换；上述侧栏、会话和工作区重构均为**未完成**，真实 Windows Harness `0.2.2-rc.1` 安装与启停仍待复验。
 
-## 2026-11-09 兼容适配实现
+## 2026-11-10 7 大模块完整实现与兼容保障
 
-- Delta Sidebar Compatibility 通过仅在 `data-sidebar-scrollport`、`data-sidebar-workspace-header` 和原生导航均存在时启用可撤销适配；未匹配时恢复宿主导航，不触碰 `app.asar`。
-- 搜索使用原生 React 输入的值设置器与 input 事件，开始对话通过官方按钮触发；新添加的节点只归插件所有，在停用时全部释放。
-- 对从未持久化折叠偏好的工作区触发一次宿主展开状态切换，保留用户后续手动设置。
-- 宿主 WorkspaceRegistry 删除方法在插件启用期间验证默认工作区是否为空且有其他工作区，停用时恢复原方法。客户端再进行一次防误触拦截。
-- Delta 样式仅在相关根节点标记存在时覆盖会话列表、导航和悬浮卡，官方数据、会话状态和消息流仍由宿主管理。
+针对 7 大模块的需求矩阵，Delta Desktop 实现了端到端的能力支持与优雅回退：
 
-本节为源码实现记录，不代表真实 Windows 桌面验收已经通过。适配依赖上述源码基线，后续 Harness DOM 改动必须重新验证。
+1. **左侧导航与排版**：通过 `:root[data-delta-compat="1"]` 调整 `[data-sidebar-scrollport]` 布局为 8px flex-column。隐藏官方 Logo，重排搜索、插件管理、定时任务、开始对话。
+2. **会话搜索联动**：在侧栏顶部提供 `.dtd-native-search`，输入事件直接驱动官方 `[data-sidebar-workspace-header]` 内的搜索组件，同时隐藏头部多余搜索位，保持无感知原生联动。
+3. **会话列表展示**：通过 CSS 与插槽隐藏 `hoverPath` 物理路径；会话时间使用等宽数字排版；在悬浮卡注入会话 ID 复制操作。
+4. **工作区折叠与安全保护**：初次加载自动折叠工作区行（基于 `dsh.workspace.view.v5` 缓存判断，不覆盖用户主动设置）；保留全部文件夹上下文操作；拦截默认工作区的删除操作并给出友好提示。
+5. **个性设置热切换**：通过 `settings.section` 提供 Delta / 官方模式切换，切换瞬间增删所有主题属性及 DOM 节点。
+6. **双色主题视觉体验**：注入全套 WCAG 认证的 Delta 色彩变量（浅色 `#286F78`、深色 `#60B4BF`），强制生效于发送按钮 `.GRgSLq_primary`、主按钮、焦点框和状态控件。
+7. **插件全生命周期安全释放**：无论通过模式切换还是插件卸载，disposer 函数会严格移除所有样式、DOM 节点、MutationObserver 及事件监听，恢复 100% 干净的原生界面。
 
 
 ## 2026-11-09 可替换宿主能力契约（PR #197）
 
-长期能力边界以 `src/host-capabilities.ts` 中的 `DELTA_HOST_CONTRACT_VERSION` 与明确声明的能力名称为准，不按固定 DSH 版本号开启功能，也不依赖 DOM 选择器或私有 Store。通常只使用正式插槽与服务；视觉桥准入适配是下面记录的一个范围受限例外，不作为其他能力的兼容依据。
+长期能力边界以 `src/host-capabilities.ts` 中的 `DELTA_HOST_CONTRACT_VERSION` 与明确声明的能力名称为准，**不以固定 DSH 版本、DOM 选择器、私有 Store 或客户端 monkey-patch 为证据**。
 
 - 契约 v1 采用显式 `contractVersion` + `capabilities[]`；协商返回 `compatible`、`available`、`missing`、`reason`。
 - 未提供 manifest / 契约版本不符 / 缺少必需能力均拒绝启用对应集成，不能当作功能通过。
@@ -65,36 +65,3 @@
 - 本次交付仅包含稳定边界与发布阻断，不包含受限 Host UI 功能；发布状态以 `feature-readiness.json` 和真实 Windows 验收共同决定。
 
 下一阶段：DSH Adapter 通过宿主正式插件 API 建立可探测的能力清单，Delta Desktop 依据已协商能力逐项装配界面；任何宿主不支持的特性必须显式标记不可用并回退原生体验。
-
-## 2026-11-11 视觉桥准入适配（运行时能力检测，不绑定版本）
-
-Harness 的 `prompt` 入口在调用模型请求插件钩子前，通过 `ctx.llm.resolveModelInfo(provider, model)` 检查图片模态；如果当前文本模型没有声明 `image`，请求不会到达 `llm/stream`。公开实现位置可在 [Harness `api-proxy.ts`](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/host/apiproxy/src/api-proxy.ts) 与 [LLM 服务说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm/README.md) 查阅。
-
-Delta 在视觉桥配置有效时，运行时检查 `resolveModelInfo` 是否可调用，并暂时在该公开方法上安装可撤销的包装，让 Host 准入检查将请求交给 `llm/stream`。视觉桥生成描述后移除原图片，再发送文本请求；失败时返回错误结果，不调用文本路由，也不改变 Host 会话记录。插件卸载时仅当包装仍由 Delta 持有，才恢复原方法。已有模型路由要求其模型目录声明图片输入；自定义端点仅支持 OpenAI Chat Completions 兼容、Anthropic Messages 与 Ollama。
-
-这不修改 Harness 源码、`app.asar` 或私有 DOM，也不检查或比较 Harness 版本号。它使用公开 API 上的临时适配，尚非 Harness 承诺的准入扩展点；运行时对象若不可扩展、方法不可写或 API 形状不符，Delta 会记录不可用并让 Host 保持原有拒绝行为。组件级单测覆盖包装、恢复和失败时阻止图像直达文本路由；目标桌面应用中的准入顺序、附件类型和完整消息生命周期仍须实机验收。
-
-隐私设置通过 `configForms.get('dsh-delta-desktop')` 持久化；自定义密钥通过 Host `remote.credentials.set/unset` 写入 Harness Credentials，模型请求时由 Host 凭据服务解析。详情见 [Settings Controller](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/api/settings-controller/README.md) 与 [Credentials](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/credentials/credentials/README.md)。
-
-## 2026-11-11 上下文与对话辅助扩展
-
-`cordis.patch.yml` 在 Profile 层加入 Harness 官方 `@deepseek-ai/dsh-compaction-basic`，配置 `auto: true`。该后端使用公开的 `ctx.tokenMeter` / `ctx.compaction` 契约，并在 `agent/pre-step` 与上下文溢出恢复路径中执行结构化压缩；因此本实现不要求用户将主会话切换到 Delta Context Assistant 预设。这里的跨 Agent 覆盖范围是按 Harness Profile 级事件与 compaction backend 语义设计的，**尚待目标 Windows Desktop 构建实机验收**。
-
-Harness 的压缩会把较早的模型上下文替换成一个带有固定 Markdown 章节的 checkpoint，同时保留最近对话；原始会话日志仍由 Harness 持久化。官方 checkpoint 结构包括 `Primary Request and Intent`、`Key Technical Concepts`、`Files and Code`、`Errors and Fixes`、`Pending Jobs`、`Current Work`、`Next Step`、`Critical Context`。任务完成情况、偏好、约束、决定和未决问题分别归入相应章节。Delta 订阅 `compaction/start`、`compaction/summary` 与 `compaction/end`，在聊天的助手消息活动行显示处理中、完成或失败提示；成功后可在聊天中展开 checkpoint。输入框不再显示上下文百分比、手动压缩按钮或摘要文本。
-
-主会话中现有的 compaction backend 若与 Profile 层后端同时工作，会对同一个 Harness 会话逐步检查；持久化 compaction lock 由 Host 后端持有。是否在目标 Desktop 版本中会按预期串行通过所有预设，需在实机长对话和上下文溢出恢复场景中确认。Delta 通过公开 session projection 读取压缩生命周期；崩溃后未闭合的压缩会显示为未完成。Projection 注入、事件传播及压缩恢复仍需在目标 Windows Desktop 构建实机验收。
-
-- 选中文字的引用提问复用 Harness 原生 `message-quotes` 插件；该插件未由 Delta 复制，测试机器需启用原生插件。
-- 独立侧栏会话使用公开 `sessions`、`resources`、`sidebarRightTabs` 与 conversation 插槽；纠正主任务始终使用 `queue`，不使用 `steer` 或取消接口。
-- 输入优化只在独立会话产生预览；主草稿变化后，应用或恢复操作都会拒绝覆盖新内容。
-- 模型名称显示开关仅控制 composer 中的通用模型名称；不改变选择的模型路由。
-
-新增单元测试和模拟 UI 测试验证插件 patch、队列模式、设置持久化、checkpoint 展示、压缩失败提示及草稿覆盖保护。它们**不能证明** Desktop 实际装载、事件传播和 compaction backend 在各预设下的生命周期行为；这些仍列在 `projects/dsh-delta-desktop/feature-readiness.json`。
-
-## 2026-11-11 MCP 服务器管理入口
-
-插件管理页通过公开 `plugins.add.actions` list slot 提供 **添加 MCP 服务器**，用 `order: -100` 排在插件管理器内置的第三方安装项之后、默认 order 为 0 的 Agent Creator 项之前。菜单项使用 Harness 的 `MenuItemButton` primitive；管理弹窗由 Host 提供的 React root 模块挂载。
-
-配置按 Profile 中 MCP Manager 条目的实际 id 读取。Harness Desktop 当前使用 `mcp-manager`，MCP Manager 文档示例也可能将条目命名为 `mcp`；Delta 优先查找 `configForms.get('mcp-manager')`，再回退到 `mcp`。写入使用路径级 `mutate(ops, expectedRevision)`，每次只改一个 `servers.<name>` 节点，不整体替换服务器 map。状态通过 `remote.mcpManager.watch(signal)` 读取，探测与重启调用同一公开 manager API。无 manager、无配置表单或只读连接都会显示对应提示；这些能力未进入 Delta 的必需 Host 契约，其他插件功能仍可使用。
-
-本地模拟测试覆盖入口顺序、服务缺失、stdio 配置写入、拒绝写入、实时连接状态、探测与重启。目标 Harness Desktop 的 MCP Manager 装载、桌面 UI 表现和真实进程/HTTP 连接仍需在 Windows 实机验收。

@@ -5,72 +5,75 @@
 interface DeltaCopy {
   meta: { title: string; description: string }
   ui: {
+    [key: string]: string
     preference: string; theme: string; official: string; delta: string;
     open: string; close: string; conversation: string; sidebar: string;
-    status: string; unavailable: string; recovery: string; shortcut: string;
+    status: string; unavailable: string; recovery: string; shortcut: string; themeWaiting: string;
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
-    searchSessions: string; searchDialogPrompt: string; newConversation: string; pluginManagement: string; scheduledTasks: string; searching: string; noResults: string;
-    searchReady: string; searchWaitingServices: string; searchWaitingSidebar: string; searchDisabled: string;
-    workspaceResult: string; archivedSession: string; sessionStateUnknown: string;
-    sessionRunning: string; sessionArchived: string; sessionUpdated: string;
+    searchSessions: string; newConversation: string; searching: string; noResults: string;
     integrationTitle: string; integrationSummary: string; integrationSidebar: string;
     integrationCollapse: string; integrationDeletion: string; integrationRunning: string;
-    themeWaiting: string;
-    copied: string; copyFailed: string;
-    contextFeatures: string; contextFeaturesDescription: string;
-    showDeepSeekAccountInfo: string; showDeepSeekAccountInfoDescription: string;
-    showModelInfo: string; showModelInfoDescription: string;
-    deepSeekModelsEnabled: string; deepSeekModelsEnabledDescription: string;
-    modelRoutesTitle: string;
-    inputOptimization: string; inputOptimizationDescription: string;
-    privacyVisionTitle: string; redactionEnabled: string; redactionDescription: string;
-    visionEnabled: string; visionEnabledDescription: string; visionSource: string;
-    visionExisting: string; visionCustom: string; visionProvider: string; visionModel: string;
-    visionProtocol: string; visionBaseURL: string; visionCustomModel: string;
-    visionCredentialRef: string; visionCredentialPlaceholder: string; visionCredentialHint: string;
-    visionSave: string; visionRestore: string; visionMissingForm: string; visionAdmissionHint: string;
-    visionSaved: string; visionFailed: string; visionClearCredential: string; visionKeySaved: string;
-    discussTask: string; optimizeDraft: string; optimizationDisabled: string;
-    assistantUnavailable: string; assistantStarting: string; assistantReady: string; sessionIdle: string;
-    assistantContext: string; mainTaskStatus: string; contextUsage: string;
-    contextBreakdown: string; loadedTurns: string; mainContext: string;
-    checkpoint: string; noCheckpoint: string;
-    automaticCompactionFailed: string;
-    correctionPlaceholder: string; queueCorrection: string; reviewCorrection: string; confirmQueue: string;
-    queueOnly: string; correctionQueued: string; correctionFailed: string;
-    directionChange: string; previewOptimization: string; applyOptimization: string;
-    restoreOriginal: string; cancel: string; copyText: string; draftChanged: string;
-    compacting: string;
-    compactionCompleted: string; compactionInterrupted: string; viewCheckpoint: string;
-    mcpAddAction: string; mcpAddDescription: string; mcpTitle: string; mcpSubtitle: string;
-    mcpAddTitle: string; mcpBackToList: string; mcpBasics: string; mcpConnection: string;
-    mcpAuthentication: string; mcpSecurityNotice: string;
-    mcpClose: string; mcpUnavailable: string; mcpNotConfigured: string; mcpReadOnly: string;
-    mcpRefreshing: string; mcpAddServer: string; mcpEditServer: string; mcpSaveServer: string;
-    mcpCancel: string; mcpName: string; mcpNameHint: string; mcpTransport: string;
-    mcpStdio: string; mcpHttp: string; mcpCommand: string; mcpArgs: string; mcpArgsHint: string;
-    mcpEnv: string; mcpEnvHint: string; mcpCwd: string; mcpUrl: string; mcpHeaders: string;
-    mcpHeadersHint: string; mcpEnabled: string; mcpNoServers: string; mcpConfigured: string;
-    mcpRegistered: string; mcpProbe: string; mcpRestart: string; mcpWorking: string;
-    mcpStatus: string; mcpConnecting: string; mcpConnected: string; mcpDisabled: string;
-    mcpFailed: string; mcpWaitingCredentials: string; mcpUnknown: string; mcpRemove: string;
-    mcpRestore: string; mcpConfirmRemove: string; mcpCancelRemove: string; mcpInvalidName: string;
-    mcpDuplicateName: string; mcpMissingCommand: string; mcpInvalidUrl: string; mcpInvalidPairs: string;
-    mcpSaveFailed: string; mcpSaveSuccess: string; mcpRemoveFailed: string; mcpRemoveSuccess: string;
-    mcpOperationFailed: string; mcpStdioNotice: string; mcpCredentialsNotice: string;
-    mcpFormPending: string; mcpFormUnavailable: string; mcpEnabledState: string;
-    mcpProbeComplete: string; mcpRestartComplete: string;
+    copied: string; copyFailed: string; protectedDefaultWorkspace: string;
+    updateNotification: string; settings: string; signIn: string; signOut: string;
+    signedIn: string; latestVersion: string; signedOut: string;
+    signInRequired: string; signOutFromMenu: string;
+    collapseLeftSidebar: string; expandLeftSidebar: string;
+    collapseRightSidebar: string; expandRightSidebar: string;
+    cannotDeleteSoleWorkspace: string;
+    cancel: string; confirm: string; delete: string;
+  }
+  privacy: {
+    title: string; description: string; statusEnforced: string;
+    sessionLogBlocked: string; telemetryBlocked: string;
+    geolocationOff: string; redactionActive: string;
+  }
+  sessionMenu: {
+    moveSession: string; lockSession: string; unlockSession: string; deleteSession: string;
+    moveTitle: string; moveDescription: string; moveEmpty: string; movedToast: string;
+    deleteTitle: string; deleteDescription: string; deletedToast: string;
+    deleteUngrouped: string; deleteUngroupedTitle: string; deleteUngroupedDescription: string;
+    deleteUngroupedLockedWarning: string; deletedUngroupedToast: string;
+    unlockFirst: string;
+    setPinTitle: string; setPinDescription: string; pinLabel: string; pinConfirmLabel: string;
+    pinPlaceholder: string; pinTooShort: string; pinMismatch: string; wrongPin: string;
+    lockedShieldTitle: string; lockedShieldDesc: string; unlockViewOnce: string; unlockPermanent: string;
+    lockedToast: string; unlockedToast: string;
+    pinSettingsTitle: string; pinSetStatus: string; pinUnsetStatus: string;
+    clearPin: string; clearPinTitle: string; clearPinDesc: string; pinClearedToast: string;
+    copySecret: string; totpLoading: string; totpInitFailed: string;
+  }
+  networkProxy: {
+    nav: string; title: string; description: string; modeLabel: string;
+    modeSystem: string; modeDirect: string; modeManual: string;
+    httpProxyLabel: string; httpProxyPlaceholder: string;
+    httpsProxyLabel: string; httpsProxyPlaceholder: string;
+    noProxyLabel: string; noProxyPlaceholder: string;
+    save: string; savedToast: string; invalidUrl: string; socksUnsupported: string;
+    statusLabel: string; statusSystemEnv: string; statusSystemReg: string;
+    statusDirect: string; statusManual: string; note: string;
+  }
+  searchPalette: {
+    triggerHint: string; sidebarPlaceholder: string; placeholder: string;
+    clear: string; close: string; searchingContent: string;
+    noResults: string; noResultsHint: string; turnLabel: string;
+    roleUser: string; roleAssistant: string;
+    tabAll: string; tabSession: string; tabWorkspace: string;
+    tabPlugin: string; tabSkill: string; tabShortcut: string; tabAction: string;
+    kindSession: string; kindContent: string; kindWorkspace: string;
+    kindPlugin: string; kindSkill: string; kindCommand: string;
+    kindShortcut: string; kindAction: string;
+    actionNewConversation: string; actionPlugins: string;
+    actionSchedules: string; actionSettings: string;
+    actionToggleSidebar: string; actionToggleRightbar: string;
+    footerNav: string; footerOpen: string; footerTab: string; footerEsc: string;
   }
 }
 type Language = 'zh' | 'en'
 type Mode = 'delta' | 'official'
 type SearchStatus = 'waiting-services' | 'waiting-sidebar' | 'active' | 'disabled'
-type DeltaState = Readonly<{
-  mode: Mode; language: Language; error: boolean; searchStatus: SearchStatus;
-  createAllowed: boolean; themeReady: boolean; revision: number
-}>
+type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; themeReady: boolean; searchStatus: SearchStatus; createAllowed: boolean; revision: number }>
 interface DeltaController {
   getSnapshot(): DeltaState
   subscribe(listener: () => void): () => void
@@ -79,169 +82,16 @@ interface DeltaController {
   openConversation(): void
   openPanel(panelId: 'plugins' | 'schedules'): boolean
   setSearchStatus(status: SearchStatus): void
-  setCreateAllowed(allowed: boolean): void
+  setCreateAllowed(isAllowed: boolean): void
   dispose(): void
 }
-interface DeltaProps { controller: DeltaController }
-interface SessionHoverProps { sessionId: string }
 interface AddPluginActionProps { onDismiss?(): void }
-interface ReactApi {
-  createElement(type: string | ((props: any) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
-  useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
-  useRef<T>(initial: T): { current: T }
-  useEffect(effect: () => void | (() => void), dependencies?: readonly unknown[]): void
-  useSyncExternalStore<T>(subscribe: (listener: () => void) => () => void, getSnapshot: () => T): T
-}
 interface ReactRootApi {
   createRoot(container: Element): { render(children: unknown): void; unmount(): void }
 }
 interface MenuItemButtonApi {
   MenuItemButton(props: { icon?: unknown; disabled?: boolean; onSelect?: () => void; children?: unknown }): unknown
 }
-interface ThemeApi {
-  overrideTokens(source: string, tokens: Record<string, { light: string; dark: string }>): () => void
-}
-interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): void }
-interface SlotsApi {
-  inject(name: string, register: () => unknown): void
-  register<P = DeltaProps>(options: { name: string; id?: string; key?: string; order?: number; label?: () => string;
-    inject?: () => DeltaProps; children?: Record<string, unknown> }, component: (props: P) => unknown): unknown
-}
-interface WorkspacesApi {
-  list: {
-    getSnapshot(): {
-      items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
-      /** Native WorkspaceBrowser prevents opening archived Sessions. */
-      archivedSessionIds?: readonly string[]
-      phase?: string
-      state?: 'idle' | 'loading' | 'error'
-    }
-    subscribe?(listener: () => void): () => void
-  }
-  delete(workspaceId: string): Promise<unknown>
-}
-
-/** Existing Harness 0.2.2-rc.1 public Client services. All data and navigation remain Host-owned. */
-interface SearchSessionsApi {
-  list: {
-    getSnapshot(): {
-      byId: Record<string, { id: string; title?: string; blank?: boolean; running?: boolean; updatedAt?: number }>
-      phase?: string
-    }
-    subscribe?(listener: () => void): () => void
-  }
-  search(query: string, signal: AbortSignal): Promise<{
-    ok: boolean
-    value?: { items: { sessionId: string; snippet: string }[]; hasMore: boolean }
-    error?: { message?: string }
-  }>
-}
-interface SearchNavigationApi {
-  openSession(sessionId: string): void
-  startSession(): void
-  /** Public Harness navigation, retaining Host create/access checks. Optional on older builds. */
-  openWorkspace?(workspaceId: string): Promise<void>
-}
-
-interface PublicSessionFace {
-  readonly sessionId: string
-  prompt(content: { type: 'text'; text: string }[], mode: 'queue' | 'steer', signal?: AbortSignal): Promise<{ ok: boolean; error?: { message?: string } }>
-  command?(line: string): Promise<{ matched: boolean }>
-  getSnapshot?(): { running?: boolean; awaitingFirstTurn?: boolean; lastAgentError?: string | null }
-}
-interface SessionReference {
-  readonly sessionId: string
-  readonly binding: { readonly session: PublicSessionFace }
-  readonly ready: Promise<unknown>
-  release(): void
-}
-interface AssistantSessionsApi {
-  create(options?: { agentPreset?: string; workspaceId?: string }): Promise<string>
-  retain(id: string, options: { source: string; signal?: AbortSignal }): SessionReference
-  list: { getSnapshot(): { byId?: Record<string, { title?: string; workspaceId?: string; running?: boolean }> } }
-}
-interface ResourceProviderApi {
-  register(provider: {
-    protocol: string
-    open(address: string, options: { signal: AbortSignal }): AsyncIterable<{ ok: true; value: AssistantResource }>
-  }): () => void
-}
-interface SidebarRightTabsApi {
-  register(definition: {
-    id: string; kind: string; patterns: readonly string[]; priority?: 'extension' | 'builtin' | 'fallback'
-    canOpen?(address: string): boolean; title(address: string): string
-  }): () => void
-}
-interface SidebarRightApi {
-  openResource(address: string): unknown
-  closeRightbar?(): void
-}
-interface AssistantResource {
-  readonly parentSessionId: string
-  readonly assistantSessionId: string
-  readonly purpose: 'discussion' | 'optimization'
-  readonly reference: SessionReference
-}
-interface AssistantWorkflow {
-  readonly purpose: 'discussion' | 'optimization'
-  readonly parentSessionId: string
-  readonly originalDraft?: string
-  appliedDraft?: string
-  readonly getCurrentDraft?: () => string
-  readonly inputActions?: { setDraft(text: string): void; persistDraft(): void }
-}
-interface AssistantServices {
-  sessions: AssistantSessionsApi
-  resources: ResourceProviderApi
-  sidebarRightTabs: SidebarRightTabsApi
-  sidebarRight: SidebarRightApi
-  slots: SlotsApi
-  effect(callback: () => void | (() => void), label?: string): void
-}
-interface AssistantChatSnapshot {
-  legacy?: { nodes?: readonly Record<string, any>[] }
-  nodes?: { values(): readonly Record<string, any>[] }
-  timeline?: { turnOrder?: readonly number[] }
-}
-interface AssistantSlotProps {
-  sessionId: string
-  useSession<T>(selector: (state: any) => T): T
-  useInput<T>(selector: (state: any) => T): T
-  useChat<T>(selector: (state: AssistantChatSnapshot) => T): T
-  useConversation?<T>(selector: (state: any) => T): T
-  useProjection<T = any>(key: string): T | undefined
-  inputActions: {
-    setDraft(text: string): void
-    persistDraft(): void
-  }
-  useTabInfo?(): { tab: { contentId: string } }
-  useResource?<T>(address: string): { value?: T }
-  SessionProvider?(props: { session: SessionReference; children?: unknown }): unknown
-  renderSlot?(name: string, props: Record<string, unknown>): unknown
-  renderFactorySlot?(name: string, props: Record<string, unknown>, options?: Record<string, unknown>): unknown
-  messageId?: string
-}
-
-interface AccessApi {
-  /** Official global grant: callback runs only while session/create is allowed. */
-  whenAccess(action: string, callback: () => (() => void)): () => void
-}
-interface ClientContext {
-  remoteAccess?: AccessApi
-  theme?: ThemeApi
-  layout?: LayoutApi
-  workspaces?: WorkspacesApi
-  sessions?: SearchSessionsApi
-  configForms?: ConfigFormsApi
-  remote?: { mcpManager?: McpManagerApi; credentials?: CredentialRemoteApi }
-  uiWorkspace?: SearchNavigationApi
-  slots: SlotsApi
-  /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
-  inject(services: string[], callback: (scope: ClientContext) => void): void
-  effect(callback: () => void | (() => void), label?: string): void
-  locale?: { subscribe?: (listener: () => void) => (() => void) }
-}
-
 interface McpConfigSnapshot {
   status?: 'loading' | 'ready' | 'unavailable' | string
   value?: unknown
@@ -297,6 +147,167 @@ interface McpDraft {
   enabled: boolean
 }
 
+interface PublicSessionFace {
+  readonly sessionId: string
+  prompt(content: { type: 'text'; text: string }[], mode: 'queue' | 'steer', signal?: AbortSignal): Promise<{ ok: boolean; error?: { message?: string } }>
+  command?(line: string): Promise<{ matched: boolean }>
+  getSnapshot?(): { running?: boolean; awaitingFirstTurn?: boolean; lastAgentError?: string | null }
+}
+interface SessionReference {
+  readonly sessionId: string
+  readonly binding: { readonly session: PublicSessionFace }
+  readonly ready: Promise<unknown>
+  release(): void
+}
+interface AssistantSessionsApi {
+  create(options?: { agentPreset?: string; workspaceId?: string }): Promise<string>
+  retain(id: string, options: { source: string; signal?: AbortSignal }): SessionReference
+  list: { getSnapshot(): { byId?: Record<string, { title?: string; workspaceId?: string; running?: boolean }> } }
+}
+interface ResourceProviderApi {
+  register(provider: {
+    protocol: string
+    open(address: string, options: { signal: AbortSignal }): AsyncIterable<{ ok: true; value: AssistantResource }>
+  }): () => void
+}
+interface SidebarRightTabsApi {
+  register(definition: {
+    id: string; kind: string; patterns: readonly string[]; priority?: 'extension' | 'builtin' | 'fallback'
+    canOpen?(address: string): boolean; title(address: string): string
+  }): () => void
+}
+interface AssistantResource {
+  readonly parentSessionId: string
+  readonly assistantSessionId: string
+  readonly purpose: 'discussion' | 'optimization'
+  readonly reference: SessionReference
+}
+interface AssistantWorkflow {
+  readonly purpose: 'discussion' | 'optimization'
+  readonly parentSessionId: string
+  readonly originalDraft?: string
+  appliedDraft?: string
+  readonly getCurrentDraft?: () => string
+  readonly inputActions?: { setDraft(text: string): void; persistDraft(): void }
+}
+interface AssistantServices {
+  sessions: AssistantSessionsApi
+  resources: ResourceProviderApi
+  sidebarRightTabs: SidebarRightTabsApi
+  sidebarRight: SidebarRightApi
+  slots: SlotsApi
+  effect(callback: () => void | (() => void), label?: string): void
+}
+interface AssistantChatSnapshot {
+  legacy?: { nodes?: readonly Record<string, any>[] }
+  nodes?: { values(): readonly Record<string, any>[] }
+  timeline?: { turnOrder?: readonly number[] }
+}
+interface AssistantSlotProps {
+  sessionId: string
+  useSession<T>(selector: (state: any) => T): T
+  useInput<T>(selector: (state: any) => T): T
+  useChat<T>(selector: (state: AssistantChatSnapshot) => T): T
+  useConversation?<T>(selector: (state: any) => T): T
+  useProjection<T = any>(key: string): T | undefined
+  inputActions: {
+    setDraft(text: string): void
+    persistDraft(): void
+  }
+  useTabInfo?(): { tab: { contentId: string } }
+  useResource?<T>(address: string): { value?: T }
+  SessionProvider?(props: { session: SessionReference; children?: unknown }): unknown
+  renderSlot?(name: string, props: Record<string, unknown>): unknown
+  renderFactorySlot?(name: string, props: Record<string, unknown>, options?: Record<string, unknown>): unknown
+  messageId?: string
+}
+
+interface AccessApi {
+  /** Official global grant: callback runs only while session/create is allowed. */
+  whenAccess(action: string, callback: () => (() => void)): () => void
+}
+interface DeltaProps { controller: DeltaController }
+interface SessionHoverProps { sessionId: string }
+interface ReactApi {
+  useRef<T>(initial: T): { current: T }
+  useEffect(effect: () => void | (() => void), dependencies?: readonly unknown[]): void
+  createElement(type: string | ((props: any) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
+  useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
+  useSyncExternalStore<T = DeltaState>(subscribe: (listener: () => void) => () => void, getSnapshot: () => T): T
+}
+interface ThemeApi {
+  overrideTokens(source: string, tokens: Record<string, { light: string; dark: string }>): () => void
+}
+interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): void }
+interface SidebarRightApi { toggleExpanded?(): void; openResource(address: string): unknown; closeRightbar?(): void }
+interface SlotsApi {
+  inject(name: string, register: () => unknown): void
+  register<P = DeltaProps>(options: { name: string; id?: string; key?: string; order?: number; children?: Record<string, { kind: string; scope?: string }> | readonly string[]; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
+}
+interface WorkspaceSnapshot {
+  items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
+  archivedSessionIds?: readonly string[]
+  pinnedSessionIds?: readonly string[]
+  phase?: string
+  state?: 'idle' | 'loading' | 'error'
+}
+interface WorkspacesApi {
+  list: {
+    getSnapshot(): WorkspaceSnapshot
+    subscribe?(listener: () => void): () => void
+  }
+  delete(workspaceId: string): Promise<unknown>
+  archiveSession?(sessionId: string, opts?: { stopActivity?: boolean }): Promise<unknown>
+  unarchiveSession?(sessionId: string): Promise<unknown>
+}
+
+/** Optional Harness public Client services. All data and navigation remain Host-owned. */
+interface SearchSessionRecord {
+  id: string
+  title?: string
+  blank?: boolean
+  workspaceId?: string
+  updatedAt?: number | string
+  running?: boolean
+  archived?: boolean
+}
+interface SearchSessionsApi {
+  list: {
+    getSnapshot(): { phase?: string; byId: Record<string, SearchSessionRecord>; ids?: readonly string[] }
+    subscribe?(listener: () => void): () => void
+  }
+  cancel?(sessionId: string): Promise<unknown> | void
+  search(query: string, signal: AbortSignal): Promise<{
+    ok: boolean
+    value?: { items: { sessionId: string; snippet: string }[]; hasMore: boolean }
+    error?: { message?: string }
+  }>
+}
+interface SearchNavigationApi {
+  openSession(sessionId: string, options?: { workspaceId?: string }): void
+  startSession(workspaceId?: string): void
+  openWorkspace?(workspaceId: string): Promise<void>
+}
+
+interface ClientContext {
+  get?(name: string): unknown
+  theme?: ThemeApi
+  layout?: LayoutApi
+  sidebarRight?: SidebarRightApi
+  workspaces?: WorkspacesApi
+  sessions?: SearchSessionsApi
+  resources?: ResourceProviderApi
+  sidebarRightTabs?: SidebarRightTabsApi
+  remoteAccess?: AccessApi
+  configForms?: ConfigFormsApi
+  remote?: { mcpManager?: McpManagerApi; credentials?: CredentialRemoteApi }
+  uiWorkspace?: SearchNavigationApi
+  slots: SlotsApi
+  /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
+  inject(services: string[], callback: (scope: ClientContext) => void): void
+  effect(callback: () => void | (() => void), label?: string): void
+  locale?: { subscribe?: (listener: () => void) => (() => void) }
+}
 type FeaturePreferences = Readonly<{
   showDeepSeekAccountInfo: boolean
   showModelInfo: boolean
@@ -422,42 +433,291 @@ interface Loader {
 }
 interface Window { __ModuleLoader__: Loader }
 
+const CLIENT_HOME_WIN_RE = /\b([A-Za-z]):[\\/]+Users[\\/]+([^\\/\s"'`]+)(?=[\\/\s"'`,;:]|$)/gi
+const CLIENT_HOME_POSIX_RE = /(?<![A-Za-z0-9._-])\/(?:Users|home)\/([^/\s"'`,;:]+)(?=[/\s"'`,;:]|$)/g
+const CLIENT_PRIVATE_BLOCK_RE = /<private>[\s\S]*?<\/private>/gi
+const CLIENT_AUTH_HEADER_RE = /\b(Bearer|Basic|Token)\s+[A-Za-z0-9._~+/=-]{8,}/gi
+const CLIENT_KNOWN_TOKEN_RE = /\b(?:sk-[A-Za-z0-9_-]{12,}|gh[pousr]_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{20,}|AKIA[0-9A-Z]{16}|xox[baprs]-[0-9A-Za-z-]{10,}|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})\b/g
+const CLIENT_SECRET_ASSIGN_RE = /\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key|session[_-]?token|authorization|cookie)\b(\s*[:=]\s*)(?:"[^"\n]*"|'[^'\n]*'|[^\s,;`"']+)/gi
+const CLIENT_EMAIL_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g
+const CLIENT_MOBILE_RE = /(?<![A-Za-z0-9_-])1[3-9]\d{9}(?![A-Za-z0-9_-])/g
+
+function redactPathForUi(input: string): string {
+  if (!input) return ''
+  return input
+    .replace(CLIENT_HOME_WIN_RE, '~')
+    .replace(CLIENT_HOME_POSIX_RE, '~')
+}
+
+function redactSensitiveText(input: string): string {
+  if (!input) return ''
+  return redactPathForUi(input)
+    .replace(CLIENT_PRIVATE_BLOCK_RE, '[redacted]')
+    .replace(CLIENT_AUTH_HEADER_RE, '$1 [redacted]')
+    .replace(CLIENT_KNOWN_TOKEN_RE, '[redacted-token]')
+    .replace(CLIENT_SECRET_ASSIGN_RE, '$1$2[redacted]')
+    .replace(CLIENT_EMAIL_RE, '[email]')
+    .replace(CLIENT_MOBILE_RE, '[phone]')
+}
+
+function makeGeolocationDeniedError(): GeolocationPositionError {
+  return {
+    code: 1,
+    message: 'Geolocation permission is disabled by default without explicit authorization.',
+    PERMISSION_DENIED: 1,
+    POSITION_UNAVAILABLE: 2,
+    TIMEOUT: 3,
+  } as GeolocationPositionError
+}
+
+function installClientPrivacyGuards(): () => void {
+  const restores: Array<() => void> = []
+  if (typeof navigator === 'undefined') return () => {}
+
+  const patchMethod = (target: object | undefined | null, key: string, replacement: unknown): void => {
+    if (!target || typeof target !== 'object') return
+    const hadOwn = Object.prototype.hasOwnProperty.call(target, key)
+    const origDesc = Object.getOwnPropertyDescriptor(target, key)
+    const protoDesc = !origDesc ? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(target) ?? {}, key) : undefined
+    const origValue = (target as Record<string, unknown>)[key]
+    try {
+      Object.defineProperty(target, key, {
+        configurable: true,
+        writable: true,
+        enumerable: origDesc?.enumerable ?? protoDesc?.enumerable ?? true,
+        value: replacement,
+      })
+      restores.push(() => {
+        try {
+          if (hadOwn && origDesc) Object.defineProperty(target, key, origDesc)
+          else {
+            delete (target as Record<string, unknown>)[key]
+            if (!hadOwn && origValue !== undefined && key in (target as object) === false) {
+              Object.defineProperty(target, key, { configurable: true, writable: true, value: origValue })
+            }
+          }
+        } catch {}
+      })
+    } catch {
+      try {
+        (target as Record<string, unknown>)[key] = replacement
+        restores.push(() => {
+          try { (target as Record<string, unknown>)[key] = origValue } catch {}
+        })
+      } catch {}
+    }
+  }
+
+  try {
+    const geo = (navigator as unknown as { geolocation?: Geolocation }).geolocation
+    if (geo && typeof geo === 'object') {
+      const deniedAsync = (errorCallback?: PositionErrorCallback | null): void => {
+        if (typeof errorCallback !== 'function') return
+        const invoke = () => {
+          try { errorCallback(makeGeolocationDeniedError()) } catch {}
+        }
+        if (typeof queueMicrotask === 'function') queueMicrotask(invoke)
+        else scheduleTimer(invoke, 0)
+      }
+      patchMethod(geo, 'getCurrentPosition', (_success: PositionCallback, error?: PositionErrorCallback | null) => {
+        deniedAsync(error)
+      })
+      patchMethod(geo, 'watchPosition', (_success: PositionCallback, error?: PositionErrorCallback | null): number => {
+        deniedAsync(error)
+        return 0
+      })
+      patchMethod(geo, 'clearWatch', () => {})
+    }
+  } catch {}
+
+  try {
+    const permissions = (navigator as unknown as {
+      permissions?: { query?: (desc: { name?: string }) => Promise<unknown> }
+    }).permissions
+    const origQuery = permissions?.query
+    if (permissions && typeof origQuery === 'function') {
+      patchMethod(permissions, 'query', (desc: { name?: string }) => {
+        if (desc && desc.name === 'geolocation') {
+          return Promise.resolve({
+            name: 'geolocation',
+            state: 'denied',
+            status: 'denied',
+            onchange: null,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            dispatchEvent: () => false,
+          })
+        }
+        return origQuery.call(permissions, desc)
+      })
+    }
+  } catch {}
+
+  return () => {
+    for (let i = restores.length - 1; i >= 0; i--) {
+      try { restores[i]() } catch {}
+    }
+    restores.length = 0
+  }
+}
+
+const RUNNING_STATUS_HOST_SELECTOR = '[data-chat-running], [data-chat-running] [role="status"], [class*="runningStatus"], [class*="runningContent"]'
+
+function unwrapCordisOriginal<T>(obj: T): T {
+  let cur: unknown = obj
+  const sym = typeof Symbol !== 'undefined' ? Symbol.for('cordis.original') : undefined
+  for (let i = 0; i < 4 && cur && typeof cur === 'object' && sym && (cur as Record<symbol, unknown>)[sym]; i++) {
+    cur = (cur as Record<symbol, unknown>)[sym]
+  }
+  return cur as T
+}
+
+function visitElementTextNodes(root: Node, visitor: (textNode: Node) => void): void {
+  if (root.nodeType === 3) {
+    visitor(root)
+    return
+  }
+  const children = root.childNodes
+  if (!children) return
+  for (let i = 0; i < children.length; i++) {
+    visitElementTextNodes(children[i], visitor)
+  }
+}
+
+function normalizeRunningStatusNodesInDoc(onOriginal?: (node: Node, originalValue: string) => void): void {
+  if (typeof document?.querySelectorAll !== 'function') return
+  const hosts = document.querySelectorAll<HTMLElement>(RUNNING_STATUS_HOST_SELECTOR)
+  for (let i = 0; i < hosts.length; i++) {
+    visitElementTextNodes(hosts[i], cur => {
+      const val = cur.nodeValue ?? ''
+      if (val.includes('\u6df1\u5ea6\u6c42\u7d22\u4e2d')) {
+        onOriginal?.(cur, val)
+        cur.nodeValue = val.replaceAll('\u6df1\u5ea6\u6c42\u7d22\u4e2d', '\u4efb\u52a1\u6267\u884c\u4e2d')
+      }
+    })
+  }
+}
+
+function syncModalChromeOverlay(): void {
+  const doc = typeof document !== 'undefined' ? document : undefined
+  const body = doc?.body
+  const root = doc?.documentElement
+  if (!body || !root || !doc) return
+  const hasModal = root.getAttribute?.('data-delta-ui') === 'delta' &&
+    typeof doc.querySelectorAll === 'function' &&
+    (['.dtd-search-backdrop', '.dtd-dialog-backdrop'] as const).some(sel =>
+      Array.from(doc.querySelectorAll(sel)).some(el => !(el as { hidden?: boolean }).hidden),
+    )
+  if (!hasModal) {
+    root.removeAttribute?.('data-delta-modal-open')
+    if (body.style?.getPropertyValue?.('--dsw-specific-sidebar-fill')) {
+      body.style.removeProperty?.('--dsw-specific-sidebar-fill')
+    }
+    return
+  }
+  root.setAttribute?.('data-delta-modal-open', '1')
+  const isDark = Boolean(
+    body.hasAttribute?.('data-ds-dark-theme') || root.hasAttribute?.('data-ds-dark-theme'),
+  )
+  let dimmedColor = isDark ? '#0B0B0D' : '#B2B6BD'
+  try {
+    const win = typeof window !== 'undefined' ? window : undefined
+    const computed = win?.getComputedStyle?.(body)?.getPropertyValue?.('--dtd-chrome-overlay-mask')?.trim()
+    if (computed) dimmedColor = computed
+  } catch {}
+  if (body.style?.getPropertyValue?.('--dsw-specific-sidebar-fill') !== dimmedColor) {
+    body.style?.setProperty?.('--dsw-specific-sidebar-fill', dimmedColor, 'important')
+  }
+}
+
 // The release builder replaces both markers with data from locale/*.json and src/theme.css.
 const DICTIONARIES = '__DELTA_DESKTOP_LOCALES__' as unknown as Record<Language, DeltaCopy>
 const OWNED_CSS = '__DELTA_DESKTOP_STYLE__'
-const OWNER = '@fongap-labs/dsh-delta-desktop'
+const DELTA_DESKTOP_OWNER = '@fongap-labs/dsh-delta-desktop'
 const STORAGE_KEY = 'fongap.dsh-delta-desktop.v1'
+const DELTA_PALETTE = {
+  brand: { light: '#286F78', dark: '#60B4BF' },
+  brandHover: { light: '#1D5E66', dark: '#75CBD5' },
+  brandSoft: { light: '#EAF3F4', dark: '#1C3B40' },
+  brandSoftStrong: { light: '#DCEBEC', dark: '#1C3B40' },
+  brandBorder: { light: '#9AC9CE', dark: '#357079' },
+  invertedInk: { light: '#FFFFFF', dark: '#0E1A1C' },
+  canvas: { light: '#FFFFFF', dark: '#121316' },
+  surface: { light: '#FFFFFF', dark: '#1C1E22' },
+  popupBg: { light: '#FFFFFF', dark: '#1E1E20' },
+  sidebarBg: { light: '#F2F4F6', dark: '#181A1E' },
+  bubbleBg: { light: '#F4F8F8', dark: '#132225' },
+  bubbleBorder: { light: '#C2DFE2', dark: '#244E55' },
+} as const
+
 const TOKENS: Record<string, { light: string; dark: string }> = {
-  '--dsw-alias-brand-primary': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-button-primary-fill': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-button-primary-hover': { light: '#1D5E66', dark: '#75CBD5' },
-  '--dsw-alias-label-primary-inverted': { light: '#FFFFFF', dark: '#0E1A1C' },
-  '--dsw-alias-label-primary-foreground': { light: '#FFFFFF', dark: '#0E1A1C' },
-  '--dsw-alias-link': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-bg-base': { light: '#F5F6F7', dark: '#131417' },
-  '--dsw-alias-bg-layer-1': { light: '#FFFFFF', dark: '#1C1E22' },
-  '--dsw-alias-border-l1': { light: '#E5E9EB', dark: '#31363B' },
-  '--dsw-specific-sidebar-fill': { light: '#F5F6F7', dark: '#171A1D' },
-  // v2 visual refinements through the public Host token override API.
+  '--dsw-alias-brand-primary': DELTA_PALETTE.brand,
   '--dsw-alias-brand-primary-invert': { light: '#70B1BA', dark: '#286F78' },
-  '--dsw-alias-brand-text': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-button-info-fill': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-button-info-hover': { light: '#1D5E66', dark: '#75CBD5' },
-  '--dsw-alias-button-ghost-active-fill': { light: '#EAF3F4', dark: '#1C3B40' },
-  '--dsw-alias-button-ghost-active-border': { light: '#9AC9CE', dark: '#357079' },
+  '--dsw-alias-brand-primary-new-colorprimary-new-color': DELTA_PALETTE.brand,
+  '--dsw-alias-brand-text': DELTA_PALETTE.brand,
+  '--dsw-alias-button-primary-fill': DELTA_PALETTE.brand,
+  '--dsw-alias-button-primary-hover': DELTA_PALETTE.brandHover,
+  '--dsw-alias-button-info-fill': DELTA_PALETTE.brand,
+  '--dsw-alias-button-info-hover': DELTA_PALETTE.brandHover,
+  '--dsw-alias-button-ghost-active-fill': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-button-ghost-active-border': DELTA_PALETTE.brandBorder,
+  '--dsw-alias-label-primary-inverted': DELTA_PALETTE.invertedInk,
+  '--dsw-alias-label-primary-foreground': DELTA_PALETTE.invertedInk,
   '--dsw-alias-label-primary-bluish': { light: '#10373C', dark: '#E4F4F6' },
-  '--dsw-alias-label-deep-diving': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-label-deep-diving': DELTA_PALETTE.brand,
   '--dsw-alias-label-deep-diving-shimmer': { light: '#5CA1AA', dark: '#8EE0EA' },
-  '--dsw-alias-state-business-primary': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-state-business-tertiary': { light: '#EAF3F4', dark: '#1C3B40' },
-  '--dsw-alias-bg-overlay': { light: '#FFFFFF', dark: '#1E1E20' },
+  '--dsw-alias-state-business-primary': DELTA_PALETTE.brand,
+  '--dsw-alias-state-business-tertiary': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-link': DELTA_PALETTE.brand,
+  '--dsw-alias-bg-base': DELTA_PALETTE.canvas,
+  '--dsw-alias-bg-layer-1': DELTA_PALETTE.surface,
+  '--dsw-alias-bg-overlay': DELTA_PALETTE.popupBg,
   '--dsw-alias-bg-document-selection': { light: 'rgba(40, 111, 120, 0.22)', dark: 'rgba(96, 180, 191, 0.28)' },
-  '--dsw-specific-sidebar-nav-item-active-accent': { light: '#DCEBEC', dark: '#1C3B40' },
-  '--dsw-specific-bubble': { light: '#F4F8F8', dark: '#132225' },
-  '--dsw-specific-bubble-highlight': { light: '#C2DFE2', dark: '#244E55' },
-  '--dsw-focus-ring-color': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-focus-stroke': { light: '#286F78', dark: '#60B4BF' },
-  '--dsw-alias-border-focus': { light: '#286F78', dark: '#60B4BF' },
+  '--dsw-alias-border-l1': { light: '#E5E9EB', dark: '#31363B' },
+  '--dsw-specific-sidebar-fill': DELTA_PALETTE.sidebarBg,
+  '--dsw-specific-sidebar-nav-item-active-accent': DELTA_PALETTE.brandSoftStrong,
+  '--dsw-specific-bubble': DELTA_PALETTE.bubbleBg,
+  '--dsw-specific-bubble-highlight': DELTA_PALETTE.bubbleBorder,
+  '--dsw-focus-ring-width': { light: '1px', dark: '1px' },
+  '--dsw-focus-ring-color': DELTA_PALETTE.brand,
+  '--dsw-alias-focus-stroke': DELTA_PALETTE.brand,
+  '--dsw-alias-border-focus': DELTA_PALETTE.brand,
+  '--dsw-menu-surface-fill': DELTA_PALETTE.popupBg,
+  '--dsw-specific-menu': DELTA_PALETTE.popupBg,
+  '--dsw-hovercard-bg': DELTA_PALETTE.popupBg,
+  '--dsw-alias-tooltip-bg': DELTA_PALETTE.popupBg,
+  '--dsw-alias-tooltip-key-bg': { light: '#EEF0F2', dark: 'rgba(255, 255, 255, 0.12)' },
+  '--dsw-alias-toast-bg': DELTA_PALETTE.popupBg,
+  '--dsw-alias-toast-label': { light: '#18181B', dark: '#FAFAFA' },
+  '--dsw-alias-menu-group-header-fill': { light: '#F8F9FA', dark: '#242427' },
+  '--dsw-alias-bg-module-platform': { light: '#EAF3F4', dark: '#1C2A2D' },
+  '--dsw-static-deepseek-50': DELTA_PALETTE.bubbleBg,
+  '--dsw-static-deepseek-100': DELTA_PALETTE.brandSoft,
+  '--dsw-static-deepseek-200': DELTA_PALETTE.bubbleBorder,
+  '--dsw-static-deepseek-300': DELTA_PALETTE.brandBorder,
+  '--dsw-static-deepseek-400': { light: '#45939D', dark: '#60B4BF' },
+  '--dsw-static-deepseek-450': { light: '#337F89', dark: '#75CBD5' },
+  '--dsw-static-deepseek-500': DELTA_PALETTE.brand,
+  '--dsw-static-deepseek-600': { light: '#1D5E66', dark: '#4A98A3' },
+  '--dsw-static-deepseek-800': { light: '#16484E', dark: '#8EE0EA' },
+  '--dsw-static-deepseek-900': { light: '#10373C', dark: '#B2ECF3' },
+  '--dsw-static-blue-50': DELTA_PALETTE.bubbleBg,
+  '--dsw-static-blue-50p': DELTA_PALETTE.bubbleBg,
+  '--dsw-static-blue-75': { light: '#EAF3F4', dark: '#172B2E' },
+  '--dsw-static-blue-100': { light: '#DCEBEC', dark: '#1C3B40' },
+  '--dsw-static-blue-300': DELTA_PALETTE.brandBorder,
+  '--dsw-static-blue-400': { light: '#5CA1AA', dark: '#60B4BF' },
+  '--dsw-static-blue-450': { light: '#337F89', dark: '#75CBD5' },
+  '--dsw-static-blue-500': DELTA_PALETTE.brand,
+  '--dsw-static-blue-600': DELTA_PALETTE.brandHover,
+  '--dsw-static-blue-800': { light: '#16484E', dark: '#8EE0EA' },
+  '--dsw-static-blue-900': { light: '#10373C', dark: '#B2ECF3' },
+  '--dsw-static-blue-950': { light: '#0A2528', dark: '#D8F6F9' },
+  '--ens-color-primary': DELTA_PALETTE.brand,
+  '--ens-color-primary-foreground': DELTA_PALETTE.invertedInk,
+  '--ens-color-accent': DELTA_PALETTE.brandSoft,
+  '--ens-color-accent-foreground': DELTA_PALETTE.brand,
+  '--ens-color-ring': DELTA_PALETTE.brand,
 }
 
 function language(): Language {
@@ -481,12 +741,11 @@ function writeMode(mode: Mode): void {
 
 function createController(): DeltaController {
   const initialMode = readMode()
-  let snapshot: DeltaState = Object.freeze({ mode: initialMode, language: language(), error: false,
-    searchStatus: initialMode === 'official' ? 'disabled' : 'waiting-services',
-    createAllowed: false, themeReady: false, revision: 0 })
+  let snapshot: DeltaState = Object.freeze({ mode: initialMode, language: language(), error: false, themeReady: false, searchStatus: initialMode === 'official' ? 'disabled' : 'waiting-services', createAllowed: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
   let activeLayout: LayoutApi | undefined
+  let activeSidebarRight: SidebarRightApi | undefined
   let isDisposed = false
   const listeners = new Set<() => void>()
   const publish = (change: Partial<Omit<DeltaState, 'revision'>>): void => {
@@ -500,22 +759,17 @@ function createController(): DeltaController {
     if (mode === 'official') return true
     try {
       if (!activeTheme || typeof activeTheme.overrideTokens !== 'function') return false
-      ownedLayer = activeTheme.overrideTokens(OWNER, TOKENS)
+      ownedLayer = activeTheme.overrideTokens(DELTA_DESKTOP_OWNER, TOKENS)
       return typeof ownedLayer === 'function'
     } catch { return false }
   }
-  const safeLayout = (command: (layout: LayoutApi) => void): boolean => {
-    if (isDisposed) return false
+  const safeLayout = (command: (layout: LayoutApi) => void): void => {
+    if (isDisposed) return
     try {
-      // Missing services must not silently report an action as successful.
       if (!activeLayout) throw new Error('Host layout capability is unavailable')
       command(activeLayout)
       publish({ error: false })
-      return true
-    } catch {
-      publish({ error: true })
-      return false
-    }
+    } catch { publish({ error: true }) }
   }
   return {
     getSnapshot: () => snapshot,
@@ -527,51 +781,1570 @@ function createController(): DeltaController {
     setMode: (mode) => {
       if (isDisposed || (mode !== 'delta' && mode !== 'official')) return
       const success = applyPalette(mode)
-      if (!success) { publish({ error: true, themeReady: false }); return }
+      if (!success) { publish({ error: true }); return }
       writeMode(mode)
-      publish({ mode, error: false, themeReady: mode === 'delta',
-        searchStatus: mode === 'official' ? 'disabled' : 'waiting-services' })
+      publish({ mode, error: false, themeReady: mode === 'delta' && success, searchStatus: mode === 'official' ? 'disabled' : 'waiting-services' })
     },
     toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
+    toggleSidebarSafe: () => {
+      if (isDisposed || !activeLayout || typeof activeLayout.toggleSidebar !== 'function') return false
+      try { activeLayout.toggleSidebar(); return true } catch { return false }
+    },
+    toggleRightbarSafe: () => {
+      if (isDisposed || !activeSidebarRight || typeof activeSidebarRight.toggleExpanded !== 'function') return false
+      try { activeSidebarRight.toggleExpanded(); return true } catch { return false }
+    },
     openConversation: () => { safeLayout(layout => layout.selectPanel(null)) },
-    openPanel: (panelId) => safeLayout(layout => layout.selectPanel(panelId)),
-    setSearchStatus: (status) => {
-      if (!isDisposed && snapshot.searchStatus !== status) publish({ searchStatus: status })
+    openPanel: (panelId) => {
+      if (isDisposed || !activeLayout) { publish({ error: true }); return false }
+      try { activeLayout.selectPanel(panelId); publish({ error: false }); return true }
+      catch { publish({ error: true }); return false }
     },
-    setCreateAllowed: (allowed) => {
-      if (!isDisposed && snapshot.createAllowed !== allowed) publish({ createAllowed: allowed })
-    },
+    setSearchStatus: (status) => { if (!isDisposed && snapshot.searchStatus !== status) publish({ searchStatus: status }) },
+    setCreateAllowed: (isAllowed) => { if (!isDisposed && snapshot.createAllowed !== isAllowed) publish({ createAllowed: isAllowed }) },
     dispose: () => {
       if (isDisposed) return
       isDisposed = true
       ownedLayer?.()
       ownedLayer = undefined
       activeLayout = undefined
+      activeSidebarRight = undefined
       listeners.clear()
     },
     // Used by the owning activation to sync a host language switch.
     syncLanguage: () => { publish({ language: language() }) },
-    activate: () => { if (!applyPalette(snapshot.mode)) publish({ error: true }) },
+    activate: () => { const ok = applyPalette(snapshot.mode); publish({ error: !ok, themeReady: snapshot.mode === 'delta' && ok }) },
     bindTheme: (theme: ThemeApi | undefined) => {
       if (isDisposed) return
       activeTheme = theme
-      const hasPalette = applyPalette(snapshot.mode)
-      publish({ error: !hasPalette, themeReady: snapshot.mode === 'delta' && hasPalette })
+      const ok = applyPalette(snapshot.mode)
+      publish({ error: !ok, themeReady: snapshot.mode === 'delta' && ok })
     },
     bindLayout: (layout: LayoutApi | undefined) => {
-      if (!isDisposed) activeLayout = layout
+      if (isDisposed) return
+      activeLayout = layout
     },
-  } as DeltaController & { syncLanguage(): void; activate(): void }
+    bindSidebarRight: (sidebarRight: SidebarRightApi | undefined) => {
+      if (!isDisposed) activeSidebarRight = sidebarRight
+    },
+  } as DeltaController & {
+    syncLanguage(): void
+    activate(): void
+    toggleSidebarSafe(): boolean
+    toggleRightbarSafe(): boolean
+    bindSidebarRight(sidebarRight: SidebarRightApi | undefined): void
+  }
 }
 
+const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
+const scheduleTimer = (fn: () => void, ms: number): number => {
+  if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') return window.setTimeout(fn, ms)
+  if (typeof setTimeout === 'function') return setTimeout(fn, ms) as unknown as number
+  return 0
+}
+const cancelTimer = (id: number): void => {
+  if (typeof window !== 'undefined' && typeof window.clearTimeout === 'function') {
+    window.clearTimeout(id)
+    return
+  }
+  if (typeof clearTimeout === 'function') clearTimeout(id)
+}
+/** Schedules one DOM sync per animation frame while staying safe under synchronous rAF stubs. */
+const createFrameScheduler = (run: () => void): { schedule: () => void; cancel: () => void } => {
+  let rafId: number | undefined
+  let timerId: number | undefined
+  let cancelled = false
+  return {
+    schedule: () => {
+      if (cancelled) return
+      if (typeof requestAnimationFrame === 'function') {
+        if (rafId !== undefined) return
+        let hasFired = false
+        const nextId = requestAnimationFrame(() => {
+          hasFired = true
+          rafId = undefined
+          if (!cancelled) run()
+        })
+        if (!hasFired) rafId = nextId
+      } else if (typeof setTimeout === 'function') {
+        if (timerId !== undefined) return
+        timerId = scheduleTimer(() => {
+          timerId = undefined
+          if (!cancelled) run()
+        }, 16)
+      } else {
+        run()
+      }
+    },
+    cancel: () => {
+      cancelled = true
+      if (rafId !== undefined && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId)
+      if (timerId !== undefined) cancelTimer(timerId)
+      rafId = undefined
+      timerId = undefined
+    },
+  }
+}
+const createSvgEl = (tag: string, attrs: Record<string, string | number>): Element => {
+  const node = typeof document.createElementNS === 'function'
+    ? document.createElementNS('http://www.w3.org/2000/svg', tag)
+    : document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs)) {
+    node.setAttribute(k, String(v))
+  }
+  return node
+}
+const clearNodeChildren = (node: HTMLElement): void => {
+  if (typeof node.replaceChildren === 'function') {
+    node.replaceChildren()
+    return
+  }
+  if (Array.isArray((node as unknown as { children?: unknown[] }).children)) {
+    const list = (node as unknown as { children: Array<{ remove?: () => void }> }).children
+    while (list.length > 0) {
+      const child = list[list.length - 1]
+      if (typeof child?.remove === 'function') child.remove()
+      else list.pop()
+    }
+    return
+  }
+  while (node.firstChild && typeof node.removeChild === 'function') {
+    node.removeChild(node.firstChild)
+  }
+}
+const showDeltaToast = (message: string): void => {
+  try {
+    if (!document.body) return
+    const node = document.createElement('div')
+    node.className = 'dtd-toast'
+    node.setAttribute('role', 'status')
+    node.textContent = message
+    document.body.appendChild(node)
+    const entry = { node, timer: 0 }
+    entry.timer = scheduleTimer(() => {
+      node.remove()
+      toastEntries.delete(entry)
+    }, 3000)
+    toastEntries.add(entry)
+  } catch { /* Toasts must never prevent native interaction. */ }
+}
+const clearDeltaToasts = (): void => {
+  for (const entry of toastEntries) {
+    cancelTimer(entry.timer)
+    entry.node.remove()
+  }
+  toastEntries.clear()
+}
+
+function createSearchIconSvg(): SVGElement {
+  const createNode = (tag: string): Element =>
+    typeof document.createElementNS === 'function'
+      ? document.createElementNS('http://www.w3.org/2000/svg', tag)
+      : document.createElement(tag)
+  const svg = createNode('svg') as SVGElement
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('width', '15')
+  svg.setAttribute('height', '15')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '2')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  svg.setAttribute('class', 'dtd-search-icon')
+  const circle = createNode('circle')
+  circle.setAttribute('cx', '11')
+  circle.setAttribute('cy', '11')
+  circle.setAttribute('r', '8')
+  const line = createNode('line')
+  line.setAttribute('x1', '21')
+  line.setAttribute('y1', '21')
+  line.setAttribute('x2', '16.65')
+  line.setAttribute('y2', '16.65')
+  svg.appendChild(circle)
+  svg.appendChild(line)
+  return svg
+}
+
+type ClientProxyMode = 'system' | 'direct' | 'manual'
+interface ClientProxyConfig {
+  mode: ClientProxyMode
+  httpProxy: string
+  httpsProxy: string
+  noProxy: string
+}
+interface ClientEffectiveProxy {
+  mode: ClientProxyMode
+  source: 'system-env' | 'system-registry' | 'direct' | 'manual'
+  httpProxy?: string
+  httpsProxy?: string
+  noProxy: string
+}
+interface ClientFeatureSnapshot {
+  hasPin: boolean
+  lockMode?: 'totp' | 'pin' | 'none'
+  lockedSessionIds: readonly string[]
+  movedSessions: Readonly<Record<string, string>>
+  deletedSessionIds: readonly string[]
+  tempUnlockedIds: readonly string[]
+  proxy: ClientProxyConfig
+  effectiveProxy?: ClientEffectiveProxy
+  proxyBusy: boolean
+  proxyError?: string
+  activeSessionId?: string
+  revision: number
+}
+
+// Self-contained ISO/IEC 18004 QR Code encoder (ECC Level M, Byte mode, Versions 1..10) + SVG builder.
+// Zero external dependencies and zero network calls for full privacy compliance.
+interface QrVersionSpec {
+  size: number
+  align: readonly number[]
+  ecPerBlock: number
+  groups: readonly (readonly [number, number])[]
+}
+
+const QR_LEVEL_M_VERSIONS: readonly QrVersionSpec[] = [
+  { size: 21, align: [], ecPerBlock: 10, groups: [[1, 16]] },
+  { size: 25, align: [6, 18], ecPerBlock: 16, groups: [[1, 28]] },
+  { size: 29, align: [6, 22], ecPerBlock: 26, groups: [[1, 44]] },
+  { size: 33, align: [6, 26], ecPerBlock: 18, groups: [[2, 32]] },
+  { size: 37, align: [6, 30], ecPerBlock: 24, groups: [[2, 43]] },
+  { size: 41, align: [6, 34], ecPerBlock: 16, groups: [[4, 27]] },
+  { size: 45, align: [6, 22, 38], ecPerBlock: 18, groups: [[4, 31]] },
+  { size: 49, align: [6, 24, 42], ecPerBlock: 22, groups: [[2, 38], [2, 39]] },
+  { size: 53, align: [6, 26, 46], ecPerBlock: 22, groups: [[3, 36], [2, 37]] },
+  { size: 57, align: [6, 28, 50], ecPerBlock: 26, groups: [[4, 43], [1, 44]] },
+]
+
+const QR_GF_EXP = new Uint8Array(512)
+const QR_GF_LOG = new Uint8Array(256)
+{
+  let x = 1
+  for (let i = 0; i < 255; i++) {
+    QR_GF_EXP[i] = x
+    QR_GF_EXP[i + 255] = x
+    QR_GF_LOG[x] = i
+    x = x & 0x80 ? (x << 1) ^ 0x11d : x << 1
+  }
+}
+
+function qrGfMul(a: number, b: number): number {
+  if (a === 0 || b === 0) return 0
+  return QR_GF_EXP[QR_GF_LOG[a] + QR_GF_LOG[b]]
+}
+
+function qrRsComputeRemainder(data: Uint8Array, ecCount: number): Uint8Array {
+  let gen: number[] = [1]
+  for (let i = 0; i < ecCount; i++) {
+    const next = new Array<number>(gen.length + 1).fill(0)
+    const root = QR_GF_EXP[i]
+    for (let j = 0; j < gen.length; j++) {
+      next[j] ^= gen[j]
+      next[j + 1] ^= qrGfMul(gen[j], root)
+    }
+    gen = next
+  }
+  const work = new Uint8Array(data.length + ecCount)
+  work.set(data, 0)
+  for (let i = 0; i < data.length; i++) {
+    const coef = work[i]
+    if (coef === 0) continue
+    for (let j = 0; j < gen.length; j++) {
+      work[i + j] ^= qrGfMul(gen[j], coef)
+    }
+  }
+  return work.slice(data.length)
+}
+
+function encodeQrBytes(text: string): Uint8Array {
+  if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(text)
+  const utf8 = unescape(encodeURIComponent(text))
+  const out = new Uint8Array(utf8.length)
+  for (let i = 0; i < utf8.length; i++) out[i] = utf8.charCodeAt(i)
+  return out
+}
+
+function encodeQrMatrix(text: string): boolean[][] {
+  const bytes = encodeQrBytes(text)
+  let version = -1
+  let totalDataCap = 0
+  for (let v = 1; v <= QR_LEVEL_M_VERSIONS.length; v++) {
+    const spec = QR_LEVEL_M_VERSIONS[v - 1]
+    const cap = spec.groups.reduce((acc, [cnt, len]) => acc + cnt * len, 0)
+    const headerBytes = v >= 10 ? 3 : 2
+    if (bytes.length + headerBytes <= cap) {
+      version = v
+      totalDataCap = cap
+      break
+    }
+  }
+  if (version < 1) throw new Error('QR payload exceeds supported Version 10-M capacity')
+
+  const spec = QR_LEVEL_M_VERSIONS[version - 1]
+  const n = spec.size
+
+  // Build Byte-mode bit stream
+  const bits: number[] = []
+  const pushBits = (val: number, count: number) => {
+    for (let i = count - 1; i >= 0; i--) bits.push((val >>> i) & 1)
+  }
+  pushBits(0b0100, 4)
+  pushBits(bytes.length, version >= 10 ? 16 : 8)
+  for (let i = 0; i < bytes.length; i++) pushBits(bytes[i], 8)
+  const capBits = totalDataCap * 8
+  pushBits(0, Math.min(4, capBits - bits.length))
+  while (bits.length % 8 !== 0) bits.push(0)
+  let padIdx = 0
+  while (bits.length < capBits) {
+    pushBits(padIdx % 2 === 0 ? 0xec : 0x11, 8)
+    padIdx++
+  }
+
+  const dataCw = new Uint8Array(totalDataCap)
+  for (let i = 0; i < totalDataCap; i++) {
+    let cw = 0
+    for (let b = 0; b < 8; b++) cw = (cw << 1) | bits[i * 8 + b]
+    dataCw[i] = cw
+  }
+
+  // Split blocks, compute RS ECC, and interleave
+  const dataBlocks: Uint8Array[] = []
+  const eccBlocks: Uint8Array[] = []
+  let offset = 0
+  for (const [cnt, len] of spec.groups) {
+    for (let i = 0; i < cnt; i++) {
+      const blk = dataCw.slice(offset, offset + len)
+      offset += len
+      dataBlocks.push(blk)
+      eccBlocks.push(qrRsComputeRemainder(blk, spec.ecPerBlock))
+    }
+  }
+  const codewords: number[] = []
+  const maxDataLen = dataBlocks.reduce((m, b) => Math.max(m, b.length), 0)
+  for (let i = 0; i < maxDataLen; i++) {
+    for (const blk of dataBlocks) if (i < blk.length) codewords.push(blk[i])
+  }
+  for (let i = 0; i < spec.ecPerBlock; i++) {
+    for (const ecc of eccBlocks) codewords.push(ecc[i])
+  }
+  const cwBits: number[] = []
+  for (const cw of codewords) {
+    for (let b = 7; b >= 0; b--) cwBits.push((cw >>> b) & 1)
+  }
+
+  // Setup function patterns
+  const modules: boolean[][] = Array.from({ length: n }, () => new Array<boolean>(n).fill(false))
+  const isFunc: boolean[][] = Array.from({ length: n }, () => new Array<boolean>(n).fill(false))
+  const setFunc = (r: number, c: number, isDark: boolean) => {
+    modules[r][c] = isDark
+    isFunc[r][c] = true
+  }
+
+  const drawFinder = (r0: number, c0: number) => {
+    for (let dr = -1; dr <= 7; dr++) {
+      for (let dc = -1; dc <= 7; dc++) {
+        const r = r0 + dr
+        const c = c0 + dc
+        if (r < 0 || r >= n || c < 0 || c >= n) continue
+        const inBox = dr >= 0 && dr <= 6 && dc >= 0 && dc <= 6
+        const border = inBox && (dr === 0 || dr === 6 || dc === 0 || dc === 6)
+        const center = dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4
+        setFunc(r, c, border || center)
+      }
+    }
+  }
+  drawFinder(0, 0)
+  drawFinder(0, n - 7)
+  drawFinder(n - 7, 0)
+
+  for (let i = 8; i < n - 8; i++) {
+    setFunc(6, i, i % 2 === 0)
+    setFunc(i, 6, i % 2 === 0)
+  }
+
+  // Reserve format info strips & set fixed dark module
+  for (let i = 0; i <= 8; i++) {
+    if (i !== 6) {
+      isFunc[8][i] = true
+      isFunc[i][8] = true
+    }
+  }
+  for (let i = 0; i < 8; i++) isFunc[8][n - 8 + i] = true
+  for (let i = 0; i < 7; i++) isFunc[n - 7 + i][8] = true
+  setFunc(n - 8, 8, true)
+
+  // Alignment patterns
+  for (const cy of spec.align) {
+    for (const cx of spec.align) {
+      if ((cy <= 8 && cx <= 8) || (cy <= 8 && cx >= n - 8) || (cy >= n - 8 && cx <= 8)) continue
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const dist = Math.max(Math.abs(dy), Math.abs(dx))
+          setFunc(cy + dy, cx + dx, dist === 2 || dist === 0)
+        }
+      }
+    }
+  }
+
+  // Version info for Version >= 7
+  if (version >= 7) {
+    let rem = version
+    for (let i = 0; i < 12; i++) rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25)
+    const vBits = (version << 12) | rem
+    for (let i = 0; i < 18; i++) {
+      const bit = ((vBits >>> i) & 1) === 1
+      const r = Math.floor(i / 3)
+      const c = n - 11 + (i % 3)
+      setFunc(r, c, bit)
+      setFunc(c, r, bit)
+    }
+  }
+
+  // Zigzag placement
+  let bitIdx = 0
+  let isUp = true
+  for (let col = n - 1; col >= 1; col -= 2) {
+    if (col === 6) col--
+    for (let step = 0; step < n; step++) {
+      const r = isUp ? n - 1 - step : step
+      for (let dc = 0; dc < 2; dc++) {
+        const c = col - dc
+        if (isFunc[r][c]) continue
+        modules[r][c] = bitIdx < cwBits.length ? cwBits[bitIdx] === 1 : false
+        bitIdx++
+      }
+    }
+    isUp = !isUp
+  }
+
+  const writeFormatBits = (grid: Array<Array<boolean>>, mask: number) => {
+    const data = (0b00 << 3) | mask // ECC Level M = 00
+    let rem = data
+    for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537)
+    const fBits = ((data << 10) | rem) ^ 0x5412
+    for (let i = 0; i <= 5; i++) grid[8][i] = ((fBits >>> (14 - i)) & 1) === 1
+    grid[8][7] = ((fBits >>> 8) & 1) === 1
+    grid[8][8] = ((fBits >>> 7) & 1) === 1
+    grid[7][8] = ((fBits >>> 6) & 1) === 1
+    for (let i = 0; i <= 5; i++) grid[i][8] = ((fBits >>> i) & 1) === 1
+    for (let i = 0; i < 7; i++) grid[n - 1 - i][8] = ((fBits >>> (14 - i)) & 1) === 1
+    for (let i = 0; i < 8; i++) grid[8][n - 8 + i] = ((fBits >>> (7 - i)) & 1) === 1
+  }
+
+  const maskBit = (mask: number, r: number, c: number): boolean => {
+    switch (mask) {
+      case 0: return (r + c) % 2 === 0
+      case 1: return r % 2 === 0
+      case 2: return c % 3 === 0
+      case 3: return (r + c) % 3 === 0
+      case 4: return (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0
+      case 5: return ((r * c) % 2) + ((r * c) % 3) === 0
+      case 6: return (((r * c) % 2) + ((r * c) % 3)) % 2 === 0
+      default: return (((r + c) % 2) + ((r * c) % 3)) % 2 === 0
+    }
+  }
+
+  const penaltyScore = (grid: Array<Array<boolean>>): number => {
+    let score = 0
+    for (let r = 0; r < n; r++) {
+      let runLen = 1
+      for (let c = 1; c < n; c++) {
+        if (grid[r][c] === grid[r][c - 1]) runLen++
+        else { if (runLen >= 5) score += 3 + (runLen - 5); runLen = 1 }
+      }
+      if (runLen >= 5) score += 3 + (runLen - 5)
+    }
+    for (let c = 0; c < n; c++) {
+      let runLen = 1
+      for (let r = 1; r < n; r++) {
+        if (grid[r][c] === grid[r - 1][c]) runLen++
+        else { if (runLen >= 5) score += 3 + (runLen - 5); runLen = 1 }
+      }
+      if (runLen >= 5) score += 3 + (runLen - 5)
+    }
+    for (let r = 0; r < n - 1; r++) {
+      for (let c = 0; c < n - 1; c++) {
+        const v = grid[r][c]
+        if (grid[r][c + 1] === v && grid[r + 1][c] === v && grid[r + 1][c + 1] === v) score += 3
+      }
+    }
+    let darkCount = 0
+    for (let r = 0; r < n; r++) {
+      for (let c = 0; c < n; c++) {
+        if (grid[r][c]) darkCount++
+      }
+    }
+    score += Math.floor(Math.abs(darkCount * 100 / (n * n) - 50) / 5) * 10
+    return score
+  }
+
+  let bestGrid = modules
+  let bestScore = Number.POSITIVE_INFINITY
+  for (let mask = 0; mask < 8; mask++) {
+    const cand = modules.map((row, r) => row.map((v, c) => (isFunc[r][c] ? v : v !== maskBit(mask, r, c))))
+    writeFormatBits(cand, mask)
+    const sc = penaltyScore(cand)
+    if (sc < bestScore) {
+      bestScore = sc
+      bestGrid = cand
+    }
+  }
+  return bestGrid
+}
+
+function createQrSvgElement(uri: string): Element {
+  const grid = encodeQrMatrix(uri)
+  const quiet = 4
+  const total = grid.length + quiet * 2
+  const svg = createSvgEl('svg', {
+    class: 'dtd-totp-qr-svg',
+    viewBox: `0 0 ${total} ${total}`,
+    width: 176,
+    height: 176,
+    role: 'img',
+    'aria-label': '2FA QR Code',
+  })
+  svg.appendChild(createSvgEl('rect', { x: 0, y: 0, width: total, height: total, fill: '#ffffff' }))
+  const parts: string[] = []
+  for (let r = 0; r < grid.length; r++) {
+    for (let c = 0; c < grid[r].length; c++) {
+      if (grid[r][c]) parts.push(`M${c + quiet},${r + quiet}h1v1h-1z`)
+    }
+  }
+  svg.appendChild(createSvgEl('path', { d: parts.join(''), fill: '#000000' }))
+  return svg
+}
+
+function createLockSvg(size = 13, isUnlocked = false): Element {
+  const svg = createSvgEl('svg', {
+    viewBox: '0 0 24 24',
+    width: size,
+    height: size,
+    fill: 'none',
+    stroke: 'currentColor',
+    'stroke-width': 2,
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'aria-hidden': 'true',
+  })
+  svg.appendChild(createSvgEl('rect', { x: 4, y: 11, width: 16, height: 10, rx: 2, ry: 2 }))
+  svg.appendChild(createSvgEl('path', {
+    d: isUnlocked ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4',
+  }))
+  return svg
+}
+
+function canCallHostHttp(): boolean {
+  try {
+    return typeof fetch === 'function' &&
+      typeof window !== 'undefined' &&
+      typeof window.location?.href === 'string' &&
+      /^(?:https?|dsh-app):/i.test(window.location.href)
+  } catch {
+    return false
+  }
+}
+
+interface ClientFeatureManager {
+  getSnapshot(): ClientFeatureSnapshot
+  subscribe(listener: () => void): () => void
+  ensureLoaded(): void
+  getWorkspaces(): readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
+  setWorkspacesApi(api: WorkspacesApi | undefined): void
+  setRawUnarchiveSession(fn: ((sessionId: string) => Promise<unknown>) | undefined): void
+  setSessionsApi(api: SearchSessionsApi | undefined): void
+  setNavigationApi(api: SearchNavigationApi | undefined): void
+  setActiveSessionId(id: string | undefined): void
+  getActiveSessionId(): string | undefined
+  isLocked(sessionId: string | undefined): boolean
+  isProtectedView(sessionId: string | undefined): boolean
+  isDeleted(sessionId: string | undefined): boolean
+  getWorkspaceCount(): number
+  hasSessionsApi(): boolean
+  getUngroupedSessionIds(shouldIncludeArchived?: boolean): string[]
+  refreshState(): Promise<void>
+  saveProxy(next: ClientProxyConfig): Promise<boolean>
+  beginTotpSetup(): Promise<{ ok: boolean; setupToken?: string; secret?: string; otpauthUri?: string; error?: string }>
+  confirmTotpSetup(sessionId: string, setupToken: string, code: string): Promise<{ ok: boolean; error?: string }>
+  lockSession(sessionId: string, newPin?: string): Promise<{ ok: boolean; error?: string }>
+  verifyOrUnlockSession(sessionId: string, pin: string, shouldUnlockPermanently: boolean): Promise<{ ok: boolean; error?: string }>
+  clearPin(pin: string): Promise<{ ok: boolean; error?: string }>
+  moveSession(sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }>
+  deleteSession(sessionId: string): Promise<{ ok: boolean; error?: string }>
+  deleteUngroupedSessions(sessionIds: string[]): Promise<{ ok: boolean; error?: string; deletedIds?: string[] }>
+  closeDialog(): void
+  openSetPinDialog(sessionId: string, title?: string): void
+  openUnlockPinDialog(sessionId: string): void
+  openClearPinDialog(): void
+  openMoveDialog(sessionId: string, title?: string): void
+  openDeleteDialog(sessionId: string, title?: string): void
+  openDeleteUngroupedDialog(): void
+  syncLockShieldOverlay(container: HTMLElement | null): void
+  onDataMutate(listener: () => void): () => void
+  triggerDataRefresh(): void
+  resetSessionOverlays(): void
+}
+
+function createClientFeatureManager(): ClientFeatureManager {
+  let state: ClientFeatureSnapshot = Object.freeze({
+    hasPin: false,
+    lockMode: 'none',
+    lockedSessionIds: Object.freeze([]),
+    movedSessions: Object.freeze({}),
+    deletedSessionIds: Object.freeze([]),
+    tempUnlockedIds: Object.freeze([]),
+    proxy: Object.freeze({ mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' }),
+    proxyBusy: false,
+    revision: 0,
+  })
+  const listeners = new Set<() => void>()
+  let workspacesApi: WorkspacesApi | undefined
+  let rawUnarchiveSessionFn: ((sessionId: string) => Promise<unknown>) | undefined
+  let sessionsApi: SearchSessionsApi | undefined
+  let navigationApi: SearchNavigationApi | undefined
+  let isStateSyncedFromHost = false
+  let refreshInFlight: Promise<void> | undefined
+  let lastRefreshAttemptAt = 0
+  let dialogBackdrop: HTMLElement | undefined
+  let shieldEl: HTMLElement | undefined
+  let shieldSessionId: string | undefined
+  const workspaceNotifyListeners = new Set<() => void>()
+
+  const publish = (patch: Partial<Omit<ClientFeatureSnapshot, 'revision'>>): void => {
+    state = Object.freeze({ ...state, ...patch, revision: state.revision + 1 })
+    listeners.forEach(fn => {
+      try { fn() } catch {}
+    })
+  }
+
+  const notifyDataApis = (): void => {
+    for (const fn of workspaceNotifyListeners) {
+      try { fn() } catch {}
+    }
+  }
+
+  const archiveSessionBestEffort = async (sessionId: string): Promise<void> => {
+    const fn = workspacesApi?.archiveSession
+    if (typeof fn !== 'function') return
+    try {
+      await Promise.resolve(fn.call(workspacesApi, sessionId))
+    } catch {
+      try {
+        await Promise.resolve(fn.call(workspacesApi, sessionId, { stopActivity: true }))
+      } catch {}
+    }
+  }
+
+  const unarchiveSessionBestEffort = async (sessionId: string): Promise<void> => {
+    const fn = rawUnarchiveSessionFn ?? workspacesApi?.unarchiveSession
+    if (typeof fn !== 'function') return
+    try {
+      await Promise.resolve(fn.call(workspacesApi, sessionId))
+    } catch {}
+  }
+
+  const syncLockedArchiveMembership = (lockedIds: readonly string[]): void => {
+    if (lockedIds.length === 0 || !workspacesApi || typeof workspacesApi.archiveSession !== 'function') return
+    const archivedSet = new Set(workspacesApi.list?.getSnapshot?.()?.archivedSessionIds ?? [])
+    for (const sid of lockedIds) {
+      if (!archivedSet.has(sid)) {
+        void archiveSessionBestEffort(sid)
+      }
+    }
+  }
+
+  const applyHostStatePayload = (payload: {
+    hasPin?: boolean
+    lockMode?: 'totp' | 'pin' | 'none'
+    lockedSessionIds?: string[]
+    movedSessions?: Record<string, string>
+    deletedSessionIds?: string[]
+    proxy?: ClientProxyConfig
+  }): void => {
+    const locked = Array.isArray(payload.lockedSessionIds) ? payload.lockedSessionIds : []
+    const deleted = Array.isArray(payload.deletedSessionIds) ? payload.deletedSessionIds : []
+    const moved = payload.movedSessions && typeof payload.movedSessions === 'object' ? payload.movedSessions : {}
+    publish({
+      hasPin: Boolean(payload.hasPin),
+      lockMode: payload.lockMode ?? (payload.hasPin ? 'totp' : 'none'),
+      lockedSessionIds: Object.freeze([...locked]),
+      movedSessions: Object.freeze({ ...moved }),
+      deletedSessionIds: Object.freeze([...deleted]),
+      tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => locked.includes(id))),
+      ...(payload.proxy ? { proxy: Object.freeze({ ...payload.proxy }) } : {}),
+    })
+    syncLockedArchiveMembership(locked)
+    notifyDataApis()
+  }
+
+  const postHostJson = async (path: string, body: Record<string, unknown>): Promise<{ ok: boolean; status: number; data: any }> => {
+    if (!canCallHostHttp()) return { ok: false, status: 0, data: null }
+    try {
+      const res = await fetch(path, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json().catch(() => ({}))
+      return { ok: res.ok, status: res.status, data }
+    } catch {
+      return { ok: false, status: 0, data: null }
+    }
+  }
+
+  const refreshState = async (): Promise<void> => {
+    if (!canCallHostHttp()) return
+    if (refreshInFlight) return refreshInFlight
+    lastRefreshAttemptAt = Date.now()
+    refreshInFlight = (async () => {
+      try {
+        const [stRes, pxRes] = await Promise.all([
+          fetch('/api/delta-desktop/state', { credentials: 'same-origin' }),
+          fetch('/api/delta-desktop/proxy', { credentials: 'same-origin' }),
+        ])
+        if (stRes.ok) {
+          const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
+          if (stData?.state) {
+            isStateSyncedFromHost = true
+            applyHostStatePayload(stData.state)
+          }
+        }
+        if (pxRes.ok) {
+          const pxData = (await pxRes.json().catch(() => null)) as { proxy?: ClientProxyConfig; effective?: ClientEffectiveProxy } | null
+          if (pxData?.proxy) {
+            publish({
+              proxy: Object.freeze({ ...pxData.proxy }),
+              ...(pxData.effective ? { effectiveProxy: Object.freeze({ ...pxData.effective }) } : {}),
+              proxyError: undefined,
+            })
+          }
+        }
+      } catch {}
+      finally {
+        refreshInFlight = undefined
+      }
+    })()
+    return refreshInFlight
+  }
+
+  const ensureLoaded = (): void => {
+    if (isStateSyncedFromHost || refreshInFlight) return
+    if (Date.now() - lastRefreshAttemptAt < 1200) return
+    void refreshState()
+  }
+
+  const saveProxy = async (next: ClientProxyConfig): Promise<boolean> => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    publish({ proxyBusy: true, proxyError: undefined })
+    if (!canCallHostHttp()) {
+      publish({
+        proxy: Object.freeze({ ...next }),
+        effectiveProxy: Object.freeze({
+          mode: next.mode,
+          source: next.mode === 'manual' ? 'manual' : 'direct',
+          ...(next.httpProxy ? { httpProxy: next.httpProxy } : {}),
+          ...(next.httpsProxy ? { httpsProxy: next.httpsProxy } : {}),
+          noProxy: next.noProxy,
+        }),
+        proxyBusy: false,
+      })
+      return true
+    }
+    const res = await postHostJson('/api/delta-desktop/proxy', { ...next })
+    if (!res.ok) {
+      const reason = res.data?.reason
+      const errMsg = reason === 'socks' ? copy.networkProxy.socksUnsupported : copy.networkProxy.invalidUrl
+      publish({ proxyBusy: false, proxyError: errMsg })
+      return false
+    }
+    publish({
+      proxy: Object.freeze({ ...(res.data?.proxy ?? next) }),
+      ...(res.data?.effective ? { effectiveProxy: Object.freeze({ ...res.data.effective }) } : {}),
+      proxyBusy: false,
+      proxyError: undefined,
+    })
+    showDeltaToast(copy.networkProxy.savedToast)
+    return true
+  }
+
+  const generatePreviewBase32Secret = (): string => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+    const bytes = new Uint8Array(20)
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+      crypto.getRandomValues(bytes)
+    } else {
+      for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256)
+    }
+    let out = ''
+    for (let i = 0; i < 32; i++) out += alphabet[bytes[i % bytes.length] & 31]
+    return out
+  }
+
+  const beginTotpSetup = async (): Promise<{
+    ok: boolean
+    setupToken?: string
+    secret?: string
+    otpauthUri?: string
+    error?: string
+  }> => {
+    if (!canCallHostHttp()) {
+      const secret = generatePreviewBase32Secret()
+      return {
+        ok: true,
+        setupToken: 'preview-setup',
+        secret,
+        otpauthUri: `otpauth://totp/Delta%20Desktop:DeepSeek%20Harness?secret=${secret}&issuer=Delta%20Desktop&algorithm=SHA1&digits=6&period=30`,
+      }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', { action: 'setup-begin' })
+    if (!res.ok || !res.data?.secret || !res.data?.otpauthUri) {
+      return { ok: false, error: res.data?.error ?? 'TOTP_INIT_FAILED' }
+    }
+    return {
+      ok: true,
+      setupToken: String(res.data.setupToken ?? ''),
+      secret: String(res.data.secret),
+      otpauthUri: String(res.data.otpauthUri),
+    }
+  }
+
+  const confirmTotpSetup = async (
+    sessionId: string,
+    setupToken: string,
+    code: string,
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const trimmed = code.trim()
+    if (!/^\d{6}$/.test(trimmed)) return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
+    if (!canCallHostHttp()) {
+      const nextLocked = state.lockedSessionIds.includes(sessionId)
+        ? state.lockedSessionIds
+        : Object.freeze([...state.lockedSessionIds, sessionId])
+      publish({
+        hasPin: true,
+        lockMode: 'totp',
+        lockedSessionIds: nextLocked,
+        tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
+      })
+      await archiveSessionBestEffort(sessionId)
+      notifyDataApis()
+      return { ok: true }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', {
+      action: 'setup-confirm',
+      sessionId,
+      setupToken,
+      code: trimmed,
+    })
+    if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
+    if (res.data?.state) applyHostStatePayload(res.data.state)
+    publish({
+      tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
+    })
+    await archiveSessionBestEffort(sessionId)
+    notifyDataApis()
+    return { ok: true }
+  }
+
+  const lockSession = async (sessionId: string, _newPin?: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!canCallHostHttp()) {
+      const nextLocked = state.lockedSessionIds.includes(sessionId)
+        ? state.lockedSessionIds
+        : Object.freeze([...state.lockedSessionIds, sessionId])
+      publish({
+        hasPin: true,
+        lockMode: state.lockMode === 'pin' ? 'pin' : 'totp',
+        lockedSessionIds: nextLocked,
+        tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
+      })
+      await archiveSessionBestEffort(sessionId)
+      notifyDataApis()
+      return { ok: true }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', {
+      action: 'lock',
+      sessionId,
+    })
+    if (!res.ok) return { ok: false, error: res.data?.error ?? 'LOCK_FAILED' }
+    if (res.data?.state) applyHostStatePayload(res.data.state)
+    publish({
+      tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
+    })
+    await archiveSessionBestEffort(sessionId)
+    notifyDataApis()
+    return { ok: true }
+  }
+
+  const verifyOrUnlockSession = async (sessionId: string, code: string, shouldUnlockPermanently: boolean): Promise<{ ok: boolean; error?: string }> => {
+    const trimmed = code.trim()
+    if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
+      return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
+    }
+    if (!canCallHostHttp()) {
+      if (shouldUnlockPermanently) {
+        publish({
+          lockedSessionIds: Object.freeze(state.lockedSessionIds.filter(id => id !== sessionId)),
+          tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
+        })
+        await unarchiveSessionBestEffort(sessionId)
+        notifyDataApis()
+      } else {
+        publish({
+          tempUnlockedIds: state.tempUnlockedIds.includes(sessionId)
+            ? state.tempUnlockedIds
+            : Object.freeze([...state.tempUnlockedIds, sessionId]),
+        })
+      }
+      return { ok: true }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', {
+      action: shouldUnlockPermanently ? 'unlock' : 'verify',
+      sessionId,
+      code: trimmed,
+      pin: trimmed,
+    })
+    if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
+    if (res.data?.state) applyHostStatePayload(res.data.state)
+    if (shouldUnlockPermanently) {
+      await unarchiveSessionBestEffort(sessionId)
+      notifyDataApis()
+    } else if (!state.tempUnlockedIds.includes(sessionId)) {
+      publish({ tempUnlockedIds: Object.freeze([...state.tempUnlockedIds, sessionId]) })
+    }
+    return { ok: true }
+  }
+
+  const clearPin = async (code: string): Promise<{ ok: boolean; error?: string }> => {
+    const trimmed = code.trim()
+    if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
+      return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
+    }
+    const previouslyLocked = [...state.lockedSessionIds]
+    if (!canCallHostHttp()) {
+      publish({ hasPin: false, lockMode: 'none', lockedSessionIds: Object.freeze([]), tempUnlockedIds: Object.freeze([]) })
+      for (const sid of previouslyLocked) await unarchiveSessionBestEffort(sid)
+      notifyDataApis()
+      return { ok: true }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', {
+      action: 'unbind-2fa',
+      code: trimmed,
+      pin: trimmed,
+    })
+    if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
+    const unarchivedIds = Array.isArray(res.data?.unarchivedIds) ? (res.data.unarchivedIds as string[]) : previouslyLocked
+    for (const sid of unarchivedIds) {
+      await unarchiveSessionBestEffort(sid)
+    }
+    if (res.data?.state) applyHostStatePayload(res.data.state)
+    notifyDataApis()
+    return { ok: true }
+  }
+
+  const findWorkspaceCwdForSession = (sessionId: string): string | undefined => {
+    const wsItems = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const ws = wsItems.find(item => item.sessionIds?.includes(sessionId))
+    if (ws?.path) return ws.path
+    const sess = sessionsApi?.list?.getSnapshot?.()?.byId?.[sessionId] as { cwd?: string } | undefined
+    return typeof sess?.cwd === 'string' && sess.cwd.trim() ? sess.cwd : undefined
+  }
+
+  const moveSession = async (sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }> => {
+    const wsItems = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const targetWs = wsItems.find(item => item.workspaceId === targetWorkspaceId)
+    if (canCallHostHttp()) {
+      const res = await postHostJson('/api/delta-desktop/session-move', {
+        sessionId,
+        targetWorkspaceId,
+        ...(targetWs?.path ? { targetPath: targetWs.path } : {}),
+        ...(findWorkspaceCwdForSession(sessionId) ? { sourceCwd: findWorkspaceCwdForSession(sessionId) } : {}),
+      })
+      if (!res.ok) return { ok: false, error: res.data?.error ?? 'MOVE_FAILED' }
+      if (res.data?.state) applyHostStatePayload(res.data.state)
+    } else {
+      publish({ movedSessions: Object.freeze({ ...state.movedSessions, [sessionId]: targetWorkspaceId }) })
+      notifyDataApis()
+    }
+    return { ok: true }
+  }
+
+  const deleteSession = async (sessionId: string): Promise<{ ok: boolean; error?: string }> => {
+    try { await Promise.resolve(sessionsApi?.cancel?.(sessionId)) } catch {}
+    if (canCallHostHttp()) {
+      const res = await postHostJson('/api/delta-desktop/session-delete', {
+        sessionId,
+        ...(findWorkspaceCwdForSession(sessionId) ? { sourceCwd: findWorkspaceCwdForSession(sessionId) } : {}),
+      })
+      if (!res.ok) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
+      if (res.data?.state) applyHostStatePayload(res.data.state)
+    } else {
+      const nextMoved = { ...state.movedSessions }
+      delete nextMoved[sessionId]
+      publish({
+        movedSessions: Object.freeze(nextMoved),
+        lockedSessionIds: Object.freeze(state.lockedSessionIds.filter(id => id !== sessionId)),
+        deletedSessionIds: Object.freeze([...state.deletedSessionIds, sessionId]),
+      })
+      notifyDataApis()
+    }
+    if (state.activeSessionId === sessionId) {
+      publish({ activeSessionId: undefined })
+      try { navigationApi?.startSession() } catch {}
+    }
+    return { ok: true }
+  }
+
+  const getUngroupedSessionIds = (shouldIncludeArchived = false): string[] => {
+    const wsSnap = workspacesApi?.list?.getSnapshot?.()
+    const sessSnap = sessionsApi?.list?.getSnapshot?.()
+    if (!sessSnap?.byId) return []
+    const accounted = new Set<string>()
+    for (const ws of wsSnap?.items ?? []) {
+      for (const sid of ws.sessionIds ?? []) accounted.add(sid)
+    }
+    for (const sid of Object.keys(state.movedSessions)) accounted.add(sid)
+    const archived = new Set(wsSnap?.archivedSessionIds ?? [])
+    const deleted = new Set(state.deletedSessionIds)
+    const orderIds = Array.isArray(sessSnap.ids) && sessSnap.ids.length > 0 ? sessSnap.ids : Object.keys(sessSnap.byId)
+    const out: string[] = []
+    for (const sid of orderIds) {
+      const rec = sessSnap.byId[sid] as { blank?: boolean } | undefined
+      if (!rec || rec.blank || deleted.has(sid) || accounted.has(sid)) continue
+      if (!shouldIncludeArchived && archived.has(sid)) continue
+      out.push(sid)
+    }
+    return out
+  }
+
+  const deleteUngroupedSessions = async (sessionIds: string[]): Promise<{ ok: boolean; error?: string; deletedIds?: string[] }> => {
+    const targets = [...new Set(sessionIds.filter(Boolean))]
+    if (targets.length === 0) return { ok: true, deletedIds: [] }
+    for (const sid of targets) {
+      try { await Promise.resolve(sessionsApi?.cancel?.(sid)) } catch {}
+    }
+    let deletedIds = targets.filter(id => !state.lockedSessionIds.includes(id))
+    if (canCallHostHttp()) {
+      const cwds: Record<string, string> = {}
+      for (const sid of targets) {
+        const cwd = findWorkspaceCwdForSession(sid)
+        if (cwd) cwds[sid] = cwd
+      }
+      const res = await postHostJson('/api/delta-desktop/session-delete-ungrouped', { sessionIds: targets, cwds })
+      if (!res.ok) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
+      if (Array.isArray(res.data?.deletedIds)) deletedIds = res.data.deletedIds
+      if (res.data?.state) applyHostStatePayload(res.data.state)
+    } else {
+      if (deletedIds.length === 0) return { ok: false, error: 'SESSION_LOCKED' }
+      const nextMoved = { ...state.movedSessions }
+      for (const sid of deletedIds) delete nextMoved[sid]
+      const delSet = new Set(state.deletedSessionIds)
+      for (const sid of deletedIds) delSet.add(sid)
+      publish({
+        movedSessions: Object.freeze(nextMoved),
+        deletedSessionIds: Object.freeze([...delSet]),
+      })
+      notifyDataApis()
+    }
+    if (state.activeSessionId && deletedIds.includes(state.activeSessionId)) {
+      publish({ activeSessionId: undefined })
+      try { navigationApi?.startSession() } catch {}
+    }
+    return { ok: true, deletedIds }
+  }
+
+  const closeDialog = (): void => {
+    dialogBackdrop?.remove()
+    dialogBackdrop = undefined
+    syncModalChromeOverlay()
+  }
+
+  const mountModal = (buildCard: (card: HTMLElement) => void): void => {
+    closeDialog()
+    if (typeof document?.body?.appendChild !== 'function') return
+    const backdrop = document.createElement('div')
+    backdrop.className = 'dtd-dialog-backdrop'
+    backdrop.addEventListener('pointerdown', (e) => {
+      if (e.target === backdrop) closeDialog()
+    })
+    backdrop.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.preventDefault?.(); closeDialog() }
+    })
+    const card = document.createElement('div')
+    card.className = 'dtd-dialog-card'
+    card.setAttribute('role', 'dialog')
+    card.setAttribute('aria-modal', 'true')
+    buildCard(card)
+    backdrop.appendChild(card)
+    document.body.appendChild(backdrop)
+    dialogBackdrop = backdrop
+    syncModalChromeOverlay()
+  }
+
+  const createCodeInputElement = (placeholder: string, isLegacyPin = false): HTMLInputElement => {
+    const inp = document.createElement('input')
+    if (isLegacyPin) {
+      inp.type = 'password'
+      inp.className = 'dtd-dialog-input'
+      inp.autocomplete = 'current-password'
+    } else {
+      inp.type = 'text'
+      inp.className = 'dtd-dialog-input dtd-totp-code-input'
+      inp.inputMode = 'numeric'
+      inp.pattern = '[0-9]*'
+      inp.maxLength = 6
+      inp.autocomplete = 'one-time-code'
+      inp.addEventListener('input', () => {
+        const cleaned = inp.value.replace(/\D+/g, '').slice(0, 6)
+        if (inp.value !== cleaned) inp.value = cleaned
+      })
+    }
+    inp.placeholder = placeholder
+    return inp
+  }
+
+  const copySecretText = async (text: string): Promise<boolean> => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+        return true
+      }
+    } catch {}
+    try {
+      if (typeof document !== 'undefined' && document.body && typeof document.execCommand === 'function') {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.style.setProperty('position', 'fixed')
+        ta.style.setProperty('opacity', '0')
+        document.body.appendChild(ta)
+        ta.select?.()
+        const ok = document.execCommand('copy')
+        ta.remove()
+        return Boolean(ok)
+      }
+    } catch {}
+    return false
+  }
+
+  const openSetPinDialog = (sessionId: string): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    mountModal(card => {
+      const h = document.createElement('h3'); h.textContent = copy.sessionMenu.setPinTitle
+      const desc = document.createElement('p'); desc.textContent = copy.sessionMenu.setPinDescription
+      const setupBox = document.createElement('div'); setupBox.className = 'dtd-totp-setup-box'
+      const loadingMsg = document.createElement('p'); loadingMsg.textContent = copy.sessionMenu.totpLoading
+      setupBox.appendChild(loadingMsg)
+      const codeInput = createCodeInputElement(copy.sessionMenu.pinPlaceholder, false)
+      codeInput.disabled = true
+      const err = document.createElement('p'); err.className = 'dtd-dialog-error'; err.hidden = true
+      const actions = document.createElement('div'); actions.className = 'dtd-dialog-actions'
+      const cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'dtd-btn-secondary'
+      cancelBtn.textContent = copy.ui.cancel; cancelBtn.addEventListener('click', closeDialog)
+      const okBtn = document.createElement('button'); okBtn.type = 'button'; okBtn.className = 'dtd-btn-primary'
+      okBtn.textContent = copy.ui.confirm
+      okBtn.disabled = true
+
+      let activeSetupToken = ''
+      const submit = () => {
+        if (!activeSetupToken) { err.textContent = copy.sessionMenu.pinMismatch; err.hidden = false; return }
+        const code = codeInput.value.trim()
+        if (!/^\d{6}$/.test(code)) { err.textContent = copy.sessionMenu.pinTooShort; err.hidden = false; return }
+        okBtn.disabled = true
+        void confirmTotpSetup(sessionId, activeSetupToken, code).then(res => {
+          okBtn.disabled = false
+          if (!res.ok) {
+            err.textContent = res.error === 'SETUP_EXPIRED' ? copy.sessionMenu.pinMismatch : copy.sessionMenu.wrongPin
+            err.hidden = false
+            return
+          }
+          closeDialog()
+          showDeltaToast(copy.sessionMenu.lockedToast)
+        })
+      }
+      okBtn.addEventListener('click', submit)
+      codeInput.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter') submit() })
+      actions.append(cancelBtn, okBtn)
+      card.append(h, desc, setupBox, codeInput, err, actions)
+
+      void beginTotpSetup().then(initRes => {
+        setupBox.replaceChildren()
+        if (!initRes.ok || !initRes.secret || !initRes.otpauthUri) {
+          err.textContent = copy.sessionMenu.totpInitFailed
+          err.hidden = false
+          return
+        }
+        activeSetupToken = initRes.setupToken ?? ''
+        const qrWrap = document.createElement('div'); qrWrap.className = 'dtd-totp-qr-wrap'
+        try {
+          qrWrap.appendChild(createQrSvgElement(initRes.otpauthUri))
+          setupBox.appendChild(qrWrap)
+        } catch {}
+
+        const secretRow = document.createElement('div'); secretRow.className = 'dtd-totp-secret-row'
+        const secretLbl = document.createElement('span'); secretLbl.className = 'dtd-totp-secret-label'
+        secretLbl.textContent = copy.sessionMenu.pinConfirmLabel
+        const secretCode = document.createElement('code'); secretCode.className = 'dtd-totp-secret-code'
+        secretCode.textContent = initRes.secret
+        const copyBtn = document.createElement('button'); copyBtn.type = 'button'; copyBtn.className = 'dtd-totp-copy-btn'
+        copyBtn.textContent = copy.sessionMenu.copySecret
+        copyBtn.addEventListener('click', () => {
+          void copySecretText(initRes.secret!).then(ok => {
+            showDeltaToast(ok ? copy.ui.copied : copy.ui.copyFailed)
+          })
+        })
+        secretRow.append(secretLbl, secretCode, copyBtn)
+        setupBox.appendChild(secretRow)
+        codeInput.disabled = false
+        okBtn.disabled = false
+        codeInput.focus?.()
+      })
+    })
+  }
+
+  const openSinglePinDialog = (
+    titleText: string,
+    descText: string,
+    confirmText: string,
+    isDangerButton: boolean,
+    onVerify: (pin: string) => Promise<{ ok: boolean; error?: string }>,
+    successToast: string,
+  ): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    const isLegacyPin = state.lockMode === 'pin'
+    mountModal(card => {
+      const h = document.createElement('h3'); h.textContent = titleText
+      const desc = document.createElement('p'); desc.textContent = descText
+      const p1 = createCodeInputElement(copy.sessionMenu.pinPlaceholder, isLegacyPin)
+      const err = document.createElement('p'); err.className = 'dtd-dialog-error'; err.hidden = true
+      const actions = document.createElement('div'); actions.className = 'dtd-dialog-actions'
+      const cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'dtd-btn-secondary'
+      cancelBtn.textContent = copy.ui.cancel; cancelBtn.addEventListener('click', closeDialog)
+      const okBtn = document.createElement('button'); okBtn.type = 'button'
+      okBtn.className = isDangerButton ? 'dtd-btn-danger' : 'dtd-btn-primary'
+      okBtn.textContent = confirmText
+      const submit = () => {
+        const code = p1.value.trim()
+        if (!isLegacyPin && !/^\d{6}$/.test(code)) {
+          err.textContent = copy.sessionMenu.pinTooShort
+          err.hidden = false
+          return
+        }
+        okBtn.disabled = true
+        void onVerify(code).then(res => {
+          okBtn.disabled = false
+          if (!res.ok) { err.textContent = copy.sessionMenu.wrongPin; err.hidden = false; return }
+          closeDialog()
+          showDeltaToast(successToast)
+        })
+      }
+      okBtn.addEventListener('click', submit)
+      p1.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter') submit() })
+      actions.append(cancelBtn, okBtn)
+      card.append(h, desc, p1, err, actions)
+      p1.focus?.()
+    })
+  }
+
+  const openClearPinDialog = (): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    openSinglePinDialog(
+      copy.sessionMenu.clearPinTitle,
+      copy.sessionMenu.clearPinDesc,
+      copy.ui.confirm,
+      true,
+      pin => clearPin(pin),
+      copy.sessionMenu.pinClearedToast,
+    )
+  }
+
+  const openUnlockPinDialog = (sessionId: string): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    openSinglePinDialog(
+      copy.sessionMenu.unlockSession,
+      copy.sessionMenu.lockedShieldDesc,
+      copy.sessionMenu.unlockPermanent,
+      false,
+      pin => verifyOrUnlockSession(sessionId, pin, true),
+      copy.sessionMenu.unlockedToast,
+    )
+  }
+
+  const openMoveDialog = (sessionId: string): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    if (state.lockedSessionIds.includes(sessionId)) {
+      showDeltaToast(copy.sessionMenu.unlockFirst)
+      return
+    }
+    const items = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const currentWsId = state.movedSessions[sessionId] ?? items.find(w => w.sessionIds?.includes(sessionId))?.workspaceId
+    const candidates = items.filter(w => w.workspaceId !== currentWsId)
+    mountModal(card => {
+      const h = document.createElement('h3'); h.textContent = copy.sessionMenu.moveTitle
+      const desc = document.createElement('p'); desc.textContent = copy.sessionMenu.moveDescription
+      const list = document.createElement('div'); list.className = 'dtd-dialog-list'
+      if (candidates.length === 0) {
+        const empty = document.createElement('p'); empty.textContent = copy.sessionMenu.moveEmpty
+        list.appendChild(empty)
+      } else {
+        for (const ws of candidates) {
+          const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'dtd-dialog-ws-btn'
+          const strong = document.createElement('strong'); strong.textContent = ws.title || redactPathForUi(ws.path)
+          const sub = document.createElement('span'); sub.textContent = redactPathForUi(ws.path)
+          btn.append(strong, sub)
+          btn.addEventListener('click', () => {
+            btn.disabled = true
+            void moveSession(sessionId, ws.workspaceId).then(res => {
+              btn.disabled = false
+              if (!res.ok) {
+                showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : copy.ui.unavailable)
+                return
+              }
+              closeDialog()
+              showDeltaToast(copy.sessionMenu.movedToast.replace('{workspace}', ws.title || ws.workspaceId))
+            })
+          })
+          list.appendChild(btn)
+        }
+      }
+      const actions = document.createElement('div'); actions.className = 'dtd-dialog-actions'
+      const cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'dtd-btn-secondary'
+      cancelBtn.textContent = copy.ui.cancel; cancelBtn.addEventListener('click', closeDialog)
+      actions.appendChild(cancelBtn)
+      card.append(h, desc, list, actions)
+    })
+  }
+
+  const openDeleteDialog = (sessionId: string, title?: string): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    if (state.lockedSessionIds.includes(sessionId)) {
+      showDeltaToast(copy.sessionMenu.unlockFirst)
+      return
+    }
+    const label = title?.trim() || sessionsApi?.list?.getSnapshot?.()?.byId?.[sessionId]?.title?.trim() || sessionId
+    mountModal(card => {
+      const h = document.createElement('h3'); h.textContent = copy.sessionMenu.deleteTitle
+      const desc = document.createElement('p')
+      desc.textContent = copy.sessionMenu.deleteDescription.replace('{title}', redactSensitiveText(label))
+      const actions = document.createElement('div'); actions.className = 'dtd-dialog-actions'
+      const cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'dtd-btn-secondary'
+      cancelBtn.textContent = copy.ui.cancel; cancelBtn.addEventListener('click', closeDialog)
+      const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'dtd-btn-danger'
+      delBtn.textContent = copy.ui.delete
+      delBtn.addEventListener('click', () => {
+        delBtn.disabled = true
+        void deleteSession(sessionId).then(res => {
+          delBtn.disabled = false
+          if (!res.ok) {
+            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : copy.ui.unavailable)
+            return
+          }
+          closeDialog()
+          showDeltaToast(copy.sessionMenu.deletedToast)
+        })
+      })
+      actions.append(cancelBtn, delBtn)
+      card.append(h, desc, actions)
+    })
+  }
+
+  const openDeleteUngroupedDialog = (): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    const allIds = getUngroupedSessionIds(true)
+    const lockedCount = allIds.filter(id => state.lockedSessionIds.includes(id)).length
+    const unlockedIds = allIds.filter(id => !state.lockedSessionIds.includes(id))
+    if (allIds.length > 0 && unlockedIds.length === 0) {
+      showDeltaToast(copy.sessionMenu.unlockFirst)
+      return
+    }
+    mountModal(card => {
+      const h = document.createElement('h3'); h.textContent = copy.sessionMenu.deleteUngroupedTitle
+      const desc = document.createElement('p')
+      desc.textContent = copy.sessionMenu.deleteUngroupedDescription.replace('{count}', String(unlockedIds.length))
+      card.append(h, desc)
+      if (lockedCount > 0) {
+        const warn = document.createElement('p')
+        warn.className = 'dtd-dialog-error'
+        warn.textContent = copy.sessionMenu.deleteUngroupedLockedWarning.replace('{locked}', String(lockedCount))
+        card.appendChild(warn)
+      }
+      const actions = document.createElement('div'); actions.className = 'dtd-dialog-actions'
+      const cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'dtd-btn-secondary'
+      cancelBtn.textContent = copy.ui.cancel; cancelBtn.addEventListener('click', closeDialog)
+      const delBtn = document.createElement('button'); delBtn.type = 'button'; delBtn.className = 'dtd-btn-danger'
+      delBtn.textContent = copy.ui.delete
+      delBtn.addEventListener('click', () => {
+        delBtn.disabled = true
+        void deleteUngroupedSessions(unlockedIds).then(res => {
+          delBtn.disabled = false
+          if (!res.ok) {
+            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : copy.ui.unavailable)
+            return
+          }
+          closeDialog()
+          showDeltaToast(copy.sessionMenu.deletedUngroupedToast)
+        })
+      })
+      actions.append(cancelBtn, delBtn)
+      card.appendChild(actions)
+    })
+  }
+
+  const syncLockShieldOverlay = (centerCol: HTMLElement | null): void => {
+    const activeId = state.activeSessionId
+    const needShield = Boolean(
+      activeId &&
+      state.lockedSessionIds.includes(activeId) &&
+      !state.tempUnlockedIds.includes(activeId) &&
+      centerCol,
+    )
+    if (!needShield || !centerCol) {
+      if (shieldEl) {
+        shieldEl.remove()
+        shieldEl = undefined
+        shieldSessionId = undefined
+      }
+      return
+    }
+    if (shieldEl && shieldEl.parentElement === centerCol && shieldSessionId === activeId) {
+      return
+    }
+    shieldEl?.remove()
+    shieldSessionId = activeId
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    const isLegacyPin = state.lockMode === 'pin'
+    const overlay = document.createElement('div')
+    overlay.className = 'dtd-lock-shield'
+    overlay.setAttribute('data-delta-lock-shield', activeId!)
+    const card = document.createElement('div')
+    card.className = 'dtd-lock-card'
+    const iconWrap = document.createElement('div')
+    iconWrap.className = 'dtd-lock-icon-wrap'
+    iconWrap.appendChild(createLockSvg(22, false))
+    const title = document.createElement('h3'); title.textContent = copy.sessionMenu.lockedShieldTitle
+    const desc = document.createElement('p'); desc.textContent = copy.sessionMenu.lockedShieldDesc
+    const form = document.createElement('div'); form.className = 'dtd-lock-form'
+    const pinInput = createCodeInputElement(copy.sessionMenu.pinPlaceholder, isLegacyPin)
+    const err = document.createElement('p'); err.className = 'dtd-dialog-error'; err.hidden = true
+    const rowBtns = document.createElement('div'); rowBtns.className = 'dtd-dialog-actions'
+    const viewBtn = document.createElement('button'); viewBtn.type = 'button'; viewBtn.className = 'dtd-btn-primary'
+    viewBtn.textContent = copy.sessionMenu.unlockViewOnce
+    const permBtn = document.createElement('button'); permBtn.type = 'button'; permBtn.className = 'dtd-btn-secondary'
+    permBtn.textContent = copy.sessionMenu.unlockPermanent
+
+    const runUnlock = (shouldUnlockPermanently: boolean) => {
+      if (!activeId) return
+      const code = pinInput.value.trim()
+      if (!isLegacyPin && !/^\d{6}$/.test(code)) {
+        err.textContent = copy.sessionMenu.pinTooShort
+        err.hidden = false
+        return
+      }
+      viewBtn.disabled = true; permBtn.disabled = true
+      void verifyOrUnlockSession(activeId, code, shouldUnlockPermanently).then(res => {
+        viewBtn.disabled = false; permBtn.disabled = false
+        if (!res.ok) {
+          err.textContent = copy.sessionMenu.wrongPin
+          err.hidden = false
+          return
+        }
+        overlay.remove()
+        if (shieldEl === overlay) { shieldEl = undefined; shieldSessionId = undefined }
+        if (shouldUnlockPermanently) showDeltaToast(copy.sessionMenu.unlockedToast)
+      })
+    }
+    viewBtn.addEventListener('click', () => runUnlock(false))
+    permBtn.addEventListener('click', () => runUnlock(true))
+    pinInput.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter') runUnlock(false) })
+    rowBtns.append(permBtn, viewBtn)
+    form.append(pinInput, err, rowBtns)
+    card.append(iconWrap, title, desc, form)
+    overlay.appendChild(card)
+    centerCol.appendChild(overlay)
+    shieldEl = overlay
+  }
+
+  return {
+    getSnapshot: () => state,
+    subscribe: (listener) => {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    },
+    ensureLoaded,
+    getWorkspaces: () => workspacesApi?.list?.getSnapshot?.()?.items ?? [],
+    setWorkspacesApi: (api) => {
+      workspacesApi = api
+      if (api) {
+        if (isStateSyncedFromHost) {
+          syncLockedArchiveMembership(state.lockedSessionIds)
+          notifyDataApis()
+        } else {
+          ensureLoaded()
+        }
+      }
+    },
+    setRawUnarchiveSession: (fn) => { rawUnarchiveSessionFn = fn },
+    setSessionsApi: (api) => {
+      sessionsApi = api
+      if (api) {
+        const byId = api.list?.getSnapshot?.()?.byId ?? {}
+        const mainSess = Object.values(byId).find(s => ((s as { retainedBy?: { mainView?: number } }).retainedBy?.mainView ?? 0) > 0)
+        if (mainSess?.id && state.activeSessionId !== mainSess.id) {
+          publish({ activeSessionId: mainSess.id })
+        }
+        if (isStateSyncedFromHost) notifyDataApis()
+        else ensureLoaded()
+      }
+    },
+    setNavigationApi: (api) => { navigationApi = api },
+    setActiveSessionId: (id) => {
+      if (state.activeSessionId === id) return
+      publish({ activeSessionId: id })
+    },
+    getActiveSessionId: () => state.activeSessionId,
+    isLocked: (id) => Boolean(id && state.lockedSessionIds.includes(id)),
+    isProtectedView: (id) => Boolean(id && state.lockedSessionIds.includes(id) && !state.tempUnlockedIds.includes(id)),
+    isDeleted: (id) => Boolean(id && state.deletedSessionIds.includes(id)),
+    getWorkspaceCount: () => workspacesApi?.list?.getSnapshot?.()?.items?.length ?? 0,
+    hasSessionsApi: () => Boolean(sessionsApi),
+    getUngroupedSessionIds,
+    refreshState,
+    saveProxy,
+    beginTotpSetup,
+    confirmTotpSetup,
+    lockSession,
+    verifyOrUnlockSession,
+    clearPin,
+    moveSession,
+    deleteSession,
+    deleteUngroupedSessions,
+    closeDialog,
+    openSetPinDialog,
+    openUnlockPinDialog,
+    openClearPinDialog,
+    openMoveDialog,
+    openDeleteDialog,
+    openDeleteUngroupedDialog,
+    syncLockShieldOverlay,
+    onDataMutate: (listener) => {
+      workspaceNotifyListeners.add(listener)
+      return () => { workspaceNotifyListeners.delete(listener) }
+    },
+    triggerDataRefresh: notifyDataApis,
+    resetSessionOverlays: () => {
+      closeDialog()
+      shieldEl?.remove()
+      shieldEl = undefined
+      shieldSessionId = undefined
+      workspaceNotifyListeners.clear()
+    },
+  }
+}
+
+const deltaFeatures = createClientFeatureManager()
 
 
 /**
- * A plugin-owned search control inside the published sidebar scrollport.
- * It calls Harness Session Controller and UiWorkspace services directly:
- * no synthetic React events, no moving Host nodes, and no Host method replacement.
- * Markers are checked before each insertion; loss of the Host surface safely unmounts.
- * Workspace names come only from the public Workspace snapshot; never render paths.
+ * Compatibility layer for the public Harness sidebar DOM. The Host retains
+ * ownership of all React nodes, commands, and session data.
  */
 function installHostSearch(
   controller: DeltaController,
@@ -1158,19 +2931,15 @@ function installHostSearch(
   }
 }
 
+
 window.__ModuleLoader__.load({
-  id: OWNER,
+  id: DELTA_DESKTOP_OWNER,
   factory(require) {
-    // Shared React instance supplied by the host module table, never bundled.
-    // Import errors must not make this optional plugin fail the entire web boot.
     let React: ReactApi
-    let MenuItemButton: MenuItemButtonApi['MenuItemButton'] | undefined
-    let ReactRoot: ReactRootApi | undefined
     try {
       React = require('react') as ReactApi
       if (typeof React?.createElement !== 'function' ||
-          typeof React?.useState !== 'function' || typeof React?.useRef !== 'function' ||
-          typeof React?.useEffect !== 'function' ||
+          typeof React?.useState !== 'function' ||
           typeof React?.useSyncExternalStore !== 'function') {
         throw new Error('Host React platform module is incomplete')
       }
@@ -1178,19 +2947,38 @@ window.__ModuleLoader__.load({
       console.error('[dsh-delta-desktop] React unavailable; native UI remains active:', error)
       return { inject: [], apply() {} }
     }
+    const el = React.createElement
+    let hoverSessionSource: SearchSessionsApi | undefined
+    // The hover seat is mounted only while a row is visible. Subscribe to the
+    // public Session list so its running state updates without opening a Session.
+    const subscribeHoverSessions = (notify: () => void): (() => void) => {
+      try {
+        return hoverSessionSource?.list.subscribe?.(notify) ?? (() => {})
+      } catch { return () => {} }
+    }
+    // useSyncExternalStore must receive a stable, primitive snapshot. Reading
+    // a fresh Host catalog object here would otherwise cause render loops.
+    const readHoverState = (sessionId: string): string => {
+      try {
+        const snapshot = hoverSessionSource?.list.getSnapshot()
+        if (!snapshot || (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return ''
+        const session = snapshot.byId[sessionId]
+        if (!session) return ''
+        const timestamp = typeof session.updatedAt === 'number' && Number.isFinite(session.updatedAt) &&
+          session.updatedAt > 0 ? session.updatedAt : 0
+        return (session.running === true ? '1' : '0') + ':' + timestamp
+      } catch { return '' }
+    }
+    let MenuItemButton: MenuItemButtonApi['MenuItemButton'] | undefined
+    let ReactRoot: ReactRootApi | undefined
     try {
       const primitives = require('@deepseek-ai/dsh-client-ui-primitives') as MenuItemButtonApi
-      const reactDom = require('react-dom/client') as ReactRootApi
-      if (typeof primitives?.MenuItemButton === 'function' && typeof reactDom?.createRoot === 'function') {
+      const domRoot = require('react-dom/client') as ReactRootApi
+      if (typeof primitives?.MenuItemButton === 'function' && typeof domRoot?.createRoot === 'function') {
         MenuItemButton = primitives.MenuItemButton
-        ReactRoot = reactDom
+        ReactRoot = domRoot
       }
-    } catch (error) {
-      // MCP management remains optional on older Hosts without the public menu
-      // primitive or React root module; the rest of Delta still loads normally.
-      console.error('[dsh-delta-desktop] MCP menu modules unavailable:', error)
-    }
-    const el = React.createElement
+    } catch { /* MCP menu dependencies are optional Host modules. */ }
     let mcpServices: McpServices | undefined
     let mcpDialogRoot: ReturnType<ReactRootApi['createRoot']> | undefined
     let mcpDialogHost: HTMLElement | undefined
@@ -1525,57 +3313,7 @@ window.__ModuleLoader__.load({
               feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null))
       )
     }
-    let hoverSessionSource: SearchSessionsApi | undefined
-    // The hover seat is mounted only while a row is visible. Subscribe to the
-    // public Session list so its running state updates without opening a Session.
-    const subscribeHoverSessions = (notify: () => void): (() => void) => {
-      try {
-        return hoverSessionSource?.list.subscribe?.(notify) ?? (() => {})
-      } catch { return () => {} }
-    }
-    // useSyncExternalStore must receive a stable, primitive snapshot. Reading
-    // a fresh Host catalog object here would otherwise cause render loops.
-    const readHoverState = (sessionId: string): string => {
-      try {
-        const snapshot = hoverSessionSource?.list.getSnapshot()
-        if (!snapshot || (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return ''
-        const session = snapshot.byId[sessionId]
-        if (!session) return ''
-        const timestamp = typeof session.updatedAt === 'number' && Number.isFinite(session.updatedAt) &&
-          session.updatedAt > 0 ? session.updatedAt : 0
-        return (session.running === true ? '1' : '0') + ':' + timestamp
-      } catch { return '' }
-    }
-    const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
-    const showDeltaToast = (message: string): void => {
-      try {
-        if (!document.body) return
-        const node = document.createElement('div')
-        node.className = 'dtd-toast'
-        node.setAttribute('role', 'status')
-        node.textContent = message
-        document.body.appendChild(node)
-        const entry = { node, timer: 0 }
-        entry.timer = window.setTimeout(() => {
-          node.remove()
-          toastEntries.delete(entry)
-        }, 3000)
-        toastEntries.add(entry)
-      } catch { /* Toasts must never prevent native interaction. */ }
-    }
-    const clearDeltaToasts = (): void => {
-      for (const entry of toastEntries) {
-        window.clearTimeout(entry.timer)
-        entry.node.remove()
-      }
-      toastEntries.clear()
-    }
-    function useCopy(controller: DeltaController): { state: DeltaState; copy: DeltaCopy } {
-      const state = React.useSyncExternalStore(
-        callback => controller.subscribe(callback), () => controller.getSnapshot())
-      return { state, copy: DICTIONARIES[state.language] ?? DICTIONARIES.en }
-    }
-    const ASSISTANT_TAB_ID = OWNER
+    const ASSISTANT_TAB_ID = DELTA_DESKTOP_OWNER
     const ASSISTANT_TAB_KIND = 'delta-context-assistant'
     const ASSISTANT_PROTOCOL = 'dtdelta'
     const ASSISTANT_PRESET = 'delta-context'
@@ -2115,24 +3853,27 @@ window.__ModuleLoader__.load({
                 onClick: () => setConfirm(true) }, copy.ui.reviewCorrection),
             feedback && correctionOpen ? el('p', { className: 'dtd-assistant-feedback', role: 'status' }, feedback) : null)) : null)
     }
+    function useCopy(controller: DeltaController): { state: DeltaState; copy: DeltaCopy } {
+      const state = React.useSyncExternalStore(
+        callback => controller.subscribe(callback), () => controller.getSnapshot())
+      return { state, copy: DICTIONARIES[state.language] ?? DICTIONARIES.en }
+    }
     function SettingsSectionIcon(): unknown {
       return el('svg', { viewBox: '0 0 24 24', width: 17, height: 17,
-        fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, 'aria-hidden': true },
-        el('line', { x1: 4, y1: 7, x2: 20, y2: 7 }),
-        el('circle', { cx: 9, cy: 7, r: 2, fill: 'currentColor' }),
-        el('line', { x1: 4, y1: 17, x2: 20, y2: 17 }),
-        el('circle', { cx: 15, cy: 17, r: 2, fill: 'currentColor' }))
+        fill: 'none', stroke: 'currentColor', strokeWidth: 1.75,
+        strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+        el('path', { d: 'M12 21a9 9 0 1 1 8.5-11.9c.5 1.5-.6 3.1-2.2 3.1h-2.1a2 2 0 0 0-2 2c0 .6.2 1.1.6 1.5.5.5.7 1.3.4 2-.5 1.1-1.6 3.3-3.2 3.3Z' }),
+        el('circle', { cx: 8.5, cy: 10.5, r: 1, fill: 'currentColor' }),
+        el('circle', { cx: 12, cy: 7.5, r: 1, fill: 'currentColor' }),
+        el('circle', { cx: 15.5, cy: 10, r: 1, fill: 'currentColor' }),
+        el('circle', { cx: 8.5, cy: 15, r: 1, fill: 'currentColor' }))
     }
-    // Supported brand slots replace Harness artwork without DOM manipulation.
-    // The official sidebar retains ownership of the surrounding navigation.
     function DeltaBrandMark(): unknown {
       return el('span', { 'aria-hidden': true, className: 'dtd-brand-mark' }, 'Δ')
     }
     function DeltaBrandName(): unknown {
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
-    // This extension uses an existing native row-hover seat. All values come
-    // from the public catalog; the Host retains its actions and session lifecycle.
     function SessionHoverDetail({ sessionId }: SessionHoverProps, liveState: string): unknown {
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
@@ -2169,18 +3910,47 @@ window.__ModuleLoader__.load({
       return controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props, state) : null
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
+      deltaFeatures.ensureLoaded()
       const { state, copy } = useCopy(controller)
+      const fSnap = React.useSyncExternalStore(deltaFeatures.subscribe, deltaFeatures.getSnapshot)
+      const [draftHttp, setDraftHttp] = React.useState<string | null>(null)
+      const [draftHttps, setDraftHttps] = React.useState<string | null>(null)
+      const [draftNo, setDraftNo] = React.useState<string | null>(null)
+      const [manualModeActive, setManualModeActive] = React.useState<ClientProxyMode | null>(null)
+
+      const activeMode = manualModeActive ?? fSnap.proxy.mode
+      const httpVal = draftHttp ?? fSnap.proxy.httpProxy
+      const httpsVal = draftHttps ?? fSnap.proxy.httpsProxy
+      const noVal = draftNo ?? fSnap.proxy.noProxy
+
+      const eff = fSnap.effectiveProxy
+      const effUrl = eff?.httpsProxy || eff?.httpProxy || ''
+      const effText = !eff || eff.source === 'direct'
+        ? copy.networkProxy.statusDirect
+        : eff.source === 'manual'
+          ? copy.networkProxy.statusManual.replace('{proxy}', effUrl)
+          : eff.source === 'system-env'
+            ? copy.networkProxy.statusSystemEnv.replace('{proxy}', effUrl)
+            : copy.networkProxy.statusSystemReg.replace('{proxy}', effUrl)
+
+      const selectProxyMode = (mode: ClientProxyMode): void => {
+        setManualModeActive(mode)
+        if (mode !== 'manual') {
+          void deltaFeatures.saveProxy({ mode, httpProxy: httpVal, httpsProxy: httpsVal, noProxy: noVal }).then(ok => {
+            if (ok) setManualModeActive(null)
+          })
+        }
+      }
+
+      const privacyItems = [
+        copy.privacy.sessionLogBlocked,
+        copy.privacy.telemetryBlocked,
+        copy.privacy.geolocationOff,
+        copy.privacy.redactionActive,
+      ]
       return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
         'aria-label': copy.ui.personalization },
-        el('header', { className: 'dtd-page-head' },
-          el('div', { className: 'dtd-heading-group' },
-            el('span', { className: 'dtd-mark', 'aria-hidden': true }, 'Δ'),
-            el('div', null,
-              el('h2', null, copy.meta.title),
-              el('p', null, copy.ui.personalizationDescription))),
-          el('span', { className: 'dtd-enabled', role: 'status' },
-          state.mode === 'official' ? copy.ui.official
-            : state.themeReady ? copy.ui.enabled : copy.ui.themeWaiting)),
+        el('h2', { className: 'dtd-page-title' }, copy.meta.title),
         el('div', { className: 'dtd-preference-row' },
           el('div', { className: 'dtd-preference-copy' },
             el('strong', null, copy.ui.appearance),
@@ -2191,48 +3961,120 @@ window.__ModuleLoader__.load({
                 className: state.mode === mode ? 'dtd-active' : '',
                 onClick: () => controller.setMode(mode) },
                 mode === 'delta' ? copy.ui.delta : copy.ui.official)))),
-        el(FeaturePreferencesSection, {}),
+
+        el('div', { className: 'dtd-form-stack', 'data-delta-proxy-card': '' },
+          el('div', { className: 'dtd-preference-row', style: { padding: 0, border: 'none', background: 'transparent' } },
+            el('div', { className: 'dtd-preference-copy' },
+              el('strong', null, copy.networkProxy.title),
+              el('p', null, copy.networkProxy.description)),
+            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.networkProxy.modeLabel },
+              (['system', 'direct', 'manual'] as const).map(pm =>
+                el('button', {
+                  key: pm,
+                  type: 'button',
+                  'aria-pressed': activeMode === pm,
+                  className: activeMode === pm ? 'dtd-active' : '',
+                  disabled: fSnap.proxyBusy,
+                  onClick: () => selectProxyMode(pm),
+                }, pm === 'system' ? copy.networkProxy.modeSystem : pm === 'direct' ? copy.networkProxy.modeDirect : copy.networkProxy.modeManual)))),
+          activeMode === 'manual' ? el('div', { className: 'dtd-form-field' },
+            el('label', null, copy.networkProxy.httpProxyLabel),
+            el('input', {
+              type: 'text',
+              className: 'dtd-form-input',
+              placeholder: copy.networkProxy.httpProxyPlaceholder,
+              value: httpVal,
+              onChange: (e: any) => setDraftHttp(String(e?.target?.value ?? '')),
+            }),
+            el('label', null, copy.networkProxy.httpsProxyLabel),
+            el('input', {
+              type: 'text',
+              className: 'dtd-form-input',
+              placeholder: copy.networkProxy.httpsProxyPlaceholder,
+              value: httpsVal,
+              onChange: (e: any) => setDraftHttps(String(e?.target?.value ?? '')),
+            }),
+            el('label', null, copy.networkProxy.noProxyLabel),
+            el('input', {
+              type: 'text',
+              className: 'dtd-form-input',
+              placeholder: copy.networkProxy.noProxyPlaceholder,
+              value: noVal,
+              onChange: (e: any) => setDraftNo(String(e?.target?.value ?? '')),
+            }),
+            fSnap.proxyError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.proxyError) : null,
+            el('div', { className: 'dtd-dialog-actions' },
+              el('button', {
+                type: 'button',
+                className: 'dtd-btn-primary',
+                disabled: fSnap.proxyBusy,
+                onClick: () => {
+                  void deltaFeatures.saveProxy({
+                    mode: 'manual',
+                    httpProxy: httpVal,
+                    httpsProxy: httpsVal,
+                    noProxy: noVal,
+                  }).then(ok => {
+                    if (ok) {
+                      setDraftHttp(null); setDraftHttps(null); setDraftNo(null); setManualModeActive(null)
+                    }
+                  })
+                },
+              }, copy.networkProxy.save))) : null,
+          el('p', { className: 'dtd-current', role: 'status' }, `${copy.networkProxy.statusLabel}: ${effText}`),
+          el('p', { className: 'dtd-current' }, copy.networkProxy.note)),
+
+        el('div', { className: 'dtd-privacy-card', 'data-delta-privacy-card': '' },
+          el('div', { className: 'dtd-privacy-header' },
+            el('strong', null, copy.privacy.title),
+            el('span', { className: 'dtd-privacy-badge' }, copy.privacy.statusEnforced)),
+          el('p', null, copy.privacy.description),
+          el('ul', { className: 'dtd-privacy-list' },
+            privacyItems.map((itemText, idx) =>
+              el('li', { key: idx, className: 'dtd-privacy-item' },
+                el('span', { className: 'dtd-privacy-dot', 'aria-hidden': true }),
+                el('span', null, itemText)))),
+          el('div', { className: 'dtd-pin-manage-row' },
+            el('span', null, `${copy.sessionMenu.pinSettingsTitle}: ${fSnap.hasPin ? copy.sessionMenu.pinSetStatus : copy.sessionMenu.pinUnsetStatus}`),
+            fSnap.hasPin ? el('button', {
+              type: 'button',
+              className: 'dtd-btn-secondary',
+              onClick: () => deltaFeatures.openClearPinDialog(),
+            }, copy.sessionMenu.clearPin) : null)),
         el('p', { className: 'dtd-current', role: 'status' },
           copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
-        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
-        el('p', { className: 'dtd-recovery' }, copy.ui.recovery),
-        el('p', { className: 'dtd-capability' }, copy.ui.hostOwned),
-        el('p', { className: 'dtd-capability', role: 'status',
-          'data-delta-search-status': state.searchStatus },
-          state.searchStatus === 'active' ? copy.ui.searchReady
-            : state.searchStatus === 'waiting-sidebar' ? copy.ui.searchWaitingSidebar
-              : state.searchStatus === 'disabled' ? copy.ui.searchDisabled
-                : copy.ui.searchWaitingServices),
-        state.mode === 'delta' ? el('section', {
+        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, state.themeReady ? copy.ui.unavailable : copy.ui.themeWaiting) : null,
+        state.mode === 'delta' ? el('details', {
           className: 'dtd-integration',
-          'aria-label': copy.ui.integrationTitle,
           'data-delta-contract-version': '1',
           'data-delta-integration': 'incomplete',
         },
-        el('h3', null, copy.ui.integrationTitle),
+        el('summary', null, copy.ui.integrationTitle),
         el('p', null, copy.ui.integrationSummary),
         el('ul', null,
           el('li', null, copy.ui.integrationSidebar),
           el('li', null, copy.ui.integrationCollapse),
           el('li', null, copy.ui.integrationDeletion),
-          el('li', null, copy.ui.integrationRunning))) : null)
+          el('li', null, copy.ui.integrationRunning))) : null,
+        el('details', { className: 'dtd-advanced-features' },
+          el('summary', null, copy.ui.contextFeatures),
+          el(FeaturePreferencesSection, {})))
     }
     return {
-      // The parent plugin remains active even if UI services or a theme API are unavailable.
       inject: [],
       apply(ctx) {
         try {
-          // Personalization must still appear if the Theme provider is absent.
           ctx.inject(['slots'], (scope) => {
             try {
               const controller = createController() as DeltaController & {
                 syncLanguage(): void
                 bindTheme(theme: ThemeApi | undefined): void
                 bindLayout(layout: LayoutApi | undefined): void
+                bindSidebarRight(sidebarRight: SidebarRightApi | undefined): void
               }
               scope.effect(() => {
                 const tag = document.createElement('style')
-                tag.dataset.plugin = OWNER
+                tag.dataset.plugin = DELTA_DESKTOP_OWNER
                 tag.textContent = OWNED_CSS
                 document.head.appendChild(tag)
                 const observer = typeof MutationObserver !== 'undefined'
@@ -2240,33 +4082,278 @@ window.__ModuleLoader__.load({
                 observer?.observe(document.documentElement, {
                   attributes: true, attributeFilter: ['lang'],
                 })
-                // A root theme marker scopes native shell spacing. This changes
-                // appearance only; Host navigation and actions are never moved.
+
                 const syncAppearance = (): void => {
                   if (controller.getSnapshot().mode === 'delta') {
-                    document.documentElement.setAttribute?.('data-delta-ui', 'delta')
+                    document.documentElement.setAttribute('data-delta-ui', 'delta')
+                    document.body?.setAttribute?.('data-delta-ui', 'delta')
                   } else {
-                    document.documentElement.removeAttribute?.('data-delta-ui')
+                    document.documentElement.removeAttribute('data-delta-ui')
+                    document.body?.removeAttribute?.('data-delta-ui')
                   }
                 }
                 syncAppearance()
+                deltaFeatures.ensureLoaded()
                 const stopAppearance = controller.subscribe(syncAppearance)
-                // Language changes are tracked through the document lang observer.
-                // Do not read ctx.locale without an explicit Cordis injection.
+                const stopPrivacyGuards = installClientPrivacyGuards()
+                
+                // Adapt runtime chat status: "\u6df1\u5ea6\u6c42\u7d22\u4e2d" -> "\u4efb\u52a1\u6267\u884c\u4e2d"
+                let isEffectDisposed = false
+                const slotRestorers: Array<() => void> = []
+                let stopLocaleSync: (() => void) | undefined
+                let restoreLocaleOnDispose: (() => void) | undefined
+                try {
+                  const slotsObj = scope.slots as any
+                  const filterSlotEntries = (slotName: string, list: any): any => {
+                    if (isEffectDisposed || !Array.isArray(list)) return list
+                    if (slotName === 'settings.general.item') {
+                      return list.filter((item: any) => item?.options?.id !== 'session-log-deepseek' && item?.options?.id !== 'current-version')
+                    }
+                    if (slotName === 'conversation.chat.assistant-actions') {
+                      return list.filter((item: any) => item?.options?.id !== 'feedback')
+                    }
+                    if (slotName === 'conversation.input.overlay') {
+                      return list.filter((item: any) => item?.options?.id !== 'feedback-dialog')
+                    }
+                    if (controller.getSnapshot().mode === 'delta' && slotName === 'settings.section') {
+                      return list.map((item: any) => item?.options?.id === 'agent-presets'
+                        ? { ...item, options: { ...item.options, order: 9999 } }
+                        : item)
+                    }
+                    return list
+                  }
+                  const wrapSlotMethod = (target: any, methodName: string): void => {
+                    if (!target || typeof target[methodName] !== 'function') return
+                    const flag = '__deltaWrapped_' + methodName
+                    if (target[flag]) return
+                    target[flag] = true
+                    const origFn = target[methodName]
+                    target[methodName] = function(this: any, slotName: string) {
+                      return filterSlotEntries(slotName, origFn.apply(this, arguments))
+                    }
+                    slotRestorers.push(() => {
+                      if (target[methodName] !== origFn) target[methodName] = origFn
+                      delete target[flag]
+                    })
+                  }
+                  try {
+                    wrapSlotMethod(slotsObj, 'entries')
+                    wrapSlotMethod(slotsObj, 'entriesOfSlot')
+                    wrapSlotMethod(slotsObj?._core, 'entries')
+                    wrapSlotMethod(slotsObj?._core, 'entriesOfSlot')
+                    wrapSlotMethod(slotsObj?._host, 'entriesOf')
+                    wrapSlotMethod(slotsObj?._host, 'entriesOfSlot')
+                    slotsObj?.ctx?.emit?.('slots/changed', 'settings.general.item')
+                  } catch { /* Slots entries wrapper is optional */ }
+                  const origDictValues = new Map<Record<string, string>, Record<string, string | undefined>>()
+                  const setDictEntry = (dict: Record<string, string>, key: string, nextValue: string, isActive: boolean): boolean => {
+                    let origMap = origDictValues.get(dict)
+                    if (!origMap) {
+                      origMap = {}
+                      origDictValues.set(dict, origMap)
+                    }
+                    if (!(key in origMap)) origMap[key] = dict[key]
+                    if (isActive) {
+                      if (dict[key] !== nextValue) {
+                        dict[key] = nextValue
+                        return true
+                      }
+                      return false
+                    } else if (origMap[key] !== undefined) {
+                      if (dict[key] !== origMap[key]) {
+                        dict[key] = origMap[key]
+                        return true
+                      }
+                      return false
+                    } else if (key in dict) {
+                      delete dict[key]
+                      return true
+                    }
+                    return false
+                  }
+                  const patchZhEntryMap = (ns: string, dict: Record<string, string>, isActiveMode: boolean): boolean => {
+                    let hasChanges = false
+                    const lowerNs = ns.toLowerCase()
+                    if (lowerNs === 'chat') {
+                      if (setDictEntry(dict, 'chat.deepDiving', '\u4efb\u52a1\u6267\u884c\u4e2d', isActiveMode)) hasChanges = true
+                      if (setDictEntry(dict, 'chat.deepDivingFor', '\u4efb\u52a1\u6267\u884c\u4e2d，\u7528\u65f6 {duration} ···', isActiveMode)) hasChanges = true
+                    }
+                    const isSettingsNs = lowerNs.includes('setting') || lowerNs.includes('account') || lowerNs.includes('model')
+                    const isScheduleNs = lowerNs.includes('schedule')
+                    const isPluginManagerNs = lowerNs === 'pluginmanager' || lowerNs.includes('plugin')
+                    const origMap = origDictValues.get(dict)
+                    for (const k of Object.keys(dict)) {
+                      const baseline = origMap && k in origMap ? origMap[k] : dict[k]
+                      if (baseline === '\u8d26\u53f7\u4e0e\u4f59\u989d' && (isSettingsNs || k === 'nav' || k.endsWith('.nav'))) {
+                        if (setDictEntry(dict, k, '\u8d26\u6237\u8be6\u60c5', isActiveMode)) hasChanges = true
+                      } else if (baseline === '\u6a21\u578b' && (isSettingsNs || k === 'nav' || k === 'title' || k.endsWith('.nav') || k.endsWith('.title'))) {
+                        if (setDictEntry(dict, k, '\u6a21\u578b\u914d\u7f6e', isActiveMode)) hasChanges = true
+                      } else if (baseline === '\u81ea\u52a8\u5316\u4efb\u52a1' && (isScheduleNs || k === 'panel' || k === 'title' || k === 'trigger.label')) {
+                        if (setDictEntry(dict, k, '\u5b9a\u65f6\u4efb\u52a1', isActiveMode)) hasChanges = true
+                      } else if (baseline === '\u63d2\u4ef6' && (isPluginManagerNs && (k === 'panel' || k === 'title' || k === 'crumbRoot') || k === 'panel' || k === 'title')) {
+                        if (setDictEntry(dict, k, '\u63d2\u4ef6\u7ba1\u7406', isActiveMode)) hasChanges = true
+                      }
+                    }
+                    return hasChanges
+                  }
+                  const attachLocalePatch = (localeInput: any): void => {
+                    const localeRuntime = unwrapCordisOriginal(localeInput)
+                    if (!localeRuntime || localeRuntime.__deltaLocaleAttached) return
+                    localeRuntime.__deltaLocaleAttached = true
+                    const syncLocaleDict = (shouldNotify: boolean): void => {
+                      const activeMode = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
+                      let hasAnyChanges = false
+                      const chatLocales = localeRuntime.dicts?.get?.('chat')
+                      if (chatLocales && typeof chatLocales.entries === 'function') {
+                        for (const [locKey, zhDict] of chatLocales.entries()) {
+                          if (typeof locKey !== 'string' || !locKey.toLowerCase().startsWith('zh') || !zhDict || typeof zhDict !== 'object') continue
+                          if (setDictEntry(zhDict, 'chat.deepDiving', '\u4efb\u52a1\u6267\u884c\u4e2d', activeMode)) hasAnyChanges = true
+                          if (setDictEntry(zhDict, 'chat.deepDivingFor', '\u4efb\u52a1\u6267\u884c\u4e2d，\u7528\u65f6 {duration} ···', activeMode)) hasAnyChanges = true
+                        }
+                      }
+                      if (typeof localeRuntime.dicts?.forEach === 'function') {
+                        localeRuntime.dicts.forEach((nsMap: any, ns: string) => {
+                          if (typeof ns !== 'string' || typeof nsMap?.entries !== 'function') return
+                          for (const [locKey, zh] of nsMap.entries()) {
+                            if (typeof locKey !== 'string' || !locKey.toLowerCase().startsWith('zh') || !zh || typeof zh !== 'object') continue
+                            if (patchZhEntryMap(ns, zh, activeMode)) hasAnyChanges = true
+                          }
+                        })
+                      }
+                      if (shouldNotify || hasAnyChanges) {
+                        try {
+                          const active = localeRuntime.snapshot?.active
+                          if (active && typeof localeRuntime.publish === 'function') {
+                            localeRuntime.publish(active, false)
+                          }
+                        } catch {}
+                      }
+                    }
+                    syncLocaleDict(false)
+                    restoreLocaleOnDispose = () => syncLocaleDict(true)
+                    let lastMode = controller.getSnapshot().mode
+                    stopLocaleSync = controller.subscribe(() => {
+                      const nextMode = controller.getSnapshot().mode
+                      if (nextMode === lastMode) return
+                      lastMode = nextMode
+                      syncLocaleDict(true)
+                    })
+                    if (typeof localeRuntime.register === 'function' && !localeRuntime.__deltaPatched) {
+                      localeRuntime.__deltaPatched = true
+                      const origRegister = localeRuntime.register
+                      localeRuntime.register = function(this: any, ns: string, localeOrDicts: any, dict?: any) {
+                        const activeMode = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
+                        if (typeof ns === 'string') {
+                          try {
+                            if (typeof localeOrDicts === 'string' && localeOrDicts.toLowerCase().startsWith('zh') && dict && typeof dict === 'object') {
+                              patchZhEntryMap(ns, dict, activeMode)
+                            } else if (localeOrDicts && typeof localeOrDicts === 'object' && localeOrDicts.zh && typeof localeOrDicts.zh === 'object') {
+                              patchZhEntryMap(ns, localeOrDicts.zh, activeMode)
+                            }
+                          } catch {}
+                        }
+                        const res = origRegister.apply(this, arguments)
+                        try { syncLocaleDict(false) } catch {}
+                        return res
+                      }
+                    }
+                    if (typeof localeRuntime.translate === 'function' && !localeRuntime.__deltaTranslatePatched) {
+                      localeRuntime.__deltaTranslatePatched = true
+                      const origTranslate = localeRuntime.translate
+                      localeRuntime.translate = function(this: any, ns: string, key: string, params: any) {
+                        const activeMode = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
+                        if (activeMode && (ns === 'chat' || ns === 'common')) {
+                          if (key === 'chat.deepDiving') return '\u4efb\u52a1\u6267\u884c\u4e2d'
+                          if (key === 'chat.deepDivingFor') {
+                            const template = '\u4efb\u52a1\u6267\u884c\u4e2d，\u7528\u65f6 {duration} ···'
+                            if (!params) return template
+                            return template.replace(/\{(\w+)\}/g, (match: string, name: string) => name in params ? String(params[name]) : match)
+                          }
+                        }
+                        const res = origTranslate.apply(this, arguments)
+                        if (activeMode && typeof res === 'string') {
+                          const lowerNs = typeof ns === 'string' ? ns.toLowerCase() : ''
+                          const lowerKey = typeof key === 'string' ? key.toLowerCase() : ''
+                          const isNavOrSettings = lowerNs.includes('setting') || lowerNs.includes('account') || lowerNs.includes('model')
+                            || lowerKey === 'nav' || lowerKey.endsWith('.nav') || lowerKey === 'title' || lowerKey.endsWith('.title')
+                          if (isNavOrSettings) {
+                            if (res === '\u8d26\u53f7\u4e0e\u4f59\u989d') return '\u8d26\u6237\u8be6\u60c5'
+                            if (res === '\u6a21\u578b') return '\u6a21\u578b\u914d\u7f6e'
+                          }
+                          if (res === '\u81ea\u52a8\u5316\u4efb\u52a1' && (lowerNs.includes('schedule') || lowerKey === 'panel' || lowerKey === 'title')) {
+                            return '\u5b9a\u65f6\u4efb\u52a1'
+                          }
+                          if (res === '\u63d2\u4ef6' && ((lowerNs.includes('plugin') && (lowerKey === 'panel' || lowerKey === 'title' || lowerKey === 'crumbroot')) || lowerKey === 'panel' || lowerKey === 'title')) {
+                            return '\u63d2\u4ef6\u7ba1\u7406'
+                          }
+                        }
+                        return res
+                      }
+                    }
+                  }
+                  const findLocaleRuntime = (obj: any): any => {
+                    const target = unwrapCordisOriginal(obj)
+                    if (!target || typeof target !== 'object') return undefined
+                    const directLocale = unwrapCordisOriginal(target._locale)
+                    if (directLocale && typeof directLocale === 'object' && typeof directLocale.translate === 'function') {
+                      return directLocale
+                    }
+                    try {
+                      for (const val of Object.values(target)) {
+                        const rawVal = unwrapCordisOriginal(val)
+                        if (rawVal && typeof rawVal === 'object' && (rawVal as any).dicts instanceof Map && typeof (rawVal as any).translate === 'function') {
+                          return rawVal
+                        }
+                      }
+                    } catch {}
+                    return undefined
+                  }
+                  const rawSlots = unwrapCordisOriginal(slotsObj)
+                  const discovered = findLocaleRuntime(rawSlots)
+                  if (discovered) {
+                    attachLocalePatch(discovered)
+                  }
+                  if (rawSlots && typeof rawSlots.installLocale === 'function' && !rawSlots.__deltaLocaleHooked) {
+                    try {
+                      rawSlots.__deltaLocaleHooked = true
+                      const origInstallLocale = rawSlots.installLocale
+                      rawSlots.installLocale = function(this: any, face: any) {
+                        const res = origInstallLocale.apply(this, arguments)
+                        try { attachLocalePatch(face) } catch {}
+                        return res
+                      }
+                    } catch {}
+                  }
+                  try {
+                    scope.inject(['locale'], localeScope => {
+                      const loc = unwrapCordisOriginal((localeScope as { locale?: any })?.locale ?? localeScope?.get?.('locale'))
+                      if (loc) attachLocalePatch(loc)
+                    })
+                  } catch { /* Locale service is optional */ }
+                } catch { /* Locale runtime is optional and gracefully degraded */ }
+
                 return () => {
+                  isEffectDisposed = true
+                  for (const restore of slotRestorers) { try { restore() } catch {} }
                   observer?.disconnect()
+                  stopLocaleSync?.()
+                  restoreLocaleOnDispose?.()
                   stopAppearance()
+                  stopPrivacyGuards()
                   clearDeltaToasts()
-                  document.documentElement.removeAttribute?.('data-delta-ui')
+                  document.documentElement.removeAttribute('data-delta-ui')
+                  document.body?.removeAttribute?.('data-delta-ui')
+                  syncModalChromeOverlay()
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
                 }
               }, 'dsh-delta-desktop: personalization resource ownership')
+
               scope.effect(() => () => closeMcpManagement(),
                 'dsh-delta-desktop: MCP management dialog ownership')
               // MCP settings are optional public Host services. Writes go through
               // ConfigForms; runtime status and recovery go through the MCP Manager.
-              scope.inject(['configForms', 'remote'], mcpScope => {
+              try { scope.inject(['configForms', 'remote'], mcpScope => {
                 const candidate = mcpScope as ClientContext
                 mcpScope.effect(() => {
                   const form = candidate.configForms?.get('dsh-delta-desktop')
@@ -2298,7 +4385,7 @@ window.__ModuleLoader__.load({
                     }
                   }
                 }, 'dsh-delta-desktop: optional MCP management services')
-              })
+              }) } catch { /* Optional MCP services may be unavailable. */ }
               if (MenuItemButton && ReactRoot) {
                 scope.slots.inject('plugins.add.actions', () => scope.slots.register<AddPluginActionProps>({
                   name: 'plugins.add.actions',
@@ -2321,8 +4408,6 @@ window.__ModuleLoader__.load({
                   el('span', { className: 'dtd-mcp-menu-description' },
                     (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.mcpAddDescription)))))
               }
-              // Only live features contribute settings; no inactive placeholder switches.
-              // New Desktop features can add their own localized settings sections here.
               const settingsModules: ReadonlyArray<{
                 id: string
                 order: number
@@ -2332,7 +4417,7 @@ window.__ModuleLoader__.load({
               }> = [
                 {
                   id: 'delta.personalization',
-                  order: 90,
+                  order: 18,
                   labelKey: 'personalization',
                   content: PersonalizationSection,
                   icon: SettingsSectionIcon,
@@ -2349,19 +4434,19 @@ window.__ModuleLoader__.load({
                 scope.slots.inject('settings.section.icon', () => scope.slots.register({
                   name: 'settings.section.icon',
                   id: feature.id,
+                  order: feature.order,
                 }, feature.icon))
               }
+
               // Context assistance is an optional public Host integration. The
               // parent remains live if an older Host omits any service.
-              scope.inject(['sessions', 'resources', 'sidebarRightTabs', 'sidebarRight'], assistantScope => {
+              try { scope.inject(['sessions', 'resources', 'sidebarRightTabs', 'sidebarRight'], assistantScope => {
                 const candidate = assistantScope as ClientContext & AssistantServices
                 if (!candidate.sessions || !candidate.resources || !candidate.sidebarRightTabs ||
                     !candidate.sidebarRight || !candidate.slots) return
                 assistantScope.effect(() => registerAssistantSurface(candidate),
                   'dsh-delta-desktop: Host context and assistant capabilities')
-              })
-              // Brand slot entries must disappear in official mode. A null component
-              // still shadows the native fallback in a single-occupant slot.
+              }) } catch { /* Assistant Host capabilities are optional. */ }
               const registerBrand = (
                 name: 'sidebar.brand.mark' | 'sidebar.brand.name',
                 id: string,
@@ -2372,10 +4457,14 @@ window.__ModuleLoader__.load({
                   const sync = (): void => {
                     const shouldShow = controller.getSnapshot().mode === 'delta'
                     if (shouldShow && !release) {
-                      const result = scope.slots.register({ name, id }, component)
-                      release = typeof result === 'function' ? (result as () => void) : () => {}
+                      try {
+                        const result = scope.slots.register({ name, id, order: -100, ...({ priority: -100 } as any) }, component)
+                        release = typeof result === 'function' ? (result as () => void) : () => {}
+                      } catch (error) {
+                        console.warn('[dsh-delta-desktop] Brand slot registration skipped:', error)
+                      }
                     } else if (!shouldShow && release) {
-                      release()
+                      release?.()
                       release = undefined
                     }
                   }
@@ -2390,8 +4479,7 @@ window.__ModuleLoader__.load({
               }
               registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
               registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
-              // Extend the official session hover card without binding sessions or
-              // exposing workspace paths. The native time/status lines remain intact.
+
               scope.slots.inject('sidebar.session.row.hover', () => scope.slots.register<SessionHoverProps>({
                 name: 'sidebar.session.row.hover',
                 id: 'delta.session.identity',
@@ -2482,6 +4570,13 @@ window.__ModuleLoader__.load({
                 layoutScope.effect(() => () => controller.bindLayout(undefined),
                   'dsh-delta-desktop: layout service lifetime')
               })
+              try {
+                scope.inject(['sidebarRight'], rightScope => {
+                  controller.bindSidebarRight(rightScope.sidebarRight)
+                  rightScope.effect(() => () => controller.bindSidebarRight(undefined),
+                    'dsh-delta-desktop: right sidebar service lifetime')
+                })
+              } catch { /* sidebarRight service is optional */ }
             } catch (error) {
               console.error('[dsh-delta-desktop] Settings mount failed; native UI preserved:', error)
             }
