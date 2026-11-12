@@ -2,10 +2,16 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { gatewayRetryAfterMs, registerGatewayRetryCoordinator } from '../packages/dsh-delta-code/lib/gateway-retry-coordination.js'
 
-function failure(ms, code = 'gateway_attempt_budget_exhausted') {
+function failure(ms, code = 'gateway_attempt_budget_exhausted', failureKinds = undefined) {
   return {
     code: 'RATE_LIMIT',
-    message: `503: ${JSON.stringify({ message: 'exhausted', details: { gateway_code: code, retryable: true, retry_after_ms: ms } })}`,
+    message: `503: ${JSON.stringify({
+      message: 'exhausted',
+      details: {
+        gateway_code: code, retryable: true, retry_after_ms: ms,
+        ...(failureKinds ? { failure_kinds: failureKinds } : {}),
+      },
+    })}`,
   }
 }
 function fixture() {
@@ -65,6 +71,30 @@ describe('Gateway request retry coordination', () => {
       assert.equal(nativeCalls, 0, 'entire Gateway fallback plan must not be replayed in 0.5 seconds')
       assert.equal(f.logs.length, 1)
       assert.equal(f.logs[0].includes('242000'), false, 'log only safe reason without raw provider body')
+    } finally { f.dispose() }
+  })
+  it('honors the Gateway no-replay contract for mixed 429/timeout exhaustion without disabling pure 429 recovery', async () => {
+    const f = fixture()
+    try {
+      let nativeCalls = 0
+      const next = async () => { nativeCalls++; return { kind: 'retry' } }
+      // Gateway #402 sets x-should-retry:false for this exact failure shape.
+      // The Provider adapter does not guarantee that header reaches DSH.
+      const mixed = failure(6000, 'gateway_attempt_budget_exhausted', { rate_limit: 4, headers_timeout: 4 })
+      assert.equal(gatewayRetryAfterMs(mixed.message), 6000)
+      assert.equal(await f.handler({
+        failure: mixed, retryPolicy: { mode: 'normal', maxDelayMs: 10000 },
+      }, next), undefined)
+      assert.equal(nativeCalls, 0, 'mixed timeout/rate-limit exhaustion must not repeat the whole Gateway plan')
+      assert.deepEqual(f.waits, [], 'a forbidden replay must not schedule another wait')
+
+      // Pure rate-limit exhaustion remains retryable after the advertised wait.
+      const pure = failure(6000, 'gateway_attempt_budget_exhausted', { rate_limit: 4 })
+      assert.deepEqual(await f.handler({
+        failure: pure, retryPolicy: { mode: 'normal', maxDelayMs: 10000 },
+      }, next), { kind: 'retry' })
+      assert.equal(nativeCalls, 1)
+      assert.deepEqual(f.waits, [6000])
     } finally { f.dispose() }
   })
   it('extends short Gateway waits only after the existing native retry decision', async () => {
