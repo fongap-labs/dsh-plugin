@@ -5,7 +5,7 @@ export type FailureKind = 'permission' | 'environment' | 'transient' | 'verifica
 /** Authorization failures always take precedence over transient transport errors. */
 export function classifyFailure(value: unknown): FailureKind {
   const message = value instanceof Error ? value.message : String(value)
-  if (/\b(?:EACCES|EPERM|permission denied|access denied|not authorized|unauthorized|forbidden|host refused|host rejected|HTTP\s*40[13])\b/i.test(message)) {
+  if (/\b(?:EACCES|EPERM|permission denied|access denied|not authorized|unauthorized|forbidden|host refused|host rejected|host denied|HTTP\s*40[13])\b/i.test(message)) {
     return 'permission'
   }
   // A missing result may reflect a command still running: do not auto-retry it.
@@ -58,7 +58,11 @@ export async function retryReadOnly<T>(
     try {
       return await run()
     } catch (error) {
-      if (signal.aborted || attempt === maxAttempts || classifyFailure(error) !== 'transient') {
+      const message = error instanceof Error ? error.message : String(error)
+      // A gateway may return HTTP 429/5xx while explicitly marking the error
+      // non-retryable. Respect that contract even for read-only operations.
+      const nonRetryable = /(?:["']?retryable["']?\s*[:=]\s*false\b|\bnon[- ]retryable\b)/i.test(message)
+      if (signal.aborted || attempt === maxAttempts || nonRetryable || classifyFailure(error) !== 'transient') {
         throw error
       }
       await delay(100 * attempt, undefined, { signal })

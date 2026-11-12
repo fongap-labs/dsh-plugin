@@ -88,6 +88,22 @@ describe('Code Worker safe-by-default multi-edit preflight', () => {
     }
   })
 
+  it('rejects ambiguous find/replace during batch preflight without writing any target', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-preflight-ambiguous-'))
+    try {
+      await writeFile(join(root, 'duplicate.txt'), 'alpha alpha')
+      const tool = createMultiEditTool(context, normalizeConfig({ workspaceRoot: root }))
+      const outcome = await tool.execute({ edits: [
+        { path: 'created.txt', content: 'should-not-exist' },
+        { path: 'duplicate.txt', find: 'alpha', replace: 'beta' },
+      ] }, exec())
+      assert.equal(outcome.applied, 0)
+      assert.match(outcome.results[1].note, /multiple locations/)
+      assert.equal(await readFile(join(root, 'duplicate.txt'), 'utf8'), 'alpha alpha')
+      await assert.rejects(readFile(join(root, 'created.txt')), { code: 'ENOENT' })
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
   it('writes all valid edits after preflight and dryRun never writes', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-preflight-'))
     try {

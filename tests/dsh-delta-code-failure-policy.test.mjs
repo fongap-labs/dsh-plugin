@@ -6,6 +6,7 @@ describe('Delta Code Worker bounded recovery policy', () => {
   it('classifies denial before transport, unknown outcomes and test failures', () => {
     assert.equal(classifyFailure('HTTP 403 access denied; HTTP 503'), 'permission')
     assert.equal(classifyFailure(Error('Host refused')), 'permission')
+    assert.equal(classifyFailure(Error('Host denied request; HTTP 503')), 'permission')
     assert.equal(classifyFailure(Error('HTTP 429 rate limited')), 'transient')
     assert.equal(classifyFailure(Error('ETIMEDOUT')), 'transient')
     assert.equal(classifyFailure(Error('assertion failed')), 'verification')
@@ -29,6 +30,15 @@ describe('Delta Code Worker bounded recovery policy', () => {
     }, new AbortController().signal)
     assert.equal(value, 'ok')
     assert.equal(attempts, 2)
+  })
+
+  it('respects explicit non-retryable gateway responses even when the status is transient', async () => {
+    let attempts = 0
+    await assert.rejects(retryReadOnly(async () => {
+      attempts++
+      throw Error('HTTP 504: {"gateway_code":"gateway_upstream_exhausted","retryable":false}')
+    }, new AbortController().signal), /retryable/)
+    assert.equal(attempts, 1)
   })
 
   it('never retries permission denial or unknown outcomes', async () => {
