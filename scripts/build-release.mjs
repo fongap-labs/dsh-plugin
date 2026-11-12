@@ -83,10 +83,12 @@ async function main() {
     } finally {
       await rm(temp, { recursive: true, force: true })
     }
-    // Verify actual archives before a release can be published.
-    if (name === 'dsh-delta-desktop') {
+    // Verify the *shipped* client registration, not only the TypeScript source.
+    if (name === 'dsh-delta-desktop' || name === 'dsh-delta-code') {
+      const verifier = name === 'dsh-delta-code'
+        ? 'verify-delta-code-release.mjs' : 'verify-delta-desktop-release.mjs'
       run(process.execPath, [
-        join(root, 'scripts/verify-delta-desktop-release.mjs'),
+        join(root, 'scripts', verifier),
         '--zip', join(output, safeName + '.zip'),
         '--tgz', join(output, safeName + '.tgz'),
         '--version', version,
