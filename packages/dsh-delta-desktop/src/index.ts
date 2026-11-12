@@ -96,9 +96,13 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
     id: 'security.model-stream-policy',
     owner: 'security',
     surfaces: ['settings'],
-    optional: true,
-    install: () => typeof ctx.inject === 'function' && config
-      ? registerPrivacyBridge(legacyCtx, config) : () => {},
+    install: () => {
+      if (!config) return () => {}
+      if (typeof ctx.inject !== 'function') {
+        throw new Error('Delta privacy bridge requires the Host service injection contract')
+      }
+      return registerPrivacyBridge(legacyCtx, config)
+    },
   })
   registry.register({
     id: 'security.privacy-guards',
