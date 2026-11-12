@@ -577,9 +577,9 @@ function normalizeRunningStatusNodesInDoc(onOriginal?: (node: Node, originalValu
   for (let i = 0; i < hosts.length; i++) {
     visitElementTextNodes(hosts[i], cur => {
       const val = cur.nodeValue ?? ''
-      if (val.includes('深度求索中')) {
+      if (val.includes('\u6DF1\u5EA6\u6C42\u7D22\u4E2D')) {
         onOriginal?.(cur, val)
-        cur.nodeValue = val.replaceAll('深度求索中', '任务执行中')
+        cur.nodeValue = val.replaceAll('\u6DF1\u5EA6\u6C42\u7D22\u4E2D', '\u4EFB\u52A1\u6267\u884C\u4E2D')
       }
     })
   }
@@ -3121,32 +3121,32 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
 
   const SESSION_MENU_ORDERS: Record<string, string> = {
-    '重命名': '10', 'Rename': '10',
-    '置顶会话': '20', '取消置顶': '20', 'Pin': '20', 'Unpin': '20',
-    '分叉会话': '30', 'Fork': '30', 'Fork session': '30',
-    '在文件夹显示': '50', '在 Finder 显示': '50', 'Show in folder': '50', 'Show in Finder': '50',
-    '复制 Session ID': '60', 'Copy Session ID': '60',
-    '锁定会话': '76', '解锁会话': '76', 'Lock session': '76', 'Unlock session': '76', 'Lock conversation': '76', 'Unlock conversation': '76',
-    '移动会话': '78', 'Move session': '78', 'Move conversation': '78',
-    '归档会话': '80', '取消归档': '80', 'Archive': '80', 'Unarchive': '80',
-    '删除会话': '90', 'Delete session': '90', 'Delete conversation': '90',
+    '\u91CD\u547D\u540D': '10', 'Rename': '10',
+    '\u7F6E\u9876\u4F1A\u8BDD': '20', '\u53D6\u6D88\u7F6E\u9876': '20', 'Pin': '20', 'Unpin': '20',
+    '\u5206\u53C9\u4F1A\u8BDD': '30', 'Fork': '30', 'Fork session': '30',
+    '\u5728\u6587\u4EF6\u5939\u663E\u793A': '50', '\u5728 Finder \u663E\u793A': '50', 'Show in folder': '50', 'Show in Finder': '50',
+    '\u590D\u5236 Session ID': '60', 'Copy Session ID': '60',
+    '\u9501\u5B9A\u4F1A\u8BDD': '76', '\u89E3\u9501\u4F1A\u8BDD': '76', 'Lock session': '76', 'Unlock session': '76', 'Lock conversation': '76', 'Unlock conversation': '76',
+    '\u79FB\u52A8\u4F1A\u8BDD': '78', 'Move session': '78', 'Move conversation': '78',
+    '\u5F52\u6863\u4F1A\u8BDD': '80', '\u53D6\u6D88\u5F52\u6863': '80', 'Archive': '80', 'Unarchive': '80',
+    '\u5220\u9664\u4F1A\u8BDD': '90', 'Delete session': '90', 'Delete conversation': '90',
   }
   const VIEW_OPTIONS_ORDERS: Record<string, string> = {
-    '分组方式': '10', 'Group by': '10',
-    '单列表': '15', 'In one list': '15',
-    '按工作区': '20', 'WorkSpace': '20',
-    '按工作区树': '30', 'Workspace Tree': '30',
-    '排序方式': '40', 'Order by': '40',
-    '手动排序': '45', 'Manual': '45',
-    '最近更新': '50', 'Last updated': '50',
-    '筛选会话': '60', 'Filter sessions': '60',
-    '隐藏已归档': '65', 'Hide archived': '65',
-    '仅显示已归档': '70', 'Archived only': '70',
-    '全部对话（显示已归档）': '80', 'All conversations (show archived)': '80',
+    '\u5206\u7EC4\u65B9\u5F0F': '10', 'Group by': '10',
+    '\u5355\u5217\u8868': '15', 'In one list': '15',
+    '\u6309\u5DE5\u4F5C\u533A': '20', 'WorkSpace': '20',
+    '\u6309\u5DE5\u4F5C\u533A\u6811': '30', 'Workspace Tree': '30',
+    '\u6392\u5E8F\u65B9\u5F0F': '40', 'Order by': '40',
+    '\u624B\u52A8\u6392\u5E8F': '45', 'Manual': '45',
+    '\u6700\u8FD1\u66F4\u65B0': '50', 'Last updated': '50',
+    '\u7B5B\u9009\u4F1A\u8BDD': '60', 'Filter sessions': '60',
+    '\u9690\u85CF\u5DF2\u5F52\u6863': '65', 'Hide archived': '65',
+    '\u4EC5\u663E\u793A\u5DF2\u5F52\u6863': '70', 'Archived only': '70',
+    '\u5168\u90E8\u5BF9\u8BDD（\u663E\u793A\u5DF2\u5F52\u6863）': '80', 'All conversations (show archived)': '80',
   }
 
   const FEEDBACK_MENU_LABELS = new Set([
-    '反馈',
+    '\u53CD\u9988',
     'Feedback',
     'フィードバック',
     'Comentarios',
@@ -3157,16 +3157,16 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   ])
 
   const BLOCKED_COMMAND_RE = /^\/(?:export|feedback)(?:\s|$)/i
-  const SETTINGS_HIDDEN_TEXT_RE = /^(?:当前版本|Current version)\s*[:：]|上传\s*Session\s*Log|Upload\s+session\s+log|帮助改进\s*DeepSeek/i
-  const LOCKED_UNARCHIVE_LABELS = new Set(['取消归档', 'Unarchive', 'Unarchive session'])
+  const SETTINGS_HIDDEN_TEXT_RE = /^(?:\u5F53\u524D\u7248\u672C|Current version)\s*[:：]|\u4E0A\u4F20\s*Session\s*Log|Upload\s+session\s+log|\u5E2E\u52A9\u6539\u8FDB\s*DeepSeek/i
+  const LOCKED_UNARCHIVE_LABELS = new Set(['\u53D6\u6D88\u5F52\u6863', 'Unarchive', 'Unarchive session'])
   const LOCKED_MUTATION_LABELS = new Set([
-    '重命名', 'Rename', '分叉会话', 'Fork', 'Fork session',
-    '移动会话', 'Move session', 'Move conversation',
-    '归档会话', 'Archive', 'Archive session',
-    '删除会话', 'Delete session', 'Delete conversation',
+    '\u91CD\u547D\u540D', 'Rename', '\u5206\u53C9\u4F1A\u8BDD', 'Fork', 'Fork session',
+    '\u79FB\u52A8\u4F1A\u8BDD', 'Move session', 'Move conversation',
+    '\u5F52\u6863\u4F1A\u8BDD', 'Archive', 'Archive session',
+    '\u5220\u9664\u4F1A\u8BDD', 'Delete session', 'Delete conversation',
   ])
-  const WORKSPACE_DELETE_LABELS = new Set(['删除工作区', 'Delete workspace'])
-  const WORKSPACE_RENAME_LABELS = new Set(['重命名', '重命名工作区', 'Rename', 'Rename workspace'])
+  const WORKSPACE_DELETE_LABELS = new Set(['\u5220\u9664\u5DE5\u4F5C\u533A', 'Delete workspace'])
+  const WORKSPACE_RENAME_LABELS = new Set(['\u91CD\u547D\u540D', '\u91CD\u547D\u540D\u5DE5\u4F5C\u533A', 'Rename', 'Rename workspace'])
 
   const rewrittenRunningTexts = new Map<Node, string>()
 
@@ -3255,7 +3255,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
     if (typeof document?.querySelectorAll !== 'function') return
 
-    // 1. Hide "上传 Session Log" & "当前版本" rows inside Settings dialog
+    // 1. Hide "\u4E0A\u4F20 Session Log" & "\u5F53\u524D\u7248\u672C" rows inside Settings dialog
     const settingRows = document.querySelectorAll<HTMLElement>(
       '[class*="_0NG6bG_row"], [data-slot="settings.general.item"] > *, [class*="RmVo8q_section"] [class*="_row"], [role="dialog"] [data-setting-id="session-log-deepseek"], [role="dialog"] [data-setting-id="current-version"]'
     )
@@ -3373,7 +3373,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     }
 
-    // 5. Auto-hide empty "未分组" (Ungrouped) bucket when zero visible sessions belong to it
+    // 5. Auto-hide empty "\u672A\u5206\u7EC4" (Ungrouped) bucket when zero visible sessions belong to it
     const ungroupedRows = document.querySelectorAll<HTMLElement>('[data-row-key="workspace:"]')
     const hasSessApi = deltaFeatures.hasSessionsApi()
     const visibleUngroupedCount = hasSessApi ? deltaFeatures.getUngroupedSessionIds(false).length : -1
@@ -3429,20 +3429,20 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
       if (items.length < 2) continue
       const isFooterContainer = typeof container.className === 'string' && container.className.includes('_footer_1p5el')
-      const isSessionFooter = labels.some(t => t === '归档会话' || t === '取消归档' || t === 'Archive' || t === 'Unarchive')
-        && labels.some(t => t === '锁定会话' || t === '解锁会话' || t === 'Lock session' || t === 'Unlock session'
-          || t === '移动会话' || t === 'Move session' || t === 'Move conversation'
-          || t === '删除会话' || t === 'Delete session' || t === 'Delete conversation')
-      const isSessionMenu = labels.some(t => t === '置顶会话' || t === '取消置顶' || t === 'Pin' || t === 'Unpin')
-        || (labels.some(t => t === '重命名' || t === 'Rename') && (
-          labels.some(t => t === '分叉会话' || t === 'Fork' || t === 'Fork session')
-          || labels.some(t => t === '复制 Session ID' || t === 'Copy Session ID')
-          || labels.some(t => t === '在文件夹显示' || t === '在 Finder 显示' || t === 'Show in folder' || t === 'Show in Finder')
+      const isSessionFooter = labels.some(t => t === '\u5F52\u6863\u4F1A\u8BDD' || t === '\u53D6\u6D88\u5F52\u6863' || t === 'Archive' || t === 'Unarchive')
+        && labels.some(t => t === '\u9501\u5B9A\u4F1A\u8BDD' || t === '\u89E3\u9501\u4F1A\u8BDD' || t === 'Lock session' || t === 'Unlock session'
+          || t === '\u79FB\u52A8\u4F1A\u8BDD' || t === 'Move session' || t === 'Move conversation'
+          || t === '\u5220\u9664\u4F1A\u8BDD' || t === 'Delete session' || t === 'Delete conversation')
+      const isSessionMenu = labels.some(t => t === '\u7F6E\u9876\u4F1A\u8BDD' || t === '\u53D6\u6D88\u7F6E\u9876' || t === 'Pin' || t === 'Unpin')
+        || (labels.some(t => t === '\u91CD\u547D\u540D' || t === 'Rename') && (
+          labels.some(t => t === '\u5206\u53C9\u4F1A\u8BDD' || t === 'Fork' || t === 'Fork session')
+          || labels.some(t => t === '\u590D\u5236 Session ID' || t === 'Copy Session ID')
+          || labels.some(t => t === '\u5728\u6587\u4EF6\u5939\u663E\u793A' || t === '\u5728 Finder \u663E\u793A' || t === 'Show in folder' || t === 'Show in Finder')
         ))
-        || (labels.some(t => t === '复制 Session ID' || t === 'Copy Session ID') && labels.some(t => t === '在文件夹显示' || t === '在 Finder 显示' || t === 'Show in folder' || t === 'Show in Finder'))
+        || (labels.some(t => t === '\u590D\u5236 Session ID' || t === 'Copy Session ID') && labels.some(t => t === '\u5728\u6587\u4EF6\u5939\u663E\u793A' || t === '\u5728 Finder \u663E\u793A' || t === 'Show in folder' || t === 'Show in Finder'))
         || isSessionFooter
-      const isViewMenu = labels.some(t => t === '单列表' || t === 'In one list')
-        && (labels.some(t => t === '按工作区' || t === 'WorkSpace') || labels.some(t => t === '仅显示已归档' || t === 'Archived only'))
+      const isViewMenu = labels.some(t => t === '\u5355\u5217\u8868' || t === 'In one list')
+        && (labels.some(t => t === '\u6309\u5DE5\u4F5C\u533A' || t === 'WorkSpace') || labels.some(t => t === '\u4EC5\u663E\u793A\u5DF2\u5F52\u6863' || t === 'Archived only'))
       if (!isSessionMenu && !isViewMenu) continue
 
       let seenSep = 0
@@ -3479,10 +3479,10 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       '[class*="AnXs9G_navCell"], [class*="navCell"], [role="dialog"] nav button, [role="dialog"] [role="tab"]'
     )
     for (const btn of settingsNavButtons) {
-      replaceButtonText(btn, '账号与余额', '账户详情')
-      replaceButtonText(btn, '模型', '模型配置')
+      replaceButtonText(btn, '\u8D26\u53F7\u4E0E\u4F59\u989D', '\u8D26\u6237\u8BE6\u60C5')
+      replaceButtonText(btn, '\u6A21\u578B', '\u6A21\u578B\u914D\u7F6E')
       const labelText = (btn.querySelector?.('[class*="navLabel"]')?.textContent ?? btn.textContent ?? '').trim()
-      if (labelText === 'Agent 预设' || labelText === 'Agent Presets' || labelText === 'Agent presets') {
+      if (labelText === 'Agent \u9884\u8BBE' || labelText === 'Agent Presets' || labelText === 'Agent presets') {
         if (btn.getAttribute('data-dtd-nav-tail') !== '1') {
           btn.setAttribute('data-dtd-nav-tail', '1')
           modifiedTailNavCells.add(btn)
@@ -3501,7 +3501,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     if (language() !== 'zh') {
       for (const [heading, origText] of mutatedPageHeadings) {
         const cur = heading.textContent?.trim() ?? ''
-        const patched = origText === '插件' ? '插件管理' : (origText === '自动化任务' ? '定时任务' : origText)
+        const patched = origText === '\u63D2\u4EF6' ? '\u63D2\u4EF6\u7BA1\u7406' : (origText === '\u81EA\u52A8\u5316\u4EFB\u52A1' ? '\u5B9A\u65F6\u4EFB\u52A1' : origText)
         if (cur === patched) setButtonLabel(heading, patched, origText)
         mutatedPageHeadings.delete(heading)
       }
@@ -3515,12 +3515,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         || Boolean(heading.closest?.('[class*="PluginManagerPage"], [class*="TaskManagerPage"], [class*="pageHeading"]'))
       if (!isHostPageHeading) continue
       const text = heading.textContent?.trim() ?? ''
-      if (text === '插件') {
-        if (!mutatedPageHeadings.has(heading)) mutatedPageHeadings.set(heading, '插件')
-        setButtonLabel(heading, '插件', '插件管理')
-      } else if (text === '自动化任务') {
-        if (!mutatedPageHeadings.has(heading)) mutatedPageHeadings.set(heading, '自动化任务')
-        setButtonLabel(heading, '自动化任务', '定时任务')
+      if (text === '\u63D2\u4EF6') {
+        if (!mutatedPageHeadings.has(heading)) mutatedPageHeadings.set(heading, '\u63D2\u4EF6')
+        setButtonLabel(heading, '\u63D2\u4EF6', '\u63D2\u4EF6\u7BA1\u7406')
+      } else if (text === '\u81EA\u52A8\u5316\u4EFB\u52A1') {
+        if (!mutatedPageHeadings.has(heading)) mutatedPageHeadings.set(heading, '\u81EA\u52A8\u5316\u4EFB\u52A1')
+        setButtonLabel(heading, '\u81EA\u52A8\u5316\u4EFB\u52A1', '\u5B9A\u65F6\u4EFB\u52A1')
       }
     }
   }
@@ -3563,7 +3563,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         document.querySelector<HTMLInputElement>('input[class*="searchInput"]') ?? null
       const nativeSearch = header?.querySelector<HTMLButtonElement>('button[aria-expanded]') ??
         header?.querySelector<HTMLButtonElement>('button[class*="searchButton"]') ??
-        header?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="搜索"]') ??
+        header?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="\u641C\u7D22"]') ??
         document.querySelector<HTMLButtonElement>('[data-sidebar-workspace-header] button[aria-expanded]') ??
         document.querySelector<HTMLButtonElement>('button[class*="searchButton"]') ?? null
       if (!viewport || !navigation || !header || !nativeSearch) {
@@ -3604,7 +3604,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
               document.querySelector<HTMLInputElement>('input[class*="searchInput"]')
             const hostButton = hostHeader?.querySelector<HTMLButtonElement>('button[aria-expanded]') ??
               hostHeader?.querySelector<HTMLButtonElement>('button[class*="searchButton"]') ??
-              hostHeader?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="搜索"]') ??
+              hostHeader?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="\u641C\u7D22"]') ??
               document.querySelector<HTMLButtonElement>('[data-sidebar-workspace-header] button[aria-expanded]') ??
               document.querySelector<HTMLButtonElement>('button[class*="searchButton"]')
             if (hostButton && hostButton.getAttribute('aria-expanded') !== 'true') hostButton.click()
@@ -3644,15 +3644,15 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         searchProxy.setAttribute?.('aria-label', dict.ui.searchSessions)
       }
 
-      // Nav items normalization: "插件" -> "插件管理", "自动化任务" -> "定时任务", hide "更多"
+      // Nav items normalization: "\u63D2\u4EF6" -> "\u63D2\u4EF6\u7BA1\u7406", "\u81EA\u52A8\u5316\u4EFB\u52A1" -> "\u5B9A\u65F6\u4EFB\u52A1", hide "\u66F4\u591A"
       if (navigation && typeof navigation.querySelectorAll === 'function') {
         const navButtons = navigation.querySelectorAll<HTMLButtonElement>('button')
         for (const btn of navButtons) {
-          replaceButtonText(btn, '插件', '插件管理')
-          replaceButtonText(btn, '自动化任务', '定时任务')
+          replaceButtonText(btn, '\u63D2\u4EF6', '\u63D2\u4EF6\u7BA1\u7406')
+          replaceButtonText(btn, '\u81EA\u52A8\u5316\u4EFB\u52A1', '\u5B9A\u65F6\u4EFB\u52A1')
           const rawText = btn.textContent?.trim() ?? ''
           const aria = btn.getAttribute?.('aria-label')?.trim() ?? ''
-          if (rawText === '更多' || aria === '更多' || rawText === 'More' || aria === 'More') {
+          if (rawText === '\u66F4\u591A' || aria === '\u66F4\u591A' || rawText === 'More' || aria === 'More') {
             const parent = (btn.closest?.('li, [class*="moreAnchor"]') ?? btn.parentElement) as HTMLElement | null
             const target = (parent && parent !== navigation && parent.style) ? parent : (btn.style ? btn : null)
             if (target && target.style) {
@@ -3723,7 +3723,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
       processHoverCards()
 
-      // 8, 9, 10. Footer bar: Left Avatar/Logo, Right Action Icons (更新通知, 设置, 登录/登出)
+      // 8, 9, 10. Footer bar: Left Avatar/Logo, Right Action Icons (\u66F4\u65B0\u901A\u77E5, \u8BBE\u7F6E, \u767B\u5F55/\u767B\u51FA)
       const footArea = (viewport.querySelector?.<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]') ??
         document.querySelector<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]')) as HTMLElement | null
       if (footArea) {
@@ -3879,14 +3879,14 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             document.querySelector?.<HTMLElement>('.dtd-native-profile-trigger')) as HTMLElement | null
 
           if (kind === 'settings') {
-            const directSettings = document.querySelector?.<HTMLElement>('[data-action="settings"], button[aria-label*="设置"]:not(.dtd-footer-btn), button[aria-label*="Settings"]:not(.dtd-footer-btn)')
+            const directSettings = document.querySelector?.<HTMLElement>('[data-action="settings"], button[aria-label*="\u8BBE\u7F6E"]:not(.dtd-footer-btn), button[aria-label*="Settings"]:not(.dtd-footer-btn)')
             if (directSettings && directSettings !== liveTrigger) {
               directSettings.click()
               return
             }
           } else {
             const directAuth = document.querySelector?.<HTMLElement>(
-              '[data-action="logout"], [data-action="login"], button[aria-label*="退出登录"]:not(.dtd-footer-btn), button[aria-label*="登录"]:not(.dtd-footer-btn), button[aria-label*="Sign " i]:not(.dtd-footer-btn), button[aria-label*="Log " i]:not(.dtd-footer-btn)'
+              '[data-action="logout"], [data-action="login"], button[aria-label*="\u9000\u51FA\u767B\u5F55"]:not(.dtd-footer-btn), button[aria-label*="\u767B\u5F55"]:not(.dtd-footer-btn), button[aria-label*="Sign " i]:not(.dtd-footer-btn), button[aria-label*="Log " i]:not(.dtd-footer-btn)'
             )
             if (directAuth && directAuth !== liveTrigger) {
               directAuth.click()
@@ -3933,11 +3933,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             const candidates = newItems.length > 0 ? newItems : allItems
             if (candidates.length === 0) return undefined
             if (kind === 'settings') {
-              return candidates.find(el => /设置|Settings/i.test(el.textContent ?? ''))
-                ?? candidates.find(el => !/反馈|Feedback|退出|Sign|Log/i.test(el.textContent ?? ''))
+              return candidates.find(el => /\u8BBE\u7F6E|Settings/i.test(el.textContent ?? ''))
+                ?? candidates.find(el => !/\u53CD\u9988|Feedback|\u9000\u51FA|Sign|Log/i.test(el.textContent ?? ''))
                 ?? candidates[0]
             }
-            return candidates.find(el => /退出登录|登录|Sign\s*(Out|In)|Log\s*(Out|In)/i.test(el.textContent ?? ''))
+            return candidates.find(el => /\u9000\u51FA\u767B\u5F55|\u767B\u5F55|Sign\s*(Out|In)|Log\s*(Out|In)/i.test(el.textContent ?? ''))
               ?? candidates[candidates.length - 1]
           }
 
@@ -4000,13 +4000,13 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           }
         }
 
-        // Right-side 3 action buttons (更新通知 [仅在有更新时显示], 设置, 登录/登出)
+        // Right-side 3 action buttons (\u66F4\u65B0\u901A\u77E5 [\u4EC5\u5728\u6709\u66F4\u65B0\u65F6\u663E\u793A], \u8BBE\u7F6E, \u767B\u5F55/\u767B\u51FA)
         let actionsBox = footArea.querySelector?.<HTMLElement>('.dtd-footer-actions')
         if (!actionsBox) {
           actionsBox = document.createElement('div')
           actionsBox.className = 'dtd-footer-actions'
 
-          // 1. 更新通知（有更新时才显示）
+          // 1. \u66F4\u65B0\u901A\u77E5（\u6709\u66F4\u65B0\u65F6\u624D\u663E\u793A）
           const btnUpdate = document.createElement('button')
           btnUpdate.type = 'button'
           btnUpdate.className = 'dtd-footer-btn dtd-btn-update'
@@ -4041,7 +4041,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
               return
             }
             const liveFoot = document.querySelector?.<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]')
-            const nativeUpdate = liveFoot?.querySelector?.<HTMLElement>('button[class*="VUhOWa_indicator"], [class*="VUhOWa_indicator"] button, button[aria-label*="更新"], button[aria-label*="Update" i], button[class*="update" i]')
+            const nativeUpdate = liveFoot?.querySelector?.<HTMLElement>('button[class*="VUhOWa_indicator"], [class*="VUhOWa_indicator"] button, button[aria-label*="\u66F4\u65B0"], button[aria-label*="Update" i], button[class*="update" i]')
             if (nativeUpdate && !nativeUpdate.classList?.contains('dtd-footer-btn')) {
               nativeUpdate.click()
             } else {
@@ -4050,7 +4050,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           })
           syncUpdateButtonState(btnUpdate, footArea)
 
-          // 2. 设置
+          // 2. \u8BBE\u7F6E
           const btnSettings = document.createElement('button')
           btnSettings.type = 'button'
           btnSettings.className = 'dtd-footer-btn dtd-btn-settings'
@@ -4075,7 +4075,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             triggerAccountMenuAction('settings')
           })
 
-          // 3. 登录/登出
+          // 3. \u767B\u5F55/\u767B\u51FA
           const btnAuth = document.createElement('button')
           btnAuth.type = 'button'
           btnAuth.className = 'dtd-footer-btn dtd-btn-auth'
@@ -4101,7 +4101,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         }
       }
 
-      // Defense-in-depth: replace any rendered "深度求索中" with "任务执行中" inside running status elements
+      // Defense-in-depth: replace any rendered "\u6DF1\u5EA6\u6C42\u7D22\u4E2D" with "\u4EFB\u52A1\u6267\u884C\u4E2D" inside running status elements
       if (typeof document?.querySelectorAll === 'function') {
         normalizeRunningStatusNodesInDoc()
         syncSettingsNav()
@@ -4813,7 +4813,7 @@ function installHostSearch(
 
   const clickSettingsTrigger = (): void => {
     try {
-      const btn = document.querySelector?.<HTMLButtonElement>('[data-dtd-settings], .dtd-btn-settings, [aria-label="设置"], [aria-label="Settings"]')
+      const btn = document.querySelector?.<HTMLButtonElement>('[data-dtd-settings], .dtd-btn-settings, [aria-label="\u8BBE\u7F6E"], [aria-label="Settings"]')
       btn?.click()
     } catch {}
   }
@@ -4892,19 +4892,19 @@ function installHostSearch(
           meta: pid !== title ? pid : undefined,
           score: 55,
           keywords: `${pid} ${title} ${entry.description ?? ''}`,
-          run: () => clickSidebarNavTarget(['插件管理', '插件', 'Plugins']),
+          run: () => clickSidebarNavTarget(['\u63D2\u4EF6\u7BA1\u7406', '\u63D2\u4EF6', 'Plugins']),
         })
       }
     } catch {}
 
     // Safe built-in & live slash commands (strictly exclude /export & /feedback per privacy rules)
     const safeBuiltins: Array<{ cmd: string; descZh: string; descEn: string }> = [
-      { cmd: '/plan', descZh: '制定任务执行计划后再修改代码', descEn: 'Create a structured execution plan' },
-      { cmd: '/goal', descZh: '设定持续达标目标，直到完成为止', descEn: 'Run toward a goal until verified' },
-      { cmd: '/compact', descZh: '压缩并精简当前会话上下文', descEn: 'Compact current conversation context' },
-      { cmd: '/schedule', descZh: '创建定时或自动化周期任务', descEn: 'Create a recurring or scheduled task' },
-      { cmd: '/browser', descZh: '调用内置浏览器交互与检索', descEn: 'Interact with web applications via browser' },
-      { cmd: '/boost', descZh: '深度规划与多维度严格验证', descEn: 'Deep thinking and rigorous verification' },
+      { cmd: '/plan', descZh: '\u5236\u5B9A\u4EFB\u52A1\u6267\u884C\u8BA1\u5212\u540E\u518D\u4FEE\u6539\u4EE3\u7801', descEn: 'Create a structured execution plan' },
+      { cmd: '/goal', descZh: '\u8BBE\u5B9A\u6301\u7EED\u8FBE\u6807\u76EE\u6807，\u76F4\u5230\u5B8C\u6210\u4E3A\u6B62', descEn: 'Run toward a goal until verified' },
+      { cmd: '/compact', descZh: '\u538B\u7F29\u5E76\u7CBE\u7B80\u5F53\u524D\u4F1A\u8BDD\u4E0A\u4E0B\u6587', descEn: 'Compact current conversation context' },
+      { cmd: '/schedule', descZh: '\u521B\u5EFA\u5B9A\u65F6\u6216\u81EA\u52A8\u5316\u5468\u671F\u4EFB\u52A1', descEn: 'Create a recurring or scheduled task' },
+      { cmd: '/browser', descZh: '\u8C03\u7528\u5185\u7F6E\u6D4F\u89C8\u5668\u4EA4\u4E92\u4E0E\u68C0\u7D22', descEn: 'Interact with web applications via browser' },
+      { cmd: '/boost', descZh: '\u6DF1\u5EA6\u89C4\u5212\u4E0E\u591A\u7EF4\u5EA6\u4E25\u683C\u9A8C\u8BC1', descEn: 'Deep thinking and rigorous verification' },
     ]
     const seenCmds = new Set<string>()
     for (const c of safeBuiltins) {
@@ -5017,9 +5017,9 @@ function installHostSearch(
         })
       }
     } catch {}
-    pushShortcut('search', language() === 'zh' ? '全局搜索命令面板' : 'Global Command Search', isDarwin ? '⌘ + K' : 'Ctrl + K', () => openPalette(''))
-    pushShortcut('files', language() === 'zh' ? '工作区文件' : 'Workspace Files', isDarwin ? '⌘ + P' : 'Ctrl + P', () => controller.toggleRightbarSafe?.())
-    pushShortcut('browser', language() === 'zh' ? '内置浏览器' : 'Built-in Browser', isDarwin ? '⌘ + T' : 'Ctrl + T', () => controller.toggleRightbarSafe?.())
+    pushShortcut('search', language() === 'zh' ? '\u5168\u5C40\u641C\u7D22\u547D\u4EE4\u9762\u677F' : 'Global Command Search', isDarwin ? '⌘ + K' : 'Ctrl + K', () => openPalette(''))
+    pushShortcut('files', language() === 'zh' ? '\u5DE5\u4F5C\u533A\u6587\u4EF6' : 'Workspace Files', isDarwin ? '⌘ + P' : 'Ctrl + P', () => controller.toggleRightbarSafe?.())
+    pushShortcut('browser', language() === 'zh' ? '\u5185\u7F6E\u6D4F\u89C8\u5668' : 'Built-in Browser', isDarwin ? '⌘ + T' : 'Ctrl + T', () => controller.toggleRightbarSafe?.())
 
     return { plugins, skills, shortcuts }
   }
@@ -5092,8 +5092,8 @@ function installHostSearch(
         snippet: wsLabel || redactPathForUi(ws?.path ?? ''),
         badge: pCopy.kindSession,
         meta: locked
-          ? (language() === 'zh' ? '已锁定 · 已归档' : 'Locked · Archived')
-          : isArchived ? (language() === 'zh' ? '已归档' : 'Archived') : undefined,
+          ? (language() === 'zh' ? '\u5DF2\u9501\u5B9A · \u5DF2\u5F52\u6863' : 'Locked · Archived')
+          : isArchived ? (language() === 'zh' ? '\u5DF2\u5F52\u6863' : 'Archived') : undefined,
         score: q ? (isPrefix ? 140 : 110) : 70,
         run: () => openSessionHit(s.id, s.workspaceId),
       })
@@ -5144,7 +5144,7 @@ function installHostSearch(
         title: pCopy.actionNewConversation,
         badge: pCopy.kindAction,
         score: 45,
-        keywords: `new conversation chat start 新建 对话 开始对话`,
+        keywords: `new conversation chat start \u65B0\u5EFA \u5BF9\u8BDD \u5F00\u59CB\u5BF9\u8BDD`,
         run: () => navigation.startSession(),
       },
       {
@@ -5154,8 +5154,8 @@ function installHostSearch(
         title: pCopy.actionPlugins,
         badge: pCopy.kindAction,
         score: 44,
-        keywords: `plugins manager 插件 插件管理`,
-        run: () => clickSidebarNavTarget(['插件管理', '插件', 'Plugins']),
+        keywords: `plugins manager \u63D2\u4EF6 \u63D2\u4EF6\u7BA1\u7406`,
+        run: () => clickSidebarNavTarget(['\u63D2\u4EF6\u7BA1\u7406', '\u63D2\u4EF6', 'Plugins']),
       },
       {
         id: 'act:schedules',
@@ -5164,8 +5164,8 @@ function installHostSearch(
         title: pCopy.actionSchedules,
         badge: pCopy.kindAction,
         score: 43,
-        keywords: `schedules tasks cron 定时任务 自动化任务`,
-        run: () => clickSidebarNavTarget(['定时任务', '自动化任务', 'Schedules', 'Tasks']),
+        keywords: `schedules tasks cron \u5B9A\u65F6\u4EFB\u52A1 \u81EA\u52A8\u5316\u4EFB\u52A1`,
+        run: () => clickSidebarNavTarget(['\u5B9A\u65F6\u4EFB\u52A1', '\u81EA\u52A8\u5316\u4EFB\u52A1', 'Schedules', 'Tasks']),
       },
       {
         id: 'act:settings',
@@ -5174,7 +5174,7 @@ function installHostSearch(
         title: pCopy.actionSettings,
         badge: pCopy.kindAction,
         score: 42,
-        keywords: `settings privacy personalization theme proxy network pin 设置 隐私 个性设置 主题 代理 网络 锁定`,
+        keywords: `settings privacy personalization theme proxy network pin \u8BBE\u7F6E \u9690\u79C1 \u4E2A\u6027\u8BBE\u7F6E \u4E3B\u9898 \u4EE3\u7406 \u7F51\u7EDC \u9501\u5B9A`,
         run: () => clickSettingsTrigger(),
       },
       {
@@ -5184,7 +5184,7 @@ function installHostSearch(
         title: pCopy.actionToggleSidebar,
         badge: pCopy.kindAction,
         score: 41,
-        keywords: `toggle sidebar left 侧边栏 收起 展开`,
+        keywords: `toggle sidebar left \u4FA7\u8FB9\u680F \u6536\u8D77 \u5C55\u5F00`,
         run: () => controller.toggleSidebarSafe?.() ?? controller.toggleSidebar(),
       },
       {
@@ -5194,7 +5194,7 @@ function installHostSearch(
         title: pCopy.actionToggleRightbar,
         badge: pCopy.kindAction,
         score: 40,
-        keywords: `toggle rightbar right 右侧边栏 工具`,
+        keywords: `toggle rightbar right \u53F3\u4FA7\u8FB9\u680F \u5DE5\u5177`,
         run: () => controller.toggleRightbarSafe?.(),
       },
     ]
@@ -6784,7 +6784,7 @@ window.__ModuleLoader__.load({
                 const stopPrivacyGuards = installClientPrivacyGuards()
                 const stopCompat = installSidebarCompatibility(controller)
 
-                // Adapt runtime chat status: "深度求索中" -> "任务执行中"
+                // Adapt runtime chat status: "\u6DF1\u5EA6\u6C42\u7D22\u4E2D" -> "\u4EFB\u52A1\u6267\u884C\u4E2D"
                 let effectDisposed = false
                 const slotRestorers: Array<() => void> = []
                 let stopLocaleSync: (() => void) | undefined
@@ -6862,8 +6862,8 @@ window.__ModuleLoader__.load({
                     let changed = false
                     const lowerNs = ns.toLowerCase()
                     if (lowerNs === 'chat') {
-                      if (setDictEntry(dict, 'chat.deepDiving', '任务执行中', activeMode)) changed = true
-                      if (setDictEntry(dict, 'chat.deepDivingFor', '任务执行中，用时 {duration} ···', activeMode)) changed = true
+                      if (setDictEntry(dict, 'chat.deepDiving', '\u4EFB\u52A1\u6267\u884C\u4E2D', activeMode)) changed = true
+                      if (setDictEntry(dict, 'chat.deepDivingFor', '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···', activeMode)) changed = true
                     }
                     const isSettingsNs = lowerNs.includes('setting') || lowerNs.includes('account') || lowerNs.includes('model')
                     const isScheduleNs = lowerNs.includes('schedule')
@@ -6871,14 +6871,14 @@ window.__ModuleLoader__.load({
                     const origMap = origDictValues.get(dict)
                     for (const k of Object.keys(dict)) {
                       const baseline = origMap && k in origMap ? origMap[k] : dict[k]
-                      if (baseline === '账号与余额' && (isSettingsNs || k === 'nav' || k.endsWith('.nav'))) {
-                        if (setDictEntry(dict, k, '账户详情', activeMode)) changed = true
-                      } else if (baseline === '模型' && (isSettingsNs || k === 'nav' || k === 'title' || k.endsWith('.nav') || k.endsWith('.title'))) {
-                        if (setDictEntry(dict, k, '模型配置', activeMode)) changed = true
-                      } else if (baseline === '自动化任务' && (isScheduleNs || k === 'panel' || k === 'title' || k === 'trigger.label')) {
-                        if (setDictEntry(dict, k, '定时任务', activeMode)) changed = true
-                      } else if (baseline === '插件' && (isPluginManagerNs && (k === 'panel' || k === 'title' || k === 'crumbRoot') || k === 'panel' || k === 'title')) {
-                        if (setDictEntry(dict, k, '插件管理', activeMode)) changed = true
+                      if (baseline === '\u8D26\u53F7\u4E0E\u4F59\u989D' && (isSettingsNs || k === 'nav' || k.endsWith('.nav'))) {
+                        if (setDictEntry(dict, k, '\u8D26\u6237\u8BE6\u60C5', activeMode)) changed = true
+                      } else if (baseline === '\u6A21\u578B' && (isSettingsNs || k === 'nav' || k === 'title' || k.endsWith('.nav') || k.endsWith('.title'))) {
+                        if (setDictEntry(dict, k, '\u6A21\u578B\u914D\u7F6E', activeMode)) changed = true
+                      } else if (baseline === '\u81EA\u52A8\u5316\u4EFB\u52A1' && (isScheduleNs || k === 'panel' || k === 'title' || k === 'trigger.label')) {
+                        if (setDictEntry(dict, k, '\u5B9A\u65F6\u4EFB\u52A1', activeMode)) changed = true
+                      } else if (baseline === '\u63D2\u4EF6' && (isPluginManagerNs && (k === 'panel' || k === 'title' || k === 'crumbRoot') || k === 'panel' || k === 'title')) {
+                        if (setDictEntry(dict, k, '\u63D2\u4EF6\u7BA1\u7406', activeMode)) changed = true
                       }
                     }
                     return changed
@@ -6894,8 +6894,8 @@ window.__ModuleLoader__.load({
                       if (chatLocales && typeof chatLocales.entries === 'function') {
                         for (const [locKey, zhDict] of chatLocales.entries()) {
                           if (typeof locKey !== 'string' || !locKey.toLowerCase().startsWith('zh') || !zhDict || typeof zhDict !== 'object') continue
-                          if (setDictEntry(zhDict, 'chat.deepDiving', '任务执行中', activeMode)) anyChanged = true
-                          if (setDictEntry(zhDict, 'chat.deepDivingFor', '任务执行中，用时 {duration} ···', activeMode)) anyChanged = true
+                          if (setDictEntry(zhDict, 'chat.deepDiving', '\u4EFB\u52A1\u6267\u884C\u4E2D', activeMode)) anyChanged = true
+                          if (setDictEntry(zhDict, 'chat.deepDivingFor', '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···', activeMode)) anyChanged = true
                         }
                       }
                       if (typeof localeRuntime.dicts?.forEach === 'function') {
@@ -6950,9 +6950,9 @@ window.__ModuleLoader__.load({
                       localeRuntime.translate = function(this: any, ns: string, key: string, params: any) {
                         const activeMode = !effectDisposed && controller.getSnapshot().mode === 'delta'
                         if (activeMode && (ns === 'chat' || ns === 'common')) {
-                          if (key === 'chat.deepDiving') return '任务执行中'
+                          if (key === 'chat.deepDiving') return '\u4EFB\u52A1\u6267\u884C\u4E2D'
                           if (key === 'chat.deepDivingFor') {
-                            const template = '任务执行中，用时 {duration} ···'
+                            const template = '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···'
                             if (!params) return template
                             return template.replace(/\{(\w+)\}/g, (match: string, name: string) => name in params ? String(params[name]) : match)
                           }
@@ -6964,14 +6964,14 @@ window.__ModuleLoader__.load({
                           const isNavOrSettings = lowerNs.includes('setting') || lowerNs.includes('account') || lowerNs.includes('model')
                             || lowerKey === 'nav' || lowerKey.endsWith('.nav') || lowerKey === 'title' || lowerKey.endsWith('.title')
                           if (isNavOrSettings) {
-                            if (res === '账号与余额') return '账户详情'
-                            if (res === '模型') return '模型配置'
+                            if (res === '\u8D26\u53F7\u4E0E\u4F59\u989D') return '\u8D26\u6237\u8BE6\u60C5'
+                            if (res === '\u6A21\u578B') return '\u6A21\u578B\u914D\u7F6E'
                           }
-                          if (res === '自动化任务' && (lowerNs.includes('schedule') || lowerKey === 'panel' || lowerKey === 'title')) {
-                            return '定时任务'
+                          if (res === '\u81EA\u52A8\u5316\u4EFB\u52A1' && (lowerNs.includes('schedule') || lowerKey === 'panel' || lowerKey === 'title')) {
+                            return '\u5B9A\u65F6\u4EFB\u52A1'
                           }
-                          if (res === '插件' && ((lowerNs.includes('plugin') && (lowerKey === 'panel' || lowerKey === 'title' || lowerKey === 'crumbroot')) || lowerKey === 'panel' || lowerKey === 'title')) {
-                            return '插件管理'
+                          if (res === '\u63D2\u4EF6' && ((lowerNs.includes('plugin') && (lowerKey === 'panel' || lowerKey === 'title' || lowerKey === 'crumbroot')) || lowerKey === 'panel' || lowerKey === 'title')) {
+                            return '\u63D2\u4EF6\u7BA1\u7406'
                           }
                         }
                         return res

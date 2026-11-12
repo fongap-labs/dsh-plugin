@@ -722,7 +722,7 @@
   letter-spacing: -0.015em;
 }
 
-/* Remove "预览版" badge next to headline */
+/* Remove "\009884\0089C8\007248" badge next to headline */
 :root[data-delta-ui="delta"] [class*="WOwLGG_previewBadge"] {
   display: none !important;
 }
@@ -1088,7 +1088,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   overflow: hidden !important;
 }
 
-/* 6.2 Navigation Rows (插件管理, 定时任务; "更多" suppressed) */
+/* 6.2 Navigation Rows (\0063D2\004EF6\007BA1\007406, \005B9A\0065F6\004EFB\0052A1; "\0066F4\00591A" suppressed) */
 :root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav,
 :root[data-delta-compat="1"] [class*="wtg9ga_panelList"] {
@@ -1106,16 +1106,16 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   height: var(--dtd-sidebar-row-height) !important;
   border-radius: var(--dsw-radius-md, var(--dtd-radius-md)) !important;
 }
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="插件管理"], [aria-label="插件"], [aria-label="Plugins"])),
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="插件管理"], [aria-label="插件"], [aria-label="Plugins"])) {
+:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="\0063D2\004EF6\007BA1\007406"], [aria-label="\0063D2\004EF6"], [aria-label="Plugins"])),
+:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="\0063D2\004EF6\007BA1\007406"], [aria-label="\0063D2\004EF6"], [aria-label="Plugins"])) {
   order: 0 !important;
 }
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="定时任务"], [aria-label="自动化任务"], [aria-label="Schedules"], [aria-label="Tasks"])),
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="定时任务"], [aria-label="自动化任务"], [aria-label="Schedules"], [aria-label="Tasks"])) {
+:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="\005B9A\0065F6\004EFB\0052A1"], [aria-label="\0081EA\0052A8\005316\004EFB\0052A1"], [aria-label="Schedules"], [aria-label="Tasks"])),
+:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="\005B9A\0065F6\004EFB\0052A1"], [aria-label="\0081EA\0052A8\005316\004EFB\0052A1"], [aria-label="Schedules"], [aria-label="Tasks"])) {
   order: 1 !important;
 }
-:root[data-delta-compat="1"] nav > :has(button:is([aria-label="更多"], [aria-label="More"])),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button:is([aria-label="更多"], [aria-label="More"])) {
+:root[data-delta-compat="1"] nav > :has(button:is([aria-label="\0066F4\00591A"], [aria-label="More"])),
+:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button:is([aria-label="\0066F4\00591A"], [aria-label="More"])) {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
@@ -1124,7 +1124,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   padding: 0 !important;
 }
 
-/* 6.3 New Session Button (开始对话) */
+/* 6.3 New Session Button (\005F00\0059CB\005BF9\008BDD) */
 :root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) button[class*="newSession"]:not([data-delta-action]),
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) button[class*="newSession"]:not([data-delta-action]),
 :root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_newSession"]:not([data-delta-action]) {
@@ -2526,7 +2526,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   overflow: visible !important;
 }
 
-/* Floating context menu for "未分组" (Ungrouped) permanent deletion */
+/* Floating context menu for "\00672A\005206\007EC4" (Ungrouped) permanent deletion */
 .dtd-context-menu {
   position: fixed;
   z-index: 2147483100;

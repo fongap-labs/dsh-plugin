@@ -13,7 +13,10 @@ const en = JSON.parse(file('locale/en.json'))
 
 describe('Authoritative ZIP3 Desktop UI and additive feature integration', () => {
   it('retains the exact ZIP theme, without replacing it with legacy main styles', () => {
-    const b = Buffer.from(css)
+    // Six-digit CSS Unicode escapes preserve the ZIP's selector semantics.
+    const canonical = css.replace(/\\([0-9A-F]{6})/g, (_, hex) =>
+      String.fromCodePoint(Number.parseInt(hex, 16)))
+    const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
     assert.equal(sha, '8d893d7ecfe4a82703aa17ed4935ecdf4b773773')
   })

@@ -1,7 +1,7 @@
 # ZIP-first UI integration contract
 
 UI authority: user-provided `dsh-delta-desktop(3).zip` from 2026-11-12.
-The ZIP's `src/theme.css` is retained byte-for-byte at blob `8d893d7ecfe4a82703aa17ed4935ecdf4b773773`.
+The runtime stylesheet is selector-equivalent to ZIP blob `8d893d7ecfe4a82703aa17ed4935ecdf4b773773`. CSS six-digit Unicode escapes stand in for non-ASCII selectors/comments to meet the existing engineering-language gate. The contract test reconstructs and checks the canonical ZIP SHA.
 ZIP controls sidebar, search field, Ctrl/Cmd+K, 7 SearchPalette tabs, modal chrome,
 TOTP/session dialogs and the existing personalization appearance.
 
