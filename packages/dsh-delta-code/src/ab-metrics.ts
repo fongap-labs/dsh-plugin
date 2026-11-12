@@ -186,7 +186,7 @@ const BUCKET_SCHEMA = {
     billedTokens: { type: 'integer', required: true },
     usageSamples: { type: 'integer', required: true },
     routeCounts: { type: 'object', required: true, additionalProperties: false,
-      properties: Object.fromEntries(ROUTES.map(route => [route, { type: 'integer', required: true }])) },
+      properties: Object.fromEntries(ROUTES.map(route => [route, { type: 'integer' as const, required: true as const }])) },
   },
 } as const
 
