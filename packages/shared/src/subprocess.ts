@@ -49,7 +49,7 @@ export interface RunCommandOptions {
   timeoutMs?: number | undefined
   /** Per-stream byte cap; defaults to 65536. */
   maxOutputBytes?: number | undefined
-  /** Host-side grace period before a forced kill. */
+  /** Grace period after timeout before forced termination (Host and Node). */
   graceMs?: number | undefined
   /** Extra environment variables layered over the parent environment. */
   env?: Record<string, string> | undefined
@@ -198,11 +198,50 @@ function runWithNode(options: NormalizedOptions): Promise<RunCommandResult> {
     let stderrBytes = 0
     let isTimedOut = false
     let isSettled = false
+    let graceTimer: ReturnType<typeof setTimeout> | undefined
+
+    const clearTimers = () => {
+      clearTimeout(timer)
+      if (graceTimer) clearTimeout(graceTimer)
+    }
+    const finish = (code: number | null, signal: NodeJS.Signals | null) => {
+      if (isSettled) return
+      isSettled = true
+      clearTimers()
+      resolve({
+        stdout,
+        stderr,
+        exitCode: code,
+        signal: signal ?? null,
+        timedOut: isTimedOut,
+        lossy: stdoutBytes >= options.maxOutputBytes || stderrBytes >= options.maxOutputBytes,
+        source: 'node',
+      })
+    }
 
     const timer = setTimeout(() => {
+      if (isSettled) return
       isTimedOut = true
-      child.kill()
-    }, options.timeoutMs)
+      // Best-effort graceful termination. Windows translates SIGTERM to
+      // forceful termination; POSIX handlers may ignore it.
+      try { child.kill('SIGTERM') } catch { /* still enforce the deadline */ }
+
+      graceTimer = setTimeout(() => {
+        if (isSettled) return
+        try { child.kill('SIGKILL') } catch { /* outcome remains unknown */ }
+        // A descendant may inherit stdout/stderr and prevent 'close' even
+        // after the direct child exits. The deadline must still settle.
+        child.stdout?.destroy()
+        child.stderr?.destroy()
+        child.unref()
+        setImmediate(() => {
+          // No close event means no trustworthy exit status or signal.
+          // timedOut=true ensures runCommandOrThrow rejects this result.
+          finish(null, null)
+        })
+      }, Math.max(0, options.graceMs))
+      graceTimer.unref()
+    }, Math.max(0, options.timeoutMs))
     timer.unref()
 
     child.stdout?.on('data', (chunk: Buffer) => {
@@ -217,23 +256,16 @@ function runWithNode(options: NormalizedOptions): Promise<RunCommandResult> {
     })
     child.once('error', (error: Error) => {
       if (isSettled) return
+      if (isTimedOut) {
+        finish(null, null)
+        return
+      }
       isSettled = true
-      clearTimeout(timer)
+      clearTimers()
       reject(new SubprocessError(`failed to spawn ${options.command}: ${error.message}`))
     })
     child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
-      if (isSettled) return
-      isSettled = true
-      clearTimeout(timer)
-      resolve({
-        stdout,
-        stderr,
-        exitCode: code,
-        signal: signal ?? null,
-        timedOut: isTimedOut,
-        lossy: stdoutBytes >= options.maxOutputBytes || stderrBytes >= options.maxOutputBytes,
-        source: 'node',
-      })
+      finish(code, signal)
     })
   })
 }
