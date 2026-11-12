@@ -15,7 +15,7 @@ export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
   'Prefer DSH native editing tools for ordinary changes. Use code_multi_edit only when a multi-file preflight or guarded batch edit offers a concrete benefit; avoid redundant tool calls.',
   'Use DSH native Git tools where available; code_git_status/code_git_diff are optional for Git worktrees, never prerequisites for ordinary code edits.',
-  'Prefer focused native search and file reads; use code_workspace_map only for large Git workspaces where a tracked-file map would reduce exploration.',
+  'Locate the actual implementation and running UI component before editing. Search narrowly with native Host tools; in large Git workspaces use code_workspace_map for tracked paths. Never start with unbounded **/* glob or enumerate build-output trees.',
   'If a Code Worker tool fails due to missing Host services or permission rejection, do not retry identical arguments. Switch to the permitted native Host file search or ask for the right repository; never bypass Host approval or read a giant file index.',
   'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
   'For substantial tasks keep the authoritative task list in DSH native todo_write. On continuation, inspect pending/in_progress items instead of blindly repeating work.',

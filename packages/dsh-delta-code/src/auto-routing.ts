@@ -13,6 +13,7 @@ const CI_FAILURE = /(?:CI\b|PR\b|GitHub|actions?|workflow|\u5de5\u4f5c\u6d41|\u6
 const DEBUG = /(?:bug|\u9519\u8bef|\u5f02\u5e38|\u62a5\u9519|\u5d29\u6e83|\u5931\u8d25|\u65e0\u6cd5|\u4e0d\u5de5\u4f5c|\u95ea\u9000|\u5931\u6548|\u56de\u5f52|\u4fee\u590d|\u5b9a\u4f4d|\u6392\u67e5|debug|broken|crash|failing|fix)/i
 const REVIEW = /(?:\u5ba1\u67e5|\u5ba1\u8ba1|code\s*review|review\b|\u5b89\u5168\u68c0\u67e5|\u68c0\u67e5\s*(?:diff|PR|\u4ee3\u7801))|(?:\u8bc4\u5ba1|\u5206\u6790).{0,12}(?:PR|diff|\u6e90\u7801|\u4ee3\u7801)/i
 const PLAN = /(?:\u8bbe\u8ba1\u65b9\u6848|\u67b6\u6784\u8bbe\u8ba1|\u67b6\u6784\u65b9\u6848|\u5b9e\u65bd\u65b9\u6848|\u65bd\u5de5\u65b9\u6848|\u6280\u672f\u65b9\u6848|\u89c4\u5212|\u5236\u5b9a\u8ba1\u5212|design\s+(?:a|the)\s+(?:system|architecture)|write\s+(?:an?\s+)?plan)/i
+const COMPLEX = /(?:\u6574\u4e2a|\u5168\u90e8|\u6240\u6709|\u5168\u91cf|\u5168\u4ed3|\u8de8\u4ed3\u5e93|\u8de8\u6a21\u5757|\u8de8\u5e73\u53f0|\u8fc1\u79fb|\u5927\u89c4\u6a21|\u591a\u4ed3\u5e93|\u591a\u6a21\u5757|multi[ -]?repo|cross[ -]?module|entire|all (?:files|modules|repositories))/i
 const SMALL = /(?:\u53ea|\u4ec5|\u5c31|\u7b80\u5355|\u5c0f\u6539|\u5fae\u8c03|\u4e00\u5904|\u5355\u4e2a|\u4e00\u884c|\u6539\u540d|\u91cd\u547d\u540d|\u6587\u6848|typo|small|tiny|single|one.line|rename)/i
 
 /**
@@ -36,7 +37,7 @@ export function routeCodingTask(text: string, previous?: CodingRoute): CodingRou
   if (REVIEW.test(input)) return 'code-review-readiness'
   if (DEBUG.test(input)) return 'code-root-cause-debugging'
   if (PLAN.test(input) && !/(?:\u5b9e\u73b0|\u5f00\u53d1|\u843d\u5730|implement|build)/i.test(input)) return 'code-writing-plans'
-  if (SMALL.test(input) && input.length < 220) return 'code-fast-change'
+  if (SMALL.test(input) && !COMPLEX.test(input) && input.length < 220) return 'code-fast-change'
   return 'code-feature-delivery'
 }
 
@@ -111,6 +112,7 @@ export function registerAutomaticCodingRouter(ctx: Context, settings: () => Sett
           return [
             '# Code Worker: minimal fast change',
             'Use native DSH editing and the smallest meaningful native test first. Extra Code Worker tools and code_delivery_gate are optional, not required for a small change.',
+            'Locate the actual file or running UI component first. Use narrow Host search; avoid unbounded **/* glob and generated build trees.',
             'Report actual changes, checks and any unverified outcome; never claim unrun tests passed.',
           ].join('\n')
         }
@@ -119,6 +121,9 @@ export function registerAutomaticCodingRouter(ctx: Context, settings: () => Sett
           'The current user message is a coding request. Follow the user and repository instructions first.',
           'Selected procedure: ' + skill.name + '. Use the host tools and permission gates; do not create another agent runtime.',
           ...skill.instructions.map(line => '- ' + line),
+          ...(route === 'code-feature-delivery' ? [
+            'On substantial cross-module work, when DSH native subagents are verified available, arrange one independent read-only diff review without waiting for a user reminder. Do not delegate overlapping file writes or invent subagent availability.',
+          ] : []),
           'Before claiming completion, verify the actual changes and tests. Do not report an unrun check as passed.',
         ].join('\n')
       },
