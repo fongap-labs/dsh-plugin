@@ -8,11 +8,23 @@ import {
   normalizeConfig, readTextSafe, writeTextSafe, validateWriteTargetSafe,
 } from '../packages/dsh-delta-code/lib/runtime.js'
 import { createMultiEditTool } from '../packages/dsh-delta-code/lib/tools/multi-edit.js'
+import { requireHostFs } from '../packages/dsh-delta-code/lib/host-fs.js'
 
 const execution = () => ({ signal: new AbortController().signal })
 const digest = text => createHash('sha256').update(text, 'utf8').digest('hex')
 
 describe('DSH Host filesystem authority', () => {
+  it('rejects inaccessible Host FS without treating it as an absent mount', () => {
+    const ctx = { get(name) {
+      if (name === 'fs') throw Error('unavailable Host provider')
+    } }
+    assert.throws(
+      () => requireHostFs(ctx, ['readText'], 'refusing local read fallback'),
+      /Host FS service inaccessible; refusing local fallback/,
+    )
+    assert.equal(requireHostFs({ get: () => undefined }, ['readText'], 'local mode'), undefined)
+  })
+
   it('uses the installed DSH Host FS overwrite mode signature', async () => {
     const signal = new AbortController().signal
     const target = { targetKey: 'host-target-id', displayPath: 'host/file.txt' }

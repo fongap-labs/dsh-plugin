@@ -4,6 +4,8 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, SandboxViolationError, resolveInside } from '@fongap-labs/shared'
 import type { EditResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot, readTextSafe, writeTextSafe, validateWriteTargetSafe, errorMessage } from '../runtime.js'
+import { lookupDshHostFs } from '../host-adapter.js'
+import type { HostFsCapabilities } from '../host-fs.js'
 import type { GuardedWriteIntent } from '../runtime.js'
 import { planTextEdit, applyTextEdit } from './edit-transform.js'
 
@@ -134,7 +136,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             targets.add(target)
             // Check symlinks and Host FS permissions before any batch write.
             const pinnedIntent = await validateWriteTargetSafe(ctx, exec, root, path, settings)
-            const hostFs = ctx.get('fs')
+            const hostFs = lookupDshHostFs(ctx) as HostFsCapabilities | undefined
             if (hostFs && typeof hostFs.resolve === 'function' &&
                 typeof hostFs.contains === 'function') {
               const canonicalTarget = await hostFs.resolve(target, { cwd: root, signal: exec.signal })

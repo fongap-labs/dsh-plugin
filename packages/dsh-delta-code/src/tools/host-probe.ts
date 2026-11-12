@@ -1,18 +1,22 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
+import { DSH_HOST_ADAPTER_VERSION, lookupDshHostFs, lookupDshWorkingDirectory, probeDshService } from '../host-adapter.js'
 
 /** Inspect only method presence; do not invoke FS, subprocess or workspace capabilities. */
 export function inspectHostCapabilities(ctx: Context) {
-  let fs: unknown
-  let workingDirectory: unknown
-  try { fs = ctx.get('fs') } catch { /* not exposed to this plugin */ }
-  try { workingDirectory = ctx.get('workingDirectory') } catch { /* not exposed */ }
+  const fsProbe = probeDshService(() => lookupDshHostFs(ctx))
+  const workspaceProbe = probeDshService(() => lookupDshWorkingDirectory(ctx))
+  const fs = fsProbe.value
+  const workingDirectory = workspaceProbe.value
   const has = (value: unknown, method: string): boolean =>
     value !== null && typeof value === 'object'
     && typeof (value as Record<string, unknown>)[method] === 'function'
   const host = ctx as Context & { subprocess?: { spawn?: unknown } | null }
   return {
+    adapterVersion: DSH_HOST_ADAPTER_VERSION,
+    fsState: fsProbe.state,
+    workspaceState: workspaceProbe.state,
     fsAccessible: Boolean(fs),
     fsResolve: has(fs, 'resolve'),
     fsReadText: has(fs, 'readText'),
@@ -40,6 +44,9 @@ export function createHostProbeTool(ctx: Context): ToolDefinition {
         type: 'object',
         additionalProperties: false,
         properties: {
+          adapterVersion: { type: 'string', required: true, enum: ['dsh-cordis-v1'] },
+          fsState: { type: 'string', required: true, enum: ['absent', 'mounted', 'inaccessible'] },
+          workspaceState: { type: 'string', required: true, enum: ['absent', 'mounted', 'inaccessible'] },
           fsAccessible: { type: 'boolean', required: true },
           fsResolve: { type: 'boolean', required: true },
           fsReadText: { type: 'boolean', required: true },
@@ -66,6 +73,9 @@ export function createHostProbeTool(ctx: Context): ToolDefinition {
         ]
         return [{ type: 'text', text: [
           'DSH Host method presence (read-only; no permission tested):',
+          'Adapter: ' + value.adapterVersion,
+          'FS service state: ' + value.fsState,
+          'Workspace service state: ' + value.workspaceState,
           ...flags.map(([name, available]) => name + ': ' + (available ? 'available' : 'unavailable')),
           'FS writeText contract: unverified (requires actual Host smoke test)',
         ].join('\n') }]
