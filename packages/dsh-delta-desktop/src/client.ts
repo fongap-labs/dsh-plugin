@@ -143,6 +143,85 @@ interface McpDraft {
   enabled: boolean
 }
 
+interface PublicSessionFace {
+  readonly sessionId: string
+  prompt(content: { type: 'text'; text: string }[], mode: 'queue' | 'steer', signal?: AbortSignal): Promise<{ ok: boolean; error?: { message?: string } }>
+  command?(line: string): Promise<{ matched: boolean }>
+  getSnapshot?(): { running?: boolean; awaitingFirstTurn?: boolean; lastAgentError?: string | null }
+}
+interface SessionReference {
+  readonly sessionId: string
+  readonly binding: { readonly session: PublicSessionFace }
+  readonly ready: Promise<unknown>
+  release(): void
+}
+interface AssistantSessionsApi {
+  create(options?: { agentPreset?: string; workspaceId?: string }): Promise<string>
+  retain(id: string, options: { source: string; signal?: AbortSignal }): SessionReference
+  list: { getSnapshot(): { byId?: Record<string, { title?: string; workspaceId?: string; running?: boolean }> } }
+}
+interface ResourceProviderApi {
+  register(provider: {
+    protocol: string
+    open(address: string, options: { signal: AbortSignal }): AsyncIterable<{ ok: true; value: AssistantResource }>
+  }): () => void
+}
+interface SidebarRightTabsApi {
+  register(definition: {
+    id: string; kind: string; patterns: readonly string[]; priority?: 'extension' | 'builtin' | 'fallback'
+    canOpen?(address: string): boolean; title(address: string): string
+  }): () => void
+}
+interface AssistantResource {
+  readonly parentSessionId: string
+  readonly assistantSessionId: string
+  readonly purpose: 'discussion' | 'optimization'
+  readonly reference: SessionReference
+}
+interface AssistantWorkflow {
+  readonly purpose: 'discussion' | 'optimization'
+  readonly parentSessionId: string
+  readonly originalDraft?: string
+  appliedDraft?: string
+  readonly getCurrentDraft?: () => string
+  readonly inputActions?: { setDraft(text: string): void; persistDraft(): void }
+}
+interface AssistantServices {
+  sessions: AssistantSessionsApi
+  resources: ResourceProviderApi
+  sidebarRightTabs: SidebarRightTabsApi
+  sidebarRight: SidebarRightApi
+  slots: SlotsApi
+  effect(callback: () => void | (() => void), label?: string): void
+}
+interface AssistantChatSnapshot {
+  legacy?: { nodes?: readonly Record<string, any>[] }
+  nodes?: { values(): readonly Record<string, any>[] }
+  timeline?: { turnOrder?: readonly number[] }
+}
+interface AssistantSlotProps {
+  sessionId: string
+  useSession<T>(selector: (state: any) => T): T
+  useInput<T>(selector: (state: any) => T): T
+  useChat<T>(selector: (state: AssistantChatSnapshot) => T): T
+  useConversation?<T>(selector: (state: any) => T): T
+  useProjection<T = any>(key: string): T | undefined
+  inputActions: {
+    setDraft(text: string): void
+    persistDraft(): void
+  }
+  useTabInfo?(): { tab: { contentId: string } }
+  useResource?<T>(address: string): { value?: T }
+  SessionProvider?(props: { session: SessionReference; children?: unknown }): unknown
+  renderSlot?(name: string, props: Record<string, unknown>): unknown
+  renderFactorySlot?(name: string, props: Record<string, unknown>, options?: Record<string, unknown>): unknown
+  messageId?: string
+}
+
+interface AccessApi {
+  /** Official global grant: callback runs only while session/create is allowed. */
+  whenAccess(action: string, callback: () => (() => void)): () => void
+}
 interface DeltaProps { controller: DeltaController }
 interface SessionHoverProps { sessionId: string }
 interface ReactApi {
@@ -156,7 +235,7 @@ interface ThemeApi {
   overrideTokens(source: string, tokens: Record<string, { light: string; dark: string }>): () => void
 }
 interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): void }
-interface SidebarRightApi { toggleExpanded?(): void }
+interface SidebarRightApi { toggleExpanded?(): void; openResource(address: string): unknown; closeRightbar?(): void }
 interface SlotsApi {
   inject(name: string, register: () => unknown): void
   register<P = DeltaProps>(options: { name: string; id: string; key?: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
@@ -209,6 +288,9 @@ interface ClientContext {
   sidebarRight?: SidebarRightApi
   workspaces?: WorkspacesApi
   sessions?: SearchSessionsApi
+  resources?: ResourceProviderApi
+  sidebarRightTabs?: SidebarRightTabsApi
+  remoteAccess?: AccessApi
   configForms?: ConfigFormsApi
   remote?: { mcpManager?: McpManagerApi; credentials?: CredentialRemoteApi }
   uiWorkspace?: SearchNavigationApi
@@ -217,6 +299,126 @@ interface ClientContext {
   inject(services: string[], callback: (scope: ClientContext) => void): void
   effect(callback: () => void | (() => void), label?: string): void
   locale?: { subscribe?: (listener: () => void) => (() => void) }
+}
+type FeaturePreferences = Readonly<{
+  showDeepSeekAccountInfo: boolean
+  showModelInfo: boolean
+  inputOptimization: boolean
+}>
+type FeaturePreferenceKey = keyof FeaturePreferences
+const FEATURE_STORAGE_KEY = 'fongap.dsh-delta-desktop.features.v1'
+const DEFAULT_FEATURE_PREFERENCES: FeaturePreferences = Object.freeze({
+  showDeepSeekAccountInfo: true, showModelInfo: true, inputOptimization: true,
+})
+function readFeaturePreferences(): FeaturePreferences {
+  try {
+    const value = JSON.parse(localStorage.getItem(FEATURE_STORAGE_KEY) ?? 'null') as unknown
+    if (value && typeof value === 'object') {
+      const saved = value as Record<string, unknown>
+      const preferences = {
+        showDeepSeekAccountInfo: typeof saved.showDeepSeekAccountInfo === 'boolean' ? saved.showDeepSeekAccountInfo : true,
+        showModelInfo: typeof saved.showModelInfo === 'boolean' ? saved.showModelInfo : true,
+        inputOptimization: typeof saved.inputOptimization === 'boolean' ? saved.inputOptimization : true,
+      }
+      const isFeaturePreferences = 'showDeepSeekAccountInfo' in saved || 'showModelInfo' in saved || 'inputOptimization' in saved
+      if (isFeaturePreferences && Object.keys(saved).some(key => !['showDeepSeekAccountInfo', 'showModelInfo', 'inputOptimization'].includes(key))) {
+        try { localStorage.setItem(FEATURE_STORAGE_KEY, JSON.stringify(preferences)) }
+        catch { /* remove retired preference keys when storage permits */ }
+      }
+      return Object.freeze(preferences)
+    }
+  } catch { /* blocked or malformed preference storage falls back to defaults */ }
+  return DEFAULT_FEATURE_PREFERENCES
+}
+let featurePreferences = readFeaturePreferences()
+const featurePreferenceListeners = new Set<() => void>()
+function updateFeaturePreference(key: FeaturePreferenceKey, isEnabled: boolean): void {
+  featurePreferences = Object.freeze({ ...featurePreferences, [key]: isEnabled })
+  try { localStorage.setItem(FEATURE_STORAGE_KEY, JSON.stringify(featurePreferences)) }
+  catch { /* preference remains available for this runtime */ }
+  featurePreferenceListeners.forEach(listener => listener())
+}
+function subscribeFeaturePreferences(listener: () => void): () => void {
+  featurePreferenceListeners.add(listener)
+  return () => { featurePreferenceListeners.delete(listener) }
+}
+function useFeaturePreferences(React: ReactApi): FeaturePreferences {
+  return React.useSyncExternalStore(subscribeFeaturePreferences, () => featurePreferences)
+}
+
+function readContextUsage(value: unknown): { percent: number; used: number; capacity: number } | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const pressure = value as Record<string, unknown>
+  const used = typeof pressure.projectedTokens === 'number' ? pressure.projectedTokens
+    : typeof pressure.pressureTokens === 'number' ? pressure.pressureTokens : undefined
+  const capacity = typeof pressure.contextWindow === 'number' ? pressure.contextWindow : undefined
+  if (used === undefined || capacity === undefined || capacity <= 0) return undefined
+  return { percent: Math.min(100, Math.round(used / capacity * 100)), used, capacity }
+}
+function messageText(node: Record<string, any>): string {
+  const data = (node.data && typeof node.data === 'object' ? node.data : node) as Record<string, any>
+  if (Array.isArray(data.blocks)) return data.blocks.flatMap((block: any) =>
+    block?.kind === 'text' && typeof block.text === 'string' ? [block.text] : []).join('')
+  if (Array.isArray(data.content)) return data.content.flatMap((part: any) =>
+    part?.type === 'text' && typeof part.text === 'string' ? [part.text] : []).join('')
+  if (typeof data.summary === 'string') return data.summary
+  return ''
+}
+function compactionCheckpointSource(node: Record<string, any>): boolean {
+  const data = (node.data && typeof node.data === 'object' ? node.data : node) as Record<string, any>
+  const sources = [node.source, data.source, data.message?.source, data.finalNode?.source,
+    data.finalNode?.data?.source, data.node?.source]
+  return sources.some(source => source?.kind === 'compact-checkpoint')
+}
+function isCompactionCheckpoint(node: Record<string, any>): boolean {
+  return node.kind === 'compaction' || compactionCheckpointSource(node)
+}
+function conversationContext(chat: AssistantChatSnapshot | undefined, maxChars = 6000): string {
+  const nodes = chat?.legacy?.nodes
+  if (!Array.isArray(nodes)) return ''
+  const excerpts = nodes.flatMap((node) => {
+    if (!node || typeof node !== 'object') return []
+    const text = messageText(node).trim()
+    if (!text) return []
+    const kind = isCompactionCheckpoint(node) ? 'Checkpoint'
+      : node.kind === 'user' || node.kind === 'steering' ? 'User'
+      : node.kind === 'assistant' ? 'Assistant'
+        : undefined
+    return kind ? [`${kind}: ${text.slice(0, 1600)}`] : []
+  })
+  let result = ''
+  for (const item of excerpts.slice(-8)) {
+    const next = result ? `${result}\n\n${item}` : item
+    if (next.length > maxChars) {
+      const remaining = maxChars - result.length - (result ? 2 : 0)
+      if (remaining > 120) result = `${result}${result ? '\n\n' : ''}${item.slice(-remaining)}`
+      break
+    }
+    result = next
+  }
+  return result
+}
+function latestCheckpoint(chat: AssistantChatSnapshot | undefined): { summary: string; count?: number; tokens?: number } | undefined {
+  const nodes = chat?.legacy?.nodes ?? []
+  const node = nodes.filter(value => value && typeof value === 'object' && isCompactionCheckpoint(value)).at(-1)
+  const summary = node ? messageText(node) || (typeof node.summary === 'string' ? node.summary
+    : typeof node.data?.summary === 'string' ? node.data.summary : undefined) : undefined
+  if (!summary) return undefined
+  const shadowedItemCount = node?.shadowedItemCount ?? node?.data?.shadowedItemCount
+  const shadowedTokenCount = node?.shadowedTokenCount ?? node?.data?.shadowedTokenCount
+  return { summary,
+    ...(typeof shadowedItemCount === 'number' ? { count: shadowedItemCount } : {}),
+    ...(typeof shadowedTokenCount === 'number' ? { tokens: shadowedTokenCount } : {}) }
+}
+function latestAssistantMessageId(chat: AssistantChatSnapshot | undefined): string | undefined {
+  const nodes = chat?.nodes?.values?.() ?? []
+  for (let index = nodes.length - 1; index >= 0; index--) {
+    const node = nodes[index]
+    const data = node?.data as Record<string, any> | undefined
+    const id = data?.finalNode?.messageId ?? data?.messageId
+    if (node?.kind === 'assistant-step' && typeof id === 'string') return id
+  }
+  return undefined
 }
 interface Loader {
   load(entry: { id: string; factory(require: (id: string) => unknown): { inject: string[]; apply(ctx: ClientContext): void } }): void
@@ -5834,6 +6036,567 @@ window.__ModuleLoader__.load({
               feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null))
       )
     }
+    let hoverSessionSource: SearchSessionsApi | undefined
+    // The hover seat is mounted only while a row is visible. Subscribe to the
+    // public Session list so its running state updates without opening a Session.
+    const subscribeHoverSessions = (notify: () => void): (() => void) => {
+      try {
+        return hoverSessionSource?.list.subscribe?.(notify) ?? (() => {})
+      } catch { return () => {} }
+    }
+    // useSyncExternalStore must receive a stable, primitive snapshot. Reading
+    // a fresh Host catalog object here would otherwise cause render loops.
+    const readHoverState = (sessionId: string): string => {
+      try {
+        const snapshot = hoverSessionSource?.list.getSnapshot()
+        if (!snapshot || (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return ''
+        const session = snapshot.byId[sessionId]
+        if (!session) return ''
+        const timestamp = typeof session.updatedAt === 'number' && Number.isFinite(session.updatedAt) &&
+          session.updatedAt > 0 ? session.updatedAt : 0
+        return (session.running === true ? '1' : '0') + ':' + timestamp
+      } catch { return '' }
+    }
+    const ASSISTANT_TAB_ID = OWNER
+    const ASSISTANT_TAB_KIND = 'delta-context-assistant'
+    const ASSISTANT_PROTOCOL = 'dtdelta'
+    const ASSISTANT_PRESET = 'delta-context'
+    const assistantWorkflows = new Map<string, AssistantWorkflow>()
+    let assistantServices: AssistantServices | undefined
+    const savedAssistantKey = 'fongap.dsh-delta-desktop.assistant-sessions.v1'
+    function assistantAddress(parentSessionId: string, assistantSessionId: string, purpose: 'discussion' | 'optimization'): string {
+      const query = new URLSearchParams({ parent: parentSessionId, purpose })
+      return `dsh-resource://${ASSISTANT_PROTOCOL}/session/${encodeURIComponent(assistantSessionId)}?${query}`
+    }
+    function parseAssistantAddress(address: string): Omit<AssistantResource, 'reference'> | undefined {
+      try {
+        const url = new URL(address)
+        const parts = url.pathname.split('/').filter(Boolean)
+        const parentSessionId = url.searchParams.get('parent')
+        const purpose = url.searchParams.get('purpose')
+        if (url.protocol !== 'dsh-resource:' || url.hostname !== ASSISTANT_PROTOCOL ||
+            parts.length !== 2 || parts[0] !== 'session' || !parentSessionId ||
+            (purpose !== 'discussion' && purpose !== 'optimization')) return undefined
+        return { parentSessionId, assistantSessionId: decodeURIComponent(parts[1]!), purpose }
+      } catch { return undefined }
+    }
+    function savedAssistantSession(parentSessionId: string): string | undefined {
+      try {
+        const value = JSON.parse(localStorage.getItem(savedAssistantKey) ?? '{}') as Record<string, unknown>
+        const saved = value[parentSessionId]
+        return typeof saved === 'string' ? saved : undefined
+      } catch { return undefined }
+    }
+    function rememberAssistantSession(parentSessionId: string, sessionId: string): void {
+      try {
+        const value = JSON.parse(localStorage.getItem(savedAssistantKey) ?? '{}') as Record<string, unknown>
+        localStorage.setItem(savedAssistantKey, JSON.stringify({ ...value, [parentSessionId]: sessionId }))
+      } catch { /* the current panel remains usable without a saved resume id */ }
+    }
+    function waitForSignal(signal: AbortSignal): Promise<void> {
+      if (signal.aborted) return Promise.resolve()
+      return new Promise(resolve => signal.addEventListener('abort', () => resolve(), { once: true }))
+    }
+    function registerAssistantSurface(scope: AssistantServices): () => void {
+      assistantServices = scope
+      scope.effect(() => scope.resources.register({
+        protocol: ASSISTANT_PROTOCOL,
+        async *open(address, { signal }) {
+          const parsed = parseAssistantAddress(address)
+          if (!parsed) throw new Error('Delta Assistant: invalid resource address')
+          if (signal.aborted) return
+          const reference = scope.sessions.retain(parsed.assistantSessionId, { source: 'sidebarChat', signal })
+          try {
+            await reference.ready
+            yield { ok: true, value: { ...parsed, reference } }
+            await waitForSignal(signal)
+          } finally { reference.release() }
+        },
+      }), 'dsh-delta-desktop: independent assistant resources')
+      scope.effect(() => scope.sidebarRightTabs.register({
+        id: ASSISTANT_TAB_ID,
+        kind: ASSISTANT_TAB_KIND,
+        patterns: [`dsh-resource://${ASSISTANT_PROTOCOL}/session/**`],
+        priority: 'extension',
+        canOpen: address => parseAssistantAddress(address) !== undefined,
+        title: address => parseAssistantAddress(address)?.purpose === 'optimization'
+          ? (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.optimizeDraft
+          : (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.discussTask,
+      }), 'dsh-delta-desktop: independent assistant sidebar type')
+      scope.slots.inject('sidebar.right.pane.tab', () => scope.slots.register({
+        name: 'sidebar.right.pane.tab', key: ASSISTANT_TAB_ID,
+        children: { 'delta.assistant.conversation': { kind: 'single', scope: 'session' } },
+      }, AssistantTabBody))
+      scope.slots.inject('delta.assistant.conversation', () => scope.slots.register({
+        name: 'delta.assistant.conversation',
+      }, EmbeddedAssistantConversation))
+      scope.slots.inject('conversation.input.left', () => scope.slots.register({
+        name: 'conversation.input.left', id: 'delta.context.assistant-actions', order: 80,
+        label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.discussTask,
+      }, AssistantInputControls))
+      scope.slots.inject('conversation.chat.assistant-actions', () => scope.slots.register({
+        name: 'conversation.chat.assistant-actions', id: 'delta.context.optimizer-apply', order: 90,
+        label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.applyOptimization,
+      }, OptimizerApplyAction))
+      scope.slots.inject('conversation.chat.assistant-actions', () => scope.slots.register({
+        name: 'conversation.chat.assistant-actions', id: 'delta.context.compaction-activity', order: 80,
+        label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.compacting,
+      }, CompactionActivityAction))
+      scope.slots.inject('conversation.input.model.label', () => scope.slots.register({
+        name: 'conversation.input.model.label',
+      }, ModelLabelExtension))
+      return () => {
+        if (assistantServices === scope) assistantServices = undefined
+        assistantWorkflows.clear()
+      }
+    }
+    async function openAssistantSession(
+      parentSessionId: string,
+      purpose: 'discussion' | 'optimization',
+      initialPrompt: string,
+      workflow?: AssistantWorkflow,
+    ): Promise<string> {
+      const services = assistantServices
+      if (!services) throw new Error('Harness assistant capabilities are unavailable')
+      let assistantSessionId = purpose === 'discussion' ? savedAssistantSession(parentSessionId) : undefined
+      let isCreated = false
+      if (assistantSessionId && services.sessions.list.getSnapshot().byId?.[assistantSessionId] === undefined) {
+        assistantSessionId = undefined
+      }
+      if (!assistantSessionId) {
+        const parent = services.sessions.list.getSnapshot().byId?.[parentSessionId]
+        assistantSessionId = await services.sessions.create({
+          agentPreset: ASSISTANT_PRESET,
+          ...(parent?.workspaceId ? { workspaceId: parent.workspaceId } : {}),
+        })
+        isCreated = true
+        if (purpose === 'discussion') rememberAssistantSession(parentSessionId, assistantSessionId)
+      }
+      const reference = services.sessions.retain(assistantSessionId, { source: 'sidebarChat' })
+      try {
+        await reference.ready
+        if (isCreated) {
+          const result = await reference.binding.session.prompt([{ type: 'text', text: initialPrompt }], 'queue')
+          if (!result.ok) throw new Error(result.error?.message || 'Assistant prompt was rejected')
+        }
+      } finally { reference.release() }
+      if (workflow) assistantWorkflows.set(assistantSessionId, workflow)
+      await Promise.resolve(services.sidebarRight.openResource(assistantAddress(parentSessionId, assistantSessionId, purpose)))
+      return assistantSessionId
+    }
+    async function queueMainCorrection(parentSessionId: string, correction: string): Promise<boolean> {
+      const services = assistantServices
+      if (!services || !correction.trim()) return false
+      const reference = services.sessions.retain(parentSessionId, { source: 'sidebarChat' })
+      try {
+        await reference.ready
+        const result = await reference.binding.session.prompt([{
+          type: 'text', text: `User correction from the Delta side conversation. Treat this as the user's queued instruction for the main task:\n\n${correction.trim()}`,
+        }], 'queue')
+        return result.ok
+      } finally { reference.release() }
+    }
+    function preferenceRow(title: string, description: string, isEnabled: boolean, onChange: (next: boolean) => void): unknown {
+      return el('div', { className: 'dtd-preference-row' },
+        el('div', { className: 'dtd-preference-copy' }, el('strong', null, title), el('p', null, description)),
+        el('button', { type: 'button', role: 'switch', 'aria-label': title, 'aria-checked': isEnabled,
+          className: `dtd-switch${isEnabled ? ' dtd-switch-on' : ''}`,
+          onClick: () => onChange(!isEnabled) }, isEnabled ? '●' : '○'))
+    }
+    function FeaturePreferencesSection(): unknown {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const prefs = useFeaturePreferences(React)
+      return el('section', { className: 'dtd-feature-settings', 'aria-label': copy.ui.contextFeatures },
+        el('h3', null, copy.ui.contextFeatures), el('p', null, copy.ui.contextFeaturesDescription),
+        preferenceRow(copy.ui.showDeepSeekAccountInfo, copy.ui.showDeepSeekAccountInfoDescription,
+          prefs.showDeepSeekAccountInfo, value => updateFeaturePreference('showDeepSeekAccountInfo', value)),
+        preferenceRow(copy.ui.showModelInfo, copy.ui.showModelInfoDescription,
+          prefs.showModelInfo, value => updateFeaturePreference('showModelInfo', value)),
+        preferenceRow(copy.ui.inputOptimization, copy.ui.inputOptimizationDescription,
+          prefs.inputOptimization, value => updateFeaturePreference('inputOptimization', value)),
+        el(PrivacyVisionSettings, {}))
+    }
+    interface PrivacyVisionDraft {
+      deepSeekModelsEnabled: boolean; redactionEnabled: boolean; visionEnabled: boolean; visionSource: 'existing' | 'custom';
+      visionProvider: string; visionModel: string; visionProtocol: 'openai' | 'anthropic' | 'ollama';
+      visionBaseURL: string; visionCustomModel: string; visionCredentialRef: string;
+    }
+    const PRIVACY_VISION_DEFAULTS: PrivacyVisionDraft = {
+      deepSeekModelsEnabled: true, redactionEnabled: true, visionEnabled: true, visionSource: 'existing',
+      visionProvider: '', visionModel: '', visionProtocol: 'openai', visionBaseURL: '',
+      visionCustomModel: '', visionCredentialRef: 'DELTA_VISION_API_KEY',
+    }
+    function PrivacyVisionSettings(): unknown {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const version = useDeltaSettingsVersion(React)
+      const form = deltaSettingsForm
+      const snapshot = form?.getSnapshot()
+      const stored = snapshot?.value && typeof snapshot.value === 'object'
+        ? snapshot.value as Record<string, unknown> : {}
+      const [draft, setDraft] = React.useState<PrivacyVisionDraft>({
+        deepSeekModelsEnabled: stored.deepSeekModelsEnabled !== false,
+        redactionEnabled: stored.redactionEnabled !== false,
+        visionEnabled: stored.visionEnabled !== false,
+        visionSource: stored.visionSource === 'custom' ? 'custom' : 'existing',
+        visionProvider: typeof stored.visionProvider === 'string' ? stored.visionProvider : '',
+        visionModel: typeof stored.visionModel === 'string' ? stored.visionModel : '',
+        visionProtocol: stored.visionProtocol === 'anthropic' || stored.visionProtocol === 'ollama'
+          ? stored.visionProtocol : 'openai',
+        visionBaseURL: typeof stored.visionBaseURL === 'string' ? stored.visionBaseURL : '',
+        visionCustomModel: typeof stored.visionCustomModel === 'string' ? stored.visionCustomModel : '',
+        visionCredentialRef: typeof stored.visionCredentialRef === 'string' ? stored.visionCredentialRef : 'DELTA_VISION_API_KEY',
+      })
+      const [dirty, setDirty] = React.useState(false)
+      const [keyDraft, setKeyDraft] = React.useState('')
+      const [status, setStatus] = React.useState('')
+      const [busy, setBusy] = React.useState(false)
+      React.useEffect(() => {
+        if (dirty) return
+        const value = form?.getSnapshot().value
+        const values = value && typeof value === 'object' ? value as Record<string, unknown> : {}
+        setDraft({
+          deepSeekModelsEnabled: values.deepSeekModelsEnabled !== false,
+          redactionEnabled: values.redactionEnabled !== false,
+          visionEnabled: values.visionEnabled !== false,
+          visionSource: values.visionSource === 'custom' ? 'custom' : 'existing',
+          visionProvider: typeof values.visionProvider === 'string' ? values.visionProvider : '',
+          visionModel: typeof values.visionModel === 'string' ? values.visionModel : '',
+          visionProtocol: values.visionProtocol === 'anthropic' || values.visionProtocol === 'ollama'
+            ? values.visionProtocol : 'openai',
+          visionBaseURL: typeof values.visionBaseURL === 'string' ? values.visionBaseURL : '',
+          visionCustomModel: typeof values.visionCustomModel === 'string' ? values.visionCustomModel : '',
+          visionCredentialRef: typeof values.visionCredentialRef === 'string' ? values.visionCredentialRef : 'DELTA_VISION_API_KEY',
+        })
+      }, [version, dirty])
+
+      const change = <K extends keyof PrivacyVisionDraft>(key: K, value: PrivacyVisionDraft[K]): void => {
+        setDraft(current => ({ ...current, [key]: value }))
+        setDirty(true)
+      }
+      const save = async (): Promise<void> => {
+        if (!form || snapshot?.writable === false || busy) return
+        if (draft.visionSource === 'custom') {
+          try {
+            const endpoint = new URL(draft.visionBaseURL)
+            if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
+              throw new Error('invalid URL')
+            }
+          } catch { setStatus(copy.ui.visionFailed); return }
+          if (!draft.visionCustomModel.trim() || (draft.visionCredentialRef.trim() &&
+              !/^[A-Za-z_][A-Za-z0-9_]*$/.test(draft.visionCredentialRef.trim()))) {
+            setStatus(copy.ui.visionFailed); return
+          }
+        }
+        setBusy(true); setStatus('')
+        try {
+          const operations = Object.entries(draft).map(([path, value]) => ({ op: 'set' as const, path: [path], value }))
+          const result = await form.mutate(operations, snapshot?.revision)
+          if (result === false || (result && typeof result === 'object' && (result as any).ok === false)) {
+            setStatus(copy.ui.visionFailed); return
+          }
+          if (keyDraft) {
+            const ref = draft.visionCredentialRef.trim()
+            const remote = deltaCredentialRemote
+            if (!ref || !remote?.set) { setStatus(copy.ui.visionMissingForm); return }
+            const credentialResult = await remote.set({ ref, value: keyDraft })
+            if (credentialResult && typeof credentialResult === 'object' && (credentialResult as any).ok === false) {
+              setStatus(copy.ui.visionFailed); return
+            }
+            setKeyDraft('')
+            setStatus(copy.ui.visionKeySaved)
+          } else setStatus(copy.ui.visionSaved)
+          setDirty(false)
+        } catch { setStatus(copy.ui.visionFailed) }
+        finally { setBusy(false) }
+      }
+      const restore = async (): Promise<void> => {
+        if (!form || !snapshot || snapshot.writable === false || busy) return
+        setBusy(true); setStatus('')
+        try {
+          const fields = Object.keys(PRIVACY_VISION_DEFAULTS)
+          const result = await form.mutate(fields.map(path => ({ op: 'unset' as const, path: [path] })), snapshot.revision)
+          if (result === false || (result && typeof result === 'object' && (result as any).ok === false)) throw new Error('rejected')
+          setDirty(false); setStatus(copy.ui.visionSaved)
+        } catch { setStatus(copy.ui.visionFailed) }
+        finally { setBusy(false) }
+      }
+      const clearCredential = async (): Promise<void> => {
+        const ref = draft.visionCredentialRef.trim()
+        if (!ref || !deltaCredentialRemote?.unset || busy) { setStatus(copy.ui.visionMissingForm); return }
+        setBusy(true); setStatus('')
+        try {
+          const result = await deltaCredentialRemote.unset({ ref })
+          if (result && typeof result === 'object' && (result as any).ok === false) throw new Error('rejected')
+          setStatus(copy.ui.visionSaved)
+        } catch { setStatus(copy.ui.visionFailed) }
+        finally { setBusy(false) }
+      }
+      const textField = (label: string, key: 'visionProvider' | 'visionModel' | 'visionBaseURL' | 'visionCustomModel' | 'visionCredentialRef', type = 'text'): unknown =>
+        el('label', { className: 'dtd-privacy-field' }, label,
+          el('input', { type, value: draft[key], spellCheck: false, onChange: (event: any) => change(key, event.target.value) }))
+      if (!form) return el('section', { className: 'dtd-privacy-settings', 'aria-label': copy.ui.privacyVisionTitle },
+        el('h4', null, copy.ui.privacyVisionTitle), el('p', null, copy.ui.visionMissingForm))
+      return el('section', { className: 'dtd-privacy-settings', 'aria-label': copy.ui.privacyVisionTitle },
+        el('h4', null, copy.ui.privacyVisionTitle),
+        el('h4', null, copy.ui.modelRoutesTitle),
+        preferenceRow(copy.ui.deepSeekModelsEnabled, copy.ui.deepSeekModelsEnabledDescription, draft.deepSeekModelsEnabled,
+          value => change('deepSeekModelsEnabled', value)),
+        preferenceRow(copy.ui.redactionEnabled, copy.ui.redactionDescription, draft.redactionEnabled,
+          value => change('redactionEnabled', value)),
+        preferenceRow(copy.ui.visionEnabled, copy.ui.visionEnabledDescription, draft.visionEnabled,
+          value => change('visionEnabled', value)),
+        el('label', { className: 'dtd-privacy-field' }, copy.ui.visionSource,
+          el('select', { value: draft.visionSource, onChange: (event: any) => change('visionSource', event.target.value) },
+            el('option', { value: 'existing' }, copy.ui.visionExisting),
+            el('option', { value: 'custom' }, copy.ui.visionCustom))),
+        draft.visionSource === 'existing' ? el('div', { className: 'dtd-privacy-grid' },
+          textField(copy.ui.visionProvider, 'visionProvider'), textField(copy.ui.visionModel, 'visionModel'))
+          : el('div', null,
+            el('label', { className: 'dtd-privacy-field' }, copy.ui.visionProtocol,
+              el('select', { value: draft.visionProtocol, onChange: (event: any) => change('visionProtocol', event.target.value) },
+                el('option', { value: 'openai' }, 'OpenAI-compatible'),
+                el('option', { value: 'anthropic' }, 'Anthropic Messages'),
+                el('option', { value: 'ollama' }, 'Ollama'))),
+            el('div', { className: 'dtd-privacy-grid' },
+              textField(copy.ui.visionBaseURL, 'visionBaseURL', 'url'),
+              textField(copy.ui.visionCustomModel, 'visionCustomModel')),
+            textField(copy.ui.visionCredentialRef, 'visionCredentialRef'),
+            el('label', { className: 'dtd-privacy-field' }, copy.ui.visionCredentialPlaceholder,
+              el('input', { type: 'password', autoComplete: 'new-password', value: keyDraft,
+                onChange: (event: any) => setKeyDraft(event.target.value) })),
+            el('p', { className: 'dtd-privacy-note' }, copy.ui.visionCredentialHint),
+            el('button', { type: 'button', className: 'dtd-mcp-button', disabled: busy,
+              onClick: () => void clearCredential() }, copy.ui.visionClearCredential)),
+        el('p', { className: 'dtd-privacy-note' }, copy.ui.visionAdmissionHint),
+        el('div', { className: 'dtd-privacy-actions' },
+          el('button', { type: 'button', className: 'dtd-mcp-button is-primary', disabled: busy || snapshot?.writable === false,
+            onClick: () => void save() }, copy.ui.visionSave),
+          el('button', { type: 'button', className: 'dtd-mcp-button', disabled: busy || snapshot?.writable === false,
+            onClick: () => void restore() }, copy.ui.visionRestore)),
+        status ? el('p', { role: 'status', className: 'dtd-privacy-status' }, status) : null,
+        snapshot?.writable === false ? el('p', { className: 'dtd-privacy-note' }, copy.ui.visionMissingForm) : null)
+    }
+    function ModelLabelExtension(props: AssistantSlotProps & {
+      provider?: { id?: string; name?: string }; model?: { name?: string }; placement?: string
+    }): unknown {
+      const prefs = useFeaturePreferences(React)
+      const showModel = prefs.showModelInfo && typeof props.model?.name === 'string'
+      const showAccount = prefs.showDeepSeekAccountInfo && props.provider?.id === 'deepseek-account' &&
+        typeof props.provider.name === 'string' && props.placement !== 'option'
+      if (!showModel && !showAccount) return null
+      return el('span', { className: 'dtd-model-label', 'data-placement': props.placement || '' },
+        showAccount ? el('span', { className: 'dtd-model-account' }, props.provider?.name) : null,
+        showModel ? el('span', { className: 'dtd-model-name' }, props.model?.name) : null)
+    }
+    function AssistantInputControls(props: AssistantSlotProps): unknown {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const prefs = useFeaturePreferences(React)
+      const draft = props.useInput(state => state.draft)
+      const session = props.useSession(state => state)
+      const chat = props.useChat(state => state)
+      const draftRef = React.useRef(draft)
+      draftRef.current = draft
+      const sessionRef = React.useRef(props.sessionId)
+      sessionRef.current = props.sessionId
+      const [message, setMessage] = React.useState('')
+      const openDiscussion = async (): Promise<void> => {
+        const context = conversationContext(chat)
+        const status = session.running ? 'running' : session.awaitingFirstTurn ? 'waiting for first turn' : 'idle'
+        const prompt = `You are an independent discussion assistant for the user's main task. Discuss ideas, clarify requirements, and help plan corrections. This is a separate session: do not claim to have changed or interrupted the main task.\n\nMain task session: ${props.sessionId}\nMain task status: ${status}\n\nRecent loaded conversation context (may be incomplete):\n${context || '(no conversation excerpt available)'}`
+        try {
+          setMessage(copy.ui.assistantStarting)
+          await openAssistantSession(props.sessionId, 'discussion', prompt)
+          setMessage(copy.ui.assistantReady)
+        } catch (error) { setMessage(error instanceof Error ? error.message : copy.ui.assistantUnavailable) }
+      }
+      const optimize = async (): Promise<void> => {
+        if (!prefs.inputOptimization) { setMessage(copy.ui.optimizationDisabled); return }
+        if (!draft.trim()) return
+        const original = draft
+        const context = conversationContext(chat, 1800)
+        const prompt = `Optimize the user's draft while preserving its exact intent, facts, tone, and constraints. Do not add unsupported facts, requirements, or commitments. Return only the revised text, with no preface or explanation.\n\nMain task context (use only to resolve references; do not add facts):\n${context || '(none)'}\n\n<original-user-input>\n${original}\n</original-user-input>`
+        try {
+          setMessage(copy.ui.assistantStarting)
+          await openAssistantSession(props.sessionId, 'optimization', prompt, {
+            purpose: 'optimization', parentSessionId: props.sessionId, originalDraft: original,
+            getCurrentDraft: () => sessionRef.current === props.sessionId ? draftRef.current : '',
+            inputActions: props.inputActions,
+          })
+          setMessage(copy.ui.assistantReady)
+        } catch (error) { setMessage(error instanceof Error ? error.message : copy.ui.assistantUnavailable) }
+      }
+      return el('div', { className: 'dtd-context-controls' },
+        el('div', { className: 'dtd-context-actions' },
+          el('button', { type: 'button', className: 'dtd-context-action', onClick: () => { void openDiscussion() } }, copy.ui.discussTask),
+          prefs.inputOptimization ? el('button', { type: 'button', className: 'dtd-context-action', disabled: !draft.trim(),
+            onClick: () => { void optimize() } }, copy.ui.optimizeDraft) : null),
+        message ? el('span', { role: 'status', className: 'dtd-context-feedback' }, message) : null)
+    }
+    function OptimizerApplyAction(props: AssistantSlotProps): unknown {
+      const workflow = assistantWorkflows.get(props.sessionId)
+      const chat = props.useChat(state => state)
+      const [open, setOpen] = React.useState(false)
+      const [edited, setEdited] = React.useState('')
+      const [message, setMessage] = React.useState('')
+      if (!workflow || workflow.purpose !== 'optimization' || !props.messageId) return null
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const node = chat.nodes?.values().find(value => {
+        const data = value?.data as Record<string, any> | undefined
+        return data?.finalNode?.messageId === props.messageId || data?.messageId === props.messageId
+      })
+      const data = node?.data as Record<string, any> | undefined
+      const blocks = Array.isArray(data?.blocks) ? data.blocks : []
+      const generated = blocks.flatMap((block: any) => block?.kind === 'text' && typeof block.text === 'string' ? [block.text] : []).join('').trim()
+      if (!generated) return null
+      return el('div', { className: 'dtd-optimizer-action' },
+        el('button', { type: 'button', className: 'dtd-context-action', onClick: () => { setEdited(generated); setOpen(true); setMessage('') } }, copy.ui.previewOptimization),
+        open ? el('div', { className: 'dtd-optimizer-preview', role: 'dialog', 'aria-label': copy.ui.previewOptimization },
+          el('label', null, copy.ui.previewOptimization),
+          el('textarea', { value: edited, rows: 7, onChange: (event: { currentTarget: { value: string } }) => setEdited(event.currentTarget.value) }),
+          message ? el('p', { role: 'alert' }, message) : null,
+          el('div', { className: 'dtd-context-actions' },
+            el('button', { type: 'button', onClick: () => {
+              const current = workflow.getCurrentDraft?.()
+              if (!workflow.inputActions || !workflow.getCurrentDraft ||
+                  (current !== workflow.originalDraft && current !== workflow.appliedDraft)) {
+                setMessage(copy.ui.draftChanged); return
+              }
+              workflow.inputActions.setDraft(edited)
+              workflow.inputActions.persistDraft()
+              workflow.appliedDraft = edited
+              setMessage(copy.ui.assistantReady)
+            } }, copy.ui.applyOptimization),
+            el('button', { type: 'button', onClick: () => {
+              const current = workflow.getCurrentDraft?.()
+              if (!workflow.inputActions || !workflow.getCurrentDraft ||
+                  (current !== workflow.originalDraft && current !== workflow.appliedDraft)) {
+                setMessage(copy.ui.draftChanged); return
+              }
+              workflow.inputActions.setDraft(workflow.originalDraft || '')
+              workflow.inputActions.persistDraft()
+              workflow.appliedDraft = undefined
+              setMessage(copy.ui.restoreOriginal)
+            } }, copy.ui.restoreOriginal),
+            el('button', { type: 'button', onClick: () => {
+              const write = navigator.clipboard?.writeText(edited)
+              if (write) void write.then(() => setMessage(copy.ui.copied), () => setMessage(copy.ui.copyFailed))
+              else setMessage(copy.ui.copyFailed)
+            } }, copy.ui.copyText),
+            el('button', { type: 'button', onClick: () => setOpen(false) }, copy.ui.cancel))) : null)
+    }
+    function CompactionActivityAction(props: AssistantSlotProps): unknown {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const chat = props.useChat(state => state)
+      const status = props.useProjection<{ seq?: number; phase?: 'idle' | 'running' | 'completed' | 'failed'; failed?: boolean }>(
+        'deltaContextCompactionStatus')
+      if (!props.messageId || props.messageId !== latestAssistantMessageId(chat) || !status || (status.seq ?? -1) < 0) return null
+      const phase = status.failed ? 'failed' : status.phase ?? 'idle'
+      if (phase === 'idle') return null
+      const checkpoint = latestCheckpoint(chat)
+      const failed = phase === 'failed'
+      const label = failed ? copy.ui.automaticCompactionFailed
+        : phase === 'running' ? copy.ui.compacting : copy.ui.compactionCompleted
+      return el('div', { className: `dtd-compaction-event is-${failed ? 'failed' : phase}`,
+        role: failed ? 'alert' : 'status', 'aria-live': 'polite' },
+        el('span', { className: 'dtd-compaction-event-icon', 'aria-hidden': true },
+          failed ? '!' : phase === 'running' ? el('span', { className: 'dtd-compaction-spinner' }) : '✓'),
+        el('span', { className: 'dtd-compaction-event-label' }, label),
+        !failed && checkpoint ? el('details', { className: 'dtd-compaction-summary-details' },
+          el('summary', null, copy.ui.viewCheckpoint),
+          el('pre', { className: 'dtd-compaction-summary' }, checkpoint.summary)) : null)
+    }
+    function EmbeddedAssistantConversation(props: AssistantSlotProps): unknown {
+      const session = props.useSession(state => state)
+      const conversation = props.useConversation?.((value: any) => value)
+      const active = !!conversation && (conversation.activeTargets?.size > 0 || !session.blank || session.running)
+      const phase = active ? 'active' : session.promptAttempted ? 'engaging' : 'blank'
+      const FixedChatView = (viewProps: { renderSlot(name: string, input: Record<string, unknown>): unknown }): unknown =>
+        viewProps.renderSlot('conversation.session', { view: 'chat' })
+      return props.renderFactorySlot?.('conversation.content',
+        { variant: 'embedded', phase, hero: phase === 'blank' }, { slots: { views: FixedChatView } }) ?? null
+    }
+    function AssistantTabBody(props: AssistantSlotProps): unknown {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const info = props.useTabInfo?.()
+      const resource = props.useResource?.<AssistantResource>(info?.tab.contentId || '')
+      const mainState = props.useSession(state => state)
+      const mainPressure = props.useProjection('contextPressure')
+      const breakdown = props.useProjection('contextBreakdown') as Record<string, number> | undefined
+      const mainChat = props.useChat(state => state)
+      const [correction, setCorrection] = React.useState('')
+      const [confirm, setConfirm] = React.useState(false)
+      const [feedback, setFeedback] = React.useState('')
+      const [correctionOpen, setCorrectionOpen] = React.useState(false)
+      const [queuePending, setQueuePending] = React.useState(false)
+      const usage = readContextUsage(mainPressure)
+      const turns = mainChat.timeline?.turnOrder?.length ?? 0
+      const contextExcerpt = conversationContext(mainChat, 3000)
+      const parentId = resource?.value?.parentSessionId || mainState.sessionId
+      const mainStatus = mainState.running ? copy.ui.sessionRunning
+        : mainState.awaitingFirstTurn ? copy.ui.assistantStarting : copy.ui.sessionIdle
+      const checkpoint = latestCheckpoint(mainChat)
+      const send = async (): Promise<void> => {
+        if (!confirm || !correction.trim() || queuePending) return
+        setQueuePending(true)
+        try {
+          const ok = await queueMainCorrection(parentId, correction.trim())
+          setFeedback(ok ? copy.ui.correctionQueued : copy.ui.correctionFailed)
+          if (ok) { setCorrection(''); setConfirm(false); setCorrectionOpen(false) }
+        } catch { setFeedback(copy.ui.correctionFailed) }
+        finally { setQueuePending(false) }
+      }
+      const conversation = resource?.value
+        ? el(props.SessionProvider as any, { session: resource.value.reference },
+          el('div', { className: 'dtd-assistant-conversation' }, props.renderSlot?.('delta.assistant.conversation', {}) ?? null)) : null
+      return el('section', { className: 'dtd-assistant-panel', 'aria-label': copy.ui.discussTask },
+        el('header', { className: 'dtd-assistant-header' },
+          el('div', { className: 'dtd-assistant-title-copy' },
+            el('strong', null, resource?.value?.purpose === 'optimization' ? copy.ui.optimizeDraft : copy.ui.discussTask),
+            el('p', null, copy.ui.assistantContext)),
+          el('div', { className: 'dtd-assistant-header-actions' },
+            resource?.value?.purpose === 'discussion' ? el('button', { type: 'button', className: 'dtd-assistant-action',
+              onClick: () => { setCorrectionOpen(true); setConfirm(false); setFeedback('') } }, copy.ui.queueCorrection) : null,
+            assistantServices?.sidebarRight.closeRightbar ? el('button', { type: 'button', className: 'dtd-assistant-close',
+              'aria-label': copy.ui.close, title: copy.ui.close,
+              onClick: () => assistantServices?.sidebarRight.closeRightbar?.() }, '×') : null)),
+        el('details', { className: 'dtd-main-task-status', 'aria-label': copy.ui.mainTaskStatus },
+          el('summary', { className: 'dtd-main-task-summary' },
+            el('span', { className: `dtd-task-state${mainState.running ? ' is-running' : ''}` }, mainStatus),
+            el('span', { className: 'dtd-task-turns' }, `${copy.ui.loadedTurns}: ${turns}`),
+            usage ? el('span', { className: 'dtd-task-context' }, `${usage.percent}%`) : null,
+            el('span', { className: 'dtd-task-details-label' }, copy.ui.mainTaskStatus)),
+          el('div', { className: 'dtd-main-task-details' },
+            mainState.lastAgentError ? el('p', { role: 'alert' }, mainState.lastAgentError) : null,
+            usage ? el('p', null, `${copy.ui.contextUsage}: ${usage.percent}% (~${usage.used}/${usage.capacity})`) : null,
+            breakdown ? el('p', null, `${copy.ui.contextBreakdown}: system ${breakdown.systemTokens ?? 0} · tools ${breakdown.toolsTokens ?? 0} · messages ${breakdown.messageTokens ?? 0}`) : null,
+            contextExcerpt ? el('details', { className: 'dtd-checkpoint' },
+              el('summary', null, copy.ui.mainContext), el('pre', null, contextExcerpt)) : null,
+            checkpoint ? el('details', { className: 'dtd-checkpoint' },
+              el('summary', null, copy.ui.checkpoint), el('pre', null, checkpoint.summary)) : null)),
+        feedback ? el('p', { className: 'dtd-assistant-feedback', role: 'status' }, feedback) : null,
+        conversation,
+        correctionOpen ? el('div', { className: 'dtd-correction-overlay', role: 'presentation',
+          onMouseDown: (event: { target: unknown; currentTarget: unknown }) => {
+            if (event.target === event.currentTarget && !queuePending) setCorrectionOpen(false)
+          } },
+          el('section', { className: 'dtd-correction-dialog', role: 'dialog', 'aria-modal': true,
+            'aria-label': copy.ui.queueCorrection },
+            el('header', { className: 'dtd-correction-dialog-header' },
+              el('strong', null, copy.ui.queueCorrection),
+              el('button', { type: 'button', className: 'dtd-assistant-close', 'aria-label': copy.ui.cancel,
+                disabled: queuePending, onClick: () => setCorrectionOpen(false) }, '×')),
+            el('p', null, copy.ui.queueOnly),
+            el('textarea', { value: correction, rows: 5, placeholder: copy.ui.correctionPlaceholder,
+              onChange: (event: { currentTarget: { value: string } }) => { setCorrection(event.currentTarget.value); setConfirm(false); setFeedback('') } }),
+            confirm ? el('div', { className: 'dtd-correction-confirm' },
+              el('p', null, copy.ui.directionChange), el('pre', null, correction),
+              el('button', { type: 'button', disabled: !correction.trim() || queuePending, onClick: () => { void send() } },
+                queuePending ? copy.ui.assistantStarting : copy.ui.confirmQueue),
+              el('button', { type: 'button', disabled: queuePending, onClick: () => setConfirm(false) }, copy.ui.cancel))
+              : el('button', { type: 'button', className: 'dtd-context-action', disabled: !correction.trim(),
+                onClick: () => setConfirm(true) }, copy.ui.reviewCorrection),
+            feedback && correctionOpen ? el('p', { className: 'dtd-assistant-feedback', role: 'status' }, feedback) : null)) : null)
+    }
     function useCopy(controller: DeltaController): { state: DeltaState; copy: DeltaCopy } {
       const state = React.useSyncExternalStore(
         callback => controller.subscribe(callback), () => controller.getSnapshot())
@@ -5914,6 +6677,7 @@ window.__ModuleLoader__.load({
       ]
       return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
         'aria-label': copy.ui.personalization },
+        el('h2', { className: 'dtd-page-title' }, copy.meta.title),
         el('div', { className: 'dtd-preference-row' },
           el('div', { className: 'dtd-preference-copy' },
             el('strong', null, copy.ui.appearance),
@@ -6018,7 +6782,10 @@ window.__ModuleLoader__.load({
           el('li', null, copy.ui.integrationSidebar),
           el('li', null, copy.ui.integrationCollapse),
           el('li', null, copy.ui.integrationDeletion),
-          el('li', null, copy.ui.integrationRunning))) : null)
+          el('li', null, copy.ui.integrationRunning))) : null,
+        el('details', { className: 'dtd-advanced-features' },
+          el('summary', null, copy.ui.contextFeatures),
+          el(FeaturePreferencesSection, {})))
     }
     return {
       inject: [],
@@ -6400,6 +7167,15 @@ window.__ModuleLoader__.load({
                 }, feature.icon))
               }
 
+              // Context assistance is an optional public Host integration. The
+              // parent remains live if an older Host omits any service.
+              try { scope.inject(['sessions', 'resources', 'sidebarRightTabs', 'sidebarRight'], assistantScope => {
+                const candidate = assistantScope as ClientContext & AssistantServices
+                if (!candidate.sessions || !candidate.resources || !candidate.sidebarRightTabs ||
+                    !candidate.sidebarRight || !candidate.slots) return
+                assistantScope.effect(() => registerAssistantSurface(candidate),
+                  'dsh-delta-desktop: Host context and assistant capabilities')
+              }) } catch { /* Assistant Host capabilities are optional. */ }
               const registerBrand = (
                 name: 'sidebar.brand.mark' | 'sidebar.brand.name',
                 id: string,
