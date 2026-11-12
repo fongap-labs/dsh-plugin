@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
-import { isAllowedVerificationScript, type VerificationScript } from './verify-presets.js'
+import { isAllowedVerificationScript, selectImpactVerification, type VerificationScript } from './verify-presets.js'
 import { prepareVerify, runPreparedVerify, type PreparedVerification } from './verify.js'
 import { classifyFailure, classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
 
@@ -26,13 +26,15 @@ const STEP_SCHEMA = {
 export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDefinition {
   return defineTool({
     name: 'code_verify_suite',
-    description: 'Prevalidate 1–5 distinct project scripts, then execute sequentially in the DSH Host subprocess. Stop at first failure and retain bounded per-step evidence. Honors execution.allowCommands.',
+    description: 'Prevalidate 1–5 distinct scripts, then execute sequentially in the DSH Host. Optional changedPaths selects a focused advisory subset; full delivery verification remains required. Stop on first failure.',
     parameters: {
       scripts: {
         type: 'array', required: true,
         description: '1..5 distinct allowlisted base checks or declared Node variants such as test:unit.',
         items: { type: 'string' },
       },
+      changedPaths: { type: 'array', description: 'Optional 1..64 repository-relative changed paths supplied after inspecting Git; selects a focused subset of scripts, never proves completion.',
+        items: { type: 'string' } },
       cwd: { type: 'string', description: 'Optional workspace-relative directory.' },
       project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'], description: 'Project type; auto requires exactly one manifest type.' },
       timeoutMs: { type: 'integer', description: 'Per-step timeout, 10000..600000 ms.' },
@@ -43,11 +45,15 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
         completed: { type: 'integer', required: true },
         skipped: { type: 'array', required: true, items: { type: 'string' } },
         nextAction: { type: 'string', required: true },
+        scope: { type: 'string', required: true, enum: ['full', 'focused'] },
+        deferred: { type: 'array', required: true, items: { type: 'string' } },
+        selectionReason: { type: 'string', required: true },
         results: { type: 'array', required: true, items: STEP_SCHEMA },
       } },
       render(_args, value) {
         return [{ type: 'text', text: [
-          'Verify suite: ' + (value.passed ? 'PASS' : 'FAIL') + ', ' + value.completed + ' run, ' + value.skipped.length + ' skipped.',
+          'Verify suite (' + value.scope + '): ' + (value.passed ? 'PASS' : 'FAIL') + ', ' + value.completed + ' run, ' + value.skipped.length + ' skipped.',
+          ...(value.deferred.length ? ['Deferred until complete verification: ' + value.deferred.join(', ')] : []),
           ...value.results.map(step => step.command + ': ' + (step.passed ? 'PASS' : 'FAIL') + ' (' + step.exitCode + ')\n' + step.output),
           ...(value.skipped.length ? ['Skipped: ' + value.skipped.join(', ')] : []),
           'Next: ' + value.nextAction,
@@ -61,6 +67,9 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
       }
       if (new Set(scripts).size !== scripts.length) throw new Error('verification scripts must not be duplicated')
       if (scripts.some(script => !isAllowedVerificationScript(script))) throw new Error('script is not allowlisted')
+      const selection = selectImpactVerification(scripts, args.changedPaths)
+      // Validate even deferred candidates before any command. A focused pass
+      // is never authorization to run undeclared scripts or bypass Host FS.
       // No command may run if a later script is undeclared or the workspace is unsafe.
       const prepared: PreparedVerification[] = []
       for (const script of scripts) {
@@ -78,8 +87,10 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
       if (prepared.some(step => step.cwd !== executionCwd)) {
         throw new Error('Host verification execution directory changed during preflight')
       }
+      const selected = new Set(selection.selected)
+      const executionSteps = prepared.filter(step => selected.has(step.script))
       const results = []
-      for (const step of prepared) {
+      for (const step of executionSteps) {
         if (exec.signal.aborted) throw new Error('verification cancelled')
         try {
           const evidence = await runPreparedVerify(ctx, settings, exec, step)
@@ -98,13 +109,16 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
           break
         }
       }
-      const passed = results.length === prepared.length && results.every(result => result.passed)
+      const passed = results.length === executionSteps.length && results.every(result => result.passed)
       const failure = results.find(result => !result.passed)
-      const nextAction = verificationNextAction(failure?.failureKind ?? 'none')
+      const nextAction = passed && selection.scope === 'focused'
+        ? 'Focused checks passed; complete verification and delivery gate remain required before merge or release.'
+        : verificationNextAction(failure?.failureKind ?? 'none')
       return {
         passed, completed: results.length,
-        skipped: prepared.slice(results.length).map(step => step.script),
-        nextAction, results,
+        skipped: executionSteps.slice(results.length).map(step => step.script),
+        deferred: selection.deferred, scope: selection.scope,
+        selectionReason: selection.reason, nextAction, results,
       }
     },
   })
