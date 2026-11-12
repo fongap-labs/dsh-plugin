@@ -148,7 +148,7 @@ interface SessionHoverProps { sessionId: string }
 interface ReactApi {
   useRef<T>(initial: T): { current: T }
   useEffect(effect: () => void | (() => void), dependencies?: readonly unknown[]): void
-  createElement(type: string | ((props: DeltaProps) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
+  createElement(type: string | ((props: any) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
   useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
   useSyncExternalStore<T = DeltaState>(subscribe: (listener: () => void) => () => void, getSnapshot: () => T): T
 }
