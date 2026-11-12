@@ -64,6 +64,7 @@ Security is a Host-enforced, deny-before-action boundary. File modifications and
 
 Current `packages/dsh-delta-desktop/src/client.ts` is more than 7,000 lines. It contains two large DOM compatibility entry points (`installSidebarCompatibility` and `installHostSearch`), a compound client feature manager, and a broad bootstrap/module factory. Host-side redaction, Vision and context projection are already separate.
 
+0. **First implementation landed in this PR:** `src/feature-registry.ts` enforces owner IDs, allowed surfaces, capability prerequisites, unique registration and reverse lifecycle cleanup. `src/index.ts` now uses it for Host feature modules. It does **not** yet modularize browser `client.ts` or create unrestricted new Host capabilities.
 1. **Freeze and measure:** lock approved ZIP CSS/legacy adapter signatures during release; inventory each action, event, snapshot projection and permission boundary. Treat DOM coupling as explicit technical debt, never a core extension API.
 2. **Extract ports and registry:** define read-only queries versus Host-authorized commands; introduce a real owner registry, capability negotiation and lifecycle tests. Do not add an unused parallel registry.
 3. **Move business behaviors by owner:** start with pure query/context logic, then MCP/Vision, and only then the session-security coupling. Keep each migration independently reversible.
