@@ -2,13 +2,7 @@ import { realpath } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { isPathInside, resolveInside } from '@fongap-labs/shared'
-
-interface HostGitFs {
-  resolve(path: string, options: { cwd: string; signal?: AbortSignal }): Promise<unknown>
-  contains(parent: unknown, target: unknown): boolean
-  stat(target: unknown, signal?: AbortSignal): Promise<{ type: string } | undefined>
-  processPath(target: unknown): string
-}
+import { requireHostFs } from '../host-fs.js'
 
 /**
  * Resolve a Git subprocess directory without crossing the DSH Host FS boundary.
@@ -29,16 +23,8 @@ export async function resolveAuthorizedGitCwd(
   if (requested && (requested.includes('\0') || requested.trim() === '')) {
     throw new Error('invalid Host workspace relative path')
   }
-  const mounted: unknown = ctx.get('fs')
-  if (mounted) {
-    const candidate = mounted as Partial<HostGitFs>
-    if (typeof candidate.resolve !== 'function' ||
-        typeof candidate.contains !== 'function' ||
-        typeof candidate.stat !== 'function' ||
-        typeof candidate.processPath !== 'function') {
-      throw new Error('DSH Host FS missing resolve/contains/stat/processPath; refusing local Git fallback')
-    }
-    const fs = candidate as HostGitFs
+  const fs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'processPath'], 'refusing local Git fallback')
+  if (fs) {
     const parent = await fs.resolve(root, { cwd: root, signal: exec.signal })
     if (exec.signal.aborted) throw new Error('Git workspace validation cancelled')
     const target = await fs.resolve(requested ?? root, { cwd: root, signal: exec.signal })

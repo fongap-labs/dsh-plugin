@@ -5,6 +5,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside, isPathInside, SandboxViolationError } from '@fongap-labs/shared'
 import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
+import { requireHostFs } from './host-fs.js'
+import type { HostFsCapabilities, HostWriteIntent } from './host-fs.js'
 
 export const TOOL_PREFIX = 'code_'
 const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
@@ -189,17 +191,10 @@ async function assertLocalPathInside(root: string, target: string, isWrite: bool
  * signature by making probe writes or checking function arity.
  */
 /** Preserve a specific Host version or absence condition across read/modify/write. */
-export type GuardedWriteIntent =
-  | { kind: 'createIfAbsent' }
-  | { kind: 'replaceIfVersion'; version: string }
+export type GuardedWriteIntent = HostWriteIntent
 
 async function guardedWriteTarget(
-  fs: {
-    resolve(path: string, opts: { cwd: string; signal?: AbortSignal }): Promise<unknown>
-    contains?(parent: unknown, child: unknown): boolean
-    stat?(target: unknown, signal?: AbortSignal): Promise<{ type: string; version?: unknown } | undefined>
-    writeText(target: unknown, content: string, intent: unknown, signal?: AbortSignal): Promise<unknown>
-  },
+  fs: HostFsCapabilities,
   root: string,
   absolute: string,
   signal: AbortSignal,
@@ -231,11 +226,8 @@ export async function validateWriteTargetSafe(
   settings?: Pick<Settings, 'fsWriteContract'>,
 ): Promise<GuardedWriteIntent | undefined> {
   const absolute = resolveInside(root, relPath)
-  const fs = ctx.get('fs')
+  const fs = requireHostFs(ctx, ['resolve', 'writeText'], 'refusing local fallback')
   if (fs) {
-    if (typeof fs.resolve !== 'function' || typeof fs.writeText !== 'function') {
-      throw new Error('DSH Host FS missing resolve/writeText; refusing local fallback')
-    }
     if (settings?.fsWriteContract === 'guarded-intent') {
       const { intent } = await guardedWriteTarget(fs, root, absolute, exec.signal)
       return intent
@@ -256,11 +248,8 @@ export async function readTextSafe(
   relPath: string,
 ): Promise<string> {
   const absolute = resolveInside(root, relPath)
-  const fs = ctx.get('fs')
+  const fs = requireHostFs(ctx, ['resolve', 'readText'], 'refusing local fallback')
   if (fs) {
-    if (typeof fs.resolve !== 'function' || typeof fs.readText !== 'function') {
-      throw new Error('DSH Host FS missing resolve/readText; refusing local fallback')
-    }
     const signal = exec.signal
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
     return fs.readText(resolved, signal)
@@ -493,11 +482,8 @@ export async function writeTextSafe(
     throw new Error('pinned write intent requires guarded-intent Host FS')
   }
   const absolute = resolveInside(root, relPath)
-  const fs = ctx.get('fs')
+  const fs = requireHostFs(ctx, ['resolve', 'writeText'], 'refusing local fallback')
   if (fs) {
-    if (typeof fs.resolve !== 'function' || typeof fs.writeText !== 'function') {
-      throw new Error('DSH Host FS missing resolve/writeText; refusing local fallback')
-    }
     const signal = exec.signal
     if (settings?.fsWriteContract === 'guarded-intent') {
       const { target, intent } = await guardedWriteTarget(fs, root, absolute, signal)
