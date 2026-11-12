@@ -29,8 +29,10 @@ const GATEWAY_EXHAUSTED_CODES = new Set([
   'gateway_no_dispatchable_node',
 ])
 
+type GatewayRetryHint = { retryAfterMs: number; suppressAutomaticReplay: boolean }
+
 /** Only accept a Gateway-owned error contract, never an arbitrary phrase. */
-export function gatewayRetryAfterMs(message: unknown): number | null {
+function gatewayRetryHint(message: unknown): GatewayRetryHint | null {
   if (typeof message !== 'string' || message.length > MAX_ERROR_MESSAGE_LENGTH) return null
   const match = /^(?:HTTP\s+)?(?:429|503|504):\s*(\{[\s\S]+\})\s*$/.exec(message.trim())
   if (!match) return null
@@ -42,10 +44,24 @@ export function gatewayRetryAfterMs(message: unknown): number | null {
     if (details.retryable === false) return null
     const value = details.retry_after_ms
     if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0 || value > 86_400_000) return null
-    return value
+    // Gateway #402 marks mixed timeout/rate-limit exhaustion with a long
+    // cooldown as x-should-retry:false. The DSH error event may lose that
+    // header, but preserves the Gateway-owned structured failure kinds.
+    // Pure 429 exhaustion deliberately retains the native Retry-After path.
+    const kinds = details.failure_kinds
+    const hadHeadersTimeout = kinds !== null && typeof kinds === 'object' && !Array.isArray(kinds) &&
+      Number((kinds as Record<string, unknown>).headers_timeout) > 0
+    return {
+      retryAfterMs: value,
+      suppressAutomaticReplay: details.gateway_code === 'gateway_attempt_budget_exhausted' && hadHeadersTimeout && value >= 5_000,
+    }
   } catch {
     return null
   }
+}
+
+export function gatewayRetryAfterMs(message: unknown): number | null {
+  return gatewayRetryHint(message)?.retryAfterMs ?? null
 }
 
 function waitWithAbort(ms: number, signal?: AbortSignal): Promise<boolean> {
@@ -82,9 +98,16 @@ export function registerGatewayRetryCoordinator(
   let isActive = true
   const unbind = runtime.on('agent/request-error', async (event, next) => {
     if (!isActive || !isEnabled() || event?.retryPolicy?.mode === 'always') return next()
-    const hintMs = gatewayRetryAfterMs(event?.failure?.message)
-    if (hintMs === null) return next()
+    const hint = gatewayRetryHint(event?.failure?.message)
+    if (!hint) return next()
     if (event.signal?.aborted) return undefined
+    // Mirror the Gateway's explicit no-immediate-replay decision even when
+    // its HTTP header did not survive the Host Provider adapter.
+    if (hint.suppressAutomaticReplay) {
+      runtime.logger?.info?.('dsh-delta-code: Gateway deferred exhausted mixed failures; stopping automatic replay')
+      return undefined
+    }
+    const hintMs = hint.retryAfterMs
     const nativeMaximum = event.retryPolicy?.maxDelayMs
     const maximum = typeof nativeMaximum === 'number' && Number.isFinite(nativeMaximum) && nativeMaximum > 0
       ? nativeMaximum

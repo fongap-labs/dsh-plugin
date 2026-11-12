@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code Worker 按网关 #402 的结构化失败分类识别混合 429/响应头超时后的禁止自动重试信号；仅阻止对应故障转移耗尽重播，纯 429 仍按 Retry-After 由 DSH 原生机制恢复。
+
 - 修复: Delta Code 内部 A/B 统计按 DSH 原生 tool/result 的 message.source.callId 和 content[0].isError 正确关联错误结果，避免低估工具失败与失败后重复调用；新增真实事件结构回归测试。
 
 - 修复: Delta Desktop 不再自动注册与 Delta Code Worker 重复的网关重试监听；由 Code Worker 统一协调网关冷却与 DSH 原生重试，避免双重拦截。
