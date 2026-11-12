@@ -6744,7 +6744,10 @@ window.__ModuleLoader__.load({
             }, copy.sessionMenu.clearPin) : null)),
         el('p', { className: 'dtd-current', role: 'status' },
           copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
-        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null)
+        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
+        el('details', { className: 'dtd-advanced-features' },
+          el('summary', null, copy.ui.contextFeatures),
+          el(FeaturePreferencesSection, {})))
     }
     return {
       inject: [],
@@ -7079,7 +7082,7 @@ window.__ModuleLoader__.load({
                 style.dataset.deltaFeatureOnly = ''
                 style.textContent = FEATURE_ONLY_CSS
                 document.head.appendChild(style)
-                return () => { style.remove(); closeMcpManagement() }
+                return () => { style.parentNode?.removeChild?.(style); closeMcpManagement() }
               }, 'dsh-delta-desktop: optional feature styles and MCP cleanup')
 
               try { scope.inject(['configForms', 'remote'], mcpScope => {
@@ -7111,13 +7114,6 @@ window.__ModuleLoader__.load({
                 }, 'dsh-delta-desktop: MCP manager integration')
               }) } catch { /* unavailable official settings services remain optional */ }
 
-              scope.slots.inject('settings.section', () => scope.slots.register({
-                name: 'settings.section', id: 'delta.advanced-features', order: 19,
-                label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.contextFeatures,
-              }, FeaturePreferencesSection))
-              scope.slots.inject('settings.section.icon', () => scope.slots.register({
-                name: 'settings.section.icon', id: 'delta.advanced-features', order: 19,
-              }, SettingsSectionIcon))
               if (MenuItemButton && ReactRoot) {
                 scope.slots.inject('plugins.add.actions', () => scope.slots.register<AddPluginActionProps>({
                   name: 'plugins.add.actions', id: 'delta.mcp.add-server', order: -100,
