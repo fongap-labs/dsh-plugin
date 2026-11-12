@@ -151,7 +151,8 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(entry.spec.label(), '个性设置')
   const controller = entry.spec.inject().controller
   assert.equal(controller.getSnapshot().error, false, 'ZIP palette must be owned before reporting readiness')
-  assert.match(JSON.stringify(entry.component({ controller })), new RegExp('Delta 桌面'))
+  assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
+    'ZIP settings own the UI and do not reintroduce the removed brand heading')
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-preference-row/)
   controller.setMode('official')
   assert.equal(app.layers.size, 0, 'official mode releases the ZIP theme tokens')
@@ -173,7 +174,8 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.match(app.stored, /"mode":"delta"/)
   app.documentElement.lang = 'en'
   app.context.observers.forEach(notify => notify())
-  assert.match(JSON.stringify(entry.component({ controller })), /Delta Desktop/)
+  assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
+    'language changes must preserve the ZIP settings surface')
   assert.equal(entry.spec.label(), 'Personalization')
   app.cleanup(); app.cleanup()
   assert.equal(app.layers.size, 0)
