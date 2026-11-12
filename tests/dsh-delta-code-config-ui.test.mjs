@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { DEFAULT_LSP_SERVERS } from '../packages/dsh-delta-code/lib/lsp-defaults.js'
 const root = new URL('../packages/dsh-delta-code/', import.meta.url)
 const read = (p) => readFileSync(new URL(p,root),'utf8')
 describe('code worker native settings contract', () => {
@@ -20,6 +21,16 @@ describe('code worker native settings contract', () => {
     assert.match(read('src/config.ts'), /volatile\(\)/)
     assert.match(read('src/config.ts'), /tokenEnv: Schema\.string\(\)\.required\(\)/)
     assert.doesNotMatch(read('src/config.ts'), /role\('secret'\)/)
+  })
+  it('uses one shared default LSP catalog in settings and runtime', () => {
+    assert.deepEqual(normalizeConfig({}).lspServers, DEFAULT_LSP_SERVERS)
+    const settings = read('src/config.ts')
+    const runtime = read('src/runtime.ts')
+    assert.match(settings, /import \{ DEFAULT_LSP_SERVERS \} from '\.\/lsp-defaults\.js'/)
+    assert.match(runtime, /import \{ DEFAULT_LSP_SERVERS \} from '\.\/lsp-defaults\.js'/)
+    assert.doesNotMatch(settings, /typescript-language-server/)
+    assert.doesNotMatch(runtime, /typescript-language-server/)
+    assert.equal(DEFAULT_LSP_SERVERS.length, 5)
   })
   it('ships a proper client entry, not an HTML/DOM overlay', () => {
     const pkg = JSON.parse(read('package.json'))
