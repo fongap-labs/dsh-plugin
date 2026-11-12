@@ -56,11 +56,22 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
   })
 }
 
+interface VerificationProjectProbe {
+  /** Scoped to one preflight, never persisted between tool calls. */
+  root: string
+  cwd: string
+  hostFs: unknown
+  files: ReadonlySet<string>
+  nodeScripts: readonly string[]
+}
+
 export interface PreparedVerification {
   script: VerificationScript
   plan: VerificationCommand
   cwd: string
   timeoutMs: number
+  /** Internal snapshot shared only by scripts of the same verification suite. */
+  probe: VerificationProjectProbe
 }
 
 /** Prepare and validate a check without executing a command. */
@@ -78,6 +89,7 @@ const LOCKFILES = ['pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'bun.lock', 'Carg
 export async function prepareVerify(
   ctx: Context, settings: Settings, exec: ToolRunContext,
   args: { script: VerificationScript; cwd?: string; project?: VerificationProject; timeoutMs?: number },
+  reuseProbe?: VerificationProjectProbe,
 ): Promise<PreparedVerification> {
   const checkCancelled = () => {
     if (exec.signal.aborted) throw new Error('verification cancelled')
@@ -94,11 +106,18 @@ export async function prepareVerify(
   if (typeof project !== 'string' || !PROJECTS.has(project)) throw new Error('project type is not allowlisted')
   const root = await resolveRoot(ctx, exec, settings)
   const cwd = args.cwd ? resolveInside(root, args.cwd) : root
-  const files = new Set<string>()
-  const fileNames = [...new Set([...MANIFESTS.map(([, name]) => name), ...LOCKFILES])]
   let canonicalCwd = cwd
   let hostPackage: unknown
   const hostFs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'readText'], 'refusing local verification fallback')
+  // Reuse only immutable project metadata within the same suite. A changed
+  // mount/root/cwd is never a cache hit and cannot authorize a different Host.
+  if (reuseProbe && (
+    reuseProbe.root !== root || reuseProbe.cwd !== cwd || reuseProbe.hostFs !== hostFs
+  )) {
+    throw new Error('Host verification project changed during preflight')
+  }
+  const files = reuseProbe ? new Set(reuseProbe.files) : new Set<string>()
+  const fileNames = [...new Set([...MANIFESTS.map(([, name]) => name), ...LOCKFILES])]
   if (hostFs) {
     checkCancelled()
     const canonicalRoot = await hostFs.resolve(root, { cwd: root, signal: exec.signal })
@@ -106,16 +125,18 @@ export async function prepareVerify(
     if (!hostFs.contains(canonicalRoot, canonicalDirectory)) {
       throw new Error('script directory escapes the workspace')
     }
-    for (const name of fileNames) {
-      checkCancelled()
-      const target = await hostFs.resolve(join(cwd, name), { cwd, signal: exec.signal })
-      if (!hostFs.contains(canonicalRoot, target)) {
-        throw new Error(name + ' escapes the workspace')
-      }
-      const metadata = await hostFs.stat(target, exec.signal)
-      if (metadata?.type === 'file') {
-        files.add(name)
-        if (name === 'package.json') hostPackage = target
+    if (!reuseProbe) {
+      for (const name of fileNames) {
+        checkCancelled()
+        const target = await hostFs.resolve(join(cwd, name), { cwd, signal: exec.signal })
+        if (!hostFs.contains(canonicalRoot, target)) {
+          throw new Error(name + ' escapes the workspace')
+        }
+        const metadata = await hostFs.stat(target, exec.signal)
+        if (metadata?.type === 'file') {
+          files.add(name)
+          if (name === 'package.json') hostPackage = target
+        }
       }
     }
   } else {
@@ -124,17 +145,19 @@ export async function prepareVerify(
     if (!isPathInside(canonicalRoot, canonicalCwd)) {
       throw new Error('script directory escapes the workspace')
     }
-    for (const name of fileNames) {
-      checkCancelled()
-      try {
-        const file = await realpath(join(canonicalCwd, name))
-        if (!isPathInside(canonicalRoot, file)) {
-          throw new Error(name + ' escapes the workspace')
+    if (!reuseProbe) {
+      for (const name of fileNames) {
+        checkCancelled()
+        try {
+          const file = await realpath(join(canonicalCwd, name))
+          if (!isPathInside(canonicalRoot, file)) {
+            throw new Error(name + ' escapes the workspace')
+          }
+          await access(file)
+          files.add(name)
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('escapes the workspace')) throw error
         }
-        await access(file)
-        files.add(name)
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('escapes the workspace')) throw error
       }
     }
   }
@@ -142,8 +165,8 @@ export async function prepareVerify(
   for (const [language, name] of MANIFESTS) {
     if (files.has(name)) found.add(language)
   }
-  const nodeScripts: string[] = []
-  if (found.has('node')) {
+  const nodeScripts: string[] = reuseProbe ? [...reuseProbe.nodeScripts] : []
+  if (found.has('node') && !reuseProbe) {
     checkCancelled()
     const raw = hostFs
       ? await hostFs.readText(hostPackage, exec.signal)
@@ -176,7 +199,10 @@ export async function prepareVerify(
     ? await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
     : canonicalCwd
   checkCancelled()
-  return { script: args.script, plan, cwd: executionCwd, timeoutMs }
+  return {
+    script: args.script, plan, cwd: executionCwd, timeoutMs,
+    probe: reuseProbe ?? { root, cwd, hostFs, files, nodeScripts },
+  }
 }
 
 /**

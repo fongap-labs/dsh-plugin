@@ -118,6 +118,41 @@ describe('Code Worker verification through DSH Host FS', () => {
     assert.equal(host.spawns.length, 0)
     assert.ok(host.observed.some(item => item.startsWith('readText:')))
   })
+  it('probes project manifests and package scripts once per suite while authorizing each step', async () => {
+    const host = fakeHost({
+      [join(root, 'package.json')]: JSON.stringify({
+        scripts: { test: 'node --test', build: 'tsc', lint: 'eslint .' },
+      }),
+    })
+    const result = await createVerifySuiteTool(host.ctx, settings).execute({
+      scripts: ['test', 'build', 'lint'],
+    }, exec())
+    assert.equal(result.passed, true)
+    assert.equal(host.observed.filter(item => item === 'stat:' + join(root, 'package.json')).length, 1)
+    assert.equal(host.observed.filter(item => item === 'readText:' + join(root, 'package.json')).length, 1)
+    assert.equal(host.observed.filter(item => item === 'processPath:' + root).length, 3)
+    assert.equal(host.spawns.length, 3)
+  })
+
+  it('rejects a changed Host FS mount during shared project preflight without spawning', async () => {
+    const host = fakeHost({
+      [join(root, 'package.json')]: JSON.stringify({ scripts: { test: 'node --test', build: 'tsc' } }),
+    })
+    const fs = host.ctx.get('fs')
+    const original = fs.processPath
+    fs.processPath = target => {
+      const cwd = original(target)
+      // A newly mounted Host may have different contents and capabilities.
+      host.ctx.get = key => key === 'fs' ? { ...fs } : undefined
+      return cwd
+    }
+    await assert.rejects(
+      createVerifySuiteTool(host.ctx, settings).execute({ scripts: ['test', 'build'] }, exec()),
+      /project changed during preflight/,
+    )
+    assert.deepEqual(host.spawns, [])
+  })
+
   it('runs the entire verification suite in the same Host process cwd', async () => {
     const host = fakeHost({
       [join(root, 'package.json')]: JSON.stringify({ scripts: { test: 'node --test', build: 'tsc' } }),

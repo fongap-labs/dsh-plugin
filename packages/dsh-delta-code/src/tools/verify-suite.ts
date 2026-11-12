@@ -3,7 +3,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { isAllowedVerificationScript, type VerificationScript } from './verify-presets.js'
-import { prepareVerify, runPreparedVerify } from './verify.js'
+import { prepareVerify, runPreparedVerify, type PreparedVerification } from './verify.js'
 import { classifyFailure, classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
 
 const STEP_SCHEMA = {
@@ -62,12 +62,15 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
       if (new Set(scripts).size !== scripts.length) throw new Error('verification scripts must not be duplicated')
       if (scripts.some(script => !isAllowedVerificationScript(script))) throw new Error('script is not allowlisted')
       // No command may run if a later script is undeclared or the workspace is unsafe.
-      const prepared = []
+      const prepared: PreparedVerification[] = []
       for (const script of scripts) {
         if (exec.signal.aborted) throw new Error('verification cancelled')
+        // The first check probes project manifests/lockfiles/package scripts.
+        // Later checks reuse that snapshot while still reauthorizing the Host
+        // cwd and checking processPath for each planned script.
         prepared.push(await prepareVerify(ctx, settings, exec, {
           script, cwd: args.cwd, project: args.project, timeoutMs: args.timeoutMs,
-        }))
+        }, prepared[0]?.probe))
       }
       // Every step must target the same Host execution filesystem.
       // A changing processPath during preflight is not safe to execute.
