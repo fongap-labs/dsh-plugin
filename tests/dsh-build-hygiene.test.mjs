@@ -24,6 +24,17 @@ describe('Generated compiler output must be reproducible', () => {
     assert.ok(compile > clean, 'CI must clear stale lib before the first compiler')
   })
 
+  it('does not compile retired plugin templates in any supported build route', () => {
+    const paths = ['package.json', '.github/scripts/central-ci.sh',
+      'scripts/central-ci-windows.mjs']
+    for (const path of paths) {
+      const source = readFileSync(resolve(root, path), 'utf8')
+      assert.doesNotMatch(source, /packages\/plugin-template\//, path)
+    }
+    const lockfile = readFileSync(resolve(root, 'pnpm-lock.yaml'), 'utf8')
+    assert.doesNotMatch(lockfile, /^\\s+packages\/plugin-template:/m)
+  })
+
   it('retains the ignore rule for future generated output', () => {
     const ignore = readFileSync(resolve(root, '.gitignore'), 'utf8')
     assert.match(ignore, /^packages\/\*\/lib\/$/m)

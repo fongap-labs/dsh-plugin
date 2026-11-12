@@ -7,14 +7,12 @@ const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.met
 const licenses = [
   'LICENSE',
   'packages/shared/LICENSE',
-  'packages/plugin-template/LICENSE',
   'packages/dsh-delta-code/LICENSE',
   'packages/dsh-delta-desktop/LICENSE',
 ]
 const manifests = [
   'package.json',
   'packages/shared/package.json',
-  'packages/plugin-template/package.json',
   'packages/dsh-delta-code/package.json',
   'packages/dsh-delta-desktop/package.json',
 ]

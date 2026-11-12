@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 移除未使用的插件模板、脚手架生成器、模板发布清单和相关构建测试引用，清除已废弃的 Delta Suite 网关示例和说明，聚焦两个实际插件产品。
+
 - 维护: workspace_map 本地与 Host FS 发现路径复用边界计数、已授权仓库索引和结果组装；Host 根目录列表只读取一次，保留逐仓库的 Host 身份与权限检查。
 
 - 维护: multi-edit 的 preflight / legacy 路径统一纯函数校验与首项字面量替换，同时保留分支独立的 Host FS 授权、TOCTOU 双读、SHA-256、版本写入与回滚约束。

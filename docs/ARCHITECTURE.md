@@ -9,7 +9,6 @@
 | `packages/dsh-delta-desktop/` | Delta 桌面唯一插件入口，原生体验层及未来 Host Adapter |
 | `packages/dsh-delta-code/` | 独立的 Delta 编程助手 |
 | `packages/shared/` | 中立的工具注册及安全执行能力 |
-| `packages/plugin-template/` | 插件模板 |
 | `projects/<plugin>/release.manifest.json` | Action Worker 单产品发行契约 |
 | `tests/` | 与当前代码对应的真实契约及回归测试 |
 
@@ -40,4 +39,4 @@
 
 ## 构建与发布
 
-由 Action Worker 统一执行 CI、代码治理及人工发行。每包 `package.json` 和 `projects/<plugin>/release.manifest.json` 使用 Apache-2.0 一致的许可表达式；源码版本固定为 `0.0.0`，发布版本仅由手动输入决定。发行产物为 ZIP/TGZ，并强制 SBOM 和来源验证。
+由 Action Worker 统一执行 CI、代码治理及人工发行。每包 `package.json` 和 `projects/<plugin>/release.manifest.json` 使用 MIT 一致的许可表达式；源码版本固定为 `0.0.0`，发布版本仅由手动输入决定。发行产物为 ZIP/TGZ，并强制 SBOM 和来源验证。
