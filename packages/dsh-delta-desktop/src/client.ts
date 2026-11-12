@@ -6347,7 +6347,7 @@ window.__ModuleLoader__.load({
                     }
                   }
                 }, 'dsh-delta-desktop: optional MCP management services')
-              })
+              }) } catch { /* Optional MCP services may be unavailable. */ }
               if (MenuItemButton && ReactRoot) {
                 scope.slots.inject('plugins.add.actions', () => scope.slots.register<AddPluginActionProps>({
                   name: 'plugins.add.actions',
