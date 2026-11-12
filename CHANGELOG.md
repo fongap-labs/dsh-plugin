@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 内部 A/B 统计按 DSH 原生 tool/result 的 message.source.callId 和 content[0].isError 正确关联错误结果，避免低估工具失败与失败后重复调用；新增真实事件结构回归测试。
+
 - 修复: Delta Desktop 不再自动注册与 Delta Code Worker 重复的网关重试监听；由 Code Worker 统一协调网关冷却与 DSH 原生重试，避免双重拦截。
 
 - 新增: Delta Code 内置会话级自动 A/B 评估，随机分配不注入动态引导及注入动态引导两组；按 DSH 原生事件统计工具调用、错误、重复请求、完成轮次和 Token，只保留聚合指标。

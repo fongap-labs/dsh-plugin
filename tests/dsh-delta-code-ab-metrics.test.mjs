@@ -29,8 +29,13 @@ function fixture(allocate = () => 'guided') {
 const event = (type, seq, data) => ({ type, seq, data })
 const toolCall = (seq, callId, name, args = '{}') =>
   event('tool/call', seq, { turn: 1, step: 1, callId, name, arguments: args })
+// Canonical DSH ToolResultMessage shape: source carries the call ID;
+ // the tool-result content block carries the error flag.
 const toolResult = (seq, callId, isError = false) =>
-  event('tool/result', seq, { message: { toolCallId: callId, isError } })
+  event('tool/result', seq, { message: {
+    role: 'user', source: { kind: 'tool', callId },
+    content: [{ type: 'tool-result', toolCallId: callId, isError, content: [] }],
+  } })
 
 describe('automatic internal Code Worker A/B', () => {
   it('assigns eligible sessions automatically and only varies dynamic routing guidance', () => {
@@ -85,6 +90,27 @@ describe('automatic internal Code Worker A/B', () => {
       assert.equal(x.usageSamples, 1)
       assert.equal(JSON.stringify(f.experiment.report()).includes('secret-value'), false)
       assert.equal(JSON.stringify(f.experiment.report()).includes('sensitive/private.txt'), false)
+    } finally { f.dispose() }
+  })
+
+  it('ignores malformed and mismatched tool results without inventing failures', () => {
+    const f = fixture()
+    const session = {}
+    try {
+      f.claim({ session }, '\\u4fee\\u590d CI \\u7ea2\\u53c9')
+      f.experiment.observe(session, toolCall(1, 'a', 'read'))
+      f.experiment.observe(session, event('tool/result', 2, {
+        message: { toolCallId: 'a', isError: true },
+      }))
+      f.experiment.observe(session, event('tool/result', 3, {
+        message: { source: { kind: 'tool', callId: 'a' },
+          content: [{ type: 'tool-result', toolCallId: 'other', isError: true }] },
+      }))
+      assert.equal(f.experiment.report().guided.toolErrors, 0)
+      f.experiment.observe(session, toolResult(4, 'a', true))
+      assert.equal(f.experiment.report().guided.toolErrors, 1)
+      f.experiment.observe(session, toolCall(5, 'b', 'read'))
+      assert.equal(f.experiment.report().guided.repeatsAfterFailure, 1)
     } finally { f.dispose() }
   })
 
