@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createVerifySuiteTool } from '../packages/dsh-delta-code/lib/tools/verify-suite.js'
+import { selectImpactVerification } from '../packages/dsh-delta-code/lib/tools/verify-presets.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
 
@@ -24,6 +25,87 @@ async function fixture(scripts, spawn) {
 }
 
 describe('DSH Code Worker fail-fast verification suite', () => {
+  it('selects focused Node checks without marking full delivery verified', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', 'test:unit': 'node --test unit', build: 'tsc', lint: 'eslint' },
+      () => hostResult(0))
+    try {
+      const result = await f.tool.execute({
+        scripts: ['typecheck', 'test:unit', 'test', 'build', 'lint'],
+        changedPaths: ['src/lib.ts'],
+      }, execute())
+      assert.equal(result.passed, true)
+      assert.equal(result.scope, 'focused')
+      assert.equal(result.completed, 2)
+      assert.deepEqual(result.deferred, ['test', 'build', 'lint'])
+      assert.deepEqual(result.skipped, [])
+      assert.deepEqual(f.calls.map(call => call.argv), [
+        ['npm', 'run', 'typecheck'], ['npm', 'run', 'test:unit'],
+      ])
+      assert.match(result.nextAction, /complete verification.*required/)
+    } finally { await f.cleanup() }
+  })
+
+  it('includes UI builds and does not narrow dependency, workflow or unknown changes', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'vite build', lint: 'eslint' },
+      () => hostResult(0))
+    try {
+      const ui = await f.tool.execute({
+        scripts: ['typecheck', 'test', 'build', 'lint'], changedPaths: ['src/components/Panel.tsx'],
+      }, execute())
+      assert.equal(ui.scope, 'focused')
+      assert.deepEqual(ui.deferred, ['lint'])
+      assert.deepEqual(f.calls.map(call => call.argv), [
+        ['npm', 'run', 'typecheck'], ['npm', 'run', 'test'], ['npm', 'run', 'build'],
+      ])
+      for (const path of ['package.json', '.github/workflows/ci.yml', 'docs/README.md']) {
+        const prior = f.calls.length
+        const full = await f.tool.execute({
+          scripts: ['typecheck', 'test', 'build', 'lint'], changedPaths: [path],
+        }, execute())
+        assert.equal(full.scope, 'full')
+        assert.deepEqual(full.deferred, [])
+        assert.equal(f.calls.length - prior, 4)
+      }
+    } finally { await f.cleanup() }
+  })
+
+  it('rejects invalid impact hints and undeclared deferred scripts before executing anything', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test' }, () => hostResult(0))
+    try {
+      for (const changedPaths of [[], ['../src/lib.ts'], ['/src/lib.ts'], ['src/lib.ts', 'src/lib.ts'], ['src\\lib.ts']]) {
+        await assert.rejects(f.tool.execute({ scripts: ['typecheck', 'test'], changedPaths }, execute()),
+          /changedPaths/)
+      }
+      await assert.rejects(f.tool.execute({
+        scripts: ['typecheck', 'test', 'build'], changedPaths: ['src/lib.ts'],
+      }, execute()), /does not declare script build/)
+      assert.equal(f.calls.length, 0)
+    } finally { await f.cleanup() }
+  })
+
+  it('fails fast in focused mode and keeps not-run candidates distinct from interrupted checks', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'tsc' }, (_, n) => hostResult(n === 1 ? 1 : 0))
+    try {
+      const result = await f.tool.execute({
+        scripts: ['typecheck', 'test', 'build'], changedPaths: ['src/main.ts'],
+      }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.scope, 'focused')
+      assert.deepEqual(result.skipped, ['test'])
+      assert.deepEqual(result.deferred, ['build'])
+      assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('uses conservative pure selection for mixed languages and unsupported scopes', () => {
+    assert.equal(selectImpactVerification(['check', 'test', 'build'], ['src/main.rs']).scope, 'focused')
+    assert.deepEqual(selectImpactVerification(['check', 'test', 'build'], ['src/main.rs']).selected, ['check', 'test'])
+    assert.equal(selectImpactVerification(['test', 'build'], ['src/main.go', 'web/app.ts']).scope, 'full')
+    assert.equal(selectImpactVerification(['test', 'build'], ['src/widget.css']).scope, 'focused')
+    assert.equal(selectImpactVerification(['test', 'build'], ['Cargo.toml']).scope, 'full')
+    assert.equal(selectImpactVerification(['test', 'build'], undefined).scope, 'full')
+  })
+
   it('runs three declared checks in order and reports evidence', async () => {
     const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'tsc' }, () => hostResult(0))
     try {
