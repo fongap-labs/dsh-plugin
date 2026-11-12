@@ -98,20 +98,20 @@ export class ExecutionStats {
     tool.calls++
     const fingerprint = this.signature(name, args)
     if (fingerprint) {
-      const previouslyFailed = counters.signatures.get(fingerprint)
-      if (previouslyFailed !== undefined) {
+      const isPreviouslyFailed = counters.signatures.get(fingerprint)
+      if (isPreviouslyFailed !== undefined) {
         counters.duplicateCalls++
         tool.duplicateCalls++
-        if (previouslyFailed) counters.repeatedFailedCalls++
+        if (isPreviouslyFailed) counters.repeatedFailedCalls++
         counters.signatures.delete(fingerprint)
       }
     }
     const started = performance.now()
-    let failed = false
+    let isFailed = false
     try {
       const value = await run()
-      failed = outcomeFailed(name, value)
-      if (failed) {
+      isFailed = outcomeFailed(name, value)
+      if (isFailed) {
         counters.failedOutcomes++
         tool.failedOutcomes++
       }
@@ -130,7 +130,7 @@ export class ExecutionStats {
       }
       return value
     } catch (error) {
-      failed = true
+      isFailed = true
       counters.errors++
       tool.errors++
       const kind = classifyFailure(error)
@@ -140,7 +140,7 @@ export class ExecutionStats {
       counters.totalDurationMs += Math.max(0, Math.round(performance.now() - started))
       if (fingerprint) {
         counters.signatures.delete(fingerprint)
-        counters.signatures.set(fingerprint, failed)
+        counters.signatures.set(fingerprint, isFailed)
         if (counters.signatures.size > MAX_SIGNATURES) {
           const oldest = counters.signatures.keys().next().value
           if (oldest !== undefined) counters.signatures.delete(oldest)
