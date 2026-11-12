@@ -6080,38 +6080,9 @@ window.__ModuleLoader__.load({
                   }
                 }
 
-                if (typeof workspaces.delete !== 'function') return
-                const originalDelete = workspaces.delete
-                const guardedDelete = (id: string): Promise<unknown> => {
-                  const items = workspaces.list.getSnapshot().items
-                  if (items.length <= 1) {
-                    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                    showDeltaToast(copy.ui.cannotDeleteSoleWorkspace)
-                    return Promise.reject(new Error('delta/sole-workspace-protected'))
-                  }
-                  const target = items.find(item => item.workspaceId === id)
-                  const path = target?.path.replace(/\\/g, '/').toLowerCase()
-                  const protectedDefault = path?.endsWith('/deepseek-harness/default-workspace') === true ||
-                    path?.endsWith('/default-workspace') === true
-                  if (controller.getSnapshot().mode === 'delta' && protectedDefault) {
-                    const hasOtherWorkspace = items.some(item => item.workspaceId !== id)
-                    const hasSessions = target?.sessionIds === undefined || target.sessionIds.length > 0
-                    if (!hasOtherWorkspace || hasSessions) {
-                      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                      showDeltaToast(copy.ui.protectedDefaultWorkspace)
-                      return Promise.reject(new Error('delta/protected-default-workspace'))
-                    }
-                  }
-                  return originalDelete.call(workspaces, id)
-                }
-                try {
-                  workspaces.delete = guardedDelete
-                  workspaceScope.effect(() => () => {
-                    if (workspaces.delete === guardedDelete) workspaces.delete = originalDelete
-                  }, 'dsh-delta-desktop: workspace deletion guard')
-                } catch (error) {
-                  console.error('[dsh-delta-desktop] Workspace guard unavailable:', error)
-                }
+                // Workspace deletion stays owned by the Host. The Delta UI must not
+                // replace the Host's delete function or infer its authorization state.
+
               })
 
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
