@@ -50,6 +50,21 @@ interface HostCookieContext {
   effect?: (callback: () => (() => void) | void, label?: string) => (() => void) | void
 }
 
+/** Normalize the Host origin to the audience used by dsh-client-connection. */
+function cookieAudienceFromOrigin(origin: string): string {
+  const lower = origin.toLowerCase()
+  if (lower.startsWith('http://')) {
+    const rest = origin.slice(7)
+    const slash = rest.indexOf('/')
+    return slash === -1 ? rest : rest.slice(0, slash)
+  }
+  if (lower.startsWith('https://')) {
+    const slash = origin.indexOf('/', 8)
+    return slash === -1 ? origin : origin.slice(0, slash)
+  }
+  return origin
+}
+
 function computeCurrentAuthCookieNameSync(origin: string): string | undefined {
   if (!cachedCrypto) return undefined
   const hash = cachedCrypto.createHash('sha256').update(cookieAudienceFromOrigin(origin)).digest('base64url')
