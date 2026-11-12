@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "principle": "MECE",
+  "purpose": "single-owner feature domains with replaceable Host adapters and declared UI surfaces",
+  "allowed_ui_extension_zones": [
+    "left-sidebar",
+    "right-sidebar",
+    "settings"
+  ],
+  "dependency_direction": [
+    "shell -> extension-registry",
+    "extension-registry -> feature-contracts",
+    "feature -> ports",
+    "adapter -> Host API",
+    "surface -> feature view-model"
+  ],
+  "owners": [
+    {
+      "id": "shell",
+      "description": "Bootstrap, display mode, appearance, branding, locale, notifications and lifecycle",
+      "surfaces": [
+        "left-sidebar",
+        "settings"
+      ],
+      "capabilities": [
+        "mode-switch",
+        "theme-tokens",
+        "brand",
+        "localization",
+        "notifications",
+        "feature-preferences"
+      ]
+    },
+    {
+      "id": "sessions",
+      "description": "Session/workspace state, projection and lifecycle; requests authorization from security",
+      "surfaces": [
+        "left-sidebar"
+      ],
+      "capabilities": [
+        "workspace-state",
+        "workspace-protection",
+        "session-move",
+        "session-delete",
+        "session-archive",
+        "session-list-projection"
+      ]
+    },
+    {
+      "id": "discovery",
+      "description": "Search/query/index and navigation results; never mutates sessions",
+      "surfaces": [
+        "left-sidebar"
+      ],
+      "capabilities": [
+        "seven-category-search",
+        "session-content-search",
+        "search-shortcuts",
+        "search-navigation"
+      ]
+    },
+    {
+      "id": "context",
+      "description": "Agent companion, context usage and compaction projection",
+      "surfaces": [
+        "right-sidebar"
+      ],
+      "capabilities": [
+        "assistant-discussion",
+        "assistant-optimization",
+        "context-usage",
+        "compaction-status"
+      ]
+    },
+    {
+      "id": "security",
+      "description": "Host-enforced policy, privacy, identity and session-lock authorization",
+      "surfaces": [
+        "left-sidebar",
+        "settings"
+      ],
+      "capabilities": [
+        "host-privacy",
+        "request-redaction",
+        "session-lock",
+        "totp-setup",
+        "locked-session-access"
+      ]
+    },
+    {
+      "id": "integrations",
+      "description": "External model and MCP connectivity; policy decisions belong to security",
+      "surfaces": [
+        "left-sidebar",
+        "settings"
+      ],
+      "capabilities": [
+        "mcp-management",
+        "vision-routing",
+        "vision-credentials",
+        "network-proxy"
+      ]
+    }
+  ],
+  "host_owned_authority": [
+    "file-modification",
+    "external-data-egress",
+    "session-access",
+    "workspace-deletion",
+    "credentials"
+  ],
+  "browser_prohibited_authority": [
+    "approval-bypass",
+    "raw-credential-read",
+    "host-private-dom-ownership"
+  ],
+  "pending_capabilities": [
+    "general-outbound-approval",
+    "versioned-host-adapters",
+    "feature-permission-manifests"
+  ],
+  "legacy_hotspots": [
+    {
+      "symbol": "createClientFeatureManager",
+      "owner": "sessions",
+      "cross_cuts": [
+        "security",
+        "integrations"
+      ],
+      "action": "split policy and proxy behind typed ports; retain Host authorization"
+    },
+    {
+      "symbol": "installSidebarCompatibility",
+      "owner": "shell",
+      "cross_cuts": [
+        "sessions",
+        "discovery",
+        "security"
+      ],
+      "action": "quarantine legacy Host DOM dependencies before migrating to approved slots"
+    },
+    {
+      "symbol": "installHostSearch",
+      "owner": "discovery",
+      "cross_cuts": [
+        "sessions"
+      ],
+      "action": "pass read-only session query/navigation ports, not mutable Host objects"
+    },
+    {
+      "symbol": "window.__ModuleLoader__.load",
+      "owner": "shell",
+      "cross_cuts": [
+        "context",
+        "integrations",
+        "security"
+      ],
+      "action": "replace hand-wired feature registration with lifecycle-managed descriptors"
+    }
+  ]
+}
