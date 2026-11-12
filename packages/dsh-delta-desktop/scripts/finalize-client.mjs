@@ -13,6 +13,7 @@ const one = (marker, code) => {
 }
 one('__DELTA_DESKTOP_LOCALES__', JSON.stringify(dictionaries))
 one('__DELTA_DESKTOP_STYLE__', JSON.stringify(readFileSync(join(root, 'src/theme.css'), 'utf8')))
+one('__DELTA_DESKTOP_FEATURE_STYLE__', JSON.stringify(readFileSync(join(root, 'src/feature-extras.css'), 'utf8')))
 if (/\b(?:from|import)\s*\(['"]|\bprocess\.env\b|__DELTA_DESKTOP_/.test(source)) throw new Error('Client bundle contains unresolved runtime imports or markers')
 if (!source.includes('window.__ModuleLoader__.load({')) throw new Error('Client module registration missing')
 source = ';(() => {\n' + source + '\n})();\n'
