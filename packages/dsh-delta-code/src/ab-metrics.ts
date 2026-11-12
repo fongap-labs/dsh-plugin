@@ -205,7 +205,7 @@ export function createInternalAbReportTool(experiment: InternalAbExperiment): To
         warning: { type: 'string', required: true },
       } },
       render(_args, data) {
-        const line = (name: string, bucket: Bucket) =>
+        const line = (name: string, bucket: Pick<Bucket, 'sessions' | 'turns' | 'toolCalls' | 'toolErrors' | 'repeatCandidates' | 'billedTokens'>) =>
           name + ': sessions=' + bucket.sessions + ', turns=' + bucket.turns +
           ', toolCalls=' + bucket.toolCalls + ', toolErrors=' + bucket.toolErrors +
           ', repeats=' + bucket.repeatCandidates + ', billedTokens=' + bucket.billedTokens
