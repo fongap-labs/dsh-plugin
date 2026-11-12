@@ -6,7 +6,8 @@
     "moduleResolution": "bundler",
     "lib": [
       "ES2022",
-      "DOM"
+      "DOM",
+      "DOM.Iterable"
     ],
     "rootDir": "src",
     "outDir": "lib",
