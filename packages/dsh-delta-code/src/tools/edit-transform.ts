@@ -43,10 +43,10 @@ export function planTextEdit(edit: TextEditInput, isPreflight: boolean): Planned
 }
 
 /** In guarded preflight reject ambiguous matches; legacy mode still replaces the first one. */
-export function applyTextEdit(original: string, edit: Extract<PlannedTextEdit, { action: 'replace' }>, requireUnique = false): string {
+export function applyTextEdit(original: string, edit: Extract<PlannedTextEdit, { action: 'replace' }>, shouldRequireUnique = false): string {
   const index = original.indexOf(edit.find)
   if (index === -1) throw new Error('find substring not present')
-  if (requireUnique && original.indexOf(edit.find, index + 1) !== -1) {
+  if (shouldRequireUnique && original.indexOf(edit.find, index + 1) !== -1) {
     throw new Error('find substring matches multiple locations; supply a more specific target')
   }
   return original.slice(0, index) + edit.replace + original.slice(index + edit.find.length)
