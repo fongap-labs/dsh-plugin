@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code Worker 隔离浏览器客户端入口的顶层作用域，防止 Harness 插件组合加载和重复加载时模块注册冲突；发布前检验 ZIP/TGZ 中的注册 ID、入口完整性及一致性。
+
+
 - 修复: Delta Code Worker 按网关 #402 的结构化失败分类识别混合 429/响应头超时后的禁止自动重试信号；仅阻止对应故障转移耗尽重播，纯 429 仍按 Retry-After 由 DSH 原生机制恢复。
 
 - 修复: Delta Code 内部 A/B 统计按 DSH 原生 tool/result 的 message.source.callId 和 content[0].isError 正确关联错误结果，避免低估工具失败与失败后重复调用；新增真实事件结构回归测试。
