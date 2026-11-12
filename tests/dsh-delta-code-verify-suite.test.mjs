@@ -101,7 +101,7 @@ describe('DSH Code Worker fail-fast verification suite', () => {
     assert.equal(selectImpactVerification(['check', 'test', 'build'], ['src/main.rs']).scope, 'focused')
     assert.deepEqual(selectImpactVerification(['check', 'test', 'build'], ['src/main.rs']).selected, ['check', 'test'])
     assert.equal(selectImpactVerification(['test', 'build'], ['src/main.go', 'web/app.ts']).scope, 'full')
-    assert.equal(selectImpactVerification(['test', 'build'], ['src/widget.css']).scope, 'focused')
+    assert.equal(selectImpactVerification(['test', 'build', 'lint'], ['src/widget.css']).scope, 'focused')
     assert.equal(selectImpactVerification(['test', 'build'], ['Cargo.toml']).scope, 'full')
     assert.equal(selectImpactVerification(['test', 'build'], undefined).scope, 'full')
   })
