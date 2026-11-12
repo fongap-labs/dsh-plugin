@@ -34,7 +34,7 @@ description: Develop, test, package, and maintain native DeepSeek Harness plugin
 
 - Host plugins are TypeScript ESM. Export `apply(ctx, config)` and any required `inject` list.
 - Host source is compiled by the pinned TypeScript compiler into `lib/*.js` and `lib/*.d.ts`.
-- Delta Suite browser code is currently one client entry compiled to `lib/client.js`. Preserve the Harness closure-factory contract: `window.__ModuleLoader__.load({ id, factory(require) { ... } })`.
+- Delta Desktop browser code is currently one client entry compiled to `lib/client.js`. Preserve the Harness closure-factory contract: `window.__ModuleLoader__.load({ id, factory(require) { ... } })`.
 - The browser factory's `require` is injected by the Harness loader; it is not Node's `require`.
 - Do not split browser code into local imports unless the build emits one verified client artifact and the installed Harness loads it successfully.
 - Host modules may be split by responsibility. Keep public plugin exports, route paths, config shape, and lifecycle behavior stable unless a reviewed change requires otherwise.
@@ -56,9 +56,9 @@ Tests consume compiled package output; build before running the test suite after
 
 ## New plugin checklist
 
-1. Copy `packages/plugin-template` into a new `packages/<name>` directory.
+1. Create a new `packages/<name>` plugin only for a real product requirement; no scaffold template is shipped.
 2. Set a unique `@fongap-labs/<name>` package name and Cordis patch ID.
-3. Declare explicit `license`, include the matching package `LICENSE`, and keep the default Apache-2.0 unless there is a reason to choose another license.
+3. Declare explicit `license`, include the matching package `LICENSE`, and use the default MIT unless there is a reviewed reason to choose another license.
 4. Add `projects/<name>/release.manifest.json` when the plugin is a separately released product.
 5. Add focused tests for behavior, lifecycle cleanup, package contents, and release metadata.
 6. Update the relevant human-facing documentation in Chinese; keep machine-facing contracts and this skill in English.
@@ -66,7 +66,7 @@ Tests consume compiled package output; build before running the test suite after
 
 ## License rules
 
-- Root `LICENSE` and root `package.json.license` define the repository default (Apache-2.0).
+- Root `LICENSE` and root `package.json.license` define the repository default (MIT).
 - A package may override the default only by declaring its own SPDX expression, shipping its own `LICENSE`, and matching `projects/<name>/release.manifest.json.license_expression`.
 - Never infer a third-party dependency's license from the package that consumes it.
 
@@ -75,5 +75,5 @@ Tests consume compiled package output; build before running the test suite after
 - Heavy CI, PR governance, AI review, release, and deployment are centrally executed by Action Worker.
 - Do not add repository-local copies of central workflows or secrets.
 - Keep `.github/workflows/notify-action-worker.yml` byte-identical to the Action Worker bridge template.
-- The current release-build contract requires a Windows runner profile and a PowerShell entry script. Do not change that contract from this repository alone.
+- Current product manifests use the `linux-standard` portable runner with a `build-release.mjs` entry. Keep the release contract aligned with Action Worker.
 - Never use developer-specific absolute paths or retain one-off source-rewriting scripts in `scripts/`.

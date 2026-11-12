@@ -46,12 +46,6 @@ importers:
         version: 4.4.3
 
 
-  packages/plugin-template:
-    dependencies:
-      '@fongap-labs/shared':
-        specifier: workspace:*
-        version: link:../shared
-
   packages/shared: {}
 
 packages:

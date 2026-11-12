@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
 const json = path => JSON.parse(readFileSync(join(root, path), 'utf8'))
-const packages = ['dsh-delta-code', 'dsh-delta-desktop', 'plugin-template']
+const packages = ['dsh-delta-code', 'dsh-delta-desktop']
 
 test('source manifests contain only non-release placeholders', () => {
   assert.equal(json('package.json').version, '0.0.0')
