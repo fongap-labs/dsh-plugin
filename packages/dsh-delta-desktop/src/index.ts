@@ -10,7 +10,6 @@ import {
 import { installHostPrivacyGuards } from './host-privacy.js'
 import type { PrivacyHostContext } from './host-privacy.js'
 import { installHostProxyManager } from './host-proxy.js'
-import { installGatewayRetryGuard } from './host-gateway-retry-guard.js'
 import { installHostSessionSearch } from './host-search.js'
 import { installHostSessionOps } from './host-sessions.js'
 import { createHostStateStore } from './host-state.js'
@@ -136,12 +135,7 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
       onSessionChanged: sessionId => { invalidateSearchCache?.(sessionId) },
     }),
   })
-  registry.register({
-    id: 'integrations.gateway-retry-guard',
-    owner: 'integrations',
-    optional: true,
-    install: () => installGatewayRetryGuard(ctx),
-  })
+  // Gateway retry coordination belongs to Delta Code Worker; avoid a second Host listener.
   registry.register({
     id: 'integrations.proxy-settings',
     owner: 'integrations',
