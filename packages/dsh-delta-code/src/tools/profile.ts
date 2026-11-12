@@ -37,6 +37,32 @@ function technologies(files: Set<string>): string[] {
   return found
 }
 
+/** Pure metadata extraction shared by local and Host-authoritative readers. */
+function declaredScripts(raw: string): string[] {
+  if (Buffer.byteLength(raw, 'utf8') > 1024 * 1024) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    const defined = (parsed as { scripts?: unknown } | null)?.scripts
+    if (!defined || typeof defined !== 'object' || Array.isArray(defined)) return []
+    return SCRIPT_NAMES.filter(name =>
+      typeof (defined as Record<string, unknown>)[name] === 'string')
+  } catch {
+    return []
+  }
+}
+
+function profileSummary(cwd: string, files: string[], scripts: string[]): ProjectProfile {
+  const suggestedChecks = scripts.filter(name =>
+    name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
+  if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
+  return {
+    cwd: cwd.slice(0, MAX_DESCRIPTION),
+    files, technologies: technologies(new Set(files)), scripts,
+    guidance: files.filter(name => name === 'AGENTS.md' || name === 'CLAUDE.md'),
+    suggestedChecks,
+  }
+}
+
 export async function inspectProject(cwd: string, root: string): Promise<ProjectProfile> {
   const canonicalRoot = await realpath(root)
   const canonicalCwd = await realpath(cwd)
@@ -51,30 +77,14 @@ export async function inspectProject(cwd: string, root: string): Promise<Project
       files.push(name)
     } catch { /* file absent or unsafe */ }
   }
-  const present = new Set(files)
-  const scripts: string[] = []
-  if (present.has('package.json')) {
+  let scripts: string[] = []
+  if (files.includes('package.json')) {
     try {
       const raw = await readFile(join(canonicalCwd, 'package.json'), 'utf8')
-      if (Buffer.byteLength(raw) <= 1024 * 1024) {
-        const parsed: unknown = JSON.parse(raw)
-        const defined = (parsed as { scripts?: unknown })?.scripts
-        if (defined && typeof defined === 'object' && !Array.isArray(defined)) {
-          for (const name of SCRIPT_NAMES) {
-            if (typeof (defined as Record<string, unknown>)[name] === 'string') scripts.push(name)
-          }
-        }
-      }
+      scripts = declaredScripts(raw)
     } catch { /* profile remains useful without package.json */ }
   }
-
-  const guidance = files.filter(name => name === 'AGENTS.md' || name === 'CLAUDE.md')
-  const suggestedChecks: string[] = scripts.filter(name => name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
-  if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
-  return {
-    cwd: canonicalCwd.slice(0, MAX_DESCRIPTION),
-    files, technologies: technologies(present), scripts, guidance, suggestedChecks,
-  }
+  return profileSummary(canonicalCwd, files, scripts)
 }
 
 
@@ -107,33 +117,15 @@ export async function inspectProjectWithHost(
     files.push(name)
     if (name === 'package.json') packageTarget = target
   }
-  const scripts: string[] = []
+  let scripts: string[] = []
   if (packageTarget !== undefined) {
-    // Never read Host-backed manifest content through node:fs.
+    // Host read failures remain fatal: never silently use local Node data.
     const raw = await fs.readText(packageTarget, exec.signal)
     if (exec.signal.aborted) throw new Error('project profile cancelled')
-    if (Buffer.byteLength(raw, 'utf8') <= 1024 * 1024) {
-      try {
-        const parsed: unknown = JSON.parse(raw)
-        const defined = (parsed as { scripts?: unknown } | null)?.scripts
-        if (defined && typeof defined === 'object' && !Array.isArray(defined)) {
-          for (const name of SCRIPT_NAMES) {
-            if (typeof (defined as Record<string, unknown>)[name] === 'string') scripts.push(name)
-          }
-        }
-      } catch { /* invalid package.json: preserve file presence without scripts */ }
-    }
+    scripts = declaredScripts(raw)
   }
-  const present = new Set(files)
-  const guidance = files.filter(name => name === 'AGENTS.md' || name === 'CLAUDE.md')
-  const suggestedChecks: string[] = scripts.filter(name =>
-    name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
-  if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
   if (exec.signal.aborted) throw new Error('project profile cancelled')
-  return {
-    cwd: cwd.slice(0, MAX_DESCRIPTION), files,
-    technologies: technologies(present), scripts, guidance, suggestedChecks,
-  }
+  return profileSummary(cwd, files, scripts)
 }
 
 export function createProjectProfileTool(ctx: Context, settings: Settings): ToolDefinition {

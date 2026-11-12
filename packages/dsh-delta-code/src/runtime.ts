@@ -8,16 +8,9 @@ import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings }
 import { requireHostFs } from './host-fs.js'
 import { normalizeLanguageConventions } from './consistency.js'
 import type { HostFsCapabilities, HostWriteIntent } from './host-fs.js'
+import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'
 
 export const TOOL_PREFIX = 'code_'
-const DEFAULT_LSP_SERVERS: LspServerConfig[] = [
-  { language: 'typescript', command: 'typescript-language-server', args: ['--stdio'] },
-  { language: 'javascript', command: 'typescript-language-server', args: ['--stdio'] },
-  { language: 'python', command: 'pyright-langserver', args: ['--stdio'] },
-  { language: 'rust', command: 'rust-analyzer', args: ['--stdio'] },
-  { language: 'go', command: 'gopls', args: ['serve'] },
-]
-
 export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
   'Prefer DSH native editing tools for ordinary changes. Use code_multi_edit only when a multi-file preflight or guarded batch edit offers a concrete benefit; avoid redundant tool calls.',

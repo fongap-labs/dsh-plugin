@@ -3,6 +3,7 @@
  * GitHub tokens are never persisted: only the tokenEnv variable name is stored.
  */
 import Schema from '@deepseek-ai/schemastery'
+import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'
 
 const Account = Schema.object({
   owner: Schema.string().required(),
@@ -42,13 +43,7 @@ export const Config: Schema<Record<string, unknown>> = Schema.object({
     accounts: Schema.array(Account).default([]),
   }).volatile(),
   lsp: Schema.object({
-    servers: Schema.array(Server).default([
-      { language: 'typescript', command: 'typescript-language-server', args: ['--stdio'] },
-      { language: 'javascript', command: 'typescript-language-server', args: ['--stdio'] },
-      { language: 'python', command: 'pyright-langserver', args: ['--stdio'] },
-      { language: 'rust', command: 'rust-analyzer', args: ['--stdio'] },
-      { language: 'go', command: 'gopls', args: ['serve'] },
-    ]),
+    servers: Schema.array(Server).default(DEFAULT_LSP_SERVERS),
   }).volatile(),
   systemPromptText: Schema.string().default('').volatile(),
 })
