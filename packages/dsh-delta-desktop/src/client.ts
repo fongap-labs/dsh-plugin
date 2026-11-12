@@ -6046,10 +6046,10 @@ window.__ModuleLoader__.load({
                 const syncAppearance = (): void => {
                   if (controller.getSnapshot().mode === 'delta') {
                     document.documentElement.setAttribute('data-delta-ui', 'delta')
-                    document.body?.setAttribute('data-delta-ui', 'delta')
+                    document.body?.setAttribute?.('data-delta-ui', 'delta')
                   } else {
                     document.documentElement.removeAttribute('data-delta-ui')
-                    document.body?.removeAttribute('data-delta-ui')
+                    document.body?.removeAttribute?.('data-delta-ui')
                   }
                 }
                 syncAppearance()
@@ -6304,7 +6304,7 @@ window.__ModuleLoader__.load({
                   stopPrivacyGuards()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
-                  document.body?.removeAttribute('data-delta-ui')
+                  document.body?.removeAttribute?.('data-delta-ui')
                   syncModalChromeOverlay()
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
