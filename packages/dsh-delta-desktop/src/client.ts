@@ -3313,27 +3313,6 @@ window.__ModuleLoader__.load({
               feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null))
       )
     }
-    let hoverSessionSource: SearchSessionsApi | undefined
-    // The hover seat is mounted only while a row is visible. Subscribe to the
-    // public Session list so its running state updates without opening a Session.
-    const subscribeHoverSessions = (notify: () => void): (() => void) => {
-      try {
-        return hoverSessionSource?.list.subscribe?.(notify) ?? (() => {})
-      } catch { return () => {} }
-    }
-    // useSyncExternalStore must receive a stable, primitive snapshot. Reading
-    // a fresh Host catalog object here would otherwise cause render loops.
-    const readHoverState = (sessionId: string): string => {
-      try {
-        const snapshot = hoverSessionSource?.list.getSnapshot()
-        if (!snapshot || (snapshot.phase !== undefined && snapshot.phase !== 'ready')) return ''
-        const session = snapshot.byId[sessionId]
-        if (!session) return ''
-        const timestamp = typeof session.updatedAt === 'number' && Number.isFinite(session.updatedAt) &&
-          session.updatedAt > 0 ? session.updatedAt : 0
-        return (session.running === true ? '1' : '0') + ':' + timestamp
-      } catch { return '' }
-    }
     const ASSISTANT_TAB_ID = DELTA_DESKTOP_OWNER
     const ASSISTANT_TAB_KIND = 'delta-context-assistant'
     const ASSISTANT_PROTOCOL = 'dtdelta'
