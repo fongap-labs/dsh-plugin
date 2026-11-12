@@ -90,7 +90,7 @@ function parseBatchQueries(value: unknown, singleQuery: unknown): string[] | und
   }
   const seen = new Set<string>()
   return value.map(item => {
-    if (typeof item !== 'string' || !item.trim() || item.length > 160 ||
+    if (typeof item !== 'string' || !item.trim() || item.length > 160 || item.includes('\\') ||
         /[\u0000-\u001f\u007f]/.test(item)) {
       throw new Error('queries must contain safe nonempty strings of at most 160 characters')
     }
