@@ -6782,7 +6782,11 @@ window.__ModuleLoader__.load({
                 deltaFeatures.ensureLoaded()
                 const stopAppearance = controller.subscribe(syncAppearance)
                 const stopPrivacyGuards = installClientPrivacyGuards()
-                const stopCompat = installSidebarCompatibility(controller)
+                // DOM-less Host/test runtimes cannot mount the ZIP's DOM-based
+                // presentation, but public feature slots must still register.
+                const stopCompat = typeof document.querySelectorAll === 'function' &&
+                  typeof document.addEventListener === 'function'
+                  ? installSidebarCompatibility(controller) : () => {}
 
                 // Adapt runtime chat status: "\u6DF1\u5EA6\u6C42\u7D22\u4E2D" -> "\u4EFB\u52A1\u6267\u884C\u4E2D"
                 let isEffectDisposed = false
