@@ -7,7 +7,7 @@ interface DeltaCopy {
   ui: {
     preference: string; theme: string; official: string; delta: string;
     open: string; close: string; conversation: string; sidebar: string;
-    status: string; unavailable: string; recovery: string; shortcut: string;
+    status: string; unavailable: string; recovery: string; shortcut: string; themeWaiting: string;
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
@@ -5595,7 +5595,7 @@ window.__ModuleLoader__.load({
             }, copy.sessionMenu.clearPin) : null)),
         el('p', { className: 'dtd-current', role: 'status' },
           copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
-        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
+        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, state.themeReady ? copy.ui.unavailable : copy.ui.themeWaiting) : null,
         state.mode === 'delta' ? el('details', {
           className: 'dtd-integration',
           'data-delta-contract-version': '1',
