@@ -3,8 +3,16 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib",
-    "types": []
+    "types": [],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/client.ts"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/client.ts"
+  ]
 }
