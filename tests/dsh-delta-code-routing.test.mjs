@@ -8,6 +8,7 @@ import { decideCodingWorkflow, createWorkflowRouteTool, planCodingWaves } from '
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 import { createVerifyTool } from '../packages/dsh-delta-code/lib/tools/verify.js'
 import { chooseVerificationCommand } from '../packages/dsh-delta-code/lib/tools/verify-presets.js'
+import { mockHostSubprocess } from './helpers/host-subprocess-mock.mjs'
 
 const exec = { signal: new AbortController().signal }
 
@@ -96,22 +97,8 @@ test('fixed verification commands never interpret model input as shell fragments
 })
 
 function fakeHost(exitCode = 0) {
-  const calls = []
-  return {
-    calls, get: () => undefined,
-    subprocess: {
-      spawn(spec) {
-        calls.push(spec)
-        return {
-          done: Promise.resolve({ exitCode }),
-          collected: {
-            stdout: { readFrom: () => ({ text: 'test-output', lossy: false }) },
-            stderr: { readFrom: () => ({ text: '', lossy: false }) },
-          },
-        }
-      },
-    },
-  }
+  const { ctx, calls } = mockHostSubprocess({ exitCode, stdout: 'test-output' })
+  return { ...ctx, calls }
 }
 
 test('Host-only command execution respects permissions, manifests and ecosystem selection', async () => {

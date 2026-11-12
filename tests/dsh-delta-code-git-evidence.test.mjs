@@ -5,28 +5,17 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseGitStatus, createGitStatusTool, createGitDiffTool } from '../packages/dsh-delta-code/lib/tools/git.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostSubprocess } from './helpers/host-subprocess-mock.mjs'
 
 const exec = { signal: new AbortController().signal }
 
 function fakeHost(stdout = '', exitCode = 0, options = {}) {
-  const calls = []
-  const ctx = {
-    get: () => undefined,
-    subprocess: {
-      spawn(spec) {
-        calls.push(spec)
-        if (options.deny) throw new Error('host denied git command')
-        return {
-          done: Promise.resolve({ exitCode }),
-          collected: {
-            stdout: { readFrom: () => ({ text: stdout, lossy: Boolean(options.lossy) }) },
-            stderr: { readFrom: () => ({ text: 'fatal: git unavailable', lossy: false }) },
-          },
-        }
-      },
-    },
-  }
-  return { ctx, calls }
+  return mockHostSubprocess({
+    stdout, exitCode,
+    stdoutLossy: Boolean(options.lossy),
+    stderr: 'fatal: git unavailable',
+    denial: options.deny ? 'host denied git command' : undefined,
+  })
 }
 
 describe('Code Worker Git evidence handling', () => {

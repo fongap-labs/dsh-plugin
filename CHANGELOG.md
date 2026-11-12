@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 多个 Delta Code Host subprocess 测试共用可配置的结果与拒绝夹具，减少重复 Mock，保留场景专属的 Host FS 安全断言。
+
 - 维护: Git 状态、差异、Worktree、交付门禁和 GitHub Origin 共用结果校验，统一失败判定并保留 diff 截断语义。
 
 - 维护: 删除全仓无引用的 WCAG 对比度脚本、未使用的异步认证 Cookie 哈希接口及重复的预热调用。

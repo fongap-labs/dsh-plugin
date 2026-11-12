@@ -5,16 +5,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createVerifySuiteTool } from '../packages/dsh-delta-code/lib/tools/verify-suite.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
 
 const execute = () => ({ signal: new AbortController().signal })
 function hostResult(exitCode, text = 'ok') {
-  return {
-    done: Promise.resolve({ exitCode }),
-    collected: {
-      stdout: { readFrom: () => ({ text, lossy: false }) },
-      stderr: { readFrom: () => ({ text: '', lossy: false }) },
-    },
-  }
+  return mockHostCommandResult({ exitCode, stdout: text })
 }
 async function fixture(scripts, spawn) {
   const root = await mkdtemp(join(tmpdir(), 'dsh-verify-suite-'))

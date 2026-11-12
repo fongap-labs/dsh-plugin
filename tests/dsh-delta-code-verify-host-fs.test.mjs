@@ -4,6 +4,7 @@ import { join, resolve, sep } from 'node:path'
 import { createVerifyTool } from '../packages/dsh-delta-code/lib/tools/verify.js'
 import { createVerifySuiteTool } from '../packages/dsh-delta-code/lib/tools/verify-suite.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
 
 const root = resolve('dsh-virtual-host-verification-workspace')
 const HOST_EXECUTION_CWD = '/dsh-host-only-verify-execution-path'
@@ -46,13 +47,7 @@ function fakeHost(files, options = {}) {
     get: key => key === 'fs' ? (options.incompleteFs ? { resolve: fs.resolve } : fs) : undefined,
     subprocess: { spawn(spec) {
       spawns.push(spec)
-      return {
-        done: Promise.resolve({ exitCode: 0 }),
-        collected: {
-          stdout: { readFrom: () => ({ text: 'ok', lossy: false }) },
-          stderr: { readFrom: () => ({ text: '', lossy: false }) },
-        },
-      }
+      return mockHostCommandResult({ stdout: 'ok' })
     } },
   }
   return { ctx, observed, spawns }
