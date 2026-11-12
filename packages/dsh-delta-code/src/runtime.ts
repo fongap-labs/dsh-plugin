@@ -126,7 +126,7 @@ export async function resolveRoot(
   settings: Settings,
 ): Promise<string> {
   const workingDirectory = lookupDshWorkingDirectory(ctx) as
-    | { ensure?: (agent: unknown, signal?: AbortSignal) => Promise<string | undefined | null> }
+    | { ensure: (agent: unknown, signal?: AbortSignal) => Promise<string | undefined | null> }
     | undefined
   if (workingDirectory && typeof workingDirectory.ensure !== 'function') {
     throw new Error('DSH Host workingDirectory missing ensure; refusing local fallback')
