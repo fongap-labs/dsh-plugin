@@ -838,13 +838,13 @@ const createFrameScheduler = (run: () => void): { schedule: () => void; cancel: 
       if (cancelled) return
       if (typeof requestAnimationFrame === 'function') {
         if (rafId !== undefined) return
-        let fired = false
+        let hasFired = false
         const nextId = requestAnimationFrame(() => {
-          fired = true
+          hasFired = true
           rafId = undefined
           if (!cancelled) run()
         })
-        if (!fired) rafId = nextId
+        if (!hasFired) rafId = nextId
       } else if (typeof setTimeout === 'function') {
         if (timerId !== undefined) return
         timerId = scheduleTimer(() => {
@@ -1114,8 +1114,8 @@ function encodeQrMatrix(text: string): boolean[][] {
   // Setup function patterns
   const modules: boolean[][] = Array.from({ length: n }, () => new Array<boolean>(n).fill(false))
   const isFunc: boolean[][] = Array.from({ length: n }, () => new Array<boolean>(n).fill(false))
-  const setFunc = (r: number, c: number, dark: boolean) => {
-    modules[r][c] = dark
+  const setFunc = (r: number, c: number, isDarkCell: boolean) => {
+    modules[r][c] = isDarkCell
     isFunc[r][c] = true
   }
 
@@ -1181,11 +1181,11 @@ function encodeQrMatrix(text: string): boolean[][] {
 
   // Zigzag placement
   let bitIdx = 0
-  let up = true
+  let isUpward = true
   for (let col = n - 1; col >= 1; col -= 2) {
     if (col === 6) col--
     for (let step = 0; step < n; step++) {
-      const r = up ? n - 1 - step : step
+      const r = isUpward ? n - 1 - step : step
       for (let dc = 0; dc < 2; dc++) {
         const c = col - dc
         if (isFunc[r][c]) continue
@@ -1193,21 +1193,21 @@ function encodeQrMatrix(text: string): boolean[][] {
         bitIdx++
       }
     }
-    up = !up
+    isUpward = !isUpward
   }
 
-  const writeFormatBits = (grid: boolean[][], mask: number) => {
+  const writeFormatBits = (isDarkMatrix: boolean[][], mask: number) => {
     const data = (0b00 << 3) | mask // ECC Level M = 00
     let rem = data
     for (let i = 0; i < 10; i++) rem = (rem << 1) ^ ((rem >>> 9) * 0x537)
     const fBits = ((data << 10) | rem) ^ 0x5412
-    for (let i = 0; i <= 5; i++) grid[8][i] = ((fBits >>> (14 - i)) & 1) === 1
-    grid[8][7] = ((fBits >>> 8) & 1) === 1
-    grid[8][8] = ((fBits >>> 7) & 1) === 1
-    grid[7][8] = ((fBits >>> 6) & 1) === 1
-    for (let i = 0; i <= 5; i++) grid[i][8] = ((fBits >>> i) & 1) === 1
-    for (let i = 0; i < 7; i++) grid[n - 1 - i][8] = ((fBits >>> (14 - i)) & 1) === 1
-    for (let i = 0; i < 8; i++) grid[8][n - 8 + i] = ((fBits >>> (7 - i)) & 1) === 1
+    for (let i = 0; i <= 5; i++) isDarkMatrix[8][i] = ((fBits >>> (14 - i)) & 1) === 1
+    isDarkMatrix[8][7] = ((fBits >>> 8) & 1) === 1
+    isDarkMatrix[8][8] = ((fBits >>> 7) & 1) === 1
+    isDarkMatrix[7][8] = ((fBits >>> 6) & 1) === 1
+    for (let i = 0; i <= 5; i++) isDarkMatrix[i][8] = ((fBits >>> i) & 1) === 1
+    for (let i = 0; i < 7; i++) isDarkMatrix[n - 1 - i][8] = ((fBits >>> (14 - i)) & 1) === 1
+    for (let i = 0; i < 8; i++) isDarkMatrix[8][n - 8 + i] = ((fBits >>> (7 - i)) & 1) === 1
   }
 
   const maskBit = (mask: number, r: number, c: number): boolean => {
@@ -1223,12 +1223,12 @@ function encodeQrMatrix(text: string): boolean[][] {
     }
   }
 
-  const penaltyScore = (grid: boolean[][]): number => {
+  const penaltyScore = (isDarkMatrix: boolean[][]): number => {
     let score = 0
     for (let r = 0; r < n; r++) {
       let runLen = 1
       for (let c = 1; c < n; c++) {
-        if (grid[r][c] === grid[r][c - 1]) runLen++
+        if (isDarkMatrix[r][c] === isDarkMatrix[r][c - 1]) runLen++
         else { if (runLen >= 5) score += 3 + (runLen - 5); runLen = 1 }
       }
       if (runLen >= 5) score += 3 + (runLen - 5)
@@ -1236,21 +1236,21 @@ function encodeQrMatrix(text: string): boolean[][] {
     for (let c = 0; c < n; c++) {
       let runLen = 1
       for (let r = 1; r < n; r++) {
-        if (grid[r][c] === grid[r - 1][c]) runLen++
+        if (isDarkMatrix[r][c] === isDarkMatrix[r - 1][c]) runLen++
         else { if (runLen >= 5) score += 3 + (runLen - 5); runLen = 1 }
       }
       if (runLen >= 5) score += 3 + (runLen - 5)
     }
     for (let r = 0; r < n - 1; r++) {
       for (let c = 0; c < n - 1; c++) {
-        const v = grid[r][c]
-        if (grid[r][c + 1] === v && grid[r + 1][c] === v && grid[r + 1][c + 1] === v) score += 3
+        const v = isDarkMatrix[r][c]
+        if (isDarkMatrix[r][c + 1] === v && isDarkMatrix[r + 1][c] === v && isDarkMatrix[r + 1][c + 1] === v) score += 3
       }
     }
     let darkCount = 0
     for (let r = 0; r < n; r++) {
       for (let c = 0; c < n; c++) {
-        if (grid[r][c]) darkCount++
+        if (isDarkMatrix[r][c]) darkCount++
       }
     }
     score += Math.floor(Math.abs(darkCount * 100 / (n * n) - 50) / 5) * 10
@@ -1294,7 +1294,7 @@ function createQrSvgElement(uri: string): Element {
   return svg
 }
 
-function createLockSvg(size = 13, unlocked = false): Element {
+function createLockSvg(size = 13, isUnlocked = false): Element {
   const svg = createSvgEl('svg', {
     viewBox: '0 0 24 24',
     width: size,
@@ -1308,7 +1308,7 @@ function createLockSvg(size = 13, unlocked = false): Element {
   })
   svg.appendChild(createSvgEl('rect', { x: 4, y: 11, width: 16, height: 10, rx: 2, ry: 2 }))
   svg.appendChild(createSvgEl('path', {
-    d: unlocked ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4',
+    d: isUnlocked ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4',
   }))
   return svg
 }
@@ -1340,13 +1340,13 @@ interface ClientFeatureManager {
   isDeleted(sessionId: string | undefined): boolean
   getWorkspaceCount(): number
   hasSessionsApi(): boolean
-  getUngroupedSessionIds(includeArchived?: boolean): string[]
+  getUngroupedSessionIds(isIncludingArchived?: boolean): string[]
   refreshState(): Promise<void>
   saveProxy(next: ClientProxyConfig): Promise<boolean>
   beginTotpSetup(): Promise<{ ok: boolean; setupToken?: string; secret?: string; otpauthUri?: string; error?: string }>
   confirmTotpSetup(sessionId: string, setupToken: string, code: string): Promise<{ ok: boolean; error?: string }>
   lockSession(sessionId: string, newPin?: string): Promise<{ ok: boolean; error?: string }>
-  verifyOrUnlockSession(sessionId: string, pin: string, permanent: boolean): Promise<{ ok: boolean; error?: string }>
+  verifyOrUnlockSession(sessionId: string, pin: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }>
   clearPin(pin: string): Promise<{ ok: boolean; error?: string }>
   moveSession(sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }>
   deleteSession(sessionId: string): Promise<{ ok: boolean; error?: string }>
@@ -1381,7 +1381,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   let rawUnarchiveSessionFn: ((sessionId: string) => Promise<unknown>) | undefined
   let sessionsApi: SearchSessionsApi | undefined
   let navigationApi: SearchNavigationApi | undefined
-  let stateSyncedFromHost = false
+  let hasSyncedStateFromHost = false
   let refreshInFlight: Promise<void> | undefined
   let lastRefreshAttemptAt = 0
   let dialogBackdrop: HTMLElement | undefined
@@ -1485,7 +1485,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         if (stRes.ok) {
           const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
           if (stData?.state) {
-            stateSyncedFromHost = true
+            hasSyncedStateFromHost = true
             applyHostStatePayload(stData.state)
           }
         }
@@ -1508,7 +1508,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const ensureLoaded = (): void => {
-    if (stateSyncedFromHost || refreshInFlight) return
+    if (hasSyncedStateFromHost || refreshInFlight) return
     if (Date.now() - lastRefreshAttemptAt < 1200) return
     void refreshState()
   }
@@ -1654,13 +1654,13 @@ function createClientFeatureManager(): ClientFeatureManager {
     return { ok: true }
   }
 
-  const verifyOrUnlockSession = async (sessionId: string, code: string, permanent: boolean): Promise<{ ok: boolean; error?: string }> => {
+  const verifyOrUnlockSession = async (sessionId: string, code: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     }
     if (!canCallHostHttp()) {
-      if (permanent) {
+      if (isPermanent) {
         publish({
           lockedSessionIds: Object.freeze(state.lockedSessionIds.filter(id => id !== sessionId)),
           tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
@@ -1677,14 +1677,14 @@ function createClientFeatureManager(): ClientFeatureManager {
       return { ok: true }
     }
     const res = await postHostJson('/api/delta-desktop/session-lock', {
-      action: permanent ? 'unlock' : 'verify',
+      action: isPermanent ? 'unlock' : 'verify',
       sessionId,
       code: trimmed,
       pin: trimmed,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
     if (res.data?.state) applyHostStatePayload(res.data.state)
-    if (permanent) {
+    if (isPermanent) {
       await unarchiveSessionBestEffort(sessionId)
       notifyDataApis()
     } else if (!state.tempUnlockedIds.includes(sessionId)) {
@@ -1773,7 +1773,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     return { ok: true }
   }
 
-  const getUngroupedSessionIds = (includeArchived = false): string[] => {
+  const getUngroupedSessionIds = (isIncludingArchived = false): string[] => {
     const wsSnap = workspacesApi?.list?.getSnapshot?.()
     const sessSnap = sessionsApi?.list?.getSnapshot?.()
     if (!sessSnap?.byId) return []
@@ -1789,7 +1789,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     for (const sid of orderIds) {
       const rec = sessSnap.byId[sid] as { blank?: boolean } | undefined
       if (!rec || rec.blank || deleted.has(sid) || accounted.has(sid)) continue
-      if (!includeArchived && archived.has(sid)) continue
+      if (!isIncludingArchived && archived.has(sid)) continue
       out.push(sid)
     }
     return out
@@ -1983,7 +1983,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     titleText: string,
     descText: string,
     confirmText: string,
-    dangerBtn: boolean,
+    isDangerButton: boolean,
     onVerify: (pin: string) => Promise<{ ok: boolean; error?: string }>,
     successToast: string,
   ): void => {
@@ -1998,7 +1998,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       const cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'dtd-btn-secondary'
       cancelBtn.textContent = copy.ui.cancel; cancelBtn.addEventListener('click', closeDialog)
       const okBtn = document.createElement('button'); okBtn.type = 'button'
-      okBtn.className = dangerBtn ? 'dtd-btn-danger' : 'dtd-btn-primary'
+      okBtn.className = isDangerButton ? 'dtd-btn-danger' : 'dtd-btn-primary'
       okBtn.textContent = confirmText
       const submit = () => {
         const code = p1.value.trim()
@@ -2209,7 +2209,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     const permBtn = document.createElement('button'); permBtn.type = 'button'; permBtn.className = 'dtd-btn-secondary'
     permBtn.textContent = copy.sessionMenu.unlockPermanent
 
-    const runUnlock = (permanent: boolean) => {
+    const runUnlock = (isPermanent: boolean) => {
       if (!activeId) return
       const code = pinInput.value.trim()
       if (!isLegacyPin && !/^\d{6}$/.test(code)) {
@@ -2218,7 +2218,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         return
       }
       viewBtn.disabled = true; permBtn.disabled = true
-      void verifyOrUnlockSession(activeId, code, permanent).then(res => {
+      void verifyOrUnlockSession(activeId, code, isPermanent).then(res => {
         viewBtn.disabled = false; permBtn.disabled = false
         if (!res.ok) {
           err.textContent = copy.sessionMenu.wrongPin
@@ -2227,7 +2227,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         }
         overlay.remove()
         if (shieldEl === overlay) { shieldEl = undefined; shieldSessionId = undefined }
-        if (permanent) showDeltaToast(copy.sessionMenu.unlockedToast)
+        if (isPermanent) showDeltaToast(copy.sessionMenu.unlockedToast)
       })
     }
     viewBtn.addEventListener('click', () => runUnlock(false))
@@ -2252,7 +2252,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     setWorkspacesApi: (api) => {
       workspacesApi = api
       if (api) {
-        if (stateSyncedFromHost) {
+        if (hasSyncedStateFromHost) {
           syncLockedArchiveMembership(state.lockedSessionIds)
           notifyDataApis()
         } else {
@@ -2269,7 +2269,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         if (mainSess?.id && state.activeSessionId !== mainSess.id) {
           publish({ activeSessionId: mainSess.id })
         }
-        if (stateSyncedFromHost) notifyDataApis()
+        if (hasSyncedStateFromHost) notifyDataApis()
         else ensureLoaded()
       }
     },
@@ -2444,9 +2444,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
   let isDisposed = false
   let isSyncing = false
-  let allowSilentMenu = false
+  let isSilentMenuAllowed = false
   let silentMenuTimer: number | undefined
-  let updateBusy = false
+  let isUpdateBusy = false
   let desktopUpdatePhase: string | undefined
   let stopDesktopUpdates: (() => void) | undefined
   let observer: MutationObserver | undefined
@@ -2591,8 +2591,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const resolveHandleSide = (
     handle: HTMLElement,
     index: number,
-    hostSidebarOpen: boolean,
-    hostRightbarOpen: boolean,
+    isHostSidebarOpen: boolean,
+    isHostRightbarOpen: boolean,
     frameRect?: DOMRect,
     currentSidebar = 264,
   ): 'sidebar' | 'rightbar' => {
@@ -2600,8 +2600,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     if (explicitSide === 'sidebar' || explicitSide === 'rightbar') return explicitSide
     if (handle.closest?.('[data-sidebar-col], [class*="sidebarCol"]')) return 'sidebar'
     if (handle.closest?.('[data-rightbar-col], [class*="rightbarCol"]')) return 'rightbar'
-    if (!hostSidebarOpen && hostRightbarOpen) return 'rightbar'
-    if (hostSidebarOpen && !hostRightbarOpen) return 'sidebar'
+    if (!isHostSidebarOpen && isHostRightbarOpen) return 'rightbar'
+    if (isHostSidebarOpen && !isHostRightbarOpen) return 'sidebar'
     const handleRect = handle.getBoundingClientRect?.()
     if (frameRect && handleRect) {
       return Math.abs((handleRect.left - frameRect.left) - currentSidebar) <= 28 ? 'sidebar' : 'rightbar'
@@ -2617,13 +2617,13 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     const sidebarCol = frame.querySelector?.<HTMLElement>('[data-sidebar-col], [class*="sidebarCol"]') ?? null
     const rightbarCol = frame.querySelector?.<HTMLElement>('[data-rightbar-col], [class*="rightbarCol"]') ?? null
     const hasTracks = tracks.length >= 2
-    const hostSidebarOpen = hasTracks
+    const isHostSidebarOpen = hasTracks
       ? !isZeroGridTrack(tracks[0])
       : Boolean(sidebarCol && (sidebarCol.offsetWidth ?? 1) > 0)
     const rightbarHasContent = rightbarCol
       ? ((rightbarCol.childElementCount ?? (rightbarCol as unknown as { children?: { length: number } }).children?.length ?? 0) > 0)
       : true
-    const hostRightbarOpen = hasTracks
+    const isHostRightbarOpen = hasTracks
       ? (tracks.length >= 3 && !isZeroGridTrack(tracks[2]) && rightbarHasContent)
       : Boolean(rightbarCol && rightbarHasContent && (rightbarCol.offsetWidth ?? 1) > 0)
 
@@ -2637,24 +2637,24 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     const hostSidebarPx = hasTracks ? parseTrackMaxPx(tracks[0], 264) : 264
     const hostRightbarPx = hasTracks && tracks.length >= 3 ? parseTrackMaxPx(tracks[2], 360) : 360
 
-    let targetRightbar = hostRightbarOpen ? (customRightbarWidth ?? hostRightbarPx) : 0
-    let targetSidebar = hostSidebarOpen ? (customSidebarWidth ?? hostSidebarPx) : 0
+    let targetRightbar = isHostRightbarOpen ? (customRightbarWidth ?? hostRightbarPx) : 0
+    let targetSidebar = isHostSidebarOpen ? (customSidebarWidth ?? hostSidebarPx) : 0
 
-    if (hostSidebarOpen) {
-      const reserve = 150 + (hostRightbarOpen ? 150 : 0)
+    if (isHostSidebarOpen) {
+      const reserve = 150 + (isHostRightbarOpen ? 150 : 0)
       const maxSidebar = Math.max(150, frameWidth - reserve)
       targetSidebar = Math.max(150, Math.min(targetSidebar, maxSidebar))
     }
-    if (hostRightbarOpen) {
-      const reserve = 150 + (hostSidebarOpen ? targetSidebar : 0)
+    if (isHostRightbarOpen) {
+      const reserve = 150 + (isHostSidebarOpen ? targetSidebar : 0)
       const maxRightbar = Math.max(150, frameWidth - reserve)
       targetRightbar = Math.max(150, Math.min(targetRightbar, maxRightbar))
     }
 
-    const nextSidebarAttr = hostSidebarOpen ? '1' : '0'
-    const nextRightbarAttr = hostRightbarOpen ? '1' : '0'
-    const nextSidebarCss = hostSidebarOpen ? `${targetSidebar}px` : '0px'
-    const nextRightbarCss = hostRightbarOpen ? `${targetRightbar}px` : '0px'
+    const nextSidebarAttr = isHostSidebarOpen ? '1' : '0'
+    const nextRightbarAttr = isHostRightbarOpen ? '1' : '0'
+    const nextSidebarCss = isHostSidebarOpen ? `${targetSidebar}px` : '0px'
+    const nextRightbarCss = isHostRightbarOpen ? `${targetRightbar}px` : '0px'
 
     if (frame.getAttribute('data-dtd-elastic') !== '1') frame.setAttribute('data-dtd-elastic', '1')
     if (frame.getAttribute('data-dtd-sidebar-open') !== nextSidebarAttr) frame.setAttribute('data-dtd-sidebar-open', nextSidebarAttr)
@@ -2665,7 +2665,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     if (frame.style.getPropertyValue('--dtd-rightbar-col') !== nextRightbarCss) {
       frame.style.setProperty('--dtd-rightbar-col', nextRightbarCss)
     }
-    if (hostSidebarOpen) {
+    if (isHostSidebarOpen) {
       frame.style.setProperty('--dsh-windows-sidebar-width', nextSidebarCss)
     }
 
@@ -2691,7 +2691,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
       scheduleSync()
     }
-    const syncEdgeToggle = (side: 'left' | 'right', isOpen: boolean, visible: boolean): void => {
+    const syncEdgeToggle = (side: 'left' | 'right', isOpen: boolean, isVisible: boolean): void => {
       const key = `edge_${side}`
       let btn = mounted.get(key) as HTMLButtonElement | undefined
       if (!btn || !btn.isConnected) {
@@ -2714,7 +2714,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       } else if (btn.parentElement !== frame) {
         frame.appendChild?.(btn)
       }
-      if (!visible) {
+      if (!isVisible) {
         if (tooltipAnchor === btn) hideTooltip()
         btn.hidden = true
         btn.setAttribute('hidden', '')
@@ -2748,12 +2748,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         btn.appendChild(svg)
       }
     }
-    const hasRightbarTarget = hostRightbarOpen || Boolean(
+    const hasRightbarTarget = isHostRightbarOpen || Boolean(
       typeof document?.querySelector === 'function' &&
       document.querySelector('[class*="acoR2W_panel"], [data-sidebar-right-toggle], [data-sidebar-right-expand]')
     )
-    syncEdgeToggle('left', hostSidebarOpen, true)
-    syncEdgeToggle('right', hostRightbarOpen, hasRightbarTarget)
+    syncEdgeToggle('left', isHostSidebarOpen, true)
+    syncEdgeToggle('right', isHostRightbarOpen, hasRightbarTarget)
 
     if (typeof ResizeObserver !== 'undefined' && observedFrameEl !== frame) {
       frameResizeObserver?.disconnect()
@@ -2767,14 +2767,14 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const frameRect = frame.getBoundingClientRect?.()
       for (let i = 0; i < handles.length; i++) {
         const h = handles[i]
-        const side = resolveHandleSide(h, i, hostSidebarOpen, hostRightbarOpen, frameRect, targetSidebar)
+        const side = resolveHandleSide(h, i, isHostSidebarOpen, isHostRightbarOpen, frameRect, targetSidebar)
         if (side === 'sidebar') {
           if (h.style.left) {
             if (h.dataset && h.dataset.dtdOrigLeft === undefined) h.dataset.dtdOrigLeft = h.style.left
             modifiedHandles.add(h)
             if (h.style.left !== nextSidebarCss) h.style.setProperty('left', nextSidebarCss, 'important')
           }
-        } else if (hostRightbarOpen) {
+        } else if (isHostRightbarOpen) {
           if (h.style.right) {
             if (h.dataset && h.dataset.dtdOrigRight === undefined) h.dataset.dtdOrigRight = h.style.right
             modifiedHandles.add(h)
@@ -2803,17 +2803,17 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     const tracks = splitGridTracks(frame.style.gridTemplateColumns ?? '')
     const handles = Array.from(frame.querySelectorAll<HTMLElement>('[class*="mP3x-q_handle"]'))
     const rightbarCol = frame.querySelector<HTMLElement>('[data-rightbar-col], [class*="rightbarCol"]')
-    const hostSidebarOpen = tracks.length >= 2 ? !isZeroGridTrack(tracks[0]) : true
-    const hostRightbarOpen = tracks.length >= 3
+    const isHostSidebarOpen = tracks.length >= 2 ? !isZeroGridTrack(tracks[0]) : true
+    const isHostRightbarOpen = tracks.length >= 3
       ? !isZeroGridTrack(tracks[2])
       : Boolean(rightbarCol && ((rightbarCol.childElementCount ?? (rightbarCol as unknown as { children?: { length: number } }).children?.length ?? 0) > 0))
     const idx = Math.max(0, handles.indexOf(handle))
     const frameRect = frame.getBoundingClientRect?.()
     const currentSidebar = parseFloat(frame.style.getPropertyValue('--dtd-sidebar-col')) || parseTrackMaxPx(tracks[0], 264)
     const currentRightbar = parseFloat(frame.style.getPropertyValue('--dtd-rightbar-col')) || parseTrackMaxPx(tracks[2], 360)
-    const isSidebarHandle = resolveHandleSide(handle, idx, hostSidebarOpen, hostRightbarOpen, frameRect, currentSidebar) === 'sidebar'
+    const isSidebarHandle = resolveHandleSide(handle, idx, isHostSidebarOpen, isHostRightbarOpen, frameRect, currentSidebar) === 'sidebar'
 
-    if ((isSidebarHandle && !hostSidebarOpen) || (!isSidebarHandle && !hostRightbarOpen)) return
+    if ((isSidebarHandle && !isHostSidebarOpen) || (!isSidebarHandle && !isHostRightbarOpen)) return
 
     pe.preventDefault()
     pe.stopPropagation()
@@ -2835,10 +2835,10 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     const onMove = (moveEv: PointerEvent): void => {
       const dx = moveEv.clientX - startX
       if (isSidebarHandle) {
-        const maxSidebar = Math.max(150, frameWidth - 150 - (hostRightbarOpen ? (customRightbarWidth ?? currentRightbar) : 0))
+        const maxSidebar = Math.max(150, frameWidth - 150 - (isHostRightbarOpen ? (customRightbarWidth ?? currentRightbar) : 0))
         customSidebarWidth = Math.max(150, Math.min(Math.round(startWidth + dx), maxSidebar))
       } else {
-        const maxRightbar = Math.max(150, frameWidth - 150 - (hostSidebarOpen ? (customSidebarWidth ?? currentSidebar) : 0))
+        const maxRightbar = Math.max(150, frameWidth - 150 - (isHostSidebarOpen ? (customSidebarWidth ?? currentSidebar) : 0))
         customRightbarWidth = Math.max(150, Math.min(Math.round(startWidth - dx), maxRightbar))
       }
       syncElasticLayout()
@@ -3056,8 +3056,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       cancelTimer(silentMenuTimer)
       silentMenuTimer = undefined
     }
-    allowSilentMenu = false
-    updateBusy = false
+    isSilentMenuAllowed = false
+    isUpdateBusy = false
     try { document?.body?.removeAttribute?.('data-dtd-silent-menu') } catch {}
     for (const [btn, orig] of mutatedNavButtons) {
       try {
@@ -3737,7 +3737,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           boundTriggers.add(nativeTrigger)
           nativeTrigger.classList?.add?.('dtd-native-profile-trigger')
           nativeTrigger.addEventListener('click', (e) => {
-            if (isDisposed || allowSilentMenu || controller.getSnapshot().mode !== 'delta') return
+            if (isDisposed || isSilentMenuAllowed || controller.getSnapshot().mode !== 'delta') return
             e.stopImmediatePropagation?.()
             e.preventDefault?.()
           }, true)
@@ -3842,12 +3842,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           } catch {}
         }
 
-        const updateAuthButton = (btn: HTMLButtonElement, signedIn: boolean): void => {
+        const updateAuthButton = (btn: HTMLButtonElement, isSignedIn: boolean): void => {
           const uiCopy = getUiCopy()
-          const label = signedIn ? uiCopy.signOut : uiCopy.signIn
+          const label = isSignedIn ? uiCopy.signOut : uiCopy.signIn
           attachTooltipEvents(btn)
           setDeltaTooltip(btn, label, 'top')
-          const stateKey = signedIn ? '1' : '0'
+          const stateKey = isSignedIn ? '1' : '0'
           if (btn.getAttribute?.('data-signed-in') === stateKey) return
           btn.setAttribute('data-signed-in', stateKey)
           clearNodeChildren(btn)
@@ -3861,7 +3861,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
           })
-          if (signedIn) {
+          if (isSignedIn) {
             authSvg.appendChild(createSvgEl('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }))
             authSvg.appendChild(createSvgEl('polyline', { points: '16 17 21 12 16 7' }))
             authSvg.appendChild(createSvgEl('line', { x1: 21, y1: 12, x2: 9, y2: 12 }))
@@ -3918,11 +3918,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           document.body?.setAttribute?.('data-dtd-silent-menu', '1')
 
           if (liveTrigger.getAttribute?.('aria-expanded') !== 'true') {
-            allowSilentMenu = true
+            isSilentMenuAllowed = true
             try {
               liveTrigger.click()
             } finally {
-              allowSilentMenu = false
+              isSilentMenuAllowed = false
             }
           }
 
@@ -3960,8 +3960,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             attempts += 1
             if (attempts >= 24) {
               if (liveTrigger.getAttribute?.('aria-expanded') === 'true') {
-                allowSilentMenu = true
-                try { liveTrigger.click() } finally { allowSilentMenu = false }
+                isSilentMenuAllowed = true
+                try { liveTrigger.click() } finally { isSilentMenuAllowed = false }
               }
               finishSilent()
               if (kind === 'settings') {
@@ -4024,18 +4024,18 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           updateSvg.appendChild(createSvgEl('path', { d: 'M13.73 21a2 2 0 0 1-3.46 0' }))
           btnUpdate.appendChild(updateSvg)
           btnUpdate.addEventListener('click', () => {
-            if (updateBusy) return
+            if (isUpdateBusy) return
             const dshDesktop = (window as unknown as { dshDesktop?: { updates?: { open?: () => unknown } } }).dshDesktop
             if (typeof dshDesktop?.updates?.open === 'function') {
-              updateBusy = true
+              isUpdateBusy = true
               try {
                 Promise.resolve(dshDesktop.updates.open()).catch(() => {
                   showDeltaToast(getUiCopy().latestVersion)
                 }).finally(() => {
-                  updateBusy = false
+                  isUpdateBusy = false
                 })
               } catch {
-                updateBusy = false
+                isUpdateBusy = false
                 showDeltaToast(getUiCopy().latestVersion)
               }
               return
@@ -4534,16 +4534,16 @@ function installHostSearch(
   let inlinePending: AbortController | undefined
   let inlineSerial = 0
   let inlineRemoteItems: HostContentHit[] = []
-  let inlineIsSearching = false
-  let inlineHasError = false
+  let isInlineSearching = false
+  let hasInlineError = false
 
   let stopRevealTimer: (() => void) | undefined
   let modalTimer: number | undefined
   let modalPending: AbortController | undefined
   let modalSerial = 0
-  let modalOpen = false
+  let isModalOpen = false
   let modalRemoteHits: HostContentHit[] = []
-  let modalSearching = false
+  let isModalSearching = false
   let activeTab: SearchTabId = 'all'
   let activeIndex = 0
   let cachedCatalog: { plugins: PaletteItem[]; skills: PaletteItem[]; shortcuts: PaletteItem[] } | undefined
@@ -4555,7 +4555,7 @@ function installHostSearch(
   let modalTabsEl: HTMLElement | undefined
   let modalListEl: HTMLElement | undefined
 
-  const active = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
+  const isActive = (): boolean => !isDisposed && controller.getSnapshot().mode === 'delta' && shell.isConnected
   const clearInlineRequest = (): void => {
     if (inlineTimer !== undefined) cancelTimer(inlineTimer)
     inlineTimer = undefined
@@ -4669,7 +4669,7 @@ function installHostSearch(
     syncSidebarLabels()
     results.replaceChildren()
     const query = input.value.trim().toLocaleLowerCase()
-    if (!query || !active()) { results.hidden = true; return }
+    if (!query || !isActive()) { results.hidden = true; return }
     results.hidden = false
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
     const pal = (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette
@@ -4741,17 +4741,17 @@ function installHostSearch(
           renderInline()
         } catch (reason) {
           console.warn('[dsh-delta-desktop] native Session navigation failed', reason)
-          inlineHasError = true
+          hasInlineError = true
           renderInline()
         }
       })
       results.appendChild(button)
     }
-    if (inlineIsSearching || inlineHasError || matches.length === 0) {
+    if (isInlineSearching || hasInlineError || matches.length === 0) {
       const message = document.createElement('p')
       message.className = 'dtd-host-search-hint'
       message.setAttribute('role', 'status')
-      message.textContent = inlineHasError ? copy.unavailable : inlineIsSearching ? copy.searching : copy.noResults
+      message.textContent = hasInlineError ? copy.unavailable : isInlineSearching ? copy.searching : copy.noResults
       results.appendChild(message)
     }
   }
@@ -4759,20 +4759,20 @@ function installHostSearch(
   const onInlineInput = (): void => {
     clearInlineRequest()
     inlineRemoteItems = []
-    inlineIsSearching = false
-    inlineHasError = false
+    isInlineSearching = false
+    hasInlineError = false
     const query = input.value.replaceAll('\0', '').trim().slice(0, 500)
     if (query) {
-      inlineIsSearching = true
+      isInlineSearching = true
       const requestId = inlineSerial
       const aborter = new AbortController()
       inlinePending = aborter
       inlineTimer = scheduleTimer(() => {
         inlineTimer = undefined
         dispatchContentSearch(query, aborter.signal, res => {
-          if (!active() || inlineSerial !== requestId || aborter.signal.aborted) return
-          inlineIsSearching = false
-          inlineHasError = !res.ok
+          if (!isActive() || inlineSerial !== requestId || aborter.signal.aborted) return
+          isInlineSearching = false
+          hasInlineError = !res.ok
           inlineRemoteItems = res.ok ? res.items : []
           renderInline()
         })
@@ -5209,7 +5209,7 @@ function installHostSearch(
   let currentFilteredItems: PaletteItem[] = []
 
   const closePalette = (): void => {
-    modalOpen = false
+    isModalOpen = false
     clearModalRequest()
     if (backdropEl) {
       backdropEl.hidden = true
@@ -5235,7 +5235,7 @@ function installHostSearch(
   }
 
   const renderPalette = (): void => {
-    if (!modalOpen || !modalTabsEl || !modalListEl || !modalInputEl || !modalClearBtn) return
+    if (!isModalOpen || !modalTabsEl || !modalListEl || !modalInputEl || !modalClearBtn) return
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     const pCopy = copy.searchPalette
     const q = modalInputEl.value.trim()
@@ -5290,7 +5290,7 @@ function installHostSearch(
       const empty = document.createElement('div')
       empty.className = 'dtd-search-empty'
       const title = document.createElement('strong')
-      title.textContent = modalSearching ? pCopy.searchingContent : pCopy.noResults
+      title.textContent = isModalSearching ? pCopy.searchingContent : pCopy.noResults
       const hint = document.createElement('span')
       hint.textContent = pCopy.noResultsHint
       empty.append(title, hint)
@@ -5345,7 +5345,7 @@ function installHostSearch(
       modalListEl!.appendChild(row)
     })
 
-    if (modalSearching) {
+    if (isModalSearching) {
       const status = document.createElement('div')
       status.className = 'dtd-search-empty'
       const span = document.createElement('span')
@@ -5358,18 +5358,18 @@ function installHostSearch(
   const triggerModalSearch = (rawQuery: string): void => {
     clearModalRequest()
     modalRemoteHits = []
-    modalSearching = false
+    isModalSearching = false
     const query = rawQuery.replaceAll('\0', '').trim().slice(0, 500)
     if (query) {
-      modalSearching = true
+      isModalSearching = true
       const requestId = modalSerial
       const aborter = new AbortController()
       modalPending = aborter
       modalTimer = scheduleTimer(() => {
         modalTimer = undefined
         dispatchContentSearch(query, aborter.signal, res => {
-          if (!modalOpen || isDisposed || modalSerial !== requestId || aborter.signal.aborted) return
-          modalSearching = false
+          if (!isModalOpen || isDisposed || modalSerial !== requestId || aborter.signal.aborted) return
+          isModalSearching = false
           modalRemoteHits = res.ok ? res.items : []
           renderPalette()
         })
@@ -5514,7 +5514,7 @@ function installHostSearch(
       modalListEl = list
     }
 
-    modalOpen = true
+    isModalOpen = true
     activeTab = 'all'
     activeIndex = 0
     syncModalChromeOverlay()
@@ -5525,7 +5525,7 @@ function installHostSearch(
     }
     triggerModalSearch(seedQuery)
     void buildDynamicCatalog().then(cat => {
-      if (!modalOpen || isDisposed) return
+      if (!isModalOpen || isDisposed) return
       cachedCatalog = cat
       renderPalette()
     })
@@ -5537,7 +5537,7 @@ function installHostSearch(
     input.focus?.()
   })
   input.addEventListener('keydown', (e: KeyboardEvent) => {
-    if (!modalOpen && e.key === 'Enter') {
+    if (!isModalOpen && e.key === 'Enter') {
       e.preventDefault?.()
       openPalette(input.value)
     }
@@ -5552,9 +5552,9 @@ function installHostSearch(
       ke.preventDefault?.()
       ;(ke as Event & { stopImmediatePropagation?: () => void }).stopImmediatePropagation?.()
       ke.stopPropagation?.()
-      if (modalOpen) closePalette()
+      if (isModalOpen) closePalette()
       else openPalette(input.value)
-    } else if (modalOpen && ke.key === 'Escape') {
+    } else if (isModalOpen && ke.key === 'Escape') {
       ke.preventDefault?.()
       ;(ke as Event & { stopImmediatePropagation?: () => void }).stopImmediatePropagation?.()
       ke.stopPropagation?.()
@@ -5580,7 +5580,7 @@ function installHostSearch(
             (gesture?.control || gesture?.meta) && !gesture?.alt && !gesture?.shift && gesture?.code === 'KeyK') {
           consume?.()
           if (!gesture?.repeat) {
-            if (modalOpen) closePalette()
+            if (isModalOpen) closePalette()
             else openPalette(input.value)
           }
           return { status: 'handled', commandId: 'session.search' }
@@ -5590,7 +5590,7 @@ function installHostSearch(
       if (origInvoke) {
         reg.invoke = function(this: any, id: string) {
           if (!isDisposed && controller.getSnapshot().mode === 'delta' && id === 'session.search') {
-            if (modalOpen) closePalette()
+            if (isModalOpen) closePalette()
             else openPalette(input.value)
             return
           }
@@ -6785,14 +6785,14 @@ window.__ModuleLoader__.load({
                 const stopCompat = installSidebarCompatibility(controller)
 
                 // Adapt runtime chat status: "\u6DF1\u5EA6\u6C42\u7D22\u4E2D" -> "\u4EFB\u52A1\u6267\u884C\u4E2D"
-                let effectDisposed = false
+                let isEffectDisposed = false
                 const slotRestorers: Array<() => void> = []
                 let stopLocaleSync: (() => void) | undefined
                 let restoreLocaleOnDispose: (() => void) | undefined
                 try {
                   const slotsObj = scope.slots as any
                   const filterSlotEntries = (slotName: string, list: any): any => {
-                    if (effectDisposed || !Array.isArray(list)) return list
+                    if (isEffectDisposed || !Array.isArray(list)) return list
                     if (slotName === 'settings.general.item') {
                       return list.filter((item: any) => item?.options?.id !== 'session-log-deepseek' && item?.options?.id !== 'current-version')
                     }
@@ -6833,14 +6833,14 @@ window.__ModuleLoader__.load({
                     slotsObj?.ctx?.emit?.('slots/changed', 'settings.general.item')
                   } catch { /* Slots entries wrapper is optional */ }
                   const origDictValues = new Map<Record<string, string>, Record<string, string | undefined>>()
-                  const setDictEntry = (dict: Record<string, string>, key: string, nextValue: string, active: boolean): boolean => {
+                  const setDictEntry = (dict: Record<string, string>, key: string, nextValue: string, isLocaleEnabled: boolean): boolean => {
                     let origMap = origDictValues.get(dict)
                     if (!origMap) {
                       origMap = {}
                       origDictValues.set(dict, origMap)
                     }
                     if (!(key in origMap)) origMap[key] = dict[key]
-                    if (active) {
+                    if (isLocaleEnabled) {
                       if (dict[key] !== nextValue) {
                         dict[key] = nextValue
                         return true
@@ -6858,12 +6858,12 @@ window.__ModuleLoader__.load({
                     }
                     return false
                   }
-                  const patchZhEntryMap = (ns: string, dict: Record<string, string>, activeMode: boolean): boolean => {
-                    let changed = false
+                  const patchZhEntryMap = (ns: string, dict: Record<string, string>, isLocaleActive: boolean): boolean => {
+                    let hasChanged = false
                     const lowerNs = ns.toLowerCase()
                     if (lowerNs === 'chat') {
-                      if (setDictEntry(dict, 'chat.deepDiving', '\u4EFB\u52A1\u6267\u884C\u4E2D', activeMode)) changed = true
-                      if (setDictEntry(dict, 'chat.deepDivingFor', '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···', activeMode)) changed = true
+                      if (setDictEntry(dict, 'chat.deepDiving', '\u4EFB\u52A1\u6267\u884C\u4E2D', isLocaleActive)) hasChanged = true
+                      if (setDictEntry(dict, 'chat.deepDivingFor', '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···', isLocaleActive)) hasChanged = true
                     }
                     const isSettingsNs = lowerNs.includes('setting') || lowerNs.includes('account') || lowerNs.includes('model')
                     const isScheduleNs = lowerNs.includes('schedule')
@@ -6872,30 +6872,30 @@ window.__ModuleLoader__.load({
                     for (const k of Object.keys(dict)) {
                       const baseline = origMap && k in origMap ? origMap[k] : dict[k]
                       if (baseline === '\u8D26\u53F7\u4E0E\u4F59\u989D' && (isSettingsNs || k === 'nav' || k.endsWith('.nav'))) {
-                        if (setDictEntry(dict, k, '\u8D26\u6237\u8BE6\u60C5', activeMode)) changed = true
+                        if (setDictEntry(dict, k, '\u8D26\u6237\u8BE6\u60C5', isLocaleActive)) hasChanged = true
                       } else if (baseline === '\u6A21\u578B' && (isSettingsNs || k === 'nav' || k === 'title' || k.endsWith('.nav') || k.endsWith('.title'))) {
-                        if (setDictEntry(dict, k, '\u6A21\u578B\u914D\u7F6E', activeMode)) changed = true
+                        if (setDictEntry(dict, k, '\u6A21\u578B\u914D\u7F6E', isLocaleActive)) hasChanged = true
                       } else if (baseline === '\u81EA\u52A8\u5316\u4EFB\u52A1' && (isScheduleNs || k === 'panel' || k === 'title' || k === 'trigger.label')) {
-                        if (setDictEntry(dict, k, '\u5B9A\u65F6\u4EFB\u52A1', activeMode)) changed = true
+                        if (setDictEntry(dict, k, '\u5B9A\u65F6\u4EFB\u52A1', isLocaleActive)) hasChanged = true
                       } else if (baseline === '\u63D2\u4EF6' && (isPluginManagerNs && (k === 'panel' || k === 'title' || k === 'crumbRoot') || k === 'panel' || k === 'title')) {
-                        if (setDictEntry(dict, k, '\u63D2\u4EF6\u7BA1\u7406', activeMode)) changed = true
+                        if (setDictEntry(dict, k, '\u63D2\u4EF6\u7BA1\u7406', isLocaleActive)) hasChanged = true
                       }
                     }
-                    return changed
+                    return hasChanged
                   }
                   const attachLocalePatch = (localeInput: any): void => {
                     const localeRuntime = unwrapCordisOriginal(localeInput)
                     if (!localeRuntime || localeRuntime.__deltaLocaleAttached) return
                     localeRuntime.__deltaLocaleAttached = true
-                    const syncLocaleDict = (notify: boolean): void => {
-                      const activeMode = !effectDisposed && controller.getSnapshot().mode === 'delta'
-                      let anyChanged = false
+                    const syncLocaleDict = (shouldNotify: boolean): void => {
+                      const isLocaleActive = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
+                      let hasAnyChange = false
                       const chatLocales = localeRuntime.dicts?.get?.('chat')
                       if (chatLocales && typeof chatLocales.entries === 'function') {
                         for (const [locKey, zhDict] of chatLocales.entries()) {
                           if (typeof locKey !== 'string' || !locKey.toLowerCase().startsWith('zh') || !zhDict || typeof zhDict !== 'object') continue
-                          if (setDictEntry(zhDict, 'chat.deepDiving', '\u4EFB\u52A1\u6267\u884C\u4E2D', activeMode)) anyChanged = true
-                          if (setDictEntry(zhDict, 'chat.deepDivingFor', '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···', activeMode)) anyChanged = true
+                          if (setDictEntry(zhDict, 'chat.deepDiving', '\u4EFB\u52A1\u6267\u884C\u4E2D', isLocaleActive)) hasAnyChange = true
+                          if (setDictEntry(zhDict, 'chat.deepDivingFor', '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···', isLocaleActive)) hasAnyChange = true
                         }
                       }
                       if (typeof localeRuntime.dicts?.forEach === 'function') {
@@ -6903,11 +6903,11 @@ window.__ModuleLoader__.load({
                           if (typeof ns !== 'string' || typeof nsMap?.entries !== 'function') return
                           for (const [locKey, zh] of nsMap.entries()) {
                             if (typeof locKey !== 'string' || !locKey.toLowerCase().startsWith('zh') || !zh || typeof zh !== 'object') continue
-                            if (patchZhEntryMap(ns, zh, activeMode)) anyChanged = true
+                            if (patchZhEntryMap(ns, zh, isLocaleActive)) hasAnyChange = true
                           }
                         })
                       }
-                      if (notify || anyChanged) {
+                      if (shouldNotify || hasAnyChange) {
                         try {
                           const active = localeRuntime.snapshot?.active
                           if (active && typeof localeRuntime.publish === 'function') {
@@ -6929,13 +6929,13 @@ window.__ModuleLoader__.load({
                       localeRuntime.__deltaPatched = true
                       const origRegister = localeRuntime.register
                       localeRuntime.register = function(this: any, ns: string, localeOrDicts: any, dict?: any) {
-                        const activeMode = !effectDisposed && controller.getSnapshot().mode === 'delta'
+                        const isLocaleActive = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
                         if (typeof ns === 'string') {
                           try {
                             if (typeof localeOrDicts === 'string' && localeOrDicts.toLowerCase().startsWith('zh') && dict && typeof dict === 'object') {
-                              patchZhEntryMap(ns, dict, activeMode)
+                              patchZhEntryMap(ns, dict, isLocaleActive)
                             } else if (localeOrDicts && typeof localeOrDicts === 'object' && localeOrDicts.zh && typeof localeOrDicts.zh === 'object') {
-                              patchZhEntryMap(ns, localeOrDicts.zh, activeMode)
+                              patchZhEntryMap(ns, localeOrDicts.zh, isLocaleActive)
                             }
                           } catch {}
                         }
@@ -6948,8 +6948,8 @@ window.__ModuleLoader__.load({
                       localeRuntime.__deltaTranslatePatched = true
                       const origTranslate = localeRuntime.translate
                       localeRuntime.translate = function(this: any, ns: string, key: string, params: any) {
-                        const activeMode = !effectDisposed && controller.getSnapshot().mode === 'delta'
-                        if (activeMode && (ns === 'chat' || ns === 'common')) {
+                        const isLocaleActive = !isEffectDisposed && controller.getSnapshot().mode === 'delta'
+                        if (isLocaleActive && (ns === 'chat' || ns === 'common')) {
                           if (key === 'chat.deepDiving') return '\u4EFB\u52A1\u6267\u884C\u4E2D'
                           if (key === 'chat.deepDivingFor') {
                             const template = '\u4EFB\u52A1\u6267\u884C\u4E2D，\u7528\u65F6 {duration} ···'
@@ -6958,7 +6958,7 @@ window.__ModuleLoader__.load({
                           }
                         }
                         const res = origTranslate.apply(this, arguments)
-                        if (activeMode && typeof res === 'string') {
+                        if (isLocaleActive && typeof res === 'string') {
                           const lowerNs = typeof ns === 'string' ? ns.toLowerCase() : ''
                           const lowerKey = typeof key === 'string' ? key.toLowerCase() : ''
                           const isNavOrSettings = lowerNs.includes('setting') || lowerNs.includes('account') || lowerNs.includes('model')
@@ -7020,7 +7020,7 @@ window.__ModuleLoader__.load({
                 } catch { /* Locale runtime is optional and gracefully degraded */ }
 
                 return () => {
-                  effectDisposed = true
+                  isEffectDisposed = true
                   for (const restore of slotRestorers) { try { restore() } catch {} }
                   observer?.disconnect()
                   stopLocaleSync?.()
@@ -7178,13 +7178,13 @@ window.__ModuleLoader__.load({
                 const origInvalidate = typeof listObj.invalidate === 'function' ? listObj.invalidate : undefined
                 const origSet = typeof listObj.set === 'function' ? listObj.set : undefined
                 const projectedSnap = (): S => projectFn(origSnap.call(listObj))
-                let refreshingNative = false
+                let isRefreshingNative = false
                 try {
                   listObj.getSnapshot = projectedSnap
                   const wrappedListeners = new Set<() => void>()
                   const unsubNotify = deltaFeatures.onDataMutate(() => {
-                    if (refreshingNative) return
-                    refreshingNative = true
+                    if (isRefreshingNative) return
+                    isRefreshingNative = true
                     try {
                       wrappedListeners.forEach(fn => { try { fn() } catch {} })
                       if (origInvalidate) {
@@ -7196,7 +7196,7 @@ window.__ModuleLoader__.load({
                         } catch {}
                       }
                     } finally {
-                      refreshingNative = false
+                      isRefreshingNative = false
                     }
                   })
                   if (typeof origSub === 'function') {
@@ -7398,9 +7398,9 @@ window.__ModuleLoader__.load({
                       el('path', { d: 'M15 3h6v6' }),
                       el('path', { d: 'M10 14 21 3' }),
                       el('path', { d: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6' }))
-                    const iconLock = (unlocked: boolean) => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
+                    const iconLock = (isUnlocked: boolean) => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
                       el('rect', { x: 4, y: 11, width: 16, height: 10, rx: 2, ry: 2 }),
-                      el('path', { d: unlocked ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4' }))
+                      el('path', { d: isUnlocked ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4' }))
                     const iconTrash = () => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
                       el('path', { d: 'M3 6h18' }),
                       el('path', { d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
