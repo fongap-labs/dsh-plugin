@@ -238,7 +238,7 @@ interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): voi
 interface SidebarRightApi { toggleExpanded?(): void; openResource(address: string): unknown; closeRightbar?(): void }
 interface SlotsApi {
   inject(name: string, register: () => unknown): void
-  register<P = DeltaProps>(options: { name: string; id: string; key?: string; order?: number; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
+  register<P = DeltaProps>(options: { name: string; id?: string; key?: string; order?: number; children?: readonly string[]; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
 interface WorkspaceSnapshot {
   items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
@@ -262,11 +262,12 @@ interface SearchSessionRecord {
   blank?: boolean
   workspaceId?: string
   updatedAt?: number | string
+  running?: boolean
   archived?: boolean
 }
 interface SearchSessionsApi {
   list: {
-    getSnapshot(): { byId: Record<string, SearchSessionRecord>; ids?: readonly string[] }
+    getSnapshot(): { phase?: string; byId: Record<string, SearchSessionRecord>; ids?: readonly string[] }
     subscribe?(listener: () => void): () => void
   }
   cancel?(sessionId: string): Promise<unknown> | void
@@ -6057,7 +6058,7 @@ window.__ModuleLoader__.load({
         return (session.running === true ? '1' : '0') + ':' + timestamp
       } catch { return '' }
     }
-    const ASSISTANT_TAB_ID = OWNER
+    const ASSISTANT_TAB_ID = DELTA_DESKTOP_OWNER
     const ASSISTANT_TAB_KIND = 'delta-context-assistant'
     const ASSISTANT_PROTOCOL = 'dtdelta'
     const ASSISTANT_PRESET = 'delta-context'
