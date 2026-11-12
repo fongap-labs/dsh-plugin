@@ -14,7 +14,8 @@ const en = JSON.parse(file('locale/en.json'))
 describe('Authoritative ZIP3 Desktop UI and additive feature integration', () => {
   it('retains the exact ZIP theme, without replacing it with legacy main styles', () => {
     // Six-digit CSS Unicode escapes preserve the ZIP's selector semantics.
-    const canonical = css.replace(/\\([0-9A-F]{6})/g, (_, hex) =>
+    // Git may check out CRLF on Windows; canonical ZIP CSS uses LF.
+    const canonical = css.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g, (_, hex) =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
