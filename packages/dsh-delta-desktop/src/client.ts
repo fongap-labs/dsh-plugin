@@ -12,6 +12,8 @@ interface DeltaCopy {
     appearance: string; appearanceDescription: string; hostOwned: string;
     sessionId: string; copySessionId: string; copy: string;
     searchSessions: string; newConversation: string; searching: string; noResults: string;
+    integrationTitle: string; integrationSummary: string; integrationSidebar: string;
+    integrationCollapse: string; integrationDeletion: string; integrationRunning: string;
     copied: string; copyFailed: string; protectedDefaultWorkspace: string;
     updateNotification: string; settings: string; signIn: string; signOut: string;
     signedIn: string; latestVersion: string; signedOut: string;
@@ -69,7 +71,7 @@ interface DeltaCopy {
 }
 type Language = 'zh' | 'en'
 type Mode = 'delta' | 'official'
-type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; revision: number }>
+type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; themeReady: boolean; revision: number }>
 interface DeltaController {
   getSnapshot(): DeltaState
   subscribe(listener: () => void): () => void
@@ -461,7 +463,7 @@ function writeMode(mode: Mode): void {
 }
 
 function createController(): DeltaController {
-  let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
+  let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, themeReady: false, revision: 0 })
   let ownedLayer: (() => void) | undefined
   let activeTheme: ThemeApi | undefined
   let activeLayout: LayoutApi | undefined
@@ -503,7 +505,7 @@ function createController(): DeltaController {
       const success = applyPalette(mode)
       if (!success) { publish({ error: true }); return }
       writeMode(mode)
-      publish({ mode, error: false })
+      publish({ mode, error: false, themeReady: mode === 'delta' && success })
     },
     toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
     toggleSidebarSafe: () => {
@@ -526,11 +528,12 @@ function createController(): DeltaController {
     },
     // Used by the owning activation to sync a host language switch.
     syncLanguage: () => { publish({ language: language() }) },
-    activate: () => { if (!applyPalette(snapshot.mode)) publish({ error: true }) },
+    activate: () => { const ok = applyPalette(snapshot.mode); publish({ error: !ok, themeReady: snapshot.mode === 'delta' && ok }) },
     bindTheme: (theme: ThemeApi | undefined) => {
       if (isDisposed) return
       activeTheme = theme
-      publish({ error: !applyPalette(snapshot.mode) })
+      const ok = applyPalette(snapshot.mode)
+      publish({ error: !ok, themeReady: snapshot.mode === 'delta' && ok })
     },
     bindLayout: (layout: LayoutApi | undefined) => {
       if (isDisposed) return
@@ -5592,7 +5595,19 @@ window.__ModuleLoader__.load({
             }, copy.sessionMenu.clearPin) : null)),
         el('p', { className: 'dtd-current', role: 'status' },
           copy.ui.status + ': ' + (state.mode === 'delta' ? copy.ui.delta : copy.ui.official)),
-        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null)
+        state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
+        state.mode === 'delta' ? el('details', {
+          className: 'dtd-integration',
+          'data-delta-contract-version': '1',
+          'data-delta-integration': 'incomplete',
+        },
+        el('summary', null, copy.ui.integrationTitle),
+        el('p', null, copy.ui.integrationSummary),
+        el('ul', null,
+          el('li', null, copy.ui.integrationSidebar),
+          el('li', null, copy.ui.integrationCollapse),
+          el('li', null, copy.ui.integrationDeletion),
+          el('li', null, copy.ui.integrationRunning))) : null)
     }
     return {
       inject: [],
