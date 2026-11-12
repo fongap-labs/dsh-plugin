@@ -6,6 +6,8 @@ import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInsid
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
+import { requireHostFs } from '../host-fs.js'
+import type { HostFs } from '../host-fs.js'
 
 const DEFAULT_LIMIT = 100
 const MAX_LIMIT = 250
@@ -120,21 +122,16 @@ interface HostWorkspaceEntry {
   type: string
   target: unknown
 }
-interface HostWorkspaceFs {
-  resolve(path: string, opts: { cwd: string; signal?: AbortSignal }): Promise<unknown>
-  contains(parent: unknown, child: unknown): boolean
-  listDir(target: unknown, signal?: AbortSignal): Promise<HostWorkspaceEntry[]>
-  lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<{ type: string } | undefined>
-  processPath(target: unknown): string
-}
+/** Required Host capability set for discovery. */
+type WorkspaceHostFs = HostFs<'resolve' | 'contains' | 'listDir' | 'lstat' | 'processPath'>
 
 /** Discover only immediate Host FS directories; never probe Node's filesystem. */
 async function discoverHostRepositories(
-  ctx: Context, settings: Settings, root: string, fs: HostWorkspaceFs,
+  ctx: Context, settings: Settings, root: string, fs: WorkspaceHostFs,
   rootTarget: unknown, signal: AbortSignal, exec: ToolRunContext,
 ): Promise<{ repositories: string[]; paths: string[] }> {
   signal.throwIfAborted()
-  const children = await fs.listDir(rootTarget, signal)
+  const children = (await fs.listDir(rootTarget, signal)) as HostWorkspaceEntry[]
   if (!Array.isArray(children)) throw new Error('invalid Host workspace directory listing')
   const candidates = children.filter(entry => entry.type === 'directory')
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -152,7 +149,7 @@ async function discoverHostRepositories(
     const info = await fs.lstat(entry.name, { cwd: root }, signal)
     if (info?.type !== 'directory') continue // no symlinked child repositories
     if (!fs.contains(rootTarget, entry.target)) throw new Error('Host repository escapes workspace')
-    const contents = await fs.listDir(entry.target, signal)
+    const contents = (await fs.listDir(entry.target, signal)) as HostWorkspaceEntry[]
     if (!Array.isArray(contents)) throw new Error('invalid Host repository listing')
     const marker = contents.find(child => child.name === '.git')
     if (!marker || (marker.type !== 'file' && marker.type !== 'directory')) continue
@@ -197,20 +194,13 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       const limit = args.limit ?? DEFAULT_LIMIT
       if (limit < 1 || limit > MAX_LIMIT) throw new Error('limit must be between 1 and 250')
       const root = await resolveRoot(ctx, exec, settings)
-      const mounted: unknown = ctx.get('fs')
-      if (mounted) {
-        const candidate = mounted as Partial<HostWorkspaceFs>
-        if (typeof candidate.resolve !== 'function' || typeof candidate.contains !== 'function' ||
-            typeof candidate.listDir !== 'function' || typeof candidate.lstat !== 'function' ||
-            typeof candidate.processPath !== 'function') {
-          throw new Error('DSH Host FS missing resolve/contains/listDir/lstat; refusing local discovery fallback')
-        }
+      const fs = requireHostFs(ctx, ['resolve', 'contains', 'listDir', 'lstat', 'processPath'], 'refusing local discovery fallback')
+      if (fs) {
         if (args.cwd && (args.cwd.startsWith('/') || args.cwd.includes('\\') ||
             /^[a-zA-Z]:/.test(args.cwd) ||
             args.cwd.split('/').some(segment => !segment || segment === '.' || segment === '..'))) {
           throw new Error('Host workspace cwd must be a relative subdirectory')
         }
-        const fs = candidate as HostWorkspaceFs
         const processCwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
         const base = await listTrackedFiles(ctx, settings, processCwd, exec.signal)
         let repositories = [args.cwd ?? '.']
@@ -220,7 +210,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         } else {
           if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
-          const rootEntries = await fs.listDir(rootTarget, exec.signal)
+          const rootEntries = (await fs.listDir(rootTarget, exec.signal)) as HostWorkspaceEntry[]
           if (!Array.isArray(rootEntries)) throw new Error('invalid Host workspace directory listing')
           const rootMarker = rootEntries.find(entry => entry.name === '.git')
           if (rootMarker && (rootMarker.type === 'file' || rootMarker.type === 'directory')) {

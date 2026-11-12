@@ -5,6 +5,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, isPathInside, resolveInside } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
+import { requireHostFs } from '../host-fs.js'
 
 const PROJECT_FILES = [
   'AGENTS.md', 'CLAUDE.md', 'README.md', 'package.json', 'pnpm-lock.yaml',
@@ -77,27 +78,12 @@ export async function inspectProject(cwd: string, root: string): Promise<Project
 }
 
 
-interface HostProfileFs {
-  resolve(path: string, opts?: { cwd?: string; signal?: AbortSignal }): Promise<unknown>
-  contains(parent: unknown, child: unknown): boolean
-  stat(target: unknown, signal?: AbortSignal): Promise<{ type: string } | undefined>
-  readText(target: unknown, signal?: AbortSignal): Promise<string>
-}
-
 /** DSH FS is authoritative when mounted; do not switch to local Node reads on refusal. */
 export async function inspectProjectWithHost(
   ctx: Context, exec: { signal: AbortSignal }, cwd: string, root: string,
 ): Promise<ProjectProfile> {
-  const mounted: unknown = ctx.get('fs')
-  if (!mounted) return inspectProject(cwd, root)
-  const candidate = mounted as Partial<HostProfileFs>
-  if (typeof candidate.resolve !== 'function' ||
-      typeof candidate.contains !== 'function' ||
-      typeof candidate.stat !== 'function' ||
-      typeof candidate.readText !== 'function') {
-    throw new Error('DSH Host FS missing resolve/contains/stat/readText; refusing local profile fallback')
-  }
-  const fs = candidate as HostProfileFs
+  const fs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'readText'], 'refusing local profile fallback')
+  if (!fs) return inspectProject(cwd, root)
   if (exec.signal.aborted) throw new Error('project profile cancelled')
   const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
   if (exec.signal.aborted) throw new Error('project profile cancelled')

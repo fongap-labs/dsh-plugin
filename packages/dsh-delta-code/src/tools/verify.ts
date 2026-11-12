@@ -8,6 +8,7 @@ import { readTextSafe, resolveRoot } from '../runtime.js'
 import { chooseVerificationCommand, type VerificationProject, type VerificationCommand, type VerificationScript, isAllowedVerificationScript } from './verify-presets.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
+import { requireHostFs } from '../host-fs.js'
 
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
 const MAX_OUTPUT = 32 * 1024
@@ -66,13 +67,6 @@ export interface PreparedVerification {
 
 type DetectedProject = Exclude<VerificationProject, 'auto'>
 
-interface HostVerificationFs {
-  resolve(path: string, options?: { cwd?: string; signal?: AbortSignal }): Promise<unknown>
-  contains(parent: unknown, child: unknown): boolean
-  stat(target: unknown, signal?: AbortSignal): Promise<{ type: string } | undefined>
-  readText(target: unknown, signal?: AbortSignal): Promise<string>
-}
-
 const MANIFESTS = [
   ['node', 'package.json'], ['rust', 'Cargo.toml'],
   ['python', 'pyproject.toml'], ['python', 'requirements.txt'],
@@ -104,17 +98,8 @@ export async function prepareVerify(
   const fileNames = [...new Set([...MANIFESTS.map(([, name]) => name), ...LOCKFILES])]
   let canonicalCwd = cwd
   let hostPackage: unknown
-  let hostFs: HostVerificationFs | undefined
-  const mounted: unknown = ctx.get('fs')
-  if (mounted) {
-    const candidate = mounted as Partial<HostVerificationFs>
-    if (typeof candidate.resolve !== 'function' ||
-        typeof candidate.contains !== 'function' ||
-        typeof candidate.stat !== 'function' ||
-        typeof candidate.readText !== 'function') {
-      throw new Error('DSH Host FS missing resolve/contains/stat/readText; refusing local verification fallback')
-    }
-    hostFs = candidate as HostVerificationFs
+  const hostFs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'readText'], 'refusing local verification fallback')
+  if (hostFs) {
     checkCancelled()
     const canonicalRoot = await hostFs.resolve(root, { cwd: root, signal: exec.signal })
     const canonicalDirectory = await hostFs.resolve(cwd, { cwd: root, signal: exec.signal })

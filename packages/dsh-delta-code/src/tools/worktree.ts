@@ -7,6 +7,8 @@ import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { parseGitStatus } from './git.js'
+import { requireHostFs } from '../host-fs.js'
+import type { HostFs } from '../host-fs.js'
 
 const TASK = /^[a-z0-9][a-z0-9_-]{0,63}$/
 const REF = /^(?!-)(?!.*\.\.)(?!.*[~^:?*\\\[\x00-\x20])(?:[a-zA-Z0-9_][a-zA-Z0-9_.-]*\/)*[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/
@@ -16,13 +18,8 @@ export function validateWorktreeName(task: string, base: string): void {
   if (!REF.test(base) || base.endsWith('.lock') || base === '@') throw new Error('invalid base branch or commit')
 }
 
-interface WorktreeHostFs {
-  resolve(path: string, opts: { cwd: string; signal?: AbortSignal }): Promise<unknown>
-  contains(parent: unknown, child: unknown): boolean
-  stat(target: unknown, signal?: AbortSignal): Promise<{ type: string } | undefined>
-  lstat(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<{ type: string } | undefined>
-  processPath(target: unknown): string
-}
+/** Required Host capability set for worktrees. */
+type WorktreeHostFs = HostFs<'resolve' | 'contains' | 'stat' | 'lstat' | 'processPath'>
 
 /**
  * Host FS exclusively resolves and checks worktree targets. Existing parents
@@ -163,16 +160,10 @@ export function createWorktreeTool(ctx: Context, settings: Settings): ToolDefini
       if (args.action === 'create' && args.deleteMergedBranch !== undefined) {
         throw new Error('deleteMergedBranch only applies to removal')
       }
-      const mounted: unknown = ctx.get('fs')
+      const fs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'lstat', 'processPath'], 'refusing local worktree fallback')
       let target: string
-      if (mounted) {
-        const candidate = mounted as Partial<WorktreeHostFs>
-        if (typeof candidate.resolve !== 'function' || typeof candidate.contains !== 'function' ||
-            typeof candidate.stat !== 'function' || typeof candidate.lstat !== 'function' ||
-            typeof candidate.processPath !== 'function') {
-          throw new Error('DSH Host FS missing worktree path capabilities; refusing local fallback')
-        }
-        target = await resolveHostWorktreeTarget(candidate as WorktreeHostFs, root, task, exec.signal,
+      if (fs) {
+        target = await resolveHostWorktreeTarget(fs, root, task, exec.signal,
           args.action === 'remove')
       } else {
         const canonicalRoot = await realpath(root)

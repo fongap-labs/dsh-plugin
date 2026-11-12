@@ -1,3 +1,5 @@
+import type { HostFsService } from './host-fs.js'
+
 /**
  * Internal host contracts and public Code Worker configuration types.
  * Keep the plugin's published type exports available through index.ts.
@@ -21,16 +23,6 @@ declare module '@deepseek-ai/cordis' {
 /** The subset of the host `workingDirectory` service this plugin relies on. */
 interface WorkingDirectoryService {
   ensure(agent: unknown, signal?: AbortSignal): Promise<string | undefined | null>
-}
-
-/** The subset of the host `fs` service this plugin relies on. */
-type HostWriteIntent = { kind: 'createIfAbsent' } | { kind: 'replaceIfVersion'; version: string }
-interface HostFsService {
-  resolve(path: string, options: { cwd: string; signal?: AbortSignal }): Promise<unknown>
-  readText(target: unknown, signal?: AbortSignal): Promise<string>
-  writeText(target: unknown, content: string, intent: 'overwrite' | HostWriteIntent, signal?: AbortSignal): Promise<unknown>
-  contains?(parent: unknown, child: unknown): boolean
-  stat?(target: unknown, signal?: AbortSignal): Promise<{ type: string; version?: unknown } | undefined>
 }
 
 export type HostFsWriteContract = 'legacy-overwrite' | 'guarded-intent'

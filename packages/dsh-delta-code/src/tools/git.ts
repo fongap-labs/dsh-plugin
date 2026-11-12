@@ -5,12 +5,8 @@ import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInsid
 import type { GitStatusResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
+import { requireHostFs } from '../host-fs.js'
 
-
-interface HostPathFs {
-  resolve(path: string, options: { cwd: string; signal?: AbortSignal }): Promise<unknown>
-  contains(parent: unknown, child: unknown): boolean
-}
 
 /**
  * The public diff path is workspace-root-relative, not a Git pathspec.
@@ -26,16 +22,12 @@ async function resolveDiffPath(
       path.split('/').some(segment => !segment || segment === '.' || segment === '..')) {
     throw new Error('git diff requires a safe workspace-relative path')
   }
-  const mounted: unknown = ctx.get('fs')
-  if (mounted) {
+  const fs = requireHostFs(ctx, ['resolve', 'contains'], 'diff path containment methods required')
+  if (fs) {
     if (requestedCwd && (requestedCwd.startsWith('/') || requestedCwd.includes('\\') ||
         /^[a-zA-Z]:/.test(requestedCwd) ||
         requestedCwd.split('/').some(segment => !segment || segment === '.' || segment === '..'))) {
       throw new Error('git diff cwd must be a workspace-relative directory')
-    }
-    const fs = mounted as Partial<HostPathFs>
-    if (typeof fs.resolve !== 'function' || typeof fs.contains !== 'function') {
-      throw new Error('DSH Host FS missing diff path containment methods')
     }
     const rootTarget = await fs.resolve(requestedCwd ?? root, { cwd: root, signal })
     const target = await fs.resolve(path, { cwd: root, signal })
