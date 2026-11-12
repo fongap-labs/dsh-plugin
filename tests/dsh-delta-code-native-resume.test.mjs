@@ -234,7 +234,7 @@ describe('Delta Code Worker native session resume', () => {
 
   it('never calls a dirty or inaccessible repository complete even when all Todos are completed', async () => {
     for (const config of [
-      { status: '## main\\0 M pending.ts\\0' },
+      { status: '## main\0 M pending.ts\0' },
       { allowGit: false },
       { deny: true },
     ]) {
