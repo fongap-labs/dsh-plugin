@@ -93,6 +93,18 @@ describe('Delta Code Worker bounded multi-repo discovery', () => {
     }
   })
 
+  it('rejects more than 96 local direct subdirectories before probing Git markers', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-workspace-dir-overflow-'))
+    try {
+      await Promise.all(Array.from({ length: 97 }, (_, index) =>
+        mkdir(join(root, 'child-' + index))))
+      const tool = createWorkspaceMapTool(localContext, normalizeConfig({ workspaceRoot: root }))
+      await assert.rejects(tool.execute({}, execution()), /too many subdirectories to scan safely/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   it('limits repository discovery instead of silently dropping repositories', async () => {
     const root = await mkdtemp(join(tmpdir(), 'dsh-workspace-overflow-'))
     try {
