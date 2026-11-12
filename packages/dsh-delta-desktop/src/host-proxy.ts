@@ -220,7 +220,7 @@ export function installHostProxyManager(
 
   let initialDispatcher: unknown
   let activeAgent: { close?: () => Promise<void> } | undefined
-  let disposed = false
+  let isDisposed = false
   let effective: EffectiveProxyState = {
     mode: 'system',
     source: 'direct',
@@ -277,9 +277,9 @@ export function installHostProxyManager(
   }
 
   const applySettings = async (settings: ProxySettings): Promise<EffectiveProxyState> => {
-    if (disposed) return effective
+    if (isDisposed) return effective
     const next = await resolveEffective(settings)
-    if (disposed) return effective
+    if (isDisposed) return effective
     writeProcessProxyEnv(next)
     try {
       const undici = await loadNodeModule<any>('undici')
@@ -328,7 +328,7 @@ export function installHostProxyManager(
   // Initialize from saved state asynchronously only inside a real Host runtime
   if (typeof ctx.inject === 'function') {
     void store.read().then(st => {
-      if (!disposed) return applySettings(st.proxy)
+      if (!isDisposed) return applySettings(st.proxy)
       return effective
     }).catch(() => {})
   }
@@ -399,7 +399,7 @@ export function installHostProxyManager(
   }
 
   const dispose = async (): Promise<void> => {
-    disposed = true
+    isDisposed = true
     try { unregisterHttp?.() } catch {}
     unregisterHttp = undefined
     if (proc?.env) {

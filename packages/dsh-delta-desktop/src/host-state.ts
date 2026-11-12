@@ -209,15 +209,15 @@ export async function verifyTotpCode(
   const crypto = await loadNodeModule<any>('node:crypto')
   const bufMod = await loadNodeModule<any>('node:buffer')
   const actualBuf = bufMod.Buffer.from(trimmed, 'ascii')
-  let matched = false
+  let isMatched = false
   for (let offset = -windowSteps; offset <= windowSteps; offset++) {
     const candidate = await generateTotpCode(norm, timeMs + offset * periodSeconds * 1000, periodSeconds, 6)
     const expectedBuf = bufMod.Buffer.from(candidate, 'ascii')
     if (expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf)) {
-      matched = true
+      isMatched = true
     }
   }
-  return matched
+  return isMatched
 }
 
 export async function hashPinSecret(pin: string): Promise<PinHashRecord> {
@@ -267,7 +267,7 @@ export async function resolveDshHome(ctx?: { get?(name: string): unknown }): Pro
 
 export function createHostStateStore(ctx: { get?(name: string): unknown }): HostStateStore {
   let cached: DeltaHostState = normalizeDeltaState(undefined)
-  let loaded = false
+  let isLoaded = false
   let readPromise: Promise<DeltaHostState> | undefined
   let writeChain: Promise<unknown> = Promise.resolve()
 
@@ -290,18 +290,18 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
   }
 
   const read = async (): Promise<DeltaHostState> => {
-    if (loaded) return cached
+    if (isLoaded) return cached
     if (readPromise) return readPromise
     readPromise = (async () => {
       try {
         const fs = await loadNodeModule<any>('node:fs/promises')
         const filePath = await resolvePath()
         const text = await fs.readFile(filePath, 'utf8')
-        if (!loaded) cached = normalizeDeltaState(JSON.parse(text))
+        if (!isLoaded) cached = normalizeDeltaState(JSON.parse(text))
       } catch {
-        if (!loaded) cached = normalizeDeltaState(undefined)
+        if (!isLoaded) cached = normalizeDeltaState(undefined)
       }
-      loaded = true
+      isLoaded = true
       readPromise = undefined
       return cached
     })()
@@ -327,7 +327,7 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
         proxy: { ...cur.proxy },
       }))
       cached = mutated
-      loaded = true
+      isLoaded = true
       await write(mutated)
       return mutated
     })

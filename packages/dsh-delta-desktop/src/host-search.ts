@@ -491,11 +491,11 @@ export function installHostSessionSearch(
     const startMs = Date.now()
     const summaries = await listSummaries(workspaceId)
     const hits: HostSessionSearchHit[] = []
-    let truncated = false
+    let isTruncated = false
 
     for (const summary of summaries) {
       if (Date.now() - startMs > BUDGET_MS) {
-        truncated = true
+        isTruncated = true
         break
       }
       if (options?.isExcluded?.(summary.sessionId)) {
@@ -509,11 +509,11 @@ export function installHostSessionSearch(
 
     hits.sort((a, b) => (b.score - a.score) || (b.updatedAt - a.updatedAt))
     if (hits.length > limit) {
-      truncated = true
+      isTruncated = true
     }
     return {
       items: hits.slice(0, limit),
-      truncated,
+      truncated: isTruncated,
       redacted: true,
     }
   }

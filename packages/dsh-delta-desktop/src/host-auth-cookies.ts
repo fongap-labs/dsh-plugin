@@ -109,9 +109,9 @@ export function selectStaleAuthCookieNames(
   return others.slice(0, others.length - maxKeptOther)
 }
 
-function buildExpiredCookieHeader(name: string, secure: boolean): string {
+function buildExpiredCookieHeader(name: string, isSecure: boolean): string {
   const base = `${name}=; Max-Age=0; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict`
-  return secure ? `${base}; Secure` : base
+  return isSecure ? `${base}; Secure` : base
 }
 
 function appendSetCookieEntries(
@@ -126,16 +126,16 @@ function appendSetCookieEntries(
 function attachResponseCookieCleanup(
   res: HttpResponseLike,
   staleNames: readonly string[],
-  secure: boolean,
+  isSecure: boolean,
 ): void {
-  const deletions = staleNames.map(name => buildExpiredCookieHeader(name, secure))
+  const deletions = staleNames.map(name => buildExpiredCookieHeader(name, isSecure))
   const origWriteHead = res.writeHead
   if (typeof origWriteHead !== 'function') return
 
-  let injected = false
+  let isInjected = false
   res.writeHead = function patchedWriteHead(this: HttpResponseLike, ...args: unknown[]) {
-    if (!injected) {
-      injected = true
+    if (!isInjected) {
+      isInjected = true
       const headersIndex = typeof args[1] === 'string' ? 2 : 1
       const explicitHeaders = args[headersIndex]
       if (explicitHeaders && typeof explicitHeaders === 'object' && !Array.isArray(explicitHeaders)) {
@@ -162,12 +162,12 @@ export function installHostAuthCookiePruner(
   maxKeptOther = DEFAULT_MAX_KEPT_OTHER_AUTH_COOKIES,
 ): () => void {
   if (!ctx || typeof ctx.inject !== 'function') return () => {}
-  let disposed = false
+  let isDisposed = false
   const cleanups: Array<() => void> = []
   void loadCrypto()
 
   const disposeAll = (): void => {
-    disposed = true
+    isDisposed = true
     for (const fn of cleanups.splice(0)) {
       try { fn() } catch {}
     }
@@ -175,7 +175,7 @@ export function installHostAuthCookiePruner(
 
   try {
     const stopInject = ctx.inject(['webServer'], webCtx => {
-      if (disposed) return
+      if (isDisposed) return
       const webServer = webCtx.webServer
       const server = webServer?.server
       if (!server || typeof server.prependListener !== 'function') return
