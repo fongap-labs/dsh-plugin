@@ -160,8 +160,9 @@ export class ExecutionStats {
     const session = sessionOf(exec)
     const current = session ? this.sessions.get(session) : undefined
     const state = current ?? emptyCounters()
+    const scope: 'current-session' | 'unavailable' = session ? 'current-session' : 'unavailable'
     return {
-      scope: session ? 'current-session' : 'unavailable',
+      scope,
       calls: state.calls,
       duplicateCalls: state.duplicateCalls,
       repeatedFailedCalls: state.repeatedFailedCalls,
