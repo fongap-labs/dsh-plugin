@@ -4,6 +4,7 @@ import { defineTool, runCommand, isSubprocessMounted } from '@fongap-labs/shared
 import type { GitHubAccountConfig, Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
+import { hasCompleteGitEvidence } from './git-execution.js'
 
 const API = 'https://api.github.com'
 const COMMIT_SHA = /^[a-f0-9]{40}$/
@@ -71,8 +72,7 @@ async function resolveRepository(ctx: Context, exec: Parameters<ToolDefinition['
     // after the Host subprocess rejects or is unavailable.
     hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
   })
-  if (result.exitCode !== 0 || result.timedOut || result.signal || result.lossy ||
-      exec.signal.aborted) {
+  if (!hasCompleteGitEvidence(result) || exec.signal.aborted) {
     throw new Error('GitHub origin inspection failed or returned incomplete Host evidence')
   }
   const repo = repositoryFromRemote(result.stdout)

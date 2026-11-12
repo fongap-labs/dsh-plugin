@@ -5,6 +5,7 @@ import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { parseGitStatus } from './git.js'
+import { hasCompleteGitEvidence } from './git-execution.js'
 import { identifyAddedFiles, checkLanguageConventions, describeLanguageViolations } from '../consistency.js'
 import { prepareVerify, runPreparedVerify } from './verify.js'
 import { isAllowedVerificationScript, type VerificationScript } from './verify-presets.js'
@@ -119,7 +120,7 @@ async function hostGit(
     command: settings.gitCommand, args, cwd, signal: exec.signal, hostOnly: true,
     timeoutMs: 30_000, maxOutputBytes,
   })
-  if (result.exitCode !== 0 || result.signal || result.timedOut || result.lossy) {
+  if (!hasCompleteGitEvidence(result)) {
     throw new Error('Git result incomplete, denied, truncated or failed')
   }
   return result.stdout

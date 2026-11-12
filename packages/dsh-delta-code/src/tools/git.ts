@@ -6,6 +6,7 @@ import type { GitStatusResult, Settings } from '../types.js'
 import { TOOL_PREFIX, resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { requireHostFs } from '../host-fs.js'
+import { assertGitExit } from './git-execution.js'
 
 
 /**
@@ -47,14 +48,6 @@ async function resolveDiffPath(
   }
   const relativePath = relative(localCwd, localPath)
   return ':(literal)' + relativePath
-}
-
-function assertGitResult(result: { exitCode: number | null; timedOut: boolean; signal: string | null }, operation: string): void {
-  if (result.timedOut) throw new Error(operation + ': git command timed out')
-  if (result.signal) throw new Error(operation + ': git command terminated by signal')
-  if (result.exitCode !== 0) {
-    throw new Error(operation + ': git command failed with exit code ' + String(result.exitCode))
-  }
 }
 
 export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefinition {
@@ -109,7 +102,7 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
         // A denied or failing DSH Host subprocess may never silently retry as Node.
         hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
       })
-      assertGitResult(result, 'code_git_status')
+      assertGitExit(result, 'code_git_status')
       if (result.lossy) throw new Error('code_git_status: output truncated; refusing partial status')
       return parseGitStatus(result.stdout)
     },
@@ -222,7 +215,7 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
         maxOutputBytes: 256 * 1024,
         hostOnly: Boolean(ctx.get('fs')) || isSubprocessMounted(ctx),
       })
-      assertGitResult(result, 'code_git_diff')
+      assertGitExit(result, 'code_git_diff')
       return {
         diff: result.stdout,
         truncated: result.lossy,
