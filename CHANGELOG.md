@@ -1,8 +1,8 @@
 # 更新日志
 
-- 修复: Delta Desktop 在 Host 重试入口拦截带长冷却提示的网关回退耗尽错误，避免重复整条请求；其他错误由 DSH 原生重试处理。
-
 ## [Unreleased]
+
+- 修复: Delta Desktop 在 Host 重试入口拦截带长冷却提示的网关回退耗尽错误，避免重复整条请求；其他错误由 DSH 原生重试处理。
 
 - 修复: Delta Code Worker Host Adapter v1 统一 DSH FS 与工作区服务读取、能力状态探测，区分未挂载、已挂载和无法访问；服务调用被拒绝或挂载不完整时禁止不安全的本地回退。
 
