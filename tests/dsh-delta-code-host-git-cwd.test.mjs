@@ -7,6 +7,7 @@ import { resolveAuthorizedGitCwd } from '../packages/dsh-delta-code/lib/tools/ho
 import { createNativeResumeTool } from '../packages/dsh-delta-code/lib/tools/resume.js'
 import { createDeliveryGateTool } from '../packages/dsh-delta-code/lib/tools/delivery-gate.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
 
 const HEAD = 'a'.repeat(40)
 const VIRTUAL_ROOT = join(tmpdir(), 'dsh-code-worker-virtual-host-fs-only', 'workspace')
@@ -17,13 +18,7 @@ const acceptance = [{ task: 'Implement task', criterion: 'Task verified by fresh
 const exec = () => ({ agent: { session: { id: 'test-session' } }, signal: new AbortController().signal })
 
 function mockOutput(stdout = '') {
-  return {
-    done: Promise.resolve({ exitCode: 0, signal: null }),
-    collected: {
-      stdout: { readFrom: () => ({ text: stdout, lossy: false }) },
-      stderr: { readFrom: () => ({ text: '', lossy: false }) },
-    },
-  }
+  return mockHostCommandResult({ stdout })
 }
 
 function fakeHost(options = {}) {
