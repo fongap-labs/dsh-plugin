@@ -5,6 +5,7 @@
 interface DeltaCopy {
   meta: { title: string; description: string }
   ui: {
+    [key: string]: string
     preference: string; theme: string; official: string; delta: string;
     open: string; close: string; conversation: string; sidebar: string;
     status: string; unavailable: string; recovery: string; shortcut: string; themeWaiting: string;
@@ -80,9 +81,73 @@ interface DeltaController {
   openConversation(): void
   dispose(): void
 }
+interface AddPluginActionProps { onDismiss?(): void }
+interface ReactRootApi {
+  createRoot(container: Element): { render(children: unknown): void; unmount(): void }
+}
+interface MenuItemButtonApi {
+  MenuItemButton(props: { icon?: unknown; disabled?: boolean; onSelect?: () => void; children?: unknown }): unknown
+}
+interface McpConfigSnapshot {
+  status?: 'loading' | 'ready' | 'unavailable' | string
+  value?: unknown
+  base?: unknown
+  user?: unknown
+  revision?: number
+  writable?: boolean
+}
+interface McpConfigForm {
+  getSnapshot(): McpConfigSnapshot
+  subscribe(listener: () => void): () => void
+  mutate(ops: readonly { op: 'set' | 'unset'; path: (string | number)[]; value?: unknown }[], expectedRevision?: number): Promise<boolean | unknown>
+}
+interface ConfigFormsApi { get(namespace: string): McpConfigForm | undefined }
+interface CredentialRemoteApi {
+  set?(request: { ref: string; value: string }): Promise<unknown>
+  unset?(request: { ref: string }): Promise<unknown>
+}
+interface McpManagedServer {
+  name: string
+  configured: boolean
+  status?: { state?: string; reason?: string; [key: string]: unknown }
+}
+interface McpManagerApi {
+  watch?(signal: AbortSignal): AsyncIterable<readonly McpManagedServer[]>
+  probe?(name: string, signal: AbortSignal): Promise<unknown>
+  restart?(name: string): Promise<unknown>
+}
+interface McpServices { form?: McpConfigForm; manager?: McpManagerApi }
+let deltaSettingsForm: McpConfigForm | undefined
+let deltaCredentialRemote: CredentialRemoteApi | undefined
+let deltaSettingsVersion = 0
+const deltaSettingsListeners = new Set<() => void>()
+function publishDeltaSettings(): void {
+  deltaSettingsVersion++
+  deltaSettingsListeners.forEach(listener => listener())
+}
+function useDeltaSettingsVersion(React: ReactApi): number {
+  return React.useSyncExternalStore(listener => {
+    deltaSettingsListeners.add(listener)
+    return () => deltaSettingsListeners.delete(listener)
+  }, () => deltaSettingsVersion)
+}
+interface McpDraft {
+  name: string
+  transport: 'stdio' | 'streamable-http'
+  command: string
+  args: string
+  env: string
+  cwd: string
+  url: string
+  headers: string
+  enabled: boolean
+}
+
 interface DeltaProps { controller: DeltaController }
 interface SessionHoverProps { sessionId: string }
 interface ReactApi {
+  useRef<T>(initial: T): { current: T }
+  useEffect(effect: () => void | (() => void), dependencies?: readonly unknown[]): void
   createElement(type: string | ((props: DeltaProps) => unknown), props: Record<string, unknown> | null, ...children: unknown[]): unknown
   useState<T>(initial: T): [T, (value: T | ((state: T) => T)) => void]
   useSyncExternalStore<T = DeltaState>(subscribe: (listener: () => void) => () => void, getSnapshot: () => T): T
@@ -144,6 +209,8 @@ interface ClientContext {
   sidebarRight?: SidebarRightApi
   workspaces?: WorkspacesApi
   sessions?: SearchSessionsApi
+  configForms?: ConfigFormsApi
+  remote?: { mcpManager?: McpManagerApi; credentials?: CredentialRemoteApi }
   uiWorkspace?: SearchNavigationApi
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
@@ -5423,6 +5490,350 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    let MenuItemButton: MenuItemButtonApi['MenuItemButton'] | undefined
+    let ReactRoot: ReactRootApi | undefined
+    try {
+      const primitives = require('@deepseek-ai/dsh-client-ui-primitives') as MenuItemButtonApi
+      const domRoot = require('react-dom/client') as ReactRootApi
+      if (typeof primitives?.MenuItemButton === 'function' && typeof domRoot?.createRoot === 'function') {
+        MenuItemButton = primitives.MenuItemButton
+        ReactRoot = domRoot
+      }
+    } catch { /* MCP menu dependencies are optional Host modules. */ }
+    let mcpServices: McpServices | undefined
+    let mcpDialogRoot: ReturnType<ReactRootApi['createRoot']> | undefined
+    let mcpDialogHost: HTMLElement | undefined
+    function closeMcpManagement(): void {
+      const root = mcpDialogRoot
+      const host = mcpDialogHost
+      mcpDialogRoot = undefined
+      mcpDialogHost = undefined
+      try { root?.unmount() } catch { /* a removed Host root is already closed */ }
+      host?.remove()
+    }
+    function openMcpManagement(): void {
+      if (!ReactRoot || typeof document === 'undefined' || !document.body) return
+      closeMcpManagement()
+      const host = document.createElement('div')
+      host.dataset.dtdMcpRoot = ''
+      document.body.appendChild(host)
+      mcpDialogHost = host
+      mcpDialogRoot = ReactRoot.createRoot(host)
+      renderMcpManagement()
+    }
+    function renderMcpManagement(): void {
+      if (mcpDialogRoot) mcpDialogRoot.render(el(McpManagementDialog, {
+        services: mcpServices,
+        onClose: closeMcpManagement,
+      }))
+    }
+    const EMPTY_MCP_SNAPSHOT: McpConfigSnapshot = Object.freeze({
+      status: 'unavailable', value: Object.freeze({ servers: Object.freeze({}) }),
+      base: Object.freeze({ servers: Object.freeze({}) }), user: Object.freeze({ servers: Object.freeze({}) }),
+      revision: 0, writable: false,
+    })
+    const emptyMcpDraft = (): McpDraft => ({ name: '', transport: 'stdio', command: '', args: '',
+      env: '', cwd: '', url: '', headers: '', enabled: true })
+    function asRecord(value: unknown): Record<string, unknown> {
+      return value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? value as Record<string, unknown> : {}
+    }
+    function pairLines(source: string): Record<string, string> | undefined {
+      const result: Record<string, string> = {}
+      for (const line of source.split(/\r?\n/)) {
+        if (!line.trim()) continue
+        const separator = line.indexOf('=')
+        if (separator < 1) return undefined
+        const key = line.slice(0, separator).trim()
+        if (!key || Object.prototype.hasOwnProperty.call(result, key)) return undefined
+        result[key] = line.slice(separator + 1).trim()
+      }
+      return result
+    }
+    function pairsText(value: unknown): string {
+      const record = asRecord(value)
+      return Object.entries(record).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+        .map(([key, item]) => `${key}=${item}`).join('\n')
+    }
+    function mcpStatusText(state: string | undefined, copy: DeltaCopy['ui']): string {
+      switch (state) {
+        case 'connecting': return copy.mcpConnecting
+        case 'connected': return copy.mcpConnected
+        case 'disabled': return copy.mcpDisabled
+        case 'failed': return copy.mcpFailed
+        case 'waiting-credentials': return copy.mcpWaitingCredentials
+        default: return state || copy.mcpUnknown
+      }
+    }
+    function McpManagementDialog(props: { services?: McpServices; onClose(): void }): unknown {
+      const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+      const form = props.services?.form
+      const manager = props.services?.manager
+      const formSnapshot = React.useSyncExternalStore(
+        listener => form?.subscribe(listener) ?? (() => {}),
+        () => form?.getSnapshot() ?? EMPTY_MCP_SNAPSHOT,
+      )
+      const [liveServers, setLiveServers] = React.useState<readonly McpManagedServer[] | undefined>(undefined)
+      const [managerError, setManagerError] = React.useState('')
+      const [draft, setDraft] = React.useState<McpDraft>(emptyMcpDraft())
+      const [editingName, setEditingName] = React.useState<string | undefined>(undefined)
+      const [showForm, setShowForm] = React.useState(false)
+      const [pending, setPending] = React.useState(false)
+      const [busyName, setBusyName] = React.useState<string | undefined>(undefined)
+      const [confirmName, setConfirmName] = React.useState<string | undefined>(undefined)
+      const [feedback, setFeedback] = React.useState('')
+      React.useEffect(() => {
+        if (!manager?.watch) return
+        const abort = new AbortController()
+        let isCurrent = true
+        void (async () => {
+          try {
+            for await (const rows of manager.watch!(abort.signal)) {
+              if (!isCurrent || abort.signal.aborted) return
+              setLiveServers(rows)
+              setManagerError('')
+            }
+          } catch {
+            if (isCurrent && !abort.signal.aborted) setManagerError(copy.mcpOperationFailed)
+          }
+        })()
+        return () => { isCurrent = false; abort.abort() }
+      }, [manager])
+      React.useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent): void => {
+          if (event.key === 'Escape' && !pending) props.onClose()
+        }
+        document.addEventListener('keydown', onKeyDown)
+        return () => document.removeEventListener('keydown', onKeyDown)
+      }, [props.onClose, pending])
+
+      const values = asRecord(formSnapshot.value)
+      const configured = asRecord(values.servers)
+      const user = asRecord(asRecord(formSnapshot.user).servers)
+      const base = asRecord(asRecord(formSnapshot.base).servers)
+      const liveByName = new Map((liveServers ?? []).map(server => [server.name, server]))
+      const names = new Set([...Object.keys(configured), ...(liveServers ?? []).map(server => server.name)])
+      const rows = [...names].sort((a, b) => a.localeCompare(b)).map(name => {
+        const live = liveByName.get(name)
+        const entry = asRecord(configured[name])
+        return { name, entry, live, configured: live?.configured ?? Object.prototype.hasOwnProperty.call(configured, name) }
+      })
+      const formReady = !!form && formSnapshot.status === 'ready'
+      const writable = formReady && formSnapshot.writable === true && !pending
+
+      const beginAdd = (): void => {
+        setEditingName(undefined)
+        setDraft(emptyMcpDraft())
+        setShowForm(true)
+        setFeedback('')
+      }
+      const beginEdit = (name: string): void => {
+        const entry = asRecord(configured[name])
+        if (!Object.keys(entry).length) return
+        const transport = entry.transport === 'streamable-http' ? 'streamable-http' : 'stdio'
+        setEditingName(name)
+        setShowForm(true)
+        setDraft({
+          name,
+          transport,
+          command: typeof entry.command === 'string' ? entry.command : '',
+          args: Array.isArray(entry.args) ? entry.args.filter((arg): arg is string => typeof arg === 'string').join('\n') : '',
+          env: pairsText(entry.env),
+          cwd: typeof entry.cwd === 'string' ? entry.cwd : '',
+          url: typeof entry.url === 'string' ? entry.url : '',
+          headers: pairsText(entry.headers),
+          enabled: entry.enabled !== false,
+        })
+        setFeedback('')
+      }
+      const saveDraft = async (): Promise<void> => {
+        if (!form || !writable) return
+        const name = draft.name.trim()
+        if (!/^[A-Za-z0-9_-]{1,32}$/.test(name)) { setFeedback(copy.mcpInvalidName); return }
+        if (!editingName && (Object.prototype.hasOwnProperty.call(configured, name) || liveByName.has(name))) {
+          setFeedback(copy.mcpDuplicateName); return
+        }
+        const args = draft.args.split(/\r?\n/).filter(line => line.trim().length > 0)
+        let entry: Record<string, unknown> = { ...asRecord(configured[name]), transport: draft.transport, enabled: draft.enabled }
+        if (draft.transport === 'stdio') {
+          const command = draft.command.trim()
+          if (!command) { setFeedback(copy.mcpMissingCommand); return }
+          const env = pairLines(draft.env)
+          if (!env) { setFeedback(copy.mcpInvalidPairs); return }
+          delete entry.url
+          delete entry.headers
+          entry.command = command
+          entry.args = args
+          entry.env = env
+          if (draft.cwd.trim()) entry.cwd = draft.cwd.trim()
+          else delete entry.cwd
+        } else {
+          const headers = pairLines(draft.headers)
+          if (!headers) { setFeedback(copy.mcpInvalidPairs); return }
+          let url: URL
+          try { url = new URL(draft.url.trim()) } catch { setFeedback(copy.mcpInvalidUrl); return }
+          if (url.protocol !== 'http:' && url.protocol !== 'https:') { setFeedback(copy.mcpInvalidUrl); return }
+          delete entry.command
+          delete entry.args
+          delete entry.env
+          delete entry.cwd
+          entry.url = url.toString()
+          entry.headers = headers
+        }
+        setPending(true)
+        setFeedback('')
+        try {
+          const result = await form.mutate([{ op: 'set', path: ['servers', name], value: entry }], formSnapshot.revision)
+          if (result === false) throw new Error('settings write rejected')
+          setEditingName(undefined)
+          setDraft(emptyMcpDraft())
+          setShowForm(false)
+          setFeedback(copy.mcpSaveSuccess)
+        } catch { setFeedback(copy.mcpSaveFailed) }
+        finally { setPending(false) }
+      }
+      const toggleServer = async (name: string, isEnabled: boolean): Promise<void> => {
+        if (!form || !writable) return
+        setPending(true)
+        setFeedback('')
+        try {
+          const result = await form.mutate([{ op: 'set', path: ['servers', name, 'enabled'], value: isEnabled }], formSnapshot.revision)
+          if (result === false) throw new Error('settings write rejected')
+        } catch { setFeedback(copy.mcpSaveFailed) }
+        finally { setPending(false) }
+      }
+      const removeServer = async (name: string): Promise<void> => {
+        if (!form || !writable) return
+        setPending(true)
+        setFeedback('')
+        try {
+          const result = await form.mutate([{ op: 'unset', path: ['servers', name] }], formSnapshot.revision)
+          if (result === false) throw new Error('settings write rejected')
+          setConfirmName(undefined)
+          setFeedback(copy.mcpRemoveSuccess)
+        } catch { setFeedback(copy.mcpRemoveFailed) }
+        finally { setPending(false) }
+      }
+      const managerAction = async (name: string, action: 'probe' | 'restart'): Promise<void> => {
+        if (!manager || !manager[action]) return
+        setBusyName(name)
+        setFeedback('')
+        const abort = new AbortController()
+        try {
+          if (action === 'probe') await manager.probe!(name, abort.signal)
+          else await manager.restart!(name)
+          setFeedback(action === 'probe' ? copy.mcpProbeComplete : copy.mcpRestartComplete)
+        } catch { setFeedback(copy.mcpOperationFailed) }
+        finally { setBusyName(undefined) }
+      }
+      const field = (label: string, value: string, onChange: (value: string) => void,
+        options: { multiline?: boolean; hint?: string; required?: boolean; readOnly?: boolean } = {}): unknown => el('label', { className: 'dtd-mcp-field' },
+        el('span', null, label, options.required ? ' *' : ''),
+        options.multiline
+          ? el('textarea', { value, rows: 3, onChange: (event: { currentTarget: { value: string } }) => onChange(event.currentTarget.value) })
+          : el('input', { value, required: options.required, readOnly: options.readOnly,
+            onChange: (event: { currentTarget: { value: string } }) => onChange(event.currentTarget.value) }),
+        options.hint ? el('small', null, options.hint) : null)
+      const serverRows = rows.length ? rows.map(row => {
+        const isUserOwned = Object.prototype.hasOwnProperty.call(user, row.name)
+        const hasBase = Object.prototype.hasOwnProperty.call(base, row.name)
+        const canRestore = hasBase && isUserOwned
+        const editable = row.configured && Object.prototype.hasOwnProperty.call(configured, row.name)
+        const enabled = row.entry.enabled !== false
+        const state = row.live?.status?.state ?? (enabled ? undefined : 'disabled')
+        return el('article', { className: 'dtd-mcp-server', key: row.name },
+          el('div', { className: 'dtd-mcp-server-main' },
+            el('div', { className: 'dtd-mcp-server-heading' },
+              el('strong', null, row.name),
+              el('span', { className: 'dtd-mcp-source' }, row.configured ? copy.mcpConfigured : copy.mcpRegistered)),
+            el('div', { className: 'dtd-mcp-server-meta' },
+              el('span', null, `${copy.mcpStatus}: ${mcpStatusText(state, copy)}`),
+              row.entry.transport ? el('span', null, row.entry.transport === 'stdio' ? copy.mcpStdio : copy.mcpHttp) : null),
+            row.live?.status?.reason ? el('small', { title: String(row.live.status.reason) }, String(row.live.status.reason)) : null),
+          el('div', { className: 'dtd-mcp-server-actions' },
+            editable ? el('button', { type: 'button', className: 'dtd-mcp-button', disabled: pending,
+              onClick: () => beginEdit(row.name) }, copy.mcpEditServer) : null,
+            editable ? el('button', { type: 'button', className: `dtd-mcp-button${enabled ? ' is-active' : ''}`,
+              disabled: pending || !writable, 'aria-pressed': enabled,
+              onClick: () => { void toggleServer(row.name, !enabled) } }, enabled ? copy.mcpEnabledState : copy.mcpDisabled) : null,
+            manager?.probe ? el('button', { type: 'button', className: 'dtd-mcp-button', disabled: busyName === row.name,
+              onClick: () => { void managerAction(row.name, 'probe') } }, busyName === row.name ? copy.mcpWorking : copy.mcpProbe) : null,
+            manager?.restart ? el('button', { type: 'button', className: 'dtd-mcp-button', disabled: busyName === row.name,
+              onClick: () => { void managerAction(row.name, 'restart') } }, copy.mcpRestart) : null,
+            editable && (isUserOwned || canRestore) ? confirmName === row.name
+              ? el('span', { className: 'dtd-mcp-confirm' },
+                el('button', { type: 'button', className: 'dtd-mcp-button is-danger', disabled: pending,
+                  onClick: () => { void removeServer(row.name) } }, copy.mcpConfirmRemove),
+                el('button', { type: 'button', className: 'dtd-mcp-button', disabled: pending,
+                  onClick: () => setConfirmName(undefined) }, copy.mcpCancelRemove))
+              : el('button', { type: 'button', className: 'dtd-mcp-button is-danger', disabled: pending || !writable,
+                onClick: () => setConfirmName(row.name) }, canRestore ? copy.mcpRestore : copy.mcpRemove) : null))
+      }) : el('p', { className: 'dtd-mcp-empty' }, copy.mcpNoServers)
+      const formPane = showForm
+        ? el('form', { className: 'dtd-mcp-form', onSubmit: (event: { preventDefault(): void }) => { event.preventDefault(); void saveDraft() } },
+          el('section', { className: 'dtd-mcp-form-section' },
+            el('h3', null, copy.mcpBasics),
+            field(copy.mcpName, draft.name, value => setDraft(state => ({ ...state, name: value })), {
+              hint: copy.mcpNameHint, required: true, readOnly: editingName !== undefined,
+            })),
+          el('section', { className: 'dtd-mcp-form-section' },
+            el('h3', null, copy.mcpConnection),
+            el('label', { className: 'dtd-mcp-field' }, el('span', null, copy.mcpTransport),
+              el('select', { value: draft.transport, onChange: (event: { currentTarget: { value: string } }) =>
+                setDraft(state => ({ ...state, transport: event.currentTarget.value === 'streamable-http' ? 'streamable-http' : 'stdio' })) },
+              el('option', { value: 'stdio' }, copy.mcpStdio), el('option', { value: 'streamable-http' }, copy.mcpHttp))),
+            draft.transport === 'stdio' ? el('div', { className: 'dtd-mcp-transport-fields' },
+              field(copy.mcpCommand, draft.command, value => setDraft(state => ({ ...state, command: value })), { required: true }),
+              field(copy.mcpArgs, draft.args, value => setDraft(state => ({ ...state, args: value })), { multiline: true, hint: copy.mcpArgsHint }),
+              field(copy.mcpCwd, draft.cwd, value => setDraft(state => ({ ...state, cwd: value })))
+            ) : field(copy.mcpUrl, draft.url, value => setDraft(state => ({ ...state, url: value })), { required: true })),
+          el('section', { className: 'dtd-mcp-form-section' },
+            el('h3', null, copy.mcpAuthentication),
+            draft.transport === 'stdio'
+              ? field(copy.mcpEnv, draft.env, value => setDraft(state => ({ ...state, env: value })), { multiline: true, hint: copy.mcpEnvHint })
+              : field(copy.mcpHeaders, draft.headers, value => setDraft(state => ({ ...state, headers: value })), { multiline: true, hint: copy.mcpHeadersHint }),
+            el('p', { className: 'dtd-mcp-security' }, copy.mcpSecurityNotice)),
+          el('label', { className: 'dtd-mcp-checkbox' }, el('input', { type: 'checkbox', checked: draft.enabled,
+            onChange: (event: { currentTarget: { checked: boolean } }) => setDraft(state => ({ ...state, enabled: event.currentTarget.checked })) }),
+          el('span', null, copy.mcpEnabled)),
+          feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null,
+          el('div', { className: 'dtd-mcp-form-actions' },
+            el('button', { type: 'button', className: 'dtd-mcp-button', disabled: pending,
+              onClick: () => { setEditingName(undefined); setDraft(emptyMcpDraft()); setShowForm(false); setFeedback('') } }, copy.mcpBackToList),
+            el('button', { type: 'submit', className: 'dtd-mcp-button is-primary', disabled: !writable },
+              pending ? copy.mcpWorking : copy.mcpSaveServer))) : null
+
+      return el('div', { className: 'dtd-mcp-overlay', role: 'presentation', onMouseDown: (event: { target: unknown; currentTarget: unknown }) => {
+        if (event.target === event.currentTarget && !pending) props.onClose()
+      } },
+        el('section', { className: 'dtd-mcp-dialog', role: 'dialog', 'aria-modal': true, 'aria-labelledby': 'dtd-mcp-title' },
+          el('header', { className: 'dtd-mcp-header' },
+            el('div', { className: 'dtd-mcp-heading' },
+              el('h2', { id: 'dtd-mcp-title' }, showForm ? (editingName ? copy.mcpEditServer : copy.mcpAddTitle) : copy.mcpTitle),
+              el('p', null, showForm ? copy.mcpAddDescription : copy.mcpSubtitle)),
+            el('div', { className: 'dtd-mcp-header-actions' },
+              showForm
+                ? el('button', { type: 'button', className: 'dtd-mcp-button', disabled: pending,
+                  onClick: () => { setEditingName(undefined); setDraft(emptyMcpDraft()); setShowForm(false); setFeedback('') } }, copy.mcpBackToList)
+                : el('button', { type: 'button', className: 'dtd-mcp-button is-primary', disabled: !writable,
+                  onClick: beginAdd }, copy.mcpAddServer),
+              el('button', { type: 'button', className: 'dtd-mcp-close', 'aria-label': copy.mcpClose,
+                disabled: pending, onClick: props.onClose }, '×'))),
+          showForm
+            ? formReady ? formPane : el('p', { className: 'dtd-mcp-notice', role: 'alert' }, copy.mcpFormUnavailable)
+            : el('div', { className: 'dtd-mcp-list-view' },
+              !form ? el('p', { className: 'dtd-mcp-notice', role: 'alert' }, copy.mcpFormUnavailable)
+                : formSnapshot.status === 'loading' ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpFormPending) : null,
+              form && !manager ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpUnavailable) : null,
+              managerError ? el('p', { className: 'dtd-mcp-error', role: 'alert' }, managerError) : null,
+              formSnapshot.status === 'ready' && formSnapshot.writable === false
+                ? el('p', { className: 'dtd-mcp-notice' }, copy.mcpReadOnly) : null,
+              el('div', { className: 'dtd-mcp-list', 'aria-live': 'polite' },
+                liveServers === undefined && manager?.watch ? el('p', { className: 'dtd-mcp-loading' }, copy.mcpRefreshing) : null,
+                serverRows),
+              feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null))
+      )
+    }
     function useCopy(controller: DeltaController): { state: DeltaState; copy: DeltaCopy } {
       const state = React.useSyncExternalStore(
         callback => controller.subscribe(callback), () => controller.getSnapshot())
@@ -5900,6 +6311,65 @@ window.__ModuleLoader__.load({
                 }
               }, 'dsh-delta-desktop: personalization resource ownership')
 
+              scope.effect(() => () => closeMcpManagement(),
+                'dsh-delta-desktop: MCP management dialog ownership')
+              // MCP settings are optional public Host services. Writes go through
+              // ConfigForms; runtime status and recovery go through the MCP Manager.
+              try { scope.inject(['configForms', 'remote'], mcpScope => {
+                const candidate = mcpScope as ClientContext
+                mcpScope.effect(() => {
+                  const form = candidate.configForms?.get('dsh-delta-desktop')
+                  const credentialRemote = candidate.remote?.credentials
+                  deltaSettingsForm = form
+                  deltaCredentialRemote = credentialRemote
+                  const unsubscribe = form?.subscribe(publishDeltaSettings)
+                  publishDeltaSettings()
+                  return () => {
+                    unsubscribe?.()
+                    if (deltaSettingsForm === form) deltaSettingsForm = undefined
+                    if (deltaCredentialRemote === credentialRemote) deltaCredentialRemote = undefined
+                    publishDeltaSettings()
+                  }
+                }, 'dsh-delta-desktop: privacy and vision settings form')
+                mcpScope.effect(() => {
+                  const current: McpServices = {
+                    // The current Desktop Profile names the official manager
+                    // entry `mcp-manager`; some custom Profiles use `mcp`.
+                    form: candidate.configForms?.get('mcp-manager') ?? candidate.configForms?.get('mcp'),
+                    manager: candidate.remote?.mcpManager,
+                  }
+                  mcpServices = current
+                  renderMcpManagement()
+                  return () => {
+                    if (mcpServices === current) {
+                      mcpServices = undefined
+                      renderMcpManagement()
+                    }
+                  }
+                }, 'dsh-delta-desktop: optional MCP management services')
+              })
+              if (MenuItemButton && ReactRoot) {
+                scope.slots.inject('plugins.add.actions', () => scope.slots.register<AddPluginActionProps>({
+                  name: 'plugins.add.actions',
+                  id: 'delta.mcp.add-server',
+                  // The official Agent Creator contribution uses the slot default
+                  // order (0); this puts MCP directly after the built-in install row.
+                  order: -100,
+                }, props => el(MenuItemButton!, {
+                  icon: el('svg', { viewBox: '0 0 16 16', width: 14, height: 14, fill: 'none',
+                    stroke: 'currentColor', strokeWidth: 1.35, 'aria-hidden': true },
+                  el('rect', { x: 2.5, y: 2.5, width: 11, height: 4, rx: 1 }),
+                  el('rect', { x: 2.5, y: 9.5, width: 11, height: 4, rx: 1 }),
+                  el('circle', { cx: 4.5, cy: 4.5, r: .45, fill: 'currentColor', stroke: 'none' }),
+                  el('circle', { cx: 4.5, cy: 11.5, r: .45, fill: 'currentColor', stroke: 'none' })),
+                  onSelect: () => {
+                  props.onDismiss?.()
+                  openMcpManagement()
+                } }, el('span', { className: 'dtd-mcp-menu-copy' },
+                  el('span', null, (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.mcpAddAction),
+                  el('span', { className: 'dtd-mcp-menu-description' },
+                    (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.mcpAddDescription)))))
+              }
               const settingsModules: ReadonlyArray<{
                 id: string
                 order: number
