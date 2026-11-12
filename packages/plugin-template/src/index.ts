@@ -7,20 +7,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import { registerTool } from '@fongap-labs/shared'
 import { normalizeTemplateConfig, type TemplateConfig } from './host/config.js'
 import { createGreetingTool } from './host/greeting.js'
+import type {} from '@deepseek-ai/dsh-system-prompt'
 
 export type { TemplateConfig } from './host/config.js'
-
-interface PromptService {
-  section(spec: { name: string; order: number; text: string }): (() => void) | undefined
-  getSectionOrder?(name: string): number | undefined
-}
-
-declare module '@deepseek-ai/cordis' {
-  interface Context {
-    /** Optional: skipped entirely unless the plugin enables prompt guidance. */
-    systemPrompt?: PromptService
-  }
-}
 
 /** One required identity constant, rewritten by the scaffold generator. */
 export const name = '@fongap-labs/plugin-template'

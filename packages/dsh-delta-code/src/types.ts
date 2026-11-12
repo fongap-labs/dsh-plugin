@@ -2,6 +2,8 @@
  * Internal host contracts and public Code Worker configuration types.
  * Keep the plugin's published type exports available through index.ts.
  */
+import type {} from '@deepseek-ai/dsh-system-prompt'
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     /** Stable subset of the Host service lookup used by this plugin. */
@@ -9,26 +11,11 @@ declare module '@deepseek-ai/cordis' {
     get(name: 'fs'): HostFsService | undefined
     /** Defer optional prompt registration until the service exists. */
     inject(dependencies: string[], callback: (child: Context) => void): unknown
-    /** Optional host prompt service; the guidance section is skipped without it. */
-    systemPrompt?: SystemPromptService
     /** Optional host workspace provider; paths fall back to config and `cwd`. */
     workingDirectory?: WorkingDirectoryService
     /** Optional host filesystem service; reads and writes fall back to `node:fs`. */
     fs?: HostFsService
   }
-}
-
-/** Prompt section registration accepted by the host `systemPrompt` service. */
-interface PromptSectionSpec {
-  name: string
-  order: number
-  text: string
-}
-
-/** The subset of the host `systemPrompt` service this plugin relies on. */
-interface SystemPromptService {
-  getSectionOrder(section: string): number
-  section(spec: PromptSectionSpec): (() => void) | undefined
 }
 
 /** The subset of the host `workingDirectory` service this plugin relies on. */
