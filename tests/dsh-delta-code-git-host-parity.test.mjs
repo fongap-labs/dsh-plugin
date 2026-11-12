@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createGitStatusTool, createGitDiffTool } from '../packages/dsh-delta-code/lib/tools/git.js'
 import { createGitHubTools } from '../packages/dsh-delta-code/lib/tools/github.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostPathContains, mockHostFsContext } from './helpers/host-fs-mock.mjs'
 
 const ROOT = '/dsh-remote-code-worker-git-root'
 const PROCESS_CWD = '/host-process/coding-checkout'
@@ -34,7 +35,7 @@ function fixture(options = {}) {
     contains(root, target) {
       inspections.push('contains')
       if (options.rejectContain) return false
-      return target.path === root.path || target.path.startsWith(root.path + '/')
+      return mockHostPathContains(root, target, 'path', '/')
     },
     async stat(target) {
       inspections.push('stat:' + target.path)
@@ -47,8 +48,7 @@ function fixture(options = {}) {
     },
   }
   if (options.incompleteFs) delete fs.processPath
-  const ctx = {
-    get: key => key === 'fs' ? fs : undefined,
+  const ctx = mockHostFsContext(fs, {
     ...(options.noSubprocess ? {} : {
       subprocess: { spawn(spec) {
         commands.push(spec)
@@ -59,7 +59,7 @@ function fixture(options = {}) {
         throw new Error('unexpected Git command ' + spec.argv.join(' '))
       } },
     }),
-  }
+  })
   const settings = normalizeConfig({
     workspaceRoot: ROOT,
     github: { accounts: [{ owner: 'fongap-labs', tokenEnv: TOKEN_ENV }] },

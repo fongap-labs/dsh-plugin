@@ -5,6 +5,7 @@ const join = posix.join
 import { createWorkspaceMapTool } from '../packages/dsh-delta-code/lib/tools/workspace.js'
 import { createWorktreeTool } from '../packages/dsh-delta-code/lib/tools/worktree.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { mockHostPathContains, mockHostFsContext } from './helpers/host-fs-mock.mjs'
 
 const ROOT = '/dsh-host-only-virtual-workspace-222'
 const PROCESS_ROOT = '/ssh-process-workspace'
@@ -34,7 +35,7 @@ function fixture(options = {}) {
     contains(parent, child) {
       accesses.push('contains')
       if (options.denyContain) return false
-      return child.p === parent.p || child.p.startsWith(parent.p + '/')
+      return mockHostPathContains(parent, child, 'p', '/')
     },
     async stat(target) {
       accesses.push('stat:' + target.p)
@@ -90,8 +91,7 @@ function fixture(options = {}) {
     },
   }
   if (options.missingList) delete fs.listDir
-  const ctx = {
-    get: name => name === 'fs' ? fs : undefined,
+  const ctx = mockHostFsContext(fs, {
     ...(options.noSubprocess ? {} : {
       subprocess: {
         spawn(spec) {
@@ -132,7 +132,7 @@ function fixture(options = {}) {
         },
       },
     }),
-  }
+  })
   const settings = normalizeConfig({
     workspaceRoot: ROOT,
     execution: { allowWorktreeWrites: true },
