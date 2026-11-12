@@ -129,12 +129,19 @@ export class InternalAbExperiment {
         if (oldest) state.outstanding.delete(oldest)
       }
     } else if (event.type === 'tool/result') {
+      // DSH records the identity on message.source.callId and the outcome
+      // on its sole content[0] tool-result block, not on the message root.
       const message = record(data.message)
-      const callId = message?.toolCallId
-      if (typeof callId !== 'string' || !state.outstanding.has(callId)) return
+      const source = record(message?.source)
+      const blocks = Array.isArray(message?.content) ? message.content : []
+      const block = record(blocks[0])
+      const callId = source?.callId
+      if (source?.kind !== 'tool' || typeof callId !== 'string' ||
+          block?.type !== 'tool-result' || block.toolCallId !== callId ||
+          !state.outstanding.has(callId)) return
       const signature = state.outstanding.get(callId)
       state.outstanding.delete(callId)
-      const isError = message?.isError === true
+      const isError = block.isError === true
       if (isError) bucket.toolErrors++
       if (signature && state.seen.has(signature)) state.seen.set(signature, isError)
     } else if (event.type === 'turn/end') {
