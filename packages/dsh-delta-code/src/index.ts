@@ -43,8 +43,9 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   cleanup.push(() => executionStats.clear())
 
   const register = () => {
-    for (const tool of createTools(ctx, settings, nativeResume, executionStats)) {
-    const result = registerTool(ctx, executionStats.wrap(tool))
+    for (const definition of createTools(ctx, settings, nativeResume, executionStats)) {
+    const tool = executionStats.wrap(definition)
+    const result = registerTool(ctx, tool)
     if (result.registered && typeof result.disposer === 'function') {
       toolDisposers.push(result.disposer)
     } else if (result.error) {
