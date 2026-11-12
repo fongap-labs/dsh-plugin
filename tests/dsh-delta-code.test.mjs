@@ -95,6 +95,7 @@ describe("dsh-delta-code", () => {
       assert.ok(fresh.registeredSkills.has(name), name);
     }
     assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /acceptance/);
+    assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /independent read-only diff review/);
     dispose();
     assert.equal(fresh.registeredSkills.size, 0);
   });
