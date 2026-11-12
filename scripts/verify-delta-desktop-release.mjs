@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Validate both portable archives before an Action Worker release is published.
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { gunzipSync, inflateRawSync } from 'node:zlib'
 import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -118,6 +119,61 @@ export function hasUnsafeHostPatch(source) {
   return executable.includes('workspaceRegistry') || executable.includes('protected-default-workspace')
 }
 
+// ZIP3 ships its own sidebar/search compatibility implementation. A global
+// substring ban would reject the authoritative stylesheet and this reviewed
+// adapter even when no new Host takeover code was added. Freeze the approved
+// adapter regions and exact theme instead of silently lifting the guard.
+const ZIP3_THEME_BLOB = '8d893d7ecfe4a82703aa17ed4935ecdf4b773773'
+const ZIP3_COMPAT_REGIONS = [
+  {
+    begin: 'function installSidebarCompatibility(',
+    end: '\\ntype SearchTabId',
+    sha1: '49331cff8aca2746bdde51a3eb45d7f0d8236eb5',
+  },
+  {
+    begin: 'function installHostSearch(',
+    end: '\\nwindow.__ModuleLoader__.load(',
+    sha1: 'd091e49064452ad098bb98bbaa287ed96f538d37',
+  },
+]
+
+function checkedRegion(source, { begin, end, sha1 }) {
+  const from = source.indexOf(begin)
+  ensure(from >= 0 && source.indexOf(begin, from + begin.length) === -1,
+    'ZIP3 adapter region missing or duplicated: ' + begin)
+  const to = source.indexOf(end, from + begin.length)
+  ensure(to > from, 'ZIP3 adapter region boundary: ' + begin)
+  const actual = createHash('sha1').update(source.slice(from, to)).digest('hex')
+  ensure(actual === sha1, 'ZIP3 approved compatibility adapter changed: ' + begin)
+}
+
+export function verifyApprovedZip3Client(client, sourceText = readFileSync(
+  new URL('../packages/dsh-delta-desktop/src/client.ts', import.meta.url), 'utf8'
+)) {
+  const source = sourceText.replace(/\\r\\n/g, '\\n')
+  for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
+
+  const ownedMatch = client.match(/\\bconst OWNED_CSS = ("(?:\\\\.|[^"\\\\])*");/)
+  ensure(Boolean(ownedMatch), 'ZIP3 stylesheet missing from emitted client')
+  let theme
+  try { theme = JSON.parse(ownedMatch[1]) } catch { ensure(false, 'ZIP3 stylesheet encoding') }
+  const canonical = theme.replace(/\\r\\n/g, '\\n').replace(/\\\\([0-9A-F]{6})/g,
+    (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+  const bytes = Buffer.from(canonical)
+  const blob = createHash('sha1').update('blob ' + bytes.length + '\\0').update(bytes).digest('hex')
+  ensure(blob === ZIP3_THEME_BLOB, 'ZIP3 approved theme differs')
+
+  for (const name of ['installSidebarCompatibility', 'installHostSearch']) {
+    ensure((client.match(new RegExp('function ' + name + '\\\\(', 'g')) ?? []).length === 1,
+      'ZIP3 emitted adapter registration missing or duplicated: ' + name)
+  }
+  ensure(client.includes('dtd-native-search') && client.includes('data-delta-compat'),
+    'ZIP3 emitted sidebar adapter incomplete')
+  ensure(!client.includes('dtd-search-dialog-backdrop') && !client.includes('openSearchDialog(') &&
+    !client.includes('workspaceRegistry') && !client.includes('app.asar'),
+    'non-ZIP3 Host DOM or legacy search takeover')
+}
+
 export function verifyEntries(entries, version, format) {
   for (const path of required) ensure(entries.has(path), format + ' missing ' + path)
   const manifest = JSON.parse(entries.get('package.json').toString())
@@ -135,8 +191,7 @@ export function verifyEntries(entries, version, format) {
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
   ensure(client.includes('data-delta-ui'), format + ' appearance lifecycle')
-  ensure(!client.includes('installSidebarCompatibility') && !client.includes('data-delta-compat') &&
-    !client.includes('dtd-native-search'), format + ' private DOM coupling')
+  verifyApprovedZip3Client(client)
   ensure(!client.includes('__DELTA_DESKTOP_STYLE__') &&
     !client.includes('__DELTA_DESKTOP_LOCALES__'), format + ' build markers')
   for (const lang of ['en', 'zh']) {
