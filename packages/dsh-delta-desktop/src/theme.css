@@ -301,7 +301,7 @@
  * 2. Reusable Search Box & Form Input Component (Hover == Focus)
  * ============================================================================ */
 :root[data-delta-ui="delta"] :is(
-  .dtd-native-search,
+  .dtd-retired-native-search,
   .dtd-host-search-field,
   [class~="GAkraW_searchExpanded"],
   [class~="Wd4N7W_search"],
@@ -319,7 +319,7 @@
 }
 @media (hover: hover) {
   :root[data-delta-ui="delta"] :is(
-    .dtd-native-search,
+    .dtd-retired-native-search,
     .dtd-host-search-field,
     [class~="GAkraW_searchExpanded"],
     [class~="Wd4N7W_search"],
@@ -333,7 +333,7 @@
   }
 }
 :root[data-delta-ui="delta"] :is(
-  .dtd-native-search,
+  .dtd-retired-native-search,
   .dtd-host-search-field,
   [class~="GAkraW_searchExpanded"],
   [class~="Wd4N7W_search"],
@@ -347,7 +347,7 @@
 }
 :root[data-delta-ui="delta"] :is(
   [class~="olCj9W_searchField"] > :first-child,
-  .dtd-native-search-input,
+  .dtd-retired-native-search-input,
   .dtd-host-search-field input,
   [class~="Wd4N7W_searchInput"],
   [class~="GAkraW_searchInput"],
@@ -365,7 +365,7 @@
   color: var(--dtd-input-fg) !important;
 }
 :root[data-delta-ui="delta"] :is(
-  .dtd-native-search-input,
+  .dtd-retired-native-search-input,
   .dtd-host-search-field input,
   [class~="Wd4N7W_searchInput"],
   [class~="GAkraW_searchInput"],
@@ -376,7 +376,7 @@
 }
 :root[data-delta-ui="delta"] :is(
   [class~="olCj9W_searchField"] > :first-child,
-  .dtd-native-search-input,
+  .dtd-retired-native-search-input,
   .dtd-host-search-field input,
   [class~="Wd4N7W_searchInput"],
   [class~="GAkraW_searchInput"],
@@ -425,7 +425,7 @@
   [class*="qgYWUG_search"] input,
   [class*="rQbmCW_customLocation"] textarea,
   [class*="cS6V_W_detail"],
-  input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
+  input:not(.dtd-retired-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
   textarea:not([aria-invalid="true"]),
   select:not([aria-invalid="true"])
 ):is(:focus, :focus-visible, :focus-within):not(:disabled) {
@@ -443,7 +443,7 @@
     [class*="qgYWUG_search"] input,
     [class*="rQbmCW_customLocation"] textarea,
     [class*="cS6V_W_detail"],
-    input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
+    input:not(.dtd-retired-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
     textarea:not([aria-invalid="true"]),
     select:not([aria-invalid="true"])
   ):hover:not(:disabled) {
@@ -729,19 +729,19 @@
 
 /* Hide brand identity while preserving Windows sidebar collapse button */
 :root[data-delta-ui="delta"] [class*="wtg9ga_topStrip"],
-:root[data-delta-compat="1"] [class*="wtg9ga_topStrip"],
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_topStrip"],
 :root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:root[data-delta-compat="1"] [class*="wtg9ga_logoRow"],
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_logoRow"],
 :root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"],
-:root[data-delta-compat="1"] [class*="SidebarRoot_logoRow"] {
+:root[data-delta-retired-private-compat="1"] [class*="SidebarRoot_logoRow"] {
   order: 0 !important;
   overflow: visible !important;
   visibility: visible !important;
 }
 :is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-compat="1"] [class*="wtg9ga_logoRow"],
+:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-retired-private-compat="1"] [class*="wtg9ga_logoRow"],
 :is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-compat="1"] [class*="SidebarRoot_logoRow"] {
+:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-retired-private-compat="1"] [class*="SidebarRoot_logoRow"] {
   height: 0 !important;
   min-height: 0 !important;
   margin: 0 !important;
@@ -754,7 +754,7 @@
   [data-sidebar-right-toggle],
   [data-sidebar-right-expand]
 ),
-:root[data-delta-compat="1"] :is(
+:root[data-delta-retired-private-compat="1"] :is(
   [data-sidebar-toggle],
   [data-sidebar-opener],
   [data-sidebar-right-toggle],
@@ -782,7 +782,7 @@
   .dtd-brand-mark,
   .dtd-brand-name
 ),
-:root[data-delta-compat="1"] :is(
+:root[data-delta-retired-private-compat="1"] :is(
   [class*="wtg9ga_brand"],
   [class*="wtg9ga_brandIdentity"],
   [class*="wtg9ga_brandMark"],
@@ -803,7 +803,7 @@
 
 /* Session hover card meta slot suppressed cleanly */
 :root[data-delta-ui="delta"] .dtd-session-meta,
-:root[data-delta-compat="1"] .dtd-session-meta,
+:root[data-delta-retired-private-compat="1"] .dtd-session-meta,
 :root[data-delta-ui="delta"] [data-slot="sidebar.session.row.hover"]:has(.dtd-session-meta),
 :root[data-delta-ui="delta"] [class*="hoverContent"] > :has(.dtd-session-meta) {
   display: none !important;
@@ -932,9 +932,9 @@
 /* ============================================================================
  * 6. Left Sidebar Layout, Search, Nav Items, Workspace List & Footer
  * ============================================================================ */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
-:root[data-delta-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
+:root[data-delta-retired-private-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
+:root[data-delta-retired-private-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
   display: flex !important;
   flex-direction: column !important;
   gap: 0 !important;
@@ -942,12 +942,12 @@
   box-sizing: border-box !important;
   padding: 0 8px 4px !important;
 }
-html[data-windows-titlebar]:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
+html[data-windows-titlebar]:root[data-delta-retired-private-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
+html[data-windows-titlebar]:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
+html[data-windows-titlebar]:root[data-delta-retired-private-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
   padding: 0 8px 4px !important;
 }
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="wtg9ga_topStrip"] {
+html[data-windows-titlebar]:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_topStrip"] {
   height: 0 !important;
   min-height: 0 !important;
   margin: 0 !important;
@@ -963,7 +963,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 }
 
 /* 6.1 Top Search Box */
-:root[data-delta-compat="1"] .dtd-host-search,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search,
 :root[data-delta-ui="delta"] .dtd-host-search {
   order: 1 !important;
   display: flex !important;
@@ -973,14 +973,14 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   position: relative !important;
   margin: 0 0 8px 0 !important;
 }
-:root[data-delta-compat="1"] .dtd-native-search {
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-search {
   order: 1 !important;
   position: relative !important;
   width: 100% !important;
   margin: 0 0 8px 0 !important;
 }
-:root[data-delta-compat="1"] .dtd-native-search,
-:root[data-delta-compat="1"] .dtd-host-search-field,
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-search,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-field,
 :root[data-delta-ui="delta"] .dtd-host-search-field {
   display: flex !important;
   flex-direction: row !important;
@@ -990,7 +990,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   padding: 0 10px !important;
   gap: 8px !important;
 }
-:root[data-delta-compat="1"] .dtd-search-icon,
+:root[data-delta-retired-private-compat="1"] .dtd-search-icon,
 :root[data-delta-ui="delta"] .dtd-search-icon {
   display: inline-block !important;
   width: 15px !important;
@@ -999,8 +999,8 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   color: var(--dtd-fg-muted) !important;
   stroke: var(--dtd-fg-muted) !important;
 }
-:root[data-delta-compat="1"] .dtd-native-search-input,
-:root[data-delta-compat="1"] .dtd-host-search-field input,
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-search-input,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-field input,
 :root[data-delta-ui="delta"] .dtd-host-search-field input {
   flex: 1 1 auto !important;
   width: 100% !important;
@@ -1012,14 +1012,14 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   padding: 0 !important;
   margin: 0 !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-field input::-webkit-search-cancel-button,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-field input::-webkit-search-cancel-button,
 :root[data-delta-ui="delta"] .dtd-host-search-field input::-webkit-search-cancel-button {
   -webkit-appearance: none !important;
   appearance: none !important;
   display: none !important;
 }
 
-:root[data-delta-compat="1"] .dtd-host-search-results,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-results,
 :root[data-delta-ui="delta"] .dtd-host-search-results {
   position: absolute !important;
   top: calc(100% + 4px) !important;
@@ -1035,11 +1035,11 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   padding: 6px !important;
   border-radius: var(--dtd-radius-lg) !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-results[hidden],
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-results[hidden],
 :root[data-delta-ui="delta"] .dtd-host-search-results[hidden] {
   display: none !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-result,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-result,
 :root[data-delta-ui="delta"] .dtd-host-search-result {
   display: flex !important;
   flex-direction: column !important;
@@ -1055,7 +1055,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   cursor: pointer !important;
   transition: background-color 0.15s ease !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-result-title,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-result-title,
 :root[data-delta-ui="delta"] .dtd-host-search-result-title {
   overflow: hidden !important;
   white-space: nowrap !important;
@@ -1063,9 +1063,9 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   font-size: 13px !important;
   font-weight: 500 !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-result-snippet,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-result-snippet,
 :root[data-delta-ui="delta"] .dtd-host-search-result-snippet,
-:root[data-delta-compat="1"] .dtd-host-search-hint,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-hint,
 :root[data-delta-ui="delta"] .dtd-host-search-hint {
   margin: 0 !important;
   overflow: hidden !important;
@@ -1073,13 +1073,13 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   font-size: 12px !important;
   text-overflow: ellipsis !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-hint,
+:root[data-delta-retired-private-compat="1"] .dtd-host-search-hint,
 :root[data-delta-ui="delta"] .dtd-host-search-hint {
   padding: 8px 10px !important;
 }
-:root[data-delta-compat="1"] [data-sidebar-workspace-header] [class*="searchSlot"],
-:root[data-delta-compat="1"] [class*="sectionHeader"] [class*="searchSlot"],
-:root[data-delta-compat="1"] [class*="GAkraW_searchSlot"] {
+:root[data-delta-retired-private-compat="1"] [data-sidebar-workspace-header] [class*="searchSlot"],
+:root[data-delta-retired-private-compat="1"] [class*="sectionHeader"] [class*="searchSlot"],
+:root[data-delta-retired-private-compat="1"] [class*="GAkraW_searchSlot"] {
   position: absolute !important;
   visibility: hidden !important;
   pointer-events: none !important;
@@ -1089,9 +1089,9 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 }
 
 /* 6.2 Navigation rows (plugin manager, scheduled tasks; hide More) */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav,
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] {
+:root[data-delta-retired-private-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav,
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_panelList"] {
   order: 2 !important;
   display: flex !important;
   flex-direction: column !important;
@@ -1099,23 +1099,23 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   margin: 0 0 2px 0 !important;
   padding: 0 !important;
 }
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav button,
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav button,
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] button {
+:root[data-delta-retired-private-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav button,
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav button,
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_panelList"] button {
   min-height: var(--dtd-sidebar-row-height) !important;
   height: var(--dtd-sidebar-row-height) !important;
   border-radius: var(--dsw-radius-md, var(--dtd-radius-md)) !important;
 }
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="插件管理"], [aria-label="插件"], [aria-label="Plugins"])),
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="插件管理"], [aria-label="插件"], [aria-label="Plugins"])) {
+:root[data-delta-retired-private-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="插件管理"], [aria-label="插件"], [aria-label="Plugins"])),
+:root[data-delta-retired-private-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="插件管理"], [aria-label="插件"], [aria-label="Plugins"])) {
   order: 0 !important;
 }
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="定时任务"], [aria-label="自动化任务"], [aria-label="Schedules"], [aria-label="Tasks"])),
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="定时任务"], [aria-label="自动化任务"], [aria-label="Schedules"], [aria-label="Tasks"])) {
+:root[data-delta-retired-private-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="定时任务"], [aria-label="自动化任务"], [aria-label="Schedules"], [aria-label="Tasks"])),
+:root[data-delta-retired-private-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="定时任务"], [aria-label="自动化任务"], [aria-label="Schedules"], [aria-label="Tasks"])) {
   order: 1 !important;
 }
-:root[data-delta-compat="1"] nav > :has(button:is([aria-label="更多"], [aria-label="More"])),
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] > :has(button:is([aria-label="更多"], [aria-label="More"])) {
+:root[data-delta-retired-private-compat="1"] nav > :has(button:is([aria-label="更多"], [aria-label="More"])),
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_panelList"] > :has(button:is([aria-label="更多"], [aria-label="More"])) {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;
@@ -1125,9 +1125,9 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 }
 
 /* 6.3 New conversation button */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) button[class*="newSession"]:not([data-delta-action]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) button[class*="newSession"]:not([data-delta-action]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_newSession"]:not([data-delta-action]) {
+:root[data-delta-retired-private-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) button[class*="newSession"]:not([data-delta-action]),
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) button[class*="newSession"]:not([data-delta-action]),
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_newSession"]:not([data-delta-action]) {
   position: absolute !important;
   width: 1px !important;
   height: 1px !important;
@@ -1135,7 +1135,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   pointer-events: none !important;
   overflow: hidden !important;
 }
-:root[data-delta-compat="1"] .dtd-native-new-session {
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-new-session {
   order: 3 !important;
   display: flex !important;
   box-sizing: border-box !important;
@@ -1161,25 +1161,25 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   outline: none !important;
   box-shadow: none !important;
 }
-:root[data-delta-compat="1"] .dtd-native-new-session:focus-visible {
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-new-session:focus-visible {
   outline: 1px solid var(--dtd-border-focus) !important;
   outline-offset: -2px !important;
 }
-:root[data-delta-compat="1"] .dtd-native-new-session .dtd-new-session-icon,
-:root[data-delta-compat="1"] .dtd-native-new-session svg {
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-new-session .dtd-new-session-icon,
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-new-session svg {
   width: 16px !important;
   height: 16px !important;
   flex-shrink: 0 !important;
   color: currentColor !important;
 }
-:root[data-delta-compat="1"] .dtd-native-new-session:hover {
+:root[data-delta-retired-private-compat="1"] .dtd-retired-native-new-session:hover {
   background-color: var(--dtd-bg-hover) !important;
 }
 
 /* 6.4 Workspace & Session List Region */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > div:has([data-sidebar-workspace-header]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > [class*="wtg9ga_regionArea"],
-:root[data-delta-compat="1"] [class*="regionArea"] {
+:root[data-delta-retired-private-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > div:has([data-sidebar-workspace-header]),
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > [class*="wtg9ga_regionArea"],
+:root[data-delta-retired-private-compat="1"] [class*="regionArea"] {
   order: 4 !important;
   flex: 1 1 0% !important;
   min-height: 0 !important;
@@ -1187,9 +1187,9 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   margin: 0 !important;
   padding-left: 0 !important;
 }
-:root[data-delta-compat="1"] [class*="sectionHeader"],
-:root[data-delta-compat="1"] [class*="GAkraW_sectionHeader"],
-:root[data-delta-compat="1"] [data-sidebar-workspace-header] {
+:root[data-delta-retired-private-compat="1"] [class*="sectionHeader"],
+:root[data-delta-retired-private-compat="1"] [class*="GAkraW_sectionHeader"],
+:root[data-delta-retired-private-compat="1"] [data-sidebar-workspace-header] {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -1198,8 +1198,8 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   margin-top: 4px !important;
   margin-bottom: 4px !important;
 }
-:root[data-delta-compat="1"] [class*="sectionLabel"],
-:root[data-delta-compat="1"] [class*="GAkraW_sectionLabel"] {
+:root[data-delta-retired-private-compat="1"] [class*="sectionLabel"],
+:root[data-delta-retired-private-compat="1"] [class*="GAkraW_sectionLabel"] {
   left: 0 !important;
   margin-right: auto !important;
   max-width: none !important;
@@ -1207,8 +1207,8 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   font-weight: 600 !important;
   color: var(--dtd-fg-muted) !important;
 }
-:root[data-delta-compat="1"] [data-sidebar-list-area] [data-row-key^="workspace:"],
-:root[data-delta-compat="1"] [data-sidebar-list-area] [class*="wnFoaW_projectRow"] {
+:root[data-delta-retired-private-compat="1"] [data-sidebar-list-area] [data-row-key^="workspace:"],
+:root[data-delta-retired-private-compat="1"] [data-sidebar-list-area] [class*="wnFoaW_projectRow"] {
   padding-inline-start: calc(3px + var(--dsh-workspace-indent, 0px)) !important;
 }
 
@@ -1231,8 +1231,8 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 }
 
 /* 6.5 Footer Bar (Left Avatar/Logo, Right Action Icons; divider removed) */
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_footArea"],
-:root[data-delta-compat="1"] [class*="footArea"] {
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_footArea"],
+:root[data-delta-retired-private-compat="1"] [class*="footArea"] {
   order: 5 !important;
   margin-top: auto !important;
   flex-shrink: 0 !important;
@@ -1247,17 +1247,17 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   border-top: none !important;
   background: transparent !important;
 }
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] :is(
-  .dtd-native-search,
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_collapsed"] :is(
+  .dtd-retired-native-search,
   .dtd-host-search,
-  .dtd-native-new-session,
+  .dtd-retired-native-new-session,
   .dtd-footer-avatar-box,
   .dtd-footer-actions
 ) {
   display: none !important;
 }
-:root[data-delta-compat="1"] [class*="footArea"] > [class*="settingsArea"],
-:root[data-delta-compat="1"] [class*="footArea"] > [class*="footerActions"] {
+:root[data-delta-retired-private-compat="1"] [class*="footArea"] > [class*="settingsArea"],
+:root[data-delta-retired-private-compat="1"] [class*="footArea"] > [class*="footerActions"] {
   position: absolute !important;
   flex: 0 0 0 !important;
   width: 0 !important;
@@ -1268,11 +1268,11 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   overflow: visible !important;
   pointer-events: none !important;
 }
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="AnXs9G_triggerRow"],
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_root"] > button,
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_trigger"],
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] .dtd-native-profile-trigger,
-:root[data-delta-compat="1"] [class*="footArea"] > button:not(.dtd-footer-btn) {
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_footArea"] [class*="AnXs9G_triggerRow"],
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_root"] > button,
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_trigger"],
+:root[data-delta-retired-private-compat="1"] [class*="wtg9ga_footArea"] .dtd-native-profile-trigger,
+:root[data-delta-retired-private-compat="1"] [class*="footArea"] > button:not(.dtd-footer-btn) {
   position: absolute !important;
   width: 0 !important;
   height: 0 !important;
@@ -1364,7 +1364,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 }
 
 @media (max-width: 600px) {
-  :root[data-delta-compat="1"] .dtd-native-search { min-height: var(--dtd-sidebar-row-height); }
+  :root[data-delta-retired-private-compat="1"] .dtd-retired-native-search { min-height: var(--dtd-sidebar-row-height); }
 }
 
 .dtd-toast {
@@ -1820,7 +1820,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 }
 
 /* Sidebar search clear button + shortcut keycap */
-:root[data-delta-compat="1"] .dtd-search-clear,
+:root[data-delta-retired-private-compat="1"] .dtd-search-clear,
 :root[data-delta-ui="delta"] .dtd-search-clear {
   flex: none !important;
   display: inline-flex !important;
@@ -1836,18 +1836,18 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   color: var(--dtd-clear-fg, var(--dtd-fg-muted)) !important;
   cursor: pointer !important;
 }
-:root[data-delta-compat="1"] .dtd-search-clear[hidden],
+:root[data-delta-retired-private-compat="1"] .dtd-search-clear[hidden],
 :root[data-delta-ui="delta"] .dtd-search-clear[hidden] {
   display: none !important;
 }
 @media (hover: hover) {
-  :root[data-delta-compat="1"] .dtd-search-clear:hover,
+  :root[data-delta-retired-private-compat="1"] .dtd-search-clear:hover,
   :root[data-delta-ui="delta"] .dtd-search-clear:hover {
     color: var(--dtd-clear-hover-fg, var(--dtd-fg-primary)) !important;
     background: var(--dtd-clear-hover-bg, var(--dtd-bg-hover)) !important;
   }
 }
-:root[data-delta-compat="1"] .dtd-search-kbd,
+:root[data-delta-retired-private-compat="1"] .dtd-search-kbd,
 :root[data-delta-ui="delta"] .dtd-search-kbd {
   flex: none !important;
   display: inline-flex !important;
@@ -1865,7 +1865,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   cursor: pointer !important;
   user-select: none !important;
 }
-:root[data-delta-compat="1"] .dtd-search-kbd[hidden],
+:root[data-delta-retired-private-compat="1"] .dtd-search-kbd[hidden],
 :root[data-delta-ui="delta"] .dtd-search-kbd[hidden] {
   display: none !important;
 }
@@ -1933,7 +1933,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 .dtd-search-modal-input::placeholder {
   color: var(--dtd-input-placeholder, var(--dtd-fg-muted));
 }
-:root[data-delta-compat="1"] .dtd-search-modal-input::-webkit-search-cancel-button,
+:root[data-delta-retired-private-compat="1"] .dtd-search-modal-input::-webkit-search-cancel-button,
 :root[data-delta-ui="delta"] .dtd-search-modal-input::-webkit-search-cancel-button,
 .dtd-search-modal-input::-webkit-search-cancel-button {
   -webkit-appearance: none !important;
