@@ -238,7 +238,7 @@ interface LayoutApi { toggleSidebar(): void; selectPanel(id: string | null): voi
 interface SidebarRightApi { toggleExpanded?(): void; openResource(address: string): unknown; closeRightbar?(): void }
 interface SlotsApi {
   inject(name: string, register: () => unknown): void
-  register<P = DeltaProps>(options: { name: string; id?: string; key?: string; order?: number; children?: readonly string[]; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
+  register<P = DeltaProps>(options: { name: string; id?: string; key?: string; order?: number; children?: Record<string, { kind: string; scope?: string }> | readonly string[]; label?: () => string; inject?: () => DeltaProps }, component: (props: P) => unknown): unknown
 }
 interface WorkspaceSnapshot {
   items: readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
