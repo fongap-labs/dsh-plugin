@@ -23,6 +23,7 @@ import { createHostProbeTool } from './tools/host-probe.js'
 import { createWorkflowRouteTool } from './workflow-route.js'
 import { registerCodingSkills } from './skills.js'
 import { registerAutomaticCodingRouter } from './auto-routing.js'
+import { registerGatewayRetryCoordinator } from './gateway-retry-coordination.js'
 import { ExecutionStats, createExecutionStatsTool } from './execution-stats.js'
 
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
@@ -69,6 +70,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   register()
   cleanup.push(registerCodingSkills(ctx))
   cleanup.push(registerAutomaticCodingRouter(ctx, () => settings))
+  cleanup.push(registerGatewayRetryCoordinator(ctx, () => settings.enabled))
 
   ctx.inject(['systemPrompt'], (child) => {
     try {
