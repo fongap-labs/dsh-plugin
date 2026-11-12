@@ -4,6 +4,8 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 
 ## 能力
 
+`code_ab_report` 可读取插件内自动 A/B 统计。开启自动路由时，首次识别为编码任务的 DSH 会话自动进入对照组（保留相同 Code Worker 工具、静态指引与权限，仅不注入动态工作流提示）或引导组；两组共用 Host 执行环境。插件直接监听 DSH 原生 `session/event`，无须导出会话或运行脚本。统计调用、工具错误、重复请求、模型 Token 和完成轮次，不记录提示词、文件内容、工具输出、会话 ID，也不外传。统计仅在当前插件进程内保留，重启后重新累计；完成轮次不是任务通过验收的证明，不能直接将两组数量差异视为性能收益。
+
 ### Offline session assessment
 
 For exported DSH Markdown transcripts (not raw compressed session databases), use the repository-local offline analyzer:

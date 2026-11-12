@@ -25,6 +25,7 @@ import { registerCodingSkills } from './skills.js'
 import { registerAutomaticCodingRouter } from './auto-routing.js'
 import { registerGatewayRetryCoordinator } from './gateway-retry-coordination.js'
 import { ExecutionStats, createExecutionStatsTool } from './execution-stats.js'
+import { InternalAbExperiment, createInternalAbReportTool } from './ab-metrics.js'
 
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 const PROMPT_SECTION_NAME = 'dsh-delta-code:guidance'
@@ -40,11 +41,19 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   const cleanup: Array<() => void> = []
   const nativeResume = registerNativeResume(ctx)
   const executionStats = new ExecutionStats()
+  const experiment = new InternalAbExperiment()
   cleanup.push(() => nativeResume.dispose())
   cleanup.push(() => executionStats.clear())
+  cleanup.push(() => experiment.clear())
+  if (typeof (ctx as any).on === 'function') {
+    const unsubscribe = (ctx as any).on('session/event', (session: unknown, event: unknown) => {
+      experiment.observe(session, event as { type?: unknown; seq?: unknown; data?: unknown })
+    })
+    if (typeof unsubscribe === 'function') cleanup.push(unsubscribe)
+  }
 
   const register = () => {
-    for (const definition of createTools(ctx, settings, nativeResume, executionStats)) {
+    for (const definition of createTools(ctx, settings, nativeResume, executionStats, experiment)) {
     const tool = executionStats.wrap(definition)
     const result = registerTool(ctx, tool)
     if (result.registered && typeof result.disposer === 'function') {
@@ -69,7 +78,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   }
   register()
   cleanup.push(registerCodingSkills(ctx))
-  cleanup.push(registerAutomaticCodingRouter(ctx, () => settings))
+  cleanup.push(registerAutomaticCodingRouter(ctx, () => settings, experiment))
   cleanup.push(registerGatewayRetryCoordinator(ctx, () => settings.enabled))
 
   ctx.inject(['systemPrompt'], (child) => {
@@ -104,7 +113,7 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
 }
 
 function createTools(ctx: Context, settings: Settings, nativeResume: NativeResumeReader,
-  executionStats: ExecutionStats): ToolDefinition[] {
+  executionStats: ExecutionStats, experiment: InternalAbExperiment): ToolDefinition[] {
   if (settings.enabled === false) return []
 
   const tools: ToolDefinition[] = [
@@ -112,6 +121,7 @@ function createTools(ctx: Context, settings: Settings, nativeResume: NativeResum
     createProjectProfileTool(ctx, settings),
     createHostProbeTool(ctx),
     createExecutionStatsTool(executionStats),
+    createInternalAbReportTool(experiment),
     createWorkflowRouteTool(),
     createWorkspaceMapTool(ctx, settings),
     createWorktreeTool(ctx, settings),
