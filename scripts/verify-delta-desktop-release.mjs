@@ -119,20 +119,19 @@ export function hasUnsafeHostPatch(source) {
   return executable.includes('workspaceRegistry') || executable.includes('protected-default-workspace')
 }
 
-// ZIP3 ships its own sidebar/search compatibility implementation. A global
-// substring ban would reject the authoritative stylesheet and this reviewed
-// adapter even when no new Host takeover code was added. Freeze the approved
-// adapter regions and exact theme instead of silently lifting the guard.
+// ZIP3 retains its approved sidebar/search adapter until the feature-registry
+// migration eliminates private DOM dependencies. We pin both regions and the
+// exact author-provided ZIP theme; no arbitrary Host takeover is authorized.
 const ZIP3_THEME_BLOB = '8d893d7ecfe4a82703aa17ed4935ecdf4b773773'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
-    end: '\\ntype SearchTabId',
+    end: '\ntype SearchTabId',
     sha1: '49331cff8aca2746bdde51a3eb45d7f0d8236eb5',
   },
   {
     begin: 'function installHostSearch(',
-    end: '\\nwindow.__ModuleLoader__.load(',
+    end: '\nwindow.__ModuleLoader__.load(',
     sha1: 'd091e49064452ad098bb98bbaa287ed96f538d37',
   },
 ]
@@ -150,21 +149,21 @@ function checkedRegion(source, { begin, end, sha1 }) {
 export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   new URL('../packages/dsh-delta-desktop/src/client.ts', import.meta.url), 'utf8'
 )) {
-  const source = sourceText.replace(/\\r\\n/g, '\\n')
+  const source = sourceText.replace(/\r\n/g, '\n')
   for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
 
-  const ownedMatch = client.match(/\\bconst OWNED_CSS = ("(?:\\\\.|[^"\\\\])*");/)
+  const ownedMatch = client.match(/\bconst OWNED_CSS = ("(?:\\.|[^"\\])*");/)
   ensure(Boolean(ownedMatch), 'ZIP3 stylesheet missing from emitted client')
   let theme
   try { theme = JSON.parse(ownedMatch[1]) } catch { ensure(false, 'ZIP3 stylesheet encoding') }
-  const canonical = theme.replace(/\\r\\n/g, '\\n').replace(/\\\\([0-9A-F]{6})/g,
+  const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
-  const blob = createHash('sha1').update('blob ' + bytes.length + '\\0').update(bytes).digest('hex')
+  const blob = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
   ensure(blob === ZIP3_THEME_BLOB, 'ZIP3 approved theme differs')
 
   for (const name of ['installSidebarCompatibility', 'installHostSearch']) {
-    ensure((client.match(new RegExp('function ' + name + '\\\\(', 'g')) ?? []).length === 1,
+    ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
   ensure(client.includes('dtd-native-search') && client.includes('data-delta-compat'),
