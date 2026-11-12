@@ -11,6 +11,13 @@ describe('Shared multi-edit validation and first-match text transformation', () 
     }
   })
 
+  it('rejects ambiguous text replacements in guarded mode but preserves legacy first-match behavior', () => {
+    const plan = planTextEdit({ find: 'item', replace: 'entry' }, true)
+    assert.throws(() => applyTextEdit('item item', plan, true), /multiple locations/)
+    assert.equal(applyTextEdit('item item', plan), 'entry item')
+    assert.equal(applyTextEdit('item', plan, true), 'entry')
+  })
+
   it('supports empty replacement, Unicode text and empty overwrite content', () => {
     const remove = planTextEdit({ find: '中', replace: '' }, true)
     assert.equal(applyTextEdit('中文中', remove), '文中')

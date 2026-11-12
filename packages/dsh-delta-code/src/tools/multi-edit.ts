@@ -155,7 +155,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               if (shouldRollback && Buffer.byteLength(original, 'utf8') > 2 * 1024 * 1024) {
                 throw new Error('rollbackOnFailure snapshot exceeds 2 MiB')
               }
-              const content = applyTextEdit(original, plan)
+              const content = applyTextEdit(original, plan, true)
               prepared.push({ path, action: 'replace', content, original, pinnedIntent, note: 'replaced 1 occurrence' })
               checked.push({ path, action: 'replace', ok: true, note: 'replaced 1 occurrence' })
             } else {

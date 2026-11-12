@@ -192,9 +192,9 @@ export function createNativeResumeTool(
         return result('empty', 'No current native Todo checkpoint exists; establish a new task plan.', state)
       }
       const pending = remainingDeliveryTasks(state.tasks)
-      if (pending.length === 0) {
-        return result('complete', 'All historical Todo items say completed. Inspect actual evidence before starting a new task.', state)
-      }
+      // A completed native Todo is a progress claim, not Git or test evidence.
+      // Always validate its baseline and worktree before recommending next steps.
+      const todosComplete = pending.length === 0
       if (args.expectedSeq !== undefined &&
           (!Number.isSafeInteger(args.expectedSeq) || args.expectedSeq < 0 || args.expectedSeq !== state.writeSeq)) {
         return result('blocked', 'Native Todo checkpoint sequence differs; reload tasks before continuing.',
@@ -241,11 +241,17 @@ export function createNativeResumeTool(
         const git = parseGitStatus(before)
         const changed = [...git.staged, ...git.unstaged, ...git.untracked]
         if (changed.length > 0) {
-          return result('reconcile', 'Inspect existing staged/unstaged/untracked work before continuing: ' + pending[0],
+          return result('reconcile', todosComplete
+            ? 'Native Todos claim completion but Git has pending changes; inspect the diff and run the delivery gate.'
+            : 'Inspect existing staged/unstaged/untracked work before continuing: ' + pending[0],
             state, head, changed)
         }
-        if (!args.expectedHead) return result('reconcile',
-          'No previous Git baseline was supplied; inspect commits and validate completed Todo steps before continuing: ' + pending[0],
+        if (!args.expectedHead) return result('reconcile', todosComplete
+          ? 'Native Todos claim completion but no Git baseline was supplied; inspect commits and run the delivery gate.'
+          : 'No previous Git baseline was supplied; inspect commits and validate completed Todo steps before continuing: ' + pending[0],
+          state, head)
+        if (todosComplete) return result('reconcile',
+          'Native Todos claim completion and Git is stable; obtain fresh delivery-gate evidence before reporting completion.',
           state, head)
         return result('resume', 'Revalidate the first incomplete Todo step, then continue: ' + pending[0], state, head)
       } catch {

@@ -210,16 +210,42 @@ describe('Delta Code Worker native session resume', () => {
     } finally { await f.cleanup() }
   })
 
-  it('keeps an empty, cleared or completed native Todo list from triggering Git', async () => {
+  it('keeps empty native Todo lists Git-free but requires evidence for completed Todos', async () => {
     const f = await fixture()
     try {
       assert.equal((await f.tool.execute({}, execute(f.agent))).stage, 'empty')
       f.emit([])
       assert.equal((await f.tool.execute({}, execute(f.agent))).stage, 'empty')
-      f.emit(TASKS.map(task => ({ ...task, status: 'completed' })), 9)
-      assert.equal((await f.tool.execute({}, execute(f.agent))).stage, 'complete')
       assert.deepEqual(f.commands, [])
+      f.emit(TASKS.map(task => ({ ...task, status: 'completed' })), 9)
+      const stale = await f.tool.execute({ expectedHead: HEAD, expectedSeq: 8 }, execute(f.agent))
+      assert.equal(stale.stage, 'blocked')
+      assert.deepEqual(f.commands, [])
+      const unpinned = await f.tool.execute({}, execute(f.agent))
+      assert.equal(unpinned.stage, 'reconcile')
+      assert.equal(unpinned.head, HEAD)
+      assert.match(unpinned.nextAction, /baseline/)
+      const pinned = await f.tool.execute({ expectedHead: HEAD, expectedSeq: 9 }, execute(f.agent))
+      assert.equal(pinned.stage, 'reconcile')
+      assert.match(pinned.nextAction, /delivery-gate evidence/)
+      assert.equal(f.commands.length, 8)
     } finally { await f.cleanup() }
+  })
+
+  it('never calls a dirty or inaccessible repository complete even when all Todos are completed', async () => {
+    for (const config of [
+      { status: '## main\0 M pending.ts\0' },
+      { allowGit: false },
+      { deny: true },
+    ]) {
+      const f = await fixture(config)
+      try {
+        f.emit(TASKS.map(task => ({ ...task, status: 'completed' })))
+        const outcome = await f.tool.execute({ expectedHead: HEAD }, execute(f.agent))
+        assert.notEqual(outcome.stage, 'complete')
+        assert.equal(outcome.stage, config.status ? 'reconcile' : 'blocked')
+      } finally { await f.cleanup() }
+    }
   })
 
   it('rejects malformed todo events and unknown baseline without executing Git', async () => {
