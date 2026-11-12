@@ -15,8 +15,11 @@ import { installHostSessionOps } from './host-sessions.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
 import { registerPrivacyBridge, type DeltaPrivacyConfig } from './privacy-bridge.js'
+import { DeltaFeatureRegistry } from './feature-registry.js'
 
 export { Config } from './privacy-bridge.js'
+export { DeltaFeatureRegistry, DELTA_FEATURE_OWNERS, DELTA_EXTENSION_SURFACES } from './feature-registry.js'
+export type { DeltaDesktopFeature, DeltaExtensionSurface, DeltaFeatureOwner } from './feature-registry.js'
 
 export const name = '@fongap-labs/dsh-delta-desktop'
 export const inject: string[] = []
@@ -71,43 +74,72 @@ export type {
 } from './host-state.js'
 
 export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): () => void {
-  // Until DSH publishes a versioned before-delete hook, deletion stays Host owned.
+  // The Host retains authority for deletion, secrets, privacy and model access.
+  // The registry orders extension lifecycles; it never grants privileges.
   if (!ctx || typeof ctx !== 'object') return () => {}
-  // Preserve the existing model-redaction/vision and context-projection integrations.
-  // The ZIP Host endpoints are additive, not replacements for those capabilities.
-  let stopCompaction = () => {}
-  let stopPrivacyBridge = () => {}
-  if (typeof ctx.inject === 'function') {
-    const legacyCtx = ctx as unknown as Parameters<typeof registerCompactionStatusProjection>[0] &
-      Parameters<typeof registerPrivacyBridge>[0]
-    stopCompaction = registerCompactionStatusProjection(legacyCtx)
-    if (config) stopPrivacyBridge = registerPrivacyBridge(legacyCtx, config)
-  }
 
+  const registry = new DeltaFeatureRegistry<PrivacyHostContext>()
   const store = createHostStateStore(ctx)
+  const legacyCtx = ctx as unknown as Parameters<typeof registerCompactionStatusProjection>[0] &
+    Parameters<typeof registerPrivacyBridge>[0]
   let invalidateSearchCache: ((id: string) => void) | undefined
 
-  const stopPrivacy = installHostPrivacyGuards(ctx)
-  const stopAuthCookiePruner = installHostAuthCookiePruner(ctx)
-  const stopSearch = installHostSessionSearch(ctx, {
-    isExcluded: (sessionId) => {
-      const st = store.getCached()
-      return st.lockedSessionIds.includes(sessionId) || st.deletedSessionIds.includes(sessionId)
+  registry.register({
+    id: 'context.compaction-status',
+    owner: 'context',
+    surfaces: ['right-sidebar'],
+    optional: true,
+    install: () => typeof ctx.inject === 'function'
+      ? registerCompactionStatusProjection(legacyCtx) : () => {},
+  })
+  registry.register({
+    id: 'security.model-stream-policy',
+    owner: 'security',
+    surfaces: ['settings'],
+    optional: true,
+    install: () => typeof ctx.inject === 'function' && config
+      ? registerPrivacyBridge(legacyCtx, config) : () => {},
+  })
+  registry.register({
+    id: 'security.privacy-guards',
+    owner: 'security',
+    install: () => installHostPrivacyGuards(ctx),
+  })
+  registry.register({
+    id: 'security.auth-cookie-pruner',
+    owner: 'security',
+    install: () => installHostAuthCookiePruner(ctx),
+  })
+  registry.register({
+    id: 'discovery.session-search',
+    owner: 'discovery',
+    surfaces: ['left-sidebar'],
+    install: () => installHostSessionSearch(ctx, {
+      isExcluded: sessionId => {
+        const cached = store.getCached()
+        return cached.lockedSessionIds.includes(sessionId) || cached.deletedSessionIds.includes(sessionId)
+      },
+      registerInvalidator: fn => { invalidateSearchCache = fn },
+    }),
+  })
+  registry.register({
+    id: 'sessions.session-operations',
+    owner: 'sessions',
+    surfaces: ['left-sidebar'],
+    install: () => installHostSessionOps(ctx, store, {
+      onSessionChanged: sessionId => { invalidateSearchCache?.(sessionId) },
+    }),
+  })
+  registry.register({
+    id: 'integrations.proxy-settings',
+    owner: 'integrations',
+    surfaces: ['settings'],
+    install: () => {
+      const proxyMgr = installHostProxyManager(ctx, store)
+      return () => { void proxyMgr.dispose() }
     },
-    registerInvalidator: (fn) => { invalidateSearchCache = fn },
   })
-  const stopSessionOps = installHostSessionOps(ctx, store, {
-    onSessionChanged: (sessionId) => { invalidateSearchCache?.(sessionId) },
-  })
-  const proxyMgr = installHostProxyManager(ctx, store)
 
-  return () => {
-    void proxyMgr.dispose()
-    stopSessionOps()
-    stopSearch()
-    stopAuthCookiePruner()
-    stopPrivacy()
-    stopPrivacyBridge()
-    stopCompaction()
-  }
+  const instance = registry.mount(ctx, new Set<string>())
+  return () => instance.dispose()
 }
