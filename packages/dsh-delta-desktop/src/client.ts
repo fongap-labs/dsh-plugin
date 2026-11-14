@@ -5488,9 +5488,14 @@ function installHostSearch(
  */
 const DELTA_ROOT_PROBE_STORAGE_KEY = 'fongap.delta.root-probe.v1'
 function deltaRootProbeEnabled(): boolean {
-  try { return typeof localStorage !== 'undefined' &&
-    localStorage.getItem(DELTA_ROOT_PROBE_STORAGE_KEY) === 'enabled' }
-  catch { return false }
+  try {
+    // Require BOTH a local flag and an explicit test URL. A stale localStorage
+    // value must never silently disable Delta features in the normal Desktop.
+    return typeof localStorage !== 'undefined' &&
+      typeof location !== 'undefined' &&
+      /(?:^|[?&])deltaRootProbe=1(?:&|$)/.test(location.search) &&
+      localStorage.getItem(DELTA_ROOT_PROBE_STORAGE_KEY) === 'enabled'
+  } catch { return false }
 }
 
 function installDeltaRootProbe(ctx: ClientContext, React: ReactApi): void {
