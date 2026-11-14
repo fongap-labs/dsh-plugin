@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 提供严格隔离的 Root 接管验证实验，仅在双重显式开关启用时注册 Root 与布局插槽；实验代码避开 ZIP3 受保护适配器区域，Windows 回归覆盖换行符和 AbortController，默认桌面及发布包不受影响。
+
 - 修复: Delta Code Worker 隔离浏览器客户端入口的顶层作用域，防止 Harness 插件组合加载和重复加载时模块注册冲突；发布前检验 ZIP/TGZ 中的注册 ID、入口完整性及一致性。
 
 

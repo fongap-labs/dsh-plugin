@@ -4294,6 +4294,138 @@ function revealSessionTurnInChat(turn: number | undefined, snippet: string | und
  * Plugin-owned multi-dimension search inside the sidebar scrollport + centered Command Search Palette.
  * Searches sessions (titles + in-memory Host content), workspaces, plugins, skills/commands, shortcuts, and quick actions.
  */
+/**
+ * Experimental root ownership probe. This is NOT a runtime root hot-swap:
+ * an isolated Profile must first disable the official ui-layout and every
+ * client module which statically requires it. Production remains unchanged.
+ */
+const DELTA_ROOT_PROBE_STORAGE_MARKER = 'fongap.delta.root-probe.v1'
+function deltaRootProbeEnabled(): boolean {
+  try {
+    // Require BOTH a local flag and an explicit test URL. A stale localStorage
+    // value must never silently disable Delta features in the normal Desktop.
+    return typeof localStorage !== 'undefined' &&
+      typeof location !== 'undefined' &&
+      /(?:^|[?&])deltaRootProbe=1(?:&|$)/.test(location.search) &&
+      localStorage.getItem(DELTA_ROOT_PROBE_STORAGE_MARKER) === 'enabled'
+  } catch { return false }
+}
+
+function installDeltaRootProbe(ctx: ClientContext, React: ReactApi): void {
+  ctx.inject(['slots'], scope => {
+    scope.effect(() => {
+      type Observer<T> = { getSnapshot(): T; subscribe(listener: () => void): () => void }
+      type ProbeSlots = SlotsApi & {
+        provideRoot?(spec: { hooks: { panelInfo: Observer<{ activePanelId: string | null }> } }): () => void
+        entries?(key: string): readonly { options?: { key?: string } }[]
+      }
+      const slots = scope.slots as ProbeSlots
+      const reflector = (scope as ClientContext & {
+        reflect?: { provide(name: string, value: unknown): () => void }
+      }).reflect
+      const stop: Array<() => void> = []
+      const dispose = (): void => { for (const fn of stop.reverse()) { try { fn() } catch {} } }
+      try {
+        if (!slots.provideRoot || !reflector?.provide || !slots.entries) {
+          throw new Error('missing public slots.provideRoot / slots.entries / reflect.provide contract')
+        }
+        if (slots.entries('root').length !== 0) {
+          throw new Error('root is already occupied; refusing a second owner')
+        }
+        const subscribers = new Set<() => void>()
+        type View = { panelId: string | null; sidebarOpen: boolean; rightTrack: boolean; fullscreen: boolean }
+        let view: View = { panelId: null, sidebarOpen: true, rightTrack: false, fullscreen: false }
+        let panel = { activePanelId: null as string | null }
+        let navigation = new AbortController()
+        const publish = (change: Partial<View>): void => {
+          view = { ...view, ...change }
+          if (panel.activePanelId !== view.panelId) panel = { activePanelId: view.panelId }
+          subscribers.forEach(listener => listener())
+        }
+        const subscribe = (listener: () => void): (() => void) => {
+          subscribers.add(listener)
+          return () => { subscribers.delete(listener) }
+        }
+        const panelInfo: Observer<{ activePanelId: string | null }> = {
+          getSnapshot: () => panel, subscribe,
+        }
+        const layout = {
+          panelInfo,
+          selectPanel(id: string | null): void {
+            if (id !== null && !slots.entries!('main').some(item => item.options?.key === id)) {
+              throw new Error('Root probe cannot select an unregistered panel')
+            }
+            navigation.abort()
+            navigation = new AbortController()
+            publish({ panelId: id })
+          },
+          beginNavigation(): AbortSignal {
+            navigation.abort()
+            navigation = new AbortController()
+            return navigation.signal
+          },
+          toggleSidebar(): void { publish({ sidebarOpen: !view.sidebarOpen }) },
+          openRightbar(track: boolean, fullscreen: boolean): void {
+            publish({ rightTrack: track, fullscreen })
+          },
+          closeRightbar(): void { publish({ rightTrack: false, fullscreen: false }) },
+          dispose(): void { navigation.abort() },
+        }
+        stop.push(slots.provideRoot({ hooks: { panelInfo } }))
+        stop.push(reflector.provide('layout', layout))
+        const RootProbe = (props: {
+          renderSlot(name: string, owner: Record<string, unknown>, options?: Record<string, unknown>): unknown
+        }): unknown => {
+          const current = React.useSyncExternalStore(subscribe, () => view)
+          const sidebarWidth = current.sidebarOpen ? 280 : 56
+          const rightWidth = current.rightTrack ? 340 : 0
+          const render = props.renderSlot
+          return React.createElement('div', {
+            'data-delta-root-probe': 'active',
+            style: { display: 'grid', gridTemplateColumns: sidebarWidth + 'px minmax(0,1fr) ' + rightWidth + 'px',
+              gridTemplateRows: 'minmax(0,1fr) auto', width: '100%', height: '100%', minHeight: '100vh',
+              color: 'var(--dsh-text-primary, inherit)', background: 'var(--dsh-bg-primary, inherit)' },
+          },
+          React.createElement('aside', { style: { overflow: 'auto', borderRight: '1px solid #9995' } },
+            render('sidebar', { collapsed: !current.sidebarOpen, width: sidebarWidth, drawer: false }) ??
+            React.createElement('div', { style: { padding: 16 } }, 'Delta Root Probe', ' · ', 'sidebar slot empty')),
+          React.createElement('main', { style: { overflow: 'auto', minWidth: 0, padding: 12 } },
+            React.createElement('div', { role: 'status', 'data-root-probe-status': 'owned' },
+              'Root ownership: Delta · experimental isolated Profile'),
+            render('main', {}, { entryKey: current.panelId ?? 'conversation' }) ??
+            React.createElement('p', null,
+              'Native conversation is not installed in this isolated probe. Root ownership does not establish session compatibility.')),
+          React.createElement('aside', { style: { overflow: 'auto', minWidth: 0 } },
+            render('rightbar', { width: rightWidth, viewportWidth: 1200, canShow: current.rightTrack })),
+          React.createElement('div', { style: { gridColumn: '1 / -1' } }, render('shell.bottom', {})),
+          React.createElement('div', { style: { position: 'fixed', inset: 0, pointerEvents: 'none' } },
+            render('shell.overlay', {})),
+          render('shell.leading', {}))
+        }
+        const removeRoot = slots.register({
+          name: 'root',
+          children: {
+            sidebar: { kind: 'single', scope: 'root' },
+            main: { kind: 'keyed', scope: 'root' },
+            rightbar: { kind: 'single', scope: 'root' },
+            'shell.bottom': { kind: 'single', scope: 'root' },
+            'shell.overlay': { kind: 'list', scope: 'root' },
+            'shell.leading': { kind: 'single', scope: 'root' },
+          },
+        }, RootProbe)
+        if (typeof removeRoot !== 'function') throw new Error('root registration returned no disposer')
+        stop.push(removeRoot as () => void)
+        console.info('[dsh-delta-desktop/root-probe] root registered in isolated Profile')
+        return () => { layout.dispose(); dispose() }
+      } catch (error) {
+        dispose()
+        console.error('[dsh-delta-desktop/root-probe] root activation rejected; restore the native Profile:', error)
+        return () => {}
+      }
+    }, 'dsh-delta-desktop: isolated root probe')
+  })
+}
+
 function installHostSearch(
   controller: DeltaController & { toggleSidebarSafe?(): boolean; toggleRightbarSafe?(): boolean },
   sessions: SearchSessionsApi,
@@ -6562,6 +6694,12 @@ window.__ModuleLoader__.load({
     return {
       inject: [],
       apply(ctx) {
+        // A deliberately explicit opt-in, only for a separate test Profile.
+        // Never try to hot-swap the production root.
+        if (deltaRootProbeEnabled()) {
+          installDeltaRootProbe(ctx, React)
+          return
+        }
         try {
           ctx.inject(['slots'], (scope) => {
             try {
