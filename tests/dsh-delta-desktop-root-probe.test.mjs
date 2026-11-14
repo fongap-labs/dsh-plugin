@@ -17,9 +17,10 @@ function createProbe({ occupied = false, contract = true } = {}) {
   vm.runInNewContext(bundle, {
     window: { __ModuleLoader__: { load(plugin) { entry = plugin } } },
     location: { search: '?deltaRootProbe=1' },
-    localStorage: { getItem(key) {
-      return key === 'fongap.delta.root-probe.v1' ? 'enabled' : null
+    localStorage: { getItem(name) {
+      return name === 'fongap.delta.root-probe.v1' ? 'enabled' : null
     } },
+    AbortController,
     console: { info(...a) { log.info.push(a.map(String).join(' ')) },
       error(...a) { log.error.push(a.map(String).join(' ')) } },
   })
@@ -65,11 +66,11 @@ function createProbe({ occupied = false, contract = true } = {}) {
 }
 
 test('Root probe is explicit opt-in and absent from the normal package patch', () => {
-  assert.match(client, /localStorage\.getItem\(DELTA_ROOT_PROBE_STORAGE_KEY\) === 'enabled'/)
+  assert.match(client, /localStorage\.getItem\(DELTA_ROOT_PROBE_STORAGE_MARKER\) === 'enabled'/)
   assert.match(client, /if \(deltaRootProbeEnabled\(\)\)/)
   assert.match(client, /deltaRootProbe=1/)
   assert.doesNotMatch(repoFile('packages/dsh-delta-desktop/cordis.patch.yml'), /disabled: true/)
-  const overlay = repoFile('experiments/root-probe/cordis.patch.yml')
+  const overlay = repoFile('experiments/root-probe/cordis.patch.yml').replace(/\r\n/g, '\n')
   assert.match(overlay, /- id: ui-layout\n  disabled: true/)
   assert.match(overlay, /- id: ui-sidebar\n  disabled: true/)
   assert.match(overlay, /- id: ui-conversation\n  disabled: true/)
@@ -81,7 +82,7 @@ test('Root probe is explicit opt-in and absent from the normal package patch', (
 
 test('isolated mode claims one Root, publishes layout, and releases both on teardown', () => {
   const run = createProbe()
-  assert.equal(run.registrations.length, 1)
+  assert.equal(run.registrations.length, 1, run.log.error.join('\n'))
   assert.equal(run.registrations[0].options.name, 'root')
   const children = run.registrations[0].options.children
   assert.deepEqual(Object.keys(children).sort(), [
