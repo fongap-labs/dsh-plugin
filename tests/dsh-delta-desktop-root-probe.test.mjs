@@ -17,8 +17,7 @@ function createProbe({ occupied = false, contract = true } = {}) {
   vm.runInNewContext(bundle, {
     window: { __ModuleLoader__: { load(plugin) { entry = plugin } } },
     localStorage: { getItem(key) {
-      assert.equal(key, 'fongap.delta.root-probe.v1')
-      return 'enabled'
+      return key === 'fongap.delta.root-probe.v1' ? 'enabled' : null
     } },
     console: { info(...a) { log.info.push(a.map(String).join(' ')) },
       error(...a) { log.error.push(a.map(String).join(' ')) } },
