@@ -21,7 +21,7 @@ dsh --profile web --dump-config --patch experiments/root-probe/cordis.patch.yml
 dsh --profile web --patch experiments/root-probe/cordis.patch.yml
 ~~~
 
-4. 在隔离浏览器的 DevTools 执行以下命令后刷新页面：
+4. 在隔离浏览器打开实验 URL（例如 http://127.0.0.1:3080/?deltaRootProbe=1），在该页面的 DevTools 执行以下命令后刷新页面。**URL 参数与 localStorage 标记必须同时存在**，避免误触正常桌面：
 
 ~~~js
 localStorage.setItem('fongap.delta.root-probe.v1', 'enabled')
