@@ -71,6 +71,8 @@ test('Root probe is explicit opt-in and absent from the normal package patch', (
   assert.match(overlay, /- id: ui-layout\n  disabled: true/)
   assert.match(overlay, /- id: ui-sidebar\n  disabled: true/)
   assert.match(overlay, /- id: ui-conversation\n  disabled: true/)
+  assert.match(overlay, /- id: message-quotes\n  disabled: true/)
+  assert.match(overlay, /- id: entry-customization\n  disabled: true/)
   assert.doesNotMatch(overlay, /- id: ui-renderer\n  disabled: true/)
   assert.doesNotMatch(overlay, /- id: ui-session\n  disabled: true/)
 })
