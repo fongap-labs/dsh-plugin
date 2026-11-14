@@ -111,3 +111,9 @@
   disabled: true
 - id: ui-trajectory
   disabled: true
+
+# Client modules outside the ui-* naming family with hard injects into disabled UI packages.
+- id: message-quotes
+  disabled: true
+- id: entry-customization
+  disabled: true
