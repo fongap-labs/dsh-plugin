@@ -16,6 +16,7 @@ function createProbe({ occupied = false, contract = true } = {}) {
   const active = occupied ? [{ options: { key: 'native' } }] : []
   vm.runInNewContext(bundle, {
     window: { __ModuleLoader__: { load(plugin) { entry = plugin } } },
+    location: { search: '?deltaRootProbe=1' },
     localStorage: { getItem(key) {
       return key === 'fongap.delta.root-probe.v1' ? 'enabled' : null
     } },
@@ -66,6 +67,7 @@ function createProbe({ occupied = false, contract = true } = {}) {
 test('Root probe is explicit opt-in and absent from the normal package patch', () => {
   assert.match(client, /localStorage\.getItem\(DELTA_ROOT_PROBE_STORAGE_KEY\) === 'enabled'/)
   assert.match(client, /if \(deltaRootProbeEnabled\(\)\)/)
+  assert.match(client, /deltaRootProbe=1/)
   assert.doesNotMatch(repoFile('packages/dsh-delta-desktop/cordis.patch.yml'), /disabled: true/)
   const overlay = repoFile('experiments/root-probe/cordis.patch.yml')
   assert.match(overlay, /- id: ui-layout\n  disabled: true/)
