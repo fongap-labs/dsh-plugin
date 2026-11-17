@@ -133,12 +133,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: removed session context menu ordering and injected separators.
 // Reviewed 2026-11-18: native session menu action labels remain Harness-owned.
 // Reviewed 2026-11-18: removed native Feedback menu DOM hiding and theme CSS selector.
+// Reviewed 2026-11-18: removed native account trigger capture-click blocking and dead bypass state.
 const ZIP3_THEME_BLOB = 'ec7ce0be0d93c10b5f8d181bf2f755c71549bf5e'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '43558dc078617351d3d43726b91edf8473d0f034',
+    sha1: '8b00e547f911efbd1aba631384119b25ae856616',
   },
   {
     begin: 'function installHostSearch(',

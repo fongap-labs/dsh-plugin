@@ -2680,7 +2680,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const mounted = new Map<string, HTMLElement>()
   const initialized = new Set<string>()
   const getUiCopy = (): DeltaCopy['ui'] => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
-  const boundTriggers = new WeakSet<Element>()
   const boundTooltips = new WeakSet<Element>()
   const failedAvatarUrls = new Set<string>()
   let tooltipEl: HTMLElement | undefined
@@ -2791,7 +2790,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
   let isDisposed = false
   let isSyncing = false
-  let isSilentMenuAllowed = false
   let silentMenuTimer: number | undefined
   let isUpdateBusy = false
   let desktopUpdatePhase: string | undefined
@@ -3360,7 +3358,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       cancelTimer(silentMenuTimer)
       silentMenuTimer = undefined
     }
-    isSilentMenuAllowed = false
     isUpdateBusy = false
     try { document?.body?.removeAttribute?.('data-dtd-silent-menu') } catch {}
     for (const node of mounted.values()) node.remove()
@@ -3940,15 +3937,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           ? nativeSettingsArea.querySelector?.<HTMLElement>('[class*="_5Qcc8a_trigger"], [data-signed-out], button[aria-haspopup="menu"], button[class*="user"], button[class*="profile"], button')
           : footArea.querySelector?.<HTMLElement>('[class*="_5Qcc8a_trigger"], [data-signed-out], button[aria-haspopup="menu"], button[class*="user"], button[class*="profile"]')) as HTMLElement | null
 
-        if (nativeTrigger && !boundTriggers.has(nativeTrigger) && typeof nativeTrigger.addEventListener === 'function') {
-          boundTriggers.add(nativeTrigger)
-          nativeTrigger.classList?.add?.('dtd-native-profile-trigger')
-          nativeTrigger.addEventListener('click', (e) => {
-            if (isDisposed || isSilentMenuAllowed || controller.getSnapshot().mode !== 'delta') return
-            e.stopImmediatePropagation?.()
-            e.preventDefault?.()
-          }, true)
-        }
+        // Host retains ownership of profile clicks; legacy selector only locates Delta footer actions.
+        if (nativeTrigger) nativeTrigger.classList?.add?.('dtd-native-profile-trigger')
 
         const signedOutAttr = nativeTrigger?.getAttribute?.('data-signed-out')
         const nativeAvatarSpan = triggerRoot.querySelector?.<HTMLElement>('[data-avatar-status]') ?? null
@@ -4125,12 +4115,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           document.body?.setAttribute?.('data-dtd-silent-menu', '1')
 
           if (liveTrigger.getAttribute?.('aria-expanded') !== 'true') {
-            isSilentMenuAllowed = true
-            try {
-              liveTrigger.click()
-            } finally {
-              isSilentMenuAllowed = false
-            }
+            liveTrigger.click()
           }
 
           const findTargetItem = (): HTMLElement | undefined => {
@@ -4167,8 +4152,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             attempts += 1
             if (attempts >= 24) {
               if (liveTrigger.getAttribute?.('aria-expanded') === 'true') {
-                isSilentMenuAllowed = true
-                try { liveTrigger.click() } finally { isSilentMenuAllowed = false }
+                liveTrigger.click()
               }
               finishSilent()
               if (kind === 'settings') {
