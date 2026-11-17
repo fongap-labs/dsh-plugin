@@ -10,8 +10,10 @@ import { selectGitHubAccount } from '../packages/dsh-delta-code/lib/delta-code-r
 
 describe('Delta Code GitHub business and DSH registration boundary', () => {
   it('preserves the old tool export and account policy identity', () => {
-    assert.strictEqual(legacyTools, adapterTools)
+    assert.notStrictEqual(legacyTools, adapterTools) // legacy entrypoint injects its default transport
     assert.strictEqual(repositoryTools, adapterTools)
+    const legacyFacade = readFileSync(new URL('../packages/dsh-delta-code/src/tools/github.ts', import.meta.url), 'utf8')
+    assert.ok(legacyFacade.includes('createGitHubTransport(settings.githubAccounts)'))
     assert.strictEqual(legacySelector, selectGitHubAccount)
   })
 
