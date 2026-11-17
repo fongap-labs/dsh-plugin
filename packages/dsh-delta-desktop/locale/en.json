@@ -333,7 +333,11 @@
     "footerNav": "↑↓ Navigate",
     "footerOpen": "↵ Open",
     "footerTab": "Tab Category",
-    "footerEsc": "Esc Close"
+    "footerEsc": "Esc Close",
+    "commandCopyLabel": "Copy command",
+    "commandCopyHint": "Select to copy, then paste into the Harness composer.",
+    "commandCopied": "Command copied. Paste it into the Harness composer.",
+    "commandCopyFailed": "Could not copy the command. Enter it in the Harness composer manually."
   },
   "visionBridge": {
     "title": "Vision Bridge",

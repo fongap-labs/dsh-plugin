@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Search Palette 不再通过全局编辑器 DOM、原型 setter 或 `execCommand('insertText')` 注入斜杠命令；改为显式复制并由用户粘贴到 Harness 原生输入框，失败时明确提示（Issue #333）。
+
 - 修复: Search Palette 不再为未知宿主快捷键调用内部 registry.invoke 或伪造执行上下文；仅展示具有明确执行路由的命令，并避免重复切换侧栏（Issue #333）。
 
 - 修复: Search Palette 不再镜像 Harness 右侧快捷键指南的 DOM 行或模拟点击；保留公开快捷键目录和 Delta 自有操作（Issue #333）。

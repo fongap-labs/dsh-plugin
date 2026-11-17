@@ -220,3 +220,10 @@
 - 只显示明确映射到现有 Delta 执行路径的 `session.search`、`session.new`、`sidebar.left.toggle`、`sidebar.right.toggle`；右侧侧栏控制接口不可用时也不显示对应目录动作。其他快捷键继续在 Harness 原生入口显示与执行。
 - 修正左侧侧栏切换：安全入口存在时只调用一次，避免返回 `undefined` 时通过空值合并重复调用原生回退。继续保留 Delta 自有搜索、文件/浏览器快捷入口和七标签面板。
 - 同步更新 ZIP3 Search Region 严格 SHA-1；Sidebar Region 与主题 CSS 不变。后续待验证编辑器 slash-command 注入权限与真实 Windows Harness 交互、内存、性能 A/B。
+
+## 2026-11-18 斜杠命令编辑器注入权限治理（Issue #333 第二十一阶段）
+
+- 删除 Search Palette 对 `[data-lexical-editor]`、`[contenteditable]` 和 `textarea` 的全局查询、焦点切换、原型 setter、`execCommand('insertText')` 及直接 `textContent` 写入；不再将私有编辑器 DOM 当作宿主输入 API。
+- 内置命令、Host 远程命令和技能目录仍可检索，但选择条目改为通过标准 Clipboard API 复制命令，并清楚提示用户粘贴到 Harness 原生输入框；成功后返回当前对话并显示复制状态。Clipboard API 不可用或拒绝时明确报错，不伪造插入成功。
+- Host capability contract v1 未新增 composer/editor 能力，因为当前没有经过核实的公开编辑器插入接口；Harness 原生输入、命令解析和执行权保持原样。七标签面板与远程目录读取保持。
+- 同步更新中英文提示、客户端类型、ZIP3 Search Region 精确 SHA-1 和防回归测试；Sidebar Region、主题 CSS 不变。此改动只完成源码层权限收敛，Clipboard 权限与实际 Windows Harness 交互仍需实机验证。
