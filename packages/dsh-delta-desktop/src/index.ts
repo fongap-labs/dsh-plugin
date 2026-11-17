@@ -12,6 +12,7 @@ import type { PrivacyHostContext } from './host-privacy.js'
 import { installHostProxyManager } from './host-proxy.js'
 import { installHostSessionSearch } from './host-search.js'
 import { installHostSessionOps } from './host-sessions.js'
+import { installHostVisionOps } from './host-vision.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
 import { registerPrivacyBridge, type DeltaPrivacyConfig } from './privacy-bridge.js'
@@ -74,6 +75,25 @@ export type {
   SessionLockMode,
 } from './host-state.js'
 
+export {
+  DELTA_VISION_CONFIG_PATH,
+  DELTA_VISION_PASTE_PATH,
+  DELTA_VISION_RECOGNIZE_PATH,
+  DELTA_VISION_STATUS_PATH,
+  detectImageMime,
+  formatEvidenceBlock,
+  installHostVisionOps,
+  parseStructuredOutput,
+  parseYamlProfile,
+  readImageFile,
+  recognizeImage,
+  registerVisionTools,
+  resolveVisionAccount,
+  savePastedImage,
+} from './host-vision.js'
+export type { VisionAccount, VisionEvidence } from './host-vision.js'
+export type { VisionBridgeMode, VisionBridgeSettings } from './host-state.js'
+
 export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): () => void {
   // The Host retains authority for deletion, secrets, privacy and model access.
   // The registry orders extension lifecycles; it never grants privileges.
@@ -135,6 +155,14 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
       onSessionChanged: sessionId => { invalidateSearchCache?.(sessionId) },
     }),
   })
+  registry.register({
+    id: 'integrations.vision-bridge',
+    owner: 'integrations',
+    surfaces: ['settings'],
+    optional: true,
+    install: () => installHostVisionOps(ctx, store),
+  })
+
   // Gateway retry coordination belongs to Delta Code Worker; avoid a second Host listener.
   registry.register({
     id: 'integrations.proxy-settings',
