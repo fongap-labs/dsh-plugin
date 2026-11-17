@@ -83,6 +83,6 @@
 
 - 已删除 Client 运行时对原生 Slots `entries`/`entriesOfSlot` 的方法替换及 `_core`、`_host` 等私有对象访问。
 - 已删除对 Cordis `cordis.original` 的反射解包、Locale 字典原位修改、`register`/`translate`/`installLocale` 方法替换；Delta 自己的字典和通过公开 Slots 注册的内容继续保留。
-- 因缺少公开替换接口，原生设置项、反馈入口与原生状态/导航翻译保持 Harness 原样，不能再由 Delta 私下过滤或改名。
+- 原生设置项与反馈入口不再被 Slot 查询拦截过滤；Harness Locale 的状态及导航翻译不再由 Delta 方法劫持。**注意：旧的 `installSidebarCompatibility` 仍包含基于 DOM 的状态文字修改**，这一行为尚未完成治理，因此不能承诺屏幕显示完全原生。
 - 尚未移除的 `installSidebarCompatibility` 以及其他宿主 DOM 结构依赖仍是后续 P0 的专项审计对象；**不能**据此宣称所有 DOM 接管已经治理完毕。
 - 此阶段未应用 Harness 源码 Patch，未修改安装身份、发布包名或独立运行时。
