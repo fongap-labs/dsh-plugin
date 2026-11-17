@@ -44,7 +44,7 @@ export function matchApprovedGitHubSkills(
 ): string[] {
   const input = task.toLowerCase().slice(-2048)
   if (!input.trim()) return []
-  const hasReactContext = /react|next[.\s-]?js|nextjs|组件组合|复合组件/.test(input)
+  const hasReactContext = /react|next[.\s-]?js|nextjs|\u7ec4\u4ef6\u7ec4\u5408|\u590d\u5408\u7ec4\u4ef6/.test(input)
   const matches = catalog.filter(entry =>
     entry.keywords.some(keyword => input.includes(keyword.toLowerCase())) &&
     (entry.name !== 'vercel-composition-patterns' || hasReactContext))
