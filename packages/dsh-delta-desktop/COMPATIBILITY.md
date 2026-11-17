@@ -195,3 +195,9 @@
 - 移除为静默代理菜单而隐藏宿主菜单的 CSS、定时轮询与宿主更新状态订阅，删除对原生页脚账号和操作按钮的宽高归零、透明化及禁止指针事件规则；Harness 负责显示、无障碍和交互。
 - Delta 自有设置模块、主题、品牌及搜索等独立功能不变；旧页脚布局装饰随原生页脚恢复退出，本阶段不保证与旧界面像素一致。
 - ZIP3 Sidebar Region、主题 CSS Git Blob SHA-1 保持固定并同步更新回归测试，Search Region 未改变。后续搜索 DOM 代理、其他捕获式交互和命令层权限边界继续单独治理；真实 Windows Harness 交互、性能及内存 A/B 尚待完成。
+
+## 2026-11-18 搜索面板设置入口所有权治理（Issue #333 第十七阶段）
+
+- 删除 Search Palette 的 `clickSettingsTrigger`，不再扫描任意宿主 `aria-label="Settings"`、中文同名按钮或旧 `.dtd-btn-settings` 选择器并执行程序化点击。此路径原本没有可验证的公开导航接口，存在误触其他插件同名按钮的风险。
+- 在宿主未提供正式打开设置页 API 前，不再把无法可靠执行的设置 Quick Action 或 `settings.open` 目录项显示为 Delta 可执行命令；原生 Harness 设置按钮及快捷键仍由 Harness 负责。Delta 向正式 `settings.section` Slot 注册的个性化设置内容保持不变。
+- 保留服务驱动的会话/工作区搜索和七标签面板，其余插件/任务导航及编辑器命令 DOM 代理仍列于 Issue #333 后续治理；同步更新 ZIP3 Search Region 严格 SHA-1，不修改 Sidebar Region 和主题 CSS。真实 Windows Harness UI 与性能 A/B 待验证。
