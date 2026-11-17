@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 将 LSP 探测的 DSH 命令执行移入 Adapter，保留原工具导出；语言服务器可用性判断沉淀为独立策略。
+
 - 维护: Delta Code 将 Delivery Gate 的 Todo 验收、任务完成判断与结果组装分离成纯策略，Host Git/验证执行仍保留原权限与证据边界，兼容现有 `code_delivery_gate` 接口。
 
 - 维护: 将 `code_host_probe` 的 Cordis 类型及宿主能力探测迁移至 DSH Adapter，Coding 保留兼容导出；不改变诊断结果、权限或执行行为。
