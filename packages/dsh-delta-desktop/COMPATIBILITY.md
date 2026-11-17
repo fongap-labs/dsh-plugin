@@ -207,3 +207,9 @@
 - 清除 `clickSidebarNavTarget`：不再根据宿主导航文字、私有侧栏 CSS 类或首个同名按钮执行程序化点击。没有经正式 API 声明的插件管理与定时任务跳转能力时，由 Harness 原生导航入口负责。
 - 移除 Search Palette 的插件管理和定时任务 Quick Action。插件清单原先仅被渲染成指向插件管理页的通用假动作，无法导航到对应插件；为避免误导与误触，暂停向 Delta Search Palette 添加此类可执行插件行，等候正式宿主导航契约。七标签面板布局仍保留；其它搜索、命令和快捷键逻辑不在本次改动范围。
 - 不改变公开 `settings.section`、主题、品牌及 Session/Workspace 搜索服务。ZIP3 Search Region 审核 SHA-1 同步更新，Sidebar Region 和主题 CSS 不变。后续独立治理右侧引导 DOM 点击、快捷键执行与编辑器注入；真实 Windows Harness 功能及性能 A/B 仍待验收。
+
+## 2026-11-18 右侧快捷键指南原生所有权（Issue #333 第十九阶段）
+
+- Search Palette 不再扫描 `[data-sidebar-right-guide-entry]` 节点、解析私有标题/按键 CSS 类或在执行时调用 `node.click()`。指南节点只用于 Harness 原生展示，不作为 Delta 的命令执行契约，避免改版或多插件环境中的误触。
+- 保留 `shortcuts.catalog.getSnapshot()` 提供的快捷键目录、Delta 自有搜索/侧栏操作以及七标签结构。尚未明确授权的 `shortcuts.registry.invoke` 执行分支继续在 Issue #333 中治理，不将本次改动描述为完整快捷键 API 迁移。
+- ZIP3 Search Region 严格 SHA-1 同步更新；Sidebar Region 和主题 CSS 不变。Windows Harness 交互、性能及长会话内存 A/B 仍待正式验收。
