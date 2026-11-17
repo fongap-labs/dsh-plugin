@@ -13,6 +13,7 @@ import { deltaCodeCodingWithoutCommands, deltaCodeCodingCommands } from './delta
 import { deltaCodeStrategy } from './delta-code-strategy/index.js'
 import { registerAutomaticCodingRouter } from './delta-code-adapter/providers/dsh/auto-routing.js'
 import { registerCodingSkills } from './delta-code-adapter/providers/dsh/skills.js'
+import { registerApprovedGitHubSkills } from './delta-code-adapter/providers/dsh/github-skills.js'
 import { registerDeltaCodePrompt } from './delta-code-adapter/providers/dsh/prompt.js'
 import { deltaCodeQuality } from './delta-code-quality/index.js'
 import { registerNativeResume } from './delta-code-quality/resume.js'
@@ -32,7 +33,16 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
     // The lightweight strategy and diagnostic tools never need subprocess.
     const coreFeatures = [
       deltaCodeStrategy({
-        registerSkills: () => registerCodingSkills(ctx),
+        registerSkills: () => {
+          const releaseLocal = registerCodingSkills(ctx)
+          try {
+            const releaseApproved = registerApprovedGitHubSkills(ctx)
+            return () => { releaseApproved(); releaseLocal() }
+          } catch (error) {
+            releaseLocal()
+            throw error
+          }
+        },
         registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings),
         registerPrompt: () => registerDeltaCodePrompt(ctx, settings),
       }),
