@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 优化: Code Worker 按能力拆分工具；无 subprocess 时仍可使用多文件编辑、项目概况、宿主探测和指定仓库的 GitHub 远程操作。
+- 维护: Code Worker 按能力拆分工具；无 subprocess 时仍可使用多文件编辑、项目概况、宿主探测和指定仓库的 GitHub 远程操作。
 
 - 新增: Delta Code GitHub 多账号支持显式 owner/repository 绑定，跨组织仓库可分别选择账号；重复映射拒绝，原有 owner 路由与 Token 环境变量配置兼容。
 
