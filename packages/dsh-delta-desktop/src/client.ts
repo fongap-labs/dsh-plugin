@@ -2681,7 +2681,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const initialized = new Set<string>()
   const getUiCopy = (): DeltaCopy['ui'] => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
   const boundTooltips = new WeakSet<Element>()
-  const failedAvatarUrls = new Set<string>()
   let tooltipEl: HTMLElement | undefined
   let tooltipAnchor: HTMLElement | undefined
   let tooltipTimer: number | undefined
@@ -2790,10 +2789,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
   let isDisposed = false
   let isSyncing = false
-  let silentMenuTimer: number | undefined
-  let isUpdateBusy = false
-  let desktopUpdatePhase: string | undefined
-  let stopDesktopUpdates: (() => void) | undefined
   let observer: MutationObserver | undefined
   const frameScheduler = createFrameScheduler(() => sync())
   const scheduleSync = (): void => {
@@ -3354,23 +3349,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
     }
     modifiedTailNavCells.clear()
-    if (silentMenuTimer !== undefined) {
-      cancelTimer(silentMenuTimer)
-      silentMenuTimer = undefined
-    }
     isUpdateBusy = false
-    try { document?.body?.removeAttribute?.('data-dtd-silent-menu') } catch {}
     for (const node of mounted.values()) node.remove()
     mounted.clear()
-    if (typeof document?.querySelector === 'function') {
-      try {
-        const footArea = document.querySelector<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]')
-        if (footArea && typeof footArea.querySelector === 'function') {
-          footArea.querySelector('.dtd-footer-avatar-box')?.remove()
-          footArea.querySelector('.dtd-footer-actions')?.remove()
-        }
-      } catch {}
-    }
     root?.removeAttribute?.('data-delta-compat')
     root?.removeAttribute?.('data-delta-compat-status')
   }
@@ -3927,358 +3908,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
       processHoverCards()
 
-      // 8, 9, 10. Footer bar: Left Avatar/Logo, Right Action Icons (\u66F4\u65B0\u901A\u77E5, \u8BBE\u7F6E, \u767B\u5F55/\u767B\u51FA)
-      const footArea = (viewport.querySelector?.<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]') ??
-        document.querySelector<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]')) as HTMLElement | null
-      if (footArea) {
-        const nativeSettingsArea = footArea.querySelector?.<HTMLElement>('[class*="settingsArea"], [class*="wtg9ga_settingsArea"]')
-        const triggerRoot = nativeSettingsArea ?? footArea
-        const nativeTrigger = (nativeSettingsArea
-          ? nativeSettingsArea.querySelector?.<HTMLElement>('[class*="_5Qcc8a_trigger"], [data-signed-out], button[aria-haspopup="menu"], button[class*="user"], button[class*="profile"], button')
-          : footArea.querySelector?.<HTMLElement>('[class*="_5Qcc8a_trigger"], [data-signed-out], button[aria-haspopup="menu"], button[class*="user"], button[class*="profile"]')) as HTMLElement | null
-
-        // Host retains ownership of profile clicks; legacy selector only locates Delta footer actions.
-        if (nativeTrigger) nativeTrigger.classList?.add?.('dtd-native-profile-trigger')
-
-        const signedOutAttr = nativeTrigger?.getAttribute?.('data-signed-out')
-        const nativeAvatarSpan = triggerRoot.querySelector?.<HTMLElement>('[data-avatar-status]') ?? null
-        const nativeImgs = typeof triggerRoot.querySelectorAll === 'function'
-          ? Array.from(triggerRoot.querySelectorAll<HTMLImageElement>('img'))
-          : []
-        const nativeAvatarImg = nativeImgs.find(img => !img.classList?.contains('dtd-avatar-img') && Boolean(img.getAttribute?.('src') || img.src))
-        const avatarSrc = nativeAvatarImg?.getAttribute?.('src') || nativeAvatarImg?.src || ''
-        const isSignedIn = signedOutAttr === 'false'
-          ? true
-          : signedOutAttr === 'true'
-            ? false
-            : (Boolean(avatarSrc) || Boolean(nativeAvatarSpan))
-
-        // Avatar / Logo box (Item 8) - NEVER reparent React-owned <img>; mirror src onto plugin-owned <img>
-        let avatarBox = footArea.querySelector?.<HTMLElement>('.dtd-footer-avatar-box')
-        if (!avatarBox) {
-          avatarBox = document.createElement('div')
-          avatarBox.className = 'dtd-footer-avatar-box'
-          footArea.insertBefore(avatarBox, footArea.firstChild ?? null)
-        }
-
-        const canShowImg = isSignedIn && Boolean(avatarSrc) && !failedAvatarUrls.has(avatarSrc)
-        const desiredAvatarMode = canShowImg ? `img:${avatarSrc}` : (isSignedIn ? 'user' : 'logo')
-        if (avatarBox.getAttribute?.('data-avatar-mode') !== desiredAvatarMode) {
-          avatarBox.setAttribute('data-avatar-mode', desiredAvatarMode)
-          clearNodeChildren(avatarBox)
-          if (canShowImg) {
-            const img = document.createElement('img') as HTMLImageElement
-            img.className = 'dtd-avatar-img'
-            img.alt = ''
-            img.setAttribute('referrerpolicy', 'no-referrer')
-            img.setAttribute('src', avatarSrc)
-            img.addEventListener?.('error', () => {
-              failedAvatarUrls.add(avatarSrc)
-              scheduleSync()
-            })
-            avatarBox.appendChild(img)
-          } else if (isSignedIn) {
-            const fallback = document.createElement('div')
-            fallback.className = 'dtd-user-avatar-fallback'
-            fallback.setAttribute('aria-label', getUiCopy().signedIn)
-            const userSvg = createSvgEl('svg', {
-              viewBox: '0 0 24 24',
-              width: 18,
-              height: 18,
-              fill: 'none',
-              stroke: 'currentColor',
-              'stroke-width': 2,
-              'stroke-linecap': 'round',
-              'stroke-linejoin': 'round',
-            })
-            userSvg.appendChild(createSvgEl('path', { d: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2' }))
-            userSvg.appendChild(createSvgEl('circle', { cx: 12, cy: 7, r: 4 }))
-            fallback.appendChild(userSvg)
-            avatarBox.appendChild(fallback)
-          } else {
-            const harnessLogo = createSvgEl('svg', {
-              viewBox: '0 0 24 24',
-              width: 18,
-              height: 18,
-              fill: 'none',
-              class: 'dtd-harness-logo',
-              'aria-label': 'DeepSeek Harness',
-            })
-            const whaleGroup = createSvgEl('g', {
-              transform: 'translate(12 12) scale(0.92) translate(-157.05 -20.04)',
-            })
-            whaleGroup.appendChild(createSvgEl('path', {
-              d: 'M168.384 12.9517C168.138 12.8317 168.033 13.0607 167.889 13.1767C167.84 13.2142 167.799 13.2632 167.757 13.3082C167.399 13.6912 166.98 13.9427 166.433 13.9127C165.632 13.8677 164.949 14.1192 164.345 14.7312C164.217 13.9767 163.79 13.5262 163.141 13.2372C162.802 13.0872 162.458 12.9367 162.22 12.6102C162.054 12.3776 162.009 12.1186 161.926 11.8631C161.873 11.7091 161.82 11.5516 161.643 11.5251C161.45 11.4951 161.375 11.6566 161.299 11.7916C160.997 12.3436 160.88 12.9517 160.892 13.5677C160.918 14.9532 161.503 16.0568 162.666 16.8418C162.798 16.9318 162.832 17.0218 162.79 17.1533C162.711 17.4238 162.617 17.6863 162.534 17.9568C162.481 18.1293 162.402 18.1673 162.217 18.0918C161.579 17.8253 161.028 17.4308 160.541 16.9543C159.714 16.1548 158.967 15.2722 158.035 14.5812C157.816 14.4197 157.597 14.2697 157.37 14.1267C156.419 13.2032 157.495 12.4446 157.744 12.3546C158.004 12.2606 157.834 11.9376 156.993 11.9416C156.151 11.9451 155.381 12.2271 154.4 12.6027C154.256 12.6592 154.105 12.7002 153.951 12.7342C153.06 12.5652 152.135 12.5277 151.169 12.6367C149.35 12.8392 147.897 13.6992 146.829 15.1672C145.546 16.9318 145.244 18.9368 145.613 21.0279C146.002 23.232 147.127 25.0565 148.855 26.4831C150.648 27.9621 152.713 28.6871 155.068 28.5481C156.499 28.4656 158.091 28.2741 159.888 26.7536C160.341 26.9791 160.816 27.0691 161.605 27.1366C162.212 27.1931 162.797 27.1066 163.25 27.0126C163.96 26.8626 163.911 26.2056 163.654 26.0851C161.575 25.1165 162.031 25.5105 161.616 25.1915C162.673 23.9415 164.287 21.7194 164.785 18.6938C164.834 18.3598 164.896 17.8893 164.889 17.6188C164.885 17.4538 164.923 17.3898 165.111 17.3708C165.632 17.3108 166.138 17.1683 166.603 16.9128C167.95 16.1768 168.494 14.9677 168.622 13.5187C168.641 13.2972 168.618 13.0682 168.384 12.9517ZM156.642 25.9951C154.626 24.4105 153.649 23.889 153.245 23.9115C152.868 23.934 152.936 24.366 153.019 24.6475C153.106 24.9255 153.219 25.117 153.377 25.361C153.487 25.5225 153.562 25.7625 153.268 25.9431C152.619 26.3446 151.49 25.808 151.437 25.7815C150.124 25.008 149.025 23.987 148.251 22.5905C147.504 21.2464 147.07 19.8044 146.998 18.2653C146.979 17.8938 147.089 17.7623 147.459 17.6948C147.946 17.6048 148.448 17.5858 148.934 17.6573C150.992 17.9578 152.743 18.8773 154.211 20.3344C155.049 21.1639 155.683 22.1554 156.336 23.124C157.03 24.1525 157.777 25.1325 158.729 25.9361C159.065 26.2176 159.333 26.4316 159.589 26.5896C158.816 26.6761 157.525 26.6946 156.642 25.9961V25.9951ZM157.608 19.7814C157.608 19.6164 157.74 19.4849 157.906 19.4849C157.943 19.4849 157.977 19.4924 158.008 19.5034C158.049 19.5184 158.087 19.5409 158.117 19.5749C158.17 19.6274 158.2 19.7024 158.2 19.7814C158.2 19.9464 158.068 20.0779 157.902 20.0779C157.736 20.0779 157.608 19.9464 157.608 19.7814ZM160.608 21.3204C160.416 21.3994 160.223 21.4669 160.038 21.4744C159.751 21.4894 159.438 21.3729 159.268 21.2304C159.004 21.0089 158.815 20.8849 158.736 20.4984C158.702 20.3334 158.721 20.0779 158.751 19.9314C158.819 19.6159 158.744 19.4134 158.521 19.2294C158.34 19.0793 158.11 19.0378 157.857 19.0378C157.762 19.0378 157.676 18.9963 157.611 18.9628C157.506 18.9103 157.419 18.7788 157.502 18.6173C157.528 18.5648 157.657 18.4373 157.687 18.4148C158.03 18.2193 158.426 18.2833 158.793 18.4298C159.132 18.5688 159.389 18.8238 159.759 19.1844C160.136 19.6199 160.204 19.7399 160.419 20.0669C160.589 20.3224 160.744 20.5849 160.85 20.8854C160.914 21.0729 160.831 21.2264 160.608 21.3204Z',
-              fill: 'currentColor',
-            }))
-            harnessLogo.appendChild(whaleGroup)
-            avatarBox.appendChild(harnessLogo)
-          }
-        }
-        if (desiredAvatarMode === 'user') {
-          const fallback = avatarBox.querySelector?.<HTMLElement>('.dtd-user-avatar-fallback')
-          const signedInLabel = getUiCopy().signedIn
-          if (fallback && fallback.getAttribute?.('aria-label') !== signedInLabel) {
-            fallback.setAttribute('aria-label', signedInLabel)
-          }
-        }
-
-        const triggerNativeSettingsShortcut = (): void => {
-          try {
-            const isMac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent || '')
-            const ev = new KeyboardEvent('keydown', {
-              key: ',',
-              code: 'Comma',
-              ctrlKey: !isMac,
-              metaKey: isMac,
-              bubbles: true,
-              cancelable: true,
-            })
-            document.dispatchEvent?.(ev)
-            window.dispatchEvent?.(ev)
-          } catch {}
-        }
-
-        const updateAuthButton = (btn: HTMLButtonElement, isSignedIn: boolean): void => {
-          const uiCopy = getUiCopy()
-          const label = isSignedIn ? uiCopy.signOut : uiCopy.signIn
-          attachTooltipEvents(btn)
-          setDeltaTooltip(btn, label, 'top')
-          const stateKey = isSignedIn ? '1' : '0'
-          if (btn.getAttribute?.('data-signed-in') === stateKey) return
-          btn.setAttribute('data-signed-in', stateKey)
-          clearNodeChildren(btn)
-          const authSvg = createSvgEl('svg', {
-            viewBox: '0 0 24 24',
-            width: 16,
-            height: 16,
-            fill: 'none',
-            stroke: 'currentColor',
-            'stroke-width': 1.8,
-            'stroke-linecap': 'round',
-            'stroke-linejoin': 'round',
-          })
-          if (isSignedIn) {
-            authSvg.appendChild(createSvgEl('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }))
-            authSvg.appendChild(createSvgEl('polyline', { points: '16 17 21 12 16 7' }))
-            authSvg.appendChild(createSvgEl('line', { x1: 21, y1: 12, x2: 9, y2: 12 }))
-          } else {
-            authSvg.appendChild(createSvgEl('path', { d: 'M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4' }))
-            authSvg.appendChild(createSvgEl('polyline', { points: '10 17 15 12 10 7' }))
-            authSvg.appendChild(createSvgEl('line', { x1: 15, y1: 12, x2: 3, y2: 12 }))
-          }
-          btn.appendChild(authSvg)
-        }
-
-        const triggerAccountMenuAction = (kind: 'settings' | 'auth'): void => {
-          const liveFoot = document.querySelector?.<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]')
-          const liveTrigger = (liveFoot?.querySelector?.<HTMLElement>('[class*="_5Qcc8a_trigger"], [data-signed-out], .dtd-native-profile-trigger') ??
-            document.querySelector?.<HTMLElement>('.dtd-native-profile-trigger')) as HTMLElement | null
-
-          if (kind === 'settings') {
-            const directSettings = document.querySelector?.<HTMLElement>('[data-action="settings"], button[aria-label*="\u8BBE\u7F6E"]:not(.dtd-footer-btn), button[aria-label*="Settings"]:not(.dtd-footer-btn)')
-            if (directSettings && directSettings !== liveTrigger) {
-              directSettings.click()
-              return
-            }
-          } else {
-            const directAuth = document.querySelector?.<HTMLElement>(
-              '[data-action="logout"], [data-action="login"], button[aria-label*="\u9000\u51FA\u767B\u5F55"]:not(.dtd-footer-btn), button[aria-label*="\u767B\u5F55"]:not(.dtd-footer-btn), button[aria-label*="Sign " i]:not(.dtd-footer-btn), button[aria-label*="Log " i]:not(.dtd-footer-btn)'
-            )
-            if (directAuth && directAuth !== liveTrigger) {
-              directAuth.click()
-              return
-            }
-          }
-
-          if (!liveTrigger) {
-            if (kind === 'settings') {
-              triggerNativeSettingsShortcut()
-            } else {
-              const signedInNow = actionsBox?.querySelector?.('.dtd-btn-auth')?.getAttribute?.('data-signed-in') === '1'
-              const uiCopy = getUiCopy()
-              showDeltaToast(signedInNow ? uiCopy.signedOut : uiCopy.signInRequired)
-            }
-            return
-          }
-
-          if (silentMenuTimer !== undefined) {
-            cancelTimer(silentMenuTimer)
-            silentMenuTimer = undefined
-          }
-
-          const preExisting = new Set<Element>(
-            typeof document.querySelectorAll === 'function'
-              ? Array.from(document.querySelectorAll('[role="menu"] [role="menuitem"], [role="menu"] button'))
-              : []
-          )
-          document.body?.setAttribute?.('data-dtd-silent-menu', '1')
-
-          const openedByDelta = liveTrigger.getAttribute?.('aria-expanded') !== 'true'
-          if (openedByDelta) liveTrigger.click()
-
-          const findTargetItem = (): HTMLElement | undefined => {
-            if (typeof document.querySelectorAll !== 'function') return undefined
-            const allItems = Array.from(document.querySelectorAll<HTMLElement>('[role="menu"] [role="menuitem"], [role="menu"] button'))
-            const newItems = allItems.filter(el => !preExisting.has(el))
-            // When Delta opened the menu, never select actions from a pre-existing unrelated menu.
-            const candidates = openedByDelta ? newItems : allItems
-            const label = (el: HTMLElement): string => (el.textContent ?? '').trim()
-            if (kind === 'settings') {
-              return candidates.find(el => /^(?:\u8BBE\u7F6E|Settings)$/i.test(label(el)))
-            }
-            return candidates.find(el => /^(?:\u767B\u5F55|\u9000\u51FA\u767B\u5F55|Sign\s*(?:In|Out)|Log\s*(?:In|Out))$/i.test(label(el)))
-          }
-
-          let attempts = 0
-          const finishSilent = (): void => {
-            silentMenuTimer = undefined
-            document.body?.removeAttribute?.('data-dtd-silent-menu')
-          }
-          const trySelect = (): void => {
-            if (isDisposed) {
-              finishSilent()
-              return
-            }
-            const item = findTargetItem()
-            if (item) {
-              item.click()
-              finishSilent()
-              return
-            }
-            attempts += 1
-            if (attempts >= 24) {
-              // Unknown menus are native-owned: reveal them for explicit user selection.
-              finishSilent()
-              return
-            }
-            silentMenuTimer = scheduleTimer(trySelect, 10)
-          }
-          trySelect()
-        }
-
-        const HAS_UPDATE_PHASES = new Set(['available', 'downloading', 'verifying', 'installing', 'ready', 'error'])
-        const syncUpdateButtonState = (btn: HTMLButtonElement, container: HTMLElement): void => {
-          const updateLabel = getUiCopy().updateNotification
-          attachTooltipEvents(btn)
-          setDeltaTooltip(btn, updateLabel, 'top')
-          const nativeUpdateEl = container.querySelector?.<HTMLElement>(
-            'button[class*="VUhOWa_indicator"], [class*="VUhOWa_indicator"] button, [class*="footerActions"] button'
-          )
-          const hasUpdate = (desktopUpdatePhase !== undefined && HAS_UPDATE_PHASES.has(desktopUpdatePhase)) ||
-            Boolean(nativeUpdateEl)
-          if (hasUpdate) {
-            btn.hidden = false
-            btn.removeAttribute?.('hidden')
-            btn.setAttribute('data-has-update', '1')
-          } else {
-            if (tooltipAnchor === btn) hideTooltip()
-            btn.hidden = true
-            btn.setAttribute('hidden', '')
-            btn.removeAttribute?.('data-has-update')
-          }
-        }
-
-        // Right-side 3 action buttons (\u66F4\u65B0\u901A\u77E5 [\u4EC5\u5728\u6709\u66F4\u65B0\u65F6\u663E\u793A], \u8BBE\u7F6E, \u767B\u5F55/\u767B\u51FA)
-        let actionsBox = footArea.querySelector?.<HTMLElement>('.dtd-footer-actions')
-        if (!actionsBox) {
-          actionsBox = document.createElement('div')
-          actionsBox.className = 'dtd-footer-actions'
-
-          // 1. \u66F4\u65B0\u901A\u77E5（\u6709\u66F4\u65B0\u65F6\u624D\u663E\u793A）
-          const btnUpdate = document.createElement('button')
-          btnUpdate.type = 'button'
-          btnUpdate.className = 'dtd-footer-btn dtd-btn-update'
-          const updateSvg = createSvgEl('svg', {
-            viewBox: '0 0 24 24',
-            width: 16,
-            height: 16,
-            fill: 'none',
-            stroke: 'currentColor',
-            'stroke-width': 1.8,
-            'stroke-linecap': 'round',
-            'stroke-linejoin': 'round',
-          })
-          updateSvg.appendChild(createSvgEl('path', { d: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' }))
-          updateSvg.appendChild(createSvgEl('path', { d: 'M13.73 21a2 2 0 0 1-3.46 0' }))
-          btnUpdate.appendChild(updateSvg)
-          btnUpdate.addEventListener('click', () => {
-            if (isUpdateBusy) return
-            const dshDesktop = (window as unknown as { dshDesktop?: { updates?: { open?: () => unknown } } }).dshDesktop
-            if (typeof dshDesktop?.updates?.open === 'function') {
-              isUpdateBusy = true
-              try {
-                Promise.resolve(dshDesktop.updates.open()).catch(() => {
-                  showDeltaToast(getUiCopy().latestVersion)
-                }).finally(() => {
-                  isUpdateBusy = false
-                })
-              } catch {
-                isUpdateBusy = false
-                showDeltaToast(getUiCopy().latestVersion)
-              }
-              return
-            }
-            const liveFoot = document.querySelector?.<HTMLElement>('[class*="wtg9ga_footArea"], [class*="footArea"]')
-            const nativeUpdate = liveFoot?.querySelector?.<HTMLElement>('button[class*="VUhOWa_indicator"], [class*="VUhOWa_indicator"] button, button[aria-label*="\u66F4\u65B0"], button[aria-label*="Update" i], button[class*="update" i]')
-            if (nativeUpdate && !nativeUpdate.classList?.contains('dtd-footer-btn')) {
-              nativeUpdate.click()
-            } else {
-              showDeltaToast(getUiCopy().latestVersion)
-            }
-          })
-          syncUpdateButtonState(btnUpdate, footArea)
-
-          // 2. \u8BBE\u7F6E
-          const btnSettings = document.createElement('button')
-          btnSettings.type = 'button'
-          btnSettings.className = 'dtd-footer-btn dtd-btn-settings'
-          attachTooltipEvents(btnSettings)
-          setDeltaTooltip(btnSettings, getUiCopy().settings, 'top')
-          const gearSvg = createSvgEl('svg', {
-            viewBox: '0 0 24 24',
-            width: 16,
-            height: 16,
-            fill: 'none',
-            stroke: 'currentColor',
-            'stroke-width': 1.8,
-            'stroke-linecap': 'round',
-            'stroke-linejoin': 'round',
-          })
-          gearSvg.appendChild(createSvgEl('path', {
-            d: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z',
-          }))
-          gearSvg.appendChild(createSvgEl('circle', { cx: 12, cy: 12, r: 3 }))
-          btnSettings.appendChild(gearSvg)
-          btnSettings.addEventListener('click', () => {
-            triggerAccountMenuAction('settings')
-          })
-
-          // 3. \u767B\u5F55/\u767B\u51FA
-          const btnAuth = document.createElement('button')
-          btnAuth.type = 'button'
-          btnAuth.className = 'dtd-footer-btn dtd-btn-auth'
-          updateAuthButton(btnAuth, isSignedIn)
-          btnAuth.addEventListener('click', () => {
-            triggerAccountMenuAction('auth')
-          })
-
-          actionsBox.appendChild(btnUpdate)
-          actionsBox.appendChild(btnSettings)
-          actionsBox.appendChild(btnAuth)
-          footArea.appendChild(actionsBox)
-        } else {
-          const btnUpdate = actionsBox.querySelector?.<HTMLButtonElement>('.dtd-btn-update')
-          if (btnUpdate) syncUpdateButtonState(btnUpdate, footArea)
-          const btnSettings = actionsBox.querySelector?.<HTMLButtonElement>('.dtd-btn-settings')
-          if (btnSettings) {
-            attachTooltipEvents(btnSettings)
-            setDeltaTooltip(btnSettings, getUiCopy().settings, 'top')
-          }
-          const btnAuth = actionsBox.querySelector?.<HTMLButtonElement>('.dtd-btn-auth')
-          if (btnAuth) updateAuthButton(btnAuth, isSignedIn)
-        }
-      }
+      // Harness owns native footer controls, account state and update actions.
 
       // Native status text stays under Harness ownership.
       if (typeof document?.querySelectorAll === 'function') {
@@ -4467,39 +4097,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     document.addEventListener('dblclick', onModalDblClick, { capture: true })
   }
 
-  try {
-    const updates = (window as unknown as {
-      dshDesktop?: {
-        updates?: {
-          status?: () => Promise<{ phase?: string } | undefined>
-          subscribe?: (cb: (p?: { phase?: string }) => void) => () => void
-        }
-      }
-    }).dshDesktop?.updates
-    if (updates && typeof updates.subscribe === 'function') {
-      stopDesktopUpdates = updates.subscribe((presentation) => {
-        if (isDisposed) return
-        desktopUpdatePhase = presentation?.phase
-        scheduleSync()
-      })
-    }
-    if (updates && typeof updates.status === 'function') {
-      Promise.resolve(updates.status()).then((presentation) => {
-        if (isDisposed || desktopUpdatePhase !== undefined) return
-        desktopUpdatePhase = presentation?.phase
-        scheduleSync()
-      }, () => {})
-    }
-  } catch { /* dshDesktop.updates is optional */ }
-
   const stopFeaturesSync = deltaFeatures.subscribe(() => scheduleSync())
   const unsubscribe = controller.subscribe(sync)
   sync()
   return () => {
     isDisposed = true
     frameScheduler.cancel()
-    stopDesktopUpdates?.()
-    stopDesktopUpdates = undefined
     stopFeaturesSync()
     unsubscribe()
     observer?.disconnect()
