@@ -14,20 +14,20 @@ export const inject = ['tools', 'subprocess']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   let release = mountDeltaCode(ctx, normalizeConfig(config))
-  let closed = false
+  let isClosed = false
   const runtime = ctx as unknown as {
     on?: (event: string, listener: () => void) => void | (() => void)
   }
   const stopUpdates = runtime.on?.('loader/volatile-update', () => {
-    if (closed) return
+    if (isClosed) return
     // Validate the replacement before releasing the currently mounted generation.
     const settings = normalizeConfig(config)
     release()
     release = mountDeltaCode(ctx, settings)
   })
   return () => {
-    if (closed) return
-    closed = true
+    if (isClosed) return
+    isClosed = true
     if (typeof stopUpdates === 'function') stopUpdates()
     release()
   }

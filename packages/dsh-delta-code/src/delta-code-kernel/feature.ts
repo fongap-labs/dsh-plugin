@@ -24,11 +24,11 @@ export function mountDeltaCodeFeatures<T extends { name: string }>(
       tools.add(tool.name)
     }
   }
-  let mounted = true
+  let isMounted = true
   const disposers: Array<() => void> = []
   const dispose = (): void => {
-    if (!mounted) return
-    mounted = false
+    if (!isMounted) return
+    isMounted = false
     for (const release of disposers.reverse()) {
       try { release() } catch { /* disposal is best effort and idempotent */ }
     }

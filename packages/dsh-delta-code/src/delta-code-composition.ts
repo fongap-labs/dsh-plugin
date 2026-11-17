@@ -44,10 +44,10 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
     for (const release of releases.reverse()) { try { release() } catch {} }
     throw error
   }
-  let active = true
+  let isActive = true
   return () => {
-    if (!active) return
-    active = false
+    if (!isActive) return
+    isActive = false
     for (const release of releases.reverse()) { try { release() } catch {} }
   }
 }

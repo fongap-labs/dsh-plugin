@@ -6,10 +6,10 @@ const PROMPT_SECTION_NAME = 'dsh-delta-code:guidance'
 
 /** A deferred Host service cannot install a prompt after this generation stops. */
 export function registerDeltaCodePrompt(ctx: Context, settings: Settings): () => void {
-  let active = true
+  let isActive = true
   const disposers: Array<() => void> = []
   ctx.inject(['systemPrompt'], child => {
-    if (!active) return
+    if (!isActive) return
     try {
       const order = child.systemPrompt?.getSectionOrder('TOOL_EDIT')
       const release = child.systemPrompt?.section({
@@ -23,7 +23,7 @@ export function registerDeltaCodePrompt(ctx: Context, settings: Settings): () =>
     }
   })
   return () => {
-    active = false
+    isActive = false
     for (const release of disposers.splice(0).reverse()) {
       try { release() } catch { /* host cleanup */ }
     }
