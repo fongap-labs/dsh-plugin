@@ -3806,32 +3806,18 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
       if (isSessionMenu) {
         if (isFooterContainer || isSessionFooter) {
-          const sepEls = items.filter(el =>
-            el.getAttribute?.('role') === 'separator' ||
-            (typeof el.className === 'string' && (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
-          )
-          for (let i = 0; i < items.length; i++) {
-            const el = items[i]
-            if (sepEls.includes(el)) continue
+          // Native session footer item order and separators belong to Harness.
+          for (const el of items) {
+            const isSeparator = el.getAttribute?.('role') === 'separator' ||
+              (typeof el.className === 'string' &&
+                (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
+            if (isSeparator) continue
             const label = getMenuLabel(el)
-            const ord = getSessionMenuOrder(label)
-            if (ord) setMenuNodeOrder(el, ord)
             if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
               el.setAttribute?.('data-danger', '1')
               el.classList?.add('dtd-menu-danger')
             }
           }
-          if (sepEls.length >= 1) {
-            setMenuNodeOrder(sepEls[0], '85')
-            for (let s = 1; s < sepEls.length; s++) {
-              hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
-            }
-          } else {
-            const newSep = createSepNode()
-            setMenuNodeOrder(newSep, '85')
-            container.appendChild(newSep)
-          }
-          sortContainerChildrenByOrder(container)
           continue
         }
 

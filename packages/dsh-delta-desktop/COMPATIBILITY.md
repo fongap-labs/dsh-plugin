@@ -134,3 +134,9 @@
 - **保留锁定与删除保护**：重复锁定行清理、危险删除项标记、单工作区删除隐藏未改动。此处仍依赖宿主 DOM，后续需要迁移到正式命令/能力层权限校验。
 - 会话菜单排序、分隔符治理、搜索输入代理、原生事件捕获尚未完成；Issue #333 继续开放。
 - ZIP3 Client Region SHA-1 继续严格校验并更新至审核源码；主题 CSS 不变。真实 Windows Harness 交互仍待人工验收。
+
+## 2026-11-18 会话菜单 Footer 区域顺序原生化（Issue #333 第八阶段）
+
+- 删除 `isFooterContainer || isSessionFooter` 分支中通过 `getSessionMenuOrder` / `setMenuNodeOrder` 排序、克隆/隐藏分隔符和 `appendChild` 强制重排的逻辑。Harness 保留自身 Footer 菜单顺序及分隔符。
+- **保留删除项危险态提示** `data-danger` / `dtd-menu-danger`，以及外部锁定、删除保护和原生事件处理逻辑；此处只修改视觉顺序，不增加或删除命令权限。
+- 会话列表菜单排序、原生菜单文本改写、搜索代理和捕获阶段拦截仍待处理。ZIP3 发布哈希继续严格校验，真实 Windows 宿主交互仍需单独验收。
