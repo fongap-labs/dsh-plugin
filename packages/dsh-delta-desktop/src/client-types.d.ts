@@ -85,6 +85,7 @@ interface DeltaCopy {
     actionToggleSidebar: string; actionToggleRightbar: string;
     footerNav: string; footerOpen: string; footerTab: string; footerEsc: string;
     commandCopyLabel: string; commandCopyHint: string; commandCopied: string; commandCopyFailed: string;
+    commandPickerLabel: string; commandInsertLabel: string; commandInsertHint: string; commandInserted: string; commandInsertFailed: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -139,8 +140,13 @@ interface SearchSessionRecord {
   workspaceId?: string
   updatedAt?: number | string
   archived?: boolean
+  retainedBy?: { readonly mainView?: number }
 }
 interface SearchSessionsApi {
+  binding?(sessionId: string): {
+    ctx: unknown
+    session: { getSnapshot(): { sessionId: string; removed: boolean; subagent: unknown; openState: string } }
+  } | undefined
   list: {
     getSnapshot(): { byId: Record<string, SearchSessionRecord>; ids?: readonly string[] }
     subscribe?(listener: () => void): () => void

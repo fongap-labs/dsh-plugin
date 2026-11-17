@@ -101,6 +101,24 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let sessionRunning = false
   let sessionPhase = 'ready'
   let isSessionSnapshotUnavailable = false
+  let mainSession = 'local'
+  let currentDraft = { draft: '', draftRev: 0, phase: 'plain', attachmentIds: [], occurrences: [] }
+  let composerBlocked = false
+  let composerAccess = true
+  let generation = { ctx: { sessionId: 'local' }, session: {
+    getSnapshot: () => ({ sessionId: 'local', removed: false, subagent: null, openState: 'open' }),
+  } }
+  const hostConversation = {
+    blocks: { storeFor: () => ({ getSnapshot: () => composerBlocked ? { reason: 'blocked' } : undefined }) },
+    input: { for: () => ({ state: { getSnapshot: () => currentDraft } }) },
+  }
+  const nativeInputActions = {
+    captureInsertion: () => ({ start: 0, end: 0, draftRev: currentDraft.draftRev }),
+    insertText(text, span) {
+      actions.push(['insert-command', text, span.draftRev])
+      return true
+    },
+  }
   const hostWorkspaces = {
     list: {
       getSnapshot: () => ({ phase: workspacePhase, state: workspaceState, archivedSessionIds, items: [
@@ -118,13 +136,14 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
       getSnapshot: () => {
         if (isSessionSnapshotUnavailable) throw new Error('Session catalog reconnecting')
         return { phase: sessionPhase,
-          byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning, updatedAt: 1760000000000 } } }
+          byId: { local: { id: 'local', title: 'Example Session', running: sessionRunning, updatedAt: 1760000000000, retainedBy: { mainView: mainSession === 'local' ? 1 : 0 } } } }
       },
       subscribe(callback) {
         sessionListeners.add(callback)
         return () => { sessionListeners.delete(callback) }
       },
     },
+    binding: id => id === 'local' ? generation : undefined,
     search: async (query, signal) => {
       actions.push(['search', query])
       assert.equal(signal.aborted, false)
@@ -132,6 +151,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     },
   }
   const ctx = {
+    get(name) { return name === 'conversation' ? hostConversation : undefined },
     theme: { overrideTokens() { return () => {} } },
     layout: { toggleSidebar() {}, selectPanel(id) { actions.push(['panel', id]) } },
     sessions: hostSessions,
@@ -240,6 +260,81 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   input.emit('keydown', { key: 'Enter', preventDefault() {} })
   assert.ok(body.children.some(node => node.className === 'dtd-search-backdrop'),
     'Enter in Delta sidebar search explicitly opens SearchPalette')
+  body.children.find(node => node.className === 'dtd-search-backdrop').children[0]
+    .emit('keydown', { key: 'Escape', preventDefault() {} })
+
+  const commandSlot = inserted.find(([spec]) => spec.id === 'delta.search.composer-commands')
+  assert.ok(commandSlot, 'only a public session-scope slot contributes the command entry')
+  const props = {
+    sessionId: 'local',
+    inputActions: nativeInputActions,
+    useInput: select => select(currentDraft),
+    useAccess: () => composerAccess,
+  }
+  const wrapper = commandSlot[1]
+  assert.equal(wrapper({ sessionId: 'local' }), null, 'legacy Host props stay copy-only')
+  const renderCommandEntry = () => {
+    const element = wrapper(props)
+    return element && element.type(element.props)
+  }
+  const flushCatalog = async () => { await new Promise(resolve => setImmediate(resolve)) }
+  const openCommandPicker = async () => {
+    const entry = renderCommandEntry()
+    assert.equal(entry.type, 'button')
+    entry.props.onClick()
+    await flushCatalog()
+    const overlay = body.children.find(node => node.className === 'dtd-search-backdrop')
+    assert.ok(overlay)
+    return overlay.children[0]
+  }
+  const firstCommand = dialog => dialog.children[2].children.find(row => row.className === 'dtd-search-item')
+  let commandDialog = await openCommandPicker()
+  assert.equal(commandDialog.children[1].children[4].className, 'dtd-search-tab dtd-active')
+  let row = firstCommand(commandDialog)
+  assert.ok(row, 'scoped catalog lists built-in commands')
+  row.emit('click')
+  assert.ok(actions.some(action => action[0] === 'insert-command' && /^\/[a-z]+ $/.test(action[1])),
+    'selection inserts through public InputActions, never submits')
+  const writes = actions.filter(action => action[0] === 'insert-command').length
+
+  commandDialog = await openCommandPicker()
+  currentDraft = { ...currentDraft, draft: 'new draft', draftRev: 1 }
+  firstCommand(commandDialog).emit('click')
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'changed draft is preserved')
+  assert.equal(renderCommandEntry(), null, 'nonempty draft hides native entry')
+  currentDraft = { ...currentDraft, draft: '', draftRev: 2 }
+
+  commandDialog = await openCommandPicker()
+  mainSession = 'other'
+  firstCommand(commandDialog).emit('click')
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'switched Session is not edited')
+  mainSession = 'local'
+
+  commandDialog = await openCommandPicker()
+  generation = { ...generation }
+  firstCommand(commandDialog).emit('click')
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'same-ID replacement generation is not edited')
+
+  commandDialog = await openCommandPicker()
+  composerBlocked = true
+  firstCommand(commandDialog).emit('click')
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'blocked composer is unchanged')
+  composerBlocked = false
+
+  composerAccess = false
+  assert.equal(renderCommandEntry(), null, 'no permission means no entry')
+  composerAccess = true
+
+  // Late row callbacks from a previous catalog must not address a new palette.
+  commandDialog = await openCommandPicker()
+  row = firstCommand(commandDialog)
+  commandDialog.emit('keydown', { key: 'Escape', preventDefault() {} })
+  input.value = ''
+  input.emit('keydown', { key: 'Enter', preventDefault() {} })
+  await flushCatalog()
+  row.emit('click')
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'stale scoped row cannot insert')
+
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)
