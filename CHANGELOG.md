@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Search Palette 不再镜像 Harness 右侧快捷键指南的 DOM 行或模拟点击；保留公开快捷键目录和 Delta 自有操作（Issue #333）。
+
 - 修复: 搜索面板移除按宿主侧栏文本猜测点击插件管理/定时任务导航的逻辑，不再将不可执行的插件目录项展示为可执行命令；原生入口保留（Issue #333）。
 
 - 修复: 搜索命令面板不再根据全局 aria-label 猜测点击 Harness 设置按钮；无公开接口时隐藏不可执行的设置快捷项，保留原生设置入口和 Delta settings.section 扩展（Issue #333）。
