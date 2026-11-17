@@ -81,7 +81,7 @@ describe('DSH Code Worker native Host diagnostics', () => {
     const factory = readFileSync(new URL('delta-code-adapter/providers/dsh/feature-tools.ts', root), 'utf8')
     assert.match(adapter, /probeDshService/)
     assert.doesNotMatch(facade, /@deepseek-ai|defineTool|function inspectHostCapabilities/)
-    assert.match(factory, /from '\\.\/host-probe\\.js'/)
+    assert.equal(factory.includes("from './host-probe.js'"), true)
   })
 
 })
