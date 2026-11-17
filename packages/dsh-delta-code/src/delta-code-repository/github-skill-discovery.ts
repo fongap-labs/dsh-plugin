@@ -4,7 +4,7 @@ import type { Settings } from '../types.js'
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
 import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import { selectGitHubAccount, validatedCommitSha } from './github-policy.js'
-import { APPROVED_GITHUB_SKILLS } from '../delta-code-strategy/trusted-github-skills.js'
+import { getActiveApprovedGitHubSkills } from '../delta-code-strategy/trusted-github-skills.js'
 import type { DeltaGitHubExecution, DeltaGitHubRepositoryResolver, DeltaGitHubToolSpec } from './github-operations.js'
 
 const SKILL_PATH = /^skills\/[a-z0-9-]+\/SKILL\.md$/
@@ -123,7 +123,7 @@ export function createGitHubSkillDiscoverySpecs(
         } catch (error) {
           if (!(error instanceof GitHubApiFailure && error.status === 404)) throw error
         }
-        const approved = APPROVED_GITHUB_SKILLS.some(entry =>
+        const approved = getActiveApprovedGitHubSkills().some(entry =>
           (entry.owner + '/' + entry.repository).toLowerCase() === repository.toLowerCase() &&
           entry.commit === commit && entry.path === args.path && entry.blobSha === source.sha)
         return output(repository, skill.account, {
