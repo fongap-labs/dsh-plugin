@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 不再通过 DOM 为 Harness 原生视图选项菜单写入排序、移动菜单项和分隔符；会话/工作区菜单的兼容治理后续独立进行（Issue #333）。
+
 - 修复: Delta Suite 停止通过 DOM 和 ZIP3 CSS 强制隐藏 Harness 原生 More 导航入口；清理缓存并同步客户端/主题哈希与回归（Issue #333）。
 
 - 修复: 移除侧栏原生导航标签和 aria-label 的 DOM 改写，以及不再需要的辅助函数和恢复缓存；保留 More 治理为单独任务（Issue #333）。
