@@ -1897,7 +1897,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   background: transparent !important;
   padding: 0 !important;
 }
-:root[data-delta-ui="delta"] [data-dtd-hidden-feedback="1"],
 [data-dtd-hidden-session-log="1"],
 [data-dtd-hidden-privacy-cmd="1"],
 [data-dtd-hidden-settings-row="1"],

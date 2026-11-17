@@ -132,12 +132,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: footer session menu order/separator mutation removed; delete markers retained.
 // Reviewed 2026-11-18: removed session context menu ordering and injected separators.
 // Reviewed 2026-11-18: native session menu action labels remain Harness-owned.
-const ZIP3_THEME_BLOB = '9d840883f2806a411b3e97e44bc642124b427481'
+// Reviewed 2026-11-18: removed native Feedback menu DOM hiding and theme CSS selector.
+const ZIP3_THEME_BLOB = 'ec7ce0be0d93c10b5f8d181bf2f755c71549bf5e'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '86d8fb5e3534837c23dc87b93061d2586ab3f8eb',
+    sha1: '43558dc078617351d3d43726b91edf8473d0f034',
   },
   {
     begin: 'function installHostSearch(',

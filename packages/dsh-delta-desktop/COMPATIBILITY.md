@@ -154,3 +154,10 @@
 - 仍保留会话菜单识别、删除项 `data-danger` / `dtd-menu-danger` 标记以及现有锁定相关防护；此项仅治理标签所有权，不能替代命令执行级权限校验。
 - 原生反馈菜单隐藏、捕获阶段事件拦截和搜索输入代理仍待独立治理；Issue #333 保持开放。
 - ZIP3 客户端源码 SHA-1 审核指纹已同步更新，主题 CSS 未改动；真实 Windows Harness 交互与性能 A/B 仍需验收。
+
+## 2026-11-18 原生 Feedback 菜单入口原生化（Issue #333 第十一阶段）
+
+- 移除 `syncMenus` 里对反馈标签的多语言匹配、DOM 隐藏、`hiddenFeedbackNodes` 缓存及卸载恢复代码，并移除主题 CSS 中的 `data-dtd-hidden-feedback` 规则；由 Harness 管理原生 Feedback 菜单入口。
+- **保留** `/feedback` / `/export` 命令策略、日志与设置隐私、单工作区删除保护。此次仅治理菜单入口，不代表所有反馈命令路径恢复；相关策略后续单独审核。
+- ZIP3 Client Region SHA-1 与主题 Git Blob SHA-1 均同步更新并继续严格校验。剩余账号/快捷键事件拦截和侧栏搜索代理待处理，Issue #333 继续开放。
+- 真实 Windows Harness 交互和性能/内存 A/B 仍需验收。
