@@ -178,6 +178,18 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
     ],
   },
   {
+    name: 'code-official-docs',
+    title: 'Versioned official documentation research',
+    description: 'Use for unfamiliar or changing APIs, SDK upgrades, migration guides and library version compatibility; use Host web tools if available.',
+    instructions: [
+      'Read project source, lockfiles and AGENTS.md first to identify the exact library, installed version, language and affected APIs.',
+      'Use the Host native web_search and web_fetch only if actually exposed, prioritizing official vendor documentation, versioned references, release notes and migration guides.',
+      'Cross-check documented signatures against installed type definitions and existing usage; never replace local API evidence with undated snippets or search-result titles.',
+      'Separate verified current documentation from unresolved gaps when web tools are absent, offline or blocked by permissions. Do not invent links or API capabilities.',
+      'Record exact cited URLs, version assumptions, minimal behavior change and focused verification results; preserve existing permission boundaries.',
+    ],
+  },
+  {
     name: 'code-context-discipline',
     title: 'Low-token repository investigation',
     description: 'Reduce irrelevant context by ranking files, tracing symbols and reading only needed code and tests on large repositories.',
