@@ -232,14 +232,14 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(dialog.className, 'dtd-search-modal')
   assert.equal(dialog.children[1].children.length, 7)
 
-  windowKeyHandlers.get('keydown')?.({ key: 'Escape', preventDefault() {}, stopPropagation() {} })
-  assert.equal(body.children.some(node => node.className === 'dtd-search-backdrop'), false)
-  windowKeyHandlers.get('keydown')?.({
-    key: 'k', code: 'KeyK', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false,
-    preventDefault() {}, stopPropagation() {},
-  })
+  assert.equal(windowKeyHandlers.has('keydown'), false,
+    'Delta must not capture the global Harness shortcut')
+  dialog.emit('keydown', { key: 'Escape', preventDefault() {} })
+  assert.equal(body.children.some(node => node.className === 'dtd-search-backdrop'), false,
+    'Escape closes the Delta-owned modal only')
+  input.emit('keydown', { key: 'Enter', preventDefault() {} })
   assert.ok(body.children.some(node => node.className === 'dtd-search-backdrop'),
-    'Ctrl+K opens the same ZIP SearchPalette')
+    'Enter in Delta sidebar search explicitly opens SearchPalette')
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)
