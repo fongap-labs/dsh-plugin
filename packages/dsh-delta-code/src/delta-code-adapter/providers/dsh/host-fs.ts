@@ -1,5 +1,5 @@
 /** Centralized DSH Host FS capability contract. */
-import { lookupDshHostFs } from '../../../host-fs.t/host-adapter.js'
+import { lookupDshHostFs } from './host-adapter.js'
 export type HostWriteIntent =
   | { kind: 'createIfAbsent' }
   | { kind: 'replaceIfVersion'; version: string }

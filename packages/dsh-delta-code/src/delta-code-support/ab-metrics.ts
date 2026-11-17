@@ -7,7 +7,7 @@
 import { createHmac, randomBytes, randomInt } from 'node:crypto'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
-import type { CodingRoute } from '../ab-metrics.t/auto-routing.js'
+import type { CodingRoute } from '../delta-code-strategy/auto-routing.js'
 
 export type AbArm = 'native' | 'guided'
 type Bucket = {

@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { Settings } from '../auto-routing.t/types.js'
-import { ALL_CODING_SKILLS } from '../auto-routing.t/skills.js'
-import type { InternalAbExperiment } from '../auto-routing.t/ab-metrics.js'
+import type { Settings } from '../types.js'
+import { ALL_CODING_SKILLS } from './skills.js'
+import type { InternalAbExperiment } from '../delta-code-support/ab-metrics.js'
 
 export type CodingRoute = 'code-ci-repair' | 'code-root-cause-debugging' | 'code-review-readiness'
   | 'code-writing-plans' | 'code-fast-change' | 'code-feature-delivery'

@@ -1,2 +1,2 @@
-// Compatibility re-export; implementation lives in the Delta Code feature module.
-export * from '../delta-code-strategy/workflow-route.js'
+// Compatibility re-export; implementation lives in Delta Code modules.
+export * from './delta-code-strategy/workflow-route.js'

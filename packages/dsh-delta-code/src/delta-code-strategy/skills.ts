@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import { WORKFLOW_SKILLS } from '../skills.t/workflow-skills.js'
+import { WORKFLOW_SKILLS } from './workflow-skills.js'
 
 interface SkillRegistry {
   register(skill: {

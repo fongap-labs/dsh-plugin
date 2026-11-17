@@ -6,7 +6,7 @@ import { createHmac, randomBytes } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
-import { classifyFailure, type FailureKind } from '../execution-stats.t/tools/failure-policy.js'
+import { classifyFailure, type FailureKind } from '../delta-code-quality/failure-policy.js'
 
 const MAX_SIGNATURES = 64
 const MAX_FINGERPRINT_BYTES = 16 * 1024
