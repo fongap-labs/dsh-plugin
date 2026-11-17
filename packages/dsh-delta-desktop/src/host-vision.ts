@@ -265,9 +265,9 @@ export function parseYamlProfile(content: string, dshHome?: string): {
   const lines = content.split(/\r?\n/)
   let currentProvider: ParsedProfileProvider | null = null
   let currentModel: any = null
-  let inProviders = false
-  let inModels = false
-  let inInput = false
+  let isInProviders = false
+  let isInModels = false
+  let isInInput = false
 
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i]
@@ -276,18 +276,18 @@ export function parseYamlProfile(content: string, dshHome?: string): {
     const indent = raw.search(/\S/)
 
     if (indent <= 2 && trimmed.startsWith('- id:')) {
-      inProviders = false
+      isInProviders = false
       currentProvider = null
-      inModels = false
+      isInModels = false
       continue
     }
 
     if (trimmed === 'providers:') {
-      inProviders = true
+      isInProviders = true
       continue
     }
 
-    if (inProviders) {
+    if (isInProviders) {
       const provMatch = trimmed.match(/^([a-zA-Z0-9_\-]+):\s*$/)
       if (provMatch && !['models', 'config', 'headers', 'reasoningEfforts'].includes(provMatch[1]) && indent >= 4 && indent <= 8) {
         currentProvider = {
@@ -298,7 +298,7 @@ export function parseYamlProfile(content: string, dshHome?: string): {
           models: [],
         }
         result.providers.push(currentProvider)
-        inModels = false
+        isInModels = false
         continue
       }
 
@@ -312,19 +312,19 @@ export function parseYamlProfile(content: string, dshHome?: string): {
         } else if (trimmed.startsWith('api:')) {
           currentProvider.api = trimmed.replace('api:', '').trim().replace(/^['"]|['"]$/g, '')
         } else if (trimmed === 'models:') {
-          inModels = true
-          inInput = false
-        } else if (inModels) {
+          isInModels = true
+          isInInput = false
+        } else if (isInModels) {
           if (trimmed.startsWith('- id:')) {
             const mId = trimmed.replace('- id:', '').trim().replace(/^['"]|['"]$/g, '')
             currentModel = { id: mId, name: mId, input: [] }
             currentProvider.models.push(currentModel)
-            inInput = false
+            isInInput = false
           } else if (trimmed.startsWith('name:') && currentModel) {
             currentModel.name = trimmed.replace('name:', '').trim().replace(/^['"]|['"]$/g, '')
           } else if (trimmed === 'input:') {
-            inInput = true
-          } else if (inInput && trimmed.startsWith('- ')) {
+            isInInput = true
+          } else if (isInInput && trimmed.startsWith('- ')) {
             currentModel.input.push(trimmed.replace('- ', '').trim().replace(/^['"]|['"]$/g, ''))
           }
         }

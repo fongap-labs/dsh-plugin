@@ -492,13 +492,13 @@ function installClientVisionBridge(): () => void {
   function insertComposerText(target: HTMLElement, text: string): boolean {
     if (!isWritable(target)) return false
     target.focus()
-    let inserted = false
+    let isInserted = false
     try {
-      inserted = document.execCommand('insertText', false, text)
+      isInserted = document.execCommand('insertText', false, text)
     } catch {
-      inserted = false
+      isInserted = false
     }
-    if (inserted) return true
+    if (isInserted) return true
     if (isTextField(target)) {
       try {
         const proto = target.tagName === 'TEXTAREA'
@@ -1369,7 +1369,7 @@ interface ClientFeatureManager {
   lockSession(sessionId: string, newPin?: string): Promise<{ ok: boolean; error?: string }>
   lockWorkspace(workspaceId: string): Promise<{ ok: boolean; error?: string }>
   verifyOrUnlockSession(sessionId: string, pin: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }>
-  verifyOrUnlockWorkspace(workspaceId: string, pin: string, permanent: boolean): Promise<{ ok: boolean; error?: string }>
+  verifyOrUnlockWorkspace(workspaceId: string, pin: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }>
   clearPin(pin: string): Promise<{ ok: boolean; error?: string }>
   moveSession(sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }>
   deleteSession(sessionId: string): Promise<{ ok: boolean; error?: string }>
@@ -1868,13 +1868,13 @@ function createClientFeatureManager(): ClientFeatureManager {
     return { ok: true }
   }
 
-  const verifyOrUnlockWorkspace = async (workspaceId: string, code: string, permanent: boolean): Promise<{ ok: boolean; error?: string }> => {
+  const verifyOrUnlockWorkspace = async (workspaceId: string, code: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     }
     if (!canCallHostHttp()) {
-      if (permanent) {
+      if (isPermanent) {
         publish({
           lockedWorkspaceIds: Object.freeze(state.lockedWorkspaceIds.filter(id => id !== workspaceId)),
           tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
@@ -1890,14 +1890,14 @@ function createClientFeatureManager(): ClientFeatureManager {
       return { ok: true }
     }
     const res = await postHostJson('/api/delta-desktop/session-lock', {
-      action: permanent ? 'unlock' : 'verify',
+      action: isPermanent ? 'unlock' : 'verify',
       workspaceId,
       code: trimmed,
       pin: trimmed,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
     if (res.data?.state) applyHostStatePayload(res.data.state)
-    if (permanent) {
+    if (isPermanent) {
       notifyDataApis()
     } else if (!(state.tempUnlockedWorkspaceIds ?? []).includes(workspaceId)) {
       publish({ tempUnlockedWorkspaceIds: Object.freeze([...(state.tempUnlockedWorkspaceIds ?? []), workspaceId]) })
@@ -3638,14 +3638,14 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const ob = Number(b.getAttribute?.('data-dtd-menu-order') || '999')
       return oa - ob
     })
-    let needsReorder = false
+    let shouldReorder = false
     for (let i = 0; i < sorted.length; i++) {
       if (sorted[i] !== children[i]) {
-        needsReorder = true
+        shouldReorder = true
         break
       }
     }
-    if (needsReorder) {
+    if (shouldReorder) {
       for (const node of sorted) {
         container.appendChild(node)
       }

@@ -254,7 +254,7 @@ async function purgeSessionsFromWorkspaceJson(
       idSet.add(`session-${rawId}`)
     }
 
-    let modified = false
+    let isModified = false
 
     if (data.tables && typeof data.tables.workspaces === 'object') {
       for (const [, ws] of Object.entries(data.tables.workspaces as Record<string, any>)) {
@@ -262,7 +262,7 @@ async function purgeSessionsFromWorkspaceJson(
           const originalLen = ws.sessionIds.length
           ws.sessionIds = ws.sessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
           if (ws.sessionIds.length !== originalLen) {
-            modified = true
+            isModified = true
             ws.updatedAt = new Date().toISOString()
           }
         }
@@ -273,16 +273,16 @@ async function purgeSessionsFromWorkspaceJson(
       if (Array.isArray(data.global.archivedSessionIds)) {
         const orig = data.global.archivedSessionIds.length
         data.global.archivedSessionIds = data.global.archivedSessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
-        if (data.global.archivedSessionIds.length !== orig) modified = true
+        if (data.global.archivedSessionIds.length !== orig) isModified = true
       }
       if (Array.isArray(data.global.pinnedSessionIds)) {
         const orig = data.global.pinnedSessionIds.length
         data.global.pinnedSessionIds = data.global.pinnedSessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
-        if (data.global.pinnedSessionIds.length !== orig) modified = true
+        if (data.global.pinnedSessionIds.length !== orig) isModified = true
       }
     }
 
-    if (modified) {
+    if (isModified) {
       const serialized = JSON.stringify(data, null, 2)
       const tmpPath = `${wsPath}.tmp.${Date.now()}`
       await fs.writeFile(tmpPath, serialized, 'utf8')
