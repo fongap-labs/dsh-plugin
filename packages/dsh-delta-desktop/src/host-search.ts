@@ -359,11 +359,13 @@ export function installHostSessionSearch(
   },
 ): () => void {
   const corpusCache = new Map<string, CachedCorpus>()
+  let isDisposed = false
   options?.registerInvalidator?.((sessionId: string) => {
-    corpusCache.delete(sessionId)
+    if (!isDisposed) corpusCache.delete(sessionId)
   })
 
   const getCachedOrObserve = async (summary: SessionSummary): Promise<SessionTextBlock[]> => {
+    if (isDisposed) return []
     const now = Date.now()
     const cached = corpusCache.get(summary.sessionId)
     if (cached && cached.updatedAt === summary.updatedAt && now - cached.cachedAt < CORPUS_TTL_MS) {
@@ -384,6 +386,8 @@ export function installHostSessionSearch(
     try {
       lease = await sessionQuery.observeSession(summary.sessionId, { projectionMode: 'none' })
       const blocks = extractConversationBlocks(lease?.events)
+      // An observation can finish after plugin teardown; never recreate cleared cache.
+      if (isDisposed) return []
       if (corpusCache.size >= MAX_CORPUS_ENTRIES) {
         const oldestKey = corpusCache.keys().next().value
         if (oldestKey !== undefined) corpusCache.delete(oldestKey)
@@ -398,8 +402,12 @@ export function installHostSessionSearch(
     } catch {
       return []
     } finally {
-      try { lease?.dispose?.() } catch {}
-      try { if (SYMBOL_DISPOSE && lease) lease[SYMBOL_DISPOSE]?.() } catch {}
+      // SessionQuery's observation lease uses Symbol.dispose; call one disposer only.
+      try {
+        const release = SYMBOL_DISPOSE && lease ? lease[SYMBOL_DISPOSE] : undefined
+        if (typeof release === 'function') release.call(lease)
+        else lease?.dispose?.()
+      } catch {}
     }
   }
 
@@ -485,15 +493,19 @@ export function installHostSessionSearch(
   }
 
   const executeQuery = async (rawUrl: string): Promise<HostSearchResponsePayload> => {
+    const empty = (): HostSearchResponsePayload => ({ items: [], truncated: false, redacted: true })
+    if (isDisposed) return empty()
     const { q, limit, workspaceId } = readJsonParam(rawUrl)
     if (!q) return { items: [], truncated: false, redacted: true }
 
     const startMs = Date.now()
     const summaries = await listSummaries(workspaceId)
+    if (isDisposed) return empty()
     const hits: HostSessionSearchHit[] = []
     let isTruncated = false
 
     for (const summary of summaries) {
+      if (isDisposed) return empty()
       if (Date.now() - startMs > BUDGET_MS) {
         isTruncated = true
         break
@@ -503,6 +515,7 @@ export function installHostSessionSearch(
         continue
       }
       const blocks = await getCachedOrObserve(summary)
+      if (isDisposed) return empty()
       const hit = scoreAndExtractSessionHit(q, summary, blocks)
       if (hit) hits.push(hit)
     }
@@ -550,6 +563,8 @@ export function installHostSessionSearch(
   }
 
   return () => {
+    if (isDisposed) return
+    isDisposed = true
     corpusCache.clear()
     try { unregisterFetch?.() } catch {}
     unregisterFetch = undefined
