@@ -16,10 +16,11 @@ export function registerCodingSkills(ctx: Context): () => void {
   // The same Host Skills service can be injected more than once during reload.
   // A registry can only receive a single complete generation per Delta mount.
   const registrations = new Map<SkillRegistry, () => void>()
+  const noDisposerRegistries = new WeakSet<SkillRegistry>()
   ctx.inject(['skills'], child => {
     if (!isActive) return
     const registry = (child as unknown as { skills?: SkillRegistry }).skills
-    if (typeof registry?.register !== 'function' || registrations.has(registry)) return
+    if (typeof registry?.register !== 'function' || registrations.has(registry) || noDisposerRegistries.has(registry)) return
     const disposers: Array<() => void> = []
     let missingDisposer = false
     try {
@@ -40,14 +41,16 @@ export function registerCodingSkills(ctx: Context): () => void {
       }
       if (missingDisposer) {
         // These contributions cannot be rolled back; do not register duplicates.
+        noDisposerRegistries.add(registry)
         registrations.set(registry, () => {})
         ctx.logger?.warn?.('dsh-delta-code: partial Skill registration cannot be rolled back on a Host without disposers')
       }
-      ctx.logger?.warn?.('dsh-delta-code: Skill catalog registration failed and was rolled back: ' +
+      ctx.logger?.warn?.('dsh-delta-code: Skill catalog registration failed; disposable entries were rolled back: ' +
         (error instanceof Error ? error.message : String(error)))
       return
     }
     if (missingDisposer) {
+      noDisposerRegistries.add(registry)
       ctx.logger?.warn?.('dsh-delta-code: Host Skill registration has no disposer; automatic unregistration is unavailable')
     }
     let released = false
