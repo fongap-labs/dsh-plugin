@@ -32,6 +32,9 @@ function createContext() {
         } } });
         return;
       }
+      if (deps.includes("subprocess")) {
+        return callback(ctx);
+      }
       callback({
         systemPrompt: {
           getSectionOrder: () => 1300,
@@ -102,7 +105,7 @@ describe("dsh-delta-code", () => {
 
   it("插件声明元信息正确", () => {
     assert.equal(codeWorker.name, "@fongap-labs/dsh-delta-code");
-    assert.deepEqual(codeWorker.inject, ["tools", "subprocess"]);
+    assert.deepEqual(codeWorker.inject, ["tools"]);
   });
 
   it("注册了预期的工具集合", () => {

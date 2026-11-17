@@ -22,7 +22,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - Host permission denial must never be downgraded to Node filesystem access or shell execution.
 - Kernel does not schedule agent work, store sessions, maintain a model catalog or own context compression.
 - Old `lib/tools/*` and root import paths remain as compatibility re-exports until consumers are migrated and existing tests pass.
-- Native DSH `tools` and `subprocess` registration remains the historical top-level contract in this first migration. Replacing it with module-scoped service dependencies requires separate real Cordis lifecycle tests.
+- Only DSH `tools` is a root dependency. `subprocess` is injected for the Coding/Quality/Repository command group; its absence preserves Strategies, Skills, and lightweight metrics.
 - An absent provider is not the same as an explicitly denied provider; fail closed where permission semantics cannot be preserved.
 
 ## Migration / acceptance

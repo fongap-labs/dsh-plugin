@@ -8,9 +8,9 @@ export { Config } from './config.js'
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 
 export const name = '@fongap-labs/dsh-delta-code'
-// Keep the existing Host injection contract until independent service
-// lifecycle tests cover the alternative module-scoped subprocess injection.
-export const inject = ['tools', 'subprocess']
+// Non-command features only require the native tool registry.
+// Command-backed features inject subprocess separately and degrade independently.
+export const inject = ['tools']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   let release = mountDeltaCode(ctx, normalizeConfig(config))
@@ -25,10 +25,14 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
     release()
     release = mountDeltaCode(ctx, settings)
   })
-  return () => {
+  const dispose = () => {
     if (isClosed) return
     isClosed = true
     if (typeof stopUpdates === 'function') stopUpdates()
     release()
   }
+  // Returning a disposer supports direct callers. Cordis additionally needs
+  // an owned effect so fiber.dispose() releases root-scoped registrations.
+  if (typeof ctx.effect === 'function') ctx.effect(() => dispose, 'delta-code:plugin-disposal')
+  return dispose
 }

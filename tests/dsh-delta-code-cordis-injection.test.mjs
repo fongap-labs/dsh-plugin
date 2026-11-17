@@ -53,3 +53,47 @@ describe('Code Worker real Cordis subprocess injection', () => {
     }
   })
 })
+
+describe('Code Worker optional subprocess capability', () => {
+  it('keeps strategy tools alive and mounts command tools only while subprocess is provided', async () => {
+    const ctx = new Context()
+    const registered = new Map()
+    const releaseTools = ctx.provide('tools', {
+      register(definition) {
+        registered.set(definition.name, definition)
+        return () => registered.delete(definition.name)
+      },
+    })
+    const fiber = ctx.plugin({
+      name: codeWorker.name, inject: codeWorker.inject, apply: codeWorker.apply,
+    }, {})
+    const settle = async (check) => {
+      for (let attempt = 0; attempt < 40; attempt++) {
+        if (check()) return
+        await new Promise(resolve => setImmediate(resolve))
+      }
+      assert.ok(check(), 'Cordis capability lifecycle did not settle')
+    }
+    let releaseSubprocess
+    try {
+      await fiber
+      await settle(() => registered.has('code_workflow_route'))
+      assert.equal(registered.has('code_git_status'), false)
+      assert.equal(registered.has('code_workspace_map'), false)
+
+      releaseSubprocess = ctx.provide('subprocess', {
+        spawn() { throw Error('subprocess should not execute during registration') },
+      })
+      await settle(() => registered.has('code_git_status') && registered.has('code_workspace_map'))
+      await releaseSubprocess()
+      releaseSubprocess = undefined
+      await settle(() => !registered.has('code_git_status') && !registered.has('code_workspace_map'))
+      assert.equal(registered.has('code_workflow_route'), true)
+    } finally {
+      if (releaseSubprocess) await releaseSubprocess()
+      await fiber.dispose()
+      await releaseTools()
+      assert.equal(registered.size, 0)
+    }
+  })
+})

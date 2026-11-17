@@ -32,14 +32,41 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
         experiment.observe(session, event as { type?: unknown; seq?: unknown; data?: unknown }))
       if (typeof stop === 'function') releases.push(stop)
     }
-    const features = [
-      deltaCodeCoding(ctx, settings),
+    // The lightweight strategy and diagnostic tools never need subprocess.
+    const coreFeatures = [
       deltaCodeStrategy(ctx, settings, experiment),
-      deltaCodeQuality(ctx, settings, resume),
-      deltaCodeRepository(ctx, settings, createGitHubTransport(settings.githubAccounts)),
       deltaCodeSupport(stats, experiment),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
-    releases.push(mountDeltaCodeFeatures(features, dshToolRegistrar(ctx, stats)))
+    releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))
+
+    // Cordis independently mounts/unmounts this group when subprocess becomes
+    // available or changes. The child Context owns subprocess access; the
+    // parent Context retains the already-injected tool registration service.
+    let isCommandActive = true
+    const commandDisposers = new Set<() => void>()
+    const injected = ctx.inject(['subprocess'], child => {
+      if (!isCommandActive) return
+      const commandFeatures = [
+        deltaCodeCoding(child, settings),
+        deltaCodeQuality(child, settings, resume),
+        deltaCodeRepository(child, settings, createGitHubTransport(settings.githubAccounts)),
+      ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
+      const unmount = mountDeltaCodeFeatures(commandFeatures, dshToolRegistrar(ctx, stats))
+      commandDisposers.add(unmount)
+      return () => {
+        commandDisposers.delete(unmount)
+        unmount()
+      }
+    })
+    releases.push(() => {
+      isCommandActive = false
+      for (const unmount of commandDisposers) unmount()
+      commandDisposers.clear()
+      const stop = (injected as { dispose?: () => Promise<void> } | null)?.dispose
+      if (typeof stop === 'function') void Promise.resolve(stop.call(injected)).catch(() => {
+        ctx.logger?.warn?.('dsh-delta-code: subprocess injector disposal failed')
+      })
+    })
     releases.push(registerGatewayRetryCoordinator(ctx, () => settings.enabled))
   } catch (error) {
     for (const release of releases.reverse()) { try { release() } catch {} }

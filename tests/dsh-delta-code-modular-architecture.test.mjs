@@ -33,6 +33,8 @@ function mockHost() {
             return () => prompts.delete(section.name)
           },
         } })
+      } else if (dependencies.includes('subprocess')) {
+        return callback(host)
       } else callback({})
     },
     on(event, listener) {
