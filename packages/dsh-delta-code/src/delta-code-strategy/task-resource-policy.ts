@@ -1,4 +1,5 @@
 /** Host-neutral bounded selection of existing retrieval/inspection capabilities. */
+import { isExternalSkillOptOut } from './trusted-github-skills.js'
 export type TaskResource = 'official-docs' | 'cross-repo' | 'native-tools' | 'skill-discovery'
 
 const OFFICIAL_DOCS = /(?:official\s+(?:docs?|api|reference)|documentation|migration\s+guide|library\s+version|sdk\s+(?:version|upgrade)|\u5b98\u65b9\u6587\u6863|\u6700\u65b0\u6587\u6863|\u5347\u7ea7\u6307\u5357|\u7248\u672c\u517c\u5bb9|\u63a5\u53e3\u6587\u6863)/i
@@ -13,7 +14,7 @@ export function chooseTaskResources(text: string): TaskResource[] {
   if (OFFICIAL_DOCS.test(input)) selected.push('official-docs')
   if (CROSS_REPO.test(input)) selected.push('cross-repo')
   if (NATIVE_TOOLS.test(input)) selected.push('native-tools')
-  if (SKILL_DISCOVERY.test(input)) selected.push('skill-discovery')
+  if (SKILL_DISCOVERY.test(input) && !isExternalSkillOptOut(input)) selected.push('skill-discovery')
   return selected
 }
 
