@@ -4657,10 +4657,10 @@ function installHostSearch(
   // This read resolves an already-retained main Session generation. No new Session
   // is opened, no draft is initialized, and no shared Host service is replaced.
   const readCommandTarget = (scope: ClientContext, sessionId: string) => {
-    if (isDisposed || controller.getSnapshot().mode !== 'delta' ||
-        getUniqueMainSessionId() !== sessionId || deltaFeatures.isLocked(sessionId) ||
-        deltaFeatures.isSessionInLockedWorkspace(sessionId) || deltaFeatures.isDeleted(sessionId)) return undefined
     try {
+      if (isDisposed || controller.getSnapshot().mode !== 'delta' ||
+          getUniqueMainSessionId() !== sessionId || deltaFeatures.isLocked(sessionId) ||
+          deltaFeatures.isSessionInLockedWorkspace(sessionId) || deltaFeatures.isDeleted(sessionId)) return undefined
       const binding = sessions.binding?.(sessionId)
       const session = binding?.session.getSnapshot()
       const host = scope.get?.('conversation') as CommandHost | undefined
@@ -5342,9 +5342,13 @@ function installHostSearch(
     try { searchScope.inject(['conversation', 'uiSession'], composerScope => {
       if (isDisposed) return
       const host = composerScope.get?.('conversation') as CommandHost | undefined
-      const accessOwner = composerScope.get?.('uiSession') as CommandAccessHost | undefined
+      const accessCandidate = composerScope.get?.('uiSession') as CommandAccessHost | undefined
       if (typeof host?.input?.for !== 'function' || typeof host.blocks?.storeFor !== 'function' ||
-          typeof accessOwner?.whenAccess !== 'function') return
+          typeof accessCandidate?.whenAccess !== 'function') return
+      const accessOwner = accessCandidate
+      const sameAccessOwner = (): boolean => {
+        try { return composerScope.get?.('uiSession') === accessOwner } catch { return false }
+      }
 
       function ScopedCommandEntry(props: CommandSlotProps): unknown {
         const view = react.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
@@ -5386,7 +5390,7 @@ function installHostSearch(
             const lease = leaseRef.current
             if (!lease?.allowed || lease.sessionId !== sid || !current.current.allowed ||
                 current.current.props.sessionId !== sid || current.current.props.inputActions !== actions ||
-                composerScope.get?.('uiSession') !== accessOwner) {
+                !sameAccessOwner()) {
               showDeltaToast(copy.searchPalette.commandInsertFailed)
               return
             }
@@ -5405,7 +5409,7 @@ function installHostSearch(
                 if (leaseRef.current !== lease || !lease.allowed || lease.revision !== accessRevision ||
                     !current.current.allowed || current.current.props.sessionId !== sid ||
                     current.current.props.inputActions !== actions ||
-                    composerScope.get?.('uiSession') !== accessOwner) return false
+                    !sameAccessOwner()) return false
                 const latest = readCommandTarget(composerScope, sid)
                 if (!latest || latest.binding !== source.binding || latest.host !== source.host ||
                     latest.input.draftRev !== span.draftRev) return false
