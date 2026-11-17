@@ -84,6 +84,7 @@ interface DeltaCopy {
     actionSchedules: string; actionSettings: string;
     actionToggleSidebar: string; actionToggleRightbar: string;
     footerNav: string; footerOpen: string; footerTab: string; footerEsc: string;
+    commandCopyLabel: string; commandCopyHint: string; commandCopied: string; commandCopyFailed: string;
   }
 }
 type Language = 'zh' | 'en'
