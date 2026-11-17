@@ -86,7 +86,7 @@ describe('one-plugin compatibility with the native Harness Host', () => {
   })
 
   it('continues using the Host tool registry contract', () => {
-    const source = readFileSync(join(root, 'packages/dsh-delta-code/src/index.ts'), 'utf8')
+    const source = readFileSync(join(root, 'packages/dsh-delta-code/src/delta-code-adapter/providers/dsh/tool-registration.ts'), 'utf8')
     assert.match(source, /registerTool\(ctx, tool\)/)
     const shared = readFileSync(join(root, 'packages/shared/src/tool.ts'), 'utf8')
     assert.match(shared, /registry\.register\(definition\)/)
