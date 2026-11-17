@@ -1,4 +1,7 @@
 /** Audited, immutable GitHub skill catalog and task-to-skill selection. No Host SDK. */
+/** Increment only when the reviewed active/revoked catalog changes. */
+export const APPROVED_GITHUB_SKILLS_CATALOG_VERSION = 1
+
 export interface ApprovedGitHubSkill {
   readonly name: string
   readonly sourceName?: string
@@ -75,15 +78,50 @@ export const APPROVED_GITHUB_SKILLS: readonly ApprovedGitHubSkill[] = [
   },
 ]
 
+
+/** Exact immutable revisions withdrawn by a reviewed catalog change. */
+export interface RevokedGitHubSkillRevision {
+  readonly name: string
+  readonly commit: string
+  readonly blobSha: string
+  readonly revokedAt: string
+  readonly reason: string
+}
+
+/**
+ * Revocation is code-reviewed and ships with the plugin; there is deliberately
+ * no remote kill-switch or mutable third-party catalog in the trust path.
+ * Keep tombstones so a withdrawn immutable revision cannot be re-added by mistake.
+ */
+export const REVOKED_GITHUB_SKILL_REVISIONS: readonly RevokedGitHubSkillRevision[] = []
+
+export function isRevokedGitHubSkillRevision(
+  skill: ApprovedGitHubSkill,
+  revocations: readonly RevokedGitHubSkillRevision[] = REVOKED_GITHUB_SKILL_REVISIONS,
+): boolean {
+  return revocations.some(revoked =>
+    revoked.name === skill.name &&
+    revoked.commit === skill.commit &&
+    revoked.blobSha === skill.blobSha)
+}
+
+export function getActiveApprovedGitHubSkills(
+  catalog: readonly ApprovedGitHubSkill[] = APPROVED_GITHUB_SKILLS,
+  revocations: readonly RevokedGitHubSkillRevision[] = REVOKED_GITHUB_SKILL_REVISIONS,
+): readonly ApprovedGitHubSkill[] {
+  return catalog.filter(skill => !isRevokedGitHubSkillRevision(skill, revocations))
+}
+
 /** Suggest at most two specialist skills, never based on untrusted tool output. */
 export function matchApprovedGitHubSkills(
   task: string,
   catalog: readonly ApprovedGitHubSkill[] = APPROVED_GITHUB_SKILLS,
+  revocations: readonly RevokedGitHubSkillRevision[] = REVOKED_GITHUB_SKILL_REVISIONS,
 ): string[] {
   const input = task.toLowerCase().slice(-2048)
   if (!input.trim() || isExternalSkillOptOut(input)) return []
   const hasReactContext = /react|next[.\s-]?js|nextjs|\u7ec4\u4ef6\u7ec4\u5408|\u590d\u5408\u7ec4\u4ef6/.test(input)
-  const matches = catalog.filter(entry =>
+  const matches = getActiveApprovedGitHubSkills(catalog, revocations).filter(entry =>
     entry.keywords.some(keyword => input.includes(keyword.toLowerCase())) &&
     (entry.name !== 'vercel-composition-patterns' || hasReactContext))
   return matches.slice(0, 2).map(entry => entry.name)

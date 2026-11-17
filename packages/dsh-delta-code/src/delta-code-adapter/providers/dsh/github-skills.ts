@@ -2,8 +2,13 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { createApprovedGitHubSkillProvider, type RemoteSkillProvider } from '../github/approved-skills.js'
 
+/** Structural subset of the public DSH SkillProviderControl contract. */
+interface SkillProviderControl {
+  readonly signal: AbortSignal
+  readonly invalidate: () => void
+}
 interface SkillHost {
-  registerProvider?(create: (control: { signal: AbortSignal; invalidate(): void }) => RemoteSkillProvider): (() => void) | void
+  registerProvider?(create: (control: SkillProviderControl) => RemoteSkillProvider): (() => void) | void
 }
 export function registerApprovedGitHubSkills(ctx: Context): () => void {
   let isActive = true
@@ -15,7 +20,8 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
     if (typeof registry?.registerProvider !== 'function' || registrations.has(registry) || noDisposerRegistries.has(registry)) return
     let dispose: (() => void) | void
     try {
-      dispose = registry.registerProvider(() => createApprovedGitHubSkillProvider())
+      dispose = registry.registerProvider(control =>
+        createApprovedGitHubSkillProvider(fetch, undefined, { signal: control.signal }))
     } catch (error) {
       ctx.logger?.warn?.('dsh-delta-code: approved GitHub Skill provider unavailable: ' +
         (error instanceof Error ? error.message : String(error)))
@@ -31,7 +37,7 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
       isReleased = true
       registrations.delete(registry)
       try { if (typeof dispose === 'function') dispose() } catch {
-        /* Host may already have disposed the provider */
+        /* Host may have already disposed the provider */
       }
     }
     registrations.set(registry, release)

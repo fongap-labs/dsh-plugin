@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { APPROVED_GITHUB_SKILLS, isExternalSkillOptOut, matchApprovedGitHubSkills } from '../packages/dsh-delta-code/lib/delta-code-strategy/trusted-github-skills.js'
+import { APPROVED_GITHUB_SKILLS, APPROVED_GITHUB_SKILLS_CATALOG_VERSION, getActiveApprovedGitHubSkills, isExternalSkillOptOut, isRevokedGitHubSkillRevision, matchApprovedGitHubSkills } from '../packages/dsh-delta-code/lib/delta-code-strategy/trusted-github-skills.js'
 import { createApprovedGitHubSkillProvider } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/approved-skills.js'
 import { registerApprovedGitHubSkills } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/github-skills.js'
 
@@ -26,6 +26,8 @@ describe('Delta Code approved GitHub Skills', () => {
     assert.ok(APPROVED_GITHUB_SKILLS.every(skill =>
       /^[0-9a-f]{40}$/.test(skill.commit) && /^[0-9a-f]{40}$/.test(skill.blobSha) &&
       ['MIT', 'Apache-2.0'].includes(skill.license)))
+    assert.ok(Number.isInteger(APPROVED_GITHUB_SKILLS_CATALOG_VERSION) && APPROVED_GITHUB_SKILLS_CATALOG_VERSION > 0)
+    assert.equal(new Set(APPROVED_GITHUB_SKILLS.map(skill => skill.name)).size, APPROVED_GITHUB_SKILLS.length)
   })
 
   it('uses immutable GitHub URLs, verifies Git content, and fails closed on changes', async () => {
@@ -45,6 +47,7 @@ describe('Delta Code approved GitHub Skills', () => {
     const provider = createApprovedGitHubSkillProvider(fetcher, [entry])
     const candidate = (await provider.list())[0]
     assert.deepEqual(candidate.invocation, { modelInvocable: true, userInvocable: false })
+    assert.equal(candidate.locator, entry.commit + ':' + entry.blobSha)
     const loaded = await provider.get(candidate)
     assert.match(loaded.content, /Approved guidance/)
     assert.match(loaded.content, /Do not install packages, execute scripts/i)
@@ -68,25 +71,115 @@ describe('Delta Code approved GitHub Skills', () => {
     await assert.rejects(provider.get(candidate, { signal: cancelled.signal }), /abort/i)
   })
 
-  it('uses the Host native skill provider and releases it on unmount', () => {
+  it('revokes exact immutable revisions and refuses stale candidates after an update', async () => {
+    const body = '---\nname: reviewed-skill\ndescription: safe\n---\n\n# Approved guidance\nOnly read.\n'
+    const bytes = Buffer.from(body)
+    const blobSha = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
+    const entry = {
+      name: 'reviewed-skill', description: 'Pinned example', owner: 'acme', repository: 'approved',
+      commit: 'a'.repeat(40), path: 'skills/reviewed-skill/SKILL.md', blobSha, license: 'MIT', keywords: ['reviewed'],
+    }
+    const oldProvider = createApprovedGitHubSkillProvider(async () => new Response(body), [entry])
+    const oldCandidate = (await oldProvider.list())[0]
+    const revocation = {
+      name: entry.name, commit: entry.commit, blobSha: entry.blobSha,
+      revokedAt: '2026-11-17', reason: 'security review withdrew this exact revision',
+    }
+    assert.equal(isRevokedGitHubSkillRevision(entry, [revocation]), true)
+    assert.deepEqual(getActiveApprovedGitHubSkills([entry], [revocation]), [])
+    assert.deepEqual(matchApprovedGitHubSkills('reviewed', [entry], [revocation]), [])
+    const revokedProvider = createApprovedGitHubSkillProvider(async () => new Response(body), [entry], {
+      revocations: [revocation],
+    })
+    assert.deepEqual(await revokedProvider.list(), [])
+    assert.equal(await revokedProvider.get(oldCandidate), undefined)
+
+    const replacement = { ...entry, commit: 'b'.repeat(40), blobSha: 'c'.repeat(40) }
+    assert.deepEqual(getActiveApprovedGitHubSkills([replacement], [revocation]), [replacement])
+    const replacementProvider = createApprovedGitHubSkillProvider(async () => new Response(body), [replacement])
+    assert.equal(await replacementProvider.get(oldCandidate), undefined)
+    assert.equal((await replacementProvider.list())[0].locator, replacement.commit + ':' + replacement.blobSha)
+  })
+
+  it('aborts discovery and loading when the native registration lifecycle is revoked', async () => {
+    const body = '---\nname: reviewed-skill\ndescription: safe\n---\n\n# Approved guidance\nOnly read.\n'
+    const bytes = Buffer.from(body)
+    const entry = {
+      name: 'reviewed-skill', description: 'Pinned example', owner: 'acme', repository: 'approved',
+      commit: 'a'.repeat(40), path: 'skills/reviewed-skill/SKILL.md',
+      blobSha: createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex'),
+      license: 'MIT', keywords: ['reviewed'],
+    }
+    const controller = new AbortController()
+    let calls = 0
+    const provider = createApprovedGitHubSkillProvider(async () => {
+      calls++
+      return new Response(body)
+    }, [entry], { signal: controller.signal })
+    const candidate = (await provider.list())[0]
+    controller.abort(new Error('provider registration disposed'))
+    await assert.rejects(provider.list(), /disposed/)
+    await assert.rejects(provider.get(candidate), /disposed/)
+    assert.equal(calls, 0)
+  })
+
+  it('cancels a remote response stream when the provider registration is disposed mid-load', async () => {
+    const body = '---\nname: reviewed-skill\ndescription: safe\n---\n\n# Approved guidance\nOnly read.\n'
+    const bytes = Buffer.from(body)
+    const entry = {
+      name: 'reviewed-skill', description: 'Pinned example', owner: 'acme', repository: 'approved',
+      commit: 'a'.repeat(40), path: 'skills/reviewed-skill/SKILL.md',
+      blobSha: createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex'),
+      license: 'MIT', keywords: ['reviewed'],
+    }
+    const controller = new AbortController()
+    let cancelCount = 0
+    let signalReceived
+    let resolveFetch
+    const fetchStarted = new Promise(resolve => { resolveFetch = resolve })
+    const provider = createApprovedGitHubSkillProvider(async (_url, init) => {
+      signalReceived = init.signal
+      resolveFetch()
+      return new Response(new ReadableStream({
+        start(stream) { stream.enqueue(new TextEncoder().encode('partial response')) },
+        cancel() { cancelCount++ },
+      }))
+    }, [entry], { signal: controller.signal })
+    const candidate = (await provider.list())[0]
+    const pending = provider.get(candidate)
+    await fetchStarted
+    await new Promise(resolve => setImmediate(resolve))
+    controller.abort(new Error('provider registration disposed'))
+    await assert.rejects(pending, /disposed/)
+    assert.equal(signalReceived, controller.signal)
+    assert.equal(cancelCount, 1)
+  })
+
+  it('uses the Host native provider and forwards its registration-scoped abort signal', async () => {
     const releases = []
+    const controller = new AbortController()
     let active
     const ctx = {
       inject(services, listener) {
         assert.deepEqual(services, ['skills'])
         listener({ skills: {
           registerProvider(factory) {
-            active = factory({ signal: new AbortController().signal, invalidate() {} })
+            active = factory({ signal: controller.signal, invalidate() {} })
             releases.push('registered')
-            return () => releases.push('disposed')
+            return () => {
+              controller.abort(new Error('provider registration disposed'))
+              releases.push('disposed')
+            }
           },
         } })
       },
     }
     const dispose = registerApprovedGitHubSkills(ctx)
     assert.equal(active.name, 'delta-code-approved-github')
+    assert.ok((await active.list()).length > 0)
     dispose()
     assert.deepEqual(releases, ['registered', 'disposed'])
+    await assert.rejects(active.list(), /disposed/)
     dispose()
     assert.deepEqual(releases, ['registered', 'disposed'])
   })

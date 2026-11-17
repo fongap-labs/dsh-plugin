@@ -98,29 +98,40 @@ describe('DSH native Skill lifecycle and rollback', () => {
     stop()
   })
 
-  it('does not register approved provider twice and permits Host child remount', () => {
+  it('does not duplicate the provider and aborts it when the Host child is disposed', async () => {
     const h = host()
     let calls = 0
     let removals = 0
+    let provider
+    const controllers = []
     const registry = {
       registerProvider(factory) {
         calls++
-        assert.equal(factory({ signal: new AbortController().signal, invalidate() {} }).name,
-          'delta-code-approved-github')
-        return () => { removals++ }
+        const controller = new AbortController()
+        controllers.push(controller)
+        provider = factory({ signal: controller.signal, invalidate() {} })
+        assert.equal(provider.name, 'delta-code-approved-github')
+        return () => {
+          removals++
+          controller.abort(new Error('provider registration disposed'))
+        }
       },
     }
     const stop = registerApprovedGitHubSkills(h.ctx)
     const childDispose = h.attach(registry)
     h.attach(registry)
     assert.equal(calls, 1)
+    assert.ok((await provider.list()).length > 0)
     childDispose()
     assert.equal(removals, 1)
+    await assert.rejects(provider.list(), /disposed/)
     h.attach(registry)
     assert.equal(calls, 2)
+    assert.ok((await provider.list()).length > 0)
     stop()
     stop()
     assert.equal(removals, 2)
+    assert.ok(controllers.every(controller => controller.signal.aborted))
     h.attach(registry)
     assert.equal(calls, 2)
   })
