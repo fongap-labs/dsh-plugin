@@ -35,7 +35,7 @@ describe('Delta Code approved GitHub Skills', () => {
     assert.deepEqual(candidate.invocation, { modelInvocable: true, userInvocable: false })
     const loaded = await provider.get(candidate)
     assert.match(loaded.content, /Approved guidance/)
-    assert.match(loaded.content, /never run remote scripts/i)
+    assert.match(loaded.content, /Do not install packages, execute scripts/i)
     assert.equal(urls[0].url, 'https://raw.githubusercontent.com/acme/approved/' + 'a'.repeat(40) +
       '/skills/reviewed-skill/SKILL.md')
     assert.equal(urls[0].redirect, 'error')
