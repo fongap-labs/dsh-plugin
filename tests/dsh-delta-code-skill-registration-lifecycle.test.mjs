@@ -85,6 +85,19 @@ describe('DSH native Skill lifecycle and rollback', () => {
     stop()
   })
 
+  it('does not duplicate legacy no-disposer registrations after child teardown', () => {
+    const h = host()
+    let count = 0
+    const registry = { register() { count++; return undefined } }
+    const stop = registerCodingSkills(h.ctx)
+    const childDispose = h.attach(registry)
+    childDispose()
+    h.attach(registry)
+    assert.equal(count, ALL_CODING_SKILLS.length)
+    assert.ok(h.warnings.some(x => /no disposer/.test(x)))
+    stop()
+  })
+
   it('does not register approved provider twice and permits Host child remount', () => {
     const h = host()
     let calls = 0
