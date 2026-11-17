@@ -124,12 +124,13 @@ export function hasUnsafeHostPatch(source) {
 // exact author-provided ZIP theme; no arbitrary Host takeover is authorized.
 // Reviewed 2026-11-18: removed native running-status DOM text rewriting.
 // Reviewed 2026-11-18: removed native page heading DOM text rewriting.
+// Reviewed 2026-11-18: native Settings labels are no longer rewritten.
 const ZIP3_THEME_BLOB = '003ce20e1fd2ce6d1054b2d35091382b6539f932'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '7d60da5a660ac5bdcf32b74293620d8946c4801b',
+    sha1: 'e47611d8fb3be3e1db2e6b068ad7d9db1af77490',
   },
   {
     begin: 'function installHostSearch(',
