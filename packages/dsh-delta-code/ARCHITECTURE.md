@@ -9,13 +9,15 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-adapter/providers/dsh/` | Cordis tool registration, Host FS, native retries and service access |
 | `delta-code-adapter/providers/github/` | GitHub HTTP, token reference resolution and transport errors |
 | `delta-code-strategy/` | Host-neutral coding route policy and Skills data; Host integrations are injected by composition |
-| `delta-code-coding/` | Host-independent editing and project discovery policies, plus compatibility facades |
+| `delta-code-coding/` | Host-independent text edit planning, mode/compensation policies, project discovery and compatibility facades |
 | `delta-code-quality/` | Verification, task recovery, delivery evidence and failure policy |
 | `delta-code-repository/` | Workspace, Git, worktrees, repository selection, PR and CI business rules |
 | `delta-code-collaboration/` | Safe native-subagent delegation policy, not a second agent runner |
 | `delta-code-support/` | Ephemeral execution counters; no persistent session database |
 
 ## Boundaries
+
+- `code_multi_edit` DSH Host FS guarded writes, batch preflight, readback, cancellation and compensation execution live in `delta-code-adapter/providers/dsh/multi-edit.ts`. Pure edit transformations and mode/compensation selection remain in Coding; the old Coding tool path is a compatibility facade.
 
 - Native `todo/write` folding, checkpoint validation and recovery decisions live in `delta-code-quality/resume-policy.ts`; DSH session projection registration and read-only Git inspection live in `delta-code-adapter/providers/dsh/resume.ts`. Legacy imports remain compatible.
 
