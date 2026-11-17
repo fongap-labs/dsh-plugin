@@ -182,3 +182,9 @@
 - Delta 侧栏搜索输入框仍在按 Enter 时打开自身七标签 Search Palette；Palette 内 Esc 由 Delta 自有弹层的局部 `keydown` 监听处理，不在整个页面捕获。搜索菜单中的显式操作项不再伪装成 Ctrl/Cmd+K 快捷键，侧栏提示调整为 Enter。
 - 官方 Host 未明确授权接管全局 `session.search` 之前，不再通过私有 dispatch 覆盖或捕获阶段键盘事件覆盖原生快捷键。已知行为变化：直接在窗口任意位置按 Ctrl/Cmd+K 将按 Harness 原生处理，不再直接打开 Delta Search Palette。
 - ZIP3 Search Region SHA-1 精确审核指纹同步更新；Sidebar Region 和 CSS 原有审核哈希保持不变。账号菜单转发、搜索 UI DOM 代理和锁定/删除命令权限仍是后续任务，Issue #333 开放。实际 Windows Harness 交互与性能 A/B 尚待验收。
+
+## 2026-11-18 账号菜单误触防护（Issue #333 第十五阶段）
+
+- Delta 页脚设置/登录按钮查找原生账号菜单时，只匹配明确的「设置 / Settings」「登录 / Sign In」「退出登录 / Sign Out」操作；删除按第一个/最后一个菜单项猜测执行的回退。新打开的菜单只搜索本次新增节点，避免误点其他已打开的菜单。
+- 找不到目标时结束静默等待、恢复原生菜单可见性，交由用户自行选择；不再自动关闭已打开的原生菜单或发送猜测性的设置快捷键。此处仅保证**无法确认时不误点**，尚未移除原生菜单 DOM 查询与 Delta 自建页脚。
+- 同步固定 ZIP3 Sidebar Region 审核 SHA-1，Search Region 与主题 CSS 哈希不变。后续仍须通过公开 Slot/API 替换账号区 DOM 接管，并开展真实 Windows Harness 功能和性能 A/B 验收；Issue #333 继续开放。
