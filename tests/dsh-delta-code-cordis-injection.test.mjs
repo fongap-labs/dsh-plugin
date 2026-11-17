@@ -81,7 +81,8 @@ describe('Code Worker optional subprocess capability', () => {
       assert.equal(registered.has('code_git_status'), false)
       assert.equal(registered.has('code_workspace_map'), false)
       assert.equal(registered.has('code_lsp_probe'), false)
-      for (const name of ['code_multi_edit', 'code_project_profile', 'code_host_probe', 'code_github_connection']) {
+      assert.equal(registered.has('code_github_connection'), false, 'no authorized GitHub account configured')
+      for (const name of ['code_multi_edit', 'code_project_profile', 'code_host_probe']) {
         assert.ok(registered.has(name), name + ' should be mounted without subprocess')
       }
 
@@ -93,7 +94,7 @@ describe('Code Worker optional subprocess capability', () => {
       await releaseSubprocess()
       releaseSubprocess = undefined
       await settle(() => !registered.has('code_git_status') && !registered.has('code_workspace_map'))
-      for (const name of ['code_workflow_route', 'code_multi_edit', 'code_project_profile', 'code_github_connection']) {
+      for (const name of ['code_workflow_route', 'code_multi_edit', 'code_project_profile', 'code_host_probe']) {
         assert.ok(registered.has(name), name + ' should remain after subprocess removal')
       }
     } finally {
