@@ -12,9 +12,13 @@ export function dshToolRegistrar(
     register(definition) {
       const tool = stats.wrap(definition)
       const result = registerTool(ctx, tool)
-      if (result.registered && typeof result.disposer === 'function') return result.disposer
-      if (result.error) ctx.logger?.warn?.('dsh-delta-code: tool "' + tool.name +
-        '" was not registered: ' + result.error.message)
+      if (!result.registered) {
+        const error = result.error ?? new Error('Host tool registry rejected "' + tool.name + '"')
+        ctx.logger?.warn?.('dsh-delta-code: tool "' + tool.name +
+          '" was not registered: ' + error.message)
+        throw error
+      }
+      if (typeof result.disposer === 'function') return result.disposer
     },
   }
 }

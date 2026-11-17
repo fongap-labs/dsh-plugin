@@ -17,6 +17,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
+- DSH tool-registration refusal is a mount failure, not a warning-only success. The Delta feature kernel unwinds prior tool registrations and feature disposers; a valid Host registration without a disposer remains supported for compatibility.
+
 - GitHub multi-account routing, PR/CI inspection, guarded branch/commit/PR operations and write conflict handling remain in `delta-code-repository/github-operations.ts` and `github-policy.ts`, with Delta transport contracts. DSH tool schema/registration and optional Host Git Origin resolution live in `delta-code-adapter/providers/dsh/github.ts`.
 
 - `code_workspace_map` Host Git enumeration, bounded directory discovery, FS authorization and cancellation live in `delta-code-adapter/providers/dsh/workspace.ts`; ranked tracked-file queries, discovery limits, batched-query validation and presentation selection live in SDK-free `delta-code-repository/workspace-policy.ts`.
