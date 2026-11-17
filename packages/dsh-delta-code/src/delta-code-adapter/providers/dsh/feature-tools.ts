@@ -12,7 +12,7 @@ import { createVerifySuiteTool } from './verify-suite.js'
 import { createDeliveryGateTool } from './delivery-gate.js'
 import { createNativeResumeTool } from './resume.js'
 import { createWorkspaceMapTool } from '../../../delta-code-repository/workspace.js'
-import { createWorktreeTool } from '../../../delta-code-repository/worktree.js'
+import { createWorktreeTool } from './worktree.js'
 import { createGitStatusTool, createGitDiffTool } from './git.js'
 import { createGitHubTools } from '../../../delta-code-repository/github.js'
 
