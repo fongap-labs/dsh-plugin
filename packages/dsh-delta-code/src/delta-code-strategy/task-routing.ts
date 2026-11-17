@@ -1,4 +1,5 @@
 /** Host-neutral coding route policy; no Cordis/DSH API dependencies. */
+import { isExternalSkillOptOut } from './trusted-github-skills.js'
 export type CodingRoute = 'code-ci-repair' | 'code-root-cause-debugging' | 'code-review-readiness'
   | 'code-writing-plans' | 'code-fast-change' | 'code-feature-delivery' | 'code-find-skills'
 
@@ -37,7 +38,7 @@ export function routeCodingTask(text: string, previous?: CodingRoute): CodingRou
   if (!input || OPT_OUT.test(tail)) return undefined
   if (isCodingTaskContinuation(finalLine)) return previous
   if (CI_FAILURE.test(input)) return 'code-ci-repair'
-  if (SKILL_DISCOVERY.test(input)) return 'code-find-skills'
+  if (SKILL_DISCOVERY.test(input) && !isExternalSkillOptOut(input)) return 'code-find-skills'
   if (!CODE_OBJECT.test(input) || !CODE_ACTION.test(input)) return undefined
   if (REVIEW.test(input)) return 'code-review-readiness'
   if (DEBUG.test(input)) return 'code-root-cause-debugging'
