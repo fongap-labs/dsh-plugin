@@ -190,6 +190,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Check the repository license and attribution requirements, supported tools/runtime, external dependencies, destructive actions, network access and privacy impact before recommending a candidate.',
       'Promote a candidate only after source review: record owner, repository, exact path, immutable commit and exact Git blob SHA; preserve streaming size limits and add tamper, metadata, cancellation and lifecycle tests.',
       'Never load unreviewed content as a model-invocable Skill, resolve a moving branch at runtime, auto-install packages or execute remote scripts. Report evidence, risks and any missing information; if search is unavailable, say so.',
+      'Prefer self-contained SKILL.md sources. If a Skill requires relative references, scripts or plugin-specific agents, defer approval until the provider can pin and hash the complete required bundle and the Host can satisfy its tool contracts.',
     ],
   },
   {
