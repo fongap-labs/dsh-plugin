@@ -80,18 +80,73 @@ describe('Code Worker optional subprocess capability', () => {
       await settle(() => registered.has('code_workflow_route'))
       assert.equal(registered.has('code_git_status'), false)
       assert.equal(registered.has('code_workspace_map'), false)
+      assert.equal(registered.has('code_lsp_probe'), false)
+      assert.equal(registered.has('code_github_connection'), false, 'no authorized GitHub account configured')
+      for (const name of ['code_multi_edit', 'code_project_profile', 'code_host_probe']) {
+        assert.ok(registered.has(name), name + ' should be mounted without subprocess')
+      }
 
       releaseSubprocess = ctx.provide('subprocess', {
         spawn() { throw Error('subprocess should not execute during registration') },
       })
-      await settle(() => registered.has('code_git_status') && registered.has('code_workspace_map'))
+      await settle(() => registered.has('code_git_status') && registered.has('code_workspace_map') &&
+        registered.has('code_lsp_probe'))
       await releaseSubprocess()
       releaseSubprocess = undefined
       await settle(() => !registered.has('code_git_status') && !registered.has('code_workspace_map'))
-      assert.equal(registered.has('code_workflow_route'), true)
+      for (const name of ['code_workflow_route', 'code_multi_edit', 'code_project_profile', 'code_host_probe']) {
+        assert.ok(registered.has(name), name + ' should remain after subprocess removal')
+      }
     } finally {
       if (releaseSubprocess) await releaseSubprocess()
       await fiber.dispose()
+      await releaseTools()
+      assert.equal(registered.size, 0)
+    }
+  })
+})
+
+describe('Delta Code GitHub remote execution without subprocess', () => {
+  it('allows an explicitly bound repository without starting local commands', async () => {
+    const ctx = new Context()
+    const registered = new Map()
+    const releaseTools = ctx.provide('tools', {
+      register(definition) {
+        registered.set(definition.name, definition)
+        return () => registered.delete(definition.name)
+      },
+    })
+    const tokenName = 'DELTA_CODE_TEST_REMOTE_TOKEN'
+    const oldToken = process.env[tokenName]
+    const oldFetch = globalThis.fetch
+    const requests = []
+    process.env[tokenName] = 'fixture-token'
+    let fiber
+    try {
+      globalThis.fetch = async (url, opts) => {
+        requests.push({ url: String(url), authorization: opts.headers.Authorization })
+        return new Response(JSON.stringify({
+          full_name: 'company/remote-code', private: true, permissions: { pull: true },
+        }), { status: 200 })
+      }
+      fiber = ctx.plugin({ name: codeWorker.name, inject: codeWorker.inject, apply: codeWorker.apply }, {
+        github: { accounts: [{ owner: 'company', tokenEnv: tokenName }] },
+      })
+      await fiber
+      const connection = registered.get('code_github_connection')
+      assert.ok(connection)
+      const result = await connection.execute({ repository: 'company/remote-code' }, {
+        signal: new AbortController().signal,
+      })
+      assert.equal(result.account, 'company')
+      assert.equal(requests.length, 1)
+      assert.equal(requests[0].authorization, 'Bearer fixture-token')
+      assert.doesNotMatch(JSON.stringify(result), /fixture-token/)
+    } finally {
+      globalThis.fetch = oldFetch
+      if (oldToken === undefined) delete process.env[tokenName]
+      else process.env[tokenName] = oldToken
+      if (fiber?.dispose) await fiber.dispose()
       await releaseTools()
       assert.equal(registered.size, 0)
     }

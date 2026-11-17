@@ -23,7 +23,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - Host permission denial must never be downgraded to Node filesystem access or shell execution.
 - Kernel does not schedule agent work, store sessions, maintain a model catalog or own context compression.
 - Old `lib/tools/*` and root import paths remain as compatibility re-exports until consumers are migrated and existing tests pass.
-- Only DSH `tools` is a root dependency. `subprocess` is injected for the Coding/Quality/Repository command group; its absence preserves Strategies, Skills, and lightweight metrics.
+- Only DSH `tools` is a root dependency. `subprocess` is injected only for LSP probes, command-backed Quality, and local Git/worktree/workspace operations; its absence preserves Strategies, Skills, and lightweight metrics.
 - An absent provider is not the same as an explicitly denied provider; fail closed where permission semantics cannot be preserved.
 
 ## Migration / acceptance
@@ -33,3 +33,5 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 3. Validate TypeScript, existing regression tests and Github/AW gate.
 4. Test real Harness FS writes, scoped command execution, workflow cancellation, account routing and hot reload before release.
 5. Only then remove obsolete compatibility facades and duplicate implementation paths.
+
+Remote GitHub API calls, the multi-edit tool, project profiles and Host capability probes remain accessible without subprocess. An omitted repository may still require local Git origin detection and will fail clearly when subprocess is unavailable.
