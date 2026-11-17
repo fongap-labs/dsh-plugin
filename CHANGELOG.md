@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 维护: Delta Code 将编程意图路由规则抽离为无宿主依赖的纯策略模块，DSH 事件订阅和系统提示词注入收敛到 Adapter，保留旧 API 导出与既有路由行为。
+- 维护: Delta Code 将编程路由、Skills 声明与策略装配从 DSH 运行时解耦；事件、Skills 注册与提示词注入全部收敛到 Adapter，保留旧导出及既有路由行为。
 
 - 维护: Delta Code 删除内置 A/B 随机分组、会话事件对照统计与 code_ab_report 工具；自动路由对所有已启用的编码任务一致生效，保留普通执行指标。
 

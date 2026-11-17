@@ -17,7 +17,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
-- Coding task selection lives in `delta-code-strategy/task-routing.ts` and depends on no DSH types. Inbox event subscriptions and dynamic routing prompts belong to `delta-code-adapter/providers/dsh/auto-routing.ts`; composition injects the registrar.
+- Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
 
 - External APIs are not runtime-version-pinned; compatibility depends on available, semantically verified capabilities.
 - Repository and coding business rules must not own GitHub authentication or raw HTTP transport.
