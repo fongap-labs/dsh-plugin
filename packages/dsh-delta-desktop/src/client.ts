@@ -4125,9 +4125,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             const candidates = openedByDelta ? newItems : allItems
             const label = (el: HTMLElement): string => (el.textContent ?? '').trim()
             if (kind === 'settings') {
-              return candidates.find(el => /^(?:设置|Settings)$/i.test(label(el)))
+              return candidates.find(el => /^(?:\u8BBE\u7F6E|Settings)$/i.test(label(el)))
             }
-            return candidates.find(el => /^(?:登录|退出登录|Sign\s*(?:In|Out)|Log\s*(?:In|Out))$/i.test(label(el)))
+            return candidates.find(el => /^(?:\u767B\u5F55|\u9000\u51FA\u767B\u5F55|Sign\s*(?:In|Out)|Log\s*(?:In|Out))$/i.test(label(el)))
           }
 
           let attempts = 0
