@@ -15,6 +15,18 @@ export interface ProxySettings {
   noProxy: string
 }
 
+export type VisionBridgeMode = 'auto' | 'paste-to-path' | 'instant-transcribe'
+
+export interface VisionBridgeSettings {
+  enabled: boolean
+  mode: VisionBridgeMode
+  provider: string // 'auto' | 'openai-compat' | 'gemini' | 'modlens'
+  customEndpoint: string
+  customApiKey: string
+  customModel: string
+  autoWrapModels: boolean
+}
+
 export interface PinHashRecord {
   salt: string
   hash: string
@@ -24,9 +36,11 @@ export interface DeltaHostState {
   pinHash?: PinHashRecord
   totpSecret?: string
   lockedSessionIds: string[]
+  lockedWorkspaceIds: string[]
   movedSessions: Record<string, string>
   deletedSessionIds: string[]
   proxy: ProxySettings
+  vision: VisionBridgeSettings
 }
 
 export type SessionLockMode = 'totp' | 'pin' | 'none'
@@ -35,9 +49,11 @@ export interface PublicDeltaHostState {
   hasPin: boolean
   lockMode: SessionLockMode
   lockedSessionIds: string[]
+  lockedWorkspaceIds: string[]
   movedSessions: Record<string, string>
   deletedSessionIds: string[]
   proxy: ProxySettings
+  vision: VisionBridgeSettings
 }
 
 export function loadNodeModule<T = any>(specifier: string): Promise<T> {
@@ -53,10 +69,25 @@ export function defaultProxySettings(): ProxySettings {
   }
 }
 
+export function defaultVisionSettings(): VisionBridgeSettings {
+  return {
+    enabled: true,
+    mode: 'auto',
+    provider: 'auto',
+    customEndpoint: '',
+    customApiKey: '',
+    customModel: '',
+    autoWrapModels: true,
+  }
+}
+
 export function normalizeDeltaState(raw: unknown): DeltaHostState {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const locked = Array.isArray(obj.lockedSessionIds)
     ? [...new Set(obj.lockedSessionIds.filter((x): x is string => typeof x === 'string' && x.length > 0))]
+    : []
+  const lockedWorkspaces = Array.isArray(obj.lockedWorkspaceIds)
+    ? [...new Set(obj.lockedWorkspaceIds.filter((x): x is string => typeof x === 'string' && x.length > 0))]
     : []
   const deleted = Array.isArray(obj.deletedSessionIds)
     ? [...new Set(obj.deletedSessionIds.filter((x): x is string => typeof x === 'string' && x.length > 0))]
@@ -83,13 +114,31 @@ export function normalizeDeltaState(raw: unknown): DeltaHostState {
     httpsProxy: typeof rawProxy.httpsProxy === 'string' ? rawProxy.httpsProxy.trim() : '',
     noProxy: typeof rawProxy.noProxy === 'string' ? rawProxy.noProxy.trim() : '',
   }
+
+  const rawVision = obj.vision && typeof obj.vision === 'object' ? (obj.vision as Record<string, unknown>) : {}
+  const visionMode: VisionBridgeMode =
+    rawVision.mode === 'paste-to-path' || rawVision.mode === 'instant-transcribe'
+      ? rawVision.mode
+      : 'auto'
+  const vision: VisionBridgeSettings = {
+    enabled: typeof rawVision.enabled === 'boolean' ? rawVision.enabled : true,
+    mode: visionMode,
+    provider: typeof rawVision.provider === 'string' && rawVision.provider.trim() ? rawVision.provider.trim() : 'auto',
+    customEndpoint: typeof rawVision.customEndpoint === 'string' ? rawVision.customEndpoint.trim() : '',
+    customApiKey: typeof rawVision.customApiKey === 'string' ? rawVision.customApiKey.trim() : '',
+    customModel: typeof rawVision.customModel === 'string' ? rawVision.customModel.trim() : '',
+    autoWrapModels: typeof rawVision.autoWrapModels === 'boolean' ? rawVision.autoWrapModels : true,
+  }
+
   return {
     ...(pinHash ? { pinHash } : {}),
     ...(totpSecret ? { totpSecret } : {}),
     lockedSessionIds: locked,
+    lockedWorkspaceIds: lockedWorkspaces,
     movedSessions: moved,
     deletedSessionIds: deleted,
     proxy,
+    vision,
   }
 }
 
@@ -99,9 +148,14 @@ export function toPublicHostState(state: DeltaHostState): PublicDeltaHostState {
     hasPin: lockMode !== 'none',
     lockMode,
     lockedSessionIds: [...state.lockedSessionIds],
+    lockedWorkspaceIds: [...state.lockedWorkspaceIds],
     movedSessions: { ...state.movedSessions },
     deletedSessionIds: [...state.deletedSessionIds],
     proxy: { ...state.proxy },
+    vision: {
+      ...state.vision,
+      customApiKey: state.vision.customApiKey ? '********' : '',
+    },
   }
 }
 
@@ -322,6 +376,7 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
       const mutated = normalizeDeltaState(await mutator({
         ...cur,
         lockedSessionIds: [...cur.lockedSessionIds],
+        lockedWorkspaceIds: [...cur.lockedWorkspaceIds],
         movedSessions: { ...cur.movedSessions },
         deletedSessionIds: [...cur.deletedSessionIds],
         proxy: { ...cur.proxy },
@@ -364,17 +419,99 @@ export function makeJsonResponse(status: number, payload: unknown): unknown {
 }
 
 export async function readRequestJson(request: unknown): Promise<Record<string, unknown>> {
-  try {
-    const req = request as { json?: () => Promise<unknown>; text?: () => Promise<string> }
-    if (typeof req?.json === 'function') {
+  if (!request || typeof request !== 'object') return {}
+  const req = request as Record<string, any>
+
+  // 1. Direct fetch Request with .json()
+  if (typeof req.json === 'function') {
+    try {
       const data = await req.json()
-      return data && typeof data === 'object' ? (data as Record<string, unknown>) : {}
-    }
-    if (typeof req?.text === 'function') {
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        return data as Record<string, unknown>
+      }
+    } catch {}
+  }
+
+  // 2. Direct fetch Request with .text()
+  if (typeof req.text === 'function') {
+    try {
       const txt = await req.text()
-      const parsed = JSON.parse(txt)
-      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+      if (txt) {
+        const parsed = JSON.parse(txt)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>
+        }
+      }
+    } catch {}
+  }
+
+  // 3. Pre-parsed req.body (Express / Koa / body-parser / h3)
+  if (req.body !== undefined && req.body !== null) {
+    if (typeof req.body === 'object' && !Array.isArray(req.body)) {
+      const isBufferLike =
+        (typeof (globalThis as any).Buffer !== 'undefined' && (globalThis as any).Buffer.isBuffer?.(req.body)) ||
+        (typeof (req.body as any).byteLength === 'number' && typeof (req.body as any).slice === 'function')
+      if (isBufferLike) {
+        try {
+          const bufMod = await loadNodeModule<any>('node:buffer')
+          const str = bufMod.Buffer.from(req.body).toString('utf8')
+          const parsed = JSON.parse(str)
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            return parsed as Record<string, unknown>
+          }
+        } catch {}
+      } else {
+        return req.body as Record<string, unknown>
+      }
+    } else if (typeof req.body === 'string') {
+      try {
+        const parsed = JSON.parse(req.body)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>
+        }
+      } catch {}
     }
-  } catch {}
+  }
+
+  // 4. Node Readable Stream (IncomingMessage)
+  if (typeof req.on === 'function') {
+    try {
+      const bufMod = await loadNodeModule<any>('node:buffer')
+      const chunks: any[] = []
+      await new Promise<void>((resolve, reject) => {
+        req.on('data', (chunk: any) => chunks.push(chunk))
+        req.on('end', () => resolve())
+        req.on('error', (err: any) => reject(err))
+      })
+      const str = bufMod.Buffer.concat(chunks).toString('utf8')
+      if (str) {
+        const parsed = JSON.parse(str)
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>
+        }
+      }
+    } catch {}
+  }
+
+  // 5. Payload passed under .data / .payload
+  if (req.data && typeof req.data === 'object' && !Array.isArray(req.data)) {
+    return req.data as Record<string, unknown>
+  }
+  if (req.payload && typeof req.payload === 'object' && !Array.isArray(req.payload)) {
+    return req.payload as Record<string, unknown>
+  }
+
+  // 6. Direct payload object itself (e.g. { sessionId: '...' })
+  if (
+    typeof req.sessionId === 'string' ||
+    Array.isArray(req.sessionIds) ||
+    typeof req.workspaceId === 'string' ||
+    typeof req.action === 'string' ||
+    typeof req.mode === 'string' ||
+    typeof req.path === 'string'
+  ) {
+    return req as Record<string, unknown>
+  }
+
   return {}
 }

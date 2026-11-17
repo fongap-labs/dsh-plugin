@@ -251,6 +251,18 @@
     "totpLoading": "正在生成 2FA 密钥与二维码…",
     "totpInitFailed": "无法初始化 2FA，请确认桌面服务已启动"
   },
+  "workspaceMenu": {
+    "lockWorkspace": "锁定工作区",
+    "unlockWorkspace": "解锁工作区",
+    "lockedToast": "工作区已锁定",
+    "unlockedToast": "工作区已解锁",
+    "unlockFirst": "该工作区已锁定，请先解锁后再执行此操作",
+    "lockedShieldTitle": "此工作区已锁定",
+    "lockedShieldDesc": "输入验证器 App 中的 6 位纯数字动态码以解锁该工作区。",
+    "unlockPermanent": "验证并解锁",
+    "setPinTitle": "绑定 2FA 动态码锁定工作区",
+    "setPinDescription": "请使用验证器 App（如 Google / Microsoft Authenticator、1Password 等）扫码或输入密钥，并输入 6 位纯数字动态码完成绑定。锁定后该工作区内容将被保护。"
+  },
   "networkProxy": {
     "nav": "网络代理",
     "title": "网络代理配置",
@@ -322,5 +334,32 @@
     "footerOpen": "↵ 打开",
     "footerTab": "Tab 切换分类",
     "footerEsc": "Esc 关闭"
+  },
+  "visionBridge": {
+    "title": "视觉桥（Vision Bridge）",
+    "description": "为纯文本模型（如 DeepSeek、Code-Max）提供外挂视觉能力，支持粘贴图片识别、自动转存本地路径与多模态转写。",
+    "enable": "启用视觉桥",
+    "mode": "工作模式",
+    "modeAuto": "智能模式（支持粘贴图片转存本地路径，供模型通过工具调用转写）",
+    "modePasteToPath": "粘贴转路径（贴入图片自动存为私有临时文件并填入绝对路径）",
+    "modeInstantTranscribe": "即时OCR转写（贴入图片立即调用视觉引擎解析出全文转录及版面证据）",
+    "engine": "视觉识别引擎",
+    "engineAuto": "自动复用本机多模态模型（如 Omni）",
+    "engineCustom": "自定义 OpenAI 兼容视觉端点",
+    "engineGemini": "Google Gemini API（需配 key）",
+    "customEndpoint": "接口地址（Base URL）",
+    "customApiKey": "API 密钥（支持逗号分隔多个轮换）",
+    "customModel": "模型名称（例如 qwen-vl-max / gpt-4o / glm-4v）",
+    "engineStatus": "引擎就绪状态",
+    "ready": "已就绪",
+    "notReady": "未检测到可用视觉引擎，建议配置多模态模型或自定义端点",
+    "testBtn": "测试视觉通道",
+    "testing": "正在探测…",
+    "testSuccess": "视觉引擎探测成功！模型：{model}",
+    "testFailed": "视觉引擎连接失败：{error}",
+    "toastPastedPath": "🖼️ 视觉桥：已将粘贴图片转存为本地文件路径并填入输入框",
+    "toastTranscribing": "🔍 视觉桥：正在转写图片内容…",
+    "toastTranscribed": "✅ 视觉桥：图片内容转写完成",
+    "toastFailed": "❌ 视觉桥处理失败：{error}"
   }
 }

@@ -251,6 +251,18 @@
     "totpLoading": "Generating 2FA secret and QR code…",
     "totpInitFailed": "Unable to initialize 2FA setup. Ensure the desktop host is running."
   },
+  "workspaceMenu": {
+    "lockWorkspace": "Lock workspace",
+    "unlockWorkspace": "Unlock workspace",
+    "lockedToast": "Workspace locked",
+    "unlockedToast": "Workspace unlocked",
+    "unlockFirst": "This workspace is locked, please unlock it before performing this action",
+    "lockedShieldTitle": "Workspace Locked",
+    "lockedShieldDesc": "Enter the 6-digit dynamic code from your authenticator app to unlock this workspace.",
+    "unlockPermanent": "Verify and unlock",
+    "setPinTitle": "Bind 2FA TOTP to Lock Workspace",
+    "setPinDescription": "Use an authenticator app to scan the QR code or enter the secret key, and input the 6-digit code to complete binding. The workspace content will be protected when locked."
+  },
   "networkProxy": {
     "nav": "Network Proxy",
     "title": "Network Proxy",
@@ -322,5 +334,32 @@
     "footerOpen": "↵ Open",
     "footerTab": "Tab Category",
     "footerEsc": "Esc Close"
+  },
+  "visionBridge": {
+    "title": "Vision Bridge",
+    "description": "Brings vision capabilities to text-only models (like DeepSeek, Code-Max) via paste-to-path, local file routing, and multimodal transcription.",
+    "enable": "Enable Vision Bridge",
+    "mode": "Working Mode",
+    "modeAuto": "Smart Auto (paste saves to local file and models transcribe via tools)",
+    "modePasteToPath": "Paste-to-Path (pasting image saves to private temp file and inserts path)",
+    "modeInstantTranscribe": "Instant OCR Transcribe (pasting image immediately generates verbatim OCR and layout evidence)",
+    "engine": "Vision Engine",
+    "engineAuto": "Auto-detect local multimodal model (e.g. Omni)",
+    "engineCustom": "Custom OpenAI-compatible vision endpoint",
+    "engineGemini": "Google Gemini API (API key required)",
+    "customEndpoint": "Base URL",
+    "customApiKey": "API Key (comma-separated keys supported)",
+    "customModel": "Model Name (e.g. qwen-vl-max / gpt-4o / glm-4v)",
+    "engineStatus": "Engine Readiness",
+    "ready": "Ready",
+    "notReady": "No vision engine detected. Configure a multimodal model or custom endpoint.",
+    "testBtn": "Test Vision Channel",
+    "testing": "Testing…",
+    "testSuccess": "Vision engine test succeeded! Model: {model}",
+    "testFailed": "Vision engine connection failed: {error}",
+    "toastPastedPath": "🖼️ Vision Bridge: Pasted image saved to local path and inserted into input",
+    "toastTranscribing": "🔍 Vision Bridge: Transcribing image content…",
+    "toastTranscribed": "✅ Vision Bridge: Image transcribed successfully",
+    "toastFailed": "❌ Vision Bridge error: {error}"
   }
 }
