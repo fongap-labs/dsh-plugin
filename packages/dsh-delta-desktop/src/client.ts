@@ -1352,6 +1352,36 @@ interface ClientFeatureManager {
   resetSessionOverlays(): void
 }
 
+// Observe the Host's confirmed mainView ownership; a navigation request is not
+// evidence that its target became the active Session. Ambiguous or unavailable
+// snapshots must not replace the last known selection used by privacy guards.
+function readConfirmedMainSessionId(list: SearchSessionsApi['list']): string | undefined {
+  try {
+    const rows = Object.values(list.getSnapshot().byId)
+    const mainRows = rows.filter(row =>
+      ((row as { retainedBy?: { mainView?: number } }).retainedBy?.mainView ?? 0) > 0)
+    return mainRows.length === 1 && typeof mainRows[0].id === 'string' && mainRows[0].id
+      ? mainRows[0].id : undefined
+  } catch { return undefined }
+}
+
+function observeConfirmedMainSession(list: SearchSessionsApi['list'], onConfirmed: (id: string) => void): () => void {
+  let isDisposed = false
+  const sync = (): void => {
+    if (isDisposed) return
+    const id = readConfirmedMainSessionId(list)
+    if (id !== undefined) onConfirmed(id)
+  }
+  let unsubscribe: (() => void) | undefined
+  try { unsubscribe = list.subscribe?.(sync) } catch { /* Older Host: keep the existing UI compatibility path. */ }
+  sync()
+  return () => {
+    if (isDisposed) return
+    isDisposed = true
+    unsubscribe?.()
+  }
+}
+
 function createClientFeatureManager(): ClientFeatureManager {
   let state: ClientFeatureSnapshot = Object.freeze({
     hasPin: false,
@@ -2604,10 +2634,9 @@ function createClientFeatureManager(): ClientFeatureManager {
     setSessionsApi: (api) => {
       sessionsApi = api
       if (api) {
-        const byId = api.list?.getSnapshot?.()?.byId ?? {}
-        const mainSess = Object.values(byId).find(s => ((s as { retainedBy?: { mainView?: number } }).retainedBy?.mainView ?? 0) > 0)
-        if (mainSess?.id && state.activeSessionId !== mainSess.id) {
-          publish({ activeSessionId: mainSess.id })
+        const mainSessionId = readConfirmedMainSessionId(api.list)
+        if (mainSessionId !== undefined && state.activeSessionId !== mainSessionId) {
+          publish({ activeSessionId: mainSessionId })
         }
         if (hasSyncedStateFromHost) notifyDataApis()
         else ensureLoaded()
@@ -6859,22 +6888,9 @@ window.__ModuleLoader__.load({
                 const sessionsApi = searchScope.sessions
                 const navApi = searchScope.uiWorkspace
 
-                // Track active session id & protect deleted sessions in client projection
-                const origOpenSession = typeof navApi.openSession === 'function' ? navApi.openSession : undefined
-                if (origOpenSession) {
-                  try {
-                    const wrappedOpen = (sessionId: string, opts?: { workspaceId?: string }) => {
-                      deltaFeatures.setActiveSessionId(sessionId)
-                      return opts ? origOpenSession.call(navApi, sessionId, opts) : origOpenSession.call(navApi, sessionId)
-                    }
-                    navApi.openSession = wrappedOpen
-                    searchScope.effect(() => () => {
-                      if (navApi.openSession === wrappedOpen) navApi.openSession = origOpenSession
-                    }, 'dsh-delta-desktop: active session tracker')
-                  } catch {}
-                }
-
-                // Filter deleted sessions from sessions.list snapshot (for "In one list" view) & track active mainView session
+                // Native navigation stays intact. Observe confirmed mainView retention
+                // rather than recording the target of a possibly rejected navigation.
+                // The deleted-session compatibility projection is unchanged here.
                 let cachedBaseSess: ReturnType<SearchSessionsApi['list']['getSnapshot']> | undefined
                 let cachedSessRev = -1
                 let cachedProjSess: ReturnType<SearchSessionsApi['list']['getSnapshot']> | undefined
@@ -6899,14 +6915,9 @@ window.__ModuleLoader__.load({
                 searchScope.effect(() => stopSessProjection, 'dsh-delta-desktop: deleted sessions snapshot filter')
                 deltaFeatures.setSessionsApi(sessionsApi)
                 deltaFeatures.setNavigationApi(navApi)
-                const stopActiveSessTrack = sessionsApi.list.subscribe?.(() => {
-                  const snap = sessionsApi.list.getSnapshot()
-                  const mainSess = Object.values(snap?.byId ?? {}).find(s => ((s as { retainedBy?: { mainView?: number } }).retainedBy?.mainView ?? 0) > 0)
-                  if (mainSess?.id) deltaFeatures.setActiveSessionId(mainSess.id)
-                })
-                if (stopActiveSessTrack) {
-                  searchScope.effect(() => stopActiveSessTrack, 'dsh-delta-desktop: active mainView session tracker')
-                }
+                searchScope.effect(() => observeConfirmedMainSession(
+                  sessionsApi.list, id => deltaFeatures.setActiveSessionId(id),
+                ), 'dsh-delta-desktop: confirmed mainView session observer')
 
                 // Register Move, PIN Lock, Delete actions natively in DSH contextMenus when supported
                 const contextMenus = searchScope.get?.('contextMenus') as {
