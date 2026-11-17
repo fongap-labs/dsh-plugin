@@ -77,6 +77,10 @@ export function createApprovedGitHubSkillProvider(
       if (!/^[0-9a-f]{40}$/.test(approved.commit) || !/^[0-9a-f]{40}$/.test(approved.blobSha)) {
         throw new Error('GitHub Skill is missing its reviewed immutable revision')
       }
+      const sourceName = approved.sourceName ?? approved.name
+      if (!/^[a-z0-9-]+$/.test(sourceName) || !approved.license.trim()) {
+        throw new Error('GitHub Skill source metadata is incomplete')
+      }
       if (!/^[a-z0-9-]+$/.test(approved.owner) || !/^[a-z0-9-]+$/.test(approved.repository) ||
         !/^skills\/[a-z0-9-]+\/SKILL\.md$/.test(approved.path)) {
         throw new Error('GitHub Skill source is not approved')
@@ -95,7 +99,7 @@ export function createApprovedGitHubSkillProvider(
       if (actual !== approved.blobSha) throw new Error('Pinned GitHub Skill content hash mismatch')
       const markdown = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
       const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(markdown)
-      if (!match || !new RegExp('^name:\\s*' + approved.name + '\\s*$', 'm').test(match[1])) {
+      if (!match || !new RegExp('^name:\\s*' + sourceName + '\\s*$', 'm').test(match[1])) {
         throw new Error('Pinned GitHub Skill metadata mismatch')
       }
       const body = markdown.slice(match[0].length).trim()
