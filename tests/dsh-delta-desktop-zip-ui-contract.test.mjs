@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '7805cd90293bc02e18361c2226b076fe8f96694a')
+    assert.equal(sha, '9d840883f2806a411b3e97e44bc642124b427481')
   })
   it('retains the seven-tab SearchPalette and its explicit keyboard invocation', () => {
     for (const term of ['SearchTabId', 'tabAll', 'tabSession', 'tabWorkspace',

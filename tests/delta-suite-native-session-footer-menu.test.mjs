@@ -9,7 +9,7 @@ const source = read('packages/dsh-delta-desktop/src/client.ts')
 const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/dsh-delta-desktop/src/theme.css')
 const start = normalizedSource.indexOf('        if (isFooterContainer || isSessionFooter) {\n')
-const end = normalizedSource.indexOf('        const sepEls = items.filter(el =>\n', start)
+const end = normalizedSource.indexOf('        // Native session context menu item order and separators belong to Harness.\n', start)
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
@@ -27,8 +27,8 @@ test('Harness session footer menu owns order and separators, Delta retains destr
   assert.match(footer, /dtd-menu-danger/)
   assert.match(footer, /data-danger/)
   assert.match(footer, /Delete session/)
-  assert.match(normalizedSource, /const SESSION_MENU_ORDERS:/)
-  assert.match(normalizedSource, /hasGroup3Or4/, 'viewport ordering remains a separate migration')
+  assert.doesNotMatch(normalizedSource, /SESSION_MENU_ORDERS/)
+  assert.match(normalizedSource, /Native session context menu item order and separators belong to Harness/)
 })
 
 test('ZIP3 guard rejects reintroducing unapproved footer DOM mutation', () => {

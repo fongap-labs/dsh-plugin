@@ -3185,7 +3185,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
   }
 
-  const modifiedMenuNodes = new Set<HTMLElement>()
   const hiddenFeedbackNodes = new Set<HTMLElement>()
   const hiddenSessionLogNodes = new Set<HTMLElement>()
   const hiddenPrivacyCmdNodes = new Set<HTMLElement>()
@@ -3193,7 +3192,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const hiddenSoleWorkspaceNodes = new Set<HTMLElement>()
   const hiddenDeletedRows = new Set<HTMLElement>()
   const hiddenEmptyUngroupedNodes = new Set<HTMLElement>()
-  const hiddenSepNodes = new Set<HTMLElement>()
   const collapsibleErrorHandlers = new Map<HTMLElement, (e: Event) => void>()
   const modifiedTailNavCells = new Set<HTMLElement>()
   let lastMenuSessionId: string | undefined
@@ -3354,16 +3352,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     tooltipEl = undefined
     resetElasticLayout()
     resetModalState()
-    for (const node of modifiedMenuNodes) {
-      try {
-        node.removeAttribute?.('data-dtd-menu-order')
-        node.style?.removeProperty?.('order')
-      } catch {}
-    }
-    modifiedMenuNodes.clear()
     restoreHiddenNodes('data-dtd-hidden-feedback', hiddenFeedbackNodes)
     restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
-    restoreHiddenNodes('data-dtd-hidden-menu-sep', hiddenSepNodes)
     for (const navBtn of modifiedTailNavCells) {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
     }
@@ -3397,33 +3387,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       return stored.groupExpansion ?? {}
     } catch { return {} }
   }
-  const SESSION_MENU_ORDERS: Record<string, string> = {
-    '\u91cd\u547d\u540d': '10', 'Rename': '10',
-    '\u7f6e\u9876\u4f1a\u8bdd': '20', '\u53d6\u6d88\u7f6e\u9876': '20', 'Pin': '20', 'Unpin': '20',
-    '\u5206\u53c9\u4f1a\u8bdd': '30', 'Fork': '30', 'Fork session': '30',
-    '\u79fb\u52a8\u4f1a\u8bdd': '40', 'Move session': '40', 'Move conversation': '40',
-    '\u5728\u5e94\u7528\u4e2d\u6253\u5f00': '50', '\u5728\u6587\u4ef6\u5939\u663e\u793a': '50', '\u5728 Finder \u663e\u793a': '50', 'Show in folder': '50', 'Show in Finder': '50', 'Open in app': '50',
-    '\u590d\u5236 Session ID': '60', 'Copy Session ID': '60',
-    '\u9501\u5b9a\u4f1a\u8bdd': '70', '\u89e3\u9501\u4f1a\u8bdd': '70', 'Lock session': '70', 'Unlock session': '70', 'Lock conversation': '70', 'Unlock conversation': '70',
-    '\u5f52\u6863\u4f1a\u8bdd': '80', '\u53d6\u6d88\u5f52\u6863': '80', 'Archive': '80', 'Unarchive': '80',
-    '\u5220\u9664\u4f1a\u8bdd': '90', 'Delete session': '90', 'Delete conversation': '90',
-  }
-
-  const getSessionMenuOrder = (label: string): string | null => {
-    const trimmed = (label ?? '').trim()
-    if (SESSION_MENU_ORDERS[trimmed]) return SESSION_MENU_ORDERS[trimmed]
-    if (/^\u91cd\u547d\u540d|^Rename/i.test(trimmed)) return '10'
-    if (/^(\u7f6e\u9876\u4f1a\u8bdd|\u53d6\u6d88\u7f6e\u9876|Pin|Unpin)/i.test(trimmed)) return '20'
-    if (/^\u5206\u53c9|^Fork/i.test(trimmed)) return '30'
-    if (/^\u79fb\u52a8|^Move/i.test(trimmed)) return '40'
-    if (/^(\u5728\u5e94\u7528\u4e2d\u6253\u5f00|\u5728\u6587\u4ef6\u5939\u663e\u793a|\u5728 Finder \u663e\u793a|Show in folder|Show in Finder|Open in app)/i.test(trimmed)) return '50'
-    if (/(Session ID|\u4f1a\u8bdd\u7f16\u53f7)/i.test(trimmed)) return '60'
-    if (/^(\u9501\u5b9a\u4f1a\u8bdd|\u89e3\u9501\u4f1a\u8bdd|Lock session|Unlock session|Lock conversation|Unlock conversation)/i.test(trimmed)) return '70'
-    if (/^(\u5f52\u6863\u4f1a\u8bdd|\u53d6\u6d88\u5f52\u6863|Archive|Unarchive)/i.test(trimmed)) return '80'
-    if (/^(\u5220\u9664\u4f1a\u8bdd|Delete session|Delete conversation)/i.test(trimmed)) return '90'
-    return null
-  }
-
   const FEEDBACK_MENU_LABELS = new Set([
     '\u53CD\u9988',
     'Feedback',
@@ -3458,35 +3421,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       } catch {}
     }
     collapsibleErrorHandlers.clear()
-  }
-
-  const setMenuNodeOrder = (node: HTMLElement, order: string): void => {
-    if (node.getAttribute('data-dtd-menu-order') !== order) node.setAttribute('data-dtd-menu-order', order)
-    if (node.style?.getPropertyValue?.('order') !== order) node.style?.setProperty?.('order', order, 'important')
-    modifiedMenuNodes.add(node)
-  }
-
-  const sortContainerChildrenByOrder = (container: HTMLElement): void => {
-    if (!container || typeof container.appendChild !== 'function') return
-    const children = Array.from(container.children ?? []) as HTMLElement[]
-    if (children.length < 2) return
-    const sorted = [...children].sort((a, b) => {
-      const oa = Number(a.getAttribute?.('data-dtd-menu-order') || '999')
-      const ob = Number(b.getAttribute?.('data-dtd-menu-order') || '999')
-      return oa - ob
-    })
-    let shouldReorder = false
-    for (let i = 0; i < sorted.length; i++) {
-      if (sorted[i] !== children[i]) {
-        shouldReorder = true
-        break
-      }
-    }
-    if (shouldReorder) {
-      for (const node of sorted) {
-        container.appendChild(node)
-      }
-    }
   }
 
   const getMenuLabel = (el: HTMLElement): string => {
@@ -3701,30 +3635,10 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
   }
 
-  const createSepNode = (sample?: HTMLElement): HTMLElement => {
-    if (sample && typeof sample.cloneNode === 'function') {
-      try {
-        const cloned = sample.cloneNode(true) as HTMLElement
-        cloned.className = (cloned.className || '') + ' dtd-injected-sep'
-        return cloned
-      } catch {}
-    }
-    const sep = document.createElement('div')
-    sep.setAttribute('role', 'separator')
-    sep.className = 'dtd-injected-sep'
-    return sep
-  }
-
   const syncMenus = (): void => {
     syncPrivacyDom()
-    for (const stale of modifiedMenuNodes) {
-      if (!stale.isConnected) modifiedMenuNodes.delete(stale)
-    }
     for (const stale of hiddenFeedbackNodes) {
       if (!stale.isConnected) hiddenFeedbackNodes.delete(stale)
-    }
-    for (const stale of hiddenSepNodes) {
-      if (!stale.isConnected) hiddenSepNodes.delete(stale)
     }
     if (typeof document?.querySelectorAll !== 'function') return
     const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_"], [class*="_footer_"], [role="menu"]')
@@ -3810,7 +3724,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           for (const el of items) {
             const isSeparator = el.getAttribute?.('role') === 'separator' ||
               (typeof el.className === 'string' &&
-                (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
+                (el.className.includes('_separator_')))
             if (isSeparator) continue
             const label = getMenuLabel(el)
             if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
@@ -3821,18 +3735,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           continue
         }
 
-        const sepEls = items.filter(el =>
-          el.getAttribute?.('role') === 'separator' ||
-          (typeof el.className === 'string' && (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
-        )
-        const hasGroup3Or4 = items.some(el => {
-          const ord = getSessionMenuOrder(getMenuLabel(el))
-          return ord === '70' || ord === '80' || ord === '90'
-        })
-
-        for (let i = 0; i < items.length; i++) {
-          const el = items[i]
-          if (sepEls.includes(el)) continue
+        // Native session context menu item order and separators belong to Harness.
+        for (const el of items) {
+          const isSeparator = el.getAttribute?.('role') === 'separator' ||
+            (typeof el.className === 'string' && el.className.includes('_separator_'))
+          if (isSeparator) continue
           const label = getMenuLabel(el)
           if (label === '\u5728\u6587\u4ef6\u5939\u663e\u793a' || label === '\u5728 Finder \u663e\u793a') {
             const labelSpan = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
@@ -3843,40 +3750,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             if (labelSpan) labelSpan.textContent = 'Open in app'
             else if (el.getAttribute?.('role') === 'menuitem') el.textContent = 'Open in app'
           }
-          const ord = getSessionMenuOrder(label)
-          if (ord) setMenuNodeOrder(el, ord)
           if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
             el.setAttribute?.('data-danger', '1')
             el.classList?.add('dtd-menu-danger')
           }
         }
-
-        if (hasGroup3Or4) {
-          const needed = ['45', '65', '85']
-          for (let s = 0; s < Math.min(sepEls.length, 3); s++) {
-            setMenuNodeOrder(sepEls[s], needed[s])
-          }
-          for (let s = 3; s < sepEls.length; s++) {
-            hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
-          }
-          for (let s = sepEls.length; s < 3; s++) {
-            const newSep = createSepNode(sepEls[0])
-            setMenuNodeOrder(newSep, needed[s])
-            container.appendChild(newSep)
-          }
-        } else {
-          if (sepEls.length >= 1) {
-            setMenuNodeOrder(sepEls[0], '45')
-            for (let s = 1; s < sepEls.length; s++) {
-              hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
-            }
-          } else {
-            const newSep = createSepNode()
-            setMenuNodeOrder(newSep, '45')
-            container.appendChild(newSep)
-          }
-        }
-        sortContainerChildrenByOrder(container)
         continue
       }
 
@@ -4699,7 +4577,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     restoreHiddenNodes('data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
     restoreHiddenNodes('data-dtd-hidden-deleted', hiddenDeletedRows)
     restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
-    restoreHiddenNodes('data-dtd-hidden-menu-sep', hiddenSepNodes)
     closeUngroupedMenu()
     cleanupCollapsibleErrors()
     deltaFeatures.resetSessionOverlays()

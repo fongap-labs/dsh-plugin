@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 不再重排 Harness 会话右键菜单或注入/隐藏分隔符，清理对应缓存和 CSS，保留危险操作标记（Issue #333）。
+
 - 修复: Delta Suite 不再重排 Harness 会话 Footer 菜单或注入分隔符；保留删除危险态标记和锁定保护（Issue #333）。
 
 - 修复: 停止对 Harness 工作区菜单原生条目和分隔符排序，保留删除与锁定保护；更新 ZIP3 发布哈希与回归测试（Issue #333）。
