@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 清除对 Harness 原生账号触发器的捕获阶段点击阻断以及失效的静默绕过缓存，保留 Delta 自有页脚操作（Issue #333）。
+
 - 修复: Delta Suite 不再通过 DOM 和主题 CSS 隐藏 Harness 原生 Feedback 菜单入口；保留其余命令与隐私保护策略（Issue #333）。
 
 - 修复: Delta Suite 不再通过宿主 DOM 将“在文件夹显示 / Show in Finder”等原生会话菜单操作改写为“在应用中打开 / Open in app”；保持删除危险态和 ZIP3 审核校验（Issue #333）。

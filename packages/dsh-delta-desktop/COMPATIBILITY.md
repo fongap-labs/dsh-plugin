@@ -161,3 +161,10 @@
 - **保留** `/feedback` / `/export` 命令策略、日志与设置隐私、单工作区删除保护。此次仅治理菜单入口，不代表所有反馈命令路径恢复；相关策略后续单独审核。
 - ZIP3 Client Region SHA-1 与主题 Git Blob SHA-1 均同步更新并继续严格校验。剩余账号/快捷键事件拦截和侧栏搜索代理待处理，Issue #333 继续开放。
 - 真实 Windows Harness 交互和性能/内存 A/B 仍需验收。
+
+## 2026-11-18 账号菜单点击事件所有权（Issue #333 第十二阶段）
+
+- 停止在 Harness 原生账号/个人资料菜单触发器上添加捕获阶段 `click` 监听、`stopImmediatePropagation` 和 `preventDefault`，原生点击事件不再被旧 Delta 兼容层主动阻断。
+- 删除已无读取场景的 `boundTriggers` WeakSet 和 `isSilentMenuAllowed` 绕过状态。保留用于 Delta 页脚按钮查找原生触发器的 `dtd-native-profile-trigger` 类标记。
+- **未完成**：原生页脚仍有 CSS 隐藏与 `triggerAccountMenuAction` 程序化菜单选择逻辑，未在本阶段迁移至官方 API；本改动不等于完整恢复原生账号 UI。
+- 全局快捷键、搜索代理和其他锁定/删除保护未修改。ZIP3 审核区域哈希保持严格固定。真实 Windows Harness 账号交互和内存/响应 A/B 待测。
