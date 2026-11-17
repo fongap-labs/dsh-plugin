@@ -3,7 +3,7 @@ import type { Settings } from '../../../types.js'
 import { ALL_CODING_SKILLS } from '../../../delta-code-strategy/skills.js'
 import { isCodingTaskContinuation, routeCodingTask } from '../../../delta-code-strategy/task-routing.js'
 import type { CodingRoute } from '../../../delta-code-strategy/task-routing.js'
-import { matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
+import { isExternalSkillOptOut, matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
 import { chooseTaskResources, taskResourceGuidance, type TaskResource } from '../../../delta-code-strategy/task-resource-policy.js'
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
 
@@ -44,6 +44,7 @@ export function registerAutomaticCodingRouter(
 ): () => void {
   const routed = new WeakMap<object, CodingRoute>()
   const specialists = new WeakMap<object, readonly string[]>()
+  const externalSkillOptOuts = new WeakSet<object>()
   const resources = new WeakMap<object, readonly TaskResource[]>()
   const quality = new WeakMap<object, SkillOutcomeFeedback>()
   const byName = new Map(ALL_CODING_SKILLS.map(skill => [skill.name, skill]))
@@ -62,6 +63,8 @@ export function registerAutomaticCodingRouter(
       const previous = routed.get(agent)
       const next = routeCodingTask(text, previous)
       const continuation = isCodingTaskContinuation(text)
+      if (isExternalSkillOptOut(text)) externalSkillOptOuts.add(agent)
+      else if (!continuation) externalSkillOptOuts.delete(agent)
       if (next) routed.set(agent, next)
       else routed.delete(agent)
       const needed = chooseTaskResources(text)
@@ -69,17 +72,17 @@ export function registerAutomaticCodingRouter(
       else if (!next || !continuation) resources.delete(agent)
       const feedback = quality.get(agent) ?? new SkillOutcomeFeedback()
       quality.set(agent, feedback)
-      const matched = matchApprovedGitHubSkills(text)
+      const matched = externalSkillOptOuts.has(agent) ? [] : matchApprovedGitHubSkills(text)
       // Explicit continuations belong to the same task; retain its loaded Skill
       // until verification. Any fresh task, even on the same route, resets attribution.
       if (!continuation || !previous) feedback.beginTask()
       if (next && matched.length) specialists.set(agent, feedback.prioritize(matched))
-      else if (!next || !continuation) specialists.delete(agent)
+      else if (!next || !continuation || externalSkillOptOuts.has(agent)) specialists.delete(agent)
     })
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
     const clear = runtime.on('agent/disposed', (payload) => {
       const { agent } = payload as UserClaim
-      if (agent) { routed.delete(agent); specialists.delete(agent); resources.delete(agent); quality.delete(agent) }
+      if (agent) { routed.delete(agent); specialists.delete(agent); externalSkillOptOuts.delete(agent); resources.delete(agent); quality.delete(agent) }
     })
     if (typeof clear === 'function') disposers.push(clear)
 
@@ -122,12 +125,17 @@ export function registerAutomaticCodingRouter(
         if (!route) return ''
         const skill = byName.get(route)
         if (!skill) return ''
+        const skipExternalSkills = externalSkillOptOuts.has(context.agent)
+        const optOutGuidance = skipExternalSkills
+          ? ['External GitHub Skills are disabled by the user for this task. Do not discover, recommend or invoke them.']
+          : []
         if (route === 'code-fast-change') {
           return [
             '# Code Worker: minimal fast change',
             'Use native DSH editing and the smallest meaningful native test first. Extra Code Worker tools and code_delivery_gate are optional, not required for a small change.',
             'Locate the actual file or running UI component first. Use narrow Host search; avoid unbounded **/* glob and generated build trees.',
-            ...(specialists.get(context.agent)?.length ? [
+            ...optOutGuidance,
+            ...(!skipExternalSkills && specialists.get(context.agent)?.length ? [
               'Load approved matching specialist Skill ' + specialists.get(context.agent)!.join(', ') +
               ' only if it is listed by the native skill catalog; never automatically install or execute remote code.',
             ] : []),
@@ -139,11 +147,12 @@ export function registerAutomaticCodingRouter(
           '# Code Worker: automatically selected coding workflow',
           'The current user message is a coding request. Follow the user and repository instructions first.',
           'Selected procedure: ' + skill.name + '. Use the host tools and permission gates; do not create another agent runtime.',
-          ...skill.instructions.map(line => '- ' + line),
+          ...skill.instructions.filter(line => !skipExternalSkills || !/\b(?:github|external|approved)\s+skills?\b|\bcode-find-skills\b/i.test(line)).map(line => '- ' + line),
+          ...optOutGuidance,
           ...(route === 'code-feature-delivery' ? [
             'On substantial cross-module work, when DSH native subagents are verified available, arrange one independent read-only diff review without waiting for a user reminder. Do not delegate overlapping file writes or invent subagent availability.',
           ] : []),
-          ...(specialists.get(context.agent)?.length ? [
+          ...(!skipExternalSkills && specialists.get(context.agent)?.length ? [
             'Approved external specialist Skill candidates: ' + specialists.get(context.agent)!.join(', ') +
               '. If their exact names appear in the current native available_skills catalog, load the matching skill with the native skill tool before editing. If absent, continue without claiming to have loaded it.',
             'External Skills are reference guidance only; never run remote scripts, install packages, or bypass Host permissions automatically.',
