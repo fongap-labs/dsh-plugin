@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 移除侧栏原生导航标签和 aria-label 的 DOM 改写，以及不再需要的辅助函数和恢复缓存；保留 More 治理为单独任务（Issue #333）。
+
 - 修复: Delta Suite 设置导航不再改写 Harness 内建设置标签及无障碍文案；保留 Agent 预设布局标记并更新 ZIP3 发布审核指纹（Issue #333）。
 
 - 修复: 停止 Delta Suite 通过宿主 DOM 重命名原生页面标题，保留 Harness 页面文案所有权，更新 ZIP3 审核指纹（Issue #333）。
