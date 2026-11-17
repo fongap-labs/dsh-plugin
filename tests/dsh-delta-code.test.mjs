@@ -108,7 +108,7 @@ describe("dsh-delta-code", () => {
     assert.deepEqual(codeWorker.inject, ["tools"]);
   });
 
-  it("注册了预期的工具集合，且不注册 A/B 实验工具", () => {
+  it("registers expected tools without an A/B experiment report", () => {
     const names = [...ctx.registered.keys()].sort();
     assert.equal(ctx.registered.has("code_ab_report"), false);
     assert.deepEqual(names, ["code_delivery_gate", "code_execution_stats", "code_git_diff", "code_git_status", "code_git_worktree", "code_host_probe", "code_lsp_probe", "code_multi_edit", "code_project_profile", "code_resume", "code_verify", "code_verify_suite", "code_workflow_route", "code_workspace_map"]);
