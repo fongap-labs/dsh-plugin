@@ -90,7 +90,7 @@ describe("dsh-delta-code", () => {
     const fresh = createContext();
     const dispose = codeWorker.apply(fresh, { workspaceRoot: workspace });
     const names = [...fresh.registeredSkills.keys()];
-    assert.equal(names.length, 21);
+    assert.equal(names.length, 22);
     assert.equal(new Set(names).size, names.length);
     for (const name of ["code-fast-change", "code-workflow", "code-brainstorming", "code-writing-plans",
       "code-executing-plans", "code-subagent-delivery", "code-test-driven-development",

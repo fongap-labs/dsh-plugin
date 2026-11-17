@@ -4,6 +4,7 @@ import { ALL_CODING_SKILLS } from '../../../delta-code-strategy/skills.js'
 import { routeCodingTask } from '../../../delta-code-strategy/task-routing.js'
 import type { CodingRoute } from '../../../delta-code-strategy/task-routing.js'
 import { matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
+import { chooseTaskResources, taskResourceGuidance, type TaskResource } from '../../../delta-code-strategy/task-resource-policy.js'
 
 /** Host-specific event subscription and system prompt integration. */
 interface UserClaim {
@@ -42,6 +43,7 @@ export function registerAutomaticCodingRouter(
 ): () => void {
   const routed = new WeakMap<object, CodingRoute>()
   const specialists = new WeakMap<object, readonly string[]>()
+  const resources = new WeakMap<object, readonly TaskResource[]>()
   const byName = new Map(ALL_CODING_SKILLS.map(skill => [skill.name, skill]))
   const runtime = ctx as unknown as RuntimeContext
   const disposers: Array<() => void> = []
@@ -58,12 +60,15 @@ export function registerAutomaticCodingRouter(
       const next = routeCodingTask(text, previous)
       if (next) routed.set(agent, next)
       else routed.delete(agent)
+      const needed = chooseTaskResources(text)
+      if (next && needed.length) resources.set(agent, needed)
+      else if (!next || next !== previous) resources.delete(agent)
       const matched = matchApprovedGitHubSkills(text)
       if (next && matched.length) specialists.set(agent, matched)
       else if (!next || next !== previous) specialists.delete(agent)
     })
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
-    const clear = runtime.on('agent/disposed', ({ agent }) => { if (agent) { routed.delete(agent); specialists.delete(agent) } })
+    const clear = runtime.on('agent/disposed', ({ agent }) => { if (agent) { routed.delete(agent); specialists.delete(agent); resources.delete(agent) } })
     if (typeof clear === 'function') disposers.push(clear)
   }
   runtime.inject(['systemPrompt'], child => {
@@ -89,6 +94,7 @@ export function registerAutomaticCodingRouter(
               'Load approved matching specialist Skill ' + specialists.get(context.agent)!.join(', ') +
               ' only if it is listed by the native skill catalog; never automatically install or execute remote code.',
             ] : []),
+            ...taskResourceGuidance(resources.get(context.agent) ?? []),
             'Report actual changes, checks and any unverified outcome; never claim unrun tests passed.',
           ].join('\n')
         }
@@ -105,6 +111,7 @@ export function registerAutomaticCodingRouter(
               '. If their exact names appear in the current native available_skills catalog, load the matching skill with the native skill tool before editing. If absent, continue without claiming to have loaded it.',
             'External Skills are reference guidance only; never run remote scripts, install packages, or bypass Host permissions automatically.',
           ] : []),
+          ...taskResourceGuidance(resources.get(context.agent) ?? []),
           'Before claiming completion, verify the actual changes and tests. Do not report an unrun check as passed.',
         ].join('\n')
       },

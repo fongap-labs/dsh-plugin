@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code 依据开发任务选择官方版本文档、跨仓库依赖或原生 MCP 工具检索策略，优先复用 Harness Web/GitHub/MCP 能力，缺失时明确报告。
+
 - 修复: 已审核 GitHub Skill 的远程响应改为流式大小限制，即使响应未声明长度也拒绝超量内容。
 
 - 新增: Delta Code 支持按编程任务自动匹配已审核、GitHub 提交及文件哈希固定的外部 Skills，通过 DSH 原生 Provider 按需加载；拒绝未审核脚本及自动安装。
