@@ -1,0 +1,44 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { verifyApprovedZip3Client } from '../scripts/verify-delta-desktop-release.mjs'
+
+const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
+const source = read('packages/dsh-delta-desktop/src/client.ts')
+const normalized = source.replace(/\r\n/g, '\n')
+const theme = read('packages/dsh-delta-desktop/src/theme.css')
+const start = normalized.indexOf('function installHostSearch(')
+const end = normalized.indexOf('\nwindow.__ModuleLoader__.load(', start)
+const emitted = [
+  'function installSidebarCompatibility() {}',
+  'function installHostSearch() {}',
+  'data-delta-compat dtd-native-search',
+  'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
+].join('\n')
+
+test('Host ShortcutsService registry dispatch/invoke stays unmodified', () => {
+  assert.ok(start >= 0 && end > start)
+  const search = normalized.slice(start, end)
+  for (const forbidden of [
+    '__deltaSearchHooked', 'restoreShortcutHooks', 'origDispatch',
+    'origInvoke', 'reg.dispatch =', 'reg.invoke =',
+  ]) {
+    assert.equal(search.includes(forbidden), false, 'private Host mutation remains: ' + forbidden)
+  }
+  assert.match(search, /const onGlobalKeyDown = /, 'Delta key handler stays a separate migration')
+  assert.match(search, /window\.addEventListener\('keydown', onGlobalKeyDown, \{ capture: true \}\)/)
+  assert.match(search, /getShortcutsService\(\)\?\.catalog\?\.getSnapshot/, 'shortcut catalog remains readable')
+  assert.match(search, /getShortcutsService\(\)\?\.registry\?\.invoke\?\.\(id,/, 'user-selected shortcut action remains available')
+  assert.match(search, /function installHostSearch\(/)
+  assert.match(search, /const triggerModalSearch =/)
+})
+
+test('ZIP3 client review pin rejects reintroducing private shortcut method overrides', () => {
+  assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
+  const anchor = '  let observer: MutationObserver | undefined\n  const frameScheduler = createFrameScheduler(() => sync())'
+  assert.ok(normalized.includes(anchor))
+  const modified = normalized.replace(anchor, '  getShortcutsService().registry.dispatch = () => {}\n' + anchor)
+  assert.notEqual(modified, normalized)
+  assert.throws(() => verifyApprovedZip3Client(emitted, modified), /approved compatibility adapter changed/)
+})

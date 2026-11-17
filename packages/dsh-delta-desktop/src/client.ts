@@ -5053,7 +5053,6 @@ function installHostSearch(
   const getShortcutsService = (): {
     catalog?: { getSnapshot?: () => ReadonlyArray<{ id?: string; label?: string; keys?: readonly string[]; aliases?: readonly string[] }> }
     registry?: {
-      dispatch?: (gesture: Record<string, unknown>, context: unknown, consume: () => void) => unknown
       invoke?: (id: string, context: unknown) => unknown
     }
   } | undefined => {
@@ -5777,44 +5776,6 @@ function installHostSearch(
     document.addEventListener('keydown', onGlobalKeyDown, { capture: true })
   }
 
-  // Intercept Electron Desktop native Ctrl/Cmd+K ("session.search") routed through ShortcutsService
-  let restoreShortcutHooks: (() => void) | undefined
-  try {
-    const reg = getShortcutsService()?.registry as any
-    if (reg && typeof reg.dispatch === 'function' && !reg.__deltaSearchHooked) {
-      const origDispatch = reg.dispatch
-      const origInvoke = typeof reg.invoke === 'function' ? reg.invoke : undefined
-      reg.__deltaSearchHooked = true
-      reg.dispatch = function(this: any, gesture: Record<string, unknown>, context: unknown, consume: () => void) {
-        if (!isDisposed && controller.getSnapshot().mode === 'delta' &&
-            (gesture?.control || gesture?.meta) && !gesture?.alt && !gesture?.shift && gesture?.code === 'KeyK') {
-          consume?.()
-          if (!gesture?.repeat) {
-            if (isModalOpen) closePalette()
-            else openPalette(input.value)
-          }
-          return { status: 'handled', commandId: 'session.search' }
-        }
-        return origDispatch.apply(this, arguments)
-      }
-      if (origInvoke) {
-        reg.invoke = function(this: any, id: string) {
-          if (!isDisposed && controller.getSnapshot().mode === 'delta' && id === 'session.search') {
-            if (isModalOpen) closePalette()
-            else openPalette(input.value)
-            return
-          }
-          return origInvoke.apply(this, arguments)
-        }
-      }
-      restoreShortcutHooks = () => {
-        if (reg.dispatch !== origDispatch) reg.dispatch = origDispatch
-        if (origInvoke && reg.invoke !== origInvoke) reg.invoke = origInvoke
-        delete reg.__deltaSearchHooked
-      }
-    }
-  } catch {}
-
   let observer: MutationObserver | undefined
   const frameScheduler = createFrameScheduler(() => sync())
   const scheduleSync = (): void => {
@@ -5863,8 +5824,6 @@ function installHostSearch(
   return () => {
     if (isDisposed) return
     isDisposed = true
-    restoreShortcutHooks?.()
-    restoreShortcutHooks = undefined
     frameScheduler.cancel()
     if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
       window.removeEventListener('keydown', onGlobalKeyDown, { capture: true })
