@@ -1,7 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Settings } from '../../../types.js'
 import { ALL_CODING_SKILLS } from '../../../delta-code-strategy/skills.js'
-import { routeCodingTask } from '../../../delta-code-strategy/task-routing.js'
+import { isCodingTaskContinuation, routeCodingTask } from '../../../delta-code-strategy/task-routing.js'
 import type { CodingRoute } from '../../../delta-code-strategy/task-routing.js'
 import { matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
 import { chooseTaskResources, taskResourceGuidance, type TaskResource } from '../../../delta-code-strategy/task-resource-policy.js'
@@ -61,11 +61,12 @@ export function registerAutomaticCodingRouter(
         : ''
       const previous = routed.get(agent)
       const next = routeCodingTask(text, previous)
+      const continuation = isCodingTaskContinuation(text)
       if (next) routed.set(agent, next)
       else routed.delete(agent)
       const needed = chooseTaskResources(text)
       if (next && needed.length) resources.set(agent, needed)
-      else if (!next || next !== previous) resources.delete(agent)
+      else if (!next || !continuation) resources.delete(agent)
       const feedback = quality.get(agent) ?? new SkillOutcomeFeedback()
       quality.set(agent, feedback)
       const matched = matchApprovedGitHubSkills(text)
@@ -73,7 +74,7 @@ export function registerAutomaticCodingRouter(
       // continuations too rather than attributing a different task's tests to a prior Skill.
       feedback.beginTask()
       if (next && matched.length) specialists.set(agent, feedback.prioritize(matched))
-      else if (!next || next !== previous) specialists.delete(agent)
+      else if (!next || !continuation) specialists.delete(agent)
     })
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
     const clear = runtime.on('agent/disposed', (payload) => {
