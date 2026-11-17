@@ -21,11 +21,13 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - Approved Skill selection can be re-ordered using session-local, verified native tool outcome co-occurrence after at least three observations per candidate. `tools/result` only observes approved Skill load successes and definite `code_verify` results. Tool arguments, transcripts and sources are never stored; this feedback is not causal evidence and never authorizes external commands.
 
-- SDK-free `delta-code-strategy/task-resource-policy.ts` routes official documentation, cross-repository analysis and native MCP/tool discovery to preexisting Host capabilities. No secondary web/MCP client or project-wide indexing agent is created.
+- SDK-free `delta-code-strategy/task-resource-policy.ts` routes official documentation, cross-repository analysis, native MCP/tool discovery and explicit GitHub Skill discovery to preexisting Host capabilities. No secondary web/MCP client or project-wide indexing agent is created.
 
 - Approved remote Skill responses are streamed under a hard byte cap even when `Content-Length` is absent or dishonest; the final Git blob hash must still match the reviewed commit. No external scripts or secondary resources are auto-loaded.
 
 - Approved public GitHub Skills are selected by SDK-free `delta-code-strategy/trusted-github-skills.ts`, loaded by the read-only pinned-content `delta-code-adapter/providers/github/approved-skills.ts`, and registered through the optional DSH native `skills.registerProvider()` seam. Remote content is hash-verified at load and never installed or executed by Delta. Unreviewed repositories are not promoted into model-invocable Skills.
+
+- `code-find-skills` performs read-only discovery through native Host GitHub/web search when an approved Skill does not fit. Candidate content is untrusted data; promotion requires source, license and safety review plus immutable commit and Git blob pins.
 
 - Volatile configuration reload validates the next settings before disposal; when Host tool registration rejects the replacement, Delta attempts to re-mount the last active settings, and reports failure explicitly if both mounts fail.
 
