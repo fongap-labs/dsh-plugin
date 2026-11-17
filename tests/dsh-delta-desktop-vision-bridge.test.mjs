@@ -366,3 +366,96 @@ test('Vision Bridge: cache isolates equal-size images, prompts, credentials and 
     await fs.rm(home, { recursive: true, force: true })
   }
 })
+
+test('Vision Bridge config and status never return a stored API key', async () => {
+  let persisted = {
+    lockedSessionIds: [],
+    lockedWorkspaceIds: [],
+    movedSessions: {},
+    deletedSessionIds: [],
+    proxy: { mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' },
+    vision: defaultVisionSettings(),
+  }
+  const store = {
+    read: async () => persisted,
+    update: async mutator => {
+      persisted = await mutator(persisted)
+      return persisted
+    },
+  }
+  const routes = new Map()
+  const ctx = {
+    inject(deps, handler) {
+      return handler({
+        connection: {
+          fetch: {
+            register(spec) {
+              routes.set(spec.path, spec)
+              return () => routes.delete(spec.path)
+            },
+          },
+        },
+      })
+    },
+    tools: { register() { return () => {} } },
+  }
+  const dispose = installHostVisionOps(ctx, store)
+  try {
+    const config = routes.get(DELTA_VISION_CONFIG_PATH).fetch
+    const status = routes.get(DELTA_VISION_STATUS_PATH).fetch
+    const rawSecret = 'sk-private-server-only-12345'
+    const saved = await (await config({ json: async () => ({
+      provider: 'openai-compat',
+      customEndpoint: 'https://vision.example.invalid/v1',
+      customApiKey: rawSecret,
+    }) })).json()
+    assert.equal(saved.ok, true)
+    assert.equal(saved.vision.customApiKey, '********')
+    assert.equal(persisted.vision.customApiKey, rawSecret)
+    const observed = await (await status()).json()
+    assert.equal(observed.visionSettings.customApiKey, '********')
+    assert.equal(JSON.stringify({ saved, observed }).includes(rawSecret), false)
+
+    const updated = await (await config({ json: async () => ({
+      customModel: 'vision-model-2',
+      customApiKey: '********',
+    }) })).json()
+    assert.equal(updated.vision.customApiKey, '********')
+    assert.equal(persisted.vision.customApiKey, rawSecret)
+    assert.equal(persisted.vision.customModel, 'vision-model-2')
+
+    const cleared = await (await config({ json: async () => ({ customApiKey: '' }) })).json()
+    assert.equal(cleared.vision.customApiKey, '')
+    assert.equal(persisted.vision.customApiKey, '')
+  } finally {
+    dispose()
+  }
+})
+
+test('Delta Desktop state file replaces legacy permissive modes with a private atomic file', async () => {
+  const { tmpdir } = await import('node:os')
+  const home = await fs.mkdtemp(path.join(tmpdir(), 'delta-private-state-'))
+  try {
+    const profileDir = path.join(home, 'profile')
+    await fs.mkdir(profileDir, { recursive: true })
+    const filePath = path.join(profileDir, '.delta-desktop-state.json')
+    await fs.writeFile(filePath, '{}', { mode: 0o644 })
+    const store = createHostStateStore({ get(name) {
+      if (name === 'profileContext') return { dir: profileDir }
+      return undefined
+    } })
+    await store.update(cur => ({
+      ...cur,
+      vision: { ...cur.vision, customApiKey: 'stored-local-secret' },
+    }))
+    const saved = JSON.parse(await fs.readFile(filePath, 'utf8'))
+    assert.equal(saved.vision.customApiKey, 'stored-local-secret')
+    if (process.platform !== 'win32') {
+      const stat = await fs.stat(filePath)
+      assert.equal(stat.mode & 0o077, 0)
+    }
+    assert.deepEqual((await fs.readdir(profileDir)).filter(name => name.endsWith('.tmp')), [])
+  } finally {
+    await fs.rm(home, { recursive: true, force: true })
+  }
+})

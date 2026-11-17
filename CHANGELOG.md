@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop 视觉桥接配置和状态接口不再返回 API Key 明文，遮罩回传不会覆盖原密钥；本地凭据状态采用私有权限和原子写入。
+
 - 修复: 可信 GitHub Skills 使用目录版本及 Commit:Blob candidate 标识；撤销 tombstone 阻止旧版本推荐和加载；DSH Provider 卸载取消未完成加载。
 - 修复: 补充可信 Skills 新增、升级、撤销流程，明确已进入既有模型上下文的内容无法追溯清除。
 
