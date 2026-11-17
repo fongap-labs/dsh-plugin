@@ -17,6 +17,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
+- DSH-backed Git status/diff execution, checkout authorization, literal diff pathscoping, Host subprocess and cancellation live in `delta-code-adapter/providers/dsh/git.ts`; `delta-code-repository/git-status-policy.ts` and `git-execution.ts` remain Host-independent. Legacy Repository and `tools/` exports are retained.
+
 - `code_multi_edit` DSH Host FS guarded writes, batch preflight, readback, cancellation and compensation execution live in `delta-code-adapter/providers/dsh/multi-edit.ts`. Pure edit transformations and mode/compensation selection remain in Coding; the old Coding tool path is a compatibility facade.
 
 - Native `todo/write` folding, checkpoint validation and recovery decisions live in `delta-code-quality/resume-policy.ts`; DSH session projection registration and read-only Git inspection live in `delta-code-adapter/providers/dsh/resume.ts`. Legacy imports remain compatible.
