@@ -17,7 +17,7 @@ const emitted = [
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 
-test('Host ShortcutsService registry dispatch/invoke stays unmodified', () => {
+test('Host ShortcutsService registry dispatch/invoke stays unmodified and uninvoked', () => {
   assert.ok(start >= 0 && end > start)
   const search = normalized.slice(start, end)
   for (const forbidden of [
@@ -30,7 +30,7 @@ test('Host ShortcutsService registry dispatch/invoke stays unmodified', () => {
   assert.match(search, /modal\.addEventListener\('keydown'/, 'Delta Escape is scoped to its own dialog')
   assert.match(search, /kbdHint\.textContent = 'Enter'/, 'Delta search is opened from its own input')
   assert.match(search, /getShortcutsService\(\)\?\.catalog\?\.getSnapshot/, 'shortcut catalog remains readable')
-  assert.match(search, /getShortcutsService\(\)\?\.registry\?\.invoke\?\.\(id,/, 'user-selected shortcut action remains available')
+  assert.doesNotMatch(search, /getShortcutsService\(\)\?\.registry\?\.invoke\?\.\(id,/, 'unknown Host commands must not be executed by Delta')
   assert.match(search, /function installHostSearch\(/)
   assert.match(search, /const triggerModalSearch =/)
 })
