@@ -1,0 +1,42 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { verifyApprovedZip3Client } from '../scripts/verify-delta-desktop-release.mjs'
+
+const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
+const source = read('packages/dsh-delta-desktop/src/client.ts')
+const theme = read('packages/dsh-delta-desktop/src/theme.css')
+const start = source.indexOf('      if (isWorkspaceMenu) {\n        const lockEls =')
+const end = source.indexOf('      if (isSessionMenu) {\n', start)
+const emitted = [
+  'function installSidebarCompatibility() {}',
+  'function installHostSearch() {}',
+  'dtd-native-search data-delta-compat',
+  'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
+].join('\n')
+
+test('native workspace order/separators remain untouched while deletion is still guarded', () => {
+  assert.ok(start >= 0 && end > start)
+  const workspace = source.slice(start, end)
+  for (const forbidden of ['setMenuNodeOrder(', 'sortContainerChildrenByOrder(', 'createSepNode(', 'container.appendChild(', 'hiddenSepNodes']) {
+    assert.equal(workspace.includes(forbidden), false, 'workspace ordering remains: ' + forbidden)
+  }
+  assert.doesNotMatch(source, /WORKSPACE_MENU_ORDERS/)
+  assert.match(workspace, /lockEls\.length > 1/, 'duplicate lock rows remain safely guarded')
+  assert.match(workspace, /Delete workspace/, 'destructive action recognition remains')
+  assert.match(workspace, /data-danger/)
+  assert.match(workspace, /getWorkspaceCount\(\) <= 1/)
+  assert.match(workspace, /hiddenSoleWorkspaceNodes/)
+  assert.match(source, /const SESSION_MENU_ORDERS:/, 'session menu remains a separate migration')
+  assert.match(source, /if \(isSessionMenu\) \{/)
+})
+
+test('ZIP3 review pin still rejects an unapproved workspace DOM reorder', () => {
+  assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
+  const anchor = '        // Built-in workspace separators and item order belong to Harness.'
+  assert.ok(source.includes(anchor))
+  const tampered = source.replace(anchor, anchor + '\n        container.appendChild(items[0])')
+  assert.notEqual(tampered, source)
+  assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
+})

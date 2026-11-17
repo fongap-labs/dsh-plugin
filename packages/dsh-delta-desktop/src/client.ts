@@ -3424,12 +3424,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     return null
   }
 
-  const WORKSPACE_MENU_ORDERS: Record<string, string> = {
-    '\u91cd\u547d\u540d': '10', 'Rename': '10',
-    '\u5728\u6587\u4ef6\u5939\u663e\u793a': '20', '\u5728 Finder \u663e\u793a': '20', 'Show in folder': '20', 'Show in Finder': '20',
-    '\u9501\u5b9a\u5de5\u4f5c\u533a': '30', '\u89e3\u9501\u5de5\u4f5c\u533a': '30', 'Lock workspace': '30', 'Unlock workspace': '30',
-    '\u5220\u9664\u5de5\u4f5c\u533a': '40', 'Delete workspace': '40',
-  }
   const FEEDBACK_MENU_LABELS = new Set([
     '\u53CD\u9988',
     'Feedback',
@@ -3798,9 +3792,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           const isSep = el.getAttribute?.('role') === 'separator' || (typeof el.className === 'string' && el.className.includes('_separator_'))
           if (isSep) continue
           const l = getMenuLabel(el)
-          if (l in WORKSPACE_MENU_ORDERS) {
-            setMenuNodeOrder(el, WORKSPACE_MENU_ORDERS[l])
-          }
           if (l === '\u5220\u9664\u5de5\u4f5c\u533a' || l === 'Delete workspace') {
             el.setAttribute?.('data-danger', '1')
             el.classList?.add('dtd-menu-danger')
@@ -3809,28 +3800,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             }
           }
         }
-        const sepEls = items.filter(el =>
-          el.getAttribute?.('role') === 'separator' ||
-          (typeof el.className === 'string' && (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
-        )
-        if (sepEls.length >= 1) setMenuNodeOrder(sepEls[0], '25')
-        if (sepEls.length >= 2) setMenuNodeOrder(sepEls[1], '35')
-        for (let s = 2; s < sepEls.length; s++) {
-          hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
-        }
-        if (sepEls.length === 0) {
-          const sep1 = createSepNode()
-          setMenuNodeOrder(sep1, '25')
-          container.appendChild(sep1)
-          const sep2 = createSepNode()
-          setMenuNodeOrder(sep2, '35')
-          container.appendChild(sep2)
-        } else if (sepEls.length === 1) {
-          const sep2 = createSepNode(sepEls[0])
-          setMenuNodeOrder(sep2, '35')
-          container.appendChild(sep2)
-        }
-        sortContainerChildrenByOrder(container)
+        // Built-in workspace separators and item order belong to Harness.
         continue
       }
 
