@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 功能: Delta Code GitHub 多账号支持显式 owner/repository 绑定，跨组织仓库可分别选择账号；重复映射拒绝，原有 owner 路由与 Token 环境变量配置兼容。
+- 新增: Delta Code GitHub 多账号支持显式 owner/repository 绑定，跨组织仓库可分别选择账号；重复映射拒绝，原有 owner 路由与 Token 环境变量配置兼容。
 
 - 维护: Delta Code 将 subprocess 从全局必需注入改为可选模块级依赖，缺失时保留规划、Skills 和统计能力；服务恢复时重新装载依赖命令的功能，保留原生权限及取消边界。
 
