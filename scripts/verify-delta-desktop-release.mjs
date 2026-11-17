@@ -129,12 +129,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: restored native More visibility in client and ZIP3 theme.
 // Reviewed 2026-11-18: removed native view-options menu sorting.
 // Reviewed 2026-11-18: removed workspace menu sorting and separator overrides; safeguards retained.
+// Reviewed 2026-11-18: footer session menu order/separator mutation removed; delete markers retained.
 const ZIP3_THEME_BLOB = '7805cd90293bc02e18361c2226b076fe8f96694a'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '64d11eb9613f42fe9a022b40c7c53f36ec7fd81f',
+    sha1: '0f1312f54bc0f5bbbb2e9c717a89567240306e07',
   },
   {
     begin: 'function installHostSearch(',
