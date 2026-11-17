@@ -70,6 +70,23 @@ describe('Code Worker automatic user-task routing', () => {
     } finally { f.dispose() }
   })
 
+  it('preserves hints for a true continuation but clears them when a new task shares the same route', () => {
+    const f = fixture()
+    try {
+      const agent = {}
+      f.claim(agent, 'Implement React component with official API documentation')
+      assert.match(f.render(agent), /vercel-react-best-practices/)
+      assert.match(f.render(agent), /official versioned API documentation/)
+      f.claim(agent, '继续推进任务链')
+      assert.match(f.render(agent), /vercel-react-best-practices/)
+      assert.match(f.render(agent), /official versioned API documentation/)
+      f.claim(agent, 'Implement a Rust library cache layer')
+      assert.match(f.render(agent), /code-feature-delivery/)
+      assert.doesNotMatch(f.render(agent), /vercel-react-best-practices/)
+      assert.doesNotMatch(f.render(agent), /official versioned API documentation/)
+    } finally { f.dispose() }
+  })
+
   it('does not route general conversation, explanations, or opt-outs', () => {
     assert.equal(routeCodingTask('今天有什么新闻'), undefined)
     assert.equal(routeCodingTask('解释一下 Python 是什么'), undefined)
