@@ -23,7 +23,7 @@ test('Search Palette leaves native right-sidebar shortcut guide clicks to Harnes
   assert.doesNotMatch(search, /data-sidebar-right-guide-entry|guideNodes|guide-\$\{idx\}|node\.click\?\.\(\)/)
   assert.doesNotMatch(search, /\[class\*="4GESq_text"\]|\[class\*="4GESq_shortcut"\]/)
   assert.match(search, /getShortcutsService\(\)\?\.catalog\?\.getSnapshot\?\.\(\)/,
-    'public Host shortcut catalog remains available')
+    'existing Host shortcut catalog read remains available')
   assert.match(search, /pushShortcut\('search'/, 'Delta-owned search remains available')
   assert.match(search, /pushShortcut\('files'/, 'Delta-owned sidebar action remains available')
   assert.match(search, /Native right-sidebar guide entries are Host-owned/)
