@@ -35,3 +35,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 5. Only then remove obsolete compatibility facades and duplicate implementation paths.
 
 Remote GitHub API calls, the multi-edit tool, project profiles and Host capability probes remain accessible without subprocess. An omitted repository may still require local Git origin detection and will fail clearly when subprocess is unavailable.
+
+## File access boundary
+
+The filesystem's Host capability lookup, guarded writes, and safety-checked local fallback live in `delta-code-adapter/workspace-files.ts`. The old `src/runtime.ts` paths are compatibility re-exports. Business modules should use the adapter's stable public file-access boundary instead of Host providers directly; local fallbacks remain denied when the Host has an inaccessible or incomplete mounted FS.
