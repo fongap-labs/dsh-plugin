@@ -2680,7 +2680,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const mounted = new Map<string, HTMLElement>()
   const initialized = new Set<string>()
   const mutatedNavButtons = new Map<HTMLElement, { origText: string; origAria: string | null }>()
-  const mutatedPageHeadings = new Map<HTMLElement, string>()
   const hiddenMoreElements = new Map<HTMLElement, string | null>()
   const getUiCopy = (): DeltaCopy['ui'] => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
   const boundTriggers = new WeakSet<Element>()
@@ -3423,15 +3422,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       } catch {}
     }
     mutatedNavButtons.clear()
-    for (const [heading, origText] of mutatedPageHeadings) {
-      try {
-        const current = heading.textContent?.trim() ?? ''
-        if (origText && current && current !== origText) {
-          setButtonLabel(heading, current, origText)
-        }
-      } catch {}
-    }
-    mutatedPageHeadings.clear()
     for (const [el, prevDisplay] of hiddenMoreElements) {
       try {
         if (el.style) {
@@ -4060,37 +4050,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     }
   }
-  const syncPageHeadings = (): void => {
-    for (const stale of mutatedPageHeadings.keys()) {
-      if (!stale.isConnected) mutatedPageHeadings.delete(stale)
-    }
-    if (typeof document?.querySelectorAll !== 'function') return
-    if (language() !== 'zh') {
-      for (const [heading, origText] of mutatedPageHeadings) {
-        const cur = heading.textContent?.trim() ?? ''
-        const patched = origText === '\u63D2\u4EF6' ? '\u63D2\u4EF6\u7BA1\u7406' : (origText === '\u81EA\u52A8\u5316\u4EFB\u52A1' ? '\u5B9A\u65F6\u4EFB\u52A1' : origText)
-        if (cur === patched) setButtonLabel(heading, patched, origText)
-        mutatedPageHeadings.delete(heading)
-      }
-      return
-    }
-    const headings = document.querySelectorAll<HTMLElement>('h1')
-    for (const heading of headings) {
-      const parentCls = typeof heading.parentElement?.className === 'string' ? heading.parentElement.className : ''
-      const isHostPageHeading = heading.getAttribute?.('data-plugin-header-part') === 'title'
-        || /PluginManagerPage|TaskManagerPage|pageHeading/.test(parentCls)
-        || Boolean(heading.closest?.('[class*="PluginManagerPage"], [class*="TaskManagerPage"], [class*="pageHeading"]'))
-      if (!isHostPageHeading) continue
-      const text = heading.textContent?.trim() ?? ''
-      if (text === '\u63D2\u4EF6') {
-        if (!mutatedPageHeadings.has(heading)) mutatedPageHeadings.set(heading, '\u63D2\u4EF6')
-        setButtonLabel(heading, '\u63D2\u4EF6', '\u63D2\u4EF6\u7BA1\u7406')
-      } else if (text === '\u81EA\u52A8\u5316\u4EFB\u52A1') {
-        if (!mutatedPageHeadings.has(heading)) mutatedPageHeadings.set(heading, '\u81EA\u52A8\u5316\u4EFB\u52A1')
-        setButtonLabel(heading, '\u81EA\u52A8\u5316\u4EFB\u52A1', '\u5B9A\u65F6\u4EFB\u52A1')
-      }
-    }
-  }
   const processHoverCards = (): void => {
     if (typeof document === 'undefined' || !document.querySelectorAll) return
     const hoverCards = document.querySelectorAll<HTMLElement>('[class*="hoverContent"], [class*="SessionHoverContent"], .wnFoaW_hoverContent')
@@ -4671,7 +4630,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       // Native status text stays under Harness ownership.
       if (typeof document?.querySelectorAll === 'function') {
         syncSettingsNav()
-        syncPageHeadings()
         syncMenus()
       }
 

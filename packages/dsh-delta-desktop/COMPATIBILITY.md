@@ -93,3 +93,9 @@
 - 不再通过 MutationObserver 调用运行状态文本替换，避免在 React 管理的原生文本上重复写入。
 - 其他侧栏 DOM 接管仍在 `installSidebarCompatibility`；未改变导航、搜索代理等既有行为，也未声称完成 Issue #333。ZIP3 校验保留并重新固定经审核的区域哈希。
 - 本阶段没有内存或性能实机 A/B 数据，不能将减少扫描等同于量化性能提升。
+
+## 2026-11-18 Harness 页面标题原生所有权（Issue #333 第二阶段）
+
+- 移除旧兼容层 `syncPageHeadings`、标题修改历史与撤销逻辑。原生“插件”“自动化任务”等页面标题不再由 Delta 根据私有 DOM 结构重命名。
+- `syncSettingsNav`、`syncMenus`、侧栏搜索代理及布局逻辑仍存在；本阶段并未完成整个 DOM 兼容层治理。
+- ZIP3 兼容区域保持审核哈希校验，本次同步更新经审核的哈希，不放宽发布门禁；后续仍需真实 Harness 验收。
