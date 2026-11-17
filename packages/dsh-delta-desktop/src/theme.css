@@ -743,13 +743,13 @@
   letter-spacing: -0.015em;
 }
 
-/* Remove "预览版" badge next to headline */
+/* Remove "\009884\0089C8\007248" badge next to headline */
 :root[data-delta-ui="delta"] [class*="WOwLGG_previewBadge"],
 :root[data-delta-compat="1"] [class*="WOwLGG_previewBadge"] {
   display: none !important;
 }
 
-/* Headline: move whale brand mark to top-right of "探索未至之境", aligned with the 2nd horizontal stroke of "立" in "境" */
+/* Headline: move whale brand mark to top-right of "\0063A2\007D22\00672A\0081F3\004E4B\005883", aligned with the 2nd horizontal stroke of "\007ACB" in "\005883" */
 :root[data-delta-ui="delta"] [class*="WOwLGG_headline"],
 :root[data-delta-compat="1"] [class*="WOwLGG_headline"] {
   display: flex !important;

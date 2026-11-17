@@ -71,26 +71,26 @@ test('Vision Bridge: savePastedImage writes safely to private temp directory', a
 
 test('Vision Bridge: parseStructuredOutput and formatEvidenceBlock', () => {
   const sampleLLM = `
-[OCR 全文转写]
+[OCR \u5168\u6587\u8f6c\u5199]
 const app = express()
 app.listen(3000)
 
-[版面与视觉结构]
-代码编辑器界面，深色主题，左侧行号，右侧有错误标记
+[\u7248\u9762\u4e0e\u89c6\u89c9\u7ed3\u6784]
+\u4ee3\u7801\u7f16\u8f91\u5668\u754c\u9762，\u6df1\u8272\u4e3b\u9898，\u5de6\u4fa7\u884c\u53f7，\u53f3\u4fa7\u6709\u9519\u8bef\u6807\u8bb0
 
-[关键实体与结论]
-端口: 3000
-异常: 端口占用 EADDRINUSE
+[\u5173\u952e\u5b9e\u4f53\u4e0e\u7ed3\u8bba]
+\u7aef\u53e3: 3000
+\u5f02\u5e38: \u7aef\u53e3\u5360\u7528 EADDRINUSE
 `
   const evidence = parseStructuredOutput(sampleLLM)
   assert.ok(evidence.transcription.includes('const app = express()'))
-  assert.ok(evidence.layout.includes('代码编辑器界面'))
+  assert.ok(evidence.layout.includes('\u4ee3\u7801\u7f16\u8f91\u5668\u754c\u9762'))
   assert.ok(evidence.entities.includes('EADDRINUSE'))
   assert.ok(evidence.summary.length > 0)
 
   const formatted = formatEvidenceBlock(evidence, 'C:/temp/error.png')
   assert.ok(formatted.includes('[Source: C:/temp/error.png]'))
-  assert.ok(formatted.includes('[OCR 全文转写]'))
+  assert.ok(formatted.includes('[OCR \u5168\u6587\u8f6c\u5199]'))
   assert.ok(formatted.includes('const app = express()'))
 })
 

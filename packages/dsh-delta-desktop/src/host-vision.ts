@@ -1,5 +1,5 @@
 /**
- * Vision Bridge (视觉桥) Host Engine for @fongap-labs/dsh-delta-desktop.
+ * Vision Bridge (\u89c6\u89c9\u6865) Host Engine for @fongap-labs/dsh-delta-desktop.
  * Inspired by and compatible with https://github.com/liustack/modlens.
  *
  * Provides:
@@ -171,14 +171,14 @@ export function formatEvidenceBlock(evidence: VisionEvidence, sourceLabel?: stri
   const parts = [
     `[Pasted image, read by the vision bridge]`,
     ...(sourceLabel ? [`[Source: ${sourceLabel}]`] : []),
-    `\n[图片概述]\n${evidence.summary || '未提供概述'}`,
-    `\n[OCR 全文转写]\n${evidence.transcription || '（未识别到明显文字）'}`,
+    `\n[\u56fe\u7247\u6982\u8ff0]\n${evidence.summary || '\u672a\u63d0\u4f9b\u6982\u8ff0'}`,
+    `\n[OCR \u5168\u6587\u8f6c\u5199]\n${evidence.transcription || '（\u672a\u8bc6\u522b\u5230\u660e\u663e\u6587\u5b57）'}`,
   ]
   if (evidence.layout) {
-    parts.push(`\n[版面与视觉结构]\n${evidence.layout}`)
+    parts.push(`\n[\u7248\u9762\u4e0e\u89c6\u89c9\u7ed3\u6784]\n${evidence.layout}`)
   }
   if (evidence.entities) {
-    parts.push(`\n[关键实体与结论]\n${evidence.entities}`)
+    parts.push(`\n[\u5173\u952e\u5b9e\u4f53\u4e0e\u7ed3\u8bba]\n${evidence.entities}`)
   }
   return parts.join('\n')
 }
@@ -191,10 +191,10 @@ export function parseStructuredOutput(text: string): VisionEvidence {
   let layout = ''
   let entities = ''
 
-  const summaryMatch = trimmed.match(/\[图片概述\]([\s\S]*?)(?=\[(?:OCR 全文转写|版面与视觉结构|关键实体与结论)\]|$)/i)
-  const ocrMatch = trimmed.match(/\[OCR 全文转写\]([\s\S]*?)(?=\[(?:版面与视觉结构|关键实体与结论)\]|$)/i)
-  const layoutMatch = trimmed.match(/\[版面与视觉结构\]([\s\S]*?)(?=\[关键实体与结论\]|$)/i)
-  const entitiesMatch = trimmed.match(/\[关键实体与结论\]([\s\S]*?)$/i)
+  const summaryMatch = trimmed.match(/\[\u56fe\u7247\u6982\u8ff0\]([\s\S]*?)(?=\[(?:OCR \u5168\u6587\u8f6c\u5199|\u7248\u9762\u4e0e\u89c6\u89c9\u7ed3\u6784|\u5173\u952e\u5b9e\u4f53\u4e0e\u7ed3\u8bba)\]|$)/i)
+  const ocrMatch = trimmed.match(/\[OCR \u5168\u6587\u8f6c\u5199\]([\s\S]*?)(?=\[(?:\u7248\u9762\u4e0e\u89c6\u89c9\u7ed3\u6784|\u5173\u952e\u5b9e\u4f53\u4e0e\u7ed3\u8bba)\]|$)/i)
+  const layoutMatch = trimmed.match(/\[\u7248\u9762\u4e0e\u89c6\u89c9\u7ed3\u6784\]([\s\S]*?)(?=\[\u5173\u952e\u5b9e\u4f53\u4e0e\u7ed3\u8bba\]|$)/i)
+  const entitiesMatch = trimmed.match(/\[\u5173\u952e\u5b9e\u4f53\u4e0e\u7ed3\u8bba\]([\s\S]*?)$/i)
 
   if (summaryMatch) summary = summaryMatch[1].trim()
   if (ocrMatch) transcription = ocrMatch[1].trim()
@@ -556,11 +556,11 @@ export async function resolveVisionAccount(
 
 /** Structured vision OCR prompt template. */
 export const VISION_SYSTEM_PROMPT =
-  '你是一个高精度的视觉分析与多模态OCR引擎。请对这张图片进行结构化解析，按以下标记分段输出证据：\n\n' +
-  '[图片概述]\n简要说明图片类型与核心内容（界面截图/代码片段/架构图表/报错日志/网页渲染等）。\n\n' +
-  '[OCR 全文转写]\n按照从上到下、从左到右的阅读顺序，逐字、完整转写图片中出现的所有文字、代码、命令行、UI标签、数值与标点符号，严格保持原始代码缩进与排版分行。\n\n' +
-  '[版面与视觉结构]\n描述图中的主要界面区域、按钮状态、高亮或异常警报标识、图表结构特征。\n\n' +
-  '[关键实体与结论]\n列出提取到的关键标识符、报错异常、路径或配置数值。'
+  '\u4f60\u662f\u4e00\u4e2a\u9ad8\u7cbe\u5ea6\u7684\u89c6\u89c9\u5206\u6790\u4e0e\u591a\u6a21\u6001OCR\u5f15\u64ce。\u8bf7\u5bf9\u8fd9\u5f20\u56fe\u7247\u8fdb\u884c\u7ed3\u6784\u5316\u89e3\u6790，\u6309\u4ee5\u4e0b\u6807\u8bb0\u5206\u6bb5\u8f93\u51fa\u8bc1\u636e：\n\n' +
+  '[\u56fe\u7247\u6982\u8ff0]\n\u7b80\u8981\u8bf4\u660e\u56fe\u7247\u7c7b\u578b\u4e0e\u6838\u5fc3\u5185\u5bb9（\u754c\u9762\u622a\u56fe/\u4ee3\u7801\u7247\u6bb5/\u67b6\u6784\u56fe\u8868/\u62a5\u9519\u65e5\u5fd7/\u7f51\u9875\u6e32\u67d3\u7b49）。\n\n' +
+  '[OCR \u5168\u6587\u8f6c\u5199]\n\u6309\u7167\u4ece\u4e0a\u5230\u4e0b、\u4ece\u5de6\u5230\u53f3\u7684\u9605\u8bfb\u987a\u5e8f，\u9010\u5b57、\u5b8c\u6574\u8f6c\u5199\u56fe\u7247\u4e2d\u51fa\u73b0\u7684\u6240\u6709\u6587\u5b57、\u4ee3\u7801、\u547d\u4ee4\u884c、UI\u6807\u7b7e、\u6570\u503c\u4e0e\u6807\u70b9\u7b26\u53f7，\u4e25\u683c\u4fdd\u6301\u539f\u59cb\u4ee3\u7801\u7f29\u8fdb\u4e0e\u6392\u7248\u5206\u884c。\n\n' +
+  '[\u7248\u9762\u4e0e\u89c6\u89c9\u7ed3\u6784]\n\u63cf\u8ff0\u56fe\u4e2d\u7684\u4e3b\u8981\u754c\u9762\u533a\u57df、\u6309\u94ae\u72b6\u6001、\u9ad8\u4eae\u6216\u5f02\u5e38\u8b66\u62a5\u6807\u8bc6、\u56fe\u8868\u7ed3\u6784\u7279\u5f81。\n\n' +
+  '[\u5173\u952e\u5b9e\u4f53\u4e0e\u7ed3\u8bba]\n\u5217\u51fa\u63d0\u53d6\u5230\u7684\u5173\u952e\u6807\u8bc6\u7b26、\u62a5\u9519\u5f02\u5e38、\u8def\u5f84\u6216\u914d\u7f6e\u6570\u503c。'
 
 /** Perform image recognition via vision engine with in-memory caching. */
 export async function recognizeImage(
@@ -576,7 +576,7 @@ export async function recognizeImage(
     return { ...cached.evidence, cached: true }
   }
 
-  const promptText = options?.prompt ? `${VISION_SYSTEM_PROMPT}\n额外关注重点：${options.prompt}` : VISION_SYSTEM_PROMPT
+  const promptText = options?.prompt ? `${VISION_SYSTEM_PROMPT}\n\u989d\u5916\u5173\u6ce8\u91cd\u70b9：${options.prompt}` : VISION_SYSTEM_PROMPT
   const base64Data = (typeof (data as any).toString === 'function')
     ? (data as any).toString('base64')
     : getGlobals().Buffer.from(data).toString('base64')

@@ -2385,7 +2385,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         void deleteSession(sessionId).then(res => {
           delBtn.disabled = false
           if (!res.ok) {
-            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : (res.error ? `删除失败: ${res.error}` : copy.ui.unavailable))
+            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : (res.error ? `\u5220\u9664\u5931\u8d25: ${res.error}` : copy.ui.unavailable))
             return
           }
           closeDialog()
@@ -2427,7 +2427,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         void deleteUngroupedSessions(unlockedIds).then(res => {
           delBtn.disabled = false
           if (!res.ok) {
-            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : (res.error ? `删除失败: ${res.error}` : copy.ui.unavailable))
+            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : (res.error ? `\u5220\u9664\u5931\u8d25: ${res.error}` : copy.ui.unavailable))
             return
           }
           closeDialog()
@@ -3273,7 +3273,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const modifiedTailNavCells = new Set<HTMLElement>()
   let lastMenuSessionId: string | undefined
   let lastMenuWorkspaceId: string | undefined
-  const LOCKED_WORKSPACE_MUTATION_LABELS = new Set(['重命名', 'Rename', '删除工作区', 'Delete workspace'])
+  const LOCKED_WORKSPACE_MUTATION_LABELS = new Set(['\u91cd\u547d\u540d', 'Rename', '\u5220\u9664\u5de5\u4f5c\u533a', 'Delete workspace'])
   let ungroupedMenuEl: HTMLElement | undefined
   const closeUngroupedMenu = (): void => {
     ungroupedMenuEl?.remove?.()
@@ -3512,41 +3512,41 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
 
   const SESSION_MENU_ORDERS: Record<string, string> = {
-    '重命名': '10', 'Rename': '10',
-    '置顶会话': '20', '取消置顶': '20', 'Pin': '20', 'Unpin': '20',
-    '分叉会话': '30', 'Fork': '30', 'Fork session': '30',
-    '移动会话': '40', 'Move session': '40', 'Move conversation': '40',
-    '在应用中打开': '50', '在文件夹显示': '50', '在 Finder 显示': '50', 'Show in folder': '50', 'Show in Finder': '50', 'Open in app': '50',
-    '复制 Session ID': '60', 'Copy Session ID': '60',
-    '锁定会话': '70', '解锁会话': '70', 'Lock session': '70', 'Unlock session': '70', 'Lock conversation': '70', 'Unlock conversation': '70',
-    '归档会话': '80', '取消归档': '80', 'Archive': '80', 'Unarchive': '80',
-    '删除会话': '90', 'Delete session': '90', 'Delete conversation': '90',
+    '\u91cd\u547d\u540d': '10', 'Rename': '10',
+    '\u7f6e\u9876\u4f1a\u8bdd': '20', '\u53d6\u6d88\u7f6e\u9876': '20', 'Pin': '20', 'Unpin': '20',
+    '\u5206\u53c9\u4f1a\u8bdd': '30', 'Fork': '30', 'Fork session': '30',
+    '\u79fb\u52a8\u4f1a\u8bdd': '40', 'Move session': '40', 'Move conversation': '40',
+    '\u5728\u5e94\u7528\u4e2d\u6253\u5f00': '50', '\u5728\u6587\u4ef6\u5939\u663e\u793a': '50', '\u5728 Finder \u663e\u793a': '50', 'Show in folder': '50', 'Show in Finder': '50', 'Open in app': '50',
+    '\u590d\u5236 Session ID': '60', 'Copy Session ID': '60',
+    '\u9501\u5b9a\u4f1a\u8bdd': '70', '\u89e3\u9501\u4f1a\u8bdd': '70', 'Lock session': '70', 'Unlock session': '70', 'Lock conversation': '70', 'Unlock conversation': '70',
+    '\u5f52\u6863\u4f1a\u8bdd': '80', '\u53d6\u6d88\u5f52\u6863': '80', 'Archive': '80', 'Unarchive': '80',
+    '\u5220\u9664\u4f1a\u8bdd': '90', 'Delete session': '90', 'Delete conversation': '90',
   }
 
   const getSessionMenuOrder = (label: string): string | null => {
     const trimmed = (label ?? '').trim()
     if (SESSION_MENU_ORDERS[trimmed]) return SESSION_MENU_ORDERS[trimmed]
-    if (/^重命名|^Rename/i.test(trimmed)) return '10'
-    if (/^(置顶会话|取消置顶|Pin|Unpin)/i.test(trimmed)) return '20'
-    if (/^分叉|^Fork/i.test(trimmed)) return '30'
-    if (/^移动|^Move/i.test(trimmed)) return '40'
-    if (/^(在应用中打开|在文件夹显示|在 Finder 显示|Show in folder|Show in Finder|Open in app)/i.test(trimmed)) return '50'
-    if (/(Session ID|会话编号)/i.test(trimmed)) return '60'
-    if (/^(锁定会话|解锁会话|Lock session|Unlock session|Lock conversation|Unlock conversation)/i.test(trimmed)) return '70'
-    if (/^(归档会话|取消归档|Archive|Unarchive)/i.test(trimmed)) return '80'
-    if (/^(删除会话|Delete session|Delete conversation)/i.test(trimmed)) return '90'
+    if (/^\u91cd\u547d\u540d|^Rename/i.test(trimmed)) return '10'
+    if (/^(\u7f6e\u9876\u4f1a\u8bdd|\u53d6\u6d88\u7f6e\u9876|Pin|Unpin)/i.test(trimmed)) return '20'
+    if (/^\u5206\u53c9|^Fork/i.test(trimmed)) return '30'
+    if (/^\u79fb\u52a8|^Move/i.test(trimmed)) return '40'
+    if (/^(\u5728\u5e94\u7528\u4e2d\u6253\u5f00|\u5728\u6587\u4ef6\u5939\u663e\u793a|\u5728 Finder \u663e\u793a|Show in folder|Show in Finder|Open in app)/i.test(trimmed)) return '50'
+    if (/(Session ID|\u4f1a\u8bdd\u7f16\u53f7)/i.test(trimmed)) return '60'
+    if (/^(\u9501\u5b9a\u4f1a\u8bdd|\u89e3\u9501\u4f1a\u8bdd|Lock session|Unlock session|Lock conversation|Unlock conversation)/i.test(trimmed)) return '70'
+    if (/^(\u5f52\u6863\u4f1a\u8bdd|\u53d6\u6d88\u5f52\u6863|Archive|Unarchive)/i.test(trimmed)) return '80'
+    if (/^(\u5220\u9664\u4f1a\u8bdd|Delete session|Delete conversation)/i.test(trimmed)) return '90'
     return null
   }
 
   const WORKSPACE_MENU_ORDERS: Record<string, string> = {
-    '重命名': '10', 'Rename': '10',
-    '在文件夹显示': '20', '在 Finder 显示': '20', 'Show in folder': '20', 'Show in Finder': '20',
-    '锁定工作区': '30', '解锁工作区': '30', 'Lock workspace': '30', 'Unlock workspace': '30',
-    '删除工作区': '40', 'Delete workspace': '40',
+    '\u91cd\u547d\u540d': '10', 'Rename': '10',
+    '\u5728\u6587\u4ef6\u5939\u663e\u793a': '20', '\u5728 Finder \u663e\u793a': '20', 'Show in folder': '20', 'Show in Finder': '20',
+    '\u9501\u5b9a\u5de5\u4f5c\u533a': '30', '\u89e3\u9501\u5de5\u4f5c\u533a': '30', 'Lock workspace': '30', 'Unlock workspace': '30',
+    '\u5220\u9664\u5de5\u4f5c\u533a': '40', 'Delete workspace': '40',
   }
   const VIEW_OPTIONS_ORDERS: Record<string, string> = {
-    '分组方式': '10', 'Group by': '10',
-    '单列表': '15', 'In one list': '15',
+    '\u5206\u7ec4\u65b9\u5f0f': '10', 'Group by': '10',
+    '\u5355\u5217\u8868': '15', 'In one list': '15',
     '\u6309\u5DE5\u4F5C\u533A': '20', 'WorkSpace': '20',
     '\u6309\u5DE5\u4F5C\u533A\u6811': '30', 'Workspace Tree': '30',
     '\u6392\u5E8F\u65B9\u5F0F': '40', 'Order by': '40',
@@ -3910,39 +3910,39 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       if (items.length < 2) continue
       const isFooterContainer = typeof container.className === 'string' && container.className.includes('_footer_')
       const isSessionFooter = isFooterContainer || (
-        labels.some(t => t.includes('归档') || t.includes('Archive'))
-        && labels.some(t => t.includes('锁定') || t.includes('Lock')
-          || t.includes('移动') || t.includes('Move')
-          || t.includes('删除') || t.includes('Delete'))
+        labels.some(t => t.includes('\u5f52\u6863') || t.includes('Archive'))
+        && labels.some(t => t.includes('\u9501\u5b9a') || t.includes('Lock')
+          || t.includes('\u79fb\u52a8') || t.includes('Move')
+          || t.includes('\u5220\u9664') || t.includes('Delete'))
       )
       const isWorkspaceMenu = !isFooterContainer && !isSessionFooter && labels.some(t =>
-        t === '删除工作区' || t === 'Delete workspace' ||
-        t.startsWith('锁定工作区') || t.startsWith('解锁工作区') ||
+        t === '\u5220\u9664\u5de5\u4f5c\u533a' || t === 'Delete workspace' ||
+        t.startsWith('\u9501\u5b9a\u5de5\u4f5c\u533a') || t.startsWith('\u89e3\u9501\u5de5\u4f5c\u533a') ||
         t.startsWith('Lock workspace') || t.startsWith('Unlock workspace')
       ) && !labels.some(t =>
-        t === '置顶会话' || t === '取消置顶' || t === '分叉会话' || t === '移动会话' ||
-        t === '锁定会话' || t === '解锁会话' || t === '归档会话' || t === '取消归档' ||
-        t === '删除会话' || t.includes('Session ID')
+        t === '\u7f6e\u9876\u4f1a\u8bdd' || t === '\u53d6\u6d88\u7f6e\u9876' || t === '\u5206\u53c9\u4f1a\u8bdd' || t === '\u79fb\u52a8\u4f1a\u8bdd' ||
+        t === '\u9501\u5b9a\u4f1a\u8bdd' || t === '\u89e3\u9501\u4f1a\u8bdd' || t === '\u5f52\u6863\u4f1a\u8bdd' || t === '\u53d6\u6d88\u5f52\u6863' ||
+        t === '\u5220\u9664\u4f1a\u8bdd' || t.includes('Session ID')
       )
       const isSessionViewport = !isWorkspaceMenu && !isFooterContainer && !isSessionFooter && (
-        labels.some(t => t.includes('置顶') || t.includes('Pin'))
-        || (labels.some(t => t.includes('重命名') || t.includes('Rename')) && (
-          labels.some(t => t.includes('分叉') || t.includes('Fork'))
-          || labels.some(t => t.includes('移动') || t.includes('Move'))
+        labels.some(t => t.includes('\u7f6e\u9876') || t.includes('Pin'))
+        || (labels.some(t => t.includes('\u91cd\u547d\u540d') || t.includes('Rename')) && (
+          labels.some(t => t.includes('\u5206\u53c9') || t.includes('Fork'))
+          || labels.some(t => t.includes('\u79fb\u52a8') || t.includes('Move'))
           || labels.some(t => t.includes('Session ID'))
-          || labels.some(t => t.includes('在应用中打开') || t.includes('在文件夹显示') || t.includes('Show in folder'))
+          || labels.some(t => t.includes('\u5728\u5e94\u7528\u4e2d\u6253\u5f00') || t.includes('\u5728\u6587\u4ef6\u5939\u663e\u793a') || t.includes('Show in folder'))
         ))
-        || (labels.some(t => t.includes('Session ID')) && labels.some(t => t.includes('在应用中打开') || t.includes('在文件夹显示') || t.includes('Show in folder')))
+        || (labels.some(t => t.includes('Session ID')) && labels.some(t => t.includes('\u5728\u5e94\u7528\u4e2d\u6253\u5f00') || t.includes('\u5728\u6587\u4ef6\u5939\u663e\u793a') || t.includes('Show in folder')))
       )
       const isSessionMenu = !isWorkspaceMenu && (isSessionViewport || isSessionFooter)
-      const isViewMenu = labels.some(t => t === '单列表' || t === 'In one list')
-        && (labels.some(t => t === '按工作区' || t === 'WorkSpace') || labels.some(t => t === '仅显示已归档' || t === 'Archived only'))
+      const isViewMenu = labels.some(t => t === '\u5355\u5217\u8868' || t === 'In one list')
+        && (labels.some(t => t === '\u6309\u5de5\u4f5c\u533a' || t === 'WorkSpace') || labels.some(t => t === '\u4ec5\u663e\u793a\u5df2\u5f52\u6863' || t === 'Archived only'))
       if (!isSessionMenu && !isWorkspaceMenu && !isViewMenu) continue
 
       if (isWorkspaceMenu) {
         const lockEls = items.filter(el => {
           const l = getMenuLabel(el)
-          return l.startsWith('锁定工作区') || l.startsWith('解锁工作区') ||
+          return l.startsWith('\u9501\u5b9a\u5de5\u4f5c\u533a') || l.startsWith('\u89e3\u9501\u5de5\u4f5c\u533a') ||
                  l.startsWith('Lock workspace') || l.startsWith('Unlock workspace') ||
                  el.classList?.contains('dtd-workspace-lock-item')
         })
@@ -3961,7 +3961,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           if (l in WORKSPACE_MENU_ORDERS) {
             setMenuNodeOrder(el, WORKSPACE_MENU_ORDERS[l])
           }
-          if (l === '删除工作区' || l === 'Delete workspace') {
+          if (l === '\u5220\u9664\u5de5\u4f5c\u533a' || l === 'Delete workspace') {
             el.setAttribute?.('data-danger', '1')
             el.classList?.add('dtd-menu-danger')
             if (deltaFeatures.getWorkspaceCount() <= 1) {
@@ -4006,7 +4006,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             const label = getMenuLabel(el)
             const ord = getSessionMenuOrder(label)
             if (ord) setMenuNodeOrder(el, ord)
-            if (label.includes('删除会话') || label.includes('Delete session') || label.includes('Delete conversation')) {
+            if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
               el.setAttribute?.('data-danger', '1')
               el.classList?.add('dtd-menu-danger')
             }
@@ -4038,10 +4038,10 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           const el = items[i]
           if (sepEls.includes(el)) continue
           const label = getMenuLabel(el)
-          if (label === '在文件夹显示' || label === '在 Finder 显示') {
+          if (label === '\u5728\u6587\u4ef6\u5939\u663e\u793a' || label === '\u5728 Finder \u663e\u793a') {
             const labelSpan = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
-            if (labelSpan) labelSpan.textContent = '在应用中打开'
-            else if (el.getAttribute?.('role') === 'menuitem') el.textContent = '在应用中打开'
+            if (labelSpan) labelSpan.textContent = '\u5728\u5e94\u7528\u4e2d\u6253\u5f00'
+            else if (el.getAttribute?.('role') === 'menuitem') el.textContent = '\u5728\u5e94\u7528\u4e2d\u6253\u5f00'
           } else if (label === 'Show in folder' || label === 'Show in Finder') {
             const labelSpan = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
             if (labelSpan) labelSpan.textContent = 'Open in app'
@@ -4049,7 +4049,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           }
           const ord = getSessionMenuOrder(label)
           if (ord) setMenuNodeOrder(el, ord)
-          if (label.includes('删除会话') || label.includes('Delete session') || label.includes('Delete conversation')) {
+          if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
             el.setAttribute?.('data-danger', '1')
             el.classList?.add('dtd-menu-danger')
           }
@@ -7398,7 +7398,7 @@ window.__ModuleLoader__.load({
                   'aria-pressed': fSnap.vision.enabled === en,
                   className: fSnap.vision.enabled === en ? 'dtd-active' : '',
                   onClick: () => { void deltaFeatures.saveVision({ enabled: en }) },
-                }, en ? copy.ui.enabled : (language() === 'zh' ? '已停用' : 'Disabled'))))),
+                }, en ? copy.ui.enabled : (language() === 'zh' ? '\u5df2\u505c\u7528' : 'Disabled'))))),
           fSnap.vision.enabled ? el('div', { className: 'dtd-form-field' },
             el('label', null, copy.visionBridge.mode),
             el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.mode },
@@ -7409,7 +7409,7 @@ window.__ModuleLoader__.load({
                   'aria-pressed': fSnap.vision.mode === vm,
                   className: fSnap.vision.mode === vm ? 'dtd-active' : '',
                   onClick: () => { void deltaFeatures.saveVision({ mode: vm }) },
-                }, vm === 'auto' ? (language() === 'zh' ? '智能模式' : 'Auto') : vm === 'paste-to-path' ? (language() === 'zh' ? '粘贴转路径' : 'Paste to Path') : (language() === 'zh' ? '即时转写' : 'Instant Transcribe')))),
+                }, vm === 'auto' ? (language() === 'zh' ? '\u667a\u80fd\u6a21\u5f0f' : 'Auto') : vm === 'paste-to-path' ? (language() === 'zh' ? '\u7c98\u8d34\u8f6c\u8def\u5f84' : 'Paste to Path') : (language() === 'zh' ? '\u5373\u65f6\u8f6c\u5199' : 'Instant Transcribe')))),
             el('label', null, copy.visionBridge.engine),
             el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.engine },
               (['auto', 'openai-compat', 'gemini'] as const).map(pe =>

@@ -36,7 +36,7 @@ test('workspace TOTP lock and Vision Bridge stay localized and capability-gated'
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/locale/zh.json', import.meta.url)), 'utf8'))
   const host = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/src/host-vision.ts', import.meta.url)), 'utf8')
   assert.equal(en.workspaceMenu.lockWorkspace, 'Lock workspace')
-  assert.equal(zh.workspaceMenu.lockWorkspace, '锁定工作区')
+  assert.equal(zh.workspaceMenu.lockWorkspace, '\u9501\u5b9a\u5de5\u4f5c\u533a')
   assert.ok(en.visionBridge.title && zh.visionBridge.title)
   assert.match(source, /installClientVisionBridge/)
   assert.match(source, /isWorkspaceLocked/)
