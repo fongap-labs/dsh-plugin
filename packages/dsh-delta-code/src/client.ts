@@ -11,7 +11,7 @@ interface ReactApi {
   useEffect(fn: () => void | (() => void), deps?: readonly unknown[]): void
 }
 type Op = { op: 'set'; path: string[]; value: unknown } | { op: 'unset'; path: string[] }
-type Account = { owner: string; tokenEnv: string; sourceIndex: number }
+type Account = { owner: string; tokenEnv: string; repositories: string; sourceIndex: number }
 type Server = { language: string; command: string; args: string }
 interface Draft {
   enabled: boolean
@@ -37,6 +37,8 @@ const NAME = '@fongap-labs/dsh-delta-code'
 const ROW_KEY = NAME + '#dsh-delta-code'
 const OWNER = /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i
 const ENV = /^[A-Z_][A-Z0-9_]*$/
+const REPOSITORY = /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?\/(?!\.{1,2}$)[a-z0-9_.-]{1,100}$/i
+const repositoryList = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean)
 const inset: Record<string, string> = { display: 'grid', gap: '10px', margin: '12px 0' }
 const inputStyle: Record<string, string> = {
   boxSizing: 'border-box', width: '100%', minWidth: '0', padding: '9px 11px',
@@ -70,7 +72,9 @@ function readDraft(value: any): Draft {
     fsWriteContract: execution.fsWriteContract === 'guarded-intent' ? 'guarded-intent' : 'legacy-overwrite',
     systemPromptText: value?.systemPromptText ?? '',
     accounts: (github.accounts ?? []).map((item: any, index: number) => ({
-      owner: item.owner ?? '', tokenEnv: item.tokenEnv ?? '', sourceIndex: index,
+      owner: item.owner ?? '', tokenEnv: item.tokenEnv ?? '',
+      repositories: Array.isArray(item.repositories) ? item.repositories.join(', ') : '',
+      sourceIndex: index,
     })),
     servers: Array.isArray(lsp.servers)
       ? lsp.servers.map((server: any) => ({
@@ -82,6 +86,7 @@ function readDraft(value: any): Draft {
 }
 function validation(draft: Draft, value: any): string | undefined {
   const owners = new Set<string>()
+  const repositories = new Set<string>()
   for (const account of draft.accounts) {
     const owner = account.owner.trim().toLowerCase()
     if (!OWNER.test(owner)) return 'GitHub owner must be a valid username or organization.'
@@ -90,6 +95,14 @@ function validation(draft: Draft, value: any): string | undefined {
     const old = account.sourceIndex >= 0 ? value?.github?.accounts?.[account.sourceIndex] : undefined
     if (!account.tokenEnv) return owner + '：需要 Token 环境变量。'
     if (!ENV.test(account.tokenEnv)) return owner + ': invalid token environment variable name.'
+    const assigned = repositoryList(account.repositories)
+    if (assigned.length > 256) return 'GitHub repository binding limit exceeded.'
+    for (const item of assigned) {
+      if (!REPOSITORY.test(item)) return 'GitHub repository must be owner/name: ' + item
+      const key = item.toLowerCase()
+      if (repositories.has(key)) return 'Duplicate GitHub repository binding: ' + key
+      repositories.add(key)
+    }
   }
   if (!draft.gitCommand.trim()) return 'Git 命令不能为空。'
   for (const server of draft.servers) {
@@ -126,6 +139,11 @@ function operations(draft: Draft, value: any): Op[] {
         ops.push({ op: 'unset', path: [...prefix, 'tokenEnv'] })
       }
     }
+    const assigned = repositoryList(a.repositories)
+    if (JSON.stringify(assigned) !== JSON.stringify(prior?.repositories ?? [])) {
+      if (assigned.length) set([...prefix, 'repositories'], assigned)
+      else ops.push({ op: 'unset', path: [...prefix, 'repositories'] })
+    }
   }
   const removed = current.map((_a: unknown, i: number) => i).filter((i: number) => !seen.has(i))
   for (const index of removed.reverse()) ops.push({ op: 'unset', path: ['github', 'accounts', String(index)] })
@@ -133,6 +151,8 @@ function operations(draft: Draft, value: any): Op[] {
   for (const account of draft.accounts.filter(a => a.sourceIndex < 0)) {
     set(['github', 'accounts', String(index++)], {
       owner: account.owner.trim(), tokenEnv: account.tokenEnv,
+      ...(repositoryList(account.repositories).length
+        ? { repositories: repositoryList(account.repositories) } : {}),
     })
   }
   const servers = draft.servers.map(server => ({
@@ -221,18 +241,20 @@ function installClient(require: (id: string) => unknown) {
         toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
         toggle(t('允许远程写入（默认关闭）', 'Allow remote writes (off by default)'), draft.githubAllowWrites,
           v => patch({ githubAllowWrites: v })),
-        hint(t('一个 owner 对应一个 Token。通过 Token 环境变量名引用凭据；Token 不会写入配置，也不会从 Host 回显。',
-          'One token per owner. Reference the credential by a Token environment variable name; tokens are never written to config or returned by the Host.')),
+        hint(t('账号凭据按用户隔离；可绑定其他组织的具体仓库。未绑定时保留原有按 owner 匹配。Token 不会写入配置。',
+          'Credentials are isolated by account. Bind repositories from other organizations explicitly; legacy owner matching remains the fallback. Tokens are not stored.')),
         ...draft.accounts.map((a, i) => h('div', { key: a.sourceIndex >= 0 ? 'existing-' + a.sourceIndex : 'new-' + i,
           style: { ...inset, padding: '12px', border: '1px solid var(--dsw-alias-border-l2, #ddd)', borderRadius: '10px' } },
           field(t('用户名或组织名', 'Username or organization'), a.owner, v => updateAccount(i, 'owner', v)),
           field(t('Token 环境变量名称', 'Token environment variable name'), a.tokenEnv,
             v => updateAccount(i, 'tokenEnv', v), false, 'GITHUB_TOKEN_NAME'),
+          field(t('绑定仓库（可选，逗号分隔）', 'Bound repositories (optional, comma separated)'),
+            a.repositories, v => updateAccount(i, 'repositories', v), false, 'org/backend, org/frontend'),
           h('button', { type: 'button', disabled, style: actionStyle,
             onClick: () => patch({ accounts: draft.accounts.filter((_, j) => j !== i) }) },
             t('删除账号', 'Remove account')))),
         h('button', { type: 'button', disabled, style: actionStyle,
-          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', tokenEnv: '', sourceIndex: -1 }] }) },
+          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', tokenEnv: '', repositories: '', sourceIndex: -1 }] }) },
           t('添加 GitHub 账号', 'Add GitHub account'))),
       section(t('语言服务器', 'Language servers'),
         ...draft.servers.map((s, i) => h('div', { key: 'server-' + i,

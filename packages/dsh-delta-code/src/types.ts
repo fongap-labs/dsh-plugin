@@ -41,6 +41,8 @@ export interface GitHubAccountConfig {
   owner: string
   /** Environment variable name that holds the GitHub personal access token. */
   tokenEnv: string
+  /** Optional explicit owner/repository bindings, allowing an account to access other organizations. */
+  repositories?: string[]
 }
 
 /** Plugin configuration as accepted from the Cordis patch file. */
