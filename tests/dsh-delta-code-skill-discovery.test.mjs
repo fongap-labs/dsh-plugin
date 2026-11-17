@@ -9,6 +9,9 @@ describe('Delta Code specialist Skill discovery', () => {
     assert.equal(routeCodingTask('Find high-quality GitHub Skills for Rust development'), 'code-find-skills')
     assert.equal(routeCodingTask('不自动调用 GitHub 中优秀 Skill 吗？'), 'code-find-skills')
     assert.equal(routeCodingTask('Continue', 'code-find-skills'), 'code-find-skills')
+    assert.equal(routeCodingTask('Do not use GitHub Skills; fix a React bug'), 'code-root-cause-debugging')
+    assert.equal(routeCodingTask('不要使用 GitHub Skill，修复 React bug'), 'code-root-cause-debugging')
+    assert.deepEqual(chooseTaskResources('Do not use GitHub Skills; fix a React bug'), [])
   })
 
   it('does not trigger discovery for routine coding fixes', () => {

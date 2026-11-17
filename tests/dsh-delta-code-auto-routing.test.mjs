@@ -87,6 +87,24 @@ describe('Code Worker automatic user-task routing', () => {
     } finally { f.dispose() }
   })
 
+  it('honors user external Skill opt-out throughout task continuations', () => {
+    const f = fixture()
+    try {
+      const agent = {}
+      f.claim(agent, 'Implement a React UI, but do not use GitHub Skills')
+      assert.match(f.render(agent), /code-feature-delivery/)
+      assert.match(f.render(agent), /External GitHub Skills are disabled by the user/)
+      assert.doesNotMatch(f.render(agent), /vercel-react-best-practices/)
+      assert.doesNotMatch(f.render(agent), /load code-find-skills/)
+      f.claim(agent, '继续推进任务链')
+      assert.match(f.render(agent), /External GitHub Skills are disabled by the user/)
+      assert.doesNotMatch(f.render(agent), /vercel-react-best-practices/)
+      f.claim(agent, 'Implement a React UI with official API documentation')
+      assert.match(f.render(agent), /vercel-react-best-practices/)
+      assert.doesNotMatch(f.render(agent), /External GitHub Skills are disabled by the user/)
+    } finally { f.dispose() }
+  })
+
   it('does not route general conversation, explanations, or opt-outs', () => {
     assert.equal(routeCodingTask('今天有什么新闻'), undefined)
     assert.equal(routeCodingTask('解释一下 Python 是什么'), undefined)
