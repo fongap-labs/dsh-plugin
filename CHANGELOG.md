@@ -418,6 +418,9 @@
 - 维护: 精简重复样式、文件夹缓存与事件监听，保留宿主扩展接口。
 - 维护: 更新文件夹、搜索、会话删除及隐私设置说明。
 - 维护: Code Worker 显示名称统一为“Delta 编程助手”。
+
+- 维护: 对齐 Delta Desktop README、兼容性说明与 feature-readiness.json，明确缺少公开扩展契约的功能保持未交付。
+
 ## [0.1.0-beta.1](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-suite-delta-v0.1.0-beta.1) - 2026-11-03
 
 ### 新增
