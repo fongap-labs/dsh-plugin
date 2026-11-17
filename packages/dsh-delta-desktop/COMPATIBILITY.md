@@ -221,6 +221,12 @@
 - 修正左侧侧栏切换：安全入口存在时只调用一次，避免返回 `undefined` 时通过空值合并重复调用原生回退。继续保留 Delta 自有搜索、文件/浏览器快捷入口和七标签面板。
 - 同步更新 ZIP3 Search Region 严格 SHA-1；Sidebar Region 与主题 CSS 不变。后续待验证编辑器 slash-command 注入权限与真实 Windows Harness 交互、内存、性能 A/B。
 
+## 原生会话导航观察边界（Issue #333 后续阶段）
+
+- 依据 Harness 固定公开源码 [SessionSummary.retainedBy / SessionListState](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/api/session-controller/src/client/sessions/service.ts#L29-L70) 及 [retention 发布路径](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/api/session-controller/src/client/sessions/service.ts#L590-L599)，使用只读 sessions.list 快照和订阅确认唯一 mainView 会话，不再替换 uiWorkspace.openSession。
+- 导航请求、拒绝、重试本身不更新活动会话；缺失、重复、模糊及读取失败的 mainView 证据不猜测目标、不清除已有保护状态。订阅初始化读取且停用后迟到回调无效。保留原有 sidebar DOM 兼容层、PIN 锁定遮罩、删除/工作区投影等保护逻辑；这些尚未完成公共契约迁移，不把此改动称为完整会话锁定安全验收。
+- 两个 ZIP3 审核源码区域、CSS、全局搜索行为均不变；实际 Windows 会话切换及锁定保护需要专项回归。
+
 ## 2026-11-18 斜杠命令编辑器注入权限治理（Issue #333 第二十一阶段）
 
 - 删除 Search Palette 对 `[data-lexical-editor]`、`[contenteditable]` 和 `textarea` 的全局查询、焦点切换、原型 setter、`execCommand('insertText')` 及直接 `textContent` 写入；不再将私有编辑器 DOM 当作宿主输入 API。
