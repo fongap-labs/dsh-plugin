@@ -3,6 +3,7 @@ import type { Settings } from '../../../types.js'
 import { ALL_CODING_SKILLS } from '../../../delta-code-strategy/skills.js'
 import { routeCodingTask } from '../../../delta-code-strategy/task-routing.js'
 import type { CodingRoute } from '../../../delta-code-strategy/task-routing.js'
+import { matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
 
 /** Host-specific event subscription and system prompt integration. */
 interface UserClaim {
@@ -40,6 +41,7 @@ export function registerAutomaticCodingRouter(
   ctx: Context, settings: () => Settings,
 ): () => void {
   const routed = new WeakMap<object, CodingRoute>()
+  const specialists = new WeakMap<object, readonly string[]>()
   const byName = new Map(ALL_CODING_SKILLS.map(skill => [skill.name, skill]))
   const runtime = ctx as unknown as RuntimeContext
   const disposers: Array<() => void> = []
@@ -52,12 +54,16 @@ export function registerAutomaticCodingRouter(
         ? message.content.filter(item => item.type === 'text' && typeof item.text === 'string')
           .map(item => item.text).join('\n')
         : ''
-      const next = routeCodingTask(text, routed.get(agent))
+      const previous = routed.get(agent)
+      const next = routeCodingTask(text, previous)
       if (next) routed.set(agent, next)
       else routed.delete(agent)
+      const matched = matchApprovedGitHubSkills(text)
+      if (next && matched.length) specialists.set(agent, matched)
+      else if (!next || next !== previous) specialists.delete(agent)
     })
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
-    const clear = runtime.on('agent/disposed', ({ agent }) => { if (agent) routed.delete(agent) })
+    const clear = runtime.on('agent/disposed', ({ agent }) => { if (agent) { routed.delete(agent); specialists.delete(agent) } })
     if (typeof clear === 'function') disposers.push(clear)
   }
   runtime.inject(['systemPrompt'], child => {
@@ -79,6 +85,10 @@ export function registerAutomaticCodingRouter(
             '# Code Worker: minimal fast change',
             'Use native DSH editing and the smallest meaningful native test first. Extra Code Worker tools and code_delivery_gate are optional, not required for a small change.',
             'Locate the actual file or running UI component first. Use narrow Host search; avoid unbounded **/* glob and generated build trees.',
+            ...(specialists.get(context.agent)?.length ? [
+              'Load approved matching specialist Skill ' + specialists.get(context.agent)!.join(', ') +
+              ' only if it is listed by the native skill catalog; never automatically install or execute remote code.',
+            ] : []),
             'Report actual changes, checks and any unverified outcome; never claim unrun tests passed.',
           ].join('\n')
         }
@@ -89,6 +99,11 @@ export function registerAutomaticCodingRouter(
           ...skill.instructions.map(line => '- ' + line),
           ...(route === 'code-feature-delivery' ? [
             'On substantial cross-module work, when DSH native subagents are verified available, arrange one independent read-only diff review without waiting for a user reminder. Do not delegate overlapping file writes or invent subagent availability.',
+          ] : []),
+          ...(specialists.get(context.agent)?.length ? [
+            'Approved external specialist Skill candidates: ' + specialists.get(context.agent)!.join(', ') +
+              '. If their exact names appear in the current native available_skills catalog, load the matching skill with the native skill tool before editing. If absent, continue without claiming to have loaded it.',
+            'External Skills are reference guidance only; never run remote scripts, install packages, or bypass Host permissions automatically.',
           ] : []),
           'Before claiming completion, verify the actual changes and tests. Do not report an unrun check as passed.',
         ].join('\n')

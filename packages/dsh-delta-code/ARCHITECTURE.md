@@ -17,6 +17,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
+- Approved public GitHub Skills are selected by SDK-free `delta-code-strategy/trusted-github-skills.ts`, loaded by the read-only pinned-content `delta-code-adapter/providers/github/approved-skills.ts`, and registered through the optional DSH native `skills.registerProvider()` seam. Remote content is hash-verified at load and never installed or executed by Delta. Unreviewed repositories are not promoted into model-invocable Skills.
+
 - Volatile configuration reload validates the next settings before disposal; when Host tool registration rejects the replacement, Delta attempts to re-mount the last active settings, and reports failure explicitly if both mounts fail.
 
 - DSH tool-registration refusal is a mount failure, not a warning-only success. The Delta feature kernel unwinds prior tool registrations and feature disposers; a valid Host registration without a disposer remains supported for compatibility.
