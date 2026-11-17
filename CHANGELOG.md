@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 设置导航不再改写 Harness 内建设置标签及无障碍文案；保留 Agent 预设布局标记并更新 ZIP3 发布审核指纹（Issue #333）。
+
 - 修复: 停止 Delta Suite 通过宿主 DOM 重命名原生页面标题，保留 Harness 页面文案所有权，更新 ZIP3 审核指纹（Issue #333）。
 
 - 修复: 停止 Delta Suite 使用 DOM 文本节点改写 Harness 原生运行状态，保留原生文案所有权；更新 ZIP3 审核指纹和回归测试（Issue #333）。

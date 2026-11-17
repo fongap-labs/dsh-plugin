@@ -4036,8 +4036,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       '[class*="AnXs9G_navCell"], [class*="navCell"], [role="dialog"] nav button, [role="dialog"] [role="tab"]'
     )
     for (const btn of settingsNavButtons) {
-      replaceButtonText(btn, '\u8D26\u53F7\u4E0E\u4F59\u989D', '\u8D26\u6237\u8BE6\u60C5')
-      replaceButtonText(btn, '\u6A21\u578B', '\u6A21\u578B\u914D\u7F6E')
+      // Harness retains ownership of built-in Settings labels and their accessibility text.
       const labelText = (btn.querySelector?.('[class*="navLabel"]')?.textContent ?? btn.textContent ?? '').trim()
       if (labelText === 'Agent \u9884\u8BBE' || labelText === 'Agent Presets' || labelText === 'Agent presets') {
         if (btn.getAttribute('data-dtd-nav-tail') !== '1') {
