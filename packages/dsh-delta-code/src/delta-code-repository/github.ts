@@ -5,7 +5,8 @@ import type { GitHubAccountConfig, Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { hasCompleteGitEvidence } from './git-execution.js'
-import { GitHubApiFailure, GitHubWriteUncertain, requestGitHubApi } from '../delta-code-adapter/providers/github/api.js'
+import { GitHubApiFailure, GitHubWriteUncertain } from '../delta-code-adapter/contracts/github.js'
+import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
 
 const COMMIT_SHA = /^[a-f0-9]{40}$/
 
@@ -58,7 +59,8 @@ async function resolveRepository(ctx: Context, exec: Parameters<ToolDefinition['
   return repo
 }
 
-async function githubRequest(
+function createGitHubRequest(transport: DeltaGitHubTransport) {
+  return async function githubRequest(
   ctx: Context,
   exec: Parameters<ToolDefinition['execute']>[1],
   settings: Settings,
@@ -69,10 +71,11 @@ async function githubRequest(
 ): Promise<{ repository: string; account: string; data: any }> {
   const repo = await resolveRepository(ctx, exec, settings, repository)
   const account = selectGitHubAccount(settings.githubAccounts, repo)
-  return requestGitHubApi({
+  return transport.request({
     repository: repo, account: account.owner, tokenEnv: account.tokenEnv,
     method, path: path(repo), data, signal: exec.signal,
   })
+  }
 }
 
 function requireWrites(settings: Settings): void {
@@ -118,7 +121,10 @@ function tool(
   })
 }
 
-export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinition[] {
+export function createGitHubTools(
+  ctx: Context, settings: Settings, transport: DeltaGitHubTransport,
+): ToolDefinition[] {
+  const githubRequest = createGitHubRequest(transport)
   const encodeRepo = (repo: string) => '/repos/' + repo.split('/').map(encodeURIComponent).join('/')
   const envelope = (response: {repository: string; account: string; data: any}, result: unknown) => ({
     repository: response.repository,

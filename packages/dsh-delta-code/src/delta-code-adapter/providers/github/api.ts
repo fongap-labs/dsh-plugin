@@ -1,43 +1,10 @@
 /** External GitHub HTTP and credential boundary. Repository rules belong to the feature. */
+import { GitHubApiFailure, GitHubWriteUncertain } from '../../contracts/github.js'
+import type { DeltaGitHubRequest, DeltaGitHubResponse, DeltaGitHubTransport } from '../../contracts/github.js'
+
 const API = 'https://api.github.com'
 
-export class GitHubApiFailure extends Error {
-  constructor(readonly status: number, repository: string, method: string) {
-    const reason = status === 401 || status === 403
-      ? 'authentication or repository permission denied; inspect token access'
-      : status === 409 || status === 422
-        ? 'conflict or rejected GitHub validation; inspect remote state'
-        : status === 429
-          ? 'rate limit exceeded; do not blindly retry writes'
-          : 'request rejected'
-    super('GitHub API ' + status + ' for ' + repository + ' (' + method + '): ' + reason)
-    this.name = 'GitHubApiFailure'
-  }
-}
-
-export class GitHubWriteUncertain extends Error {
-  constructor(method: string, repository: string) {
-    super('GitHub ' + method + ' outcome unconfirmed for ' + repository +
-      '; inspect remote state before retrying a write')
-    this.name = 'GitHubWriteUncertain'
-  }
-}
-
-export interface DeltaGitHubRequest {
-  readonly repository: string
-  readonly account: string
-  readonly tokenEnv: string
-  readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH'
-  readonly path: string
-  readonly data?: unknown
-  readonly signal: AbortSignal
-}
-
-export async function requestGitHubApi(input: DeltaGitHubRequest): Promise<{
-  repository: string
-  account: string
-  data: any
-}> {
+export async function requestGitHubApi(input: DeltaGitHubRequest): Promise<DeltaGitHubResponse> {
   const { repository, account, tokenEnv, method, path, data, signal } = input
   const token = tokenEnv ? process.env[tokenEnv] : undefined
   if (!token?.trim()) throw new Error('GitHub credential unavailable for repository owner ' + account + ' (set env ' + tokenEnv + ')')
@@ -67,3 +34,6 @@ export async function requestGitHubApi(input: DeltaGitHubRequest): Promise<{
   if (!response.ok) throw new GitHubApiFailure(response.status, repository, method)
   return { repository, account, data: response.status === 204 ? null : await response.json() }
 }
+
+/** Provider implementation supplied only by the composition root. */
+export const githubTransport: DeltaGitHubTransport = { request: requestGitHubApi }
