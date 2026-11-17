@@ -23,6 +23,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - External APIs are not runtime-version-pinned; compatibility depends on available, semantically verified capabilities.
 - Repository and coding business rules must not own GitHub authentication or raw HTTP transport.
+- Pure GitHub account selection, remote origin parsing, branch, path and SHA checks live in `delta-code-repository/github-policy.ts`; the DSH tool wrapper imports this policy without owning it.
 - GitHub accounts use optional explicit repository bindings to select credentials across organizations; ambiguous repository bindings fail during configuration validation. Legacy owner selection remains available.
 - Host permission denial must never be downgraded to Node filesystem access or shell execution.
 - Kernel does not schedule agent work, store sessions, maintain a model catalog or own context compression.

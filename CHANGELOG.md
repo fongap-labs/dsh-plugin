@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Code 将 GitHub 账号/仓库选择及 Git 路径、分支、SHA 校验提取为宿主无关策略模块，保留旧工具接口与既有行为。
+
 - 维护: Delta Code 将 Coding、Quality、Repository 的功能装配入口改为宿主无关的工具契约；由 DSH Adapter 创建工具实例，保留工具名、启停与权限逻辑。
 
 - 维护: Delta Code 将编程路由、Skills 声明与策略装配从 DSH 运行时解耦；事件、Skills 注册与提示词注入全部收敛到 Adapter，保留旧导出及既有路由行为。

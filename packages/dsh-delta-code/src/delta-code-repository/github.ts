@@ -1,49 +1,18 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, isSubprocessMounted } from '@fongap-labs/shared'
-import type { GitHubAccountConfig, Settings } from '../types.js'
+import type { Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { hasCompleteGitEvidence } from './git-execution.js'
+import { selectGitHubAccount, repositoryFromRemote, isValidGitHubRepository, validatedCommitSha, validPath, validBranch } from './github-policy.js'
+export { selectGitHubAccount, repositoryFromRemote } from './github-policy.js'
 import { GitHubApiFailure, GitHubWriteUncertain } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
 
-const COMMIT_SHA = /^[a-f0-9]{40}$/
-
-function validatedCommitSha(value: unknown, subject: string): string {
-  if (typeof value !== 'string' || !COMMIT_SHA.test(value)) {
-    throw new Error('invalid ' + subject + ' commit SHA')
-  }
-  return value
-}
-const REPOSITORY = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?\/(?!\.{1,2}$)[a-zA-Z0-9_.-]{1,100}$/
-const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\x00-\x1f]+$/
-const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*[\\\x00-\x20])[^/]+(?:\/[^/]+)*$/
-
-export function selectGitHubAccount(accounts: GitHubAccountConfig[], repository: string): GitHubAccountConfig {
-  if (!REPOSITORY.test(repository)) throw new Error('invalid owner/repository')
-  const key = repository.toLowerCase()
-  const scoped = accounts.filter((account) =>
-    account.repositories?.some((entry) => entry.toLowerCase() === key))
-  if (scoped.length > 1) throw new Error('ambiguous GitHub repository binding: ' + key)
-  if (scoped.length === 1) return scoped[0]!
-  const owner = repository.split('/')[0]!.toLowerCase()
-  const matches = accounts.filter((account) => account.owner.toLowerCase() === owner)
-  if (matches.length !== 1) {
-    throw new Error(matches.length ? 'ambiguous GitHub owner mapping' : 'no GitHub account configured for repository owner ' + owner)
-  }
-  return matches[0]!
-}
-
-export function repositoryFromRemote(remote: string): string | undefined {
-  const value = remote.trim()
-  const match = /^(?:https:\/\/github\.com\/|git@github\.com:|ssh:\/\/git@github\.com\/)([a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+?)(?:\.git)?\/?$/.exec(value)
-  return match?.[1] && REPOSITORY.test(match[1]) ? match[1] : undefined
-}
-
 async function resolveRepository(ctx: Context, exec: Parameters<ToolDefinition['execute']>[1], settings: Settings, supplied?: string): Promise<string> {
   if (supplied) {
-    if (!REPOSITORY.test(supplied)) throw new Error('repository must be owner/name')
+    if (!isValidGitHubRepository(supplied)) throw new Error('repository must be owner/name')
     return supplied
   }
   const root = await resolveRoot(ctx, exec, settings)
@@ -87,14 +56,6 @@ function requireWrites(settings: Settings): void {
   if (!settings.githubAllowWrites) throw new Error('GitHub writes are disabled; set github.allowWrites=true to enable')
 }
 
-function validPath(value: string): string {
-  if (!value || !SAFE_PATH.test(value) || value.split('/').includes('.')) throw new Error('unsafe repository file path')
-  return value.split('/').map(encodeURIComponent).join('/')
-}
-function validBranch(value: string): string {
-  if (!value || !SAFE_BRANCH.test(value) || value.endsWith('.lock') || value.endsWith('/') || value.endsWith('.')) throw new Error('invalid branch')
-  return value
-}
 const string = { type: 'string', required: true } as const
 const optional = { type: 'string' } as const
 const responseSchema = {
