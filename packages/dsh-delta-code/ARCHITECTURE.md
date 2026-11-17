@@ -27,7 +27,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - Approved public GitHub Skills are selected by SDK-free `delta-code-strategy/trusted-github-skills.ts`, loaded by the read-only pinned-content `delta-code-adapter/providers/github/approved-skills.ts`, and registered through the optional DSH native `skills.registerProvider()` seam. The catalog records the SPDX license, source metadata name, immutable commit and Git blob SHA. Remote content is hash-verified at load and never installed or executed by Delta. Unreviewed repositories and incomplete single-file bundles are not promoted into model-invocable Skills.
 
-- `code-find-skills` performs read-only discovery through native Host GitHub/web search when an approved Skill does not fit. Candidate content is untrusted data; promotion requires source, license and safety review plus immutable commit and Git blob pins.
+- `code-find-skills` uses the preexisting Host GitHub/web capabilities. When an authorized GitHub repository is configured, `code_github_skill_candidates` searches bounded `SKILL.md` paths, and `code_github_skill_review` reads exact pinned bytes and license-file evidence through the existing GitHub transport. Search results and candidate metadata are untrusted. A default-branch HEAD hint is not verification that the indexed candidate exists at that revision.
+- Candidate review never installs, approves or registers Skills. Only a separately reviewed catalog PR can authorize a new Skill after license, maintenance, security and complete-bundle checks. For absent credentials, unsupported Host capability or missing evidence, the agent reports an incomplete review and continues without the candidate.
 
 - Volatile configuration reload validates the next settings before disposal; when Host tool registration rejects the replacement, Delta attempts to re-mount the last active settings, and reports failure explicitly if both mounts fail.
 
