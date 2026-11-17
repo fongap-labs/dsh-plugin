@@ -142,7 +142,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '2a6504d52c9a211068e18205dc55cf7acbcf63a6',
+    sha1: 'f60be1b537d8040f2486863a8ee5055ea681233f',
   },
   {
     begin: 'function installHostSearch(',
