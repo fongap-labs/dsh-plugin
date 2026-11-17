@@ -23,7 +23,7 @@ interface Draft {
   githubAllowWrites: boolean
   allowWorktreeWrites: boolean
   allowCommands: boolean
-  fsWriteContract: 'legacy-overwrite' | 'guarded-intent'
+  fsWriteContract: 'legacy-overwrite' | 'native-unguarded' | 'guarded-intent'
   systemPromptText: string
   accounts: Account[]
   servers: Server[]
@@ -69,7 +69,8 @@ function readDraft(value: any): Draft {
     githubEnabled: github.enabled !== false, githubAllowWrites: github.allowWrites === true,
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
     allowCommands: execution.allowCommands === true,
-    fsWriteContract: execution.fsWriteContract === 'guarded-intent' ? 'guarded-intent' : 'legacy-overwrite',
+    fsWriteContract: execution.fsWriteContract === 'guarded-intent' ? 'guarded-intent'
+      : execution.fsWriteContract === 'native-unguarded' ? 'native-unguarded' : 'legacy-overwrite',
     systemPromptText: value?.systemPromptText ?? '',
     accounts: (github.accounts ?? []).map((item: any, index: number) => ({
       owner: item.owner ?? '', tokenEnv: item.tokenEnv ?? '',
@@ -232,10 +233,11 @@ function installClient(require: (id: string) => unknown) {
           h('span', null, t('DSH 文件写入协议', 'DSH file write contract')),
           h('select', { style: inputStyle, disabled, value: draft.fsWriteContract,
             onChange: (e: any) => patch({ fsWriteContract: e.target.value }) },
-            h('option', { value: 'legacy-overwrite' }, t('旧版覆盖协议（默认）', 'Legacy overwrite (default)')),
-            h('option', { value: 'guarded-intent' }, t('新版版本保护协议', 'Guarded intent / version checks')))),
-        hint(t('协议必须与实际 DSH 版本匹配，不以写入进行自动探测。',
-          'Choose the installed DSH contract explicitly; no write-based detection.')),
+            h('option', { value: 'legacy-overwrite' }, t('兼容旧式覆盖（默认）', 'Legacy overwrite (default)')),
+            h('option', { value: 'native-unguarded' }, t('原生无条件写入', 'Native unconditional write')),
+            h('option', { value: 'guarded-intent' }, t('原生版本保护写入', 'Native guarded write')))),
+        hint(t('请选择宿主已提供的写入接口语义，不按 DSH 版本判断；不会通过试写探测，拒绝自动降级。',
+          'Select the supported Host write semantics, not a DSH version. No probing writes or unsafe fallback.')),
         hint(t('执行脚本仅适用于可信工作区。', 'Only enable project commands in trusted workspaces.'))),
       section(t('GitHub 多账号', 'GitHub accounts'),
         toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
