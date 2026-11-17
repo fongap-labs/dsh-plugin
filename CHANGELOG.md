@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Code 将 Cordis Context 扩展及 DSH 提示词类型引用从公共配置类型移至 DSH Adapter，保持配置与工具行为不变。
+
 - 维护: Delta Code 将 GitHub 账号/仓库选择及 Git 路径、分支、SHA 校验提取为宿主无关策略模块，保留旧工具接口与既有行为。
 
 - 维护: Delta Code 将 Coding、Quality、Repository 的功能装配入口改为宿主无关的工具契约；由 DSH Adapter 创建工具实例，保留工具名、启停与权限逻辑。
