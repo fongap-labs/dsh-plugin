@@ -14,7 +14,7 @@ import { createNativeResumeTool } from './resume.js'
 import { createWorkspaceMapTool } from './workspace.js'
 import { createWorktreeTool } from './worktree.js'
 import { createGitStatusTool, createGitDiffTool } from './git.js'
-import { createGitHubTools } from '../../../delta-code-repository/github.js'
+import { createGitHubTools } from './github.js'
 
 /** DSH-specific factories. The feature modules never import Context or ToolDefinition. */
 export function createDshCodingCoreTools(ctx: Context, settings: Settings): ToolDefinition[] {
