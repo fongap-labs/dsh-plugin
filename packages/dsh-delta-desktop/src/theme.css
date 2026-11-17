@@ -268,11 +268,10 @@
   }
 }
 
-/* Reusable clear/icon buttons across search bars, pickers & footer */
+/* Reusable clear/icon buttons across search bars and pickers */
 :root[data-delta-ui="delta"] :is(
   [class*="GAkraW_clearButton"],
-  [class*="_9r0rkG_searchClear"],
-  .dtd-footer-btn
+  [class*="_9r0rkG_searchClear"]
 ) {
   color: var(--dtd-clear-fg) !important;
   border-radius: var(--dtd-clear-radius) !important;
@@ -281,8 +280,7 @@
 @media (hover: hover) {
   :root[data-delta-ui="delta"] :is(
     [class*="GAkraW_clearButton"],
-    [class*="_9r0rkG_searchClear"],
-    .dtd-footer-btn
+    [class*="_9r0rkG_searchClear"]
   ):hover {
     background: var(--dtd-clear-hover-bg) !important;
     color: var(--dtd-clear-hover-fg) !important;
@@ -290,8 +288,7 @@
 }
 :root[data-delta-ui="delta"] :is(
   [class*="GAkraW_clearButton"],
-  [class*="_9r0rkG_searchClear"],
-  .dtd-footer-btn
+  [class*="_9r0rkG_searchClear"]
 ):focus-visible {
   outline: 1px solid var(--dtd-border-focus) !important;
   outline-offset: -1px !important;
@@ -960,13 +957,6 @@
   font-size: 12px !important;
 }
 
-:root[data-delta-ui="delta"] body[data-dtd-silent-menu="1"] :is([role="menu"], [class*="_surface_1w4el"], [class*="_surface_"], [class*="_backing_1w4el"], [class*="_backing_"], [class*="_list_1p5el"], [class*="_list_"]) {
-  opacity: 0 !important;
-  pointer-events: none !important;
-  animation: none !important;
-  transition: none !important;
-}
-
 /* ============================================================================
  * 6. Left Sidebar Layout, Search, Nav Items, Workspace List & Footer
  * ============================================================================ */
@@ -1269,48 +1259,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   opacity: 0.7;
 }
 
-/* 6.5 Footer Bar (Left Avatar/Logo, Right Action Icons; divider and horizontal scrollbar removed) */
-:root[data-delta-ui="delta"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_footArea"],
-:root[data-delta-ui="delta"] [class*="footArea"],
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_footArea"],
-:root[data-delta-compat="1"] [class*="footArea"] {
-  order: 5 !important;
-  margin-top: auto !important;
-  flex-shrink: 0 !important;
-  position: relative !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 6px 10px 6px !important;
-  min-height: 40px !important;
-  box-sizing: border-box !important;
-  border-top: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  overflow: hidden !important;
-  overflow-x: hidden !important;
-  scrollbar-width: none !important;
-}
-:root[data-delta-ui="delta"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"]),
-:root[data-delta-compat="1"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"]) {
-  border-top: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  overflow: hidden !important;
-  overflow-x: hidden !important;
-  scrollbar-width: none !important;
-}
-:root[data-delta-ui="delta"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"])::before,
-:root[data-delta-ui="delta"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"])::after,
-:root[data-delta-compat="1"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"])::before,
-:root[data-delta-compat="1"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"])::after {
-  display: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  content: none !important;
-}
 :root[data-delta-ui="delta"] :is([class*="scrollFade"], [class*="wtg9ga_scrollFade"]),
 :root[data-delta-compat="1"] :is([class*="scrollFade"], [class*="wtg9ga_scrollFade"]) {
   display: none !important;
@@ -1336,13 +1284,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   box-shadow: none !important;
   content: none !important;
 }
-:root[data-delta-ui="delta"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"], [class*="regionArea"], [class*="wtg9ga_regionArea"]) :is(hr, [role="separator"], [class*="divider"], [class*="separator"]),
-:root[data-delta-compat="1"] :is([class*="footArea"], [class*="wtg9ga_footArea"], [class*="SidebarRoot_footArea"], [class*="regionArea"], [class*="wtg9ga_regionArea"]) :is(hr, [role="separator"], [class*="divider"], [class*="separator"]) {
-  display: none !important;
-  height: 0 !important;
-  border: none !important;
-}
-
 :root[data-delta-ui="delta"] :is(
   [data-sidebar-scrollport],
   [class*="wtg9ga_root"],
@@ -1354,9 +1295,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   [class*="regionArea"],
   [class*="wtg9ga_regionArea"],
   [class*="SidebarRoot_regionArea"],
-  [class*="footArea"],
-  [class*="wtg9ga_footArea"],
-  [class*="SidebarRoot_footArea"],
   [data-sidebar-list-area],
   div:has([data-sidebar-workspace-header])
 ),
@@ -1371,9 +1309,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   [class*="regionArea"],
   [class*="wtg9ga_regionArea"],
   [class*="SidebarRoot_regionArea"],
-  [class*="footArea"],
-  [class*="wtg9ga_footArea"],
-  [class*="SidebarRoot_footArea"],
   [data-sidebar-list-area],
   div:has([data-sidebar-workspace-header])
 ) {
@@ -1392,9 +1327,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   [class*="regionArea"],
   [class*="wtg9ga_regionArea"],
   [class*="SidebarRoot_regionArea"],
-  [class*="footArea"],
-  [class*="wtg9ga_footArea"],
-  [class*="SidebarRoot_footArea"],
   [data-sidebar-list-area],
   div:has([data-sidebar-workspace-header])
 )::-webkit-scrollbar,
@@ -1409,9 +1341,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
   [class*="regionArea"],
   [class*="wtg9ga_regionArea"],
   [class*="SidebarRoot_regionArea"],
-  [class*="footArea"],
-  [class*="wtg9ga_footArea"],
-  [class*="SidebarRoot_footArea"],
   [data-sidebar-list-area],
   div:has([data-sidebar-workspace-header])
 )::-webkit-scrollbar {
@@ -1423,121 +1352,9 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 :root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] :is(
   .dtd-native-search,
   .dtd-host-search,
-  .dtd-native-new-session,
-  .dtd-footer-avatar-box,
-  .dtd-footer-actions
+  .dtd-native-new-session
 ) {
   display: none !important;
-}
-:root[data-delta-ui="delta"] :is([class*="footArea"], [class*="wtg9ga_footArea"]) > :is([class*="settingsArea"], [class*="footerActions"], [class*="wtg9ga_settingsArea"], [class*="wtg9ga_footerActions"]),
-:root[data-delta-compat="1"] :is([class*="footArea"], [class*="wtg9ga_footArea"]) > :is([class*="settingsArea"], [class*="footerActions"], [class*="wtg9ga_settingsArea"], [class*="wtg9ga_footerActions"]),
-:root[data-delta-compat="1"] [class*="footArea"] > [class*="settingsArea"],
-:root[data-delta-compat="1"] [class*="footArea"] > [class*="footerActions"] {
-  position: absolute !important;
-  flex: 0 0 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  min-width: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  overflow: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="AnXs9G_triggerRow"],
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_root"] > button,
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] [class*="_5Qcc8a_trigger"],
-:root[data-delta-compat="1"] [class*="wtg9ga_footArea"] .dtd-native-profile-trigger,
-:root[data-delta-compat="1"] [class*="footArea"] > button:not(.dtd-footer-btn) {
-  position: absolute !important;
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  overflow: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-.dtd-footer-avatar-box {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: var(--dtd-avatar-size, 24px) !important;
-  height: var(--dtd-avatar-size, 24px) !important;
-  flex-shrink: 0 !important;
-  cursor: default !important;
-}
-.dtd-avatar-img {
-  width: var(--dtd-avatar-size, 24px) !important;
-  height: var(--dtd-avatar-size, 24px) !important;
-  border-radius: var(--dtd-radius-pill) !important;
-  object-fit: cover !important;
-  display: block !important;
-}
-.dtd-user-avatar-fallback {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: var(--dtd-avatar-size, 24px) !important;
-  height: var(--dtd-avatar-size, 24px) !important;
-  border-radius: var(--dtd-radius-pill) !important;
-  background: var(--dtd-brand) !important;
-  color: var(--dtd-fg-inverted) !important;
-  flex-shrink: 0 !important;
-}
-.dtd-harness-logo {
-  width: 24px !important;
-  height: 24px !important;
-  color: var(--dtd-fg-secondary) !important;
-  background: transparent !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  flex-shrink: 0 !important;
-  display: block !important;
-}
-.dtd-footer-actions {
-  position: relative !important;
-  z-index: 2 !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  flex: none !important;
-  gap: 4px !important;
-  margin-left: auto !important;
-}
-.dtd-footer-btn {
-  position: relative !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: var(--dtd-btn-icon-size) !important;
-  height: var(--dtd-btn-icon-size) !important;
-  padding: 0 !important;
-  border: 1px solid transparent !important;
-  background: transparent !important;
-  cursor: pointer !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-.dtd-footer-btn[hidden] {
-  display: none !important;
-}
-.dtd-footer-btn svg {
-  display: block !important;
-  flex-shrink: 0 !important;
-}
-.dtd-btn-update[data-has-update="1"]::after {
-  content: "" !important;
-  position: absolute !important;
-  top: 4px !important;
-  right: 4px !important;
-  width: 6px !important;
-  height: 6px !important;
-  border-radius: var(--dtd-radius-pill) !important;
-  background: var(--dtd-brand) !important;
 }
 
 @media (max-width: 600px) {
