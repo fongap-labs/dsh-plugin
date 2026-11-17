@@ -56,6 +56,7 @@ describe('GitHub account configuration and automatic routing', () => {
     assert.deepEqual(tools.map((tool) => tool.name), [
       'code_github_connection', 'code_github_file', 'code_github_pulls',
       'code_github_checks', 'code_github_jobs', 'code_github_branch', 'code_github_commit_file', 'code_github_create_pr',
+      'code_github_skill_candidates', 'code_github_skill_review',
     ])
   })
   it('fails closed before any network request for unmatched owners or unauthorized writes', async () => {
