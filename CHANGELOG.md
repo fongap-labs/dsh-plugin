@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 停止通过 DOM 和 ZIP3 CSS 强制隐藏 Harness 原生 More 导航入口；清理缓存并同步客户端/主题哈希与回归（Issue #333）。
+
 - 修复: 移除侧栏原生导航标签和 aria-label 的 DOM 改写，以及不再需要的辅助函数和恢复缓存；保留 More 治理为单独任务（Issue #333）。
 
 - 修复: Delta Suite 设置导航不再改写 Harness 内建设置标签及无障碍文案；保留 Agent 预设布局标记并更新 ZIP3 发布审核指纹（Issue #333）。
