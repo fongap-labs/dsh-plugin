@@ -11,9 +11,11 @@ describe('Delta Code host-neutral route policy', () => {
     const policy = readFileSync(new URL('delta-code-strategy/task-routing.ts', root), 'utf8')
     const feature = readFileSync(new URL('delta-code-strategy/index.ts', root), 'utf8')
     const provider = readFileSync(new URL('delta-code-adapter/providers/dsh/auto-routing.ts', root), 'utf8')
-    assert.doesNotMatch(policy, /@deepseek-ai|ctx\\.|systemPrompt|providers\\//)
-    assert.doesNotMatch(feature, /providers\\//)
-    assert.match(provider, /agent\\/inbox\\/claimed/)
+    for (const forbidden of ['@deepseek-ai', 'ctx.', 'systemPrompt', 'providers/']) {
+      assert.equal(policy.includes(forbidden), false, forbidden)
+    }
+    assert.equal(feature.includes('providers/'), false)
+    assert.ok(provider.includes('agent/inbox/claimed'))
     assert.match(provider, /systemPrompt/)
     assert.equal(typeof registerAutomaticCodingRouter, 'function')
   })
