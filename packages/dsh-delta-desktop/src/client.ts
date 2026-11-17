@@ -3430,20 +3430,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     '\u9501\u5b9a\u5de5\u4f5c\u533a': '30', '\u89e3\u9501\u5de5\u4f5c\u533a': '30', 'Lock workspace': '30', 'Unlock workspace': '30',
     '\u5220\u9664\u5de5\u4f5c\u533a': '40', 'Delete workspace': '40',
   }
-  const VIEW_OPTIONS_ORDERS: Record<string, string> = {
-    '\u5206\u7ec4\u65b9\u5f0f': '10', 'Group by': '10',
-    '\u5355\u5217\u8868': '15', 'In one list': '15',
-    '\u6309\u5DE5\u4F5C\u533A': '20', 'WorkSpace': '20',
-    '\u6309\u5DE5\u4F5C\u533A\u6811': '30', 'Workspace Tree': '30',
-    '\u6392\u5E8F\u65B9\u5F0F': '40', 'Order by': '40',
-    '\u624B\u52A8\u6392\u5E8F': '45', 'Manual': '45',
-    '\u6700\u8FD1\u66F4\u65B0': '50', 'Last updated': '50',
-    '\u7B5B\u9009\u4F1A\u8BDD': '60', 'Filter sessions': '60',
-    '\u9690\u85CF\u5DF2\u5F52\u6863': '65', 'Hide archived': '65',
-    '\u4EC5\u663E\u793A\u5DF2\u5F52\u6863': '70', 'Archived only': '70',
-    '\u5168\u90E8\u5BF9\u8BDD（\u663E\u793A\u5DF2\u5F52\u6863）': '80', 'All conversations (show archived)': '80',
-  }
-
   const FEEDBACK_MENU_LABELS = new Set([
     '\u53CD\u9988',
     'Feedback',
@@ -3791,9 +3777,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         || (labels.some(t => t.includes('Session ID')) && labels.some(t => t.includes('\u5728\u5e94\u7528\u4e2d\u6253\u5f00') || t.includes('\u5728\u6587\u4ef6\u5939\u663e\u793a') || t.includes('Show in folder')))
       )
       const isSessionMenu = !isWorkspaceMenu && (isSessionViewport || isSessionFooter)
-      const isViewMenu = labels.some(t => t === '\u5355\u5217\u8868' || t === 'In one list')
-        && (labels.some(t => t === '\u6309\u5de5\u4f5c\u533a' || t === 'WorkSpace') || labels.some(t => t === '\u4ec5\u663e\u793a\u5df2\u5f52\u6863' || t === 'Archived only'))
-      if (!isSessionMenu && !isWorkspaceMenu && !isViewMenu) continue
+      if (!isSessionMenu && !isWorkspaceMenu) continue
 
       if (isWorkspaceMenu) {
         const lockEls = items.filter(el => {
@@ -3940,23 +3924,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         continue
       }
 
-      if (isViewMenu) {
-        let seenSep = 0
-        for (let i = 0; i < items.length; i++) {
-          const el = items[i]
-          const isSep = el.getAttribute?.('role') === 'separator' || (typeof el.className === 'string' && el.className.includes('_separator_'))
-          if (isSep) {
-            seenSep++
-            setMenuNodeOrder(el, seenSep === 1 ? '35' : '55')
-            continue
-          }
-          const label = getMenuLabel(el)
-          if (label in VIEW_OPTIONS_ORDERS) {
-            setMenuNodeOrder(el, VIEW_OPTIONS_ORDERS[label])
-          }
-        }
-        sortContainerChildrenByOrder(container)
-      }
     }
   }
 
