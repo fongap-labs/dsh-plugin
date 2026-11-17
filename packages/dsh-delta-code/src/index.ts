@@ -13,7 +13,8 @@ export const name = '@fongap-labs/dsh-delta-code'
 export const inject = ['tools']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
-  let release = mountDeltaCode(ctx, normalizeConfig(config))
+  let currentSettings = normalizeConfig(config)
+  let release = mountDeltaCode(ctx, currentSettings)
   let isClosed = false
   const runtime = ctx as unknown as {
     on?: (event: string, listener: () => void) => void | (() => void)
@@ -21,9 +22,22 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   const stopUpdates = runtime.on?.('loader/volatile-update', () => {
     if (isClosed) return
     // Validate the replacement before releasing the currently mounted generation.
-    const settings = normalizeConfig(config)
+    const nextSettings = normalizeConfig(config)
+    const previousSettings = currentSettings
     release()
-    release = mountDeltaCode(ctx, settings)
+    try {
+      release = mountDeltaCode(ctx, nextSettings)
+      currentSettings = nextSettings
+    } catch (error) {
+      try {
+        release = mountDeltaCode(ctx, previousSettings)
+      } catch (restoreError) {
+        ctx.logger?.error?.('dsh-delta-code: failed to restore previous configuration after reload: ' +
+          String(restoreError))
+        throw new AggregateError([error, restoreError], 'Delta Code reload and rollback both failed')
+      }
+      throw error
+    }
   })
   const dispose = () => {
     if (isClosed) return

@@ -84,6 +84,35 @@ describe('Delta Code modular architecture', () => {
     assert.equal(state.prompts.size, 0)
   })
 
+  it('restores last working configuration after transient Host tool-registration failure on reload', () => {
+    const state = mockHost()
+    const originalRegister = state.host.tools.register.bind(state.host.tools)
+    let shouldRejectNext = false
+    state.host.tools.register = (definition) => {
+      if (shouldRejectNext && definition.name === 'code_multi_edit') {
+        shouldRejectNext = false
+        throw new Error('simulated Host registration refusal')
+      }
+      return originalRegister(definition)
+    }
+    const config = { enabled: true, git: { enabled: true } }
+    const dispose = apply(state.host, config)
+    const previousTools = [...state.tools.keys()].sort()
+    assert.ok(previousTools.includes('code_git_status'))
+    config.git.enabled = false
+    shouldRejectNext = true
+    assert.throws(() => state.emit('loader/volatile-update'), /simulated Host registration refusal/)
+    assert.deepEqual([...state.tools.keys()].sort(), previousTools)
+    assert.ok(state.skills.size > 0)
+    assert.ok(state.prompts.size > 0)
+    state.emit('loader/volatile-update')
+    assert.equal(state.tools.has('code_git_status'), false)
+    dispose()
+    assert.equal(state.tools.size, 0)
+    assert.equal(state.skills.size, 0)
+    assert.equal(state.prompts.size, 0)
+  })
+
   it('rejects duplicate feature IDs and tool names before registering anything', () => {
     let count = 0
     const register = () => { count++; return () => { count-- } }
