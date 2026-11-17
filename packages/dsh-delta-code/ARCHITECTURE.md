@@ -9,7 +9,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-adapter/providers/dsh/` | Cordis tool registration, Host FS, native retries and service access |
 | `delta-code-adapter/providers/github/` | GitHub HTTP, token reference resolution and transport errors |
 | `delta-code-strategy/` | Host-neutral coding route policy and Skills data; Host integrations are injected by composition |
-| `delta-code-coding/` | Editing, static project discovery, LSP probes and diagnostics |
+| `delta-code-coding/` | Host-independent editing and project discovery policies, plus compatibility facades |
 | `delta-code-quality/` | Verification, task recovery, delivery evidence and failure policy |
 | `delta-code-repository/` | Workspace, Git, worktrees, repository selection, PR and CI business rules |
 | `delta-code-collaboration/` | Safe native-subagent delegation policy, not a second agent runner |
@@ -23,7 +23,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - DSH-backed `code_verify` and `code_verify_suite` tool definitions, workspace authorization, subprocess execution, token redaction and cancellation live in `delta-code-adapter/providers/dsh/verify*.ts`; Quality retains Host-neutral selection, failure and delivery policies. Legacy Quality and `tools/` paths are compatibility facades.
 
-- Project stack/script/guidance classification lives in Host-independent `delta-code-coding/project-profile-policy.ts`; `profile.ts` retains authorized local and DSH Host file discovery, cancellation and permission boundaries.
+- Project stack/script/guidance classification lives in Host-independent `delta-code-coding/project-profile-policy.ts`; `delta-code-adapter/providers/dsh/profile.ts` owns authorized local/Host file discovery, cancellation and permission boundaries; the Coding profile entrypoint remains a compatibility facade.
 - Manifest classification, package-manager selection and allowlisted Node script declarations live in Host-independent `delta-code-quality/verification-project-policy.ts`; `delta-code-adapter/providers/dsh/verify.ts` owns Host metadata reads, cwd authorization and bounded subprocess execution.
 - Delivery task acceptance, final-gate Todo handling and result construction live in Host-independent `delta-code-quality/delivery-policy.ts`; `delivery-gate.ts` still reads native Todo and obtains Git/verification evidence exclusively through authorized Host execution.
 - Read-only `code_host_probe` service inspection and DSH `Context` typing live in `delta-code-adapter/providers/dsh/host-probe.ts`; `delta-code-coding/host-probe.ts` remains a compatibility re-export. It never invokes privileged FS, workspace or subprocess methods.
