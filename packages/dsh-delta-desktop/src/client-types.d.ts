@@ -39,6 +39,27 @@ interface DeltaCopy {
     clearPin: string; clearPinTitle: string; clearPinDesc: string; pinClearedToast: string;
     copySecret: string; totpLoading: string; totpInitFailed: string;
   }
+  workspaceMenu: {
+    lockWorkspace: string;
+    unlockWorkspace: string;
+    lockedToast: string;
+    unlockedToast: string;
+    unlockFirst: string;
+    lockedShieldTitle: string;
+    lockedShieldDesc: string;
+    unlockPermanent: string;
+    setPinTitle?: string;
+    setPinDescription?: string;
+  }
+  visionBridge: {
+    title: string; description: string; enable: string; mode: string;
+    modeAuto: string; modePasteToPath: string; modeInstantTranscribe: string;
+    engine: string; engineAuto: string; engineCustom: string; engineGemini: string;
+    customEndpoint: string; customApiKey: string; customModel: string;
+    engineStatus: string; ready: string; notReady: string;
+    testBtn: string; testing: string; testSuccess: string; testFailed: string;
+    toastPastedPath: string; toastTranscribing: string; toastTranscribed: string; toastFailed: string;
+  }
   networkProxy: {
     nav: string; title: string; description: string; modeLabel: string;
     modeSystem: string; modeDirect: string; modeManual: string;

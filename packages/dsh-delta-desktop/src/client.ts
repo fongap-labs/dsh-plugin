@@ -427,6 +427,197 @@ function syncModalChromeOverlay(): void {
   }
 }
 
+function installClientVisionBridge(): () => void {
+  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return () => {}
+
+  function imageFilesOf(event: ClipboardEvent | DragEvent): File[] {
+    const items = (event as ClipboardEvent).clipboardData?.items || (event as DragEvent).dataTransfer?.items
+    if (items && items.length > 0) {
+      const files: File[] = []
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.kind !== 'file') continue
+        const file = item.getAsFile()
+        if (file && /^image\//i.test(file.type)) files.push(file)
+      }
+      if (files.length > 0) return files
+    }
+    const transferFiles = (event as DragEvent).dataTransfer?.files || (event as ClipboardEvent).clipboardData?.files
+    if (transferFiles && transferFiles.length > 0) {
+      const files: File[] = []
+      for (let i = 0; i < transferFiles.length; i++) {
+        const f = transferFiles[i]
+        if (f && /^image\//i.test(f.type)) files.push(f)
+      }
+      return files
+    }
+    return []
+  }
+
+  function isTextField(el: Element | null): el is HTMLTextAreaElement | HTMLInputElement {
+    return el != null && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')
+  }
+
+  function isComposerEditable(el: Element | null): boolean {
+    if (!el || typeof el.getAttribute !== 'function') return false
+    if (el.getAttribute('data-composer-input') != null) return true
+    if (el.classList.contains('dsh-composer-input') || el.classList.contains('ProseMirror')) return true
+    return (el as HTMLElement).isContentEditable === true || el.getAttribute('contenteditable') === 'true'
+  }
+
+  function isWritable(el: Element | null): boolean {
+    return isTextField(el) || isComposerEditable(el)
+  }
+
+  function resolveWriteTarget(event: Event): HTMLElement | null {
+    const fromEvent = event.target as Element | null
+    if (fromEvent && typeof fromEvent.closest === 'function') {
+      const found = fromEvent.closest<HTMLElement>(
+        'textarea, input, [data-composer-input], [contenteditable="true"], .ProseMirror, .dsh-composer'
+      )
+      if (found) {
+        if (isWritable(found)) return found
+        const nested = found.querySelector<HTMLElement>('textarea, input, [contenteditable="true"]')
+        if (nested && isWritable(nested)) return nested
+      }
+    }
+    const active = document.activeElement as HTMLElement | null
+    if (isWritable(active)) return active
+    const fallback = document.querySelector<HTMLElement>(
+      'textarea[data-composer-input], [data-composer-input][contenteditable="true"], .dsh-composer textarea, .dsh-composer [contenteditable="true"]'
+    )
+    return isWritable(fallback) ? fallback : null
+  }
+
+  function insertComposerText(target: HTMLElement, text: string): boolean {
+    if (!isWritable(target)) return false
+    target.focus()
+    let inserted = false
+    try {
+      inserted = document.execCommand('insertText', false, text)
+    } catch {
+      inserted = false
+    }
+    if (inserted) return true
+    if (isTextField(target)) {
+      try {
+        const proto = target.tagName === 'TEXTAREA'
+          ? window.HTMLTextAreaElement.prototype
+          : window.HTMLInputElement.prototype
+        const descriptor = Object.getOwnPropertyDescriptor(proto, 'value')
+        if (descriptor?.set) {
+          descriptor.set.call(target, target.value + text)
+          target.dispatchEvent(new Event('input', { bubbles: true }))
+          return true
+        }
+      } catch {}
+    }
+    return false
+  }
+
+  async function handleVisionFiles(files: File[], target: HTMLElement) {
+    const snap = deltaFeatures.getSnapshot()
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+
+    try {
+      const outcomes = await Promise.allSettled(files.map(async (file) => {
+        const ab = await file.arrayBuffer()
+        const res = await fetch('/api/delta-desktop/vision/paste', {
+          method: 'POST',
+          headers: {
+            'content-type': file.type || 'image/png',
+            'x-file-name': encodeURIComponent(file.name || 'paste.png'),
+          },
+          body: ab,
+        })
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}))
+          throw new Error(json.error || `Upload failed (${res.status})`)
+        }
+        return (await res.json()) as { ok: boolean; path: string; name: string }
+      }))
+
+      const paths: string[] = []
+      for (const o of outcomes) {
+        if (o.status === 'fulfilled' && o.value.path) {
+          paths.push(o.value.path)
+        }
+      }
+
+      if (paths.length === 0) {
+        showDeltaToast(copy.visionBridge.toastFailed.replace('{error}', 'Upload failed'))
+        return
+      }
+
+      const shouldTranscribe = snap.vision.mode === 'instant-transcribe' || (snap.vision.mode === 'auto' && snap.visionEngineReady)
+      if (shouldTranscribe) {
+        showDeltaToast(copy.visionBridge.toastTranscribing)
+        for (const p of paths) {
+          try {
+            const recRes = await fetch('/api/delta-desktop/vision/recognize', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ path: p }),
+            })
+            const recJson = await recRes.json()
+            if (recJson.ok && recJson.renderedText) {
+              insertComposerText(target, `\n${recJson.renderedText}\n`)
+            } else {
+              insertComposerText(target, `${p} `)
+            }
+          } catch {
+            insertComposerText(target, `${p} `)
+          }
+        }
+        showDeltaToast(copy.visionBridge.toastTranscribed)
+      } else {
+        insertComposerText(target, `${paths.join(' ')} `)
+        showDeltaToast(copy.visionBridge.toastPastedPath)
+      }
+    } catch (err: any) {
+      showDeltaToast(copy.visionBridge.toastFailed.replace('{error}', err?.message || String(err)))
+    }
+  }
+
+  function onPaste(event: ClipboardEvent) {
+    const snap = deltaFeatures.getSnapshot()
+    if (!snap.vision.enabled) return
+    const files = imageFilesOf(event)
+    if (files.length === 0) return
+    const target = resolveWriteTarget(event)
+    if (!target) return
+
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    void handleVisionFiles(files, target)
+  }
+
+  function onDrop(event: DragEvent) {
+    const snap = deltaFeatures.getSnapshot()
+    if (!snap.vision.enabled) return
+    const files = imageFilesOf(event)
+    if (files.length === 0) return
+    const target = resolveWriteTarget(event)
+    if (!target) return
+
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    void handleVisionFiles(files, target)
+  }
+
+  document.addEventListener('paste', onPaste, { capture: true })
+  document.addEventListener('drop', onDrop, { capture: true })
+
+  return () => {
+    try {
+      if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+        document.removeEventListener('paste', onPaste, { capture: true })
+        document.removeEventListener('drop', onDrop, { capture: true })
+      }
+    } catch {}
+  }
+}
+
 // The release builder replaces both markers with data from locale/*.json and src/theme.css.
 const DICTIONARIES = '__DELTA_DESKTOP_LOCALES__' as unknown as Record<Language, DeltaCopy>
 const OWNED_CSS = '__DELTA_DESKTOP_STYLE__'
@@ -519,8 +710,9 @@ const TOKENS: Record<string, { light: string; dark: string }> = {
 }
 
 function language(): Language {
-  const value = typeof document !== 'undefined'
-    ? (document.documentElement.lang || navigator.language || 'en') : 'en'
+  const navLang = typeof navigator !== 'undefined' ? navigator.language : ''
+  const docLang = typeof document !== 'undefined' ? document.documentElement?.lang : ''
+  const value = docLang || navLang || 'en'
   return /^zh(?:-|$)/i.test(value) ? 'zh' : 'en'
 }
 function readMode(): Mode {
@@ -772,14 +964,27 @@ interface ClientFeatureSnapshot {
   hasPin: boolean
   lockMode?: 'totp' | 'pin' | 'none'
   lockedSessionIds: readonly string[]
+  lockedWorkspaceIds: readonly string[]
   movedSessions: Readonly<Record<string, string>>
   deletedSessionIds: readonly string[]
   tempUnlockedIds: readonly string[]
+  tempUnlockedWorkspaceIds: readonly string[]
   proxy: ClientProxyConfig
   effectiveProxy?: ClientEffectiveProxy
   proxyBusy: boolean
   proxyError?: string
   activeSessionId?: string
+  vision: {
+    enabled: boolean
+    mode: 'auto' | 'paste-to-path' | 'instant-transcribe'
+    provider: string
+    customEndpoint: string
+    customApiKey: string
+    customModel: string
+    autoWrapModels: boolean
+  }
+  visionEngineReady?: boolean
+  visionEngineAccount?: { provider: string; model: string; source: string } | null
   revision: number
 }
 
@@ -1148,22 +1353,32 @@ interface ClientFeatureManager {
   isLocked(sessionId: string | undefined): boolean
   isProtectedView(sessionId: string | undefined): boolean
   isDeleted(sessionId: string | undefined): boolean
+  isWorkspaceLocked(wsIdOrPath: string | undefined): boolean
+  isWorkspaceProtected(wsIdOrPath: string | undefined): boolean
+  isSessionInLockedWorkspace(sessionId: string | undefined): boolean
   getWorkspaceCount(): number
   hasSessionsApi(): boolean
   getUngroupedSessionIds(isIncludingArchived?: boolean): string[]
   refreshState(): Promise<void>
   saveProxy(next: ClientProxyConfig): Promise<boolean>
+  saveVision(next: Partial<ClientFeatureSnapshot['vision']>): Promise<boolean>
+  testVisionEngine(): Promise<{ ok: boolean; message: string }>
   beginTotpSetup(): Promise<{ ok: boolean; setupToken?: string; secret?: string; otpauthUri?: string; error?: string }>
   confirmTotpSetup(sessionId: string, setupToken: string, code: string): Promise<{ ok: boolean; error?: string }>
+  confirmTotpSetupWorkspace(workspaceId: string, setupToken: string, code: string): Promise<{ ok: boolean; error?: string }>
   lockSession(sessionId: string, newPin?: string): Promise<{ ok: boolean; error?: string }>
+  lockWorkspace(workspaceId: string): Promise<{ ok: boolean; error?: string }>
   verifyOrUnlockSession(sessionId: string, pin: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }>
+  verifyOrUnlockWorkspace(workspaceId: string, pin: string, permanent: boolean): Promise<{ ok: boolean; error?: string }>
   clearPin(pin: string): Promise<{ ok: boolean; error?: string }>
   moveSession(sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }>
   deleteSession(sessionId: string): Promise<{ ok: boolean; error?: string }>
   deleteUngroupedSessions(sessionIds: string[]): Promise<{ ok: boolean; error?: string; deletedIds?: string[] }>
   closeDialog(): void
   openSetPinDialog(sessionId: string, title?: string): void
+  openSetPinWorkspaceDialog(workspaceId: string, title?: string): void
   openUnlockPinDialog(sessionId: string): void
+  openUnlockWorkspaceDialog(workspaceId: string): void
   openClearPinDialog(): void
   openMoveDialog(sessionId: string, title?: string): void
   openDeleteDialog(sessionId: string, title?: string): void
@@ -1179,11 +1394,24 @@ function createClientFeatureManager(): ClientFeatureManager {
     hasPin: false,
     lockMode: 'none',
     lockedSessionIds: Object.freeze([]),
+    lockedWorkspaceIds: Object.freeze([]),
     movedSessions: Object.freeze({}),
     deletedSessionIds: Object.freeze([]),
     tempUnlockedIds: Object.freeze([]),
+    tempUnlockedWorkspaceIds: Object.freeze([]),
     proxy: Object.freeze({ mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' }),
     proxyBusy: false,
+    vision: Object.freeze({
+      enabled: true,
+      mode: 'auto' as const,
+      provider: 'auto',
+      customEndpoint: '',
+      customApiKey: '',
+      customModel: '',
+      autoWrapModels: true,
+    }),
+    visionEngineReady: undefined,
+    visionEngineAccount: null,
     revision: 0,
   })
   const listeners = new Set<() => void>()
@@ -1246,21 +1474,27 @@ function createClientFeatureManager(): ClientFeatureManager {
     hasPin?: boolean
     lockMode?: 'totp' | 'pin' | 'none'
     lockedSessionIds?: string[]
+    lockedWorkspaceIds?: string[]
     movedSessions?: Record<string, string>
     deletedSessionIds?: string[]
     proxy?: ClientProxyConfig
+    vision?: any
   }): void => {
     const locked = Array.isArray(payload.lockedSessionIds) ? payload.lockedSessionIds : []
+    const lockedWorkspaces = Array.isArray(payload.lockedWorkspaceIds) ? payload.lockedWorkspaceIds : []
     const deleted = Array.isArray(payload.deletedSessionIds) ? payload.deletedSessionIds : []
     const moved = payload.movedSessions && typeof payload.movedSessions === 'object' ? payload.movedSessions : {}
     publish({
       hasPin: Boolean(payload.hasPin),
       lockMode: payload.lockMode ?? (payload.hasPin ? 'totp' : 'none'),
       lockedSessionIds: Object.freeze([...locked]),
+      lockedWorkspaceIds: Object.freeze([...lockedWorkspaces]),
       movedSessions: Object.freeze({ ...moved }),
       deletedSessionIds: Object.freeze([...deleted]),
       tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => locked.includes(id))),
+      tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => lockedWorkspaces.includes(id))),
       ...(payload.proxy ? { proxy: Object.freeze({ ...payload.proxy }) } : {}),
+      ...(payload.vision ? { vision: Object.freeze({ ...state.vision, ...payload.vision }) } : {}),
     })
     syncLockedArchiveMembership(locked)
     notifyDataApis()
@@ -1288,9 +1522,10 @@ function createClientFeatureManager(): ClientFeatureManager {
     lastRefreshAttemptAt = Date.now()
     refreshInFlight = (async () => {
       try {
-        const [stRes, pxRes] = await Promise.all([
+        const [stRes, pxRes, vsRes] = await Promise.all([
           fetch('/api/delta-desktop/state', { credentials: 'same-origin' }),
           fetch('/api/delta-desktop/proxy', { credentials: 'same-origin' }),
+          fetch('/api/delta-desktop/vision/status', { credentials: 'same-origin' }).catch(() => null),
         ])
         if (stRes.ok) {
           const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
@@ -1308,6 +1543,13 @@ function createClientFeatureManager(): ClientFeatureManager {
               proxyError: undefined,
             })
           }
+        }
+        if (vsRes && vsRes.ok) {
+          const vsData = (await vsRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
+          publish({
+            visionEngineReady: Boolean(vsData?.engineReady),
+            visionEngineAccount: vsData?.account ?? null,
+          })
         }
       } catch {}
       finally {
@@ -1355,6 +1597,66 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
     showDeltaToast(copy.networkProxy.savedToast)
     return true
+  }
+
+  const saveVision = async (next: Partial<ClientFeatureSnapshot['vision']>): Promise<boolean> => {
+    if (!canCallHostHttp()) {
+      publish({
+        vision: Object.freeze({ ...state.vision, ...next }),
+      })
+      return true
+    }
+    const res = await postHostJson('/api/delta-desktop/vision/config', { ...next })
+    if (res.ok && res.data?.vision) {
+      publish({
+        vision: Object.freeze({ ...state.vision, ...res.data.vision }),
+      })
+      void (async () => {
+        try {
+          const vRes = await fetch('/api/delta-desktop/vision/status', { credentials: 'same-origin' })
+          const vData = (await vRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
+          if (vRes.ok) {
+            publish({
+              visionEngineReady: Boolean(vData?.engineReady),
+              visionEngineAccount: vData?.account ?? null,
+            })
+          }
+        } catch {}
+      })()
+      return true
+    }
+    return false
+  }
+
+  const testVisionEngine = async (): Promise<{ ok: boolean; message: string }> => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    if (!canCallHostHttp()) {
+      return { ok: true, message: copy.visionBridge.testSuccess.replace('{model}', 'Omni (Mock/Local)') }
+    }
+    try {
+      const res = await fetch('/api/delta-desktop/vision/status', { credentials: 'same-origin' })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.engineReady) {
+        const modelName = data.account?.model || 'Omni'
+        publish({
+          visionEngineReady: true,
+          visionEngineAccount: data.account ?? null,
+        })
+        return { ok: true, message: copy.visionBridge.testSuccess.replace('{model}', modelName) }
+      }
+      const err = data?.error || copy.visionBridge.notReady
+      publish({
+        visionEngineReady: false,
+        visionEngineAccount: null,
+      })
+      return { ok: false, message: copy.visionBridge.testFailed.replace('{error}', err) }
+    } catch (err: any) {
+      publish({
+        visionEngineReady: false,
+        visionEngineAccount: null,
+      })
+      return { ok: false, message: copy.visionBridge.testFailed.replace('{error}', err?.message || String(err)) }
+    }
   }
 
   const generatePreviewBase32Secret = (): string => {
@@ -1435,6 +1737,41 @@ function createClientFeatureManager(): ClientFeatureManager {
     return { ok: true }
   }
 
+  const confirmTotpSetupWorkspace = async (
+    workspaceId: string,
+    setupToken: string,
+    code: string,
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const trimmed = code.trim()
+    if (!/^\d{6}$/.test(trimmed)) return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
+    if (!canCallHostHttp()) {
+      const nextLocked = state.lockedWorkspaceIds.includes(workspaceId)
+        ? state.lockedWorkspaceIds
+        : Object.freeze([...state.lockedWorkspaceIds, workspaceId])
+      publish({
+        hasPin: true,
+        lockMode: 'totp',
+        lockedWorkspaceIds: nextLocked,
+        tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
+      })
+      notifyDataApis()
+      return { ok: true }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', {
+      action: 'setup-confirm',
+      workspaceId,
+      setupToken,
+      code: trimmed,
+    })
+    if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
+    if (res.data?.state) applyHostStatePayload(res.data.state)
+    publish({
+      tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
+    })
+    notifyDataApis()
+    return { ok: true }
+  }
+
   const lockSession = async (sessionId: string, _newPin?: string): Promise<{ ok: boolean; error?: string }> => {
     if (!canCallHostHttp()) {
       const nextLocked = state.lockedSessionIds.includes(sessionId)
@@ -1463,6 +1800,34 @@ function createClientFeatureManager(): ClientFeatureManager {
     notifyDataApis()
     return { ok: true }
   }
+
+  const lockWorkspace = async (workspaceId: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!canCallHostHttp()) {
+      const nextLocked = state.lockedWorkspaceIds.includes(workspaceId)
+        ? state.lockedWorkspaceIds
+        : Object.freeze([...state.lockedWorkspaceIds, workspaceId])
+      publish({
+        hasPin: true,
+        lockMode: state.lockMode === 'pin' ? 'pin' : 'totp',
+        lockedWorkspaceIds: nextLocked,
+        tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
+      })
+      notifyDataApis()
+      return { ok: true }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', {
+      action: 'lock',
+      workspaceId,
+    })
+    if (!res.ok) return { ok: false, error: res.data?.error ?? 'LOCK_FAILED' }
+    if (res.data?.state) applyHostStatePayload(res.data.state)
+    publish({
+      tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
+    })
+    notifyDataApis()
+    return { ok: true }
+  }
+
 
   const verifyOrUnlockSession = async (sessionId: string, code: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
@@ -1503,6 +1868,43 @@ function createClientFeatureManager(): ClientFeatureManager {
     return { ok: true }
   }
 
+  const verifyOrUnlockWorkspace = async (workspaceId: string, code: string, permanent: boolean): Promise<{ ok: boolean; error?: string }> => {
+    const trimmed = code.trim()
+    if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
+      return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
+    }
+    if (!canCallHostHttp()) {
+      if (permanent) {
+        publish({
+          lockedWorkspaceIds: Object.freeze(state.lockedWorkspaceIds.filter(id => id !== workspaceId)),
+          tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
+        })
+        notifyDataApis()
+      } else {
+        publish({
+          tempUnlockedWorkspaceIds: (state.tempUnlockedWorkspaceIds ?? []).includes(workspaceId)
+            ? state.tempUnlockedWorkspaceIds
+            : Object.freeze([...(state.tempUnlockedWorkspaceIds ?? []), workspaceId]),
+        })
+      }
+      return { ok: true }
+    }
+    const res = await postHostJson('/api/delta-desktop/session-lock', {
+      action: permanent ? 'unlock' : 'verify',
+      workspaceId,
+      code: trimmed,
+      pin: trimmed,
+    })
+    if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
+    if (res.data?.state) applyHostStatePayload(res.data.state)
+    if (permanent) {
+      notifyDataApis()
+    } else if (!(state.tempUnlockedWorkspaceIds ?? []).includes(workspaceId)) {
+      publish({ tempUnlockedWorkspaceIds: Object.freeze([...(state.tempUnlockedWorkspaceIds ?? []), workspaceId]) })
+    }
+    return { ok: true }
+  }
+
   const clearPin = async (code: string): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
@@ -1510,7 +1912,14 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     const previouslyLocked = [...state.lockedSessionIds]
     if (!canCallHostHttp()) {
-      publish({ hasPin: false, lockMode: 'none', lockedSessionIds: Object.freeze([]), tempUnlockedIds: Object.freeze([]) })
+      publish({
+        hasPin: false,
+        lockMode: 'none',
+        lockedSessionIds: Object.freeze([]),
+        lockedWorkspaceIds: Object.freeze([]),
+        tempUnlockedIds: Object.freeze([]),
+        tempUnlockedWorkspaceIds: Object.freeze([]),
+      })
       for (const sid of previouslyLocked) await unarchiveSessionBestEffort(sid)
       notifyDataApis()
       return { ok: true }
@@ -1559,23 +1968,34 @@ function createClientFeatureManager(): ClientFeatureManager {
 
   const deleteSession = async (sessionId: string): Promise<{ ok: boolean; error?: string }> => {
     try { await Promise.resolve(sessionsApi?.cancel?.(sessionId)) } catch {}
-    if (canCallHostHttp()) {
-      const res = await postHostJson('/api/delta-desktop/session-delete', {
-        sessionId,
-        ...(findWorkspaceCwdForSession(sessionId) ? { sourceCwd: findWorkspaceCwdForSession(sessionId) } : {}),
-      })
-      if (!res.ok) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
-      if (res.data?.state) applyHostStatePayload(res.data.state)
-    } else {
-      const nextMoved = { ...state.movedSessions }
-      delete nextMoved[sessionId]
-      publish({
-        movedSessions: Object.freeze(nextMoved),
-        lockedSessionIds: Object.freeze(state.lockedSessionIds.filter(id => id !== sessionId)),
-        deletedSessionIds: Object.freeze([...state.deletedSessionIds, sessionId]),
-      })
-      notifyDataApis()
+    if (state.lockedSessionIds.includes(sessionId) || isSessionInLockedWorkspace(sessionId)) {
+      return { ok: false, error: 'SESSION_LOCKED' }
     }
+    if (canCallHostHttp()) {
+      try {
+        const res = await postHostJson('/api/delta-desktop/session-delete', {
+          sessionId,
+          ...(findWorkspaceCwdForSession(sessionId) ? { sourceCwd: findWorkspaceCwdForSession(sessionId) } : {}),
+        })
+        if (!res.ok) {
+          if (res.data?.error === 'SESSION_LOCKED') return { ok: false, error: 'SESSION_LOCKED' }
+        } else if (res.data?.state) {
+          applyHostStatePayload(res.data.state)
+        }
+      } catch (err) {
+        console.warn('[delta-desktop] host session-delete call error:', err)
+      }
+    }
+    const nextMoved = { ...state.movedSessions }
+    delete nextMoved[sessionId]
+    publish({
+      movedSessions: Object.freeze(nextMoved),
+      lockedSessionIds: Object.freeze(state.lockedSessionIds.filter(id => id !== sessionId)),
+      deletedSessionIds: state.deletedSessionIds.includes(sessionId)
+        ? state.deletedSessionIds
+        : Object.freeze([...state.deletedSessionIds, sessionId]),
+    })
+    notifyDataApis()
     if (state.activeSessionId === sessionId) {
       publish({ activeSessionId: undefined })
       try { navigationApi?.startSession() } catch {}
@@ -1611,29 +2031,38 @@ function createClientFeatureManager(): ClientFeatureManager {
     for (const sid of targets) {
       try { await Promise.resolve(sessionsApi?.cancel?.(sid)) } catch {}
     }
-    let deletedIds = targets.filter(id => !state.lockedSessionIds.includes(id))
+    let deletedIds = targets.filter(id => !state.lockedSessionIds.includes(id) && !isSessionInLockedWorkspace(id))
+    if (deletedIds.length === 0) return { ok: false, error: 'SESSION_LOCKED' }
+
     if (canCallHostHttp()) {
-      const cwds: Record<string, string> = {}
-      for (const sid of targets) {
-        const cwd = findWorkspaceCwdForSession(sid)
-        if (cwd) cwds[sid] = cwd
+      try {
+        const cwds: Record<string, string> = {}
+        for (const sid of targets) {
+          const cwd = findWorkspaceCwdForSession(sid)
+          if (cwd) cwds[sid] = cwd
+        }
+        const res = await postHostJson('/api/delta-desktop/session-delete-ungrouped', { sessionIds: targets, cwds })
+        if (res.ok) {
+          if (Array.isArray(res.data?.deletedIds)) deletedIds = res.data.deletedIds
+          if (res.data?.state) applyHostStatePayload(res.data.state)
+        } else if (res.data?.error === 'SESSION_LOCKED') {
+          return { ok: false, error: 'SESSION_LOCKED' }
+        }
+      } catch (err) {
+        console.warn('[delta-desktop] host session-delete-ungrouped call error:', err)
       }
-      const res = await postHostJson('/api/delta-desktop/session-delete-ungrouped', { sessionIds: targets, cwds })
-      if (!res.ok) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
-      if (Array.isArray(res.data?.deletedIds)) deletedIds = res.data.deletedIds
-      if (res.data?.state) applyHostStatePayload(res.data.state)
-    } else {
-      if (deletedIds.length === 0) return { ok: false, error: 'SESSION_LOCKED' }
-      const nextMoved = { ...state.movedSessions }
-      for (const sid of deletedIds) delete nextMoved[sid]
-      const delSet = new Set(state.deletedSessionIds)
-      for (const sid of deletedIds) delSet.add(sid)
-      publish({
-        movedSessions: Object.freeze(nextMoved),
-        deletedSessionIds: Object.freeze([...delSet]),
-      })
-      notifyDataApis()
     }
+
+    const nextMoved = { ...state.movedSessions }
+    for (const sid of deletedIds) delete nextMoved[sid]
+    const delSet = new Set(state.deletedSessionIds)
+    for (const sid of deletedIds) delSet.add(sid)
+    publish({
+      movedSessions: Object.freeze(nextMoved),
+      deletedSessionIds: Object.freeze([...delSet]),
+    })
+    notifyDataApis()
+
     if (state.activeSessionId && deletedIds.includes(state.activeSessionId)) {
       publish({ activeSessionId: undefined })
       try { navigationApi?.startSession() } catch {}
@@ -1662,6 +2091,13 @@ function createClientFeatureManager(): ClientFeatureManager {
     card.className = 'dtd-dialog-card'
     card.setAttribute('role', 'dialog')
     card.setAttribute('aria-modal', 'true')
+    const closeBtn = document.createElement('button')
+    closeBtn.type = 'button'
+    closeBtn.className = 'dtd-dialog-close-btn'
+    closeBtn.setAttribute('aria-label', (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.close ?? 'Close')
+    closeBtn.textContent = '✕'
+    closeBtn.addEventListener('click', closeDialog)
+    card.appendChild(closeBtn)
     buildCard(card)
     backdrop.appendChild(card)
     document.body.appendChild(backdrop)
@@ -1714,11 +2150,14 @@ function createClientFeatureManager(): ClientFeatureManager {
     return false
   }
 
-  const openSetPinDialog = (sessionId: string): void => {
+  const openSetPinGenericDialog = (targetType: 'session' | 'workspace', targetId: string, titleText?: string): void => {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     mountModal(card => {
-      const h = document.createElement('h3'); h.textContent = copy.sessionMenu.setPinTitle
-      const desc = document.createElement('p'); desc.textContent = copy.sessionMenu.setPinDescription
+      const isWs = targetType === 'workspace'
+      const h = document.createElement('h3')
+      h.textContent = titleText || ((isWs && copy.workspaceMenu?.setPinTitle) ? copy.workspaceMenu.setPinTitle : copy.sessionMenu.setPinTitle)
+      const desc = document.createElement('p')
+      desc.textContent = (isWs && copy.workspaceMenu?.setPinDescription) ? copy.workspaceMenu.setPinDescription : copy.sessionMenu.setPinDescription
       const setupBox = document.createElement('div'); setupBox.className = 'dtd-totp-setup-box'
       const loadingMsg = document.createElement('p'); loadingMsg.textContent = copy.sessionMenu.totpLoading
       setupBox.appendChild(loadingMsg)
@@ -1738,7 +2177,10 @@ function createClientFeatureManager(): ClientFeatureManager {
         const code = codeInput.value.trim()
         if (!/^\d{6}$/.test(code)) { err.textContent = copy.sessionMenu.pinTooShort; err.hidden = false; return }
         okBtn.disabled = true
-        void confirmTotpSetup(sessionId, activeSetupToken, code).then(res => {
+        const confirmPromise = isWs
+          ? confirmTotpSetupWorkspace(targetId, activeSetupToken, code)
+          : confirmTotpSetup(targetId, activeSetupToken, code)
+        void confirmPromise.then(res => {
           okBtn.disabled = false
           if (!res.ok) {
             err.textContent = res.error === 'SETUP_EXPIRED' ? copy.sessionMenu.pinMismatch : copy.sessionMenu.wrongPin
@@ -1746,7 +2188,7 @@ function createClientFeatureManager(): ClientFeatureManager {
             return
           }
           closeDialog()
-          showDeltaToast(copy.sessionMenu.lockedToast)
+          showDeltaToast(isWs ? (copy.workspaceMenu?.lockedToast ?? copy.sessionMenu.lockedToast) : copy.sessionMenu.lockedToast)
         })
       }
       okBtn.addEventListener('click', submit)
@@ -1787,6 +2229,14 @@ function createClientFeatureManager(): ClientFeatureManager {
         codeInput.focus?.()
       })
     })
+  }
+
+  const openSetPinDialog = (sessionId: string, title?: string): void => {
+    openSetPinGenericDialog('session', sessionId, title)
+  }
+
+  const openSetPinWorkspaceDialog = (workspaceId: string, title?: string): void => {
+    openSetPinGenericDialog('workspace', workspaceId, title)
   }
 
   const openSinglePinDialog = (
@@ -1857,6 +2307,18 @@ function createClientFeatureManager(): ClientFeatureManager {
     )
   }
 
+  const openUnlockWorkspaceDialog = (workspaceId: string): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    openSinglePinDialog(
+      copy.workspaceMenu?.unlockWorkspace ?? copy.sessionMenu.unlockSession,
+      copy.workspaceMenu?.lockedShieldDesc ?? copy.sessionMenu.lockedShieldDesc,
+      copy.workspaceMenu?.unlockPermanent ?? copy.sessionMenu.unlockPermanent,
+      false,
+      pin => verifyOrUnlockWorkspace(workspaceId, pin, true),
+      copy.workspaceMenu?.unlockedToast ?? copy.sessionMenu.unlockedToast,
+    )
+  }
+
   const openMoveDialog = (sessionId: string): void => {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     if (state.lockedSessionIds.includes(sessionId)) {
@@ -1904,7 +2366,7 @@ function createClientFeatureManager(): ClientFeatureManager {
 
   const openDeleteDialog = (sessionId: string, title?: string): void => {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-    if (state.lockedSessionIds.includes(sessionId)) {
+    if (state.lockedSessionIds.includes(sessionId) || isSessionInLockedWorkspace(sessionId)) {
       showDeltaToast(copy.sessionMenu.unlockFirst)
       return
     }
@@ -1923,7 +2385,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         void deleteSession(sessionId).then(res => {
           delBtn.disabled = false
           if (!res.ok) {
-            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : copy.ui.unavailable)
+            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : (res.error ? `删除失败: ${res.error}` : copy.ui.unavailable))
             return
           }
           closeDialog()
@@ -1938,8 +2400,8 @@ function createClientFeatureManager(): ClientFeatureManager {
   const openDeleteUngroupedDialog = (): void => {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     const allIds = getUngroupedSessionIds(true)
-    const lockedCount = allIds.filter(id => state.lockedSessionIds.includes(id)).length
-    const unlockedIds = allIds.filter(id => !state.lockedSessionIds.includes(id))
+    const lockedCount = allIds.filter(id => state.lockedSessionIds.includes(id) || isSessionInLockedWorkspace(id)).length
+    const unlockedIds = allIds.filter(id => !state.lockedSessionIds.includes(id) && !isSessionInLockedWorkspace(id))
     if (allIds.length > 0 && unlockedIds.length === 0) {
       showDeltaToast(copy.sessionMenu.unlockFirst)
       return
@@ -1965,7 +2427,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         void deleteUngroupedSessions(unlockedIds).then(res => {
           delBtn.disabled = false
           if (!res.ok) {
-            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : copy.ui.unavailable)
+            showDeltaToast(res.error === 'SESSION_LOCKED' ? copy.sessionMenu.unlockFirst : (res.error ? `删除失败: ${res.error}` : copy.ui.unavailable))
             return
           }
           closeDialog()
@@ -1977,12 +2439,61 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
   }
 
+  const isWorkspaceLocked = (wsIdOrPath: string | undefined): boolean => {
+    if (!wsIdOrPath) return false
+    const list = state.lockedWorkspaceIds ?? []
+    if (list.includes(wsIdOrPath)) return true
+    const wsList = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    for (const ws of wsList) {
+      if (ws.workspaceId === wsIdOrPath || ws.path === wsIdOrPath) {
+        if (list.includes(ws.workspaceId) || list.includes(ws.path)) return true
+      }
+    }
+    return false
+  }
+
+  const isWorkspaceProtected = (wsIdOrPath: string | undefined): boolean => {
+    if (!wsIdOrPath || !isWorkspaceLocked(wsIdOrPath)) return false
+    const tempUnlocked = state.tempUnlockedWorkspaceIds ?? []
+    if (tempUnlocked.includes(wsIdOrPath)) return false
+    const wsList = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    for (const ws of wsList) {
+      if (ws.workspaceId === wsIdOrPath || ws.path === wsIdOrPath) {
+        if (tempUnlocked.includes(ws.workspaceId) || tempUnlocked.includes(ws.path)) return false
+      }
+    }
+    return true
+  }
+
+  const isSessionInLockedWorkspace = (sessionId: string | undefined): boolean => {
+    if (!sessionId) return false
+    const wsList = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    for (const ws of wsList) {
+      if (ws.sessionIds?.includes(sessionId)) {
+        if (isWorkspaceProtected(ws.workspaceId) || isWorkspaceProtected(ws.path)) {
+          return true
+        }
+      }
+    }
+    try {
+      const sSnap = sessionsApi?.list?.getSnapshot?.()
+      const wsId = sSnap?.byId?.[sessionId]?.workspaceId
+      if (wsId && isWorkspaceProtected(wsId)) return true
+    } catch {}
+    return false
+  }
+
   const syncLockShieldOverlay = (centerCol: HTMLElement | null): void => {
     const activeId = state.activeSessionId
-    const needShield = Boolean(
+    const isDirectLocked = Boolean(
       activeId &&
       state.lockedSessionIds.includes(activeId) &&
-      !state.tempUnlockedIds.includes(activeId) &&
+      !state.tempUnlockedIds.includes(activeId)
+    )
+    const isWsLocked = Boolean(activeId && isSessionInLockedWorkspace(activeId))
+    const needShield = Boolean(
+      activeId &&
+      (isDirectLocked || isWsLocked) &&
       centerCol,
     )
     if (!needShield || !centerCol) {
@@ -1998,22 +2509,56 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     shieldEl?.remove()
     shieldSessionId = activeId
-    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    const resolvedDict = typeof DICTIONARIES !== 'undefined' ? (DICTIONARIES[language()] ?? DICTIONARIES.en) : undefined
+    const copy = resolvedDict ?? {
+      ui: { close: 'Close', cancel: 'Cancel', unavailable: 'Unavailable' } as any,
+      sessionMenu: { lockedShieldTitle: 'Locked', lockedShieldDesc: 'Enter PIN to unlock', pinPlaceholder: 'PIN', unlockViewOnce: 'Unlock', unlockPermanent: 'Permanent' } as any,
+      workspaceMenu: { lockedShieldTitle: 'Locked Workspace', lockedShieldDesc: 'Enter PIN to unlock workspace' } as any,
+    }
     const isLegacyPin = state.lockMode === 'pin'
     const overlay = document.createElement('div')
     overlay.className = 'dtd-lock-shield'
     overlay.setAttribute('data-delta-lock-shield', activeId!)
     const card = document.createElement('div')
     card.className = 'dtd-lock-card'
+
+    const closeBtn = document.createElement('button')
+    closeBtn.type = 'button'
+    closeBtn.className = 'dtd-dialog-close-btn'
+    closeBtn.setAttribute('aria-label', copy.ui.close ?? 'Close')
+    closeBtn.textContent = '✕'
+    closeBtn.addEventListener('click', () => {
+      overlay.remove()
+      if (shieldEl === overlay) { shieldEl = undefined; shieldSessionId = undefined }
+      deltaFeatures.setActiveSessionId(undefined)
+    })
+    card.appendChild(closeBtn)
+
     const iconWrap = document.createElement('div')
     iconWrap.className = 'dtd-lock-icon-wrap'
     iconWrap.appendChild(createLockSvg(22, false))
-    const title = document.createElement('h3'); title.textContent = copy.sessionMenu.lockedShieldTitle
-    const desc = document.createElement('p'); desc.textContent = copy.sessionMenu.lockedShieldDesc
+
+    const isWsOnly = isWsLocked && !isDirectLocked
+    const title = document.createElement('h3')
+    title.textContent = (isWsOnly && copy.workspaceMenu?.lockedShieldTitle)
+      ? copy.workspaceMenu.lockedShieldTitle
+      : copy.sessionMenu.lockedShieldTitle
+    const desc = document.createElement('p')
+    desc.textContent = (isWsOnly && copy.workspaceMenu?.lockedShieldDesc)
+      ? copy.workspaceMenu.lockedShieldDesc
+      : copy.sessionMenu.lockedShieldDesc
+
     const form = document.createElement('div'); form.className = 'dtd-lock-form'
     const pinInput = createCodeInputElement(copy.sessionMenu.pinPlaceholder, isLegacyPin)
     const err = document.createElement('p'); err.className = 'dtd-dialog-error'; err.hidden = true
     const rowBtns = document.createElement('div'); rowBtns.className = 'dtd-dialog-actions'
+    const cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'dtd-btn-secondary dtd-shield-cancel-btn'
+    cancelBtn.textContent = copy.ui.cancel
+    cancelBtn.addEventListener('click', () => {
+      overlay.remove()
+      if (shieldEl === overlay) { shieldEl = undefined; shieldSessionId = undefined }
+      deltaFeatures.setActiveSessionId(undefined)
+    })
     const viewBtn = document.createElement('button'); viewBtn.type = 'button'; viewBtn.className = 'dtd-btn-primary'
     viewBtn.textContent = copy.sessionMenu.unlockViewOnce
     const permBtn = document.createElement('button'); permBtn.type = 'button'; permBtn.className = 'dtd-btn-secondary'
@@ -2028,7 +2573,29 @@ function createClientFeatureManager(): ClientFeatureManager {
         return
       }
       viewBtn.disabled = true; permBtn.disabled = true
-      void verifyOrUnlockSession(activeId, code, isPermanent).then(res => {
+      let parentWsId: string | undefined
+      if (isWsOnly) {
+        for (const ws of workspacesApi?.list?.getSnapshot?.()?.items ?? []) {
+          if (ws.sessionIds?.includes(activeId)) {
+            if (isWorkspaceProtected(ws.workspaceId) || isWorkspaceProtected(ws.path)) {
+              parentWsId = ws.workspaceId
+              break
+            }
+          }
+        }
+        if (!parentWsId) {
+          try {
+            const wsId = sessionsApi?.list?.getSnapshot?.()?.byId?.[activeId]?.workspaceId
+            if (wsId && isWorkspaceProtected(wsId)) parentWsId = wsId
+          } catch {}
+        }
+      }
+
+      const unlockPromise = (isWsOnly && parentWsId)
+        ? verifyOrUnlockWorkspace(parentWsId, code, isPermanent)
+        : verifyOrUnlockSession(activeId, code, isPermanent)
+
+      void unlockPromise.then(res => {
         viewBtn.disabled = false; permBtn.disabled = false
         if (!res.ok) {
           err.textContent = copy.sessionMenu.wrongPin
@@ -2037,13 +2604,13 @@ function createClientFeatureManager(): ClientFeatureManager {
         }
         overlay.remove()
         if (shieldEl === overlay) { shieldEl = undefined; shieldSessionId = undefined }
-        if (isPermanent) showDeltaToast(copy.sessionMenu.unlockedToast)
+        if (isPermanent) showDeltaToast((isWsOnly && copy.workspaceMenu?.unlockedToast) ? copy.workspaceMenu.unlockedToast : copy.sessionMenu.unlockedToast)
       })
     }
     viewBtn.addEventListener('click', () => runUnlock(false))
     permBtn.addEventListener('click', () => runUnlock(true))
     pinInput.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter') runUnlock(false) })
-    rowBtns.append(permBtn, viewBtn)
+    rowBtns.append(cancelBtn, permBtn, viewBtn)
     form.append(pinInput, err, rowBtns)
     card.append(iconWrap, title, desc, form)
     overlay.appendChild(card)
@@ -2092,22 +2659,32 @@ function createClientFeatureManager(): ClientFeatureManager {
     isLocked: (id) => Boolean(id && state.lockedSessionIds.includes(id)),
     isProtectedView: (id) => Boolean(id && state.lockedSessionIds.includes(id) && !state.tempUnlockedIds.includes(id)),
     isDeleted: (id) => Boolean(id && state.deletedSessionIds.includes(id)),
+    isWorkspaceLocked,
+    isWorkspaceProtected,
+    isSessionInLockedWorkspace,
     getWorkspaceCount: () => workspacesApi?.list?.getSnapshot?.()?.items?.length ?? 0,
     hasSessionsApi: () => Boolean(sessionsApi),
     getUngroupedSessionIds,
     refreshState,
     saveProxy,
+    saveVision,
+    testVisionEngine,
     beginTotpSetup,
     confirmTotpSetup,
+    confirmTotpSetupWorkspace,
     lockSession,
+    lockWorkspace,
     verifyOrUnlockSession,
+    verifyOrUnlockWorkspace,
     clearPin,
     moveSession,
     deleteSession,
     deleteUngroupedSessions,
     closeDialog,
     openSetPinDialog,
+    openSetPinWorkspaceDialog,
     openUnlockPinDialog,
+    openUnlockWorkspaceDialog,
     openClearPinDialog,
     openMoveDialog,
     openDeleteDialog,
@@ -2691,9 +3268,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const hiddenSoleWorkspaceNodes = new Set<HTMLElement>()
   const hiddenDeletedRows = new Set<HTMLElement>()
   const hiddenEmptyUngroupedNodes = new Set<HTMLElement>()
+  const hiddenSepNodes = new Set<HTMLElement>()
   const collapsibleErrorHandlers = new Map<HTMLElement, (e: Event) => void>()
   const modifiedTailNavCells = new Set<HTMLElement>()
   let lastMenuSessionId: string | undefined
+  let lastMenuWorkspaceId: string | undefined
+  const LOCKED_WORKSPACE_MUTATION_LABELS = new Set(['重命名', 'Rename', '删除工作区', 'Delete workspace'])
   let ungroupedMenuEl: HTMLElement | undefined
   const closeUngroupedMenu = (): void => {
     ungroupedMenuEl?.remove?.()
@@ -2858,6 +3438,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     modifiedMenuNodes.clear()
     restoreHiddenNodes('data-dtd-hidden-feedback', hiddenFeedbackNodes)
     restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
+    restoreHiddenNodes('data-dtd-hidden-menu-sep', hiddenSepNodes)
     for (const navBtn of modifiedTailNavCells) {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
     }
@@ -2931,19 +3512,41 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
 
   const SESSION_MENU_ORDERS: Record<string, string> = {
-    '\u91CD\u547D\u540D': '10', 'Rename': '10',
-    '\u7F6E\u9876\u4F1A\u8BDD': '20', '\u53D6\u6D88\u7F6E\u9876': '20', 'Pin': '20', 'Unpin': '20',
-    '\u5206\u53C9\u4F1A\u8BDD': '30', 'Fork': '30', 'Fork session': '30',
-    '\u5728\u6587\u4EF6\u5939\u663E\u793A': '50', '\u5728 Finder \u663E\u793A': '50', 'Show in folder': '50', 'Show in Finder': '50',
-    '\u590D\u5236 Session ID': '60', 'Copy Session ID': '60',
-    '\u9501\u5B9A\u4F1A\u8BDD': '76', '\u89E3\u9501\u4F1A\u8BDD': '76', 'Lock session': '76', 'Unlock session': '76', 'Lock conversation': '76', 'Unlock conversation': '76',
-    '\u79FB\u52A8\u4F1A\u8BDD': '78', 'Move session': '78', 'Move conversation': '78',
-    '\u5F52\u6863\u4F1A\u8BDD': '80', '\u53D6\u6D88\u5F52\u6863': '80', 'Archive': '80', 'Unarchive': '80',
-    '\u5220\u9664\u4F1A\u8BDD': '90', 'Delete session': '90', 'Delete conversation': '90',
+    '重命名': '10', 'Rename': '10',
+    '置顶会话': '20', '取消置顶': '20', 'Pin': '20', 'Unpin': '20',
+    '分叉会话': '30', 'Fork': '30', 'Fork session': '30',
+    '移动会话': '40', 'Move session': '40', 'Move conversation': '40',
+    '在应用中打开': '50', '在文件夹显示': '50', '在 Finder 显示': '50', 'Show in folder': '50', 'Show in Finder': '50', 'Open in app': '50',
+    '复制 Session ID': '60', 'Copy Session ID': '60',
+    '锁定会话': '70', '解锁会话': '70', 'Lock session': '70', 'Unlock session': '70', 'Lock conversation': '70', 'Unlock conversation': '70',
+    '归档会话': '80', '取消归档': '80', 'Archive': '80', 'Unarchive': '80',
+    '删除会话': '90', 'Delete session': '90', 'Delete conversation': '90',
+  }
+
+  const getSessionMenuOrder = (label: string): string | null => {
+    const trimmed = (label ?? '').trim()
+    if (SESSION_MENU_ORDERS[trimmed]) return SESSION_MENU_ORDERS[trimmed]
+    if (/^重命名|^Rename/i.test(trimmed)) return '10'
+    if (/^(置顶会话|取消置顶|Pin|Unpin)/i.test(trimmed)) return '20'
+    if (/^分叉|^Fork/i.test(trimmed)) return '30'
+    if (/^移动|^Move/i.test(trimmed)) return '40'
+    if (/^(在应用中打开|在文件夹显示|在 Finder 显示|Show in folder|Show in Finder|Open in app)/i.test(trimmed)) return '50'
+    if (/(Session ID|会话编号)/i.test(trimmed)) return '60'
+    if (/^(锁定会话|解锁会话|Lock session|Unlock session|Lock conversation|Unlock conversation)/i.test(trimmed)) return '70'
+    if (/^(归档会话|取消归档|Archive|Unarchive)/i.test(trimmed)) return '80'
+    if (/^(删除会话|Delete session|Delete conversation)/i.test(trimmed)) return '90'
+    return null
+  }
+
+  const WORKSPACE_MENU_ORDERS: Record<string, string> = {
+    '重命名': '10', 'Rename': '10',
+    '在文件夹显示': '20', '在 Finder 显示': '20', 'Show in folder': '20', 'Show in Finder': '20',
+    '锁定工作区': '30', '解锁工作区': '30', 'Lock workspace': '30', 'Unlock workspace': '30',
+    '删除工作区': '40', 'Delete workspace': '40',
   }
   const VIEW_OPTIONS_ORDERS: Record<string, string> = {
-    '\u5206\u7EC4\u65B9\u5F0F': '10', 'Group by': '10',
-    '\u5355\u5217\u8868': '15', 'In one list': '15',
+    '分组方式': '10', 'Group by': '10',
+    '单列表': '15', 'In one list': '15',
     '\u6309\u5DE5\u4F5C\u533A': '20', 'WorkSpace': '20',
     '\u6309\u5DE5\u4F5C\u533A\u6811': '30', 'Workspace Tree': '30',
     '\u6392\u5E8F\u65B9\u5F0F': '40', 'Order by': '40',
@@ -3024,6 +3627,29 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     if (node.getAttribute('data-dtd-menu-order') !== order) node.setAttribute('data-dtd-menu-order', order)
     if (node.style?.getPropertyValue?.('order') !== order) node.style?.setProperty?.('order', order, 'important')
     modifiedMenuNodes.add(node)
+  }
+
+  const sortContainerChildrenByOrder = (container: HTMLElement): void => {
+    if (!container || typeof container.appendChild !== 'function') return
+    const children = Array.from(container.children ?? []) as HTMLElement[]
+    if (children.length < 2) return
+    const sorted = [...children].sort((a, b) => {
+      const oa = Number(a.getAttribute?.('data-dtd-menu-order') || '999')
+      const ob = Number(b.getAttribute?.('data-dtd-menu-order') || '999')
+      return oa - ob
+    })
+    let needsReorder = false
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i] !== children[i]) {
+        needsReorder = true
+        break
+      }
+    }
+    if (needsReorder) {
+      for (const node of sorted) {
+        container.appendChild(node)
+      }
+    }
   }
 
   const getMenuLabel = (el: HTMLElement): string => {
@@ -3123,6 +3749,27 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         existingBadge?.remove?.()
       }
     }
+
+    const wsRows = document.querySelectorAll<HTMLElement>('[data-row-key^="workspace:"]')
+    for (const wsRow of wsRows) {
+      const k = wsRow.getAttribute('data-row-key')?.slice('workspace:'.length) ?? ''
+      if (!k) continue
+      const wsLocked = deltaFeatures.isWorkspaceLocked(k)
+      const existingWsBadge = wsRow.querySelector?.<HTMLElement>('.dtd-workspace-lock-badge') ?? null
+      if (wsLocked) {
+        if (wsRow.getAttribute('data-dtd-workspace-locked') !== '1') wsRow.setAttribute('data-dtd-workspace-locked', '1')
+        if (!existingWsBadge) {
+          const badge = document.createElement('span')
+          badge.className = 'dtd-workspace-lock-badge'
+          badge.setAttribute('aria-hidden', 'true')
+          badge.appendChild(createLockSvg(12, false))
+          wsRow.appendChild?.(badge)
+        }
+      } else {
+        if (wsRow.hasAttribute('data-dtd-workspace-locked')) wsRow.removeAttribute('data-dtd-workspace-locked')
+        existingWsBadge?.remove?.()
+      }
+    }
     if (selectedSid) deltaFeatures.setActiveSessionId(selectedSid)
     if (typeof document.querySelector === 'function') {
       const centerCol = document.querySelector<HTMLElement>('[class*="mP3x-q_centerCol"], [class*="an3WzG_body"], main, [data-chat-scrollport]')
@@ -3166,8 +3813,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     }
     const soleWorkspace = deltaFeatures.getWorkspaceCount() === 1
-    const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_1p5el"], [class*="_footer_1p5el"], [role="menu"]')
+    const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_"], [class*="_footer_"], [role="menu"]')
     for (const container of containers) {
+      if (container.getAttribute?.('role') === 'menu' && container.querySelector?.('[class*="_viewport_"], [class*="_footer_"]')) {
+        continue
+      }
       const items = Array.from(container.children ?? []) as HTMLElement[]
       const labels = items.map(getMenuLabel)
       const isWorkspaceMenu = soleWorkspace
@@ -3215,6 +3865,20 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
   }
 
+  const createSepNode = (sample?: HTMLElement): HTMLElement => {
+    if (sample && typeof sample.cloneNode === 'function') {
+      try {
+        const cloned = sample.cloneNode(true) as HTMLElement
+        cloned.className = (cloned.className || '') + ' dtd-injected-sep'
+        return cloned
+      } catch {}
+    }
+    const sep = document.createElement('div')
+    sep.setAttribute('role', 'separator')
+    sep.className = 'dtd-injected-sep'
+    return sep
+  }
+
   const syncMenus = (): void => {
     syncPrivacyDom()
     for (const stale of modifiedMenuNodes) {
@@ -3223,9 +3887,15 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     for (const stale of hiddenFeedbackNodes) {
       if (!stale.isConnected) hiddenFeedbackNodes.delete(stale)
     }
+    for (const stale of hiddenSepNodes) {
+      if (!stale.isConnected) hiddenSepNodes.delete(stale)
+    }
     if (typeof document?.querySelectorAll !== 'function') return
-    const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_1p5el"], [class*="_footer_1p5el"], [role="menu"]')
+    const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_"], [class*="_footer_"], [role="menu"]')
     for (const container of containers) {
+      if (container.getAttribute?.('role') === 'menu' && container.querySelector?.('[class*="_viewport_"], [class*="_footer_"]')) {
+        continue
+      }
       const items = Array.from(container.children ?? []) as HTMLElement[]
       if (items.length === 0) continue
       const labels = items.map(getMenuLabel)
@@ -3238,44 +3908,198 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         }
       }
       if (items.length < 2) continue
-      const isFooterContainer = typeof container.className === 'string' && container.className.includes('_footer_1p5el')
-      const isSessionFooter = labels.some(t => t === '\u5F52\u6863\u4F1A\u8BDD' || t === '\u53D6\u6D88\u5F52\u6863' || t === 'Archive' || t === 'Unarchive')
-        && labels.some(t => t === '\u9501\u5B9A\u4F1A\u8BDD' || t === '\u89E3\u9501\u4F1A\u8BDD' || t === 'Lock session' || t === 'Unlock session'
-          || t === '\u79FB\u52A8\u4F1A\u8BDD' || t === 'Move session' || t === 'Move conversation'
-          || t === '\u5220\u9664\u4F1A\u8BDD' || t === 'Delete session' || t === 'Delete conversation')
-      const isSessionMenu = labels.some(t => t === '\u7F6E\u9876\u4F1A\u8BDD' || t === '\u53D6\u6D88\u7F6E\u9876' || t === 'Pin' || t === 'Unpin')
-        || (labels.some(t => t === '\u91CD\u547D\u540D' || t === 'Rename') && (
-          labels.some(t => t === '\u5206\u53C9\u4F1A\u8BDD' || t === 'Fork' || t === 'Fork session')
-          || labels.some(t => t === '\u590D\u5236 Session ID' || t === 'Copy Session ID')
-          || labels.some(t => t === '\u5728\u6587\u4EF6\u5939\u663E\u793A' || t === '\u5728 Finder \u663E\u793A' || t === 'Show in folder' || t === 'Show in Finder')
+      const isFooterContainer = typeof container.className === 'string' && container.className.includes('_footer_')
+      const isSessionFooter = isFooterContainer || (
+        labels.some(t => t.includes('归档') || t.includes('Archive'))
+        && labels.some(t => t.includes('锁定') || t.includes('Lock')
+          || t.includes('移动') || t.includes('Move')
+          || t.includes('删除') || t.includes('Delete'))
+      )
+      const isWorkspaceMenu = !isFooterContainer && !isSessionFooter && labels.some(t =>
+        t === '删除工作区' || t === 'Delete workspace' ||
+        t.startsWith('锁定工作区') || t.startsWith('解锁工作区') ||
+        t.startsWith('Lock workspace') || t.startsWith('Unlock workspace')
+      ) && !labels.some(t =>
+        t === '置顶会话' || t === '取消置顶' || t === '分叉会话' || t === '移动会话' ||
+        t === '锁定会话' || t === '解锁会话' || t === '归档会话' || t === '取消归档' ||
+        t === '删除会话' || t.includes('Session ID')
+      )
+      const isSessionViewport = !isWorkspaceMenu && !isFooterContainer && !isSessionFooter && (
+        labels.some(t => t.includes('置顶') || t.includes('Pin'))
+        || (labels.some(t => t.includes('重命名') || t.includes('Rename')) && (
+          labels.some(t => t.includes('分叉') || t.includes('Fork'))
+          || labels.some(t => t.includes('移动') || t.includes('Move'))
+          || labels.some(t => t.includes('Session ID'))
+          || labels.some(t => t.includes('在应用中打开') || t.includes('在文件夹显示') || t.includes('Show in folder'))
         ))
-        || (labels.some(t => t === '\u590D\u5236 Session ID' || t === 'Copy Session ID') && labels.some(t => t === '\u5728\u6587\u4EF6\u5939\u663E\u793A' || t === '\u5728 Finder \u663E\u793A' || t === 'Show in folder' || t === 'Show in Finder'))
-        || isSessionFooter
-      const isViewMenu = labels.some(t => t === '\u5355\u5217\u8868' || t === 'In one list')
-        && (labels.some(t => t === '\u6309\u5DE5\u4F5C\u533A' || t === 'WorkSpace') || labels.some(t => t === '\u4EC5\u663E\u793A\u5DF2\u5F52\u6863' || t === 'Archived only'))
-      if (!isSessionMenu && !isViewMenu) continue
+        || (labels.some(t => t.includes('Session ID')) && labels.some(t => t.includes('在应用中打开') || t.includes('在文件夹显示') || t.includes('Show in folder')))
+      )
+      const isSessionMenu = !isWorkspaceMenu && (isSessionViewport || isSessionFooter)
+      const isViewMenu = labels.some(t => t === '单列表' || t === 'In one list')
+        && (labels.some(t => t === '按工作区' || t === 'WorkSpace') || labels.some(t => t === '仅显示已归档' || t === 'Archived only'))
+      if (!isSessionMenu && !isWorkspaceMenu && !isViewMenu) continue
 
-      let seenSep = 0
-      const table = isSessionMenu ? SESSION_MENU_ORDERS : VIEW_OPTIONS_ORDERS
-      for (let i = 0; i < items.length; i++) {
-        const el = items[i]
-        const isSep = el.getAttribute?.('role') === 'separator' || (typeof el.className === 'string' && el.className.includes('_separator_'))
-        if (isSep) {
-          if (isFooterContainer || isSessionFooter) {
-            hidePrivacyNode(el, 'data-dtd-hidden-session-log', hiddenSessionLogNodes)
-            continue
+      if (isWorkspaceMenu) {
+        const lockEls = items.filter(el => {
+          const l = getMenuLabel(el)
+          return l.startsWith('锁定工作区') || l.startsWith('解锁工作区') ||
+                 l.startsWith('Lock workspace') || l.startsWith('Unlock workspace') ||
+                 el.classList?.contains('dtd-workspace-lock-item')
+        })
+        if (lockEls.length > 1) {
+          for (let i = 1; i < lockEls.length; i++) {
+            lockEls[i].remove()
+            const idx = items.indexOf(lockEls[i])
+            if (idx >= 0) items.splice(idx, 1)
           }
-          seenSep++
-          if (isSessionMenu) setMenuNodeOrder(el, seenSep === 1 ? '40' : '75')
-          else setMenuNodeOrder(el, seenSep === 1 ? '35' : '55')
+        }
+        for (let i = 0; i < items.length; i++) {
+          const el = items[i]
+          const isSep = el.getAttribute?.('role') === 'separator' || (typeof el.className === 'string' && el.className.includes('_separator_'))
+          if (isSep) continue
+          const l = getMenuLabel(el)
+          if (l in WORKSPACE_MENU_ORDERS) {
+            setMenuNodeOrder(el, WORKSPACE_MENU_ORDERS[l])
+          }
+          if (l === '删除工作区' || l === 'Delete workspace') {
+            el.setAttribute?.('data-danger', '1')
+            el.classList?.add('dtd-menu-danger')
+            if (deltaFeatures.getWorkspaceCount() <= 1) {
+              hidePrivacyNode(el, 'data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
+            }
+          }
+        }
+        const sepEls = items.filter(el =>
+          el.getAttribute?.('role') === 'separator' ||
+          (typeof el.className === 'string' && (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
+        )
+        if (sepEls.length >= 1) setMenuNodeOrder(sepEls[0], '25')
+        if (sepEls.length >= 2) setMenuNodeOrder(sepEls[1], '35')
+        for (let s = 2; s < sepEls.length; s++) {
+          hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
+        }
+        if (sepEls.length === 0) {
+          const sep1 = createSepNode()
+          setMenuNodeOrder(sep1, '25')
+          container.appendChild(sep1)
+          const sep2 = createSepNode()
+          setMenuNodeOrder(sep2, '35')
+          container.appendChild(sep2)
+        } else if (sepEls.length === 1) {
+          const sep2 = createSepNode(sepEls[0])
+          setMenuNodeOrder(sep2, '35')
+          container.appendChild(sep2)
+        }
+        sortContainerChildrenByOrder(container)
+        continue
+      }
+
+      if (isSessionMenu) {
+        if (isFooterContainer || isSessionFooter) {
+          const sepEls = items.filter(el =>
+            el.getAttribute?.('role') === 'separator' ||
+            (typeof el.className === 'string' && (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
+          )
+          for (let i = 0; i < items.length; i++) {
+            const el = items[i]
+            if (sepEls.includes(el)) continue
+            const label = getMenuLabel(el)
+            const ord = getSessionMenuOrder(label)
+            if (ord) setMenuNodeOrder(el, ord)
+            if (label.includes('删除会话') || label.includes('Delete session') || label.includes('Delete conversation')) {
+              el.setAttribute?.('data-danger', '1')
+              el.classList?.add('dtd-menu-danger')
+            }
+          }
+          if (sepEls.length >= 1) {
+            setMenuNodeOrder(sepEls[0], '85')
+            for (let s = 1; s < sepEls.length; s++) {
+              hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
+            }
+          } else {
+            const newSep = createSepNode()
+            setMenuNodeOrder(newSep, '85')
+            container.appendChild(newSep)
+          }
+          sortContainerChildrenByOrder(container)
           continue
         }
-        const label = labels[i]
-        if (label in table) {
-          setMenuNodeOrder(el, table[label])
-        } else if (isSessionMenu) {
-          setMenuNodeOrder(el, seenSep === 0 ? '35' : '70')
+
+        const sepEls = items.filter(el =>
+          el.getAttribute?.('role') === 'separator' ||
+          (typeof el.className === 'string' && (el.className.includes('_separator_') || el.className.includes('dtd-injected-sep')))
+        )
+        const hasGroup3Or4 = items.some(el => {
+          const ord = getSessionMenuOrder(getMenuLabel(el))
+          return ord === '70' || ord === '80' || ord === '90'
+        })
+
+        for (let i = 0; i < items.length; i++) {
+          const el = items[i]
+          if (sepEls.includes(el)) continue
+          const label = getMenuLabel(el)
+          if (label === '在文件夹显示' || label === '在 Finder 显示') {
+            const labelSpan = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
+            if (labelSpan) labelSpan.textContent = '在应用中打开'
+            else if (el.getAttribute?.('role') === 'menuitem') el.textContent = '在应用中打开'
+          } else if (label === 'Show in folder' || label === 'Show in Finder') {
+            const labelSpan = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
+            if (labelSpan) labelSpan.textContent = 'Open in app'
+            else if (el.getAttribute?.('role') === 'menuitem') el.textContent = 'Open in app'
+          }
+          const ord = getSessionMenuOrder(label)
+          if (ord) setMenuNodeOrder(el, ord)
+          if (label.includes('删除会话') || label.includes('Delete session') || label.includes('Delete conversation')) {
+            el.setAttribute?.('data-danger', '1')
+            el.classList?.add('dtd-menu-danger')
+          }
         }
+
+        if (hasGroup3Or4) {
+          const needed = ['45', '65', '85']
+          for (let s = 0; s < Math.min(sepEls.length, 3); s++) {
+            setMenuNodeOrder(sepEls[s], needed[s])
+          }
+          for (let s = 3; s < sepEls.length; s++) {
+            hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
+          }
+          for (let s = sepEls.length; s < 3; s++) {
+            const newSep = createSepNode(sepEls[0])
+            setMenuNodeOrder(newSep, needed[s])
+            container.appendChild(newSep)
+          }
+        } else {
+          if (sepEls.length >= 1) {
+            setMenuNodeOrder(sepEls[0], '45')
+            for (let s = 1; s < sepEls.length; s++) {
+              hidePrivacyNode(sepEls[s], 'data-dtd-hidden-menu-sep', hiddenSepNodes)
+            }
+          } else {
+            const newSep = createSepNode()
+            setMenuNodeOrder(newSep, '45')
+            container.appendChild(newSep)
+          }
+        }
+        sortContainerChildrenByOrder(container)
+        continue
+      }
+
+      if (isViewMenu) {
+        let seenSep = 0
+        for (let i = 0; i < items.length; i++) {
+          const el = items[i]
+          const isSep = el.getAttribute?.('role') === 'separator' || (typeof el.className === 'string' && el.className.includes('_separator_'))
+          if (isSep) {
+            seenSep++
+            setMenuNodeOrder(el, seenSep === 1 ? '35' : '55')
+            continue
+          }
+          const label = getMenuLabel(el)
+          if (label in VIEW_OPTIONS_ORDERS) {
+            setMenuNodeOrder(el, VIEW_OPTIONS_ORDERS[label])
+          }
+        }
+        sortContainerChildrenByOrder(container)
       }
     }
   }
@@ -3925,7 +4749,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const saved = persistedExpansion()
       for (const row of viewport.querySelectorAll<HTMLElement>('[data-row-key^="workspace:"][aria-expanded="true"], [class*="workspace"][aria-expanded="true"]')) {
         const key = row.getAttribute('data-row-key')?.slice('workspace:'.length) ?? ''
-        if (!key || initialized.has(key) || saved[key] !== undefined) continue
+        if (!key) continue
+        if (deltaFeatures.isWorkspaceLocked(key)) {
+          row.click()
+          continue
+        }
+        if (initialized.has(key) || saved[key] !== undefined) continue
         initialized.add(key)
         row.click()
       }
@@ -4030,6 +4859,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const k = rowEl.getAttribute('data-row-key') ?? ''
       if (k.startsWith('session:')) lastMenuSessionId = k.slice(8)
     }
+    const wsEl = rawTarget?.closest?.<HTMLElement>('[data-row-key^="workspace:"]')
+    if (wsEl) {
+      const k = wsEl.getAttribute('data-row-key') ?? ''
+      if (k.startsWith('workspace:')) lastMenuWorkspaceId = k.slice(10)
+    }
     onSplitterPointerDown(e)
     if (!(e as PointerEvent).defaultPrevented) {
       onModalPointerDown(e)
@@ -4039,7 +4873,19 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     const target = e.target as HTMLElement | null
     if (!target) return
     const menuItem = target.closest?.<HTMLElement>('[role="menuitem"]')
-    if (!menuItem || !lastMenuSessionId || !deltaFeatures.isLocked(lastMenuSessionId)) return
+    if (!menuItem) return
+    if (lastMenuWorkspaceId && deltaFeatures.isWorkspaceLocked(lastMenuWorkspaceId)) {
+      const label = getMenuLabel(menuItem)
+      if (LOCKED_WORKSPACE_MUTATION_LABELS.has(label)) {
+        e.preventDefault?.()
+        ;(e as Event & { stopImmediatePropagation?: () => void }).stopImmediatePropagation?.()
+        e.stopPropagation?.()
+        const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+        showDeltaToast(copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
+        return
+      }
+    }
+    if (!lastMenuSessionId || !deltaFeatures.isLocked(lastMenuSessionId)) return
     const label = getMenuLabel(menuItem)
     if (LOCKED_UNARCHIVE_LABELS.has(label)) {
       e.preventDefault?.()
@@ -4130,6 +4976,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     restoreHiddenNodes('data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
     restoreHiddenNodes('data-dtd-hidden-deleted', hiddenDeletedRows)
     restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
+    restoreHiddenNodes('data-dtd-hidden-menu-sep', hiddenSepNodes)
     closeUngroupedMenu()
     cleanupCollapsibleErrors()
     deltaFeatures.resetSessionOverlays()
@@ -6429,6 +7276,9 @@ window.__ModuleLoader__.load({
       const [draftHttps, setDraftHttps] = React.useState<string | null>(null)
       const [draftNo, setDraftNo] = React.useState<string | null>(null)
       const [manualModeActive, setManualModeActive] = React.useState<ClientProxyMode | null>(null)
+      const [draftVisionEndpoint, setDraftVisionEndpoint] = React.useState<string | null>(null)
+      const [draftVisionKey, setDraftVisionKey] = React.useState<string | null>(null)
+      const [draftVisionModel, setDraftVisionModel] = React.useState<string | null>(null)
 
       const activeMode = manualModeActive ?? fSnap.proxy.mode
       const httpVal = draftHttp ?? fSnap.proxy.httpProxy
@@ -6535,6 +7385,98 @@ window.__ModuleLoader__.load({
           el('p', { className: 'dtd-current', role: 'status' }, `${copy.networkProxy.statusLabel}: ${effText}`),
           el('p', { className: 'dtd-current' }, copy.networkProxy.note)),
 
+        el('div', { className: 'dtd-form-stack', 'data-delta-vision-card': '' },
+          el('div', { className: 'dtd-preference-row', style: { padding: 0, border: 'none', background: 'transparent' } },
+            el('div', { className: 'dtd-preference-copy' },
+              el('strong', null, copy.visionBridge.title),
+              el('p', null, copy.visionBridge.description)),
+            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.enable },
+              ([true, false] as const).map(en =>
+                el('button', {
+                  key: String(en),
+                  type: 'button',
+                  'aria-pressed': fSnap.vision.enabled === en,
+                  className: fSnap.vision.enabled === en ? 'dtd-active' : '',
+                  onClick: () => { void deltaFeatures.saveVision({ enabled: en }) },
+                }, en ? copy.ui.enabled : (language() === 'zh' ? '已停用' : 'Disabled'))))),
+          fSnap.vision.enabled ? el('div', { className: 'dtd-form-field' },
+            el('label', null, copy.visionBridge.mode),
+            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.mode },
+              (['auto', 'paste-to-path', 'instant-transcribe'] as const).map(vm =>
+                el('button', {
+                  key: vm,
+                  type: 'button',
+                  'aria-pressed': fSnap.vision.mode === vm,
+                  className: fSnap.vision.mode === vm ? 'dtd-active' : '',
+                  onClick: () => { void deltaFeatures.saveVision({ mode: vm }) },
+                }, vm === 'auto' ? (language() === 'zh' ? '智能模式' : 'Auto') : vm === 'paste-to-path' ? (language() === 'zh' ? '粘贴转路径' : 'Paste to Path') : (language() === 'zh' ? '即时转写' : 'Instant Transcribe')))),
+            el('label', null, copy.visionBridge.engine),
+            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.engine },
+              (['auto', 'openai-compat', 'gemini'] as const).map(pe =>
+                el('button', {
+                  key: pe,
+                  type: 'button',
+                  'aria-pressed': fSnap.vision.provider === pe,
+                  className: fSnap.vision.provider === pe ? 'dtd-active' : '',
+                  onClick: () => { void deltaFeatures.saveVision({ provider: pe }) },
+                }, pe === 'auto' ? copy.visionBridge.engineAuto : pe === 'openai-compat' ? copy.visionBridge.engineCustom : copy.visionBridge.engineGemini))),
+            fSnap.vision.provider === 'openai-compat' || fSnap.vision.provider === 'gemini' ? el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' } },
+              el('label', null, copy.visionBridge.customEndpoint),
+              el('input', {
+                type: 'text',
+                className: 'dtd-form-input',
+                placeholder: fSnap.vision.provider === 'gemini' ? 'https://generativelanguage.googleapis.com' : 'https://api.openai.com/v1',
+                value: draftVisionEndpoint ?? fSnap.vision.customEndpoint,
+                onChange: (e: any) => setDraftVisionEndpoint(String(e?.target?.value ?? '')),
+                onBlur: () => {
+                  if (draftVisionEndpoint !== null) {
+                    void deltaFeatures.saveVision({ customEndpoint: draftVisionEndpoint })
+                    setDraftVisionEndpoint(null)
+                  }
+                },
+              }),
+              el('label', null, copy.visionBridge.customApiKey),
+              el('input', {
+                type: 'password',
+                className: 'dtd-form-input',
+                placeholder: fSnap.vision.provider === 'gemini' ? 'AIza...' : 'sk-...',
+                value: draftVisionKey ?? fSnap.vision.customApiKey,
+                onChange: (e: any) => setDraftVisionKey(String(e?.target?.value ?? '')),
+                onBlur: () => {
+                  if (draftVisionKey !== null) {
+                    void deltaFeatures.saveVision({ customApiKey: draftVisionKey })
+                    setDraftVisionKey(null)
+                  }
+                },
+              }),
+              el('label', null, copy.visionBridge.customModel),
+              el('input', {
+                type: 'text',
+                className: 'dtd-form-input',
+                placeholder: fSnap.vision.provider === 'gemini' ? 'gemini-1.5-flash' : 'qwen-vl-max / gpt-4o',
+                value: draftVisionModel ?? fSnap.vision.customModel,
+                onChange: (e: any) => setDraftVisionModel(String(e?.target?.value ?? '')),
+                onBlur: () => {
+                  if (draftVisionModel !== null) {
+                    void deltaFeatures.saveVision({ customModel: draftVisionModel })
+                    setDraftVisionModel(null)
+                  }
+                },
+              })) : null,
+            el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' } },
+              el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
+                el('span', { className: 'dtd-privacy-dot', style: { background: fSnap.visionEngineReady ? '#10b981' : '#f59e0b' } }),
+                el('span', null, fSnap.visionEngineReady ? `${copy.visionBridge.ready} (${fSnap.visionEngineAccount?.model || 'Omni'})` : copy.visionBridge.notReady)),
+              el('button', {
+                type: 'button',
+                className: 'dtd-btn-secondary',
+                onClick: () => {
+                  void deltaFeatures.testVisionEngine().then(res => {
+                    showDeltaToast(res.message)
+                  })
+                },
+              }, copy.visionBridge.testBtn))) : null),
+
         el('div', { className: 'dtd-privacy-card', 'data-delta-privacy-card': '' },
           el('div', { className: 'dtd-privacy-header' },
             el('strong', null, copy.privacy.title),
@@ -6600,6 +7542,7 @@ window.__ModuleLoader__.load({
                 const stopCompat = typeof document.querySelectorAll === 'function' &&
                   typeof document.addEventListener === 'function'
                   ? installSidebarCompatibility(controller) : () => {}
+                const stopVisionBridge = installClientVisionBridge()
 
                 // Adapt runtime chat status: "\u6DF1\u5EA6\u6C42\u7D22\u4E2D" -> "\u4EFB\u52A1\u6267\u884C\u4E2D"
                 let isEffectDisposed = false
@@ -6845,6 +7788,7 @@ window.__ModuleLoader__.load({
                   stopAppearance()
                   stopCompat()
                   stopPrivacyGuards()
+                  stopVisionBridge()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
                   document.body?.removeAttribute('data-delta-ui')
@@ -7107,6 +8051,11 @@ window.__ModuleLoader__.load({
                 if (typeof workspaces.delete !== 'function') return
                 const originalDelete = workspaces.delete
                 const guardedDelete = (id: string): Promise<unknown> => {
+                  if (deltaFeatures.isWorkspaceLocked(id)) {
+                    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+                    showDeltaToast(copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
+                    return Promise.reject(new Error('delta/workspace-locked'))
+                  }
                   const items = workspaces.list.getSnapshot().items
                   if (items.length <= 1) {
                     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
@@ -7196,10 +8145,10 @@ window.__ModuleLoader__.load({
                 const contextMenus = searchScope.get?.('contextMenus') as {
                   register?: (spec: {
                     id: string
-                    target: 'session'
+                    target: 'session' | 'workspace'
                     order: number
-                    observe?: (t: { sessionId: string }) => unknown[]
-                    resolve: (t: { sessionId: string; displayTitle?: string }) => unknown[]
+                    observe?: (t: any) => unknown[]
+                    resolve: (t: any) => unknown[]
                   }) => () => void
                 } | undefined
                 if (contextMenus && typeof contextMenus.register === 'function') {
@@ -7223,6 +8172,17 @@ window.__ModuleLoader__.load({
                       scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.delete', key: 'delta.session.delete' }, iconTrash),
                     ]
                     const menuStops = [
+                      contextMenus.register({
+                        id: 'session.delta.move',
+                        target: 'session',
+                        order: 400,
+                        resolve: (t) => [{
+                          id: 'delta-move',
+                          label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.moveSession,
+                          icon: { key: 'delta.session.move' },
+                          run: () => deltaFeatures.openMoveDialog(t.sessionId, t.displayTitle),
+                        }],
+                      }),
                       contextMenus.register({
                         id: 'session.delta.lock',
                         target: 'session',
@@ -7250,18 +8210,6 @@ window.__ModuleLoader__.load({
                         },
                       }),
                       contextMenus.register({
-                        id: 'session.delta.move',
-                        target: 'session',
-                        order: 590,
-                        resolve: (t) => [{
-                          id: 'delta-move',
-                          label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.moveSession,
-                          icon: { key: 'delta.session.move' },
-                          afterContent: true,
-                          run: () => deltaFeatures.openMoveDialog(t.sessionId, t.displayTitle),
-                        }],
-                      }),
-                      contextMenus.register({
                         id: 'session.delta.delete',
                         target: 'session',
                         order: 650,
@@ -7270,9 +8218,37 @@ window.__ModuleLoader__.load({
                           label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.deleteSession,
                           icon: { key: 'delta.session.delete' },
                           danger: true,
+                          separatorBefore: true,
                           afterContent: true,
                           run: () => deltaFeatures.openDeleteDialog(t.sessionId, t.displayTitle),
                         }],
+                      }),
+                      contextMenus.register({
+                        id: 'workspace.delta.lock',
+                        target: 'workspace',
+                        order: 250,
+                        resolve: (t: any) => {
+                          const wsId = t?.workspaceId ?? t?.id ?? ''
+                          const wsPath = t?.path ?? ''
+                          const locked = deltaFeatures.isWorkspaceLocked(wsId || wsPath)
+                          const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+                          return [{
+                            id: 'delta-workspace-lock',
+                            label: locked ? copy.workspaceMenu.unlockWorkspace : copy.workspaceMenu.lockWorkspace,
+                            icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
+                            run: () => {
+                              if (locked) {
+                                deltaFeatures.openUnlockWorkspaceDialog(wsId || wsPath)
+                              } else if (deltaFeatures.getSnapshot().hasPin) {
+                                void deltaFeatures.lockWorkspace(wsId || wsPath).then(res => {
+                                  if (res.ok) showDeltaToast(copy.workspaceMenu.lockedToast)
+                                })
+                              } else {
+                                deltaFeatures.openSetPinWorkspaceDialog(wsId || wsPath, t?.displayTitle ?? t?.title)
+                              }
+                            },
+                          }]
+                        },
                       }),
                     ]
                     searchScope.effect(() => () => {
