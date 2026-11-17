@@ -1,5 +1,6 @@
 import type { HostFsService } from './host-fs.js'
 import type { LanguageConventionRule } from './consistency.js'
+import type { DeltaFileWriteContract } from './delta-code-adapter/contracts/files.js'
 
 /**
  * Internal host contracts and public Code Worker configuration types.
@@ -26,7 +27,7 @@ interface WorkingDirectoryService {
   ensure(agent: unknown, signal?: AbortSignal): Promise<string | undefined | null>
 }
 
-export type HostFsWriteContract = 'legacy-overwrite' | 'guarded-intent'
+export type HostFsWriteContract = DeltaFileWriteContract
 
 /** One configured language server. `args` is accepted for config compatibility. */
 export interface LspServerConfig {

@@ -105,8 +105,9 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
   const github = cfg.github && typeof cfg.github === 'object' ? cfg.github : {}
   const accounts = validateGitHubAccounts(github.accounts)
   const fsWriteContract = execution.fsWriteContract ?? 'legacy-overwrite'
-  if (fsWriteContract !== 'legacy-overwrite' && fsWriteContract !== 'guarded-intent') {
-    throw new Error('execution.fsWriteContract must be legacy-overwrite or guarded-intent')
+  if (fsWriteContract !== 'legacy-overwrite' && fsWriteContract !== 'native-unguarded' &&
+      fsWriteContract !== 'guarded-intent') {
+    throw new Error('execution.fsWriteContract must be legacy-overwrite, native-unguarded or guarded-intent')
   }
   const servers =
     Array.isArray(lsp.servers) && lsp.servers.length > 0 ? lsp.servers : DEFAULT_LSP_SERVERS

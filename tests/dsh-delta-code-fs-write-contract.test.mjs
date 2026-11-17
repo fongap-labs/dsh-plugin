@@ -53,6 +53,34 @@ describe('Code Worker explicit DSH FS write contract', () => {
     assert.equal(legacy.calls.includes('contains'), false)
   })
 
+  it('adapts native unguarded writes by omitting expected without moving the abort signal', async () => {
+    const native = host({ type: 'file', version: 'opaque-v1' })
+    const settings = normalizeConfig({ execution: { fsWriteContract: 'native-unguarded' } })
+    await validateWriteTargetSafe(native.ctx, { signal }, root, 'existing.txt', settings)
+    await writeTextSafe(native.ctx, { signal }, root, 'existing.txt', 'after', settings)
+    assert.equal(native.writes.length, 1)
+    assert.equal(native.writes[0].intent, undefined)
+    assert.strictEqual(native.writes[0].writeSignal, signal)
+    assert.equal(native.calls.includes('stat'), false)
+    assert.ok(native.calls.includes('contains'))
+  })
+
+  it('fails closed on native unguarded writes without Host or containment', async () => {
+    const settings = normalizeConfig({ execution: { fsWriteContract: 'native-unguarded' } })
+    await assert.rejects(
+      writeTextSafe({ get: () => undefined }, { signal }, root, 'file.txt', 'after', settings),
+      /native-unguarded requires a mounted DSH Host FS/,
+    )
+    for (const options of [{ noContain: true }, { escape: true }]) {
+      const native = host({ type: 'file', version: 'v1' }, options)
+      await assert.rejects(
+        writeTextSafe(native.ctx, { signal }, root, 'file.txt', 'after', settings),
+        /native-unguarded requires|escapes workspace/,
+      )
+      assert.equal(native.writes.length, 0)
+    }
+  })
+
   it('writes a present file using the opaque Host version as a guarded replacement', async () => {
     const modern = host({ type: 'file', version: 'opaque-v1' })
     await writeTextSafe(modern.ctx, { signal }, root, 'existing.txt', 'after', guarded())

@@ -9,7 +9,7 @@ export interface HostFsCapabilities {
   contains?(parent: unknown, child: unknown): boolean
   stat?(target: unknown, signal?: AbortSignal): Promise<{ type: string; version?: unknown } | undefined>
   readText?(target: unknown, signal?: AbortSignal): Promise<string>
-  writeText?(target: unknown, content: string, intent: 'overwrite' | HostWriteIntent, signal?: AbortSignal): Promise<unknown>
+  writeText?(target: unknown, content: string, expected?: 'overwrite' | HostWriteIntent, signal?: AbortSignal): Promise<unknown>
   listDir?(target: unknown, signal?: AbortSignal): Promise<unknown[]>
   lstat?(path: string, opts?: { cwd?: string }, signal?: AbortSignal): Promise<{ type: string } | undefined>
   processPath?(target: unknown): string

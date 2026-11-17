@@ -38,4 +38,12 @@ Remote GitHub API calls, the multi-edit tool, project profiles and Host capabili
 
 ## File access boundary
 
+The DSH Host FS write signatures are isolated in `delta-code-adapter/providers/dsh/fs-write.ts`.
+`guarded-intent` supplies a version or create guard; `native-unguarded` passes an omitted
+expected argument and checks Host containment; `legacy-overwrite` retains the historical
+Host call signature by explicit selection only. No write probes, inferred function-arity
+checks, Harness-version whitelist, or privilege-reducing fallback are used.
+
+
+
 The filesystem's Host capability lookup, guarded writes, and safety-checked local fallback live in `delta-code-adapter/workspace-files.ts`. The old `src/runtime.ts` paths are compatibility re-exports. Business modules should use the adapter's stable public file-access boundary instead of Host providers directly; local fallbacks remain denied when the Host has an inaccessible or incomplete mounted FS.

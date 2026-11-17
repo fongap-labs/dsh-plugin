@@ -7,6 +7,7 @@ import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside, isPathInside, SandboxViolationError } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { requireHostFs } from './providers/dsh/host-fs.js'
+import { writeDshHostText } from './providers/dsh/fs-write.js'
 import { lookupDshWorkingDirectory } from './providers/dsh/host-adapter.js'
 import type { HostFsCapabilities, HostWriteIntent } from './providers/dsh/host-fs.js'
 
@@ -80,14 +81,14 @@ async function assertLocalPathInside(root: string, target: string, isWrite: bool
 /** Preserve a specific Host version or absence condition across read/modify/write. */
 export type GuardedWriteIntent = HostWriteIntent
 
-async function guardedWriteTarget(
+async function nativeWriteTarget(
   fs: HostFsCapabilities,
   root: string,
   absolute: string,
   signal: AbortSignal,
-): Promise<{ target: unknown; intent: GuardedWriteIntent }> {
-  if (typeof fs.contains !== 'function' || typeof fs.stat !== 'function') {
-    throw new Error('guarded-intent requires DSH Host FS resolve/contains/stat/writeText')
+): Promise<unknown> {
+  if (typeof fs.contains !== 'function') {
+    throw new Error('native-unguarded requires DSH Host FS resolve/contains/writeText')
   }
   signal.throwIfAborted()
   const parent = await fs.resolve(root, { cwd: root, signal })
@@ -95,6 +96,20 @@ async function guardedWriteTarget(
   if (!fs.contains(parent, target)) {
     throw new SandboxViolationError('Host FS write target escapes workspace', { root, target: absolute })
   }
+  signal.throwIfAborted()
+  return target
+}
+
+async function guardedWriteTarget(
+  fs: HostFsCapabilities,
+  root: string,
+  absolute: string,
+  signal: AbortSignal,
+): Promise<{ target: unknown; intent: GuardedWriteIntent }> {
+  if (typeof fs.stat !== 'function') {
+    throw new Error('guarded-intent requires DSH Host FS resolve/contains/stat/writeText')
+  }
+  const target = await nativeWriteTarget(fs, root, absolute, signal)
   const info = await fs.stat(target, signal)
   if (info && (info.type !== 'file' || typeof info.version !== 'string' || !info.version)) {
     throw new Error('guarded-intent requires a regular file with an opaque version')
@@ -119,11 +134,16 @@ export async function validateWriteTargetSafe(
       const { intent } = await guardedWriteTarget(fs, root, absolute, exec.signal)
       return intent
     }
+    if (settings?.fsWriteContract === 'native-unguarded') {
+      await nativeWriteTarget(fs, root, absolute, exec.signal)
+      return undefined
+    }
     await fs.resolve(absolute, { cwd: root, signal: exec.signal })
     return undefined
   }
-  if (settings?.fsWriteContract === 'guarded-intent') {
-    throw new Error('guarded-intent requires a mounted DSH Host FS')
+  if (settings?.fsWriteContract === 'guarded-intent' ||
+      settings?.fsWriteContract === 'native-unguarded') {
+    throw new Error(settings.fsWriteContract + ' requires a mounted DSH Host FS')
   }
   await assertLocalPathInside(root, absolute, true)
 }
@@ -376,14 +396,19 @@ export async function writeTextSafe(
       const { target, intent } = await guardedWriteTarget(fs, root, absolute, signal)
       // Never replace the preflight snapshot's version with a newer one:
       // the Host must atomically reject concurrent changes, not adopt them.
-      return fs.writeText(target, content, pinnedIntent ?? intent, signal)
+      return writeDshHostText(fs, target, content, signal, 'guarded-intent', pinnedIntent ?? intent)
+    }
+    if (settings?.fsWriteContract === 'native-unguarded') {
+      const target = await nativeWriteTarget(fs, root, absolute, signal)
+      return writeDshHostText(fs, target, content, signal, 'native-unguarded')
     }
     const resolved = await fs.resolve(absolute, { cwd: root, signal })
-    await fs.writeText(resolved, content, 'overwrite', signal)
+    await writeDshHostText(fs, resolved, content, signal, 'legacy-overwrite')
     return
   }
-  if (settings?.fsWriteContract === 'guarded-intent') {
-    throw new Error('guarded-intent requires a mounted DSH Host FS')
+  if (settings?.fsWriteContract === 'guarded-intent' ||
+      settings?.fsWriteContract === 'native-unguarded') {
+    throw new Error(settings.fsWriteContract + ' requires a mounted DSH Host FS')
   }
   if (process.platform === 'linux') {
     await writeLocalTextAnchored(root, absolute, content, exec.signal)

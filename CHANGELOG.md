@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code Host FS 新增原生无条件写入契约，Adapter 按明确语义传递省略的 expected 参数及正确 signal 位置；保留旧式覆盖协议，拒绝无授权宿主降级。
+
 - 维护: Delta Code 将文件系统能力、版本保护与安全本地回退迁入统一 Adapter 边界，保持既有运行时导出和文件操作行为。
 
 - 维护: Code Worker 按能力拆分工具；无 subprocess 时仍可使用多文件编辑、项目概况、宿主探测和指定仓库的 GitHub 远程操作。
