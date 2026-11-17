@@ -333,7 +333,11 @@
     "footerNav": "↑↓ 选择",
     "footerOpen": "↵ 打开",
     "footerTab": "Tab 切换分类",
-    "footerEsc": "Esc 关闭"
+    "footerEsc": "Esc 关闭",
+    "commandCopyLabel": "复制指令",
+    "commandCopyHint": "选择后复制，再粘贴到 Harness 原生输入框。",
+    "commandCopied": "指令已复制，请粘贴到 Harness 原生输入框。",
+    "commandCopyFailed": "无法复制指令，请在 Harness 原生输入框中手动输入。"
   },
   "visionBridge": {
     "title": "视觉桥（Vision Bridge）",
