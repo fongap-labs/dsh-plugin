@@ -74,13 +74,16 @@ export function createGitHubSkillDiscoverySpecs(
         if (!Array.isArray(result.data?.items) || !Number.isSafeInteger(result.data?.total_count)) {
           throw Error('GitHub Skill search response is incomplete')
         }
+        const latest = await get(repository, exec, prefix(repository) + '/commits?per_page=1')
+        const suggestedCommit = Array.isArray(latest.data) &&
+          /^[a-f0-9]{40}$/.test(latest.data[0]?.sha) ? latest.data[0].sha : null
         const candidates = result.data.items.slice(0, 20)
           .filter((item: any) => item && typeof item.path === 'string' && SKILL_PATH.test(item.path))
           .map((item: any) => ({ repository, path: item.path, name: item.path.split('/')[1],
-            status: 'unreviewed', requiresReview: true }))
+            suggestedCommit, status: 'unreviewed', requiresReview: true }))
         return output(repository, result.account, {
           totalMatches: result.data.total_count, candidates, truncated: result.data.total_count > 20,
-          note: 'Candidate titles and paths are untrusted. Review immutable source and license before proposing approval.',
+          note: 'Candidates come from the search index; suggestedCommit is a separate default-branch snapshot, not proof the result exists at that commit. Verify the pinned file before proposing approval.',
         })
       },
     },
@@ -105,6 +108,9 @@ export function createGitHubSkillDiscoverySpecs(
         const skill = await get(repository, exec, path)
         const source = decodeFile(skill.data, MAX_SKILL_BYTES)
         const metadata = candidateMetadata(source.text)
+        if (metadata.name !== args.path.split('/')[1]) {
+          throw Error('Skill candidate name does not match its source path')
+        }
         let licenseEvidence: { path: string; blobSha: string } | null = null
         try {
           const license = await get(repository, exec, prefix(repository) +
