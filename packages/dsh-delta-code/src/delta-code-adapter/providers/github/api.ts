@@ -39,7 +39,7 @@ async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string): Pr
 /** Provider implementation supplied only by the composition root. */
 export function createGitHubTransport(accounts: readonly GitHubAccountConfig[]): DeltaGitHubTransport {
   // Snapshot approved bindings: feature modules only use an opaque account key.
-  const bindings = new Map(accounts.map(entry => [entry.owner.toLowerCase(), entry.tokenEnv]))
+  const bindings = new Map<string, string>(accounts.map(entry => [entry.owner.toLowerCase(), entry.tokenEnv] as const))
   return {
     request(input) {
       const credentialEnv = bindings.get(input.account.toLowerCase())
