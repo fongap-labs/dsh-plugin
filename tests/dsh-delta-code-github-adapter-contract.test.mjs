@@ -53,6 +53,6 @@ describe('Delta Code GitHub port', () => {
     assert.equal(new GitHubApiFailure(403, 'company/project', 'GET').status, 403)
     assert.match(new GitHubWriteUncertain('POST', 'company/project').message, /unconfirmed/)
     const source = readFileSync(new URL('../packages/dsh-delta-code/src/delta-code-repository/github.ts', import.meta.url), 'utf8')
-    assert.doesNotMatch(source, /delta-code-adapter\\/providers/)
+    assert.equal(source.includes('delta-code-adapter/providers/'), false)
   })
 })
