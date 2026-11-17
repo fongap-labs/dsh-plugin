@@ -4619,9 +4619,6 @@ function installHostSearch(
 
   const getShortcutsService = (): {
     catalog?: { getSnapshot?: () => ReadonlyArray<{ id?: string; label?: string; keys?: readonly string[]; aliases?: readonly string[] }> }
-    registry?: {
-      invoke?: (id: string, context: unknown) => unknown
-    }
   } | undefined => {
     try {
       return (searchScope?.get?.('shortcuts') ?? (searchScope as unknown as { shortcuts?: unknown })?.shortcuts) as any
@@ -4741,14 +4738,33 @@ function installHostSearch(
         const label = row?.label?.trim()
         // Host Settings is native-owned; this adapter has no public open-settings route.
         if (!id || !label || id === 'settings.open') continue
+        // The Host catalog provides labels, not permission to invoke arbitrary commands.
+        // Advertise only actions with an explicit Delta-owned execution route.
+        let run: (() => void) | undefined
+        switch (id) {
+          case 'session.search':
+            run = () => openPalette('')
+            break
+          case 'session.new':
+            run = () => navigation.startSession()
+            break
+          case 'sidebar.left.toggle':
+            run = () => {
+              if (typeof controller.toggleSidebarSafe === 'function') controller.toggleSidebarSafe()
+              else controller.toggleSidebar()
+            }
+            break
+          case 'sidebar.right.toggle':
+            if (typeof controller.toggleRightbarSafe !== 'function') continue
+            run = () => controller.toggleRightbarSafe?.()
+            break
+          default:
+            // Unknown Host commands stay in Harness native shortcut handling.
+            continue
+        }
+        if (!run) continue
         const keysStr = Array.isArray(row.keys) ? row.keys.join(' + ') : ''
-        pushShortcut(id, redactSensitiveText(label), keysStr, () => {
-          if (id === 'session.search') openPalette('')
-          else if (id === 'sidebar.left.toggle') controller.toggleSidebarSafe?.() ?? controller.toggleSidebar()
-          else if (id === 'sidebar.right.toggle') controller.toggleRightbarSafe?.()
-          else if (id === 'session.new') navigation.startSession()
-          else getShortcutsService()?.registry?.invoke?.(id, { region: 'page', modal: null, target: null })
-        })
+        pushShortcut(id, redactSensitiveText(label), keysStr, run)
       }
     } catch {}
     // Native right-sidebar guide entries are Host-owned and not command targets.

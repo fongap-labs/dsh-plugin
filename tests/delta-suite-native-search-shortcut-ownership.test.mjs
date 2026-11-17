@@ -32,7 +32,7 @@ test('Ctrl/Cmd+K remains native, Delta palette opens on its own input Enter', ()
   assert.match(section, /if \(!isModalOpen \|\| e\.key !== 'Escape'\) return/)
   assert.match(section, /mInput\.addEventListener\('keydown'/)
   assert.match(section, /getShortcutsService\(\)\?\.catalog\?\.getSnapshot/)
-  assert.match(section, /getShortcutsService\(\)\?\.registry\?\.invoke\?\.\(id,/)
+  assert.doesNotMatch(section, /getShortcutsService\(\)\?\.registry\?\.invoke\?\.\(id,/, 'native shortcut invocation is not owned by Delta')
 })
 
 test('ZIP3 Search Region pin prevents unapproved global shortcut capture', () => {
