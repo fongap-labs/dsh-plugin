@@ -22,7 +22,7 @@ export function registerCodingSkills(ctx: Context): () => void {
     const registry = (child as unknown as { skills?: SkillRegistry }).skills
     if (typeof registry?.register !== 'function' || registrations.has(registry) || noDisposerRegistries.has(registry)) return
     const disposers: Array<() => void> = []
-    let missingDisposer = false
+    let hasMissingDisposer = false
     try {
       for (const skill of ALL_CODING_SKILLS) {
         const dispose = registry.register({
@@ -32,14 +32,14 @@ export function registerCodingSkills(ctx: Context): () => void {
           content: '# ' + skill.title + '\n\n' + skill.instructions.map(line => '- ' + line).join('\n'),
         })
         if (typeof dispose === 'function') disposers.push(dispose)
-        else missingDisposer = true // older Hosts may not expose registration cleanup
+        else hasMissingDisposer = true // older Hosts may not expose registration cleanup
       }
     } catch (error) {
       // An incomplete catalog must never keep its disposable subset published.
       for (const dispose of disposers.reverse()) {
         try { dispose() } catch { /* continue compensating independent registrations */ }
       }
-      if (missingDisposer) {
+      if (hasMissingDisposer) {
         // These contributions cannot be rolled back; do not register duplicates.
         noDisposerRegistries.add(registry)
         registrations.set(registry, () => {})
@@ -49,14 +49,14 @@ export function registerCodingSkills(ctx: Context): () => void {
         (error instanceof Error ? error.message : String(error)))
       return
     }
-    if (missingDisposer) {
+    if (hasMissingDisposer) {
       noDisposerRegistries.add(registry)
       ctx.logger?.warn?.('dsh-delta-code: Host Skill registration has no disposer; automatic unregistration is unavailable')
     }
-    let released = false
+    let isReleased = false
     const release = () => {
-      if (released) return
-      released = true
+      if (isReleased) return
+      isReleased = true
       registrations.delete(registry)
       for (const dispose of disposers.reverse()) {
         try { dispose() } catch { /* Host may have already removed the registration */ }
