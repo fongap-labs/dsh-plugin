@@ -12,14 +12,14 @@ const zh = JSON.parse(file('locale/zh.json'))
 const en = JSON.parse(file('locale/en.json'))
 
 describe('Authoritative ZIP3 Desktop UI and additive feature integration', () => {
-  it('retains the exact ZIP theme, without replacing it with legacy main styles', () => {
+  it('retains the reviewed ZIP3 theme with Delta Desktop additions', () => {
     // Six-digit CSS Unicode escapes preserve the ZIP's selector semantics.
     // Git may check out CRLF on Windows; canonical ZIP CSS uses LF.
     const canonical = css.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g, (_, hex) =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '8d893d7ecfe4a82703aa17ed4935ecdf4b773773')
+    assert.equal(sha, '003ce20e1fd2ce6d1054b2d35091382b6539f932')
   })
   it('retains the seven-tab SearchPalette and its explicit keyboard invocation', () => {
     for (const term of ['SearchTabId', 'tabAll', 'tabSession', 'tabWorkspace',

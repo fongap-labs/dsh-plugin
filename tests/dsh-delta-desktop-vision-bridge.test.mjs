@@ -273,12 +273,41 @@ test('Vision Bridge: resolveVisionAccount supports openai-compat and gemini sett
   assert.equal(accGemini.apiKey, 'AIzaSyTestGeminiKey')
 })
 
-test('Vision Bridge: resolveVisionAccount scans disk cordis.patch.yml to find Omni', async () => {
-  // Pass an empty context with no memory models; it should scan the real cordis.patch.yml
-  const acc = await resolveVisionAccount({}, { provider: 'auto', enabled: true })
-  assert.ok(acc, 'Should detect local model Omni from ~/.dsh/profiles/desktop/cordis.patch.yml')
-  assert.equal(acc.provider, 'fong')
-  assert.equal(acc.model, 'Omni')
-  assert.equal(acc.baseURL, 'https://api.135468.xyz/v1')
-  assert.equal(acc.apiKeyEnv, 'FONG_API_KEY')
+test('Vision Bridge: resolveVisionAccount discovers Omni from a profile fixture', async () => {
+  // Use a synthetic DSH profile so CI never depends on the runner's home directory.
+  const { tmpdir } = await import('node:os')
+  const home = await fs.mkdtemp(path.join(tmpdir(), 'delta-vision-profile-'))
+  const profileDir = path.join(home, 'profiles', 'desktop')
+  const originalDshHome = process.env.DSH_HOME
+  const originalDshProfile = process.env.DSH_PROFILE
+  try {
+    await fs.mkdir(profileDir, { recursive: true })
+    await fs.writeFile(path.join(profileDir, 'cordis.patch.yml'), `
+- id: llm-pi-ai
+  config:
+    providers:
+      fong:
+        baseURL: https://api.135468.xyz/v1
+        apiKeyEnv: FONG_API_KEY
+        models:
+          - id: Omni
+            input:
+              - text
+              - image
+`, 'utf8')
+    process.env.DSH_HOME = home
+    process.env.DSH_PROFILE = 'desktop'
+    const acc = await resolveVisionAccount({}, { provider: 'auto', enabled: true })
+    assert.ok(acc, 'Should discover Omni from an isolated DSH profile fixture')
+    assert.equal(acc.provider, 'fong')
+    assert.equal(acc.model, 'Omni')
+    assert.equal(acc.baseURL, 'https://api.135468.xyz/v1')
+    assert.equal(acc.apiKeyEnv, 'FONG_API_KEY')
+  } finally {
+    if (originalDshHome === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = originalDshHome
+    if (originalDshProfile === undefined) delete process.env.DSH_PROFILE
+    else process.env.DSH_PROFILE = originalDshProfile
+    await fs.rm(home, { recursive: true, force: true })
+  }
 })
