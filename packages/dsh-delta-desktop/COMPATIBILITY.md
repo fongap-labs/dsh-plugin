@@ -106,3 +106,10 @@
 - `settings.section` 等官方 Slot 仅用于 Delta 自有设置项，不将其当作修改内建标签的接口。
 - Agent 预设项的 `data-dtd-nav-tail` 布局标记、侧栏原生导航改名和 More 隐藏仍在遗留兼容层中，需后续单独处理。
 - ZIP3 精确源码哈希与主题校验仍保持启用；尚未进行真实 Harness 的视觉与性能基准验收。
+
+## 2026-11-18 侧栏原生导航标签治理（Issue #333 第四阶段）
+
+- 已移除侧栏「插件」「自动化任务」的原生标签、aria-label 改写；同时删除无其他引用的 `setButtonLabel`、`replaceButtonText`、`mutatedNavButtons` 和卸载恢复逻辑。
+- Harness 的原生导航文字由自身 Locale/UI 管理；Delta 仍使用公开 Slot 实现自身功能。
+- **仍待治理**：对原生 More 的 CSS 隐藏、搜索输入代理、菜单 DOM 顺序和事件拦截等行为。此次只清理标签，不意味着全部侧栏行为已经恢复原生。
+- ZIP3 审核哈希保留严格校验。CI 不能替代真实 Windows Harness 的交互验收或内存基线。

@@ -17,7 +17,7 @@ test('Settings navigation no longer rewrites native labels', () => {
   assert.doesNotMatch(settings, /\\u8D26\\u53F7|\\u6A21\\u578B/)
   assert.match(settings, /Harness retains ownership of built-in Settings labels/)
   assert.match(settings, /data-dtd-nav-tail/, 'Agent preset layout marker is unchanged for later migration')
-  assert.match(source, /const replaceButtonText = /, 'other legacy navigation behavior remains a separate task')
+  assert.doesNotMatch(source, /const replaceButtonText = /, 'native navigation label patch helper is now fully removed')
   assert.match(source, /syncSettingsNav\(\)\s+syncMenus\(\)/)
 })
 

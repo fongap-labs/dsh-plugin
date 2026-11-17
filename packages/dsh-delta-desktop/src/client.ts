@@ -2679,7 +2679,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const root = document.documentElement
   const mounted = new Map<string, HTMLElement>()
   const initialized = new Set<string>()
-  const mutatedNavButtons = new Map<HTMLElement, { origText: string; origAria: string | null }>()
   const hiddenMoreElements = new Map<HTMLElement, string | null>()
   const getUiCopy = (): DeltaCopy['ui'] => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
   const boundTriggers = new WeakSet<Element>()
@@ -2802,41 +2801,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const frameScheduler = createFrameScheduler(() => sync())
   const scheduleSync = (): void => {
     if (!isDisposed) frameScheduler.schedule()
-  }
-  const setButtonLabel = (btn: HTMLElement, from: string, to: string): void => {
-    if (typeof document?.createTreeWalker === 'function') {
-      const walker = document.createTreeWalker(btn, 4 /* NodeFilter.SHOW_TEXT */)
-      let current = walker.nextNode()
-      while (current) {
-        if (current.nodeValue?.trim() === from) {
-          current.nodeValue = to
-          return
-        }
-        current = walker.nextNode()
-      }
-    }
-    if (btn.childNodes) {
-      for (const node of btn.childNodes) {
-        if (node.nodeType === 3 && node.textContent?.trim() === from) {
-          node.textContent = to
-          return
-        }
-      }
-    }
-    if (typeof btn.querySelectorAll === 'function') {
-      const leaf = Array.from(btn.querySelectorAll('*')).find(
-        el => el.textContent?.trim() === from && (!el.children || el.children.length === 0)
-      )
-      if (leaf) {
-        if (leaf.firstChild && leaf.firstChild.nodeType === 3) leaf.firstChild.nodeValue = to
-        else leaf.textContent = to
-        return
-      }
-    }
-    const childCount = (btn as unknown as { children?: { length?: number } }).children?.length ?? 0
-    if (childCount === 0 && btn.textContent?.trim() === from) {
-      btn.textContent = to
-    }
   }
   const readStoredPaneWidth = (key: string): number | undefined => {
     try {
@@ -3412,16 +3376,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     isSilentMenuAllowed = false
     isUpdateBusy = false
     try { document?.body?.removeAttribute?.('data-dtd-silent-menu') } catch {}
-    for (const [btn, orig] of mutatedNavButtons) {
-      try {
-        if (orig.origAria !== null) btn.setAttribute?.('aria-label', orig.origAria)
-        const current = btn.textContent?.trim() ?? ''
-        if (orig.origText && current && current !== orig.origText) {
-          setButtonLabel(btn, current, orig.origText)
-        }
-      } catch {}
-    }
-    mutatedNavButtons.clear()
     for (const [el, prevDisplay] of hiddenMoreElements) {
       try {
         if (el.style) {
@@ -3453,17 +3407,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       return stored.groupExpansion ?? {}
     } catch { return {} }
   }
-  const replaceButtonText = (btn: HTMLElement, from: string, to: string): void => {
-    const rawText = btn.textContent?.trim() ?? ''
-    const aria = btn.getAttribute?.('aria-label')?.trim() ?? ''
-    if (rawText !== from && aria !== from) return
-    if (!mutatedNavButtons.has(btn)) {
-      mutatedNavButtons.set(btn, { origText: rawText, origAria: btn.getAttribute?.('aria-label') ?? null })
-    }
-    if (aria === from) btn.setAttribute('aria-label', to)
-    if (rawText === from) setButtonLabel(btn, from, to)
-  }
-
   const SESSION_MENU_ORDERS: Record<string, string> = {
     '\u91cd\u547d\u540d': '10', 'Rename': '10',
     '\u7f6e\u9876\u4f1a\u8bdd': '20', '\u53d6\u6d88\u7f6e\u9876': '20', 'Pin': '20', 'Unpin': '20',
@@ -4169,12 +4112,10 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         searchProxy.setAttribute?.('aria-label', dict.ui.searchSessions)
       }
 
-      // Nav items normalization: "\u63D2\u4EF6" -> "\u63D2\u4EF6\u7BA1\u7406", "\u81EA\u52A8\u5316\u4EFB\u52A1" -> "\u5B9A\u65F6\u4EFB\u52A1", hide "\u66F4\u591A"
+      // Harness owns built-in navigation labels; legacy More visibility is reviewed separately.
       if (navigation && typeof navigation.querySelectorAll === 'function') {
         const navButtons = navigation.querySelectorAll<HTMLButtonElement>('button')
         for (const btn of navButtons) {
-          replaceButtonText(btn, '\u63D2\u4EF6', '\u63D2\u4EF6\u7BA1\u7406')
-          replaceButtonText(btn, '\u81EA\u52A8\u5316\u4EFB\u52A1', '\u5B9A\u65F6\u4EFB\u52A1')
           const rawText = btn.textContent?.trim() ?? ''
           const aria = btn.getAttribute?.('aria-label')?.trim() ?? ''
           if (rawText === '\u66F4\u591A' || aria === '\u66F4\u591A' || rawText === 'More' || aria === 'More') {
