@@ -4677,9 +4677,9 @@ function installHostSearch(
   const dispatchSlashCommand = (name: string, target: ScopedCommandTarget | undefined): void => {
     if (!target) { copySlashCommand(name); return }
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-    let accepted = false
-    try { accepted = isSafeCommand(name) && target.insert(name + ' ') === true } catch {}
-    showDeltaToast(accepted ? copy.searchPalette.commandInserted : copy.searchPalette.commandInsertFailed)
+    let isAccepted = false
+    try { isAccepted = isSafeCommand(name) && target.insert(name + ' ') === true } catch {}
+    showDeltaToast(isAccepted ? copy.searchPalette.commandInserted : copy.searchPalette.commandInsertFailed)
   }
 
   const getShortcutsService = (): {
