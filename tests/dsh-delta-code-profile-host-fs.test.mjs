@@ -70,7 +70,7 @@ describe('Code Worker project profiling via DSH Host FS', () => {
     }
     const tool = createProjectProfileTool(mockHostFsContext(fs), normalizeConfig({ workspaceRoot: workspace }))
     const result = await tool.execute({ cwd: 'src/feature' }, exec())
-    assert.deepEqual(result.guidance, ['../CLAUDE.md', '../../AGENTS.md'])
+    assert.deepEqual(result.guidance, [join('..', 'CLAUDE.md'), join('..', '..', 'AGENTS.md')])
     assert.equal(observedReads.length, 0)
     assert.deepEqual(result.files, [])
   })
