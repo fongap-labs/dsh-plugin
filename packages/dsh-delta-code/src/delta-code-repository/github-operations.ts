@@ -5,6 +5,7 @@ import {
 } from './github-policy.js'
 import { GitHubApiFailure, GitHubWriteUncertain } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
+import { createGitHubSkillDiscoverySpecs } from './github-skill-discovery.js'
 
 export interface DeltaGitHubExecution {
   readonly signal: AbortSignal
@@ -280,5 +281,6 @@ export function createGitHubToolSpecs(
         }
       }),
 
+    ...createGitHubSkillDiscoverySpecs(settings, transport, resolveRepo),
   ]
 }
