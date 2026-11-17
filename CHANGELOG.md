@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 不再通过宿主 DOM 将“在文件夹显示 / Show in Finder”等原生会话菜单操作改写为“在应用中打开 / Open in app”；保持删除危险态和 ZIP3 审核校验（Issue #333）。
+
 - 修复: 不再重排 Harness 会话右键菜单或注入/隐藏分隔符，清理对应缓存和 CSS，保留危险操作标记（Issue #333）。
 
 - 修复: Delta Suite 不再重排 Harness 会话 Footer 菜单或注入分隔符；保留删除危险态标记和锁定保护（Issue #333）。

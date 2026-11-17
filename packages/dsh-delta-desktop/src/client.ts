@@ -3741,15 +3741,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             (typeof el.className === 'string' && el.className.includes('_separator_'))
           if (isSeparator) continue
           const label = getMenuLabel(el)
-          if (label === '\u5728\u6587\u4ef6\u5939\u663e\u793a' || label === '\u5728 Finder \u663e\u793a') {
-            const labelSpan = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
-            if (labelSpan) labelSpan.textContent = '\u5728\u5e94\u7528\u4e2d\u6253\u5f00'
-            else if (el.getAttribute?.('role') === 'menuitem') el.textContent = '\u5728\u5e94\u7528\u4e2d\u6253\u5f00'
-          } else if (label === 'Show in folder' || label === 'Show in Finder') {
-            const labelSpan = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
-            if (labelSpan) labelSpan.textContent = 'Open in app'
-            else if (el.getAttribute?.('role') === 'menuitem') el.textContent = 'Open in app'
-          }
+          // Harness owns built-in session menu action labels and accessible text.
           if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
             el.setAttribute?.('data-danger', '1')
             el.classList?.add('dtd-menu-danger')
