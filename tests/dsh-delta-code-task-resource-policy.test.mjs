@@ -7,10 +7,12 @@ describe('Delta Code native task resource selection', () => {
   it('matches docs, cross-repo dependencies and MCP without creating a new runner', () => {
     assert.deepEqual(chooseTaskResources('Review official API documentation for SDK upgrade'), ['official-docs'])
     assert.deepEqual(chooseTaskResources('Audit multi-repo MCP tool capability'), ['cross-repo', 'native-tools'])
+    assert.deepEqual(chooseTaskResources('Find and evaluate trusted GitHub Skills'), ['skill-discovery'])
     assert.deepEqual(chooseTaskResources('Fix small Rust bug'), [])
     assert.ok(taskResourceGuidance(['official-docs']).join(' ').includes('web_search'))
     assert.ok(taskResourceGuidance(['cross-repo']).join(' ').includes('account bindings'))
     assert.ok(taskResourceGuidance(['native-tools']).join(' ').includes('native Host tool/MCP'))
+    assert.ok(taskResourceGuidance(['skill-discovery']).join(' ').includes('untrusted data'))
   })
 
   it('documents the native web capability and missing-provider fallback', () => {
