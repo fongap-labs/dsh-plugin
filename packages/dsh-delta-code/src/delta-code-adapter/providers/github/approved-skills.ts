@@ -22,6 +22,37 @@ export type GitHubSkillFetcher = (input: string, init?: RequestInit) => Promise<
 const PROVIDER = 'delta-code-approved-github'
 const MAX_BYTES = 64 * 1024
 
+/** Apply the cap while reading; a misleading/missing Content-Length never permits unbounded buffering. */
+async function readSkillBytes(response: Response): Promise<Uint8Array> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('Pinned GitHub Skill response body unavailable')
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > MAX_BYTES) {
+        void reader.cancel().catch(() => {})
+        throw new Error('Pinned GitHub Skill exceeds maximum allowed size')
+      }
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  if (!size) throw new Error('Invalid pinned GitHub Skill size')
+  const bytes = new Uint8Array(size)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return bytes
+}
+
+
 /** Fetch is deferred until the Host's native skill tool actually loads a match. */
 export function createApprovedGitHubSkillProvider(
   fetcher: GitHubSkillFetcher = fetch,
@@ -58,9 +89,8 @@ export function createApprovedGitHubSkillProvider(
       if (Number(response.headers.get('content-length') ?? '0') > MAX_BYTES) {
         throw new Error('Pinned GitHub Skill exceeds maximum allowed size')
       }
-      const bytes = new Uint8Array(await response.arrayBuffer())
+      const bytes = await readSkillBytes(response)
       options?.signal?.throwIfAborted()
-      if (!bytes.length || bytes.length > MAX_BYTES) throw new Error('Invalid pinned GitHub Skill size')
       const actual = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
       if (actual !== approved.blobSha) throw new Error('Pinned GitHub Skill content hash mismatch')
       const markdown = new TextDecoder('utf-8', { fatal: true }).decode(bytes)

@@ -42,6 +42,15 @@ describe('Delta Code approved GitHub Skills', () => {
     assert.equal(await provider.get({ ...candidate, locator: '0'.repeat(40) }), undefined)
     const corrupted = createApprovedGitHubSkillProvider(async () => new Response('tampered'), [entry])
     await assert.rejects(corrupted.get(candidate), /hash mismatch/)
+    const oversized = createApprovedGitHubSkillProvider(async () => new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new Uint8Array(70 * 1024))
+          controller.close()
+        },
+      }),
+    ), [entry])
+    await assert.rejects(oversized.get(candidate), /exceeds maximum allowed size/)
     const cancelled = new AbortController()
     cancelled.abort()
     await assert.rejects(provider.get(candidate, { signal: cancelled.signal }), /abort/i)
