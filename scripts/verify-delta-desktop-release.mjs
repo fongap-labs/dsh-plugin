@@ -126,12 +126,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: removed native page heading DOM text rewriting.
 // Reviewed 2026-11-18: native Settings labels are no longer rewritten.
 // Reviewed 2026-11-18: removed sidebar navigation label patching and restore state.
-const ZIP3_THEME_BLOB = '003ce20e1fd2ce6d1054b2d35091382b6539f932'
+// Reviewed 2026-11-18: restored native More visibility in client and ZIP3 theme.
+const ZIP3_THEME_BLOB = '7805cd90293bc02e18361c2226b076fe8f96694a'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'e1a904b101f7a3884c0d400045f91f378b327bde',
+    sha1: '9ec082a0b35523c1953c72aff5ee6263a53d6029',
   },
   {
     begin: 'function installHostSearch(',

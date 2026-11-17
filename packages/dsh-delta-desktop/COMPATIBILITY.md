@@ -113,3 +113,11 @@
 - Harness 的原生导航文字由自身 Locale/UI 管理；Delta 仍使用公开 Slot 实现自身功能。
 - **仍待治理**：对原生 More 的 CSS 隐藏、搜索输入代理、菜单 DOM 顺序和事件拦截等行为。此次只清理标签，不意味着全部侧栏行为已经恢复原生。
 - ZIP3 审核哈希保留严格校验。CI 不能替代真实 Windows Harness 的交互验收或内存基线。
+
+## 2026-11-18 原生 More 菜单恢复（Issue #333 第五阶段）
+
+- 删除 `installSidebarCompatibility` 中对原生 More 按钮或父节点设置 `display:none!important` 的运行时操作，以及 `hiddenMoreElements` 缓存与停用恢复逻辑。
+- 删除 ZIP3 主题里针对原生 More 导航条目的 `display:none/visibility:hidden` CSS 选择器。保留已有 More 弹出菜单的视觉样式、侧栏其他功能。
+- `sidebar.panellist.actions` 仍只用于增加菜单项，不等于允许删除或重排宿主原生导航操作。
+- ZIP3 客户端区域与主题内容的精确审核哈希均已同步更新；继续拒绝未经审核的改动。客户端样式可能改变原生 More 的实际排布，真实 Harness Windows 交互仍需验收。
+- 侧栏搜索输入代理、菜单顺序修改和原生事件拦截仍需后续治理，Issue #333 不关闭。

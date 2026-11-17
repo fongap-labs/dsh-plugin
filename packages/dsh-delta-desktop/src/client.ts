@@ -2679,7 +2679,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const root = document.documentElement
   const mounted = new Map<string, HTMLElement>()
   const initialized = new Set<string>()
-  const hiddenMoreElements = new Map<HTMLElement, string | null>()
   const getUiCopy = (): DeltaCopy['ui'] => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
   const boundTriggers = new WeakSet<Element>()
   const boundTooltips = new WeakSet<Element>()
@@ -3376,15 +3375,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     isSilentMenuAllowed = false
     isUpdateBusy = false
     try { document?.body?.removeAttribute?.('data-dtd-silent-menu') } catch {}
-    for (const [el, prevDisplay] of hiddenMoreElements) {
-      try {
-        if (el.style) {
-          if (prevDisplay) el.style.setProperty('display', prevDisplay)
-          else el.style.removeProperty?.('display')
-        }
-      } catch {}
-    }
-    hiddenMoreElements.clear()
     for (const node of mounted.values()) node.remove()
     mounted.clear()
     if (typeof document?.querySelector === 'function') {
@@ -4110,25 +4100,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       if (searchProxy && searchProxy.placeholder !== searchPlaceholder) {
         searchProxy.placeholder = searchPlaceholder
         searchProxy.setAttribute?.('aria-label', dict.ui.searchSessions)
-      }
-
-      // Harness owns built-in navigation labels; legacy More visibility is reviewed separately.
-      if (navigation && typeof navigation.querySelectorAll === 'function') {
-        const navButtons = navigation.querySelectorAll<HTMLButtonElement>('button')
-        for (const btn of navButtons) {
-          const rawText = btn.textContent?.trim() ?? ''
-          const aria = btn.getAttribute?.('aria-label')?.trim() ?? ''
-          if (rawText === '\u66F4\u591A' || aria === '\u66F4\u591A' || rawText === 'More' || aria === 'More') {
-            const parent = (btn.closest?.('li, [class*="moreAnchor"]') ?? btn.parentElement) as HTMLElement | null
-            const target = (parent && parent !== navigation && parent.style) ? parent : (btn.style ? btn : null)
-            if (target && target.style) {
-              if (!hiddenMoreElements.has(target)) {
-                hiddenMoreElements.set(target, target.style.getPropertyValue?.('display') || null)
-              }
-              target.style.setProperty('display', 'none', 'important')
-            }
-          }
-        }
       }
 
       // 5. New session button: styled identically to nav items, native icon on left
