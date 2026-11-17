@@ -4728,7 +4728,7 @@ function installHostSearch(
 
   const kbdHint = document.createElement('kbd')
   kbdHint.className = 'dtd-search-kbd'
-  kbdHint.textContent = isDarwin ? '⌘K' : initialCopy.searchPalette.triggerHint
+  kbdHint.textContent = 'Enter'
 
   searchField.append(searchIcon, input, clearBtn, kbdHint)
 
@@ -5226,7 +5226,7 @@ function installHostSearch(
         })
       }
     } catch {}
-    pushShortcut('search', language() === 'zh' ? '\u5168\u5C40\u641C\u7D22\u547D\u4EE4\u9762\u677F' : 'Global Command Search', isDarwin ? '⌘ + K' : 'Ctrl + K', () => openPalette(''))
+    pushShortcut('search', language() === 'zh' ? '\u5168\u5C40\u641C\u7D22\u547D\u4EE4\u9762\u677F' : 'Global Command Search', '', () => openPalette(''))
     pushShortcut('files', language() === 'zh' ? '\u5DE5\u4F5C\u533A\u6587\u4EF6' : 'Workspace Files', isDarwin ? '⌘ + P' : 'Ctrl + P', () => controller.toggleRightbarSafe?.())
     pushShortcut('browser', language() === 'zh' ? '\u5185\u7F6E\u6D4F\u89C8\u5668' : 'Built-in Browser', isDarwin ? '⌘ + T' : 'Ctrl + T', () => controller.toggleRightbarSafe?.())
 
@@ -5607,6 +5607,12 @@ function installHostSearch(
       modal.setAttribute('role', 'dialog')
       modal.setAttribute('aria-modal', 'true')
       modal.setAttribute('aria-label', copy.ui.searchSessions)
+      // Escape belongs to this Delta-owned dialog, never to the page-wide key event.
+      modal.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (!isModalOpen || e.key !== 'Escape') return
+        e.preventDefault?.()
+        closePalette()
+      })
 
       const header = document.createElement('div')
       header.className = 'dtd-search-header'
@@ -5740,7 +5746,7 @@ function installHostSearch(
     })
   }
 
-  // Sidebar search stays inline while typing; only Enter in the input or Ctrl/Cmd+K opens the full Search Palette modal
+  // Delta sidebar Enter opens Search Palette; global Ctrl/Cmd+K remains Harness-owned.
   searchField.addEventListener('click', (e) => {
     if (e.target === input || e.target === clearBtn) return
     input.focus?.()
@@ -5751,30 +5757,6 @@ function installHostSearch(
       openPalette(input.value)
     }
   })
-
-  const onGlobalKeyDown = (e: Event): void => {
-    if (isDisposed || controller.getSnapshot().mode !== 'delta') return
-    const ke = e as KeyboardEvent
-    const isCmdK = (ke.ctrlKey || ke.metaKey) && !ke.altKey && !ke.shiftKey &&
-      (ke.key === 'k' || ke.key === 'K' || ke.code === 'KeyK')
-    if (isCmdK) {
-      ke.preventDefault?.()
-      ;(ke as Event & { stopImmediatePropagation?: () => void }).stopImmediatePropagation?.()
-      ke.stopPropagation?.()
-      if (isModalOpen) closePalette()
-      else openPalette(input.value)
-    } else if (isModalOpen && ke.key === 'Escape') {
-      ke.preventDefault?.()
-      ;(ke as Event & { stopImmediatePropagation?: () => void }).stopImmediatePropagation?.()
-      ke.stopPropagation?.()
-      closePalette()
-    }
-  }
-  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-    window.addEventListener('keydown', onGlobalKeyDown, { capture: true })
-  } else if (typeof document.addEventListener === 'function') {
-    document.addEventListener('keydown', onGlobalKeyDown, { capture: true })
-  }
 
   let observer: MutationObserver | undefined
   const frameScheduler = createFrameScheduler(() => sync())
@@ -5825,11 +5807,6 @@ function installHostSearch(
     if (isDisposed) return
     isDisposed = true
     frameScheduler.cancel()
-    if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-      window.removeEventListener('keydown', onGlobalKeyDown, { capture: true })
-    } else if (typeof document.removeEventListener === 'function') {
-      document.removeEventListener('keydown', onGlobalKeyDown, { capture: true })
-    }
     stopRevealTimer?.()
     closePalette()
     clearInlineRequest()

@@ -24,9 +24,11 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
   it('retains the seven-tab SearchPalette and its explicit keyboard invocation', () => {
     for (const term of ['SearchTabId', 'tabAll', 'tabSession', 'tabWorkspace',
       'tabPlugin', 'tabSkill', 'tabShortcut', 'tabAction',
-      'isCmdK', 'installHostSearch', 'searchPalette.sidebarPlaceholder']) {
+      'installHostSearch', 'searchPalette.sidebarPlaceholder']) {
       assert.ok(client.includes(term), 'ZIP feature missing: ' + term)
     }
+    assert.doesNotMatch(client, /onGlobalKeyDown|const isCmdK/)
+    assert.match(client, /kbdHint\.textContent = 'Enter'/)
     assert.doesNotMatch(client, /dtd-search-dialog-backdrop/)
     assert.doesNotMatch(client, /openSearchDialog\(/)
   })

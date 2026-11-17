@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 不再在全局捕获 Ctrl/Cmd+K 或 Escape，搜索面板保留输入框 Enter 与局部 Escape，并纠正快捷键提示；恢复 Harness 原生全局快捷键所有权（Issue #333）。
+
 - 修复: 删除 Delta 对原生 ShortcutsService.dispatch/invoke 的私有方法覆盖与恢复补丁，保留搜索面板和现有键盘监听，继续按 P0 分批清理（Issue #333）。
 
 - 修复: 清除对 Harness 原生账号触发器的捕获阶段点击阻断以及失效的静默绕过缓存，保留 Delta 自有页脚操作（Issue #333）。

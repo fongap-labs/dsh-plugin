@@ -26,8 +26,9 @@ test('Host ShortcutsService registry dispatch/invoke stays unmodified', () => {
   ]) {
     assert.equal(search.includes(forbidden), false, 'private Host mutation remains: ' + forbidden)
   }
-  assert.match(search, /const onGlobalKeyDown = /, 'Delta key handler stays a separate migration')
-  assert.match(search, /window\.addEventListener\('keydown', onGlobalKeyDown, \{ capture: true \}\)/)
+  assert.doesNotMatch(search, /onGlobalKeyDown|const isCmdK/, 'global shortcuts are now Harness-owned')
+  assert.match(search, /modal\.addEventListener\('keydown'/, 'Delta Escape is scoped to its own dialog')
+  assert.match(search, /kbdHint\.textContent = 'Enter'/, 'Delta search is opened from its own input')
   assert.match(search, /getShortcutsService\(\)\?\.catalog\?\.getSnapshot/, 'shortcut catalog remains readable')
   assert.match(search, /getShortcutsService\(\)\?\.registry\?\.invoke\?\.\(id,/, 'user-selected shortcut action remains available')
   assert.match(search, /function installHostSearch\(/)
