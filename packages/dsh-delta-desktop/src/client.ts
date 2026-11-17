@@ -4114,23 +4114,20 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           )
           document.body?.setAttribute?.('data-dtd-silent-menu', '1')
 
-          if (liveTrigger.getAttribute?.('aria-expanded') !== 'true') {
-            liveTrigger.click()
-          }
+          const openedByDelta = liveTrigger.getAttribute?.('aria-expanded') !== 'true'
+          if (openedByDelta) liveTrigger.click()
 
           const findTargetItem = (): HTMLElement | undefined => {
             if (typeof document.querySelectorAll !== 'function') return undefined
             const allItems = Array.from(document.querySelectorAll<HTMLElement>('[role="menu"] [role="menuitem"], [role="menu"] button'))
             const newItems = allItems.filter(el => !preExisting.has(el))
-            const candidates = newItems.length > 0 ? newItems : allItems
-            if (candidates.length === 0) return undefined
+            // When Delta opened the menu, never select actions from a pre-existing unrelated menu.
+            const candidates = openedByDelta ? newItems : allItems
+            const label = (el: HTMLElement): string => (el.textContent ?? '').trim()
             if (kind === 'settings') {
-              return candidates.find(el => /\u8BBE\u7F6E|Settings/i.test(el.textContent ?? ''))
-                ?? candidates.find(el => !/\u53CD\u9988|Feedback|\u9000\u51FA|Sign|Log/i.test(el.textContent ?? ''))
-                ?? candidates[0]
+              return candidates.find(el => /^(?:\u8BBE\u7F6E|Settings)$/i.test(label(el)))
             }
-            return candidates.find(el => /\u9000\u51FA\u767B\u5F55|\u767B\u5F55|Sign\s*(Out|In)|Log\s*(Out|In)/i.test(el.textContent ?? ''))
-              ?? candidates[candidates.length - 1]
+            return candidates.find(el => /^(?:\u767B\u5F55|\u9000\u51FA\u767B\u5F55|Sign\s*(?:In|Out)|Log\s*(?:In|Out))$/i.test(label(el)))
           }
 
           let attempts = 0
@@ -4151,17 +4148,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
             }
             attempts += 1
             if (attempts >= 24) {
-              if (liveTrigger.getAttribute?.('aria-expanded') === 'true') {
-                liveTrigger.click()
-              }
+              // Unknown menus are native-owned: reveal them for explicit user selection.
               finishSilent()
-              if (kind === 'settings') {
-                triggerNativeSettingsShortcut()
-              } else {
-                const signedInNow = liveTrigger.getAttribute?.('data-signed-out') === 'false'
-                const uiCopy = getUiCopy()
-                showDeltaToast(signedInNow ? uiCopy.signOutFromMenu : uiCopy.signInRequired)
-              }
               return
             }
             silentMenuTimer = scheduleTimer(trySelect, 10)
