@@ -1,4 +1,15 @@
-# Delta Desktop 原生插件架构
+# Delta Suite 插件架构（分阶段重构）
+
+## Delta Suite 第一阶段：当前已迁移的结构
+
+当前安装包仍为 `@fongap-labs/dsh-delta-desktop`；第一阶段只提取模块边界，保留插件入口、现有导出及 Profile 发布配置。改名与安装迁移将单独进行，避免破坏已有使用者。
+
+- `src/delta-suite-composition.ts`：现有 Host 功能的装配入口；Cordis 仍控制插件生命周期。
+- `src/delta-suite-kernel/feature-lifecycle-registry.ts`：内部功能注册、失败回滚及逆序释放，不重复 Cordis。
+- `src/delta-suite-adapter/host-capability-contract.ts`：宿主显式能力与拒绝优先协商；具体业务 Adapter 待后续迁移。
+- `src/feature-registry.ts` 与 `src/host-capabilities.ts`：保留旧路径转发。
+
+**尚未完成**：完整的 UI/Host 接管、包名改动、真实宿主性能治理和可选源码 Patch 设施。本阶段不修改 Harness 源码、不引入 Rust Runtime，也不改变原生功能优先级。源码 Patch 仍须单独授权、校验和回滚。
 
 ## 独立产品
 

@@ -50,19 +50,21 @@ test('Host remains responsible for privileged effects and extensions remain cons
 
 test('Host extension bootstrap uses the registered MECE domains rather than a hidden parallel installer', () => {
   const host = file('../packages/dsh-delta-desktop/src/index.ts')
-  const registry = file('../packages/dsh-delta-desktop/src/feature-registry.ts')
-  assert.match(host, /new DeltaFeatureRegistry<PrivacyHostContext>/)
-  assert.match(host, /registry\.mount\(ctx, new Set<string>\(\)\)/)
+  const composition = file('../packages/dsh-delta-desktop/src/delta-suite-composition.ts')
+  const registry = file('../packages/dsh-delta-desktop/src/delta-suite-kernel/feature-lifecycle-registry.ts')
+  assert.match(host, /export \{ apply \} from '\.\/delta-suite-composition\.js'/)
+  assert.match(composition, /new DeltaFeatureRegistry<PrivacyHostContext>/)
+  assert.match(composition, /registry\.mount\(ctx, new Set<string>\(\)\)/)
   assert.match(registry, /DELTA_EXTENSION_SURFACES/)
   assert.match(registry, /Missing required Host capabilities/)
   assert.match(registry, /for \(let index = this\.cleanups\.length - 1; index >= 0; index--\)/)
   for (const id of ['context.compaction-status', 'security.model-stream-policy',
     'security.privacy-guards', 'security.auth-cookie-pruner',
     'discovery.session-search', 'sessions.session-operations', 'integrations.proxy-settings']) {
-    assert.ok(host.includes("id: '" + id + "'"), 'unregistered Host feature: ' + id)
+    assert.ok(composition.includes("id: '" + id + "'"), 'unregistered Host feature: ' + id)
   }
-  assert.doesNotMatch(host, /id:\s*'integrations\.gateway-retry-guard'/,
+  assert.doesNotMatch(composition, /id:\s*'integrations\.gateway-retry-guard'/,
     'Desktop must not register another gateway retry listener alongside Code Worker')
-  assert.ok(host.includes("throw new Error('Delta privacy bridge requires"),
+  assert.ok(composition.includes("throw new Error('Delta privacy bridge requires"),
     'configured privacy enforcement cannot be silently bypassed')
 })
