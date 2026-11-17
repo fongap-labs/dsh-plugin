@@ -105,6 +105,26 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   let currentDraft = { draft: '', draftRev: 0, phase: 'plain', attachmentIds: [], occurrences: [] }
   let composerBlocked = false
   let composerAccess = true
+  let runCommandEffects = false
+  const commandSlotEffects = []
+  const accessWatchers = new Set()
+  const setComposerAccess = allowed => {
+    composerAccess = allowed
+    for (const watcher of accessWatchers) watcher(allowed)
+  }
+  const hostUiSession = {
+    whenAccess(sessionId, action, install) {
+      assert.equal(sessionId, 'local')
+      assert.equal(action, 'session/prompt')
+      let remove = composerAccess ? install() : undefined
+      const watcher = allowed => {
+        if (allowed && !remove) remove = install()
+        else if (!allowed && remove) { remove(); remove = undefined }
+      }
+      accessWatchers.add(watcher)
+      return () => { accessWatchers.delete(watcher); remove?.() }
+    },
+  }
   let generation = { ctx: { sessionId: 'local' }, session: {
     getSnapshot: () => ({ sessionId: 'local', removed: false, subagent: null, openState: 'open' }),
   } }
@@ -151,7 +171,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     },
   }
   const ctx = {
-    get(name) { return name === 'conversation' ? hostConversation : undefined },
+    get(name) { return name === 'conversation' ? hostConversation : name === 'uiSession' ? hostUiSession : undefined },
     theme: { overrideTokens() { return () => {} } },
     layout: { toggleSidebar() {}, selectPanel(id) { actions.push(['panel', id]) } },
     sessions: hostSessions,
@@ -203,7 +223,11 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     createElement(type, props, ...children) { return { type, props, children } },
     useState(initial) { return [initial, () => {}] },
     useRef(value) { return { current: value } },
-    useEffect() {},
+    useEffect(create) {
+      if (!runCommandEffects) return
+      const cleanup = create()
+      if (typeof cleanup === 'function') commandSlotEffects.push(cleanup)
+    },
     useSyncExternalStore(subscribe, read) {
       const snapshot = read()
       if (typeof snapshot === 'string') {
@@ -274,8 +298,11 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const wrapper = commandSlot[1]
   assert.equal(wrapper({ sessionId: 'local' }), null, 'legacy Host props stay copy-only')
   const renderCommandEntry = () => {
+    commandSlotEffects.splice(0).forEach(dispose => dispose())
     const element = wrapper(props)
-    return element && element.type(element.props)
+    runCommandEffects = true
+    try { return element && element.type(element.props) }
+    finally { runCommandEffects = false }
   }
   const flushCatalog = async () => { await new Promise(resolve => setImmediate(resolve)) }
   const openCommandPicker = async () => {
@@ -321,9 +348,21 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'blocked composer is unchanged')
   composerBlocked = false
 
-  composerAccess = false
+  commandDialog = await openCommandPicker()
+  setComposerAccess(false)
+  setComposerAccess(true)
+  firstCommand(commandDialog).emit('click')
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes,
+    'revoked and re-granted access cannot reuse a captured command selection')
+  setComposerAccess(false)
   assert.equal(renderCommandEntry(), null, 'no permission means no entry')
-  composerAccess = true
+  setComposerAccess(true)
+
+  commandDialog = await openCommandPicker()
+  commandSlotEffects.splice(0).forEach(dispose => dispose())
+  firstCommand(commandDialog).emit('click')
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes,
+    'unmounted Slot never writes even if the Session generation is still retained')
 
   // Late row callbacks from a previous catalog must not address a new palette.
   commandDialog = await openCommandPicker()
@@ -335,6 +374,8 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   row.emit('click')
   assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'stale scoped row cannot insert')
 
+  commandSlotEffects.splice(0).forEach(dispose => dispose())
+  assert.equal(accessWatchers.size, 0, 'permissions subscription released')
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)

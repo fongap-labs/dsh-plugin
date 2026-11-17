@@ -48,7 +48,8 @@ test('Chinese and English labels disclose copy-and-paste semantics', () => {
   for (const lang of ['en', 'zh']) {
     const dictionary = JSON.parse(read('packages/dsh-delta-desktop/locale/' + lang + '.json'))
     const palette = dictionary.searchPalette
-    for (const key of ['commandCopyLabel', 'commandCopyHint', 'commandCopied', 'commandCopyFailed']) {
+    for (const key of ['commandCopyLabel', 'commandCopyHint', 'commandCopied', 'commandCopyFailed',
+      'commandPickerLabel', 'commandInsertLabel', 'commandInsertHint', 'commandInserted', 'commandInsertFailed']) {
       assert.equal(typeof palette[key], 'string', lang + '.' + key)
       assert.ok(palette[key].length > 0, lang + '.' + key)
     }
@@ -71,6 +72,8 @@ test('native command insertion is authorized only by a scoped Host Slot', () => 
   assert.match(search, /props\.inputActions\?\.insertText/)
   assert.match(search, /actions\.captureInsertion\(\)/)
   assert.match(search, /actions\.insertText\(command, span\) === true/)
+  assert.match(search, /accessOwner\.whenAccess\(lease\.sessionId, 'session\/prompt'/)
+  assert.match(search, /leaseRef\.current !== lease \|\| !lease\.allowed \|\| lease\.revision !== accessRevision/)
   assert.match(search, /latest\.binding !== source\.binding/)
   assert.match(search, /latest\.host !== source\.host/)
   assert.match(search, /latest\.input\.draftRev !== span\.draftRev/)
