@@ -8,9 +8,9 @@ export { Config } from './config.js'
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'
 
 export const name = '@fongap-labs/dsh-delta-code'
-// Keep the existing Host injection contract until independent service
-// lifecycle tests cover the alternative module-scoped subprocess injection.
-export const inject = ['tools', 'subprocess']
+// Non-command features only require the native tool registry.
+// Command-backed features inject subprocess separately and degrade independently.
+export const inject = ['tools']
 
 export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
   let release = mountDeltaCode(ctx, normalizeConfig(config))
