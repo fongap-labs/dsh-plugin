@@ -5,31 +5,9 @@ import type { GitHubAccountConfig, Settings } from '../types.js'
 import { resolveRoot } from '../runtime.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { hasCompleteGitEvidence } from './git-execution.js'
+import { GitHubApiFailure, GitHubWriteUncertain, requestGitHubApi } from '../delta-code-adapter/providers/github/api.js'
 
-const API = 'https://api.github.com'
 const COMMIT_SHA = /^[a-f0-9]{40}$/
-
-class GitHubApiFailure extends Error {
-  constructor(readonly status: number, repository: string, method: string) {
-    const reason = status === 401 || status === 403
-      ? 'authentication or repository permission denied; inspect token access'
-      : status === 409 || status === 422
-        ? 'conflict or rejected GitHub validation; inspect remote state'
-        : status === 429
-          ? 'rate limit exceeded; do not blindly retry writes'
-          : 'request rejected'
-    super('GitHub API ' + status + ' for ' + repository + ' (' + method + '): ' + reason)
-    this.name = 'GitHubApiFailure'
-  }
-}
-
-class GitHubWriteUncertain extends Error {
-  constructor(method: string, repository: string) {
-    super('GitHub ' + method + ' outcome unconfirmed for ' + repository +
-      '; inspect remote state before retrying a write')
-    this.name = 'GitHubWriteUncertain'
-  }
-}
 
 function validatedCommitSha(value: unknown, subject: string): string {
   if (typeof value !== 'string' || !COMMIT_SHA.test(value)) {
@@ -91,31 +69,10 @@ async function githubRequest(
 ): Promise<{ repository: string; account: string; data: any }> {
   const repo = await resolveRepository(ctx, exec, settings, repository)
   const account = selectGitHubAccount(settings.githubAccounts, repo)
-  const token = account.tokenEnv ? process.env[account.tokenEnv] : undefined
-  if (!token?.trim()) throw new Error('GitHub credential unavailable for repository owner ' + account.owner + ' (set env ' + account.tokenEnv + ')')
-  const url = API + path(repo)
-  if (!url.startsWith(API + '/') || !new URL(url).hostname.endsWith('github.com')) throw new Error('invalid GitHub API URL')
-  let response: Response
-  try {
-    response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: 'Bearer ' + token.trim(),
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'dsh-delta-code',
-        ...(data === undefined ? {} : { 'Content-Type': 'application/json' }),
-      },
-      ...(data === undefined ? {} : { body: JSON.stringify(data) }),
-      signal: exec.signal,
-      redirect: 'error',
-    })
-  } catch (error) {
-    if (method !== 'GET') throw new GitHubWriteUncertain(method, repo)
-    throw error
-  }
-  if (!response.ok) throw new GitHubApiFailure(response.status, repo, method)
-  return { repository: repo, account: account.owner, data: response.status === 204 ? null : await response.json() }
+  return requestGitHubApi({
+    repository: repo, account: account.owner, tokenEnv: account.tokenEnv,
+    method, path: path(repo), data, signal: exec.signal,
+  })
 }
 
 function requireWrites(settings: Settings): void {
