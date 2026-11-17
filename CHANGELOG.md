@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: 通过 Harness 公开会话级 InputActions 在明确绑定、空白且可编辑的主会话中插入斜杠指令；不自动发送，拒绝时保留草稿，全局搜索仍为显式复制；阻止迟到命令目录跨会话复用（Issue #333）。
+
 - 修复: Search Palette 不再通过全局编辑器 DOM、原型 setter 或 `execCommand('insertText')` 注入斜杠命令；改为显式复制并由用户粘贴到 Harness 原生输入框，失败时明确提示（Issue #333）。
 
 - 修复: 不再替换 Harness 的会话导航方法；仅观察宿主已确认的唯一 mainView 会话，保留现有锁定保护及兼容层（Issue #333）。

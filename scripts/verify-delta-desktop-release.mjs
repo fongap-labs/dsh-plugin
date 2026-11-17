@@ -142,6 +142,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: retired right sidebar guide DOM shortcut mirror and synthetic element clicks.
 // Reviewed 2026-11-18: shortcut catalog rows are display-only unless backed by explicit Delta action routes; no synthetic registry invocation.
 // Reviewed 2026-11-18: Search Palette copies slash commands via Clipboard API; no Host editor DOM injection.
+// Reviewed 2026-11-18: explicit session-scoped composer Slot uses public revision-guarded InputActions; unscoped search remains copy-only.
 const ZIP3_THEME_BLOB = '6d532fe477afc175db33e770fb3061df0d21b992'
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -152,7 +153,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: 'a8a1236208f7c11f009786d5c62d758e1a177c85',
+    sha1: 'a8ec7accc95580f05fddbfb7733e55849e2c3864',
   },
 ]
 

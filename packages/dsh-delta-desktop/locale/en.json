@@ -337,7 +337,12 @@
     "commandCopyLabel": "Copy command",
     "commandCopyHint": "Select to copy, then paste into the Harness composer.",
     "commandCopied": "Command copied. Paste it into the Harness composer.",
-    "commandCopyFailed": "Could not copy the command. Enter it in the Harness composer manually."
+    "commandCopyFailed": "Could not copy the command. Enter it in the Harness composer manually.",
+    "commandPickerLabel": "Commands",
+    "commandInsertLabel": "Insert command",
+    "commandInsertHint": "Insert into this empty Harness composer for review, without sending.",
+    "commandInserted": "Command inserted. Review before sending.",
+    "commandInsertFailed": "Command not inserted. The draft, session, or permissions changed; use the native composer."
   },
   "visionBridge": {
     "title": "Vision Bridge",
