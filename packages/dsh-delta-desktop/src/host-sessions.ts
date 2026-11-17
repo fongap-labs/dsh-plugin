@@ -25,6 +25,7 @@ export const DELTA_SESSION_LOCK_PATH = '/api/delta-desktop/session-lock'
 export const DELTA_SESSION_MOVE_PATH = '/api/delta-desktop/session-move'
 export const DELTA_SESSION_DELETE_PATH = '/api/delta-desktop/session-delete'
 export const DELTA_SESSION_DELETE_UNGROUPED_PATH = '/api/delta-desktop/session-delete-ungrouped'
+export const DELTA_OPEN_FOLDER_PATH = '/api/delta-desktop/open-folder'
 
 interface SessionOpsHostContext {
   get?(name: string): unknown
@@ -98,8 +99,16 @@ async function removeSessionProjCache(ctx: SessionOpsHostContext, sessionId: str
     const fs = await loadNodeModule<any>('node:fs/promises')
     const pathMod = await loadNodeModule<any>('node:path')
     const dshHome = await resolveDshHome(ctx)
-    const cacheFile = pathMod.join(dshHome, 'storages', 'session_projcache', 'sessions', `${sessionId}.json`)
-    await fs.rm(cacheFile, { force: true }).catch(() => {})
+    const baseDir = pathMod.join(dshHome, 'storages', 'session_projcache', 'sessions')
+    const rawId = sessionId.replace(/^session-/, '')
+    const targets = new Set([
+      pathMod.join(baseDir, `${sessionId}.json`),
+      pathMod.join(baseDir, `${rawId}.json`),
+      pathMod.join(baseDir, `session-${rawId}.json`),
+    ])
+    for (const t of targets) {
+      await fs.rm(t, { force: true }).catch(() => {})
+    }
   } catch {}
 }
 
@@ -159,17 +168,21 @@ async function resolveSessionFiles(
   // Fallback filesystem scan inside sessions root to catch ungrouped/zstd artifacts reliably
   if (root) {
     try {
+      const rawId = sessionId.replace(/^session-/, '')
+      const idVariants = [sessionId, rawId, `session-${rawId}`]
       const projectEntries = await fs.readdir(root, { withFileTypes: true }).catch(() => [])
       for (const proj of projectEntries) {
         if (!proj.isDirectory()) continue
-        const candidateDir = pathMod.join(root, proj.name, sessionId)
-        if (!isInsideRoot(pathMod, root, candidateDir)) continue
-        const subEntries = await fs.readdir(candidateDir, { withFileTypes: true }).catch(() => null)
-        if (!subEntries) continue
-        dirs.add(candidateDir)
-        for (const sub of subEntries) {
-          if (sub.isFile() && /^session.*\.jsonl(\.zstd|\.zst)?$/i.test(sub.name)) {
-            files.add(pathMod.join(candidateDir, sub.name))
+        for (const variant of idVariants) {
+          const candidateDir = pathMod.join(root, proj.name, variant)
+          if (!isInsideRoot(pathMod, root, candidateDir)) continue
+          const subEntries = await fs.readdir(candidateDir, { withFileTypes: true }).catch(() => null)
+          if (!subEntries) continue
+          dirs.add(candidateDir)
+          for (const sub of subEntries) {
+            if (sub.isFile() && /^session.*\.jsonl(\.zstd|\.zst)?$/i.test(sub.name)) {
+              files.add(pathMod.join(candidateDir, sub.name))
+            }
           }
         }
       }
@@ -195,19 +208,111 @@ async function resolveSessionFiles(
   return { root, dirs: [...dirs], files: [...files], ...(header ? { header } : {}) }
 }
 
+async function removeDirForcefully(fs: any, targetDir: string): Promise<void> {
+  try {
+    await fs.rm(targetDir, { recursive: true, force: true })
+  } catch {
+    try {
+      const entries = await fs.readdir(targetDir, { withFileTypes: true }).catch(() => [])
+      for (const entry of entries) {
+        const full = `${targetDir}/${entry.name}`
+        if (entry.isDirectory()) {
+          await removeDirForcefully(fs, full)
+        } else {
+          try { await fs.chmod(full, 0o666).catch(() => {}) } catch {}
+          await fs.unlink(full).catch(() => {})
+        }
+      }
+      await fs.rmdir(targetDir).catch(() => {})
+    } catch {}
+  }
+}
+
+async function purgeSessionsFromWorkspaceJson(
+  ctx: SessionOpsHostContext,
+  sessionIds: string[],
+): Promise<void> {
+  if (!Array.isArray(sessionIds) || sessionIds.length === 0) return
+  try {
+    const fs = await loadNodeModule<any>('node:fs/promises')
+    const pathMod = await loadNodeModule<any>('node:path')
+    const dshHome = await resolveDshHome(ctx)
+    const wsPath = pathMod.join(dshHome, 'storages', 'workspace.json')
+
+    const raw = await fs.readFile(wsPath, 'utf8').catch(() => null)
+    if (!raw) return
+    const data = JSON.parse(raw)
+    if (!data || typeof data !== 'object') return
+
+    const idSet = new Set<string>()
+    for (const sid of sessionIds) {
+      if (!sid || typeof sid !== 'string') continue
+      const trimmed = sid.trim()
+      const rawId = trimmed.replace(/^session-/, '')
+      idSet.add(trimmed)
+      idSet.add(rawId)
+      idSet.add(`session-${rawId}`)
+    }
+
+    let modified = false
+
+    if (data.tables && typeof data.tables.workspaces === 'object') {
+      for (const [, ws] of Object.entries(data.tables.workspaces as Record<string, any>)) {
+        if (ws && Array.isArray(ws.sessionIds)) {
+          const originalLen = ws.sessionIds.length
+          ws.sessionIds = ws.sessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
+          if (ws.sessionIds.length !== originalLen) {
+            modified = true
+            ws.updatedAt = new Date().toISOString()
+          }
+        }
+      }
+    }
+
+    if (data.global && typeof data.global === 'object') {
+      if (Array.isArray(data.global.archivedSessionIds)) {
+        const orig = data.global.archivedSessionIds.length
+        data.global.archivedSessionIds = data.global.archivedSessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
+        if (data.global.archivedSessionIds.length !== orig) modified = true
+      }
+      if (Array.isArray(data.global.pinnedSessionIds)) {
+        const orig = data.global.pinnedSessionIds.length
+        data.global.pinnedSessionIds = data.global.pinnedSessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
+        if (data.global.pinnedSessionIds.length !== orig) modified = true
+      }
+    }
+
+    if (modified) {
+      const serialized = JSON.stringify(data, null, 2)
+      const tmpPath = `${wsPath}.tmp.${Date.now()}`
+      await fs.writeFile(tmpPath, serialized, 'utf8')
+      try {
+        await fs.rename(tmpPath, wsPath)
+      } catch {
+        await fs.copyFile(tmpPath, wsPath)
+        await fs.rm(tmpPath, { force: true }).catch(() => {})
+      }
+    }
+  } catch {}
+}
+
 async function purgeSessionArtifacts(
   ctx: SessionOpsHostContext,
   sid: string,
   hintedCwd?: string,
 ): Promise<void> {
+  const rawId = sid.replace(/^session-/, '')
+  const idVariants = new Set([sid, rawId, `session-${rawId}`])
+
   try {
     const fs = await loadNodeModule<any>('node:fs/promises')
     const pathMod = await loadNodeModule<any>('node:path')
     const info = await resolveSessionFiles(ctx, sid, hintedCwd)
+
     if (info.root) {
       for (const dir of info.dirs) {
-        if (isInsideRoot(pathMod, info.root, dir) && pathMod.basename(dir) === sid) {
-          await fs.rm(dir, { recursive: true, force: true }).catch(() => {})
+        if (isInsideRoot(pathMod, info.root, dir) && idVariants.has(pathMod.basename(dir))) {
+          await removeDirForcefully(fs, dir)
         }
       }
       for (const file of info.files) {
@@ -220,10 +325,26 @@ async function purgeSessionArtifacts(
   await removeSessionProjCache(ctx, sid)
 }
 
+interface HostWorkspaceEntityLike {
+  id?: string
+  path?: string
+  record?: { sessionIds?: readonly string[]; path?: string }
+  detachSession?(sessionId: string): Promise<void> | void
+}
+
 interface HostWorkspaceRegistryLike {
   archivedSessionIds?: readonly string[]
+  pinnedSessionIds?: readonly string[]
   archiveSession?: (sessionId: string, options?: { stopActivity?: boolean }) => Promise<void> | void
   unarchiveSession?: (sessionId: string) => Promise<void> | void
+  unpinSession?: (sessionId: string) => Promise<void> | void
+  list?(): Iterable<HostWorkspaceEntityLike> | HostWorkspaceEntityLike[]
+  entities?: Map<string, HostWorkspaceEntityLike>
+  get?(id: string): HostWorkspaceEntityLike | undefined
+  headers?: Map<string, unknown>
+  sessionPaths?: Map<string, string>
+  missingSessionPaths?: Set<string>
+  invalidSessionPaths?: Map<string, string>
 }
 
 export function installHostSessionOps(
@@ -290,6 +411,7 @@ export function installHostSessionOps(
     const body = await readRequestJson(request)
     const action = typeof body.action === 'string' ? body.action.trim() : ''
     const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+    const workspaceId = typeof body.workspaceId === 'string' ? body.workspaceId.trim() : ''
     const codeRaw = typeof body.code === 'string' ? body.code : typeof body.pin === 'string' ? body.pin : ''
     const code = codeRaw.trim()
     const setupToken = typeof body.setupToken === 'string' ? body.setupToken.trim() : ''
@@ -340,6 +462,9 @@ export function installHostSessionOps(
         lockedSessionIds: sessionId && !cur.lockedSessionIds.includes(sessionId)
           ? [...cur.lockedSessionIds, sessionId]
           : cur.lockedSessionIds,
+        lockedWorkspaceIds: workspaceId && !cur.lockedWorkspaceIds.includes(workspaceId)
+          ? [...cur.lockedWorkspaceIds, workspaceId]
+          : cur.lockedWorkspaceIds,
       }))
       if (sessionId) {
         await archiveSessionOnHost(sessionId)
@@ -349,8 +474,8 @@ export function installHostSessionOps(
     }
 
     if (action === 'lock') {
-      if (!sessionId) return makeJsonResponse(400, { ok: false, error: 'MISSING_SESSION_ID' })
-      if (current.deletedSessionIds.includes(sessionId)) {
+      if (!sessionId && !workspaceId) return makeJsonResponse(400, { ok: false, error: 'MISSING_TARGET_ID' })
+      if (sessionId && current.deletedSessionIds.includes(sessionId)) {
         return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
       }
       if (!current.totpSecret && !current.pinHash) {
@@ -358,17 +483,22 @@ export function installHostSessionOps(
       }
       const next = await store.update(cur => ({
         ...cur,
-        lockedSessionIds: cur.lockedSessionIds.includes(sessionId)
-          ? cur.lockedSessionIds
-          : [...cur.lockedSessionIds, sessionId],
+        lockedSessionIds: sessionId && !cur.lockedSessionIds.includes(sessionId)
+          ? [...cur.lockedSessionIds, sessionId]
+          : cur.lockedSessionIds,
+        lockedWorkspaceIds: workspaceId && !cur.lockedWorkspaceIds.includes(workspaceId)
+          ? [...cur.lockedWorkspaceIds, workspaceId]
+          : cur.lockedWorkspaceIds,
       }))
-      await archiveSessionOnHost(sessionId)
-      hooks?.onSessionChanged?.(sessionId)
-      return makeJsonResponse(200, { ok: true, state: toPublicHostState(next), archived: true })
+      if (sessionId) {
+        await archiveSessionOnHost(sessionId)
+        hooks?.onSessionChanged?.(sessionId)
+      }
+      return makeJsonResponse(200, { ok: true, state: toPublicHostState(next), archived: Boolean(sessionId) })
     }
 
     if (action === 'verify' || action === 'unlock') {
-      if (!sessionId) return makeJsonResponse(400, { ok: false, error: 'MISSING_SESSION_ID' })
+      if (!sessionId && !workspaceId) return makeJsonResponse(400, { ok: false, error: 'MISSING_TARGET_ID' })
       if (current.totpSecret) {
         if (!isSixDigitCode(code)) {
           return makeJsonResponse(403, { ok: false, error: 'INVALID_TOTP_CODE' })
@@ -386,11 +516,14 @@ export function installHostSessionOps(
       if (action === 'unlock') {
         const next = await store.update(cur => ({
           ...cur,
-          lockedSessionIds: cur.lockedSessionIds.filter(id => id !== sessionId),
+          lockedSessionIds: sessionId ? cur.lockedSessionIds.filter(id => id !== sessionId) : cur.lockedSessionIds,
+          lockedWorkspaceIds: workspaceId ? cur.lockedWorkspaceIds.filter(id => id !== workspaceId) : cur.lockedWorkspaceIds,
         }))
-        await unarchiveSessionOnHost(sessionId)
-        hooks?.onSessionChanged?.(sessionId)
-        return makeJsonResponse(200, { ok: true, verified: true, state: toPublicHostState(next), unarchived: true })
+        if (sessionId) {
+          await unarchiveSessionOnHost(sessionId)
+          hooks?.onSessionChanged?.(sessionId)
+        }
+        return makeJsonResponse(200, { ok: true, verified: true, state: toPublicHostState(next), unarchived: Boolean(sessionId) })
       }
       return makeJsonResponse(200, { ok: true, verified: true, state: toPublicHostState(current) })
     }
@@ -412,6 +545,7 @@ export function installHostSessionOps(
         totpSecret: undefined,
         pinHash: undefined,
         lockedSessionIds: [],
+        lockedWorkspaceIds: [],
       }))
       for (const sid of previouslyLocked) {
         await unarchiveSessionOnHost(sid)
@@ -498,6 +632,41 @@ export function installHostSessionOps(
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
+  const detachFromRegistry = async (sessionIds: string[]): Promise<void> => {
+    const reg: any = getRegistry()
+    if (!reg) return
+    for (const sid of sessionIds) {
+      if (!sid) continue
+      const rawId = sid.replace(/^session-/, '')
+      const idVariants = [sid, rawId, `session-${rawId}`]
+      for (const v of idVariants) {
+        try { await Promise.resolve(reg.unarchiveSession?.(v)).catch(() => {}) } catch {}
+        try { await Promise.resolve(reg.unpinSession?.(v)).catch(() => {}) } catch {}
+      }
+      try {
+        let entities: any[] = []
+        if (typeof reg.list === 'function') {
+          entities = Array.from(reg.list())
+        } else if (reg.entities && typeof reg.entities.values === 'function') {
+          entities = Array.from(reg.entities.values())
+        }
+        for (const ent of entities) {
+          if (typeof ent?.detachSession === 'function') {
+            for (const v of idVariants) {
+              await Promise.resolve(ent.detachSession(v)).catch(() => {})
+            }
+          }
+        }
+      } catch {}
+      for (const v of idVariants) {
+        try { reg.headers?.delete?.(v) } catch {}
+        try { reg.sessionPaths?.delete?.(v) } catch {}
+        try { reg.missingSessionPaths?.delete?.(v) } catch {}
+        try { reg.invalidSessionPaths?.delete?.(v) } catch {}
+      }
+    }
+  }
+
   const cancelLiveSession = async (sid: string): Promise<void> => {
     try {
       const sessions = ctx.get?.('sessions') as {
@@ -525,6 +694,8 @@ export function installHostSessionOps(
 
     await cancelLiveSession(sessionId)
     await purgeSessionArtifacts(ctx, sessionId, sourceCwd)
+    await detachFromRegistry([sessionId])
+    await purgeSessionsFromWorkspaceJson(ctx, [sessionId])
 
     const next = await store.update(cur => {
       const restMoved = { ...cur.movedSessions }
@@ -569,6 +740,8 @@ export function installHostSessionOps(
       const hintedCwd = typeof cwds[sid] === 'string' && cwds[sid].trim() ? cwds[sid].trim() : undefined
       await purgeSessionArtifacts(ctx, sid, hintedCwd)
     }
+    await detachFromRegistry(toDeleteIds)
+    await purgeSessionsFromWorkspaceJson(ctx, toDeleteIds)
 
     const next = await store.update(cur => {
       const restMoved = { ...cur.movedSessions }
@@ -594,10 +767,37 @@ export function installHostSessionOps(
     })
   }
 
+  const handleOpenFolder = async (request: unknown): Promise<unknown> => {
+    const body = (await readRequestJson(request)) as { path?: string }
+    const targetPath = typeof body?.path === 'string' ? body.path.trim() : ''
+    if (!targetPath) return makeJsonResponse(400, { ok: false, error: 'path is required' })
+    try {
+      const cp = await loadNodeModule<any>('node:child_process')
+      const osMod = await loadNodeModule<any>('node:os')
+      const plat = typeof osMod?.platform === 'function' ? osMod.platform() : ((globalThis as any).process?.platform ?? 'win32')
+      const isWin = plat === 'win32'
+      const isMac = plat === 'darwin'
+      const cmd = isWin ? 'explorer.exe' : isMac ? 'open' : 'xdg-open'
+      const child = cp.spawn(cmd, [targetPath], {
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: false,
+      })
+      child.unref?.()
+      return makeJsonResponse(200, { ok: true })
+    } catch (err) {
+      return makeJsonResponse(500, { ok: false, error: String(err) })
+    }
+  }
+
   // Prime state cache once at startup, sweep deleted session artifacts, and sync locked -> archived
   void store.read().then(async (initial) => {
     for (const delId of initial.deletedSessionIds) {
       await purgeSessionArtifacts(ctx, delId)
+    }
+    if (initial.deletedSessionIds.length > 0) {
+      await purgeSessionsFromWorkspaceJson(ctx, initial.deletedSessionIds)
+      await detachFromRegistry(initial.deletedSessionIds)
     }
     for (const lockedId of initial.lockedSessionIds) {
       await archiveSessionOnHost(lockedId)
@@ -668,6 +868,12 @@ export function installHostSessionOps(
             requestBody: 'buffered',
             fetch: req => handleDeleteUngrouped(req),
           }),
+          scope.connection.fetch.register({
+            path: DELTA_OPEN_FOLDER_PATH,
+            methods: ['POST'],
+            requestBody: 'buffered',
+            fetch: req => handleOpenFolder(req),
+          }),
         ]
         const cleanup = () => {
           for (const stop of stops) {
@@ -686,6 +892,54 @@ export function installHostSessionOps(
         unregisterCallbacks.push(unsub as () => void)
       } else if (unsub && typeof (unsub as { dispose?: () => void }).dispose === 'function') {
         unregisterCallbacks.push(() => { (unsub as { dispose: () => void }).dispose() })
+      }
+    } catch {}
+
+    // Fallback register on webServer
+    try {
+      const unsubWebServer = ctx.inject(['webServer'], (scope: {
+        webServer?: {
+          register?: (route: {
+            path: string
+            handler: (req: unknown, res: any) => Promise<void> | void
+          }) => () => void
+        }
+      }) => {
+        const ws = scope?.webServer
+        if (!ws || typeof ws.register !== 'function') return () => {}
+        const makeRoute = (path: string, handler: (req: unknown) => Promise<unknown>) => ({
+          path,
+          async handler(req: any, res: any) {
+            try {
+              const result: any = await handler(req)
+              const status = result?.status || 200
+              const json = typeof result?.json === 'function' ? await result.json() : result
+              res.writeHead(status, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify(json))
+            } catch (err: any) {
+              res.writeHead(500, { 'Content-Type': 'application/json' })
+              res.end(JSON.stringify({ ok: false, error: String(err) }))
+            }
+          },
+        })
+        const stops = [
+          ws.register(makeRoute(DELTA_STATE_PATH, () => handleState())),
+          ws.register(makeRoute(DELTA_SESSION_LOCK_PATH, req => handleLock(req))),
+          ws.register(makeRoute(DELTA_SESSION_MOVE_PATH, req => handleMove(req))),
+          ws.register(makeRoute(DELTA_SESSION_DELETE_PATH, req => handleDelete(req))),
+          ws.register(makeRoute(DELTA_SESSION_DELETE_UNGROUPED_PATH, req => handleDeleteUngrouped(req))),
+          ws.register(makeRoute(DELTA_OPEN_FOLDER_PATH, req => handleOpenFolder(req))),
+        ]
+        return () => {
+          for (const s of stops) {
+            try { s?.() } catch {}
+          }
+        }
+      })
+      if (typeof unsubWebServer === 'function') {
+        unregisterCallbacks.push(unsubWebServer as () => void)
+      } else if (unsubWebServer && typeof (unsubWebServer as { dispose?: () => void }).dispose === 'function') {
+        unregisterCallbacks.push(() => { (unsubWebServer as { dispose: () => void }).dispose() })
       }
     } catch {}
   }
