@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 删除账号页脚头像、设置、更新、登录按钮的 DOM 代理及宿主菜单静默隐藏，恢复 Harness 原生账号区显示和交互；同步 ZIP3 审核指纹与防回退测试（Issue #333）。
+
 - 修复: Delta Suite 账号菜单不再猜测点击首尾条目；目标无法明确匹配时保留原生菜单供用户操作，避免设置/登录按钮误触其他命令（Issue #333）。
 
 - 修复: Delta Suite 不再在全局捕获 Ctrl/Cmd+K 或 Escape，搜索面板保留输入框 Enter 与局部 Escape，并纠正快捷键提示；恢复 Harness 原生全局快捷键所有权（Issue #333）。
