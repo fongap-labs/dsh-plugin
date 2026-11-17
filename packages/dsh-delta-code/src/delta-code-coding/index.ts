@@ -1,32 +1,22 @@
-import type { Context } from '@deepseek-ai/cordis'
-import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import type { Settings } from '../types.js'
+import type { DeltaCodeTool } from '../delta-code-adapter/contracts/tools.js'
 import type { DeltaCodeFeature } from '../delta-code-kernel/feature.js'
-import { createMultiEditTool } from './multi-edit.js'
-import { createProjectProfileTool } from './profile.js'
-import { createHostProbeTool } from './host-probe.js'
-import { createLspProbeTool } from './lsp.js'
 
-/** Editing and Host inspection work without a mounted subprocess. */
-export function deltaCodeCodingWithoutCommands(ctx: Context, settings: Settings): DeltaCodeFeature<ToolDefinition> {
-  return {
-    id: 'delta-code-coding-core',
-    tools: [createMultiEditTool(ctx, settings), createProjectProfileTool(ctx, settings), createHostProbeTool(ctx)],
-  }
+/** Host-independent Coding composition. Tool construction is owned by adapters. */
+export function deltaCodeCodingWithoutCommands<T extends DeltaCodeTool>(
+  tools: readonly T[],
+): DeltaCodeFeature<T> {
+  return { id: 'delta-code-coding-core', tools }
 }
 
-/** LSP command probes require the Host subprocess capability. */
-export function deltaCodeCodingCommands(ctx: Context, settings: Settings): DeltaCodeFeature<ToolDefinition> {
-  return { id: 'delta-code-coding-commands', tools: [createLspProbeTool(ctx, settings)] }
+export function deltaCodeCodingCommands<T extends DeltaCodeTool>(
+  tools: readonly T[],
+): DeltaCodeFeature<T> {
+  return { id: 'delta-code-coding-commands', tools }
 }
 
-/** Compatibility factory for the original complete Coding feature. */
-export function deltaCodeCoding(ctx: Context, settings: Settings): DeltaCodeFeature<ToolDefinition> {
-  return {
-    id: 'delta-code-coding',
-    tools: [
-      ...(deltaCodeCodingWithoutCommands(ctx, settings).tools ?? []),
-      ...(deltaCodeCodingCommands(ctx, settings).tools ?? []),
-    ],
-  }
+/** Optional combined factory for consumers that need the complete feature. */
+export function deltaCodeCoding<T extends DeltaCodeTool>(
+  coreTools: readonly T[], commandTools: readonly T[],
+): DeltaCodeFeature<T> {
+  return { id: 'delta-code-coding', tools: [...coreTools, ...commandTools] }
 }

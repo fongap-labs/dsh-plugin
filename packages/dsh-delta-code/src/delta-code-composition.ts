@@ -3,6 +3,10 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { Settings } from './types.js'
 import { mountDeltaCodeFeatures } from './delta-code-kernel/feature.js'
 import { dshToolRegistrar } from './delta-code-adapter/providers/dsh/tool-registration.js'
+import {
+  createDshCodingCoreTools, createDshCodingCommandTools, createDshQualityTools,
+  createDshRepositoryRemoteTools, createDshRepositoryCommandTools,
+} from './delta-code-adapter/providers/dsh/feature-tools.js'
 import { createGitHubTransport } from './delta-code-adapter/providers/github/api.js'
 import { registerGatewayRetryCoordinator } from './delta-code-adapter/providers/dsh/gateway-retry-coordination.js'
 import { deltaCodeCodingWithoutCommands, deltaCodeCodingCommands } from './delta-code-coding/index.js'
@@ -32,8 +36,9 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
         registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings),
         registerPrompt: () => registerDeltaCodePrompt(ctx, settings),
       }),
-      deltaCodeCodingWithoutCommands(ctx, settings),
-      deltaCodeRepositoryRemote(ctx, settings, createGitHubTransport(settings.githubAccounts)),
+      deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
+      deltaCodeRepositoryRemote(createDshRepositoryRemoteTools(
+        ctx, settings, createGitHubTransport(settings.githubAccounts))),
       deltaCodeSupport(stats),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))
@@ -46,9 +51,9 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
     const injected = ctx.inject(['subprocess'], child => {
       if (!isCommandActive) return
       const commandFeatures = [
-        deltaCodeCodingCommands(child, settings),
-        deltaCodeQuality(child, settings, resume),
-        deltaCodeRepositoryCommands(child, settings),
+        deltaCodeCodingCommands(createDshCodingCommandTools(child, settings)),
+        deltaCodeQuality(createDshQualityTools(child, settings, resume)),
+        deltaCodeRepositoryCommands(createDshRepositoryCommandTools(child, settings)),
       ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
       const unmount = mountDeltaCodeFeatures(commandFeatures, dshToolRegistrar(ctx, stats))
       commandDisposers.add(unmount)
