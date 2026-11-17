@@ -5,6 +5,7 @@ import { routeCodingTask } from '../../../delta-code-strategy/task-routing.js'
 import type { CodingRoute } from '../../../delta-code-strategy/task-routing.js'
 import { matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
 import { chooseTaskResources, taskResourceGuidance, type TaskResource } from '../../../delta-code-strategy/task-resource-policy.js'
+import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
 
 /** Host-specific event subscription and system prompt integration. */
 interface UserClaim {
@@ -29,7 +30,7 @@ interface RuntimePromptService {
 }
 
 interface RuntimeContext {
-  on?: (event: string, listener: (payload: UserClaim) => void) => (() => void) | void
+  on?: (event: string, listener: (...args: unknown[]) => void) => (() => void) | void
   inject: (services: string[], listener: (child: unknown) => void) => unknown
 }
 
@@ -44,12 +45,14 @@ export function registerAutomaticCodingRouter(
   const routed = new WeakMap<object, CodingRoute>()
   const specialists = new WeakMap<object, readonly string[]>()
   const resources = new WeakMap<object, readonly TaskResource[]>()
+  const quality = new WeakMap<object, SkillOutcomeFeedback>()
   const byName = new Map(ALL_CODING_SKILLS.map(skill => [skill.name, skill]))
   const runtime = ctx as unknown as RuntimeContext
   const disposers: Array<() => void> = []
   let isActive = true
   if (typeof runtime.on === 'function') {
-    const unsubscribe = runtime.on('agent/inbox/claimed', ({ agent, message }) => {
+    const unsubscribe = runtime.on('agent/inbox/claimed', (payload) => {
+      const { agent, message } = payload as UserClaim
       if (!isActive || !settings().enabled || !settings().autoRoutingEnabled || !agent || !message) return
       if (message.source?.kind !== 'user') return
       const text = Array.isArray(message.content)
@@ -63,13 +66,46 @@ export function registerAutomaticCodingRouter(
       const needed = chooseTaskResources(text)
       if (next && needed.length) resources.set(agent, needed)
       else if (!next || next !== previous) resources.delete(agent)
+      const feedback = quality.get(agent) ?? new SkillOutcomeFeedback()
+      quality.set(agent, feedback)
       const matched = matchApprovedGitHubSkills(text)
-      if (next && matched.length) specialists.set(agent, matched)
+      // A new user message is a new evidence boundary. Conservatively reset on
+      // continuations too rather than attributing a different task's tests to a prior Skill.
+      feedback.beginTask()
+      if (next && matched.length) specialists.set(agent, feedback.prioritize(matched))
       else if (!next || next !== previous) specialists.delete(agent)
     })
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
-    const clear = runtime.on('agent/disposed', ({ agent }) => { if (agent) { routed.delete(agent); specialists.delete(agent); resources.delete(agent) } })
+    const clear = runtime.on('agent/disposed', (payload) => {
+      const { agent } = payload as UserClaim
+      if (agent) { routed.delete(agent); specialists.delete(agent); resources.delete(agent); quality.delete(agent) }
+    })
     if (typeof clear === 'function') disposers.push(clear)
+
+    const toolsResult = runtime.on('tools/result', (rawExecution, rawOutcome) => {
+      if (!isActive || !settings().enabled || !settings().autoRoutingEnabled) return
+      const exec = rawExecution as { agent?: object; name?: string } | undefined
+      const outcome = rawOutcome as { isError?: boolean; value?: unknown } | undefined
+      if (!exec?.agent || !outcome) return
+      const tracker = quality.get(exec.agent)
+      if (!tracker) return
+      const value = outcome.value
+      if (exec.name === 'skill' && outcome.isError === false) {
+        if (!value || typeof value !== 'object') return
+        const skill = value as { name?: unknown; provider?: unknown }
+        if (typeof skill.name === 'string' && typeof skill.provider === 'string') {
+          tracker.noteLoaded(skill.name, skill.provider)
+        }
+        return
+      }
+      if ((exec.name === 'code_verify' || exec.name === 'code_verify_suite') &&
+        outcome.isError === false && value && typeof value === 'object') {
+        const passed = (value as { passed?: unknown }).passed
+        if (typeof passed === 'boolean') tracker.observeVerification(passed)
+      }
+    })
+    if (typeof toolsResult === 'function') disposers.push(toolsResult)
+
   }
   runtime.inject(['systemPrompt'], child => {
     if (!isActive) return
