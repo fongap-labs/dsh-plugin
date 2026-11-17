@@ -123,12 +123,13 @@ export function hasUnsafeHostPatch(source) {
 // migration eliminates private DOM dependencies. We pin both regions and the
 // exact author-provided ZIP theme; no arbitrary Host takeover is authorized.
 // Reviewed 2026-11-18: removed native running-status DOM text rewriting.
+// Reviewed 2026-11-18: removed native page heading DOM text rewriting.
 const ZIP3_THEME_BLOB = '003ce20e1fd2ce6d1054b2d35091382b6539f932'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '3f95d23c904ae44ed5b799796c6d57e8dbc2c4f3',
+    sha1: '7d60da5a660ac5bdcf32b74293620d8946c4801b',
   },
   {
     begin: 'function installHostSearch(',
