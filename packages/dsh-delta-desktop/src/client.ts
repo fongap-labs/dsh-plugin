@@ -4595,26 +4595,23 @@ function installHostSearch(
   })
 
   // ---------------- Centered Command Search Palette ----------------
-  const insertSlashCommand = (commandName: string): void => {
+  // The Host has no declared composer insertion capability. Copy only; the user pastes
+  // into the native composer, so Search Palette never queries or mutates Host editor DOM.
+  const copySlashCommand = (commandName: string): void => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
+    if (typeof clipboard?.writeText !== 'function') {
+      showDeltaToast(copy.searchPalette.commandCopyFailed)
+      return
+    }
     try {
-      controller.openConversation()
-      const editor = document.querySelector?.<HTMLElement>('[data-lexical-editor="true"], [data-composer-input] [contenteditable="true"], textarea, [contenteditable="true"]')
-      if (!editor) return
-      editor.focus?.()
-      if ('value' in editor && typeof (editor as HTMLTextAreaElement).value === 'string') {
-        const ta = editor as HTMLTextAreaElement
-        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
-        setter?.call(ta, commandName + ' ')
-        ta.dispatchEvent(new Event('input', { bubbles: true }))
-        return
-      }
-      if (typeof document.execCommand === 'function') {
-        document.execCommand('insertText', false, commandName + ' ')
-      } else {
-        editor.textContent = commandName + ' '
-        editor.dispatchEvent(new Event('input', { bubbles: true }))
-      }
-    } catch {}
+      void clipboard.writeText(commandName).then(() => {
+        try { controller.openConversation() } catch {}
+        showDeltaToast(copy.searchPalette.commandCopied)
+      }, () => showDeltaToast(copy.searchPalette.commandCopyFailed))
+    } catch {
+      showDeltaToast(copy.searchPalette.commandCopyFailed)
+    }
   }
 
   const getShortcutsService = (): {
@@ -4659,11 +4656,12 @@ function installHostSearch(
         tab: 'skill',
         kind: 'command',
         title: c.cmd,
-        snippet: language() === 'zh' ? c.descZh : c.descEn,
+        snippet: (language() === 'zh' ? c.descZh : c.descEn) + ' · ' + pCopy.commandCopyHint,
         badge: pCopy.kindCommand,
+        meta: pCopy.commandCopyLabel,
         score: 52,
         keywords: `${c.cmd} ${c.descZh} ${c.descEn}`,
-        run: () => insertSlashCommand(c.cmd),
+        run: () => copySlashCommand(c.cmd),
       })
     }
 
@@ -4683,11 +4681,12 @@ function installHostSearch(
               tab: 'skill',
               kind: 'skill',
               title: cmdName,
-              snippet: item.description ? redactSensitiveText(item.description) : undefined,
+              snippet: (item.description ? redactSensitiveText(item.description) + ' · ' : '') + pCopy.commandCopyHint,
               badge: pCopy.kindSkill,
+              meta: pCopy.commandCopyLabel,
               score: 58,
               keywords: `${cmdName} ${item.description ?? ''}`,
-              run: () => insertSlashCommand(cmdName),
+              run: () => copySlashCommand(cmdName),
             })
           }
         }
@@ -4705,11 +4704,12 @@ function installHostSearch(
           tab: 'skill',
           kind: 'skill',
           title: cmdName,
-          snippet: s.description ? redactSensitiveText(s.description) : undefined,
+          snippet: (s.description ? redactSensitiveText(s.description) + ' · ' : '') + pCopy.commandCopyHint,
           badge: pCopy.kindSkill,
+          meta: pCopy.commandCopyLabel,
           score: 57,
           keywords: `${cmdName} ${s.description ?? ''}`,
-          run: () => insertSlashCommand(cmdName),
+          run: () => copySlashCommand(cmdName),
         })
       }
     } catch {}
