@@ -3,7 +3,7 @@
 新的插件身份为 `@fongap-labs/dsh-delta-desktop`，历史 `@fongap-labs/dsh-theme-delta` 的发布记录和错误日志不修改。首次安装新包前先停用旧插件，确保不会重复覆盖主题或重复注册 `settings.section`；禁止在没有实际宿主验证前声称可自动迁移。
 
 
-公开源码基线：`deepseek-ai/deepseek-harness@fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159`。基线只用于阅读，不等于已完成实际安装验证，也不代表全部后续宿主构建兼容。
+公开源码基线：`deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738`（2026-11-17 核查）。该提交只用于阅读公开 API，不等于已完成实际安装验证，也不代表全部宿主构建兼容；运行时不绑定此版本。
 
 | 能力 | 证据（DeepSeek Harness 相对路径） | 作用及必要性 | 缺失时 | 已验证 |
 | --- | --- | --- | --- | --- |
@@ -39,19 +39,6 @@
 - `ui-chat/RunningStatus.tsx` 与 `ui-conversation` 的状态及预览文案属于宿主翻译字典；没有公开的单项覆盖插槽，不覆盖其他插件拥有的 locale 命名空间。
 - 仅完成设置栏目和真实主题切换；上述侧栏、会话和工作区重构均为**未完成**，真实 Windows Harness `0.2.2-rc.1` 安装与启停仍待复验。
 
-## 2026-11-10 7 大模块完整实现与兼容保障
-
-针对 7 大模块的需求矩阵，Delta Desktop 实现了端到端的能力支持与优雅回退：
-
-1. **左侧导航与排版**：通过 `:root[data-delta-compat="1"]` 调整 `[data-sidebar-scrollport]` 布局为 8px flex-column。隐藏官方 Logo，重排搜索、插件管理、定时任务、开始对话。
-2. **会话搜索联动**：在侧栏顶部提供 `.dtd-native-search`，输入事件直接驱动官方 `[data-sidebar-workspace-header]` 内的搜索组件，同时隐藏头部多余搜索位，保持无感知原生联动。
-3. **会话列表展示**：通过 CSS 与插槽隐藏 `hoverPath` 物理路径；会话时间使用等宽数字排版；在悬浮卡注入会话 ID 复制操作。
-4. **工作区折叠与安全保护**：初次加载自动折叠工作区行（基于 `dsh.workspace.view.v5` 缓存判断，不覆盖用户主动设置）；保留全部文件夹上下文操作；拦截默认工作区的删除操作并给出友好提示。
-5. **个性设置热切换**：通过 `settings.section` 提供 Delta / 官方模式切换，切换瞬间增删所有主题属性及 DOM 节点。
-6. **双色主题视觉体验**：注入全套 WCAG 认证的 Delta 色彩变量（浅色 `#286F78`、深色 `#60B4BF`），强制生效于发送按钮 `.GRgSLq_primary`、主按钮、焦点框和状态控件。
-7. **插件全生命周期安全释放**：无论通过模式切换还是插件卸载，disposer 函数会严格移除所有样式、DOM 节点、MutationObserver 及事件监听，恢复 100% 干净的原生界面。
-
-
 ## 2026-11-09 可替换宿主能力契约（PR #197）
 
 长期能力边界以 `src/host-capabilities.ts` 中的 `DELTA_HOST_CONTRACT_VERSION` 与明确声明的能力名称为准，**不以固定 DSH 版本、DOM 选择器、私有 Store 或客户端 monkey-patch 为证据**。
@@ -65,3 +52,29 @@
 - 本次交付仅包含稳定边界与发布阻断，不包含受限 Host UI 功能；发布状态以 `feature-readiness.json` 和真实 Windows 验收共同决定。
 
 下一阶段：DSH Adapter 通过宿主正式插件 API 建立可探测的能力清单，Delta Desktop 依据已协商能力逐项装配界面；任何宿主不支持的特性必须显式标记不可用并回退原生体验。
+
+
+## 2026-11-17 最新公开 API 核查
+
+核查基线：`deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738`。以下结论只描述公开源码中的扩展边界，不代表任何本地安装构建已经通过实机验收。
+
+| 需求 | 当前公开接口 | 结论 |
+| --- | --- | --- |
+| 品牌图标/名称 | `sidebar.brand.mark` / `sidebar.brand.name` | 可替换插槽内容，不可改写周边布局 |
+| 新建会话行 | `sidebar.session.action` | HOC 装饰现有行，不支持移动行的位置 |
+| 面板 More 菜单 | `sidebar.panellist.actions` | 仅渲染 More 菜单项，不是顶层导航重排接口 |
+| 工作区/会话浏览区 | `sidebar.workspaces` | 单占用插槽；替换整个区域会接管浏览器，不等于可插入顶部搜索 |
+| 会话悬浮卡 | `sidebar.session.row.hover` | 仅在时间与状态行之间增加装饰内容，不拥有完整卡片布局 |
+| 工作区首次折叠 | 内部 `WorkspaceViewState.groupExpansion` | 没有公开初始化/默认值扩展契约 |
+| 默认工作区删除保护 | WorkspaceController 删除动作 | 没有公开的 before-delete 业务钩子 |
+| 运行状态文案 | `ChatFlow` 直接渲染内部 `RunningStatus` | 没有公开状态文案替换插槽 |
+
+公开源码证据（均固定到上述核查提交）：
+
+- [Sidebar slot contract](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/client/ui-sidebar/src/client/contract/slots.ts) 与 [SidebarRoot layout](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/client/ui-sidebar/src/client/SidebarRoot.tsx)。
+- [Workspace slot contract](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/client/ui-workspace/src/client/contract/slots.ts)、[WorkspaceBrowser](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/client/ui-workspace/src/client/rows/WorkspaceBrowser.tsx) 与 [workspace view store](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/client/ui-workspace/src/client/stores.ts)。
+- [ChatFlow](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/client/ui-chat/src/client/chat/ChatFlow.tsx) 直接渲染 [RunningStatus](https://github.com/deepseek-ai/deepseek-harness/blob/39163dd30f703a79079e2d2446545cff3c453738/packages/client/ui-chat/src/client/chat/RunningStatus.tsx)。
+
+因此，侧栏顶部搜索与原生按钮重排、工作区默认折叠、删除前置保护、完整悬浮卡布局及 RunningStatus 文案替换仍然不可由当前公开插槽安全完成。不得通过 DOM 选择器、私有 CSS 类、内部 Store、React setter 或服务方法 monkey-patch 绕过限制。
+
+`feature-readiness.json` 是当前交付状态唯一来源。上述能力继续保持 `false`；只有出现可探测、版本无关的公开能力契约并完成真实宿主验证后，才可改为已完成。
