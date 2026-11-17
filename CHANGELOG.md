@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 将原生 Todo 恢复的纯状态策略与 DSH 投影及 Git 执行分离，保留原恢复接口与安全约束。
+
 - 维护: 将交付验证工具的 DSH Git 和 Host 执行迁至 Adapter，保留原接口与原生 Todo 验收策略。
 
 - 维护: 将验证工具的 DSH Host 执行和权限逻辑移至 Adapter，Quality 保留纯策略及兼容导出。
