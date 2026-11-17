@@ -201,3 +201,9 @@
 - 删除 Search Palette 的 `clickSettingsTrigger`，不再扫描任意宿主 `aria-label="Settings"`、中文同名按钮或旧 `.dtd-btn-settings` 选择器并执行程序化点击。此路径原本没有可验证的公开导航接口，存在误触其他插件同名按钮的风险。
 - 在宿主未提供正式打开设置页 API 前，不再把无法可靠执行的设置 Quick Action 或 `settings.open` 目录项显示为 Delta 可执行命令；原生 Harness 设置按钮及快捷键仍由 Harness 负责。Delta 向正式 `settings.section` Slot 注册的个性化设置内容保持不变。
 - 保留服务驱动的会话/工作区搜索和七标签面板，其余插件/任务导航及编辑器命令 DOM 代理仍列于 Issue #333 后续治理；同步更新 ZIP3 Search Region 严格 SHA-1，不修改 Sidebar Region 和主题 CSS。真实 Windows Harness UI 与性能 A/B 待验证。
+
+## 2026-11-18 搜索面板插件与任务导航所有权（Issue #333 第十八阶段）
+
+- 清除 `clickSidebarNavTarget`：不再根据宿主导航文字、私有侧栏 CSS 类或首个同名按钮执行程序化点击。没有经正式 API 声明的插件管理与定时任务跳转能力时，由 Harness 原生导航入口负责。
+- 移除 Search Palette 的插件管理和定时任务 Quick Action。插件清单原先仅被渲染成指向插件管理页的通用假动作，无法导航到对应插件；为避免误导与误触，暂停向 Delta Search Palette 添加此类可执行插件行，等候正式宿主导航契约。七标签面板布局仍保留；其它搜索、命令和快捷键逻辑不在本次改动范围。
+- 不改变公开 `settings.section`、主题、品牌及 Session/Workspace 搜索服务。ZIP3 Search Region 审核 SHA-1 同步更新，Sidebar Region 和主题 CSS 不变。后续独立治理右侧引导 DOM 点击、快捷键执行与编辑器注入；真实 Windows Harness 功能及性能 A/B 仍待验收。

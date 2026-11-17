@@ -138,6 +138,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: removed global capture-phase Ctrl/Cmd+K interception; modal Escape scoped to Delta.
 // Reviewed 2026-11-18: native footer restored; removed Delta avatar/account/update DOM proxy and Host menu suppression.
 // Reviewed 2026-11-18: search palette no longer guesses native Settings buttons or exposes an unsupported Settings quick action.
+// Reviewed 2026-11-18: removed private sidebar nav text-click for Plugins and Schedules; unsupported plugin catalog actions are hidden.
 const ZIP3_THEME_BLOB = '6d532fe477afc175db33e770fb3061df0d21b992'
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -148,7 +149,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: '1284923629b157c08e0f223448b303eade7e37a0',
+    sha1: '44c99a465f498621518499f8be1fddec42e06d05',
   },
 ]
 
