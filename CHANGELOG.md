@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Code 将编程意图路由规则抽离为无宿主依赖的纯策略模块，DSH 事件订阅和系统提示词注入收敛到 Adapter，保留旧 API 导出与既有路由行为。
+
 - 维护: Delta Code 删除内置 A/B 随机分组、会话事件对照统计与 code_ab_report 工具；自动路由对所有已启用的编码任务一致生效，保留普通执行指标。
 
 - 修复: Delta Code Host FS 新增原生无条件写入契约，Adapter 按明确语义传递省略的 expected 参数及正确 signal 位置；保留旧式覆盖协议，拒绝无授权宿主降级。
