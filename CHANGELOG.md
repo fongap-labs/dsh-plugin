@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 同一编程流程中切换独立任务时清理旧 Skill 推荐与资源检索提示；真正的继续指令保留当前任务上下文。
+
 - 新增: 可信 GitHub Skill 目录增加 Anthropic Frontend Design（Apache-2.0）和 Addy Osmani API/Interface Design（MIT），均固定不可变 Commit、文件哈希及许可证，并按任务意图自动匹配。
 
 - 新增: 增加 `code-find-skills` 技能发现流程，复用宿主原生 GitHub/Web 搜索，审核来源、许可证和安全性后才允许固定版本并加入可信目录。
