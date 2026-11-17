@@ -25,10 +25,10 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
       noDisposerRegistries.add(registry)
       ctx.logger?.warn?.('dsh-delta-code: approved GitHub Skill provider has no disposer; automatic unregistration is unavailable')
     }
-    let released = false
+    let isReleased = false
     const release = () => {
-      if (released) return
-      released = true
+      if (isReleased) return
+      isReleased = true
       registrations.delete(registry)
       try { if (typeof dispose === 'function') dispose() } catch {
         /* Host may already have disposed the provider */
