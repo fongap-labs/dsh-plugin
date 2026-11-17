@@ -18,6 +18,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 ## Boundaries
 
 - Project stack/script/guidance classification lives in Host-independent `delta-code-coding/project-profile-policy.ts`; `profile.ts` retains authorized local and DSH Host file discovery, cancellation and permission boundaries.
+- Read-only `code_host_probe` service inspection and DSH `Context` typing live in `delta-code-adapter/providers/dsh/host-probe.ts`; `delta-code-coding/host-probe.ts` remains a compatibility re-export. It never invokes privileged FS, workspace or subprocess methods.
 - Coding, Quality and Repository feature assembly accepts only Delta-owned named-tool contracts. DSH-specific tool construction lives in `delta-code-adapter/providers/dsh/feature-tools.ts`; no Host SDK types enter their feature entrypoints.
 - This does not yet remove Host SDK imports from the individual tool implementations; those are the next migration seam.
 - Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
