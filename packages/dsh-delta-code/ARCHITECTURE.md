@@ -21,6 +21,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - This does not yet remove Host SDK imports from the individual tool implementations; those are the next migration seam.
 - Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
 
+- Public `src/types.ts` contains only Host-independent configuration/result types. Cordis Context augmentation and DSH prompt type imports are isolated in `delta-code-adapter/providers/dsh/host-types.ts`.
 - External APIs are not runtime-version-pinned; compatibility depends on available, semantically verified capabilities.
 - Repository and coding business rules must not own GitHub authentication or raw HTTP transport.
 - Pure GitHub account selection, remote origin parsing, branch, path and SHA checks live in `delta-code-repository/github-policy.ts`; the DSH tool wrapper imports this policy without owning it.

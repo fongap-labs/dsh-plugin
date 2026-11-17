@@ -1,32 +1,7 @@
-import type { HostFsService } from './host-fs.js'
 import type { LanguageConventionRule } from './consistency.js'
 import type { DeltaFileWriteContract } from './delta-code-adapter/contracts/files.js'
 
-/**
- * Internal host contracts and public Code Worker configuration types.
- * Keep the plugin's published type exports available through index.ts.
- */
-import type {} from '@deepseek-ai/dsh-system-prompt'
-
-declare module '@deepseek-ai/cordis' {
-  interface Context {
-    /** Stable subset of the Host service lookup used by this plugin. */
-    get(name: 'workingDirectory'): WorkingDirectoryService | undefined
-    get(name: 'fs'): HostFsService | undefined
-    /** Defer optional prompt registration until the service exists. */
-    inject(dependencies: string[], callback: (child: Context) => void): unknown
-    /** Optional host workspace provider; paths fall back to config and `cwd`. */
-    workingDirectory?: WorkingDirectoryService
-    /** Optional host filesystem service; reads and writes fall back to `node:fs`. */
-    fs?: HostFsService
-  }
-}
-
-/** The subset of the host `workingDirectory` service this plugin relies on. */
-interface WorkingDirectoryService {
-  ensure(agent: unknown, signal?: AbortSignal): Promise<string | undefined | null>
-}
-
+/** Host-independent public configuration and result types. */
 export type HostFsWriteContract = DeltaFileWriteContract
 
 /** One configured language server. `args` is accepted for config compatibility. */
