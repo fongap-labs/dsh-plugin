@@ -6,6 +6,7 @@ import { defineTool, isSubprocessAvailable, runCommand, resolveInside, isPathIns
 import type { Settings } from '../types.js'
 import { readTextSafe, resolveRoot } from '../runtime.js'
 import { chooseVerificationCommand, type VerificationProject, type VerificationCommand, type VerificationScript, isAllowedVerificationScript } from './verify-presets.js'
+import { verificationMetadataFiles, detectVerificationProjects, parseDeclaredNodeVerificationScripts, selectVerificationPackageManager } from './verification-project-policy.js'
 import { resolveAuthorizedGitCwd } from '../delta-code-repository/host-git-cwd.js'
 import { classifyVerificationEvidence, verificationNextAction } from './failure-policy.js'
 import { requireHostFs } from '../delta-code-adapter/providers/dsh/host-fs.js'
@@ -76,15 +77,6 @@ export interface PreparedVerification {
 
 /** Prepare and validate a check without executing a command. */
 
-type DetectedProject = Exclude<VerificationProject, 'auto'>
-
-const MANIFESTS = [
-  ['node', 'package.json'], ['rust', 'Cargo.toml'],
-  ['python', 'pyproject.toml'], ['python', 'requirements.txt'],
-  ['go', 'go.mod'],
-] as const
-const LOCKFILES = ['pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'bun.lock', 'Cargo.lock'] as const
-
 /** All Host-mounted metadata reads use DSH Host FS; no local filesystem fallback. */
 export async function prepareVerify(
   ctx: Context, settings: Settings, exec: ToolRunContext,
@@ -117,7 +109,7 @@ export async function prepareVerify(
     throw new Error('Host verification project changed during preflight')
   }
   const files = reuseProbe ? new Set(reuseProbe.files) : new Set<string>()
-  const fileNames = [...new Set([...MANIFESTS.map(([, name]) => name), ...LOCKFILES])]
+  const fileNames = verificationMetadataFiles
   if (hostFs) {
     checkCancelled()
     const canonicalRoot = await hostFs.resolve(root, { cwd: root, signal: exec.signal })
@@ -161,33 +153,17 @@ export async function prepareVerify(
       }
     }
   }
-  const found = new Set<DetectedProject>()
-  for (const [language, name] of MANIFESTS) {
-    if (files.has(name)) found.add(language)
-  }
+  const found = detectVerificationProjects(files)
   const nodeScripts: string[] = reuseProbe ? [...reuseProbe.nodeScripts] : []
-  if (found.has('node') && !reuseProbe) {
+  if (found.includes('node') && !reuseProbe) {
     checkCancelled()
     const raw = hostFs
       ? await hostFs.readText(hostPackage, exec.signal)
       : await readTextSafe(ctx, exec, canonicalCwd, 'package.json')
     if (Buffer.byteLength(raw, 'utf8') > 1024 * 1024) throw new Error('package.json is too large')
-    const pkg: unknown = JSON.parse(raw)
-    if (!pkg || typeof pkg !== 'object' || Array.isArray(pkg)) throw new Error('invalid package.json')
-    const scripts = (pkg as { scripts?: Record<string, unknown> }).scripts
-    if (scripts && (typeof scripts !== 'object' || Array.isArray(scripts))) {
-      throw new Error('package.json scripts must be an object')
-    }
-    for (const [script, command] of Object.entries(scripts ?? {})) {
-      if (isAllowedVerificationScript(script) && typeof command === 'string' && command.trim()) {
-        nodeScripts.push(script)
-      }
-    }
+    nodeScripts.push(...parseDeclaredNodeVerificationScripts(JSON.parse(raw)))
   }
-  const manager = files.has('pnpm-lock.yaml') ? 'pnpm'
-    : files.has('yarn.lock') ? 'yarn'
-    : files.has('bun.lockb') || files.has('bun.lock') ? 'bun'
-    : 'npm'
+  const manager = selectVerificationPackageManager(files)
   const plan = chooseVerificationCommand(
     args.script, project, [...found], manager, nodeScripts, files.has('Cargo.lock'),
   )
