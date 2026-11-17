@@ -140,3 +140,10 @@
 - 删除 `isFooterContainer || isSessionFooter` 分支中通过 `getSessionMenuOrder` / `setMenuNodeOrder` 排序、克隆/隐藏分隔符和 `appendChild` 强制重排的逻辑。Harness 保留自身 Footer 菜单顺序及分隔符。
 - **保留删除项危险态提示** `data-danger` / `dtd-menu-danger`，以及外部锁定、删除保护和原生事件处理逻辑；此处只修改视觉顺序，不增加或删除命令权限。
 - 会话列表菜单排序、原生菜单文本改写、搜索代理和捕获阶段拦截仍待处理。ZIP3 发布哈希继续严格校验，真实 Windows 宿主交互仍需单独验收。
+
+## 2026-11-18 会话列表菜单原生顺序（Issue #333 第九阶段）
+
+- 移除 `SESSION_MENU_ORDERS`、`getSessionMenuOrder` 和原生会话右键菜单的节点排序、分隔符克隆/隐藏及恢复缓存，Harness 负责菜单顺序与分隔符。
+- 同步清理已失效的 `data-dtd-menu-order` / `dtd-injected-sep` 主题 CSS，保留原生分隔符样式与删除操作危险态标记。
+- **未完成**：原生“在文件夹显示”文案改写、反馈隐藏、捕获阶段事件拦截、搜索输入代理和能力层权限校验。真实 Windows Harness 验收及性能 A/B 仍需执行。
+- ZIP3 客户端与主题双哈希继续严格校验；未放宽发版门禁。

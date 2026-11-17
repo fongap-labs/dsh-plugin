@@ -29,7 +29,7 @@ test('native workspace order/separators remain untouched while deletion is still
   assert.match(workspace, /data-danger/)
   assert.match(workspace, /getWorkspaceCount\(\) <= 1/)
   assert.match(workspace, /hiddenSoleWorkspaceNodes/)
-  assert.match(source, /const SESSION_MENU_ORDERS:/, 'session menu remains a separate migration')
+  assert.doesNotMatch(source, /SESSION_MENU_ORDERS/, 'the session ordering table was removed')
   assert.match(source, /if \(isSessionMenu\) \{/)
 })
 

@@ -596,27 +596,6 @@
 :root[data-delta-ui="delta"][data-ds-dark-theme="true"] [class*="_footer_"] {
   border-top-color: var(--dtd-border, rgba(255, 255, 255, 0.08)) !important;
 }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="10"] { order: 10 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="15"] { order: 15 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="20"] { order: 20 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="25"] { order: 25 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="30"] { order: 30 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="35"] { order: 35 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="40"] { order: 40 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="45"] { order: 45 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="50"] { order: 50 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="55"] { order: 55 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="60"] { order: 60 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="65"] { order: 65 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="70"] { order: 70 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="75"] { order: 75 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="76"] { order: 76 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="78"] { order: 78 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="79"] { order: 79 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="80"] { order: 80 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="85"] { order: 85 !important; }
-:root[data-delta-ui="delta"] [data-dtd-menu-order="90"] { order: 90 !important; }
-:root[data-delta-ui="delta"] [data-dtd-hidden-menu-sep="1"] { display: none !important; }
 :root[data-delta-ui="delta"] [data-dtd-hidden-footer-sep="1"] { display: none !important; }
 
 /* ============================================================================
@@ -2859,16 +2838,14 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 }
 
 :root[data-delta-ui="delta"] [role="menu"] [role="separator"],
-:root[data-delta-ui="delta"] [class*="_separator_"],
-:root[data-delta-ui="delta"] .dtd-injected-sep {
+:root[data-delta-ui="delta"] [class*="_separator_"] {
   height: 1px;
   background-color: var(--dtd-border, rgba(0, 0, 0, 0.08));
   margin: 4px 8px;
   flex-shrink: 0;
 }
 :root[data-delta-ui="delta"][data-ds-dark-theme="true"] [role="menu"] [role="separator"],
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [class*="_separator_"],
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] .dtd-injected-sep {
+:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [class*="_separator_"] {
   background-color: var(--dtd-border, rgba(255, 255, 255, 0.08));
 }
 
