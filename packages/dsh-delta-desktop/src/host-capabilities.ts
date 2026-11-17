@@ -28,13 +28,13 @@ export type DeltaCapabilityManifest = Readonly<{
 export type DeltaCapabilityReport = Readonly<{
   compatible: boolean
   available: readonly DeltaHostCapability[]
-  missing: readonly DeltaHostCapability[]
+  missing: readonly string[]
   reason: 'ready' | 'missing-manifest' | 'unsupported-contract' | 'missing-capabilities'
 }>
 
 export function negotiateHostCapabilities(
   manifest: DeltaCapabilityManifest | null | undefined,
-  required: readonly DeltaHostCapability[],
+  required: readonly string[],
 ): DeltaCapabilityReport {
   if (!manifest || !Number.isInteger(manifest.contractVersion) ||
       !Array.isArray(manifest.capabilities)) {
@@ -46,7 +46,9 @@ export function negotiateHostCapabilities(
   const declared = new Set(manifest.capabilities.filter((value): value is string => typeof value === 'string'))
   const supported = new Set<string>(DELTA_HOST_CAPABILITIES)
   const available = DELTA_HOST_CAPABILITIES.filter(cap => declared.has(cap))
-  const missing = [...new Set(required)].filter(cap => supported.has(cap) && !declared.has(cap))
+  // Unknown requirements must fail closed, even if an untrusted manifest claims them.
+  // Adapter upgrades may introduce new names before this runtime supports them.
+  const missing = [...new Set(required)].filter(cap => !supported.has(cap) || !declared.has(cap))
   return {
     compatible: missing.length === 0,
     available,

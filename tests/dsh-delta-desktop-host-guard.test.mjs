@@ -67,3 +67,24 @@ test('capability negotiation is explicit and version independent', () => {
   assert.equal(denied.compatible, false)
   assert.deepEqual(denied.missing, ['workspace.before-delete'])
 })
+
+test('unsupported required capability fails closed even when the Host advertises it', () => {
+  const future = 'sidebar.compose-next'
+  const manifest = {
+    contractVersion: host.DELTA_HOST_CONTRACT_VERSION,
+    capabilities: ['theme.tokens', future],
+  }
+  const denied = host.negotiateHostCapabilities(manifest, [future])
+  assert.equal(denied.compatible, false)
+  assert.deepEqual(denied.available, ['theme.tokens'])
+  assert.deepEqual(denied.missing, [future])
+  assert.equal(denied.reason, 'missing-capabilities')
+
+  const mixed = host.negotiateHostCapabilities(manifest, [
+    'theme.tokens', future, future, 'workspace.before-delete',
+  ])
+  assert.equal(mixed.compatible, false)
+  assert.deepEqual(mixed.missing, [future, 'workspace.before-delete'])
+  const stable = host.negotiateHostCapabilities(manifest, ['theme.tokens'])
+  assert.equal(stable.compatible, true, 'unrelated Host extensions cannot break known supported capabilities')
+})
