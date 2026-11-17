@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 停止 Delta Suite 使用 DOM 文本节点改写 Harness 原生运行状态，保留原生文案所有权；更新 ZIP3 审核指纹和回归测试（Issue #333）。
+
 - 修复: 删除 Delta Suite 客户端对 Harness Slots 查询与 Locale 服务的私有方法劫持，恢复宿主设置与反馈入口的原生所有权；旧 DOM 状态文案兼容层仍需后续治理，增加回归约束。
 
 - 修复: Delta Suite 会话搜索在停用后拒绝未完成查询回填缓存，并确保观察句柄只释放一次，补齐卸载期间异步竞态回归。

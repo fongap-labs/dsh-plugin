@@ -122,12 +122,13 @@ export function hasUnsafeHostPatch(source) {
 // ZIP3 retains its approved sidebar/search adapter until the feature-registry
 // migration eliminates private DOM dependencies. We pin both regions and the
 // exact author-provided ZIP theme; no arbitrary Host takeover is authorized.
+// Reviewed 2026-11-18: removed native running-status DOM text rewriting.
 const ZIP3_THEME_BLOB = '003ce20e1fd2ce6d1054b2d35091382b6539f932'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'f564c075bc92b2236bf29136c6f7eaafcb500479',
+    sha1: '3f95d23c904ae44ed5b799796c6d57e8dbc2c4f3',
   },
   {
     begin: 'function installHostSearch(',

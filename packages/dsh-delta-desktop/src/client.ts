@@ -358,34 +358,6 @@ function installClientPrivacyGuards(): () => void {
   }
 }
 
-const RUNNING_STATUS_HOST_SELECTOR = '[data-chat-running], [data-chat-running] [role="status"], [class*="runningStatus"], [class*="runningContent"]'
-
-function visitElementTextNodes(root: Node, visitor: (textNode: Node) => void): void {
-  if (root.nodeType === 3) {
-    visitor(root)
-    return
-  }
-  const children = root.childNodes
-  if (!children) return
-  for (let i = 0; i < children.length; i++) {
-    visitElementTextNodes(children[i], visitor)
-  }
-}
-
-function normalizeRunningStatusNodesInDoc(onOriginal?: (node: Node, originalValue: string) => void): void {
-  if (typeof document?.querySelectorAll !== 'function') return
-  const hosts = document.querySelectorAll<HTMLElement>(RUNNING_STATUS_HOST_SELECTOR)
-  for (let i = 0; i < hosts.length; i++) {
-    visitElementTextNodes(hosts[i], cur => {
-      const val = cur.nodeValue ?? ''
-      if (val.includes('\u6DF1\u5EA6\u6C42\u7D22\u4E2D')) {
-        onOriginal?.(cur, val)
-        cur.nodeValue = val.replaceAll('\u6DF1\u5EA6\u6C42\u7D22\u4E2D', '\u4EFB\u52A1\u6267\u884C\u4E2D')
-      }
-    })
-  }
-}
-
 function syncModalChromeOverlay(): void {
   const doc = typeof document !== 'undefined' ? document : undefined
   const body = doc?.body
@@ -3572,17 +3544,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const WORKSPACE_DELETE_LABELS = new Set(['\u5220\u9664\u5DE5\u4F5C\u533A', 'Delete workspace'])
   const WORKSPACE_RENAME_LABELS = new Set(['\u91CD\u547D\u540D', '\u91CD\u547D\u540D\u5DE5\u4F5C\u533A', 'Rename', 'Rename workspace'])
 
-  const rewrittenRunningTexts = new Map<Node, string>()
-
   const cleanupCollapsibleErrors = (): void => {
-    for (const [node, orig] of rewrittenRunningTexts) {
-      try {
-        if ((node as Node).nodeValue !== undefined && node.nodeValue !== orig) {
-          node.nodeValue = orig
-        }
-      } catch {}
-    }
-    rewrittenRunningTexts.clear()
     for (const [row, handler] of collapsibleErrorHandlers) {
       try {
         row.removeAttribute?.('data-dtd-collapsible')
@@ -3593,25 +3555,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       } catch {}
     }
     collapsibleErrorHandlers.clear()
-  }
-
-  const normalizeRunningDomText = (isDelta: boolean): void => {
-    for (const stale of rewrittenRunningTexts.keys()) {
-      if (!(stale as { isConnected?: boolean }).isConnected) rewrittenRunningTexts.delete(stale)
-    }
-    if (typeof document?.querySelectorAll !== 'function') return
-    if (!isDelta) {
-      for (const [node, orig] of rewrittenRunningTexts) {
-        try {
-          if (node.nodeValue !== orig) node.nodeValue = orig
-        } catch {}
-      }
-      rewrittenRunningTexts.clear()
-      return
-    }
-    normalizeRunningStatusNodesInDoc((cur, val) => {
-      if (!rewrittenRunningTexts.has(cur)) rewrittenRunningTexts.set(cur, val)
-    })
   }
 
   const setMenuNodeOrder = (node: HTMLElement, order: string): void => {
@@ -3653,7 +3596,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
   const syncPrivacyDom = (): void => {
     deltaFeatures.ensureLoaded()
-    normalizeRunningDomText(controller.getSnapshot().mode === 'delta')
     syncModalChromeOverlay()
     for (const stale of hiddenSessionLogNodes) {
       if (!stale.isConnected) hiddenSessionLogNodes.delete(stale)
@@ -4726,9 +4668,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         }
       }
 
-      // Defense-in-depth: replace any rendered "\u6DF1\u5EA6\u6C42\u7D22\u4E2D" with "\u4EFB\u52A1\u6267\u884C\u4E2D" inside running status elements
+      // Native status text stays under Harness ownership.
       if (typeof document?.querySelectorAll === 'function') {
-        normalizeRunningStatusNodesInDoc()
         syncSettingsNav()
         syncPageHeadings()
         syncMenus()
@@ -4762,7 +4703,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     ? new MutationObserver(() => {
       if (!isDisposed && !isSyncing) {
         if (controller.getSnapshot().mode === 'delta') {
-          normalizeRunningStatusNodesInDoc()
           syncMenus()
         } else {
           syncPrivacyDom()

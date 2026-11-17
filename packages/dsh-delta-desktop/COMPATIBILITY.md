@@ -86,3 +86,10 @@
 - 原生设置项与反馈入口不再被 Slot 查询拦截过滤；Harness Locale 的状态及导航翻译不再由 Delta 方法劫持。**注意：旧的 `installSidebarCompatibility` 仍包含基于 DOM 的状态文字修改**，这一行为尚未完成治理，因此不能承诺屏幕显示完全原生。
 - 尚未移除的 `installSidebarCompatibility` 以及其他宿主 DOM 结构依赖仍是后续 P0 的专项审计对象；**不能**据此宣称所有 DOM 接管已经治理完毕。
 - 此阶段未应用 Harness 源码 Patch，未修改安装身份、发布包名或独立运行时。
+
+## 2026-11-18 原生运行状态文案保留（Issue #333 分阶段治理）
+
+- 移除对 Harness 运行状态 DOM 文本节点的反复扫描和强制改写，原生运行文案保持官方所有权。
+- 不再通过 MutationObserver 调用运行状态文本替换，避免在 React 管理的原生文本上重复写入。
+- 其他侧栏 DOM 接管仍在 `installSidebarCompatibility`；未改变导航、搜索代理等既有行为，也未声称完成 Issue #333。ZIP3 校验保留并重新固定经审核的区域哈希。
+- 本阶段没有内存或性能实机 A/B 数据，不能将减少扫描等同于量化性能提升。
