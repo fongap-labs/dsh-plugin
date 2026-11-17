@@ -12,8 +12,8 @@ test('native sidebar navigation labels and accessibility text are not rewritten'
   for (const removed of ['replaceButtonText', 'setButtonLabel', 'mutatedNavButtons']) {
     assert.equal(source.includes(removed), false, 'legacy text mutation remains: ' + removed)
   }
-  assert.match(source, /Harness owns built-in navigation labels/)
-  assert.match(source, /const hiddenMoreElements = new Map/, 'More visibility is a separate migration')
+  assert.doesNotMatch(source, /hiddenMoreElements/, 'the native More action must no longer be hidden')
+  assert.doesNotMatch(source, /target\.style\.setProperty\('display', 'none', 'important'\)/)
   assert.match(source, /const syncSettingsNav = /)
   assert.match(source, /const syncMenus = /)
   assert.match(source, /function installSidebarCompatibility\(/)
@@ -28,8 +28,8 @@ test('ZIP3 checksum still rejects unreviewed native navigation mutation', () => 
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(client, source))
   const changed = source.replace(
-    '// Harness owns built-in navigation labels; legacy More visibility is reviewed separately.',
-    'const hacked = (btn) => { btn.textContent = "changed" }',
+    'function installSidebarCompatibility(controller: DeltaController): () => void {',
+    'function installSidebarCompatibility(controller: DeltaController): () => void { /* unreviewed native label rewrite */',
   )
   assert.notEqual(changed, source)
   assert.throws(() => verifyApprovedZip3Client(client, changed), /approved compatibility adapter changed/)
