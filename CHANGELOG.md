@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 将工作区 Git 文件发现及 Host FS 授权迁至 Adapter，仓库侧保留文件排名、批量查询与扫描限额纯策略和兼容导出。
+
 - 维护: 将受控 Git Worktree 的 DSH Host 授权、创建和安全删除迁至 Adapter，保留仓库侧纯命名策略及旧工具接口。
 
 - 维护: 将 Git 状态与差异查询的 DSH Host 执行迁至 Adapter，保留 Repository 的解析策略、原导出及严格证据拒绝逻辑。
