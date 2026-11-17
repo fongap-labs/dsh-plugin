@@ -8,7 +8,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-adapter/contracts/` | Delta-owned types stable across external providers |
 | `delta-code-adapter/providers/dsh/` | Cordis tool registration, Host FS, native retries and service access |
 | `delta-code-adapter/providers/github/` | GitHub HTTP, token reference resolution and transport errors |
-| `delta-code-strategy/` | Coding Skills, route selection and prompt registration |
+| `delta-code-strategy/` | Host-neutral coding route policy and Skills data; Host integrations are injected by composition |
 | `delta-code-coding/` | Editing, static project discovery, LSP probes and diagnostics |
 | `delta-code-quality/` | Verification, task recovery, delivery evidence and failure policy |
 | `delta-code-repository/` | Workspace, Git, worktrees, repository selection, PR and CI business rules |
@@ -16,6 +16,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-support/` | Ephemeral execution counters; no persistent session database |
 
 ## Boundaries
+
+- Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
 
 - External APIs are not runtime-version-pinned; compatibility depends on available, semantically verified capabilities.
 - Repository and coding business rules must not own GitHub authentication or raw HTTP transport.

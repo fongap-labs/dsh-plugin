@@ -7,6 +7,9 @@ import { createGitHubTransport } from './delta-code-adapter/providers/github/api
 import { registerGatewayRetryCoordinator } from './delta-code-adapter/providers/dsh/gateway-retry-coordination.js'
 import { deltaCodeCodingWithoutCommands, deltaCodeCodingCommands } from './delta-code-coding/index.js'
 import { deltaCodeStrategy } from './delta-code-strategy/index.js'
+import { registerAutomaticCodingRouter } from './delta-code-adapter/providers/dsh/auto-routing.js'
+import { registerCodingSkills } from './delta-code-adapter/providers/dsh/skills.js'
+import { registerDeltaCodePrompt } from './delta-code-adapter/providers/dsh/prompt.js'
 import { deltaCodeQuality } from './delta-code-quality/index.js'
 import { registerNativeResume } from './delta-code-quality/resume.js'
 import { deltaCodeRepositoryRemote, deltaCodeRepositoryCommands } from './delta-code-repository/index.js'
@@ -24,7 +27,11 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
   try {
     // The lightweight strategy and diagnostic tools never need subprocess.
     const coreFeatures = [
-      deltaCodeStrategy(ctx, settings),
+      deltaCodeStrategy({
+        registerSkills: () => registerCodingSkills(ctx),
+        registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings),
+        registerPrompt: () => registerDeltaCodePrompt(ctx, settings),
+      }),
       deltaCodeCodingWithoutCommands(ctx, settings),
       deltaCodeRepositoryRemote(ctx, settings, createGitHubTransport(settings.githubAccounts)),
       deltaCodeSupport(stats),
