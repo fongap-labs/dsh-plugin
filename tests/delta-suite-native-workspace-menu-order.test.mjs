@@ -6,9 +6,10 @@ import { verifyApprovedZip3Client } from '../scripts/verify-delta-desktop-releas
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/dsh-delta-desktop/src/client.ts')
+const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/dsh-delta-desktop/src/theme.css')
-const start = source.indexOf('      if (isWorkspaceMenu) {\n        const lockEls =')
-const end = source.indexOf('      if (isSessionMenu) {\n', start)
+const start = normalizedSource.indexOf('      if (isWorkspaceMenu) {\n        const lockEls =')
+const end = normalizedSource.indexOf('      if (isSessionMenu) {\n', start)
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
@@ -18,7 +19,7 @@ const emitted = [
 
 test('native workspace order/separators remain untouched while deletion is still guarded', () => {
   assert.ok(start >= 0 && end > start)
-  const workspace = source.slice(start, end)
+  const workspace = normalizedSource.slice(start, end)
   for (const forbidden of ['setMenuNodeOrder(', 'sortContainerChildrenByOrder(', 'createSepNode(', 'container.appendChild(', 'hiddenSepNodes']) {
     assert.equal(workspace.includes(forbidden), false, 'workspace ordering remains: ' + forbidden)
   }
