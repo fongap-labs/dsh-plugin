@@ -13,6 +13,14 @@ export interface ApprovedGitHubSkill {
   readonly keywords: readonly string[]
 }
 
+/** Explicit user refusal of external Skill use; not a generic coding-mode opt-out. */
+const EXTERNAL_SKILL_OPT_OUT = /(?:\b(?:do\s+not|don't|dont|never|avoid|skip|stop|without)\s+(?:(?:the|any|all|external|github|remote|approved|third-party)\s+){0,3}(?:(?:use|using|load|loading|invoke|call|search|find|discover|recommend)\s+(?:(?:the|any|all|external|github|remote|approved|third-party|react)\s+){0,3})?skills?\b|\bno\s+(?:(?:external|github|remote)\s+){0,2}skills?\b|(?:\u4e0d\u8981|\u7981\u6b62|\u522b|\u65e0\u9700|\u4e0d\u9700\u8981|\u907f\u514d|\u8df3\u8fc7|\u505c\u6b62|\u4e0d\u4f7f\u7528|\u4e0d\u8c03\u7528|\u4e0d\u52a0\u8f7d)[^\n\u3002.!?\uff1f]{0,40}(?:skill|\u6280\u80fd))/i
+
+/** Current user task only: negated Skill intent must not trigger discovery or loading. */
+export function isExternalSkillOptOut(text: string): boolean {
+  return EXTERNAL_SKILL_OPT_OUT.test(text.slice(-2048))
+}
+
 const VERCEL_COMMIT = '1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62'
 const ANTHROPIC_COMMIT = 'e4bb5d960d87126ff3b3a8af1a104b7db67560ba'
 const ADDY_COMMIT = '39b723ceebf81474d0557c1fecd01eddab585563'
@@ -73,7 +81,7 @@ export function matchApprovedGitHubSkills(
   catalog: readonly ApprovedGitHubSkill[] = APPROVED_GITHUB_SKILLS,
 ): string[] {
   const input = task.toLowerCase().slice(-2048)
-  if (!input.trim()) return []
+  if (!input.trim() || isExternalSkillOptOut(input)) return []
   const hasReactContext = /react|next[.\s-]?js|nextjs|\u7ec4\u4ef6\u7ec4\u5408|\u590d\u5408\u7ec4\u4ef6/.test(input)
   const matches = catalog.filter(entry =>
     entry.keywords.some(keyword => input.includes(keyword.toLowerCase())) &&
