@@ -60,7 +60,7 @@ describe('Delta Code bounded Skill outcome feedback', () => {
 })
 
 describe('Delta Code native result wiring', () => {
-  it('updates only approved, observed skills and resets attribution at every user task', () => {
+  it('preserves native Skill feedback across continuations and resets it for new tasks', () => {
     const listeners = new Map()
     let prompt
     const host = {
@@ -84,9 +84,11 @@ describe('Delta Code native result wiring', () => {
     for (let index = 0; index < 5; index += 1) {
       claim('Implement React compound components')
       result('skill', { name: compose, provider })
+      claim('继续推进任务链')
       result('code_verify', { passed: true })
       claim('Implement React compound components')
       result('skill', { name: react, provider })
+      claim('继续')
       result('code_verify', { passed: false })
     }
     claim('Implement React compound components')
