@@ -2,7 +2,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { CodeWorkerConfig } from './types.js'
 import { normalizeConfig } from './runtime.js'
-import { mountDeltaCode } from './delta-code-kernel/bootstrap.js'
+import { mountDeltaCode } from './delta-code-composition.js'
 
 export { Config } from './config.js'
 export type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig } from './types.js'

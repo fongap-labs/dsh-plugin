@@ -1,17 +1,17 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
-import type { Settings } from '../types.js'
-import { mountDeltaCodeFeatures } from './feature.js'
-import { dshToolRegistrar } from '../delta-code-adapter/providers/dsh/tool-registration.js'
-import { registerGatewayRetryCoordinator } from '../delta-code-adapter/providers/dsh/gateway-retry-coordination.js'
-import { deltaCodeCoding } from '../delta-code-coding/index.js'
-import { deltaCodeStrategy } from '../delta-code-strategy/index.js'
-import { deltaCodeQuality } from '../delta-code-quality/index.js'
-import { registerNativeResume } from '../delta-code-quality/resume.js'
-import { deltaCodeRepository } from '../delta-code-repository/index.js'
-import { deltaCodeSupport } from '../delta-code-support/index.js'
-import { InternalAbExperiment } from '../delta-code-support/ab-metrics.js'
-import { ExecutionStats } from '../delta-code-support/execution-stats.js'
+import type { Settings } from './types.js'
+import { mountDeltaCodeFeatures } from './delta-code-kernel/feature.js'
+import { dshToolRegistrar } from './delta-code-adapter/providers/dsh/tool-registration.js'
+import { registerGatewayRetryCoordinator } from './delta-code-adapter/providers/dsh/gateway-retry-coordination.js'
+import { deltaCodeCoding } from './delta-code-coding/index.js'
+import { deltaCodeStrategy } from './delta-code-strategy/index.js'
+import { deltaCodeQuality } from './delta-code-quality/index.js'
+import { registerNativeResume } from './delta-code-quality/resume.js'
+import { deltaCodeRepository } from './delta-code-repository/index.js'
+import { deltaCodeSupport } from './delta-code-support/index.js'
+import { InternalAbExperiment } from './delta-code-support/ab-metrics.js'
+import { ExecutionStats } from './delta-code-support/execution-stats.js'
 
 /** Only this composition root knows both Host adapters and feature implementations. */
 export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
@@ -37,7 +37,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       deltaCodeQuality(ctx, settings, resume),
       deltaCodeRepository(ctx, settings),
       deltaCodeSupport(stats, experiment),
-    ] satisfies Array<import('./feature.js').DeltaCodeFeature<ToolDefinition>>
+    ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(features, dshToolRegistrar(ctx, stats)))
     releases.push(registerGatewayRetryCoordinator(ctx, () => settings.enabled))
   } catch (error) {
