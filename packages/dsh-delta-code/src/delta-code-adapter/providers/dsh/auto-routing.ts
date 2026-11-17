@@ -70,9 +70,9 @@ export function registerAutomaticCodingRouter(
       const feedback = quality.get(agent) ?? new SkillOutcomeFeedback()
       quality.set(agent, feedback)
       const matched = matchApprovedGitHubSkills(text)
-      // A new user message is a new evidence boundary. Conservatively reset on
-      // continuations too rather than attributing a different task's tests to a prior Skill.
-      feedback.beginTask()
+      // Explicit continuations belong to the same task; retain its loaded Skill
+      // until verification. Any fresh task, even on the same route, resets attribution.
+      if (!continuation || !previous) feedback.beginTask()
       if (next && matched.length) specialists.set(agent, feedback.prioritize(matched))
       else if (!next || !continuation) specialists.delete(agent)
     })
