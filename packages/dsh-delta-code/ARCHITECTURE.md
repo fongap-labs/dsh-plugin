@@ -25,7 +25,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - Approved remote Skill responses are streamed under a hard byte cap even when `Content-Length` is absent or dishonest; the final Git blob hash must still match the reviewed commit. No external scripts or secondary resources are auto-loaded.
 
-- Approved public GitHub Skills are selected by SDK-free `delta-code-strategy/trusted-github-skills.ts`, loaded by the read-only pinned-content `delta-code-adapter/providers/github/approved-skills.ts`, and registered through the optional DSH native `skills.registerProvider()` seam. Remote content is hash-verified at load and never installed or executed by Delta. Unreviewed repositories are not promoted into model-invocable Skills.
+- Approved public GitHub Skills are selected by SDK-free `delta-code-strategy/trusted-github-skills.ts`, loaded by the read-only pinned-content `delta-code-adapter/providers/github/approved-skills.ts`, and registered through the optional DSH native `skills.registerProvider()` seam. The catalog records the SPDX license, source metadata name, immutable commit and Git blob SHA. Remote content is hash-verified at load and never installed or executed by Delta. Unreviewed repositories and incomplete single-file bundles are not promoted into model-invocable Skills.
 
 - `code-find-skills` performs read-only discovery through native Host GitHub/web search when an approved Skill does not fit. Candidate content is untrusted data; promotion requires source, license and safety review plus immutable commit and Git blob pins.
 
