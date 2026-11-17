@@ -311,3 +311,58 @@ test('Vision Bridge: resolveVisionAccount discovers Omni from a profile fixture'
     await fs.rm(home, { recursive: true, force: true })
   }
 })
+
+
+test('Vision Bridge: cache isolates equal-size images, prompts, credentials and rewritten files', async () => {
+  const originalFetch = globalThis.fetch
+  let calls = 0
+  const home = await fs.mkdtemp(path.join((await import('node:os')).tmpdir(), 'delta-vision-cache-'))
+  globalThis.fetch = async () => {
+    calls++
+    return new Response(JSON.stringify({ choices: [{ message: { content: 'visual evidence ' + calls } }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    })
+  }
+  const account = {
+    provider: 'mock', model: 'cache-check-model', baseURL: 'https://mock.invalid/v1',
+    apiKey: 'cache-key-a', source: 'mock',
+  }
+  const pngHeader = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  const imageA = Buffer.from([...pngHeader, 0, 1, 2, 3])
+  const imageB = Buffer.from([...pngHeader, 0, 1, 2, 4])
+  assert.equal(imageA.length, imageB.length)
+
+  try {
+    const first = await recognizeImage(imageA, 'image/png', account)
+    const cached = await recognizeImage(imageA, 'image/png', account)
+    assert.equal(first.rawText, 'visual evidence 1')
+    assert.equal(cached.rawText, first.rawText)
+    assert.equal(cached.cached, true)
+    assert.equal(calls, 1)
+
+    const second = await recognizeImage(imageB, 'image/png', account)
+    assert.equal(second.rawText, 'visual evidence 2')
+    assert.equal(calls, 2)
+
+    const changedPrompt = await recognizeImage(imageA, 'image/png', account, { prompt: 'Read only the caption' })
+    assert.equal(changedPrompt.rawText, 'visual evidence 3')
+    const changedCredential = await recognizeImage(imageA, 'image/png', { ...account, apiKey: 'cache-key-b' })
+    assert.equal(changedCredential.rawText, 'visual evidence 4')
+
+    const imagePath = path.join(home, 'same.png')
+    const fixedTime = new Date('2026-11-01T00:00:00Z')
+    await fs.writeFile(imagePath, imageA)
+    await fs.utimes(imagePath, fixedTime, fixedTime)
+    const fileA = await readImageFile(imagePath, account, 'check file')
+    assert.equal(fileA.rawText, 'visual evidence 5')
+    await fs.writeFile(imagePath, imageB)
+    await fs.utimes(imagePath, fixedTime, fixedTime)
+    const fileB = await readImageFile(imagePath, account, 'check file')
+    assert.equal(fileB.rawText, 'visual evidence 6')
+    assert.equal(calls, 6)
+  } finally {
+    globalThis.fetch = originalFetch
+    await fs.rm(home, { recursive: true, force: true })
+  }
+})

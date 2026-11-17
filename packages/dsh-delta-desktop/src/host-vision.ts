@@ -569,24 +569,34 @@ export async function recognizeImage(
   account: VisionAccount,
   options?: { prompt?: string; cacheKey?: string; signal?: unknown },
 ): Promise<VisionEvidence> {
-  const cacheKey = options?.cacheKey || `${account.model}:${data.length}:${mime}`
+  const promptText = options?.prompt ? `${VISION_SYSTEM_PROMPT}\n\u989d\u5916\u5173\u6ce8\u91cd\u70b9：${options.prompt}` : VISION_SYSTEM_PROMPT
+  let effectiveKey = account.apiKey || ''
+  if (!effectiveKey && account.apiKeyEnv) {
+    effectiveKey = (globalThis as any).process?.env?.[account.apiKeyEnv]?.trim() || ''
+  }
+
+  // A size-only key can return another image's OCR. Bind to exact bytes and call context.
+  // Hash the full identity so credential material is never stored as a plaintext key.
+  const crypto = await loadNodeModule<any>('node:crypto')
+  const cacheKey = crypto.createHash('sha256')
+    .update(JSON.stringify({
+      version: 2, provider: account.provider, model: account.model,
+      baseURL: account.baseURL, mime, promptText, apiKey: effectiveKey,
+      hint: options?.cacheKey ?? '',
+    }))
+    .update(data)
+    .digest('hex')
   const now = getGlobals().performance.now()
   const cached = evidenceCache.get(cacheKey)
   if (cached && cached.expiresAt > now) {
     return { ...cached.evidence, cached: true }
   }
 
-  const promptText = options?.prompt ? `${VISION_SYSTEM_PROMPT}\n\u989d\u5916\u5173\u6ce8\u91cd\u70b9：${options.prompt}` : VISION_SYSTEM_PROMPT
   const base64Data = (typeof (data as any).toString === 'function')
     ? (data as any).toString('base64')
     : getGlobals().Buffer.from(data).toString('base64')
   const dataUrl = `data:${mime};base64,${base64Data}`
-
   let rawOutput = ''
-  let effectiveKey = account.apiKey || ''
-  if (!effectiveKey && account.apiKeyEnv) {
-    effectiveKey = (globalThis as any).process?.env?.[account.apiKeyEnv]?.trim() || ''
-  }
 
   if (account.provider === 'gemini' || account.baseURL.includes('generativelanguage.googleapis.com')) {
     // Google Gemini API format
@@ -681,19 +691,14 @@ export async function readImageFile(
 ): Promise<VisionEvidence> {
   const fsMod = await loadNodeModule<any>('node:fs/promises')
   const stat = await fsMod.stat(filePath)
-  const cacheKey = `file:${filePath}:${stat.size}:${stat.mtimeMs}`
-
-  const now = getGlobals().performance.now()
-  const cached = evidenceCache.get(cacheKey)
-  if (cached && cached.expiresAt > now) {
-    return { ...cached.evidence, cached: true }
-  }
-
+  if (stat.size > 25 * 1024 * 1024) throw new Error('Image file too large (max 25MB)')
   const buffer = await fsMod.readFile(filePath)
+  if (buffer.length > 25 * 1024 * 1024) throw new Error('Image file too large (max 25MB)')
   const detected = detectImageMime(buffer)
   const mime = detected?.mime || 'image/png'
 
-  return recognizeImage(buffer, mime, account, { prompt, cacheKey, signal })
+  // File name, size and mtime do not prove content equality.
+  return recognizeImage(buffer, mime, account, { prompt, signal })
 }
 
 /**
