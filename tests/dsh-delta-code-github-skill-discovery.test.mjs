@@ -69,7 +69,7 @@ describe('Delta Code GitHub Skill candidate discovery and review', () => {
     assert.ok(h.seen.every(c => c.signal === h.exec.signal))
     assert.equal(h.seen.length, 2)
     const unicode = await h.search.execute({
-      repository: 'acme/skills', query: '\\u524d\\u7aef \\u6027\\u80fd',
+      repository: 'acme/skills', query: '\u524d\u7aef \u6027\u80fd',
     }, h.exec)
     assert.equal(JSON.parse(unicode.result).candidates.length, 1)
     assert.equal(h.seen.length, 4)
