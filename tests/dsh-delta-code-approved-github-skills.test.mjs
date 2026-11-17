@@ -12,8 +12,14 @@ describe('Delta Code approved GitHub Skills', () => {
       'vercel-react-best-practices', 'vercel-composition-patterns',
     ])
     assert.deepEqual(matchApprovedGitHubSkills('Fix a Rust build'), [])
+    assert.deepEqual(matchApprovedGitHubSkills('Design a new Tauri desktop UI'), ['anthropic-frontend-design'])
+    assert.deepEqual(matchApprovedGitHubSkills('Define a stable API contract and module boundary'), ['addy-api-and-interface-design'])
+    assert.deepEqual(matchApprovedGitHubSkills('Design a React UI for the desktop app'), [
+      'vercel-react-best-practices', 'anthropic-frontend-design',
+    ])
     assert.ok(APPROVED_GITHUB_SKILLS.every(skill =>
-      /^[0-9a-f]{40}$/.test(skill.commit) && /^[0-9a-f]{40}$/.test(skill.blobSha)))
+      /^[0-9a-f]{40}$/.test(skill.commit) && /^[0-9a-f]{40}$/.test(skill.blobSha) &&
+      ['MIT', 'Apache-2.0'].includes(skill.license)))
   })
 
   it('uses immutable GitHub URLs, verifies Git content, and fails closed on changes', async () => {
@@ -21,9 +27,9 @@ describe('Delta Code approved GitHub Skills', () => {
     const bytes = Buffer.from(body)
     const sha = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
     const entry = {
-      name: 'reviewed-skill', description: 'Pinned example', owner: 'acme',
-      repository: 'approved', commit: 'a'.repeat(40), path: 'skills/reviewed-skill/SKILL.md',
-      blobSha: sha, keywords: ['reviewed'],
+      name: 'reviewed-skill-alias', sourceName: 'reviewed-skill', description: 'Pinned example',
+      owner: 'acme', repository: 'approved', commit: 'a'.repeat(40), path: 'skills/reviewed-skill/SKILL.md',
+      blobSha: sha, license: 'MIT', keywords: ['reviewed'],
     }
     const urls = []
     const fetcher = async (url, options) => {
