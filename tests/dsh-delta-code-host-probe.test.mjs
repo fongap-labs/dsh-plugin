@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { createHostProbeTool, inspectHostCapabilities } from '../packages/dsh-delta-code/lib/tools/host-probe.js'
+import { createHostProbeTool as createAdapterProbeTool, inspectHostCapabilities as inspectAdapterCapabilities } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/host-probe.js'
+import { createHostProbeTool as createCodingProbeTool } from '../packages/dsh-delta-code/lib/delta-code-coding/host-probe.js'
 
 const run = (tool) => tool.execute({}, { signal: new AbortController().signal })
 
@@ -68,4 +71,17 @@ describe('DSH Code Worker native Host diagnostics', () => {
     )
     assert.equal(gets, 0)
   })
+  it('isolates Host diagnostics in the DSH adapter and preserves old entrypoints', () => {
+    assert.strictEqual(createHostProbeTool, createAdapterProbeTool)
+    assert.strictEqual(inspectHostCapabilities, inspectAdapterCapabilities)
+    assert.strictEqual(createCodingProbeTool, createAdapterProbeTool)
+    const root = new URL('../packages/dsh-delta-code/src/', import.meta.url)
+    const adapter = readFileSync(new URL('delta-code-adapter/providers/dsh/host-probe.ts', root), 'utf8')
+    const facade = readFileSync(new URL('delta-code-coding/host-probe.ts', root), 'utf8')
+    const factory = readFileSync(new URL('delta-code-adapter/providers/dsh/feature-tools.ts', root), 'utf8')
+    assert.match(adapter, /probeDshService/)
+    assert.doesNotMatch(facade, /@deepseek-ai|defineTool|function inspectHostCapabilities/)
+    assert.match(factory, /from '\\.\/host-probe\\.js'/)
+  })
+
 })

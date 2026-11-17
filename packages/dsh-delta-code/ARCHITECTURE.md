@@ -6,7 +6,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 |---|---|
 | `delta-code-kernel/` | Feature declarations, duplicate-contract checks, lifecycle composition and rollback |
 | `delta-code-adapter/contracts/` | Delta-owned types stable across external providers |
-| `delta-code-adapter/providers/dsh/` | Cordis tool registration, Host FS, native retries and service access |
+| `delta-code-adapter/providers/dsh/` | Cordis tool registration, Host FS, native retries, service access and read-only capability diagnostics |
 | `delta-code-adapter/providers/github/` | GitHub HTTP, token reference resolution and transport errors |
 | `delta-code-strategy/` | Host-neutral coding route policy and Skills data; Host integrations are injected by composition |
 | `delta-code-coding/` | Editing, static project discovery, LSP probes and diagnostics |
@@ -16,6 +16,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-support/` | Ephemeral execution counters; no persistent session database |
 
 ## Boundaries
+
+- `code_host_probe` and Host capability introspection are implemented solely inside the DSH Adapter. The Coding and `tools/` import paths are compatibility facades; the public tool name, output and cancellation behavior are unchanged.
 
 - Project stack/script/guidance classification lives in Host-independent `delta-code-coding/project-profile-policy.ts`; `profile.ts` retains authorized local and DSH Host file discovery, cancellation and permission boundaries.
 - Coding, Quality and Repository feature assembly accepts only Delta-owned named-tool contracts. DSH-specific tool construction lives in `delta-code-adapter/providers/dsh/feature-tools.ts`; no Host SDK types enter their feature entrypoints.
