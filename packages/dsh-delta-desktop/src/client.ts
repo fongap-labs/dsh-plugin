@@ -3349,7 +3349,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
     }
     modifiedTailNavCells.clear()
-    isUpdateBusy = false
     for (const node of mounted.values()) node.remove()
     mounted.clear()
     root?.removeAttribute?.('data-delta-compat')
