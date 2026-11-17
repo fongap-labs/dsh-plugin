@@ -4611,13 +4611,6 @@ function installHostSearch(
     fallbackAction?.()
   }
 
-  const clickSettingsTrigger = (): void => {
-    try {
-      const btn = document.querySelector?.<HTMLButtonElement>('[data-dtd-settings], .dtd-btn-settings, [aria-label="\u8BBE\u7F6E"], [aria-label="Settings"]')
-      btn?.click()
-    } catch {}
-  }
-
   const insertSlashCommand = (commandName: string): void => {
     try {
       controller.openConversation()
@@ -4790,13 +4783,13 @@ function installHostSearch(
       for (const row of liveRows) {
         const id = row?.id?.trim()
         const label = row?.label?.trim()
-        if (!id || !label) continue
+        // Host Settings is native-owned; this adapter has no public open-settings route.
+        if (!id || !label || id === 'settings.open') continue
         const keysStr = Array.isArray(row.keys) ? row.keys.join(' + ') : ''
         pushShortcut(id, redactSensitiveText(label), keysStr, () => {
           if (id === 'session.search') openPalette('')
           else if (id === 'sidebar.left.toggle') controller.toggleSidebarSafe?.() ?? controller.toggleSidebar()
           else if (id === 'sidebar.right.toggle') controller.toggleRightbarSafe?.()
-          else if (id === 'settings.open') clickSettingsTrigger()
           else if (id === 'session.new') navigation.startSession()
           else getShortcutsService()?.registry?.invoke?.(id, { region: 'page', modal: null, target: null })
         })
@@ -4965,16 +4958,6 @@ function installHostSearch(
         score: 43,
         keywords: `schedules tasks cron \u5B9A\u65F6\u4EFB\u52A1 \u81EA\u52A8\u5316\u4EFB\u52A1`,
         run: () => clickSidebarNavTarget(['\u5B9A\u65F6\u4EFB\u52A1', '\u81EA\u52A8\u5316\u4EFB\u52A1', 'Schedules', 'Tasks']),
-      },
-      {
-        id: 'act:settings',
-        tab: 'action',
-        kind: 'action',
-        title: pCopy.actionSettings,
-        badge: pCopy.kindAction,
-        score: 42,
-        keywords: `settings privacy personalization theme proxy network pin \u8BBE\u7F6E \u9690\u79C1 \u4E2A\u6027\u8BBE\u7F6E \u4E3B\u9898 \u4EE3\u7406 \u7F51\u7EDC \u9501\u5B9A`,
-        run: () => clickSettingsTrigger(),
       },
       {
         id: 'act:sidebar',
