@@ -17,6 +17,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
+- DSH-backed `code_verify` and `code_verify_suite` tool definitions, workspace authorization, subprocess execution, token redaction and cancellation live in `delta-code-adapter/providers/dsh/verify*.ts`; Quality retains Host-neutral selection, failure and delivery policies. Legacy Quality and `tools/` paths are compatibility facades.
+
 - Project stack/script/guidance classification lives in Host-independent `delta-code-coding/project-profile-policy.ts`; `profile.ts` retains authorized local and DSH Host file discovery, cancellation and permission boundaries.
 - Manifest classification, package-manager selection and allowlisted Node script declarations live in Host-independent `delta-code-quality/verification-project-policy.ts`; `verify.ts` still owns Host metadata reads, cwd authorization and bounded subprocess execution.
 - Delivery task acceptance, final-gate Todo handling and result construction live in Host-independent `delta-code-quality/delivery-policy.ts`; `delivery-gate.ts` still reads native Todo and obtains Git/verification evidence exclusively through authorized Host execution.
