@@ -30,3 +30,18 @@ test('unverified host-only capabilities remain unclaimed until Windows validatio
     assert.equal(readiness.required[capability], false)
   }
 })
+
+test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
+  const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/locale/en.json', import.meta.url)), 'utf8'))
+  const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/locale/zh.json', import.meta.url)), 'utf8'))
+  const host = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/src/host-vision.ts', import.meta.url)), 'utf8')
+  assert.equal(en.workspaceMenu.lockWorkspace, 'Lock workspace')
+  assert.equal(zh.workspaceMenu.lockWorkspace, '锁定工作区')
+  assert.ok(en.visionBridge.title && zh.visionBridge.title)
+  assert.match(source, /installClientVisionBridge/)
+  assert.match(source, /isWorkspaceLocked/)
+  assert.match(host, /installHostVisionOps/)
+  assert.match(host, /resolveVisionAccount/)
+  // Source-level tests never claim an unverified Windows Host acceptance.
+  assert.equal(readiness.required.workspace_initial_collapse, false)
+})
