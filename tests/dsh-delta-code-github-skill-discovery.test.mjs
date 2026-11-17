@@ -68,9 +68,14 @@ describe('Delta Code GitHub Skill candidate discovery and review', () => {
     assert.ok(h.seen.every(c => c.method === 'GET' && c.account === 'acme'))
     assert.ok(h.seen.every(c => c.signal === h.exec.signal))
     assert.equal(h.seen.length, 2)
+    const unicode = await h.search.execute({
+      repository: 'acme/skills', query: '\\u524d\\u7aef \\u6027\\u80fd',
+    }, h.exec)
+    assert.equal(JSON.parse(unicode.result).candidates.length, 1)
+    assert.equal(h.seen.length, 4)
     await assert.rejects(h.search.execute({ repository: 'acme/skills', query: 'x' }, h.exec), /bounded plain-text/)
     await assert.rejects(h.search.execute({ repository: 'acme/skills', query: 'foo&repo:other/secret' }, h.exec), /bounded plain-text/)
-    assert.equal(h.seen.length, 2)
+    assert.equal(h.seen.length, 4)
   })
 
   it('verifies pinned bytes and license evidence but never auto-approves a candidate', async () => {
