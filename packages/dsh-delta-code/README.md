@@ -10,13 +10,11 @@ DSH (DeepSeek Harness) 编程插件 / Bundle（Host Plugin）。
 For exported DSH Markdown transcripts (not raw compressed session databases), use the repository-local offline analyzer:
 
 ```bash
-node scripts/analyze-code-worker-session.mjs --baseline session-before.txt --format markdown
-node scripts/analyze-code-worker-session.mjs --baseline session-before.txt --candidate session-after.txt --format json
+node scripts/analyze-code-worker-session.mjs --session session.txt --format markdown
+node scripts/analyze-code-worker-session.mjs --session session.txt --format json
 ```
 
-The analyzer reports Code Worker vs native/other tool calls, explicit tool errors, nonzero exit calls, union failures and same-argument repeat candidates. It never exports raw arguments, tool responses, credentials or transcript paths. It does not store or upload sessions. This is a different measurement scope from the in-session `code_execution_stats` tool.
-
-Comparison requires the same coding task, compatible model/settings/Host permissions and equivalent transcript export. A repeated request may be necessary; tool success alone does not prove delivery. Old session logs are a baseline only, not evidence of post-fix improvement.
+The analyzer reports Code Worker vs native/other tool calls, explicit tool errors, nonzero exits, observed failures and same-argument repeat candidates for one session. It accepts multiple `--session` inputs for pooled observational totals, not experimental groups. It never exports raw arguments, tool responses, credentials or transcript paths. It does not store or upload sessions. These counts do not prove task completion and differ from the in-session `code_execution_stats` tool.
 
 `code_execution_stats` 提供当前 DSH 原生会话内的临时、只读执行质量计数，包含 Code Worker 工具调用、重复请求、失败分类、验证通过/失败和交付门禁状态。以随机密钥 HMAC 计算最多 64 个近期参数指纹，仅保留指纹及计数，不保存实际参数、文件内容、密钥、令牌，也不向外部发送遥测；插件卸载即清除。缺少原生会话身份时返回 `unavailable`，不跨会话聚合。重复调用不必然是无效操作；统计不包含 Harness 原生工具、内部自动重试或模型 Token，不得据此宣称整体任务完成率。
 

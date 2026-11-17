@@ -51,7 +51,9 @@ describe('Code Worker actual-CLI host preflight contract (fake CLI only)', () =>
     await withFakeHost(async ({ dir, bin }) => {
       const source = await readFile(bin, 'utf8')
       await writeFile(bin, source.replace('setInterval(() => {}, 1000)', 'process.exit(0)'))
-      const report = await preflight({ dsh: bin, pluginDir: dir, bootMs: 350 })
+      // Allow Windows Node startup to complete before the observation deadline.
+      // The mock must still exit itself; a terminated live process is not accepted.
+      const report = await preflight({ dsh: bin, pluginDir: dir, bootMs: 5000 })
       assert.equal(report.status, 'blocked')
       assert.equal(report.nativeProfileProcessObserved, false)
       assert.match(report.reason, /boot-native-host: Host exited before boot observation window/)
