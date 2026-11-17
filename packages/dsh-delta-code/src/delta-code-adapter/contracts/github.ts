@@ -4,7 +4,6 @@ export type DeltaGitHubMethod = 'GET' | 'POST' | 'PUT' | 'PATCH'
 export interface DeltaGitHubRequest {
   readonly repository: string
   readonly account: string
-  readonly tokenEnv: string
   readonly method: DeltaGitHubMethod
   readonly path: string
   readonly data?: unknown

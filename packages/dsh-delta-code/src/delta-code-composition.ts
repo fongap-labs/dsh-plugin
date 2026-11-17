@@ -3,7 +3,7 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { Settings } from './types.js'
 import { mountDeltaCodeFeatures } from './delta-code-kernel/feature.js'
 import { dshToolRegistrar } from './delta-code-adapter/providers/dsh/tool-registration.js'
-import { githubTransport } from './delta-code-adapter/providers/github/api.js'
+import { createGitHubTransport } from './delta-code-adapter/providers/github/api.js'
 import { registerGatewayRetryCoordinator } from './delta-code-adapter/providers/dsh/gateway-retry-coordination.js'
 import { deltaCodeCoding } from './delta-code-coding/index.js'
 import { deltaCodeStrategy } from './delta-code-strategy/index.js'
@@ -36,7 +36,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       deltaCodeCoding(ctx, settings),
       deltaCodeStrategy(ctx, settings, experiment),
       deltaCodeQuality(ctx, settings, resume),
-      deltaCodeRepository(ctx, settings, githubTransport),
+      deltaCodeRepository(ctx, settings, createGitHubTransport(settings.githubAccounts)),
       deltaCodeSupport(stats, experiment),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(features, dshToolRegistrar(ctx, stats)))

@@ -72,7 +72,7 @@ function createGitHubRequest(transport: DeltaGitHubTransport) {
   const repo = await resolveRepository(ctx, exec, settings, repository)
   const account = selectGitHubAccount(settings.githubAccounts, repo)
   return transport.request({
-    repository: repo, account: account.owner, tokenEnv: account.tokenEnv,
+    repository: repo, account: account.owner,
     method, path: path(repo), data, signal: exec.signal,
   })
   }

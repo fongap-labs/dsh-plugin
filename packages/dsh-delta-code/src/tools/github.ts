@@ -3,9 +3,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { Settings } from '../types.js'
 import { createGitHubTools as createFeatureGitHubTools } from '../delta-code-repository/github.js'
-import { githubTransport } from '../delta-code-adapter/providers/github/api.js'
+import { createGitHubTransport } from '../delta-code-adapter/providers/github/api.js'
 export { selectGitHubAccount, repositoryFromRemote } from '../delta-code-repository/github.js'
 
 export function createGitHubTools(ctx: Context, settings: Settings): ToolDefinition[] {
-  return createFeatureGitHubTools(ctx, settings, githubTransport)
+  return createFeatureGitHubTools(ctx, settings, createGitHubTransport(settings.githubAccounts))
 }

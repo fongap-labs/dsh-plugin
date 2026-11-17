@@ -26,12 +26,13 @@ describe('Delta Code GitHub port', () => {
     const signal = new AbortController().signal
     const personal = await connection.execute({ repository: 'personal/project' }, { signal })
     const company = await connection.execute({ repository: 'company/project' }, { signal })
-    assert.deepEqual(requests.map(x => [x.repository, x.account, x.tokenEnv]), [
-      ['personal/project', 'personal', 'DSH_PERSONAL_TOKEN'],
-      ['company/project', 'company', 'DSH_COMPANY_TOKEN'],
+    assert.deepEqual(requests.map(x => [x.repository, x.account]), [
+      ['personal/project', 'personal'],
+      ['company/project', 'company'],
     ])
     assert.equal(personal.account, 'personal')
     assert.equal(company.account, 'company')
+    assert.ok(requests.every(x => !Object.hasOwn(x, 'tokenEnv')))
     assert.ok(requests.every(x => x.method === 'GET' && x.signal === signal))
   })
 

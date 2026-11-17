@@ -1,11 +1,12 @@
 /** External GitHub HTTP and credential boundary. Repository rules belong to the feature. */
 import { GitHubApiFailure, GitHubWriteUncertain } from '../../contracts/github.js'
 import type { DeltaGitHubRequest, DeltaGitHubResponse, DeltaGitHubTransport } from '../../contracts/github.js'
+import type { GitHubAccountConfig } from '../../../types.js'
 
 const API = 'https://api.github.com'
 
-export async function requestGitHubApi(input: DeltaGitHubRequest): Promise<DeltaGitHubResponse> {
-  const { repository, account, tokenEnv, method, path, data, signal } = input
+async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string): Promise<DeltaGitHubResponse> {
+  const { repository, account, method, path, data, signal } = input
   const token = tokenEnv ? process.env[tokenEnv] : undefined
   if (!token?.trim()) throw new Error('GitHub credential unavailable for repository owner ' + account + ' (set env ' + tokenEnv + ')')
   const url = API + path
@@ -36,4 +37,14 @@ export async function requestGitHubApi(input: DeltaGitHubRequest): Promise<Delta
 }
 
 /** Provider implementation supplied only by the composition root. */
-export const githubTransport: DeltaGitHubTransport = { request: requestGitHubApi }
+export function createGitHubTransport(accounts: readonly GitHubAccountConfig[]): DeltaGitHubTransport {
+  // Snapshot approved bindings: feature modules only use an opaque account key.
+  const bindings = new Map(accounts.map(entry => [entry.owner.toLowerCase(), entry.tokenEnv]))
+  return {
+    request(input) {
+      const credentialEnv = bindings.get(input.account.toLowerCase())
+      if (!credentialEnv) throw new Error('GitHub account binding unavailable for ' + input.account)
+      return requestGitHubApi(input, credentialEnv)
+    },
+  }
+}
