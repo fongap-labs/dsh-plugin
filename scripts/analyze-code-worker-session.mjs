@@ -2,7 +2,7 @@
 /**
  * Offline analysis of DSH Markdown session exports.
  * No network, telemetry or stored raw arguments/results.
- * These counts never establish task completion or a causal improvement.
+ * These counts never establish task completion.
  */
 import { createHash } from 'node:crypto'
 import { readFile, stat } from 'node:fs/promises'
@@ -82,76 +82,73 @@ function summarize(sessions) {
     observedFailedCallRate: total.toolCalls ? Number((total.observedFailedCalls / total.toolCalls).toFixed(4)) : null,
     repeatCandidateRate: total.toolCalls ? Number((total.repeatCandidates / total.toolCalls).toFixed(4)) : null }
 }
-export function compareGroups(baseline, candidate) {
-  const keys = ['toolCalls', 'observedFailedCalls', 'repeatCandidates', 'repeatsAfterObservedFailure']
-  return Object.fromEntries(keys.map(key => [key, candidate[key] - baseline[key]]))
-}
-export async function analyzeGroups(groups, format = 'json') {
-  const output = { schemaVersion: 1,
-    interpretation: 'Observational Markdown transcript counts. Repeats may be legitimate; no task success or causal claim.',
-    groups: {} }
-  for (const [name, paths] of Object.entries(groups)) {
-    if (!paths.length) continue
-    const sessions = []
-    for (const path of paths) {
-      let source
-      try {
-        const meta = await stat(path)
-        if (!meta.isFile() || meta.size > MAX_BYTES) throw Error('invalid file')
-        source = await readFile(path, 'utf8')
-      } catch {
-        throw Error('transcript must be readable UTF-8 and no larger than 20 MiB')
-      }
-      sessions.push(analyzeTranscript(source))
-    }
-    output.groups[name] = { summary: summarize(sessions), sessions }
+/**
+ * Offline, single-stream observation. Sessions are pooled only for counts;
+ * no comparison groups, treatments or task-success inference are produced.
+ */
+export async function analyzeSessions(paths, format = 'json') {
+  if (!Array.isArray(paths) || paths.length === 0) {
+    throw Error('at least one transcript is required')
   }
-  if (output.groups.baseline && output.groups.candidate) {
-    output.delta = compareGroups(output.groups.baseline.summary, output.groups.candidate.summary)
-    output.comparisonWarning = 'Comparable tasks, environment and export formats are required; count deltas alone do not prove improvement.'
+  if (!['json', 'markdown'].includes(format)) throw Error('format must be json or markdown')
+  const sessions = []
+  for (const path of paths) {
+    let source
+    try {
+      const meta = await stat(path)
+      if (!meta.isFile() || meta.size > MAX_BYTES) throw Error('invalid file')
+      source = await readFile(path, 'utf8')
+    } catch {
+      throw Error('transcript must be readable UTF-8 and no larger than 20 MiB')
+    }
+    sessions.push(analyzeTranscript(source))
+  }
+  const output = {
+    schemaVersion: 2,
+    interpretation: 'Observational Markdown transcript counts. Repeats may be legitimate; no task success is inferred.',
+    summary: summarize(sessions),
+    sessions,
   }
   if (format === 'json') return JSON.stringify(output, null, 2)
-  const lines = ['# DSH Code Worker transcript assessment', '',
-    '> Observational only. No task completion or A/B causality is established.', '']
-  for (const [name, group] of Object.entries(output.groups)) {
-    const x = group.summary
-    lines.push('## ' + name + ' (' + x.sessions + ' sessions)', '',
-      '| Metric | Count |', '|---|---:|',
-      '| Tool calls | ' + x.toolCalls + ' |',
-      '| Code Worker calls | ' + x.codeWorkerCalls + ' |',
-      '| Explicit tool errors | ' + x.explicitToolErrors + ' |',
-      '| Calls with nonzero exits | ' + x.nonzeroExitCalls + ' |',
-      '| Failed calls (union) | ' + x.observedFailedCalls + ' |',
-      '| Same-argument repeats | ' + x.repeatCandidates + ' |',
-      '| Repeats after observed failure | ' + x.repeatsAfterObservedFailure + ' |',
-      '| Unparsed arguments | ' + x.unparsedArguments + ' |',
-      '| Missing result markers | ' + x.missingResults + ' |', '')
-  }
-  if (output.delta) lines.push('## Comparison limits', '',
-    'Counts must not be interpreted causally without equivalent tasks and environments.', '')
+  const x = output.summary
+  const lines = ['# DSH Code Worker session assessment', '',
+    '> Observational tool-call counts only; not proof of task completion.', '',
+    '## Session summary (' + x.sessions + ' sessions)', '',
+    '| Metric | Count |', '|---|---:|',
+    '| Tool calls | ' + x.toolCalls + ' |',
+    '| Code Worker calls | ' + x.codeWorkerCalls + ' |',
+    '| Explicit tool errors | ' + x.explicitToolErrors + ' |',
+    '| Calls with nonzero exits | ' + x.nonzeroExitCalls + ' |',
+    '| Failed calls (union) | ' + x.observedFailedCalls + ' |',
+    '| Same-argument repeats | ' + x.repeatCandidates + ' |',
+    '| Repeats after observed failure | ' + x.repeatsAfterObservedFailure + ' |',
+    '| Unparsed arguments | ' + x.unparsedArguments + ' |',
+    '| Missing result markers | ' + x.missingResults + ' |', '']
   return lines.join('\n')
 }
 function parseArgs(args) {
-  const groups = { baseline: [], candidate: [] }
+  const paths = []
   let format = 'json'
   for (let i = 0; i < args.length; i++) {
     const flag = args[i]
     if (flag === '--format') {
       if (!['json', 'markdown'].includes(args[i + 1])) throw Error('format must be json or markdown')
       format = args[++i]
-    } else if (flag === '--baseline' || flag === '--candidate') {
+    } else if (flag === '--session') {
       const value = args[++i]
       if (!value || value.startsWith('--')) throw Error('missing transcript file')
-      groups[flag.slice(2)].push(value)
-    } else throw Error('expected --baseline FILE [--candidate FILE] [--format json|markdown]')
+      paths.push(value)
+    } else {
+      throw Error('expected --session FILE [--session FILE ...] [--format json|markdown]')
+    }
   }
-  if (!groups.baseline.length && !groups.candidate.length) throw Error('at least one transcript is required')
-  return { groups, format }
+  if (!paths.length) throw Error('at least one transcript is required')
+  return { paths, format }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const parsed = parseArgs(process.argv.slice(2))
-    process.stdout.write(await analyzeGroups(parsed.groups, parsed.format) + '\n')
+    process.stdout.write(await analyzeSessions(parsed.paths, parsed.format) + '\n')
   } catch (error) {
     console.error('Session analysis failed: ' + (error instanceof Error ? error.message : 'unknown error'))
     process.exitCode = 1
