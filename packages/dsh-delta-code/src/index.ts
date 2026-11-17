@@ -25,10 +25,14 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
     release()
     release = mountDeltaCode(ctx, settings)
   })
-  return () => {
+  const dispose = () => {
     if (isClosed) return
     isClosed = true
     if (typeof stopUpdates === 'function') stopUpdates()
     release()
   }
+  // Returning a disposer supports direct callers. Cordis additionally needs
+  // an owned effect so fiber.dispose() releases root-scoped registrations.
+  if (typeof ctx.effect === 'function') ctx.effect(() => dispose, 'delta-code:plugin-disposal')
+  return dispose
 }
