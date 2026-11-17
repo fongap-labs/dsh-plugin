@@ -52,6 +52,29 @@ describe('Code Worker project profiling via DSH Host FS', () => {
     assert.ok(host.observed.includes('readText'))
   })
 
+  it('discovers only workspace-authorized ancestor rules without reading instruction bodies', async () => {
+    const inner = join(workspace, 'src', 'feature')
+    const middle = join(workspace, 'src')
+    const rootRules = join(workspace, 'AGENTS.md')
+    const middleRules = join(middle, 'CLAUDE.md')
+    const observedReads = []
+    const files = { [rootRules]: 'root', [middleRules]: 'parent' }
+    const fs = {
+      async resolve(path) { return { targetKey: path } },
+      contains(parent, target) { return mockHostPathContains(parent, target, 'targetKey') },
+      async stat(target) {
+        if ([workspace, middle, inner].includes(target.targetKey)) return { type: 'directory' }
+        return Object.hasOwn(files, target.targetKey) ? { type: 'file' } : undefined
+      },
+      async readText(target) { observedReads.push(target.targetKey); return files[target.targetKey] },
+    }
+    const tool = createProjectProfileTool(mockHostFsContext(fs), normalizeConfig({ workspaceRoot: workspace }))
+    const result = await tool.execute({ cwd: 'src/feature' }, exec())
+    assert.deepEqual(result.guidance, ['../CLAUDE.md', '../../AGENTS.md'])
+    assert.equal(observedReads.length, 0)
+    assert.deepEqual(result.files, [])
+  })
+
   it('does not retry Host metadata refusal using local Node filesystem', async () => {
     const host = fakeHost({}, { denyStat: true })
     const tool = createProjectProfileTool(host.ctx, normalizeConfig({ workspaceRoot: workspace }))

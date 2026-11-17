@@ -1,8 +1,9 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import {
-  PROJECT_FILES, declaredScripts, profileSummary,
+  PROJECT_FILES, ancestorRuleDirectories, declaredScripts, profileSummary,
 } from '../packages/dsh-delta-code/lib/delta-code-coding/project-profile-policy.js'
 import { inspectProjectWithHost } from '../packages/dsh-delta-code/lib/tools/profile.js'
 
@@ -16,6 +17,16 @@ describe('Delta Code project profile policy boundary', () => {
     }
     assert.ok(PROJECT_FILES.includes('AGENTS.md'))
     assert.equal(typeof inspectProjectWithHost, 'function')
+  })
+
+  it('finds bounded ancestor directories only inside the workspace', () => {
+    const root = resolve('virtual-project')
+    const nested = join(root, 'src', 'components')
+    assert.deepEqual(ancestorRuleDirectories(nested, root), [join(root, 'src'), root])
+    assert.deepEqual(ancestorRuleDirectories(root, root), [])
+    assert.deepEqual(ancestorRuleDirectories(resolve('outside-project'), root), [])
+    assert.deepEqual(profileSummary(nested, ['AGENTS.md'], [], ['../CLAUDE.md']).guidance,
+      ['AGENTS.md', '../CLAUDE.md'])
   })
 
   it('selects only safe declared package scripts and does not reveal command bodies', () => {

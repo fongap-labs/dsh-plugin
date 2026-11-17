@@ -1,12 +1,12 @@
 import { access, readFile, realpath } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool, isPathInside, resolveInside } from '@fongap-labs/shared'
 import type { Settings } from '../../../types.js'
 import { resolveRoot } from '../../../runtime.js'
 import { requireHostFs } from './host-fs.js'
-import { PROJECT_FILES, declaredScripts, profileSummary } from '../../../delta-code-coding/project-profile-policy.js'
+import { PROJECT_FILES, ancestorRuleDirectories, declaredScripts, profileSummary } from '../../../delta-code-coding/project-profile-policy.js'
 import type { ProjectProfile } from '../../../delta-code-coding/project-profile-policy.js'
 export type { ProjectProfile } from '../../../delta-code-coding/project-profile-policy.js'
 
@@ -31,7 +31,18 @@ export async function inspectProject(cwd: string, root: string): Promise<Project
       scripts = declaredScripts(raw)
     } catch { /* profile remains useful without package.json */ }
   }
-  return profileSummary(canonicalCwd, files, scripts)
+  const ancestors: string[] = []
+  for (const directory of ancestorRuleDirectories(canonicalCwd, canonicalRoot)) {
+    for (const name of ['AGENTS.md', 'CLAUDE.md']) {
+      try {
+        const path = await realpath(join(directory, name))
+        if (!isPathInside(canonicalRoot, path)) continue
+        await access(path)
+        ancestors.push(relative(canonicalCwd, join(directory, name)))
+      } catch { /* rule absent or unsafe */ }
+    }
+  }
+  return profileSummary(canonicalCwd, files, scripts, ancestors)
 }
 
 
@@ -71,8 +82,24 @@ export async function inspectProjectWithHost(
     if (exec.signal.aborted) throw new Error('project profile cancelled')
     scripts = declaredScripts(raw)
   }
+  const ancestors: string[] = []
+  for (const directory of ancestorRuleDirectories(cwd, root)) {
+    if (exec.signal.aborted) throw new Error('project profile cancelled')
+    const parent = await fs.resolve(directory, { cwd: root, signal: exec.signal })
+    if (!fs.contains(rootTarget, parent)) continue
+    if (exec.signal.aborted) throw new Error('project profile cancelled')
+    const parentInfo = await fs.stat(parent, exec.signal)
+    if (parentInfo?.type !== 'directory') continue
+    for (const name of ['AGENTS.md', 'CLAUDE.md']) {
+      if (exec.signal.aborted) throw new Error('project profile cancelled')
+      const candidate = await fs.resolve(join(directory, name), { cwd: root, signal: exec.signal })
+      if (!fs.contains(rootTarget, candidate)) continue
+      const info = await fs.stat(candidate, exec.signal)
+      if (info?.type === 'file') ancestors.push(relative(cwd, join(directory, name)))
+    }
+  }
   if (exec.signal.aborted) throw new Error('project profile cancelled')
-  return profileSummary(cwd, files, scripts)
+  return profileSummary(cwd, files, scripts, ancestors)
 }
 
 export function createProjectProfileTool(ctx: Context, settings: Settings): ToolDefinition {
@@ -95,7 +122,7 @@ export function createProjectProfileTool(ctx: Context, settings: Settings): Tool
         return [{ type: 'text', text: [
           'Project: ' + result.cwd,
           'Stack: ' + (result.technologies.join(', ') || '(unknown)'),
-          'Rules: ' + (result.guidance.join(', ') || '(none at cwd; inspect parent directories)'),
+          'Rules: ' + (result.guidance.join(', ') || '(none within workspace root)'),
           'Scripts: ' + (result.scripts.join(', ') || '(none)'),
           'Suggested checks: ' + (result.suggestedChecks.join(', ') || '(none)'),
           'Detected files: ' + result.files.join(', '),
