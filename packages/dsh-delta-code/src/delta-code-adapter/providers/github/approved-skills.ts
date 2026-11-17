@@ -1,6 +1,11 @@
 /** Public GitHub Skill bytes are read-only and pinned to a reviewed commit and Git blob. */
 import { createHash } from 'node:crypto'
-import { APPROVED_GITHUB_SKILLS, type ApprovedGitHubSkill } from '../../../delta-code-strategy/trusted-github-skills.js'
+import {
+  APPROVED_GITHUB_SKILLS,
+  getActiveApprovedGitHubSkills,
+  type ApprovedGitHubSkill,
+  type RevokedGitHubSkillRevision,
+} from '../../../delta-code-strategy/trusted-github-skills.js'
 
 export interface RemoteSkillCandidate {
   readonly name: string
@@ -14,23 +19,45 @@ export interface RemoteSkillCandidate {
 export interface RemoteSkillDefinition extends RemoteSkillCandidate { readonly content: string }
 export interface RemoteSkillProvider {
   readonly name: string
-  list(): Promise<readonly RemoteSkillCandidate[]>
+  list(options?: { signal?: AbortSignal }): Promise<readonly RemoteSkillCandidate[]>
   get(candidate: RemoteSkillCandidate, options?: { signal?: AbortSignal }): Promise<RemoteSkillDefinition | undefined>
 }
 export type GitHubSkillFetcher = (input: string, init?: RequestInit) => Promise<Response>
 
+export interface ApprovedGitHubSkillProviderOptions {
+  /** Aborted by the native Host when this exact provider registration is disposed. */
+  readonly signal?: AbortSignal
+  /** Injectable only for deterministic policy tests; production uses the reviewed tombstone catalog. */
+  readonly revocations?: readonly RevokedGitHubSkillRevision[]
+}
+
 const PROVIDER = 'delta-code-approved-github'
 const MAX_BYTES = 64 * 1024
 
+function revisionLocator(entry: ApprovedGitHubSkill): string {
+  return entry.commit + ':' + entry.blobSha
+}
+
+function combineSignals(...signals: Array<AbortSignal | undefined>): AbortSignal | undefined {
+  const active = signals.filter((signal): signal is AbortSignal => signal !== undefined)
+  if (active.length === 0) return undefined
+  if (active.length === 1) return active[0]
+  return AbortSignal.any(active)
+}
+
 /** Apply the cap while reading; a misleading/missing Content-Length never permits unbounded buffering. */
-async function readSkillBytes(response: Response): Promise<Uint8Array> {
+async function readSkillBytes(response: Response, signal?: AbortSignal): Promise<Uint8Array> {
   const reader = response.body?.getReader()
   if (!reader) throw new Error('Pinned GitHub Skill response body unavailable')
   const chunks: Uint8Array[] = []
   let size = 0
+  const cancelOnAbort = () => { void reader.cancel(signal?.reason).catch(() => {}) }
+  signal?.addEventListener('abort', cancelOnAbort, { once: true })
   try {
     while (true) {
+      signal?.throwIfAborted()
       const { done, value } = await reader.read()
+      signal?.throwIfAborted()
       if (done) break
       size += value.byteLength
       if (size > MAX_BYTES) {
@@ -40,6 +67,7 @@ async function readSkillBytes(response: Response): Promise<Uint8Array> {
       chunks.push(value)
     }
   } finally {
+    signal?.removeEventListener('abort', cancelOnAbort)
     reader.releaseLock()
   }
   if (!size) throw new Error('Invalid pinned GitHub Skill size')
@@ -52,28 +80,40 @@ async function readSkillBytes(response: Response): Promise<Uint8Array> {
   return bytes
 }
 
-
 /** Fetch is deferred until the Host's native skill tool actually loads a match. */
 export function createApprovedGitHubSkillProvider(
   fetcher: GitHubSkillFetcher = fetch,
   catalog: readonly ApprovedGitHubSkill[] = APPROVED_GITHUB_SKILLS,
+  options: ApprovedGitHubSkillProviderOptions = {},
 ): RemoteSkillProvider {
-  const entries = new Map(catalog.map(entry => [entry.name, entry] as const))
-  const summaries = catalog.map(entry => ({
+  const activeCatalog = getActiveApprovedGitHubSkills(catalog, options.revocations)
+  const entries = new Map<string, ApprovedGitHubSkill>()
+  for (const entry of activeCatalog) {
+    if (entries.has(entry.name)) throw new Error('Duplicate approved GitHub Skill name: ' + entry.name)
+    entries.set(entry.name, entry)
+  }
+  const summaries = Object.freeze(activeCatalog.map(entry => Object.freeze({
     name: entry.name,
     description: entry.description,
     source: 'github-reviewed',
     provider: PROVIDER,
     rank: 700, // lower precedence than project, runtime and bundled Skills
-    invocation: { modelInvocable: true, userInvocable: false },
-    locator: entry.blobSha,
-  })) satisfies RemoteSkillCandidate[]
+    invocation: Object.freeze({ modelInvocable: true, userInvocable: false }),
+    // Include both immutable identifiers so a candidate from a superseded commit is stale.
+    locator: revisionLocator(entry),
+  } satisfies RemoteSkillCandidate)))
   return {
     name: PROVIDER,
-    async list() { return summaries },
-    async get(candidate, options) {
+    async list(lookupOptions) {
+      const signal = combineSignals(options.signal, lookupOptions?.signal)
+      signal?.throwIfAborted()
+      return summaries
+    },
+    async get(candidate, lookupOptions) {
+      const signal = combineSignals(options.signal, lookupOptions?.signal)
+      signal?.throwIfAborted()
       const approved = entries.get(candidate.name)
-      if (!approved || candidate.locator !== approved.blobSha || candidate.provider !== PROVIDER) return undefined
+      if (!approved || candidate.locator !== revisionLocator(approved) || candidate.provider !== PROVIDER) return undefined
       if (!/^[0-9a-f]{40}$/.test(approved.commit) || !/^[0-9a-f]{40}$/.test(approved.blobSha)) {
         throw new Error('GitHub Skill is missing its reviewed immutable revision')
       }
@@ -85,16 +125,16 @@ export function createApprovedGitHubSkillProvider(
         !/^skills\/[a-z0-9-]+\/SKILL\.md$/.test(approved.path)) {
         throw new Error('GitHub Skill source is not approved')
       }
-      options?.signal?.throwIfAborted()
       const url = 'https://raw.githubusercontent.com/' + approved.owner + '/' + approved.repository +
         '/' + approved.commit + '/' + approved.path
-      const response = await fetcher(url, { signal: options?.signal, redirect: 'error' })
+      const response = await fetcher(url, { signal, redirect: 'error' })
+      signal?.throwIfAborted()
       if (!response.ok) throw new Error('Pinned GitHub Skill could not be loaded: HTTP ' + response.status)
       if (Number(response.headers.get('content-length') ?? '0') > MAX_BYTES) {
         throw new Error('Pinned GitHub Skill exceeds maximum allowed size')
       }
-      const bytes = await readSkillBytes(response)
-      options?.signal?.throwIfAborted()
+      const bytes = await readSkillBytes(response, signal)
+      signal?.throwIfAborted()
       const actual = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
       if (actual !== approved.blobSha) throw new Error('Pinned GitHub Skill content hash mismatch')
       const markdown = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
