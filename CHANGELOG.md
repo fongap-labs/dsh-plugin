@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 将交付验证工具的 DSH Git 和 Host 执行迁至 Adapter，保留原接口与原生 Todo 验收策略。
+
 - 维护: 将验证工具的 DSH Host 执行和权限逻辑移至 Adapter，Quality 保留纯策略及兼容导出。
 
 - 维护: Delta Code 将验证项目前置检测中的技术栈、包管理器及 Node 脚本声明解析提取为无宿主依赖策略，保留 Host FS 授权和验证执行边界。
