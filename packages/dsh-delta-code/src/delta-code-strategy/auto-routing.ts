@@ -1,7 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { Settings } from '../types.js'
 import { ALL_CODING_SKILLS } from './skills.js'
-import type { InternalAbExperiment } from '../delta-code-support/ab-metrics.js'
 
 export type CodingRoute = 'code-ci-repair' | 'code-root-cause-debugging' | 'code-review-readiness'
   | 'code-writing-plans' | 'code-fast-change' | 'code-feature-delivery'
@@ -74,7 +73,7 @@ interface RuntimeContext {
  * extra model call, raw user text in prompts, or manual skill invocation.
  */
 export function registerAutomaticCodingRouter(
-  ctx: Context, settings: () => Settings, experiment?: InternalAbExperiment,
+  ctx: Context, settings: () => Settings,
 ): () => void {
   const routed = new WeakMap<object, CodingRoute>()
   const byName = new Map(ALL_CODING_SKILLS.map(skill => [skill.name, skill]))
@@ -90,10 +89,8 @@ export function registerAutomaticCodingRouter(
           .map(item => item.text).join('\n')
         : ''
       const next = routeCodingTask(text, routed.get(agent))
-      if (next) {
-        routed.set(agent, next)
-        experiment?.assign(agent, next)
-      } else routed.delete(agent)
+      if (next) routed.set(agent, next)
+      else routed.delete(agent)
     })
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
     const clear = runtime.on('agent/disposed', ({ agent }) => { if (agent) routed.delete(agent) })
@@ -110,7 +107,7 @@ export function registerAutomaticCodingRouter(
       text(context) {
         if (!isActive || !settings().enabled || !settings().autoRoutingEnabled || !context.agent) return ''
         const route = routed.get(context.agent)
-        if (!route || (experiment && !experiment.guidanceEnabled(context.agent))) return ''
+        if (!route) return ''
         const skill = byName.get(route)
         if (!skill) return ''
         if (route === 'code-fast-change') {
