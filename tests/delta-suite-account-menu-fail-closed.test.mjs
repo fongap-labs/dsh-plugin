@@ -43,7 +43,7 @@ test('review pins reject attempts to restore the unapproved account-menu interce
   assert.notEqual(tampered, source)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
   const injectedCss = theme + '\n[class*="footArea"] { opacity: 0; }'
-  const maliciousClient = emitted.map(line => line.startsWith('const OWNED_CSS = ')
+  const maliciousClient = emitted.split('\n').map(line => line.startsWith('const OWNED_CSS = ')
     ? 'const OWNED_CSS = ' + JSON.stringify(injectedCss) + ';' : line).join('\n')
   assert.throws(() => verifyApprovedZip3Client(maliciousClient, source), /approved theme differs/)
 })
