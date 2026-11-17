@@ -22,6 +22,11 @@ const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*[\\\x00-\x20])[
 
 export function selectGitHubAccount(accounts: GitHubAccountConfig[], repository: string): GitHubAccountConfig {
   if (!REPOSITORY.test(repository)) throw new Error('invalid owner/repository')
+  const key = repository.toLowerCase()
+  const scoped = accounts.filter((account) =>
+    account.repositories?.some((entry) => entry.toLowerCase() === key))
+  if (scoped.length > 1) throw new Error('ambiguous GitHub repository binding: ' + key)
+  if (scoped.length === 1) return scoped[0]!
   const owner = repository.split('/')[0]!.toLowerCase()
   const matches = accounts.filter((account) => account.owner.toLowerCase() === owner)
   if (matches.length !== 1) {

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code GitHub 多账号支持显式 owner/repository 绑定，跨组织仓库可分别选择账号；重复映射拒绝，原有 owner 路由与 Token 环境变量配置兼容。
+
 - 维护: Delta Code 将 subprocess 从全局必需注入改为可选模块级依赖，缺失时保留规划、Skills 和统计能力；服务恢复时重新装载依赖命令的功能，保留原生权限及取消边界。
 
 - 维护: Delta Code 按小内核、稳定适配契约和五类编程模块重构；保留旧工具导出与配置，补齐停用和热重载资源释放，并将 GitHub API 传输与仓库业务逻辑分离。

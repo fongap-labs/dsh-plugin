@@ -8,6 +8,7 @@ import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'
 const Account = Schema.object({
   owner: Schema.string().required(),
   tokenEnv: Schema.string().required(),
+  repositories: Schema.array(Schema.string()).default([]),
 })
 const Server = Schema.object({
   language: Schema.string().required(),

@@ -24,7 +24,7 @@ export const DEFAULT_GUIDANCE = [
   'Use code_delivery_gate only for substantial Git-backed work when Host script execution is authorized, declared scripts exist, and implementation Todos are complete. Never create a self-referential Todo to pass the gate. In non-Git projects or when execution is denied, rely on permitted native evidence and explicitly report verification as incomplete; do not repeatedly call the gate or claim a pass.',
   'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
   'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
-  'GitHub tools choose a token from the repository name or the workspace origin; do not request or expose tokens.',
+  'GitHub tools resolve a repository-scoped account from explicit bindings first, then legacy owner matching; do not request or expose tokens.',
   'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
   'Use code_lsp_probe only to diagnose missing language-server availability; it is not a substitute for Host LSP diagnostics.',
   'Always pass paths relative to the workspace root; absolute paths outside the workspace are rejected by the sandbox.',
@@ -37,11 +37,14 @@ export function errorMessage(error: unknown): string {
   return message ? String(message) : String(error)
 }
 
+const GITHUB_REPOSITORY_BINDING = /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?\/(?!\.{1,2}$)[a-z0-9_.-]{1,100}$/i
+
 /** Validate account routing without ever logging or returning a token to the agent. */
 export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[] {
   if (accounts === undefined) return []
   if (!Array.isArray(accounts)) throw new Error('github.accounts must be an array')
   const owners = new Set<string>()
+  const repositoryBindings = new Map<string, string>()
   const result: GitHubAccountConfig[] = []
   for (const entry of accounts) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
@@ -64,7 +67,25 @@ export function validateGitHubAccounts(accounts: unknown): GitHubAccountConfig[]
     if (!/^[A-Z_][A-Z0-9_]*$/.test(tokenEnv)) {
       throw new Error('github.accounts[].tokenEnv must name an uppercase environment variable')
     }
-    result.push({ owner, tokenEnv })
+    const rawRepositories = account.repositories === undefined ? [] : account.repositories
+    if (!Array.isArray(rawRepositories) || rawRepositories.length > 256) {
+      throw new Error('github.accounts[].repositories must be an array of up to 256 repository names')
+    }
+    const repositories: string[] = []
+    const localRepositories = new Set<string>()
+    for (const rawRepository of rawRepositories) {
+      const repository = typeof rawRepository === 'string' ? rawRepository.trim().toLowerCase() : ''
+      if (!GITHUB_REPOSITORY_BINDING.test(repository)) {
+        throw new Error('github.accounts[].repositories entries must be owner/repository')
+      }
+      if (localRepositories.has(repository) || repositoryBindings.has(repository)) {
+        throw new Error('duplicate GitHub repository binding: ' + repository)
+      }
+      localRepositories.add(repository)
+      repositoryBindings.set(repository, owner)
+      repositories.push(repository)
+    }
+    result.push(repositories.length ? { owner, tokenEnv, repositories } : { owner, tokenEnv })
   }
   return result
 }
