@@ -13,7 +13,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-quality/` | Verification, task recovery, delivery evidence and failure policy |
 | `delta-code-repository/` | Workspace, Git, worktrees, repository selection, PR and CI business rules |
 | `delta-code-collaboration/` | Safe native-subagent delegation policy, not a second agent runner |
-| `delta-code-support/` | Ephemeral execution/A-B counters; no persistent session database |
+| `delta-code-support/` | Ephemeral execution counters; no persistent session database |
 
 ## Boundaries
 

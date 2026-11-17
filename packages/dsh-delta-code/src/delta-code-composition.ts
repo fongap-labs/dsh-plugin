@@ -11,7 +11,6 @@ import { deltaCodeQuality } from './delta-code-quality/index.js'
 import { registerNativeResume } from './delta-code-quality/resume.js'
 import { deltaCodeRepositoryRemote, deltaCodeRepositoryCommands } from './delta-code-repository/index.js'
 import { deltaCodeSupport } from './delta-code-support/index.js'
-import { InternalAbExperiment } from './delta-code-support/ab-metrics.js'
 import { ExecutionStats } from './delta-code-support/execution-stats.js'
 
 /** Only this composition root knows both Host adapters and feature implementations. */
@@ -19,25 +18,16 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
   if (!settings.enabled) return () => {}
   const resume = registerNativeResume(ctx)
   const stats = new ExecutionStats()
-  const experiment = new InternalAbExperiment()
   const releases: Array<() => void> = [
-    () => resume.dispose(), () => stats.clear(), () => experiment.clear(),
+    () => resume.dispose(), () => stats.clear(),
   ]
   try {
-    const runtime = ctx as unknown as {
-      on?: (event: string, listener: (session: unknown, event: unknown) => void) => (() => void) | void
-    }
-    if (typeof runtime.on === 'function') {
-      const stop = runtime.on('session/event', (session, event) =>
-        experiment.observe(session, event as { type?: unknown; seq?: unknown; data?: unknown }))
-      if (typeof stop === 'function') releases.push(stop)
-    }
     // The lightweight strategy and diagnostic tools never need subprocess.
     const coreFeatures = [
-      deltaCodeStrategy(ctx, settings, experiment),
+      deltaCodeStrategy(ctx, settings),
       deltaCodeCodingWithoutCommands(ctx, settings),
       deltaCodeRepositoryRemote(ctx, settings, createGitHubTransport(settings.githubAccounts)),
-      deltaCodeSupport(stats, experiment),
+      deltaCodeSupport(stats),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))
 
