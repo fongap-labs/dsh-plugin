@@ -1,3 +1,5 @@
+import { dirname, isAbsolute, relative, resolve, sep } from 'node:path'
+
 /** Host-independent project metadata classification; performs no filesystem access. */
 export const PROJECT_FILES = [
   'AGENTS.md', 'CLAUDE.md', 'README.md', 'package.json', 'pnpm-lock.yaml',
@@ -7,6 +9,23 @@ export const PROJECT_FILES = [
   'pytest.ini', 'vitest.config.ts', 'vitest.config.mts',
   'jest.config.js', 'eslint.config.js', '.github/workflows/ci.yml',
 ] as const
+/** List at most eight authorized ancestor directories, nearest first, within workspace root. */
+export function ancestorRuleDirectories(cwd: string, root: string): string[] {
+  const base = resolve(root)
+  let current = resolve(cwd)
+  const relativeCwd = relative(base, current)
+  if (!relativeCwd || relativeCwd === '..' ||
+      relativeCwd.startsWith('..' + sep) || isAbsolute(relativeCwd)) return []
+  const dirs: string[] = []
+  for (let depth = 0; depth < 8 && current !== base; depth++) {
+    current = dirname(current)
+    const fromRoot = relative(base, current)
+    if (fromRoot === '..' || fromRoot.startsWith('..' + sep) || isAbsolute(fromRoot)) break
+    dirs.push(current)
+  }
+  return dirs
+}
+
 const SCRIPT_NAMES = ['test', 'typecheck', 'lint', 'check', 'build'] as const
 const MAX_DESCRIPTION = 240
 
@@ -43,14 +62,14 @@ export function declaredScripts(raw: string): string[] {
   }
 }
 
-export function profileSummary(cwd: string, files: string[], scripts: string[]): ProjectProfile {
+export function profileSummary(cwd: string, files: string[], scripts: string[], ancestorGuidance: string[] = []): ProjectProfile {
   const suggestedChecks: string[] = scripts.filter(name =>
     name === 'typecheck' || name === 'lint' || name === 'check' || name === 'test')
   if (suggestedChecks.length === 0 && scripts.includes('build')) suggestedChecks.push('build')
   return {
     cwd: cwd.slice(0, MAX_DESCRIPTION),
     files, technologies: technologies(new Set(files)), scripts,
-    guidance: files.filter(name => name === 'AGENTS.md' || name === 'CLAUDE.md'),
+    guidance: [...files.filter(name => name === 'AGENTS.md' || name === 'CLAUDE.md'), ...ancestorGuidance],
     suggestedChecks,
   }
 }

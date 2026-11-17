@@ -17,6 +17,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
+- Project rule discovery inspects only bounded ancestor directories inside the authorized workspace through DSH Host FS; it reports existing AGENTS.md/CLAUDE.md paths but does not interpret or inject file contents. Native Host instruction precedence remains authoritative.
+
 - Approved Skill selection can be re-ordered using session-local, verified native tool outcome co-occurrence after at least three observations per candidate. `tools/result` only observes approved Skill load successes and definite `code_verify` results. Tool arguments, transcripts and sources are never stored; this feedback is not causal evidence and never authorizes external commands.
 
 - SDK-free `delta-code-strategy/task-resource-policy.ts` routes official documentation, cross-repository analysis and native MCP/tool discovery to preexisting Host capabilities. No secondary web/MCP client or project-wide indexing agent is created.
