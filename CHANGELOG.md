@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Code 将项目技术栈、脚本声明及检查建议提取为纯策略模块；DSH Host FS 的读取、权限、取消及路径边界仍由原工具控制，保留工具接口。
+
 - 维护: Delta Code 将 Cordis Context 扩展及 DSH 提示词类型引用从公共配置类型移至 DSH Adapter，保持配置与工具行为不变。
 
 - 维护: Delta Code 将 GitHub 账号/仓库选择及 Git 路径、分支、SHA 校验提取为宿主无关策略模块，保留旧工具接口与既有行为。
