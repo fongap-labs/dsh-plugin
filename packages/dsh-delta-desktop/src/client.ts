@@ -3185,7 +3185,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
   }
 
-  const hiddenFeedbackNodes = new Set<HTMLElement>()
   const hiddenSessionLogNodes = new Set<HTMLElement>()
   const hiddenPrivacyCmdNodes = new Set<HTMLElement>()
   const hiddenSettingsRows = new Set<HTMLElement>()
@@ -3352,7 +3351,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     tooltipEl = undefined
     resetElasticLayout()
     resetModalState()
-    restoreHiddenNodes('data-dtd-hidden-feedback', hiddenFeedbackNodes)
     restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
     for (const navBtn of modifiedTailNavCells) {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
@@ -3387,17 +3385,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       return stored.groupExpansion ?? {}
     } catch { return {} }
   }
-  const FEEDBACK_MENU_LABELS = new Set([
-    '\u53CD\u9988',
-    'Feedback',
-    'フィードバック',
-    'Comentarios',
-    'Commentaires',
-    'Rückmeldung',
-    'Обратная связь',
-    'Comentários',
-  ])
-
   const BLOCKED_COMMAND_RE = /^\/(?:export|feedback)(?:\s|$)/i
   const SETTINGS_HIDDEN_TEXT_RE = /^(?:\u5F53\u524D\u7248\u672C|Current version)\s*[:：]|\u4E0A\u4F20\s*Session\s*Log|Upload\s+session\s+log|\u5E2E\u52A9\u6539\u8FDB\s*DeepSeek/i
   const LOCKED_UNARCHIVE_LABELS = new Set(['\u53D6\u6D88\u5F52\u6863', 'Unarchive', 'Unarchive session'])
@@ -3636,10 +3623,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
 
   const syncMenus = (): void => {
+    // Harness owns native Feedback menu entries; Delta must not hide them by DOM label.
     syncPrivacyDom()
-    for (const stale of hiddenFeedbackNodes) {
-      if (!stale.isConnected) hiddenFeedbackNodes.delete(stale)
-    }
     if (typeof document?.querySelectorAll !== 'function') return
     const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_"], [class*="_footer_"], [role="menu"]')
     for (const container of containers) {
@@ -3649,14 +3634,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const items = Array.from(container.children ?? []) as HTMLElement[]
       if (items.length === 0) continue
       const labels = items.map(getMenuLabel)
-      for (let i = 0; i < items.length; i++) {
-        const el = items[i]
-        const isMenuItemRow = el.getAttribute?.('role') === 'menuitem' || Boolean(el.querySelector?.('[role="menuitem"]'))
-        if (!isMenuItemRow) continue
-        if (FEEDBACK_MENU_LABELS.has(labels[i])) {
-          hidePrivacyNode(el, 'data-dtd-hidden-feedback', hiddenFeedbackNodes)
-        }
-      }
       if (items.length < 2) continue
       const isFooterContainer = typeof container.className === 'string' && container.className.includes('_footer_')
       const isSessionFooter = isFooterContainer || (
