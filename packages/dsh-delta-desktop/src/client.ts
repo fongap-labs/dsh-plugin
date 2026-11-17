@@ -4717,7 +4717,7 @@ function installHostSearch(
       }
     } catch {}
 
-    // Public Host shortcut catalog and Delta-owned shortcuts; never mirror native guide DOM.
+    // Existing Host shortcut catalog and Delta-owned shortcuts; never mirror native guide DOM.
     const seenShortcuts = new Set<string>()
     const pushShortcut = (id: string, title: string, keyLabel: string, runner: () => void): void => {
       if (seenShortcuts.has(id)) return
