@@ -33,7 +33,8 @@ export class SkillOutcomeFeedback {
 
   /** Only a definite test result is usable; denials, timeouts and unknown outcomes are ignored. */
   observeVerification(isPassed: boolean): void {
-    if (this.didObserveTaskOutcome || this.active.size === 0) return
+    // Attribution is ambiguous when more than one approved Skill was loaded.
+    if (this.didObserveTaskOutcome || this.active.size !== 1) return
     this.didObserveTaskOutcome = true
     for (const name of this.active) {
       const count = this.counts.get(name)
@@ -45,7 +46,7 @@ export class SkillOutcomeFeedback {
 
   /** Weak signals only reorder already approved, equally applicable matches after enough evidence. */
   prioritize(matched: readonly string[]): string[] {
-    return matched.map((name, index) => {
+    return matched.filter(name => APPROVED.has(name)).map((name, index) => {
       const count = this.counts.get(name)
       const observations = count ? count.verified + count.failed : 0
       const score = observations >= MIN_OBSERVATIONS

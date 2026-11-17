@@ -30,7 +30,17 @@ describe('Delta Code bounded Skill outcome feedback', () => {
     feedback.noteLoaded(compose, provider)
     feedback.observeVerification(true)
     assert.deepEqual(feedback.prioritize(names), names)
-    assert.deepEqual(feedback.prioritize(['unreviewed']), ['unreviewed'])
+    assert.deepEqual(feedback.prioritize(['unreviewed']), [])
+  })
+
+  it('does not assign a shared verification result to multiple loaded Skills', () => {
+    const feedback = new SkillOutcomeFeedback()
+    feedback.beginTask()
+    feedback.noteLoaded(react, provider)
+    feedback.noteLoaded(compose, provider)
+    feedback.observeVerification(true)
+    assert.deepEqual(feedback.read(react), { loads: 1, verified: 0, failed: 0 })
+    assert.deepEqual(feedback.read(compose), { loads: 1, verified: 0, failed: 0 })
   })
 
   it('uses at least three meaningful observations before reordering equivalent matches', () => {
