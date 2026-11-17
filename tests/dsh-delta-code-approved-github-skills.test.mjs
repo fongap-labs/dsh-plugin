@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { APPROVED_GITHUB_SKILLS, matchApprovedGitHubSkills } from '../packages/dsh-delta-code/lib/delta-code-strategy/trusted-github-skills.js'
+import { APPROVED_GITHUB_SKILLS, isExternalSkillOptOut, matchApprovedGitHubSkills } from '../packages/dsh-delta-code/lib/delta-code-strategy/trusted-github-skills.js'
 import { createApprovedGitHubSkillProvider } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/approved-skills.js'
 import { registerApprovedGitHubSkills } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/github-skills.js'
 
@@ -12,6 +12,12 @@ describe('Delta Code approved GitHub Skills', () => {
       'vercel-react-best-practices', 'vercel-composition-patterns',
     ])
     assert.deepEqual(matchApprovedGitHubSkills('Fix a Rust build'), [])
+    assert.equal(isExternalSkillOptOut('Do not use GitHub Skills for React code'), true)
+    assert.equal(isExternalSkillOptOut('Fix React without GitHub Skills'), true)
+    assert.equal(isExternalSkillOptOut('不要使用 GitHub Skill，修复 React bug'), true)
+    assert.equal(isExternalSkillOptOut('不自动调用 GitHub 中优秀 Skill 吗？'), false)
+    assert.equal(isExternalSkillOptOut('Find and evaluate GitHub Skills'), false)
+    assert.deepEqual(matchApprovedGitHubSkills('Implement React component without GitHub Skills'), [])
     assert.deepEqual(matchApprovedGitHubSkills('Design a new Tauri desktop UI'), ['anthropic-frontend-design'])
     assert.deepEqual(matchApprovedGitHubSkills('Define a stable API contract and module boundary'), ['addy-api-and-interface-design'])
     assert.deepEqual(matchApprovedGitHubSkills('Design a React UI for the desktop app'), [
