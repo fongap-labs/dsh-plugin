@@ -175,3 +175,10 @@
 - Delta 自有 Search Palette、输入框 Enter、可见快捷键目录、显式选择执行快捷键等路径保留。**旧 Ctrl/Cmd+K 的捕获阶段 `onGlobalKeyDown` 仍存在**，其与 Harness/Electron 原生命令调度的交互需要另一个 PR 和 Windows 实机验证，不宣称全部快捷键拦截已清理。
 - 同步更新 ZIP3 Search Region 的精确 SHA-1 审核指纹，Sidebar Region 和主题 CSS 均未更改，不降低发布契约强度。
 - 正式快捷键接管应优先采用 Host 公共注册接口；不存在明确支持时保持 Harness 原生。Issue #333 继续开放；真实宿主交互及性能 A/B 尚待验收。
+
+## 2026-11-18 全局搜索快捷键原生化（Issue #333 第十四阶段）
+
+- 移除 Delta 搜索适配器注册到 window/document 捕获阶段的 `onGlobalKeyDown`，不再截断全局 Ctrl/Cmd+K 事件或在 Delta 模式拦截全局 Escape。Harness 和其他插件可正常处理其原生命令。
+- Delta 侧栏搜索输入框仍在按 Enter 时打开自身七标签 Search Palette；Palette 内 Esc 由 Delta 自有弹层的局部 `keydown` 监听处理，不在整个页面捕获。搜索菜单中的显式操作项不再伪装成 Ctrl/Cmd+K 快捷键，侧栏提示调整为 Enter。
+- 官方 Host 未明确授权接管全局 `session.search` 之前，不再通过私有 dispatch 覆盖或捕获阶段键盘事件覆盖原生快捷键。已知行为变化：直接在窗口任意位置按 Ctrl/Cmd+K 将按 Harness 原生处理，不再直接打开 Delta Search Palette。
+- ZIP3 Search Region SHA-1 精确审核指纹同步更新；Sidebar Region 和 CSS 原有审核哈希保持不变。账号菜单转发、搜索 UI DOM 代理和锁定/删除命令权限仍是后续任务，Issue #333 开放。实际 Windows Harness 交互与性能 A/B 尚待验收。
