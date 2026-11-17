@@ -4717,7 +4717,7 @@ function installHostSearch(
       }
     } catch {}
 
-    // Live DSH shortcuts catalog + right sidebar guide entries + core shortcuts
+    // Public Host shortcut catalog and Delta-owned shortcuts; never mirror native guide DOM.
     const seenShortcuts = new Set<string>()
     const pushShortcut = (id: string, title: string, keyLabel: string, runner: () => void): void => {
       if (seenShortcuts.has(id)) return
@@ -4751,20 +4751,7 @@ function installHostSearch(
         })
       }
     } catch {}
-    try {
-      const guideNodes = document.querySelectorAll?.<HTMLElement>('[data-sidebar-right-guide-entry]')
-      if (guideNodes) {
-        guideNodes.forEach((node, idx) => {
-          const textNode = node.querySelector?.<HTMLElement>('[class*="entryText"], [class*="4GESq_text"]')
-          const keysNode = node.querySelector?.<HTMLElement>('[class*="_keys_"], [class*="4GESq_shortcut"]')
-          const label = (textNode?.textContent ?? node.textContent ?? '').trim().split('\n')[0]?.trim()
-          const keys = (keysNode?.textContent ?? '').trim()
-          if (label) {
-            pushShortcut(`guide-${idx}`, label, keys || '', () => node.click?.())
-          }
-        })
-      }
-    } catch {}
+    // Native right-sidebar guide entries are Host-owned and not command targets.
     pushShortcut('search', language() === 'zh' ? '\u5168\u5C40\u641C\u7D22\u547D\u4EE4\u9762\u677F' : 'Global Command Search', '', () => openPalette(''))
     pushShortcut('files', language() === 'zh' ? '\u5DE5\u4F5C\u533A\u6587\u4EF6' : 'Workspace Files', isDarwin ? '⌘ + P' : 'Ctrl + P', () => controller.toggleRightbarSafe?.())
     pushShortcut('browser', language() === 'zh' ? '\u5185\u7F6E\u6D4F\u89C8\u5668' : 'Built-in Browser', isDarwin ? '⌘ + T' : 'Ctrl + T', () => controller.toggleRightbarSafe?.())
