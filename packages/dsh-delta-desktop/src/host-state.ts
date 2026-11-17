@@ -366,8 +366,21 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
     const fs = await loadNodeModule<any>('node:fs/promises')
     const pathMod = await loadNodeModule<any>('node:path')
     const filePath = await resolvePath()
-    await fs.mkdir(pathMod.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, JSON.stringify(next, null, 2) + '\n', 'utf8')
+    await fs.mkdir(pathMod.dirname(filePath), { recursive: true, mode: 0o700 })
+    // A new private file plus atomic replacement also fixes permissions on older
+    // state files created with the default umask, without exposing partial JSON.
+    const crypto = await loadNodeModule<any>('node:crypto')
+    const tempPath = filePath + '.' + crypto.randomBytes(8).toString('hex') + '.tmp'
+    try {
+      await fs.writeFile(tempPath, JSON.stringify(next, null, 2) + '\n', {
+        encoding: 'utf8',
+        mode: 0o600,
+        flag: 'wx',
+      })
+      await fs.rename(tempPath, filePath)
+    } finally {
+      await fs.unlink(tempPath).catch(() => {})
+    }
   }
 
   const update = (mutator: (current: DeltaHostState) => DeltaHostState | Promise<DeltaHostState>): Promise<DeltaHostState> => {

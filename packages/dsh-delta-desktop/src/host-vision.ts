@@ -14,7 +14,7 @@
  *    or Gemini endpoints with LRU caching.
  */
 
-import { loadNodeModule, resolveDshHome } from './host-state.js'
+import { loadNodeModule, resolveDshHome, toPublicHostState } from './host-state.js'
 import type { DeltaHostState, VisionBridgeSettings } from './host-state.js'
 
 export type BufferLike = Uint8Array & {
@@ -912,7 +912,7 @@ export function installHostVisionOps(ctx: any, store: any): () => void {
       const account = await getAccount()
       return makeJsonResponse(200, {
         ok: true,
-        visionSettings: st?.vision,
+        visionSettings: st ? toPublicHostState(st).vision : undefined,
         engineReady: Boolean(account),
         account: account ? { provider: account.provider, model: account.model, source: account.source } : null,
       })
@@ -933,12 +933,13 @@ export function installHostVisionOps(ctx: any, store: any): () => void {
           ...(typeof body.mode === 'string' ? { mode: body.mode } : {}),
           ...(typeof body.provider === 'string' ? { provider: body.provider } : {}),
           ...(typeof body.customEndpoint === 'string' ? { customEndpoint: body.customEndpoint } : {}),
-          ...(typeof body.customApiKey === 'string' ? { customApiKey: body.customApiKey } : {}),
+          ...(typeof body.customApiKey === 'string' && body.customApiKey !== '********'
+            ? { customApiKey: body.customApiKey } : {}),
           ...(typeof body.customModel === 'string' ? { customModel: body.customModel } : {}),
           ...(typeof body.autoWrapModels === 'boolean' ? { autoWrapModels: body.autoWrapModels } : {}),
         },
       }))
-      return makeJsonResponse(200, { ok: true, vision: next.vision })
+      return makeJsonResponse(200, { ok: true, vision: toPublicHostState(next).vision })
     } catch (err: any) {
       return makeJsonResponse(500, { ok: false, error: err?.message || String(err) })
     }
