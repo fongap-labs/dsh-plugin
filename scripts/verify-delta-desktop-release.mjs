@@ -150,7 +150,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: 'c51299fe9704815785bf084dc9d78b176b3533e7',
+    sha1: '76a5b1c98ba17bca3d41c20e3a2df39343763ce3',
   },
 ]
 
