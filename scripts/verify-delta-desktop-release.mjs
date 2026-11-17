@@ -134,6 +134,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: native session menu action labels remain Harness-owned.
 // Reviewed 2026-11-18: removed native Feedback menu DOM hiding and theme CSS selector.
 // Reviewed 2026-11-18: removed native account trigger capture-click blocking and dead bypass state.
+// Reviewed 2026-11-18: removed private ShortcutsService registry dispatch/invoke monkeypatch.
 const ZIP3_THEME_BLOB = 'ec7ce0be0d93c10b5f8d181bf2f755c71549bf5e'
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -144,7 +145,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: 'd091e49064452ad098bb98bbaa287ed96f538d37',
+    sha1: 'e45f3ed150578e36771aeb5a950494c1aa6354b0',
   },
 ]
 

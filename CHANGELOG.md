@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 删除 Delta 对原生 ShortcutsService.dispatch/invoke 的私有方法覆盖与恢复补丁，保留搜索面板和现有键盘监听，继续按 P0 分批清理（Issue #333）。
+
 - 修复: 清除对 Harness 原生账号触发器的捕获阶段点击阻断以及失效的静默绕过缓存，保留 Delta 自有页脚操作（Issue #333）。
 
 - 修复: Delta Suite 不再通过 DOM 和主题 CSS 隐藏 Harness 原生 Feedback 菜单入口；保留其余命令与隐私保护策略（Issue #333）。

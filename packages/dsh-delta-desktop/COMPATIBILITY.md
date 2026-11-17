@@ -168,3 +168,10 @@
 - 删除已无读取场景的 `boundTriggers` WeakSet 和 `isSilentMenuAllowed` 绕过状态。保留用于 Delta 页脚按钮查找原生触发器的 `dtd-native-profile-trigger` 类标记。
 - **未完成**：原生页脚仍有 CSS 隐藏与 `triggerAccountMenuAction` 程序化菜单选择逻辑，未在本阶段迁移至官方 API；本改动不等于完整恢复原生账号 UI。
 - 全局快捷键、搜索代理和其他锁定/删除保护未修改。ZIP3 审核区域哈希保持严格固定。真实 Windows Harness 账号交互和内存/响应 A/B 待测。
+
+## 2026-11-18 快捷键注册表写入治理（Issue #333 第十三阶段）
+
+- 移除对宿主 `ShortcutsService.registry.dispatch` 和 `registry.invoke` 的运行时函数覆盖、`__deltaSearchHooked` 私有标记及恢复闭包；不再污染其他插件共享的宿主命令调度器。
+- Delta 自有 Search Palette、输入框 Enter、可见快捷键目录、显式选择执行快捷键等路径保留。**旧 Ctrl/Cmd+K 的捕获阶段 `onGlobalKeyDown` 仍存在**，其与 Harness/Electron 原生命令调度的交互需要另一个 PR 和 Windows 实机验证，不宣称全部快捷键拦截已清理。
+- 同步更新 ZIP3 Search Region 的精确 SHA-1 审核指纹，Sidebar Region 和主题 CSS 均未更改，不降低发布契约强度。
+- 正式快捷键接管应优先采用 Host 公共注册接口；不存在明确支持时保持 Harness 原生。Issue #333 继续开放；真实宿主交互及性能 A/B 尚待验收。
