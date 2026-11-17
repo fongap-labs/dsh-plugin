@@ -140,6 +140,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: search palette no longer guesses native Settings buttons or exposes an unsupported Settings quick action.
 // Reviewed 2026-11-18: removed private sidebar nav text-click for Plugins and Schedules; unsupported plugin catalog actions are hidden.
 // Reviewed 2026-11-18: retired right sidebar guide DOM shortcut mirror and synthetic element clicks.
+// Reviewed 2026-11-18: shortcut catalog rows are display-only unless backed by explicit Delta action routes; no synthetic registry invocation.
 const ZIP3_THEME_BLOB = '6d532fe477afc175db33e770fb3061df0d21b992'
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -150,7 +151,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: '76a5b1c98ba17bca3d41c20e3a2df39343763ce3',
+    sha1: '5ba200fcb507c03e1af5c737f05e3202d9239901',
   },
 ]
 

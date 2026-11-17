@@ -213,3 +213,10 @@
 - Search Palette 不再扫描 `[data-sidebar-right-guide-entry]` 节点、解析私有标题/按键 CSS 类或在执行时调用 `node.click()`。指南节点只用于 Harness 原生展示，不作为 Delta 的命令执行契约，避免改版或多插件环境中的误触。
 - 保留 `shortcuts.catalog.getSnapshot()` 提供的快捷键目录、Delta 自有搜索/侧栏操作以及七标签结构。尚未明确授权的 `shortcuts.registry.invoke` 执行分支继续在 Issue #333 中治理，不将本次改动描述为完整快捷键 API 迁移。
 - ZIP3 Search Region 严格 SHA-1 同步更新；Sidebar Region 和主题 CSS 不变。Windows Harness 交互、性能及长会话内存 A/B 仍待正式验收。
+
+## 2026-11-18 快捷键注册表执行所有权（Issue #333 第二十阶段）
+
+- 删除 Search Palette 通过 `shortcuts.registry.invoke(id, { region: 'page', modal: null, target: null })` 执行未知宿主命令的分支，不再伪造执行上下文或将快捷键目录条目视为授权执行能力。
+- 只显示明确映射到现有 Delta 执行路径的 `session.search`、`session.new`、`sidebar.left.toggle`、`sidebar.right.toggle`；右侧侧栏控制接口不可用时也不显示对应目录动作。其他快捷键继续在 Harness 原生入口显示与执行。
+- 修正左侧侧栏切换：安全入口存在时只调用一次，避免返回 `undefined` 时通过空值合并重复调用原生回退。继续保留 Delta 自有搜索、文件/浏览器快捷入口和七标签面板。
+- 同步更新 ZIP3 Search Region 严格 SHA-1；Sidebar Region 与主题 CSS 不变。后续待验证编辑器 slash-command 注入权限与真实 Windows Harness 交互、内存、性能 A/B。
