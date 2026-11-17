@@ -50,10 +50,13 @@ export function createGitHubSkillDiscoverySpecs(
   settings: Settings, transport: DeltaGitHubTransport, resolveRepo: DeltaGitHubRepositoryResolver,
 ): DeltaGitHubToolSpec[] {
   const get = async (repository: string, exec: DeltaGitHubExecution, path: string) => {
+    exec.signal.throwIfAborted()
     const account = selectGitHubAccount(settings.githubAccounts, repository)
-    return transport.request({
+    const response = await transport.request({
       repository, account: account.owner, method: 'GET', path, signal: exec.signal,
     })
+    exec.signal.throwIfAborted()
+    return response
   }
   const prefix = (repository: string) => '/repos/' + repository.split('/').map(encodeURIComponent).join('/')
   const output = (repository: string, account: string, result: unknown) => ({
@@ -65,7 +68,7 @@ export function createGitHubSkillDiscoverySpecs(
       description: 'Search public GitHub SKILL.md candidates within one configured, authorized repository; results are untrusted and not invocable.',
       parameters: { repository: { type: 'string', required: true }, query: { type: 'string', required: true } },
       async execute(args, exec) {
-        if (typeof args.query !== 'string' || !/^[\w .+\-]{2,100}$/.test(args.query.trim())) {
+        if (typeof args.query !== 'string' || !/^[\p{L}\p{N}_ .+\-]{2,100}$/u.test(args.query.trim())) {
           throw Error('Skill search requires a bounded plain-text query')
         }
         const repository = await resolveRepo(args.repository, exec)
