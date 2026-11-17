@@ -337,7 +337,12 @@
     "commandCopyLabel": "复制指令",
     "commandCopyHint": "选择后复制，再粘贴到 Harness 原生输入框。",
     "commandCopied": "指令已复制，请粘贴到 Harness 原生输入框。",
-    "commandCopyFailed": "无法复制指令，请在 Harness 原生输入框中手动输入。"
+    "commandCopyFailed": "无法复制指令，请在 Harness 原生输入框中手动输入。",
+    "commandPickerLabel": "指令",
+    "commandInsertLabel": "插入指令",
+    "commandInsertHint": "插入当前空白 Harness 输入框，供确认后发送。",
+    "commandInserted": "指令已插入，请检查后手动发送。",
+    "commandInsertFailed": "未插入指令：草稿、会话或权限已变化，请使用原生输入框。"
   },
   "visionBridge": {
     "title": "视觉桥（Vision Bridge）",

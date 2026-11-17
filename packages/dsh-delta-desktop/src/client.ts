@@ -4289,7 +4289,30 @@ function installHostSearch(
   sessions: SearchSessionsApi,
   navigation: SearchNavigationApi,
   searchScope?: ClientContext,
+  React?: ReactApi,
 ): () => void {
+  // InputActions is a Host-provided session-scope Slot prop, not a global service.
+  type ScopedCommandTarget = { sessionId: string; insert(command: string): boolean }
+  type CommandInputState = { draft: string; draftRev: number; phase: string; attachmentIds: readonly unknown[]; occurrences: readonly unknown[] }
+  type CommandInputSpan = { start: number; end: number; draftRev: number }
+  type CommandInputActions = {
+    captureInsertion(): CommandInputSpan
+    insertText(text: string, span: CommandInputSpan): boolean
+  }
+  type CommandSlotProps = {
+    sessionId: string
+    inputActions: CommandInputActions
+    useInput<T>(selector: (state: CommandInputState) => T): T
+    useAccess(action: 'session/prompt'): boolean | undefined
+  }
+  type CommandHost = {
+    blocks?: { storeFor(id: string): { getSnapshot(): unknown } }
+    input?: { for(scope: unknown): { state: { getSnapshot(): CommandInputState } } }
+  }
+  type CommandAccessHost = {
+    whenAccess(sessionId: string, action: 'session/prompt', install: () => () => void): () => void
+  }
+  type CommandAccessLease = { sessionId: string; allowed: boolean; revision: number }
   const root = document.documentElement
   const isDarwin = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform ?? navigator.userAgent ?? '')
   const initialCopy = DICTIONARIES[language()] ?? DICTIONARIES.en
@@ -4347,6 +4370,7 @@ function installHostSearch(
   let activeTab: SearchTabId = 'all'
   let activeIndex = 0
   let cachedCatalog: { plugins: PaletteItem[]; skills: PaletteItem[]; shortcuts: PaletteItem[] } | undefined
+  let catalogSerial = 0
 
   let backdropEl: HTMLElement | undefined
   let modalEl: HTMLElement | undefined
@@ -4595,8 +4619,8 @@ function installHostSearch(
   })
 
   // ---------------- Centered Command Search Palette ----------------
-  // The Host has no declared composer insertion capability. Copy only; the user pastes
-  // into the native composer, so Search Palette never queries or mutates Host editor DOM.
+  // Unscoped sidebar search has no authorized composer target. Copy only.
+  // Scoped composer insertion uses Host-provided InputActions, never editor DOM.
   const copySlashCommand = (commandName: string): void => {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined
@@ -4614,6 +4638,50 @@ function installHostSearch(
     }
   }
 
+  const isSafeCommand = (name: string): boolean =>
+    /^\/[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(name) && !/^\/(?:export|feedback)$/i.test(name)
+
+  const getUniqueMainSessionId = (): string | undefined => {
+    try {
+      const rows = Object.values(sessions.list.getSnapshot().byId)
+        .filter(row => (row.retainedBy?.mainView ?? 0) > 0)
+      return rows.length === 1 ? rows[0].id : undefined
+    } catch { return undefined }
+  }
+
+  const isEmptyCommandDraft = (input: CommandInputState | undefined): input is CommandInputState =>
+    input?.phase === 'plain' && input.draft === '' && Number.isSafeInteger(input.draftRev) &&
+    Array.isArray(input.attachmentIds) && input.attachmentIds.length === 0 &&
+    Array.isArray(input.occurrences) && input.occurrences.length === 0
+
+  // This read resolves an already-retained main Session generation. No new Session
+  // is opened, no draft is initialized, and no shared Host service is replaced.
+  const readCommandTarget = (scope: ClientContext, sessionId: string) => {
+    try {
+      if (isDisposed || controller.getSnapshot().mode !== 'delta' ||
+          getUniqueMainSessionId() !== sessionId || deltaFeatures.isLocked(sessionId) ||
+          deltaFeatures.isSessionInLockedWorkspace(sessionId) || deltaFeatures.isDeleted(sessionId)) return undefined
+      const binding = sessions.binding?.(sessionId)
+      const session = binding?.session.getSnapshot()
+      const host = scope.get?.('conversation') as CommandHost | undefined
+      if (!binding || session?.sessionId !== sessionId || session.removed !== false ||
+          session.subagent !== null || session.openState !== 'open' ||
+          typeof host?.blocks?.storeFor !== 'function' || typeof host.input?.for !== 'function') return undefined
+      if (host.blocks.storeFor(sessionId).getSnapshot() !== undefined) return undefined
+      const input = host.input.for(binding.ctx).state.getSnapshot()
+      if (!isEmptyCommandDraft(input)) return undefined
+      return { binding, input, host }
+    } catch { return undefined }
+  }
+
+  const dispatchSlashCommand = (name: string, target: ScopedCommandTarget | undefined): void => {
+    if (!target) { copySlashCommand(name); return }
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+    let isAccepted = false
+    try { isAccepted = isSafeCommand(name) && target.insert(name + ' ') === true } catch {}
+    showDeltaToast(isAccepted ? copy.searchPalette.commandInserted : copy.searchPalette.commandInsertFailed)
+  }
+
   const getShortcutsService = (): {
     catalog?: { getSnapshot?: () => ReadonlyArray<{ id?: string; label?: string; keys?: readonly string[]; aliases?: readonly string[] }> }
   } | undefined => {
@@ -4624,9 +4692,11 @@ function installHostSearch(
     }
   }
 
-  const buildDynamicCatalog = async (): Promise<{ plugins: PaletteItem[]; skills: PaletteItem[]; shortcuts: PaletteItem[] }> => {
+  const buildDynamicCatalog = async (target?: ScopedCommandTarget): Promise<{ plugins: PaletteItem[]; skills: PaletteItem[]; shortcuts: PaletteItem[] }> => {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     const pCopy = copy.searchPalette
+    const commandHint = target ? pCopy.commandInsertHint : pCopy.commandCopyHint
+    const commandLabel = target ? pCopy.commandInsertLabel : pCopy.commandCopyLabel
     const plugins: PaletteItem[] = []
     const skills: PaletteItem[] = []
     const shortcuts: PaletteItem[] = []
@@ -4656,37 +4726,38 @@ function installHostSearch(
         tab: 'skill',
         kind: 'command',
         title: c.cmd,
-        snippet: (language() === 'zh' ? c.descZh : c.descEn) + ' · ' + pCopy.commandCopyHint,
+        snippet: (language() === 'zh' ? c.descZh : c.descEn) + ' · ' + commandHint,
         badge: pCopy.kindCommand,
-        meta: pCopy.commandCopyLabel,
+        meta: commandLabel,
         score: 52,
         keywords: `${c.cmd} ${c.descZh} ${c.descEn}`,
-        run: () => copySlashCommand(c.cmd),
+        run: () => dispatchSlashCommand(c.cmd, target),
       })
     }
 
     try {
-      const targetSid = deltaFeatures.getActiveSessionId() ?? Object.keys(sessions.list.getSnapshot().byId)[0]
-      if (targetSid && remote?.commands?.list) {
+      const targetSid = target?.sessionId ?? getUniqueMainSessionId()
+      if (targetSid && !deltaFeatures.isLocked(targetSid) && !deltaFeatures.isSessionInLockedWorkspace(targetSid) &&
+          !deltaFeatures.isDeleted(targetSid) && remote?.commands?.list) {
         const res = await remote.commands.list(targetSid)
         if (res?.ok && Array.isArray(res.value)) {
           for (const item of res.value) {
             const rawName = item?.name?.trim() ?? ''
             if (!rawName) continue
             const cmdName = rawName.startsWith('/') ? rawName : '/' + rawName
-            if (/^\/(?:export|feedback)$/i.test(cmdName) || seenCmds.has(cmdName.toLowerCase())) continue
+            if (!isSafeCommand(cmdName) || seenCmds.has(cmdName.toLowerCase())) continue
             seenCmds.add(cmdName.toLowerCase())
             skills.push({
               id: 'skill:' + cmdName,
               tab: 'skill',
               kind: 'skill',
               title: cmdName,
-              snippet: (item.description ? redactSensitiveText(item.description) + ' · ' : '') + pCopy.commandCopyHint,
+              snippet: (item.description ? redactSensitiveText(item.description) + ' · ' : '') + commandHint,
               badge: pCopy.kindSkill,
-              meta: pCopy.commandCopyLabel,
+              meta: commandLabel,
               score: 58,
               keywords: `${cmdName} ${item.description ?? ''}`,
-              run: () => copySlashCommand(cmdName),
+              run: () => dispatchSlashCommand(cmdName, target),
             })
           }
         }
@@ -4697,19 +4768,19 @@ function installHostSearch(
         const raw = (s?.name ?? s?.title ?? '').trim()
         if (!raw) continue
         const cmdName = raw.startsWith('/') ? raw : '/' + raw
-        if (/^\/(?:export|feedback)$/i.test(cmdName) || seenCmds.has(cmdName.toLowerCase())) continue
+        if (!isSafeCommand(cmdName) || seenCmds.has(cmdName.toLowerCase())) continue
         seenCmds.add(cmdName.toLowerCase())
         skills.push({
           id: 'skill:' + cmdName,
           tab: 'skill',
           kind: 'skill',
           title: cmdName,
-          snippet: (s.description ? redactSensitiveText(s.description) + ' · ' : '') + pCopy.commandCopyHint,
+          snippet: (s.description ? redactSensitiveText(s.description) + ' · ' : '') + commandHint,
           badge: pCopy.kindSkill,
-          meta: pCopy.commandCopyLabel,
+          meta: commandLabel,
           score: 57,
           keywords: `${cmdName} ${s.description ?? ''}`,
-          run: () => copySlashCommand(cmdName),
+          run: () => dispatchSlashCommand(cmdName, target),
         })
       }
     } catch {}
@@ -4931,6 +5002,9 @@ function installHostSearch(
 
   const closePalette = (): void => {
     isModalOpen = false
+    catalogSerial += 1
+    cachedCatalog = undefined
+    currentFilteredItems = []
     clearModalRequest()
     if (backdropEl) {
       backdropEl.hidden = true
@@ -4946,7 +5020,7 @@ function installHostSearch(
   }
 
   const executePaletteItem = (item: PaletteItem | undefined): void => {
-    if (!item) return
+    if (!isModalOpen || !item || !currentFilteredItems.includes(item)) return
     closePalette()
     input.value = ''
     clearInlineRequest()
@@ -5099,7 +5173,7 @@ function installHostSearch(
     renderPalette()
   }
 
-  const openPalette = (seedQuery = ''): void => {
+  const openPalette = (seedQuery = '', target?: ScopedCommandTarget): void => {
     if (isDisposed || controller.getSnapshot().mode !== 'delta') return
     if (typeof document.body?.appendChild !== 'function') return
     results.hidden = true
@@ -5242,7 +5316,10 @@ function installHostSearch(
     }
 
     isModalOpen = true
-    activeTab = 'all'
+    const request = ++catalogSerial
+    cachedCatalog = undefined
+    currentFilteredItems = []
+    activeTab = target ? 'skill' : 'all'
     activeIndex = 0
     syncModalChromeOverlay()
     if (modalInputEl) {
@@ -5251,11 +5328,112 @@ function installHostSearch(
       modalInputEl.select?.()
     }
     triggerModalSearch(seedQuery)
-    void buildDynamicCatalog().then(cat => {
-      if (!isModalOpen || isDisposed) return
+    void buildDynamicCatalog(target).then(cat => {
+      if (!isModalOpen || isDisposed || request !== catalogSerial) return
       cachedCatalog = cat
       renderPalette()
-    })
+    }).catch(() => { /* no stale catalog or guessed commands on failure */ })
+  }
+
+  // Register only in the declared session-scoped Host Slot. Older Host builds
+  // without the public provider/props simply keep the copy-only sidebar route.
+  if (React && searchScope && typeof React.useRef === 'function' && typeof React.useEffect === 'function') {
+    const react = React
+    try { searchScope.inject(['conversation', 'uiSession'], composerScope => {
+      if (isDisposed) return
+      const host = composerScope.get?.('conversation') as CommandHost | undefined
+      const accessCandidate = composerScope.get?.('uiSession') as CommandAccessHost | undefined
+      if (typeof host?.input?.for !== 'function' || typeof host.blocks?.storeFor !== 'function' ||
+          typeof accessCandidate?.whenAccess !== 'function') return
+      const accessOwner = accessCandidate
+      const sameAccessOwner = (): boolean => {
+        try { return composerScope.get?.('uiSession') === accessOwner } catch { return false }
+      }
+
+      function ScopedCommandEntry(props: CommandSlotProps): unknown {
+        const view = react.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
+        const input = props.useInput(state => state)
+        const allowed = props.useAccess('session/prompt') === true
+        const current = react.useRef({ props, allowed })
+        current.current = { props, allowed }
+        const leaseRef = react.useRef<CommandAccessLease | undefined>(undefined)
+        react.useEffect(() => {
+          const lease: CommandAccessLease = { sessionId: props.sessionId, allowed: false, revision: 0 }
+          leaseRef.current = lease
+          let stop: (() => void) | undefined
+          // Host's session-specific access subscription revokes immediately,
+          // even before a React permission Hook has rendered its new value.
+          try {
+            stop = accessOwner.whenAccess(lease.sessionId, 'session/prompt', () => {
+              lease.allowed = true
+              lease.revision += 1
+              return () => { lease.allowed = false; lease.revision += 1 }
+            })
+          } catch { lease.allowed = false }
+          return () => {
+            lease.allowed = false
+            lease.revision += 1
+            if (leaseRef.current === lease) leaseRef.current = undefined
+            try { stop?.() } catch {}
+          }
+        }, [props.sessionId])
+        if (isDisposed || view.mode !== 'delta' || !allowed ||
+            getUniqueMainSessionId() !== props.sessionId || !isEmptyCommandDraft(input)) return null
+        const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
+        return react.createElement('button', {
+          type: 'button',
+          className: 'dtd-context-action',
+          title: copy.searchPalette.commandInsertHint,
+          onClick: () => {
+            const sid = props.sessionId
+            const actions = props.inputActions
+            const lease = leaseRef.current
+            if (!lease?.allowed || lease.sessionId !== sid || !current.current.allowed ||
+                current.current.props.sessionId !== sid || current.current.props.inputActions !== actions ||
+                !sameAccessOwner()) {
+              showDeltaToast(copy.searchPalette.commandInsertFailed)
+              return
+            }
+            const source = readCommandTarget(composerScope, sid)
+            if (!source) { showDeltaToast(copy.searchPalette.commandInsertFailed); return }
+            const accessRevision = lease.revision
+            try {
+              const span = actions.captureInsertion()
+              if (span.start !== 0 || span.end !== 0 || span.draftRev !== source.input.draftRev) {
+                showDeltaToast(copy.searchPalette.commandInsertFailed)
+                return
+              }
+              openPalette('', { sessionId: sid, insert(command) {
+                // Recheck the same mounted Slot and live Host generation, block,
+                // lock, empty draft and captured revision immediately before edit.
+                if (leaseRef.current !== lease || !lease.allowed || lease.revision !== accessRevision ||
+                    !current.current.allowed || current.current.props.sessionId !== sid ||
+                    current.current.props.inputActions !== actions ||
+                    !sameAccessOwner()) return false
+                const latest = readCommandTarget(composerScope, sid)
+                if (!latest || latest.binding !== source.binding || latest.host !== source.host ||
+                    latest.input.draftRev !== span.draftRev) return false
+                return actions.insertText(command, span) === true
+              } })
+            } catch { showDeltaToast(copy.searchPalette.commandInsertFailed) }
+          },
+        }, copy.searchPalette.commandPickerLabel)
+      }
+
+      function ComposerCommandEntry(props: CommandSlotProps): unknown {
+        if (typeof props?.sessionId !== 'string' || typeof props.useInput !== 'function' ||
+            typeof props.useAccess !== 'function' || typeof props.inputActions?.captureInsertion !== 'function' ||
+            typeof props.inputActions?.insertText !== 'function') return null
+        return react.createElement(ScopedCommandEntry, props as unknown as Record<string, unknown>)
+      }
+
+      try {
+        composerScope.slots.inject('conversation.input.left', () => composerScope.slots.register<CommandSlotProps>({
+          name: 'conversation.input.left', id: 'delta.search.composer-commands', order: 70,
+          label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette.commandPickerLabel,
+        }, ComposerCommandEntry))
+      } catch { /* optional Slot: preserve copy-only search */ }
+    }) } catch { /* optional Host services: preserve copy-only search */ }
   }
 
   // Delta sidebar Enter opens Search Palette; global Ctrl/Cmd+K remains Harness-owned.
@@ -7026,7 +7204,7 @@ window.__ModuleLoader__.load({
                 }
 
                 searchScope.effect(() => {
-                  const stopSearch = installHostSearch(controller, sessionsApi, navApi, searchScope)
+                  const stopSearch = installHostSearch(controller, sessionsApi, navApi, searchScope, React)
                   return () => {
                     stopSearch()
                     deltaFeatures.setSessionsApi(undefined)

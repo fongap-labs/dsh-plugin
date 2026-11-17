@@ -26,9 +26,10 @@ test('Search Palette never queries or mutates the Host composer/editor DOM', () 
   assert.doesNotMatch(search, /editor\.textContent\s*=|dispatchEvent\(new Event\(['"]input['"]/)
   assert.match(search, /navigator\.clipboard/)
   assert.match(search, /clipboard\.writeText\(commandName\)/)
-  assert.match(search, /run: \(\) => copySlashCommand\(/)
-  assert.match(search, /meta: pCopy\.commandCopyLabel/)
-  assert.match(search, /pCopy\.commandCopyHint/)
+  assert.match(search, /if \(!target\) \{ copySlashCommand\(name\); return \}/)
+  assert.match(search, /run: \(\) => dispatchSlashCommand\(/)
+  assert.match(search, /target \? pCopy\.commandInsertLabel : pCopy\.commandCopyLabel/)
+  assert.match(search, /target \? pCopy\.commandInsertHint : pCopy\.commandCopyHint/)
   assert.match(search, /showDeltaToast\(copy\.searchPalette\.commandCopied\)/)
   assert.match(search, /showDeltaToast\(copy\.searchPalette\.commandCopyFailed\)/)
 })
@@ -47,7 +48,8 @@ test('Chinese and English labels disclose copy-and-paste semantics', () => {
   for (const lang of ['en', 'zh']) {
     const dictionary = JSON.parse(read('packages/dsh-delta-desktop/locale/' + lang + '.json'))
     const palette = dictionary.searchPalette
-    for (const key of ['commandCopyLabel', 'commandCopyHint', 'commandCopied', 'commandCopyFailed']) {
+    for (const key of ['commandCopyLabel', 'commandCopyHint', 'commandCopied', 'commandCopyFailed',
+      'commandPickerLabel', 'commandInsertLabel', 'commandInsertHint', 'commandInserted', 'commandInsertFailed']) {
       assert.equal(typeof palette[key], 'string', lang + '.' + key)
       assert.ok(palette[key].length > 0, lang + '.' + key)
     }
@@ -56,10 +58,32 @@ test('Chinese and English labels disclose copy-and-paste semantics', () => {
 
 test('ZIP3 Search Region review pin rejects restored editor DOM injection', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const anchor = '// The Host has no declared composer insertion capability.'
+  const anchor = '// Unscoped sidebar search has no authorized composer target.'
   assert.ok(source.includes(anchor))
   const tampered = source.replace(anchor, anchor +
     "\n      document.querySelector('[contenteditable=true]')?.textContent = commandName")
   assert.notEqual(tampered, source)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
+})
+
+test('native command insertion is authorized only by a scoped Host Slot', () => {
+  assert.match(search, /composerScope\.slots\.inject\('conversation\.input\.left'/)
+  assert.match(search, /props\.inputActions\?\.captureInsertion/)
+  assert.match(search, /props\.inputActions\?\.insertText/)
+  assert.match(search, /actions\.captureInsertion\(\)/)
+  assert.match(search, /actions\.insertText\(command, span\) === true/)
+  assert.match(search, /accessOwner\.whenAccess\(lease\.sessionId, 'session\/prompt'/)
+  assert.match(search, /leaseRef\.current !== lease \|\| !lease\.allowed \|\| lease\.revision !== accessRevision/)
+  assert.match(search, /latest\.binding !== source\.binding/)
+  assert.match(search, /latest\.host !== source\.host/)
+  assert.match(search, /latest\.input\.draftRev !== span\.draftRev/)
+  assert.match(search, /current\.current\.props\.inputActions !== actions/)
+  assert.match(search, /getUniqueMainSessionId\(\) !== sessionId/)
+  assert.match(search, /host\.blocks\.storeFor\(sessionId\)\.getSnapshot\(\) !== undefined/)
+  assert.match(search, /input\?\.phase === 'plain' && input\.draft === ''/)
+  assert.doesNotMatch(search, /actions\.setDraft|actions\.submit\(|inputActions\.submit\(/)
+  assert.doesNotMatch(search, /Object\.keys\(sessions\.list\.getSnapshot\(\)\.byId\)\[0\]/)
+  assert.match(search, /request !== catalogSerial/)
+  assert.match(search, /cachedCatalog = undefined/)
+  assert.match(search, /!currentFilteredItems\.includes\(item\)/)
 })
