@@ -10,12 +10,15 @@ import { chooseVerificationCommand } from '../packages/dsh-delta-code/lib/delta-
 describe('Delta Code Host-neutral verification project policy', () => {
   it('contains no DSH context, Host FS, shell or process dependency', () => {
     const policy = readFileSync(new URL('../packages/dsh-delta-code/src/delta-code-quality/verification-project-policy.ts', import.meta.url), 'utf8')
-    const executor = readFileSync(new URL('../packages/dsh-delta-code/src/delta-code-quality/verify.ts', import.meta.url), 'utf8')
+    const adapter = readFileSync(new URL('../packages/dsh-delta-code/src/delta-code-adapter/providers/dsh/verify.ts', import.meta.url), 'utf8')
+    const facade = readFileSync(new URL('../packages/dsh-delta-code/src/delta-code-quality/verify.ts', import.meta.url), 'utf8')
     for (const forbidden of ['@deepseek-ai', 'runCommand(', 'node:fs', 'process.env', 'requireHostFs(']) {
       assert.equal(policy.includes(forbidden), false, forbidden)
     }
-    assert.ok(executor.includes('verificationMetadataFiles'))
-    assert.ok(executor.includes('parseDeclaredNodeVerificationScripts(JSON.parse(raw))'))
+    assert.ok(adapter.includes('verificationMetadataFiles'))
+    assert.ok(adapter.includes('parseDeclaredNodeVerificationScripts(JSON.parse(raw))'))
+    assert.ok(facade.includes("from '../delta-code-adapter/providers/dsh/verify.js'"))
+    assert.ok(!facade.includes('runCommand('))
     assert.equal(verificationMetadataFiles.filter(x => x === 'requirements.txt').length, 1)
   })
 
