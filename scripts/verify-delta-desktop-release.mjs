@@ -136,13 +136,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: removed native account trigger capture-click blocking and dead bypass state.
 // Reviewed 2026-11-18: removed private ShortcutsService registry dispatch/invoke monkeypatch.
 // Reviewed 2026-11-18: removed global capture-phase Ctrl/Cmd+K interception; modal Escape scoped to Delta.
-// Reviewed 2026-11-18: account menu selection is explicit-label only; unknown menus remain native-owned.
-const ZIP3_THEME_BLOB = 'ec7ce0be0d93c10b5f8d181bf2f755c71549bf5e'
+// Reviewed 2026-11-18: native footer restored; removed Delta avatar/account/update DOM proxy and Host menu suppression.
+const ZIP3_THEME_BLOB = '6d532fe477afc175db33e770fb3061df0d21b992'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '0c534e1fc636a2503ac2b7493df6993731d32e79',
+    sha1: 'f60be1b537d8040f2486863a8ee5055ea681233f',
   },
   {
     begin: 'function installHostSearch(',
