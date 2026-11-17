@@ -4595,22 +4595,6 @@ function installHostSearch(
   })
 
   // ---------------- Centered Command Search Palette ----------------
-  const clickSidebarNavTarget = (labels: string[], fallbackAction?: () => void): void => {
-    try {
-      const buttons = document.querySelectorAll?.<HTMLButtonElement>('[data-sidebar-scrollport] nav button, [class*="wtg9ga_root"] nav button, [class*="wtg9ga_panelList"] button')
-      if (buttons) {
-        for (const btn of buttons) {
-          const text = (btn.textContent ?? btn.getAttribute('aria-label') ?? '').trim()
-          if (labels.includes(text)) {
-            btn.click()
-            return
-          }
-        }
-      }
-    } catch {}
-    fallbackAction?.()
-  }
-
   const insertSlashCommand = (commandName: string): void => {
     try {
       controller.openConversation()
@@ -4654,40 +4638,12 @@ function installHostSearch(
     const shortcuts: PaletteItem[] = []
 
     const remote = (searchScope?.get?.('remote') ?? (searchScope as unknown as { remote?: unknown })?.remote) as {
-      pluginInventory?: { list?: () => Promise<unknown> }
-      pluginManager?: { listPlugins?: () => Promise<unknown>; listBundles?: () => Promise<unknown> }
       skills?: { list?: () => Promise<unknown> }
       commands?: { list?: (sessionId: string) => Promise<{ ok?: boolean; value?: Array<{ name?: string; description?: string }> }> }
     } | undefined
 
-    try {
-      const rawPlugins = (await remote?.pluginInventory?.list?.())
-        ?? (await remote?.pluginManager?.listPlugins?.())
-        ?? (await remote?.pluginManager?.listBundles?.())
-      const list = Array.isArray(rawPlugins)
-        ? rawPlugins
-        : ((rawPlugins as { items?: unknown[]; plugins?: unknown[]; bundles?: unknown[] })?.items
-          ?? (rawPlugins as { plugins?: unknown[]; bundles?: unknown[] })?.plugins
-          ?? (rawPlugins as { bundles?: unknown[] })?.bundles
-          ?? [])
-      for (const entry of list as Array<{ id?: string; name?: string; title?: string; description?: string; enabled?: boolean }>) {
-        const pid = entry?.id || entry?.name
-        if (!pid) continue
-        const title = entry.title || entry.name || pid
-        plugins.push({
-          id: 'plugin:' + pid,
-          tab: 'plugin',
-          kind: 'plugin',
-          title: redactSensitiveText(title),
-          snippet: entry.description ? redactSensitiveText(entry.description) : undefined,
-          badge: pCopy.kindPlugin,
-          meta: pid !== title ? pid : undefined,
-          score: 55,
-          keywords: `${pid} ${title} ${entry.description ?? ''}`,
-          run: () => clickSidebarNavTarget(['\u63D2\u4EF6\u7BA1\u7406', '\u63D2\u4EF6', 'Plugins']),
-        })
-      }
-    } catch {}
+    // Plugin and schedule navigation remain native-owned: without a public
+    // navigation contract no Search Palette entry may impersonate a runnable action.
 
     // Safe built-in & live slash commands (strictly exclude /export & /feedback per privacy rules)
     const safeBuiltins: Array<{ cmd: string; descZh: string; descEn: string }> = [
@@ -4938,26 +4894,6 @@ function installHostSearch(
         score: 45,
         keywords: `new conversation chat start \u65B0\u5EFA \u5BF9\u8BDD \u5F00\u59CB\u5BF9\u8BDD`,
         run: () => navigation.startSession(),
-      },
-      {
-        id: 'act:plugins',
-        tab: 'action',
-        kind: 'action',
-        title: pCopy.actionPlugins,
-        badge: pCopy.kindAction,
-        score: 44,
-        keywords: `plugins manager \u63D2\u4EF6 \u63D2\u4EF6\u7BA1\u7406`,
-        run: () => clickSidebarNavTarget(['\u63D2\u4EF6\u7BA1\u7406', '\u63D2\u4EF6', 'Plugins']),
-      },
-      {
-        id: 'act:schedules',
-        tab: 'action',
-        kind: 'action',
-        title: pCopy.actionSchedules,
-        badge: pCopy.kindAction,
-        score: 43,
-        keywords: `schedules tasks cron \u5B9A\u65F6\u4EFB\u52A1 \u81EA\u52A8\u5316\u4EFB\u52A1`,
-        run: () => clickSidebarNavTarget(['\u5B9A\u65F6\u4EFB\u52A1', '\u81EA\u52A8\u5316\u4EFB\u52A1', 'Schedules', 'Tasks']),
       },
       {
         id: 'act:sidebar',
