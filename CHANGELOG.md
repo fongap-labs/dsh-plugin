@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 将 GitHub 账号及远端仓库操作留在 Repository 纯功能层，DSH 工具注册与本地 Origin 检测迁至 Adapter，保留 API 和写入保护。
+
 - 维护: 将工作区 Git 文件发现及 Host FS 授权迁至 Adapter，仓库侧保留文件排名、批量查询与扫描限额纯策略和兼容导出。
 
 - 维护: 将受控 Git Worktree 的 DSH Host 授权、创建和安全删除迁至 Adapter，保留仓库侧纯命名策略及旧工具接口。

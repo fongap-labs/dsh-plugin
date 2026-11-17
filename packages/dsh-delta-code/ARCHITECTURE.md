@@ -17,6 +17,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
+- GitHub multi-account routing, PR/CI inspection, guarded branch/commit/PR operations and write conflict handling remain in `delta-code-repository/github-operations.ts` and `github-policy.ts`, with Delta transport contracts. DSH tool schema/registration and optional Host Git Origin resolution live in `delta-code-adapter/providers/dsh/github.ts`.
+
 - `code_workspace_map` Host Git enumeration, bounded directory discovery, FS authorization and cancellation live in `delta-code-adapter/providers/dsh/workspace.ts`; ranked tracked-file queries, discovery limits, batched-query validation and presentation selection live in SDK-free `delta-code-repository/workspace-policy.ts`.
 
 - Worktree task and branch validation live in Host-independent `delta-code-repository/worktree-policy.ts`; DSH worktree commands, Host FS target/symlink containment, safe removal and cancellation live in `delta-code-adapter/providers/dsh/worktree.ts`. Existing Repository and `tools/` paths remain compatible.
@@ -37,7 +39,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - Read-only `code_host_probe` service inspection and DSH `Context` typing live in `delta-code-adapter/providers/dsh/host-probe.ts`; `delta-code-coding/host-probe.ts` remains a compatibility re-export. It never invokes privileged FS, workspace or subprocess methods.
 - DSH-backed `code_lsp_probe` execution lives in `delta-code-adapter/providers/dsh/lsp.ts`; language-server status classification is an SDK-free Coding policy. Existing tool import paths remain compatibility facades.
 - Coding, Quality and Repository feature assembly accepts only Delta-owned named-tool contracts. DSH-specific tool construction lives in `delta-code-adapter/providers/dsh/feature-tools.ts`; no Host SDK types enter their feature entrypoints.
-- This does not yet remove Host SDK imports from the individual tool implementations; those are the next migration seam.
+- DSH tool implementation, Host FS and subprocess access are now owned by `delta-code-adapter/providers/dsh/`; Coding, Quality and Repository modules retain Host-independent policy/operation contracts and legacy compatibility facades.
 - Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
 
 - Public `src/types.ts` contains only Host-independent configuration/result types. Cordis Context augmentation and DSH prompt type imports are isolated in `delta-code-adapter/providers/dsh/host-types.ts`.
