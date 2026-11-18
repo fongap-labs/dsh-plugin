@@ -59,7 +59,9 @@ test('native new-session button remains visible and Harness-owned', () => {
     'button[class*="newSession"]', 'wtg9ga_newSession']) {
     assert.equal(style.includes(legacy), false, 'native button styling must stay under Harness: ' + legacy)
   }
-  assert.ok(compatibility.includes('processHoverCards()'))
+  assert.equal(compatibility.includes('processHoverCards'), false)
+  assert.equal(compatibility.includes('onMouseOver'), false)
+  assert.ok(source.includes("sidebar.session.row.hover"))
 })
 test('native sidebar search does not use private DOM input proxies or hide the Host search control', () => {
   const begin = source.indexOf('function installSidebarCompatibility(')
@@ -117,6 +119,26 @@ test('Host owns frame columns, splitters and expand/collapse behavior without De
   assert.equal(readiness.required.sidebar_spacing, false, 'unverified layout capability must stay disabled')
 })
 
+test('native session and workspace hover cards remain Host-owned; public Slot keeps privacy protection', () => {
+  const start = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('type SearchTabId', start)
+  assert.ok(start >= 0 && end > start)
+  const compat = source.slice(start, end)
+  for (const marker of [
+    'processHoverCards', 'onMouseOver', 'dtd-session-hover-card',
+    'SessionHoverContent', 'wnFoaW_hoverContent', '_card_bgejw',
+  ]) assert.equal(compat.includes(marker), false, 'Host hover DOM mutation: ' + marker)
+  for (const marker of [
+    'dtd-session-hover-card', 'wnFoaW_hoverContent', '_card_bgejw', '_preview_bgejw',
+    '[class*="hoverContent"]', '[class*="hoverPath"]', '[class*="hoverTime"]',
+    '[class*="hoverStatus"]', '[class*="hoverTitle"]',
+    '[data-slot="sidebar.session.row.hover"]',
+  ]) assert.equal(style.includes(marker), false, 'Host card CSS override: ' + marker)
+  assert.ok(source.includes("scope.slots.inject('sidebar.session.row.hover'"))
+  assert.ok(source.includes('SessionHoverDetail(props, controller)'))
+  assert.ok(source.includes('deltaFeatures.readSearchProtection().allowsSession(sessionId)'))
+  assert.equal(readiness.required.session_hover_card_layout, false)
+})
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

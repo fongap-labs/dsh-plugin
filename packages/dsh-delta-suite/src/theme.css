@@ -450,13 +450,8 @@
   [role="tooltip"],
   [class*="_bubble_44yfq"],
   .dtd-tooltip,
-  .dtd-session-hover-card,
-  [class*="_card_bgejw"],
-  [class*="_preview_bgejw"],
   [class*="A6Bq1a_panel"],
   [class*="xXe6ja_panel"],
-  div:has(> [class*="hoverContent"]),
-  div:has(> .wnFoaW_hoverContent),
   [role="menu"],
   [role="listbox"],
   [data-context-menu],
@@ -506,13 +501,8 @@
   [role="tooltip"],
   [class*="_bubble_44yfq"],
   .dtd-tooltip,
-  .dtd-session-hover-card,
-  [class*="_card_bgejw"],
-  [class*="_preview_bgejw"],
   [class*="A6Bq1a_panel"],
   [class*="xXe6ja_panel"],
-  div:has(> [class*="hoverContent"]),
-  div:has(> .wnFoaW_hoverContent),
   [role="menu"],
   [role="listbox"],
   [class*="_surface_1w4el"],
@@ -540,9 +530,6 @@
   -webkit-backdrop-filter: none !important;
   border: none !important;
   box-shadow: none !important;
-}
-:root[data-delta-ui="delta"] [class*="_copied_bgejw"] {
-  color: var(--dtd-popup-fg) !important;
 }
 
 /* Shared interactive hover state inside menus, dropdowns & settings nav */
@@ -829,126 +816,8 @@
   overflow: hidden !important;
 }
 
-/* Session hover card meta slot suppressed cleanly */
-:root[data-delta-ui="delta"] .dtd-session-meta,
-:root[data-delta-compat="1"] .dtd-session-meta,
-:root[data-delta-ui="delta"] [data-slot="sidebar.session.row.hover"]:has(.dtd-session-meta),
-:root[data-delta-ui="delta"] [class*="hoverContent"] > :has(.dtd-session-meta) {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  overflow: hidden !important;
-}
-
-/* Session Hover Card (has hoverStatus): compact 2-column card, path hidden */
-:root[data-delta-ui="delta"] :is([class*="hoverContent"], .wnFoaW_hoverContent):has([class*="hoverStatus"]),
-:root[data-delta-ui="delta"] .dtd-session-hover-card [class*="hoverContent"]:has([class*="hoverStatus"]) {
-  min-width: 0;
-  max-width: min(350px, calc(100vw - 36px));
-  border-radius: var(--dtd-popup-radius);
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) auto !important;
-  align-items: center !important;
-  row-gap: 8px !important;
-  column-gap: 12px !important;
-  padding: 0 !important;
-  box-sizing: border-box !important;
-  background: transparent !important;
-}
-:root[data-delta-ui="delta"] :is([class*="hoverContent"], .wnFoaW_hoverContent):has([class*="hoverStatus"]) [class*="hoverPath"] {
-  display: none !important;
-}
-:root[data-delta-ui="delta"] :is([class*="hoverContent"], .wnFoaW_hoverContent):has([class*="hoverStatus"]) [class*="hoverTitle"] {
-  grid-column: 1 / -1 !important;
-  grid-row: 1 !important;
-}
-:root[data-delta-ui="delta"] :is([class*="hoverContent"], .wnFoaW_hoverContent):has([class*="hoverStatus"]) [class*="hoverTime"] {
-  grid-column: 2 !important;
-  grid-row: 2 !important;
-  justify-self: end !important;
-  align-self: center !important;
-}
-:root[data-delta-ui="delta"] [class*="hoverStatus"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverStatus {
-  grid-column: 1 !important;
-  justify-self: start !important;
-  align-self: center !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  color: var(--dtd-popup-fg) !important;
-  font-size: 12px !important;
-  line-height: 18px !important;
-  white-space: nowrap !important;
-}
-:root[data-delta-ui="delta"] [class*="hoverStatus"][class*="hoverArchived"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverStatus.wnFoaW_hoverArchived {
-  grid-row: 3 !important;
-}
-
-/* Workspace / Folder Hover Card (no hoverStatus): show left-aligned path & left-aligned created time */
-:root[data-delta-ui="delta"] :is([class*="hoverContent"], .wnFoaW_hoverContent):not(:has([class*="hoverStatus"])) {
-  min-width: 220px;
-  max-width: min(360px, calc(100vw - 36px));
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  gap: 6px !important;
-  padding: 0 !important;
-  box-sizing: border-box !important;
-  background: transparent !important;
-}
-:root[data-delta-ui="delta"] :is([class*="hoverContent"], .wnFoaW_hoverContent):not(:has([class*="hoverStatus"])) [class*="hoverPath"] {
-  display: block !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  padding: 5px 8px !important;
-  border-radius: var(--dtd-radius-sm) !important;
-  background: var(--dtd-bg-subtle) !important;
-  border: 1px solid var(--dtd-border-subtle) !important;
-  color: var(--dtd-fg-secondary) !important;
-  font-size: 12px !important;
-  line-height: 17px !important;
-  text-align: left !important;
-  word-break: break-all !important;
-}
-:root[data-delta-ui="delta"] :is([class*="hoverContent"], .wnFoaW_hoverContent):not(:has([class*="hoverStatus"])) [class*="hoverTime"] {
-  align-self: flex-start !important;
-  text-align: left !important;
-}
-
-/* Shared Hover Card Typography */
-:root[data-delta-ui="delta"] [class*="hoverTitle"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverTitle {
-  color: var(--dtd-popup-fg) !important;
-  font-weight: 600 !important;
-  font-size: 13px !important;
-  line-height: 18px !important;
-}
-:root[data-delta-ui="delta"] [class*="hoverTime"],
-:root[data-delta-ui="delta"] .wnFoaW_hoverTime {
-  color: var(--dtd-popup-muted) !important;
-  font-size: 12px !important;
-  line-height: 18px !important;
-  white-space: nowrap !important;
-}
-
-:root[data-delta-ui="delta"] .dtd-hover-footer {
-  grid-column: 1 / -1 !important;
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  margin-top: 6px !important;
-  padding-top: 6px !important;
-  border-top: 1px solid var(--dtd-popup-border) !important;
-  font-size: 12px !important;
-}
+/* Harness owns native session and workspace hover-card layout; the public
+ * sidebar.session.row.hover Slot remains available to multiple providers. */
 
 /* ============================================================================
  * 6. Left Sidebar Layout, Search, Nav Items, Workspace List & Footer

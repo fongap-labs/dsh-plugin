@@ -8,7 +8,7 @@ const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.met
 const source = read('packages/dsh-delta-suite/src/client.ts')
 const theme = read('packages/dsh-delta-suite/src/theme.css')
 const from = source.indexOf('  const syncSettingsNav = (): void => {')
-const to = source.indexOf('  const processHoverCards = (): void => {', from)
+const to = source.indexOf('  const sync = (): void => {', from)
 
 test('Settings navigation no longer rewrites native labels', () => {
   assert.ok(from >= 0 && to > from, 'Settings compatibility function must remain traceable')
