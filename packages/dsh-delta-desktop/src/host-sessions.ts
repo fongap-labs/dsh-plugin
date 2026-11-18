@@ -745,7 +745,7 @@ export function installHostSessionOps(
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
-  const detachFromRegistry = async (sessionIds: string[], skipUnarchive = false): Promise<void> => {
+  const detachFromRegistry = async (sessionIds: string[], shouldSkipUnarchive = false): Promise<void> => {
     const reg: any = getRegistry()
     if (!reg) return
     for (const sid of sessionIds) {
@@ -755,7 +755,7 @@ export function installHostSessionOps(
       for (const v of idVariants) {
         // Startup tombstone replay must never trigger native unarchive: older
         // Hosts may lack the public pre-unarchive veto entirely.
-        if (!skipUnarchive) {
+        if (!shouldSkipUnarchive) {
           try { await Promise.resolve(reg.unarchiveSession?.(v)).catch(() => {}) } catch {}
         }
         try { await Promise.resolve(reg.unpinSession?.(v)).catch(() => {}) } catch {}
