@@ -147,6 +147,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: retired cloned native new-session button, synthetic click forwarding, and CSS hiding of the actual Host control.
 // Reviewed 2026-11-18: retired native sidebar search proxy/input mirroring and restored original Harness search slot.
 // Reviewed 2026-11-18: replaced private service-search sidebar insertion with a public composer Search Palette entry.
+// Reviewed 2026-11-18: PR #392 scoped legacy Host sidebar placement; this is superseded by public Slot ownership.
 const ZIP3_THEME_BLOB = '864b38d877553209ca4628900aaa0d4c40439892'
 const ZIP3_COMPAT_REGIONS = [
   {

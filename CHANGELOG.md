@@ -4,6 +4,8 @@
 
 - 修复: 停用 Delta 搜索向 Harness 侧栏 DOM 插入搜索框及私有定位/观察逻辑，改由已确认的 `conversation.input.left` 公开 Slot 打开 Search Palette，保留原生搜索和发布完整性校验（Issue #333）。
 
+- 修复: 服务式 Delta 侧栏搜索仅在已识别的 Harness 侧栏滚动区域内挂载；没有直属导航时仅清理插件 UI 并让原生搜索继续工作；过滤无关及 Delta 自有结果区域 DOM 变化，避免重复同步（Issue #333）。
+
 - 修复: 退役原生侧栏搜索输入代理、私有选择器及模拟输入事件，恢复 Harness 搜索入口的可见性；保留服务式 Delta 搜索并同步 ZIP3 校验与回归（Issue #333）。
 
 - 修复: 移除通过 DOM 克隆原生新会话按钮、模拟点击并隐藏原生按钮的兼容逻辑，保留 Harness 原生入口，同步 ZIP3 主题及适配器校验与回归测试（Issue #333）。
