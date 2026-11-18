@@ -738,8 +738,7 @@ export function installHostSessionOps(
     if (!reg) return
     for (const sid of sessionIds) {
       if (!sid) continue
-      const rawId = sid.replace(/^session-/, '')
-      const idVariants = [sid, rawId, `session-${rawId}`]
+      const idVariants = [...new Set(sessionAliases(sid))]
       for (const v of idVariants) {
         // Startup tombstone replay must never trigger native unarchive: older
         // Hosts may lack the public pre-unarchive veto entirely.
