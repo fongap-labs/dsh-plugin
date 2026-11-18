@@ -145,13 +145,26 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
   for (const item of bytes) { buffer.set(item, offset); offset += item.byteLength }
   const log = new TextDecoder('utf-8', { fatal: false }).decode(buffer)
   const lines = log.split('\n')
-  const failure = /##\[error\]|(?:^|\s)(?:error:|fatal:|failed|failure|exception|traceback|assertionerror)|process completed with exit code [1-9]/i
+  // Root failures typically precede the generic "Process completed with exit code 1".
+  // Preserve the first concrete failure and independent later failures instead of
+  // displaying only the final exit-code wrapper.
+  const concreteFailure = /\bnot ok\s+\d+\s+-|\bfailureType:|\bAssertionError\b|\b(?:error|fatal):\s*\S|\b(?:error|exception)\s+TS\d{4}:|\bTraceback\b|##\[error\](?!Process completed with exit code)/i
   const hits: number[] = []
-  for (let i = 0; i < lines.length; i++) if (failure.test(lines[i]!)) hits.push(i)
-  const last = hits.at(-1)
-  const selection = last === undefined
-    ? log.slice(-LOG_EXCERPT_CHARS)
-    : lines.slice(Math.max(0, last - 35), Math.min(lines.length, last + 12)).join('\n').slice(-LOG_CONTEXT_CHARS)
+  for (let i = 0; i < lines.length; i++) if (concreteFailure.test(lines[i]!)) hits.push(i)
+  let selection: string
+  if (!hits.length) {
+    selection = log.slice(-LOG_EXCERPT_CHARS)
+  } else {
+    const anchors = hits.filter((index, position) => position === 0 || index - hits[position - 1]! > 40).slice(0, 3)
+    const last = hits.at(-1)!
+    if (last - anchors.at(-1)! > 40 && anchors.length < 3) anchors.push(last)
+    const windows = anchors.map((index) =>
+      '[Failure evidence, log line ' + (index + 1) + ']\n' +
+      lines.slice(Math.max(0, index - 5), Math.min(lines.length, index + 48)).join('\n').slice(0, LOG_CONTEXT_CHARS))
+    const tail = lines.slice(-12).join('\n').slice(-1500)
+    selection = windows.join('\n\n---\n\n').slice(0, LOG_EXCERPT_CHARS - 1600) +
+      '\n\n[Final job outcome]\n' + tail
+  }
   return { excerpt: redactGitHubLog(selection, token), truncated: isTruncated || selection.length < log.length, bytesRead: total }
 }
 
