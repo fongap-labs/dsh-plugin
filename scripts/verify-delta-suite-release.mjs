@@ -7,7 +7,8 @@ import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const packageName = '@fongap-labs/dsh-delta-suite'
-const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/host-capabilities.js', 'lib/client.js',
+const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/host-capabilities.js',
+  'lib/delta-suite-adapter/host-capability-contract.js', 'lib/client.js',
   'locale/en.json', 'locale/zh.json', 'icon.svg']
 function ensure(isValid, description) {
   if (!isValid) throw new Error('Invalid Delta Suite release: ' + description)
@@ -233,7 +234,16 @@ export function verifyEntries(entries, version, format) {
   ensure(patch.includes('id: dsh-delta-suite') && patch.includes(packageName), format + ' patch')
   const host = entries.get('lib/index.js').toString()
   ensure(host.includes('negotiateHostCapabilities') && host.includes('DELTA_HOST_CONTRACT_VERSION'), format + ' Host capability contract')
-  ensure(entries.get('lib/host-capabilities.js').toString().includes('negotiateHostCapabilities'), format + ' capability module')
+  // The legacy module is a re-export shim after the adapter split. Validate
+  // the shipped link AND the concrete contract implementation in both archives
+  // rather than requiring an implementation body in the compatibility shim.
+  const compatibility = entries.get('lib/host-capabilities.js').toString()
+  ensure(/^\s*export\s+\*\s+from\s+['"]\.\/delta-suite-adapter\/host-capability-contract\.js['"];?\s*$/m.test(compatibility),
+    format + ' capability compatibility export')
+  const contract = entries.get('lib/delta-suite-adapter/host-capability-contract.js').toString()
+  ensure(/\bexport\s+const\s+DELTA_HOST_CONTRACT_VERSION\s*=/.test(contract) &&
+    /\bexport\s+function\s+negotiateHostCapabilities\s*\(/.test(contract),
+    format + ' capability module')
   ensure(!hasUnsafeHostPatch(host), format + ' unsafe Host patch')
   const client = entries.get('lib/client.js').toString()
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
