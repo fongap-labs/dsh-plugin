@@ -58,7 +58,8 @@ async function isInsideRealRoot(
 }
 
 function isSafeSegment(id: string): boolean {
-  return Boolean(id) && id !== '.' && id !== '..' && !id.includes('/') && !id.includes('\\')
+  return Boolean(id) && id !== '.' && id !== '..' &&
+    !id.includes('/') && !id.includes('\\') && !id.includes('\0')
 }
 
 async function removeSessionProjCache(ctx: SessionOpsHostContext, sessionId: string): Promise<void> {
@@ -756,6 +757,11 @@ export function installHostSessionOps(
     if (!sessionId) {
       return makeJsonResponse(400, { ok: false, error: 'MISSING_SESSION_ID' })
     }
+    // Never persist a tombstone or detach a native ID that cannot be a
+    // literal, single-segment Host session identifier.
+    if (!isSafeSegment(sessionId)) {
+      return makeJsonResponse(400, { ok: false, error: 'INVALID_SESSION_ID' })
+    }
 
     const current = await store.read()
     if (isSessionDeleted(current, sessionId)) {
@@ -792,9 +798,15 @@ export function installHostSessionOps(
 
   const handleDeleteUngrouped = async (request: unknown): Promise<unknown> => {
     const body = await readRequestJson(request)
-    const rawIds = Array.isArray(body.sessionIds) ? body.sessionIds : []
+    const rawIds = body.sessionIds
+    if (!Array.isArray(rawIds) ||
+        rawIds.some(id => typeof id !== 'string' || !isSafeSegment(id.trim()))) {
+      // Filtering malformed rows would silently execute only the valid
+      // subset of a destructive batch. Reject the entire request instead.
+      return makeJsonResponse(400, { ok: false, error: 'INVALID_SESSION_ID' })
+    }
     const cwds = body.cwds && typeof body.cwds === 'object' ? (body.cwds as Record<string, string>) : {}
-    const sessionIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string' && isSafeSegment(id.trim())).map(id => id.trim()))]
+    const sessionIds = [...new Set((rawIds as string[]).map(id => id.trim()))]
 
     const current = await store.read()
     // Reject the entire bulk request before any native side effect if one
