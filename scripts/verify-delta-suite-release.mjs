@@ -144,12 +144,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: Search Palette copies slash commands via Clipboard API; no Host editor DOM injection.
 // Reviewed 2026-11-18: explicit session-scoped composer Slot uses public revision-guarded InputActions; unscoped search remains copy-only.
 // Reviewed 2026-11-18: retired private workspace expansion storage reads and synthetic row clicks; native expansion is Host-owned.
-const ZIP3_THEME_BLOB = '96c382f064f3b5922c645014aaafd3ea1302627f'
+// Reviewed 2026-11-18: retired cloned native new-session button, synthetic click forwarding, and CSS hiding of the actual Host control.
+const ZIP3_THEME_BLOB = 'a0fad1ede30e9e035b40558edb20b5b3d5da1f9e'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '9b1317f7af5235c3f37ecbc0db01f7326a285421',
+    sha1: '053cac317c38368acdfaf80eb95d8ea00e624412',
   },
   {
     begin: 'function installHostSearch(',

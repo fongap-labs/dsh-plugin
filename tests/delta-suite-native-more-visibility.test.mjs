@@ -27,7 +27,7 @@ test('Harness More remains visible; Delta does not hide the native navigation ac
 test('release guard accepts reviewed More restoration and rejects unreviewed client/theme changes', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted(), source))
   const mutatedClient = source.replace(
-    '      // 5. New session button: styled identically to nav items, native icon on left',
+    '      // Harness owns native footer controls, account state and update actions.',
     '      const nativeMore = document.querySelector("button")\n      nativeMore?.style?.setProperty("display", "none")',
   )
   assert.notEqual(mutatedClient, source)
