@@ -872,14 +872,21 @@ export function installHostSessionOps(
   void serialize(async () => {
     if (isDisposed) return
     const initial = await store.read()
+    // Unmount can happen while durable state is being read or while cleanup
+    // is awaiting I/O; never initiate another native side effect afterwards.
+    if (isDisposed) return
     for (const delId of initial.deletedSessionIds) {
+      if (isDisposed) return
       await purgeSessionArtifacts(ctx, delId)
     }
     if (initial.deletedSessionIds.length > 0) {
+      if (isDisposed) return
       await purgeSessionsFromWorkspaceJson(ctx, initial.deletedSessionIds)
+      if (isDisposed) return
       await detachFromRegistry(initial.deletedSessionIds, true)
     }
     for (const lockedId of initial.lockedSessionIds) {
+      if (isDisposed) return
       await archiveSessionOnHost(lockedId)
     }
   }).catch(() => {})
