@@ -8,7 +8,7 @@ import { installHostPrivacyGuards } from './host-privacy.js'
 import type { PrivacyHostContext } from './host-privacy.js'
 import { installHostProxyManager } from './host-proxy.js'
 import { installHostSessionSearch } from './host-search.js'
-import { installHostSessionOps } from './host-sessions.js'
+import { installHostSessionOps, readHostSearchExclusion } from './host-sessions.js'
 import { installHostVisionOps } from './host-vision.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
@@ -61,10 +61,8 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
     owner: 'discovery',
     surfaces: ['left-sidebar'],
     install: () => installHostSessionSearch(ctx, {
-      isExcluded: sessionId => {
-        const cached = store.getCached()
-        return cached.lockedSessionIds.includes(sessionId) || cached.deletedSessionIds.includes(sessionId)
-      },
+      prepareExclusion: () => store.read(),
+      readExclusion: () => readHostSearchExclusion(store.getCached(), () => ctx.get?.('workspaceRegistry')),
       registerInvalidator: fn => { invalidateSearchCache = fn },
     }),
   })
