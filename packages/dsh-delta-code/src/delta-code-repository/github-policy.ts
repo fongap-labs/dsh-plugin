@@ -71,3 +71,27 @@ export function validBranch(value: string): string {
   if (!value || !SAFE_BRANCH.test(value) || value.endsWith('.lock') || value.endsWith('/') || value.endsWith('.')) throw new Error('invalid branch')
   return value
 }
+
+/** Parse a GitHub Actions evidence link without trusting its repository or using it as an API URL. */
+export function githubActionsTargetFromUrl(value: unknown): {
+  repository: string; runId: number; jobId?: number
+} {
+  if (typeof value !== 'string' || !value.trim()) throw new Error('invalid GitHub Actions URL')
+  let uri: URL
+  try { uri = new URL(value) } catch { throw new Error('invalid GitHub Actions URL') }
+  if (uri.protocol !== 'https:' || uri.hostname !== 'github.com' ||
+      uri.username || uri.password || uri.port) {
+    throw new Error('GitHub Actions URL must use https://github.com')
+  }
+  const match = /^\/([^/]+)\/([^/]+)\/actions\/runs\/([1-9][0-9]*)(?:\/job\/([1-9][0-9]*))?\/?$/.exec(uri.pathname)
+  if (!match || !isValidGitHubRepository(match[1] + '/' + match[2])) {
+    throw new Error('invalid GitHub Actions run or job URL')
+  }
+  const runId = Number(match[3])
+  const jobId = match[4] === undefined ? undefined : Number(match[4])
+  if (!Number.isSafeInteger(runId) || (jobId !== undefined && !Number.isSafeInteger(jobId))) {
+    throw new Error('invalid GitHub Actions run or job ID')
+  }
+  const repository = match[1] + '/' + match[2]
+  return jobId === undefined ? { repository, runId } : { repository, runId, jobId }
+}
