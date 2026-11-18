@@ -208,21 +208,21 @@ function installClient(require: (id: string) => unknown) {
       setNotice('')
     }, [state?.revision])
     React.useEffect(() => {
-      let active = true
+      let isActive = true
       const refs = [...new Set(draft.accounts.map(a => a.tokenEnv).filter(ref => ENV.test(ref)))]
-      if (!refs.length) { setCredentialStates({}); return () => { active = false } }
+      if (!refs.length) { setCredentialStates({}); return () => { isActive = false } }
       if (!props.credentials?.describe) {
         setCredentialNotice(t('当前 Host 未提供凭据服务。', 'Host credential service is unavailable.'))
-        return () => { active = false }
+        return () => { isActive = false }
       }
       // Host caps one describe call at 64 refs. No secret values are returned.
       const chunks = Array.from({ length: Math.ceil(refs.length / 64) }, (_, i) => refs.slice(i * 64, (i + 1) * 64))
       void Promise.all(chunks.map(chunk => props.credentials!.describe(chunk))).then(views => {
-        if (!active) return
+        if (!isActive) return
         setCredentialStates(Object.assign({}, ...views))
         setCredentialNotice('')
-      }).catch(() => { if (active) setCredentialNotice(t('凭据状态读取失败，请检查 Host 连接。', 'Could not read credential status.')) })
-      return () => { active = false }
+      }).catch(() => { if (isActive) setCredentialNotice(t('凭据状态读取失败，请检查 Host 连接。', 'Could not read credential status.')) })
+      return () => { isActive = false }
     }, [refsKey, props.credentials])
     if (props.view === 'summary') return t('Delta 编程助手 · 编程工具与 GitHub 多账号配置', 'Delta Code Worker · Coding tools and GitHub accounts')
     if (!props.form || state?.status !== 'ready') return hint(t('当前配置尚未由 Host 加载。', 'Host configuration is not available.'))
@@ -273,7 +273,7 @@ function installClient(require: (id: string) => unknown) {
       }
       setSaving(true)
       setNotice('')
-      let configSaved = false
+      let isConfigSaved = false
       try {
         if (ops.length) {
           const ok = await props.form!.mutate(ops, state.revision)
@@ -282,7 +282,7 @@ function installClient(require: (id: string) => unknown) {
               'Host rejected the configuration. Refresh and retry; tokens were not sent.'))
             return
           }
-          configSaved = true
+          isConfigSaved = true
         }
         // Never send token values through settings.mutate or its revision log.
         for (const update of updates) await props.credentials!.set(update.ref, update.token)
@@ -295,7 +295,7 @@ function installClient(require: (id: string) => unknown) {
         setNotice(t('已保存。Token 仅存于 Host 凭据服务，界面不会回显。',
           'Saved. Token values are held by Host credentials and never echoed.'))
       } catch {
-        setNotice(configSaved
+        setNotice(isConfigSaved
           ? t('账号配置已保存，但 Token 写入或状态读取失败。请检查凭据服务并重试。',
               'Account settings saved, but token write or status lookup failed. Check credentials and retry.')
           : t('保存失败，请检查 Host 连接及日志。', 'Save failed. Check the Host connection.'))
