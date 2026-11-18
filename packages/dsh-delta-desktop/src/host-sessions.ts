@@ -735,11 +735,9 @@ export function installHostSessionOps(
     const verdict = readProtection(current).session(sessionId)
     if (verdict !== 'clear') return protectionFailure(verdict)
 
-    await cancelLiveSession(sessionId)
-    await purgeSessionArtifacts(ctx, sessionId, sourceCwd)
-    await detachFromRegistry([sessionId])
-    await purgeSessionsFromWorkspaceJson(ctx, [sessionId])
-
+    // Commit the deletion tombstone before touching native files or registry.
+    // A failed state write must leave the session intact; interrupted cleanup
+    // remains safely replayable from the durable tombstone at next startup.
     const next = await store.update(cur => {
       const restMoved = { ...cur.movedSessions }
       delete restMoved[sessionId]
@@ -752,6 +750,13 @@ export function installHostSessionOps(
           : [...cur.deletedSessionIds, sessionId],
       }
     })
+
+    await cancelLiveSession(sessionId)
+    await purgeSessionArtifacts(ctx, sessionId, sourceCwd)
+    // Never unarchive a tombstoned session, including on older native Hosts
+    // that do not provide a public pre-unarchive veto.
+    await detachFromRegistry([sessionId], true)
+    await purgeSessionsFromWorkspaceJson(ctx, [sessionId])
     notifySessionChanged(sessionId)
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
@@ -784,14 +789,9 @@ export function installHostSessionOps(
       return makeJsonResponse(403, { ok: false, error: 'SESSION_LOCKED', skippedLockedIds })
     }
 
-    for (const sid of toDeleteIds) {
-      await cancelLiveSession(sid)
-      const hintedCwd = typeof cwds[sid] === 'string' && cwds[sid].trim() ? cwds[sid].trim() : undefined
-      await purgeSessionArtifacts(ctx, sid, hintedCwd)
-    }
-    await detachFromRegistry(toDeleteIds)
-    await purgeSessionsFromWorkspaceJson(ctx, toDeleteIds)
-
+    // Persist the entire eligible batch before its first destructive side
+    // effect. If cleanup fails midway, every eligible ID remains tombstoned
+    // for startup reconciliation; locked entries are never added.
     const next = await store.update(cur => {
       const restMoved = { ...cur.movedSessions }
       const delSet = new Set(cur.deletedSessionIds)
@@ -805,6 +805,15 @@ export function installHostSessionOps(
         deletedSessionIds: [...delSet],
       }
     })
+
+    for (const sid of toDeleteIds) {
+      await cancelLiveSession(sid)
+      const hintedCwd = typeof cwds[sid] === 'string' && cwds[sid].trim() ? cwds[sid].trim() : undefined
+      await purgeSessionArtifacts(ctx, sid, hintedCwd)
+    }
+    await detachFromRegistry(toDeleteIds, true)
+    await purgeSessionsFromWorkspaceJson(ctx, toDeleteIds)
+
     for (const sid of toDeleteIds) {
       notifySessionChanged(sid)
     }
