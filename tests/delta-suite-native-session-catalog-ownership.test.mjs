@@ -604,3 +604,76 @@ test('partial move and delete acknowledgements do not erase confirmed lock membe
     assert.equal(f.manager.getSnapshot().movedSessions.target, undefined)
   }
 })
+
+
+test('transient Host state failure revokes mutations yet automatically recovers after backoff', async () => {
+  const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
+  let stateRequests = 0
+  f.env.fetch = async path => {
+    if (path === '/api/delta-desktop/state') {
+      stateRequests++
+      return { ok: false, status: 503, json: async () => ({ error: 'offline' }) }
+    }
+    return { ok: true, status: 200, json: async () => ({}) }
+  }
+  await f.manager.refreshState()
+  assert.equal(stateRequests, 1)
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, false)
+  assert.equal(f.manager.isLocked('locked'), true, 'a failed refresh cannot clear a prior lock')
+  let now = Date.now() + 5000
+  f.env.Date = class extends Date { static now() { return now } }
+  f.env.fetch = async path => {
+    if (path === '/api/delta-desktop/state') {
+      stateRequests++
+      return { ok: true, status: 200, json: async () => ({ state: f.state([]) }) }
+    }
+    return { ok: true, status: 200, json: async () => ({}) }
+  }
+  f.manager.ensureLoaded()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(stateRequests, 2, 'unsynced state is eligible for a fresh Host read')
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
+  assert.equal(f.manager.isLocked('locked'), true)
+  now += 5000
+  f.manager.ensureLoaded()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(stateRequests, 2, 'a newly confirmed state does not schedule needless rereads')
+})
+
+test('proxy or vision outage never prevents a valid Host lock response from being applied', async () => {
+  const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
+  await f.manager.refreshState()
+  f.env.fetch = async path => {
+    if (path === '/api/delta-desktop/proxy') throw new Error('proxy subsystem unavailable')
+    if (path === '/api/delta-desktop/vision/status') throw new Error('vision subsystem unavailable')
+    return { ok: true, status: 200, json: async () => ({ state: f.state([]) }) }
+  }
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
+  assert.equal(f.manager.isLocked('locked'), true)
+})
+
+test('Host transport failures do not authorize workspace mutation and recovery restores ordinary calls', async () => {
+  const f = fixture()
+  await f.manager.refreshState()
+  const host = { list: { getSnapshot: () => ({ items: mutationRows }) },
+    delete() { return Promise.resolve('native') } }
+  const stop = installMutationGuards(host, host.list.getSnapshot, f.manager.getSnapshot, () => true, () => {})
+  try {
+    assert.equal(await host.delete('b'), 'native')
+    f.env.fetch = async path => {
+      if (path === '/api/delta-desktop/state') throw new Error('network offline')
+      return { ok: true, status: 200, json: async () => ({}) }
+    }
+    await f.manager.refreshState()
+    await assert.rejects(host.delete('b'), /workspace-state-unavailable/)
+    f.env.fetch = async path => ({
+      ok: true, status: 200,
+      json: async () => path === '/api/delta-desktop/state' ? { state: f.state([]) } : {},
+    })
+    await f.manager.refreshState()
+    assert.equal(await host.delete('b'), 'native')
+  } finally { stop() }
+})
