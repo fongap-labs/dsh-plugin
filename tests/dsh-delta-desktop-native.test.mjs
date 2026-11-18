@@ -136,7 +136,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
   const hover = app.components.get('sidebar.session.row.hover')
   assert.equal(hover.spec.id, 'delta.session.identity')
-  assert.match(JSON.stringify(hover.component({ sessionId: '0123456789abcdef' })), /0123456789ab/)
+  assert.equal(hover.component({ sessionId: '0123456789abcdef' }), null, 'cold protection state never renders session identity')
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('shell.overlay'), false)
   assert.notEqual(app.workspaces.delete, app.originalDelete, 'ZIP adds a default-workspace deletion safeguard')
@@ -167,7 +167,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('sidebar.brand.mark'), true, 'Delta mark returns only in Delta theme')
   assert.equal(app.components.has('sidebar.brand.name'), true, 'Delta name returns only in Delta theme')
-  assert.match(JSON.stringify(hover.component({ sessionId: 'abc' })), /abc/)
+  assert.equal(hover.component({ sessionId: 'abc' }), null, 'theme change does not authorize a cold session identity')
   assert.match(app.stored, /"mode":"delta"/)
   app.documentElement.lang = 'en'
   app.context.observers.forEach(notify => notify())

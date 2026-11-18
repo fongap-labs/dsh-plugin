@@ -62,6 +62,7 @@ interface AssistantResource {
   readonly assistantSessionId: string
   readonly purpose: 'discussion' | 'optimization'
   readonly reference: SessionReference
+  readonly protectionRevision: number
 }
 interface AssistantWorkflow {
   readonly purpose: 'discussion' | 'optimization'
@@ -1306,6 +1307,8 @@ function canCallHostHttp(): boolean {
 interface ClientFeatureManager {
   getSnapshot(): ClientFeatureSnapshot
   readSearchProtection(): SearchContentProtection
+  getContentProtectionRevision(): number
+  subscribeContentProtection(listener: () => void): () => void
   subscribe(listener: () => void): () => void
   ensureLoaded(): void
   getWorkspaces(): readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
@@ -1753,9 +1756,24 @@ function createClientFeatureManager(): ClientFeatureManager {
   let shieldEl: HTMLElement | undefined
   let shieldSessionId: string | undefined
   const workspaceNotifyListeners = new Set<() => void>()
+  const contentProtectionListeners = new Set<() => void>()
+  let contentProtectionRevision = 0
+  let stopNativeContentMembership: (() => void) | undefined
+  const invalidateContentProtection = (): void => {
+    contentProtectionRevision += 1
+    for (const listener of [...contentProtectionListeners]) {
+      try { listener() } catch {}
+    }
+  }
 
   const publish = (patch: Partial<Omit<ClientFeatureSnapshot, 'revision'>>): void => {
+    const previous = state
     state = Object.freeze({ ...state, ...patch, revision: state.revision + 1 })
+    if (previous.isSearchProtectionReady !== state.isSearchProtectionReady ||
+        previous.lockedSessionIds !== state.lockedSessionIds ||
+        previous.lockedWorkspaceIds !== state.lockedWorkspaceIds ||
+        previous.deletedSessionIds !== state.deletedSessionIds ||
+        previous.movedSessions !== state.movedSessions) invalidateContentProtection()
     listeners.forEach(fn => {
       try { fn() } catch {}
     })
@@ -2928,6 +2946,11 @@ function createClientFeatureManager(): ClientFeatureManager {
       return () => { listeners.delete(listener) }
     },
     ensureLoaded,
+    getContentProtectionRevision: () => contentProtectionRevision,
+    subscribeContentProtection: listener => {
+      contentProtectionListeners.add(listener)
+      return () => { contentProtectionListeners.delete(listener) }
+    },
     readSearchProtection: () => createSearchContentProtection(state, () => {
       if (!readNativeWorkspaceSnapshot) throw new Error('workspace membership unavailable')
       return readNativeWorkspaceSnapshot()
@@ -2935,8 +2958,18 @@ function createClientFeatureManager(): ClientFeatureManager {
     getWorkspaces: () => workspacesApi?.list?.getSnapshot?.()?.items ?? [],
     setWorkspacesApi: (api, readNative) => {
       if (workspacesApi !== api) pendingArchives.clear()
+      try { stopNativeContentMembership?.() } catch {}
+      stopNativeContentMembership = undefined
       workspacesApi = api
       readNativeWorkspaceSnapshot = api ? (readNative ?? (() => api.list.getSnapshot())) : undefined
+      if (api) {
+        try {
+          stopNativeContentMembership = api.list.subscribe?.(() => {
+            if (workspacesApi === api && state.lockedWorkspaceIds.length > 0) invalidateContentProtection()
+          })
+        } catch {}
+      }
+      if (state.lockedWorkspaceIds.length > 0) invalidateContentProtection()
       if (api) {
         if (hasSyncedStateFromHost) {
           syncLockedArchiveMembership(state.lockedSessionIds)
@@ -6292,13 +6325,37 @@ window.__ModuleLoader__.load({
     const ASSISTANT_PROTOCOL = 'dtdelta'
     const ASSISTANT_PRESET = 'delta-context'
     const assistantWorkflows = new Map<string, AssistantWorkflow>()
+    const discussionAssociations = new Map<string, string>()
+    const activeAssistantReleases = new Set<() => void>()
     let assistantServices: AssistantServices | undefined
+
+    function useContentProtectionRevision(): number {
+      return React.useSyncExternalStore(deltaFeatures.subscribeContentProtection, deltaFeatures.getContentProtectionRevision)
+    }
+    function allowsAssistantContent(scope: AssistantServices | undefined, ...ids: string[]): boolean {
+      if (!scope || assistantServices !== scope) return false
+      try {
+        const policy = deltaFeatures.readSearchProtection()
+        const rows = scope.sessions.list.getSnapshot().byId
+        return !!rows && ids.every(id => !!id && Object.prototype.hasOwnProperty.call(rows, id) &&
+          policy.allowsSession(id, rows[id]?.workspaceId))
+      } catch { return false }
+    }
+    function isCurrentAssistantAccess(scope: AssistantServices | undefined, revision: number, ...ids: string[]): boolean {
+      return revision === deltaFeatures.getContentProtectionRevision() && allowsAssistantContent(scope, ...ids)
+    }
+    function hasAssistantAssociation(parsed: Omit<AssistantResource, 'reference' | 'protectionRevision'>): boolean {
+      if (parsed.parentSessionId === parsed.assistantSessionId) return false
+      if (parsed.purpose === 'discussion') return savedAssistantSession(parsed.parentSessionId) === parsed.assistantSessionId
+      const workflow = assistantWorkflows.get(parsed.assistantSessionId)
+      return workflow?.purpose === 'optimization' && workflow.parentSessionId === parsed.parentSessionId
+    }
     const savedAssistantKey = 'fongap.dsh-delta-desktop.assistant-sessions.v1'
     function assistantAddress(parentSessionId: string, assistantSessionId: string, purpose: 'discussion' | 'optimization'): string {
       const query = new URLSearchParams({ parent: parentSessionId, purpose })
       return `dsh-resource://${ASSISTANT_PROTOCOL}/session/${encodeURIComponent(assistantSessionId)}?${query}`
     }
-    function parseAssistantAddress(address: string): Omit<AssistantResource, 'reference'> | undefined {
+    function parseAssistantAddress(address: string): Omit<AssistantResource, 'reference' | 'protectionRevision'> | undefined {
       try {
         const url = new URL(address)
         const parts = url.pathname.split('/').filter(Boolean)
@@ -6311,6 +6368,8 @@ window.__ModuleLoader__.load({
       } catch { return undefined }
     }
     function savedAssistantSession(parentSessionId: string): string | undefined {
+      const remembered = discussionAssociations.get(parentSessionId)
+      if (remembered !== undefined) return remembered
       try {
         const value = JSON.parse(localStorage.getItem(savedAssistantKey) ?? '{}') as Record<string, unknown>
         const saved = value[parentSessionId]
@@ -6318,29 +6377,64 @@ window.__ModuleLoader__.load({
       } catch { return undefined }
     }
     function rememberAssistantSession(parentSessionId: string, sessionId: string): void {
+      discussionAssociations.set(parentSessionId, sessionId)
       try {
         const value = JSON.parse(localStorage.getItem(savedAssistantKey) ?? '{}') as Record<string, unknown>
         localStorage.setItem(savedAssistantKey, JSON.stringify({ ...value, [parentSessionId]: sessionId }))
       } catch { /* the current panel remains usable without a saved resume id */ }
     }
-    function waitForSignal(signal: AbortSignal): Promise<void> {
-      if (signal.aborted) return Promise.resolve()
-      return new Promise(resolve => signal.addEventListener('abort', () => resolve(), { once: true }))
+    function revokeAssistantAccess(): void {
+      assistantWorkflows.clear()
+      for (const release of [...activeAssistantReleases]) release()
     }
+
+    // Releasing a Delta reference does not cancel Host-owned running activity.
+    // Every retained reference (including a not-yet-ready one) gets one release.
+    function retainAssistantAccess(scope: AssistantServices, id: string, signal?: AbortSignal) {
+      const reference = scope.sessions.retain(id, { source: 'sidebarChat', ...(signal ? { signal } : {}) })
+      let isReleased = false
+      let wake: () => void = () => {}
+      const ended = new Promise<void>(resolve => { wake = resolve })
+      const release = (): void => {
+        if (isReleased) return
+        isReleased = true
+        activeAssistantReleases.delete(release)
+        signal?.removeEventListener('abort', release)
+        try { reference.release() } catch {} finally { wake() }
+      }
+      activeAssistantReleases.add(release)
+      signal?.addEventListener('abort', release, { once: true })
+      if (signal?.aborted) release()
+      return {
+        reference, release, ended,
+        async ready(): Promise<boolean> {
+          await Promise.race([reference.ready, ended])
+          return !isReleased && reference.sessionId === id && reference.binding.session.sessionId === id
+        },
+      }
+    }
+
     function registerAssistantSurface(scope: AssistantServices): () => void {
+      revokeAssistantAccess()
+      discussionAssociations.clear()
       assistantServices = scope
+      const stopProtection = deltaFeatures.subscribeContentProtection(revokeAssistantAccess)
       scope.effect(() => scope.resources.register({
         protocol: ASSISTANT_PROTOCOL,
         async *open(address, { signal }) {
           const parsed = parseAssistantAddress(address)
-          if (!parsed) throw new Error('Delta Assistant: invalid resource address')
+          const revision = deltaFeatures.getContentProtectionRevision()
+          if (!parsed || !hasAssistantAssociation(parsed) ||
+              !isCurrentAssistantAccess(scope, revision, parsed.parentSessionId, parsed.assistantSessionId)) {
+            throw new Error('Delta Assistant: protected or invalid resource')
+          }
           if (signal.aborted) return
-          const reference = scope.sessions.retain(parsed.assistantSessionId, { source: 'sidebarChat', signal })
+          const lease = retainAssistantAccess(scope, parsed.assistantSessionId, signal)
           try {
-            await reference.ready
-            yield { ok: true, value: { ...parsed, reference } }
-            await waitForSignal(signal)
-          } finally { reference.release() }
+            if (!await lease.ready() || !isCurrentAssistantAccess(scope, revision, parsed.parentSessionId, parsed.assistantSessionId)) return
+            yield { ok: true, value: { ...parsed, reference: lease.reference, protectionRevision: revision } }
+            await lease.ended
+          } finally { lease.release() }
         },
       }), 'dsh-delta-desktop: independent assistant resources')
       scope.effect(() => scope.sidebarRightTabs.register({
@@ -6348,7 +6442,11 @@ window.__ModuleLoader__.load({
         kind: ASSISTANT_TAB_KIND,
         patterns: [`dsh-resource://${ASSISTANT_PROTOCOL}/session/**`],
         priority: 'extension',
-        canOpen: address => parseAssistantAddress(address) !== undefined,
+        canOpen: address => {
+          const parsed = parseAssistantAddress(address)
+          return !!parsed && hasAssistantAssociation(parsed) &&
+            allowsAssistantContent(scope, parsed.parentSessionId, parsed.assistantSessionId)
+        },
         title: address => parseAssistantAddress(address)?.purpose === 'optimization'
           ? (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.optimizeDraft
           : (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.discussTask,
@@ -6376,8 +6474,11 @@ window.__ModuleLoader__.load({
         name: 'conversation.input.model.label',
       }, ModelLabelExtension))
       return () => {
-        if (assistantServices === scope) assistantServices = undefined
-        assistantWorkflows.clear()
+        stopProtection()
+        if (assistantServices !== scope) return
+        assistantServices = undefined
+        discussionAssociations.clear()
+        revokeAssistantAccess()
       }
     }
     async function openAssistantSession(
@@ -6385,15 +6486,19 @@ window.__ModuleLoader__.load({
       purpose: 'discussion' | 'optimization',
       initialPrompt: string,
       workflow?: AssistantWorkflow,
+      revision = deltaFeatures.getContentProtectionRevision(),
     ): Promise<string> {
       const services = assistantServices
-      if (!services) throw new Error('Harness assistant capabilities are unavailable')
-      if (deltaFeatures.isDeleted(parentSessionId)) throw new Error('Session was deleted')
+      if (!services || !isCurrentAssistantAccess(services, revision, parentSessionId)) {
+        throw new Error('Delta Assistant: session protected or unavailable')
+      }
       let assistantSessionId = purpose === 'discussion' ? savedAssistantSession(parentSessionId) : undefined
       let isCreated = false
-      if (assistantSessionId && (deltaFeatures.isDeleted(assistantSessionId) ||
-          services.sessions.list.getSnapshot().byId?.[assistantSessionId] === undefined)) {
-        assistantSessionId = undefined
+      if (assistantSessionId) {
+        if (services.sessions.list.getSnapshot().byId?.[assistantSessionId] === undefined) assistantSessionId = undefined
+        else if (!isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
+          throw new Error('Delta Assistant: session protected or unavailable')
+        }
       }
       if (!assistantSessionId) {
         const parent = services.sessions.list.getSnapshot().byId?.[parentSessionId]
@@ -6402,34 +6507,41 @@ window.__ModuleLoader__.load({
           ...(parent?.workspaceId ? { workspaceId: parent.workspaceId } : {}),
         })
         isCreated = true
-        if (purpose === 'discussion') rememberAssistantSession(parentSessionId, assistantSessionId)
       }
-      if (deltaFeatures.isDeleted(parentSessionId) || deltaFeatures.isDeleted(assistantSessionId)) throw new Error('Session was deleted')
-      const reference = services.sessions.retain(assistantSessionId, { source: 'sidebarChat' })
+      if (parentSessionId === assistantSessionId ||
+          !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
+        throw new Error('Delta Assistant: session protected or unavailable')
+      }
+      const lease = retainAssistantAccess(services, assistantSessionId)
       try {
-        await reference.ready
-        if (deltaFeatures.isDeleted(parentSessionId) || deltaFeatures.isDeleted(assistantSessionId)) throw new Error('Session was deleted')
+        if (!await lease.ready() || !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
+          throw new Error('Delta Assistant: session protected or unavailable')
+        }
         if (isCreated) {
-          const result = await reference.binding.session.prompt([{ type: 'text', text: initialPrompt }], 'queue')
+          const result = await lease.reference.binding.session.prompt([{ type: 'text', text: initialPrompt }], 'queue')
           if (!result.ok) throw new Error(result.error?.message || 'Assistant prompt was rejected')
         }
-      } finally { reference.release() }
+      } finally { lease.release() }
+      if (!isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
+        throw new Error('Delta Assistant: session protected or unavailable')
+      }
+      if (purpose === 'discussion') rememberAssistantSession(parentSessionId, assistantSessionId)
       if (workflow) assistantWorkflows.set(assistantSessionId, workflow)
       await Promise.resolve(services.sidebarRight.openResource(assistantAddress(parentSessionId, assistantSessionId, purpose)))
       return assistantSessionId
     }
-    async function queueMainCorrection(parentSessionId: string, correction: string): Promise<boolean> {
+    async function queueMainCorrection(parentSessionId: string, assistantSessionId: string, correction: string, revision: number): Promise<boolean> {
       const services = assistantServices
-      if (!services || !correction.trim() || deltaFeatures.isDeleted(parentSessionId)) return false
-      const reference = services.sessions.retain(parentSessionId, { source: 'sidebarChat' })
+      if (!services || !correction.trim() || !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId) ||
+          savedAssistantSession(parentSessionId) !== assistantSessionId) return false
+      const lease = retainAssistantAccess(services, parentSessionId)
       try {
-        await reference.ready
-        if (deltaFeatures.isDeleted(parentSessionId)) return false
-        const result = await reference.binding.session.prompt([{
+        if (!await lease.ready() || !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) return false
+        const result = await lease.reference.binding.session.prompt([{
           type: 'text', text: `User correction from the Delta side conversation. Treat this as the user's queued instruction for the main task:\n\n${correction.trim()}`,
         }], 'queue')
-        return result.ok
-      } finally { reference.release() }
+        return result.ok && isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)
+      } finally { lease.release() }
     }
     function preferenceRow(title: string, description: string, isEnabled: boolean, onChange: (next: boolean) => void): unknown {
       return el('div', { className: 'dtd-preference-row' },
@@ -6624,6 +6736,8 @@ window.__ModuleLoader__.load({
         showModel ? el('span', { className: 'dtd-model-name' }, props.model?.name) : null)
     }
     function AssistantInputControls(props: AssistantSlotProps): unknown {
+      const revision = useContentProtectionRevision()
+      const scope = assistantServices
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const prefs = useFeaturePreferences(React)
       const draft = props.useInput(state => state.draft)
@@ -6634,17 +6748,24 @@ window.__ModuleLoader__.load({
       const sessionRef = React.useRef(props.sessionId)
       sessionRef.current = props.sessionId
       const [message, setMessage] = React.useState('')
+      const alive = React.useRef(true)
+      React.useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+      const canAct = () => alive.current && sessionRef.current === props.sessionId &&
+        isCurrentAssistantAccess(scope, revision, props.sessionId)
+      if (!canAct()) return null
       const openDiscussion = async (): Promise<void> => {
+        if (!canAct()) return
         const context = conversationContext(chat)
         const status = session.running ? 'running' : session.awaitingFirstTurn ? 'waiting for first turn' : 'idle'
         const prompt = `You are an independent discussion assistant for the user's main task. Discuss ideas, clarify requirements, and help plan corrections. This is a separate session: do not claim to have changed or interrupted the main task.\n\nMain task session: ${props.sessionId}\nMain task status: ${status}\n\nRecent loaded conversation context (may be incomplete):\n${context || '(no conversation excerpt available)'}`
         try {
           setMessage(copy.ui.assistantStarting)
-          await openAssistantSession(props.sessionId, 'discussion', prompt)
-          setMessage(copy.ui.assistantReady)
+          await openAssistantSession(props.sessionId, 'discussion', prompt, undefined, revision)
+          if (canAct()) setMessage(copy.ui.assistantReady)
         } catch (error) { setMessage(error instanceof Error ? error.message : copy.ui.assistantUnavailable) }
       }
       const optimize = async (): Promise<void> => {
+        if (!canAct()) return
         if (!prefs.inputOptimization) { setMessage(copy.ui.optimizationDisabled); return }
         if (!draft.trim()) return
         const original = draft
@@ -6654,10 +6775,10 @@ window.__ModuleLoader__.load({
           setMessage(copy.ui.assistantStarting)
           await openAssistantSession(props.sessionId, 'optimization', prompt, {
             purpose: 'optimization', parentSessionId: props.sessionId, originalDraft: original,
-            getCurrentDraft: () => sessionRef.current === props.sessionId ? draftRef.current : '',
+            getCurrentDraft: () => canAct() ? draftRef.current : '',
             inputActions: props.inputActions,
-          })
-          setMessage(copy.ui.assistantReady)
+          }, revision)
+          if (canAct()) setMessage(copy.ui.assistantReady)
         } catch (error) { setMessage(error instanceof Error ? error.message : copy.ui.assistantUnavailable) }
       }
       return el('div', { className: 'dtd-context-controls' },
@@ -6668,12 +6789,16 @@ window.__ModuleLoader__.load({
         message ? el('span', { role: 'status', className: 'dtd-context-feedback' }, message) : null)
     }
     function OptimizerApplyAction(props: AssistantSlotProps): unknown {
+      const revision = useContentProtectionRevision()
+      const scope = assistantServices
       const workflow = assistantWorkflows.get(props.sessionId)
       const chat = props.useChat(state => state)
       const [open, setOpen] = React.useState(false)
       const [edited, setEdited] = React.useState('')
       const [message, setMessage] = React.useState('')
-      if (!workflow || workflow.purpose !== 'optimization' || !props.messageId) return null
+      const canAct = () => !!workflow && assistantWorkflows.get(props.sessionId) === workflow &&
+        isCurrentAssistantAccess(scope, revision, props.sessionId, workflow.parentSessionId)
+      if (!workflow || workflow.purpose !== 'optimization' || !props.messageId || !canAct()) return null
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const node = chat.nodes?.values().find(value => {
         const data = value?.data as Record<string, any> | undefined
@@ -6684,13 +6809,14 @@ window.__ModuleLoader__.load({
       const generated = blocks.flatMap((block: any) => block?.kind === 'text' && typeof block.text === 'string' ? [block.text] : []).join('').trim()
       if (!generated) return null
       return el('div', { className: 'dtd-optimizer-action' },
-        el('button', { type: 'button', className: 'dtd-context-action', onClick: () => { setEdited(generated); setOpen(true); setMessage('') } }, copy.ui.previewOptimization),
+        el('button', { type: 'button', className: 'dtd-context-action', onClick: () => { if (canAct()) { setEdited(generated); setOpen(true); setMessage('') } } }, copy.ui.previewOptimization),
         open ? el('div', { className: 'dtd-optimizer-preview', role: 'dialog', 'aria-label': copy.ui.previewOptimization },
           el('label', null, copy.ui.previewOptimization),
           el('textarea', { value: edited, rows: 7, onChange: (event: { currentTarget: { value: string } }) => setEdited(event.currentTarget.value) }),
           message ? el('p', { role: 'alert' }, message) : null,
           el('div', { className: 'dtd-context-actions' },
             el('button', { type: 'button', onClick: () => {
+              if (!canAct()) return
               const current = workflow.getCurrentDraft?.()
               if (!workflow.inputActions || !workflow.getCurrentDraft ||
                   (current !== workflow.originalDraft && current !== workflow.appliedDraft)) {
@@ -6702,6 +6828,7 @@ window.__ModuleLoader__.load({
               setMessage(copy.ui.assistantReady)
             } }, copy.ui.applyOptimization),
             el('button', { type: 'button', onClick: () => {
+              if (!canAct()) return
               const current = workflow.getCurrentDraft?.()
               if (!workflow.inputActions || !workflow.getCurrentDraft ||
                   (current !== workflow.originalDraft && current !== workflow.appliedDraft)) {
@@ -6713,6 +6840,7 @@ window.__ModuleLoader__.load({
               setMessage(copy.ui.restoreOriginal)
             } }, copy.ui.restoreOriginal),
             el('button', { type: 'button', onClick: () => {
+              if (!canAct()) return
               const write = navigator.clipboard?.writeText(edited)
               if (write) void write.then(() => setMessage(copy.ui.copied), () => setMessage(copy.ui.copyFailed))
               else setMessage(copy.ui.copyFailed)
@@ -6720,11 +6848,13 @@ window.__ModuleLoader__.load({
             el('button', { type: 'button', onClick: () => setOpen(false) }, copy.ui.cancel))) : null)
     }
     function CompactionActivityAction(props: AssistantSlotProps): unknown {
+      useContentProtectionRevision()
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const chat = props.useChat(state => state)
       const status = props.useProjection<{ seq?: number; phase?: 'idle' | 'running' | 'completed' | 'failed'; failed?: boolean }>(
         'deltaContextCompactionStatus')
-      if (!props.messageId || props.messageId !== latestAssistantMessageId(chat) || !status || (status.seq ?? -1) < 0) return null
+      if (!allowsAssistantContent(assistantServices, props.sessionId) ||
+          !props.messageId || props.messageId !== latestAssistantMessageId(chat) || !status || (status.seq ?? -1) < 0) return null
       const phase = status.failed ? 'failed' : status.phase ?? 'idle'
       if (phase === 'idle') return null
       const checkpoint = latestCheckpoint(chat)
@@ -6741,8 +6871,10 @@ window.__ModuleLoader__.load({
           el('pre', { className: 'dtd-compaction-summary' }, checkpoint.summary)) : null)
     }
     function EmbeddedAssistantConversation(props: AssistantSlotProps): unknown {
+      useContentProtectionRevision()
       const session = props.useSession(state => state)
       const conversation = props.useConversation?.((value: any) => value)
+      if (!allowsAssistantContent(assistantServices, props.sessionId)) return null
       const active = !!conversation && (conversation.activeTargets?.size > 0 || !session.blank || session.running)
       const phase = active ? 'active' : session.promptAttempted ? 'engaging' : 'blank'
       const FixedChatView = (viewProps: { renderSlot(name: string, input: Record<string, unknown>): unknown }): unknown =>
@@ -6751,6 +6883,8 @@ window.__ModuleLoader__.load({
         { variant: 'embedded', phase, hero: phase === 'blank' }, { slots: { views: FixedChatView } }) ?? null
     }
     function AssistantTabBody(props: AssistantSlotProps): unknown {
+      const revision = useContentProtectionRevision()
+      const scope = assistantServices
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const info = props.useTabInfo?.()
       const resource = props.useResource?.<AssistantResource>(info?.tab.contentId || '')
@@ -6763,21 +6897,35 @@ window.__ModuleLoader__.load({
       const [feedback, setFeedback] = React.useState('')
       const [correctionOpen, setCorrectionOpen] = React.useState(false)
       const [queuePending, setQueuePending] = React.useState(false)
+      const parentId = resource?.value?.parentSessionId
+      const assistantId = resource?.value?.assistantSessionId
+      const current = React.useRef({ parentId, assistantId, mainSessionId: mainState.sessionId })
+      current.current = { parentId, assistantId, mainSessionId: mainState.sessionId }
+      const alive = React.useRef(true)
+      React.useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+      const canAct = () => !!parentId && !!assistantId && !!resource?.value && alive.current &&
+        current.current.parentId === parentId && current.current.assistantId === assistantId &&
+        current.current.mainSessionId === parentId && resource.value.protectionRevision === revision &&
+        isCurrentAssistantAccess(scope, revision, parentId, assistantId) && hasAssistantAssociation(resource.value)
+      React.useEffect(() => {
+        setCorrection(''); setConfirm(false); setFeedback(''); setCorrectionOpen(false)
+      }, [revision, parentId, assistantId])
+      if (!parentId || !assistantId || !canAct()) return null
       const usage = readContextUsage(mainPressure)
       const turns = mainChat.timeline?.turnOrder?.length ?? 0
       const contextExcerpt = conversationContext(mainChat, 3000)
-      const parentId = resource?.value?.parentSessionId || mainState.sessionId
       const mainStatus = mainState.running ? copy.ui.sessionRunning
         : mainState.awaitingFirstTurn ? copy.ui.assistantStarting : copy.ui.sessionIdle
       const checkpoint = latestCheckpoint(mainChat)
       const send = async (): Promise<void> => {
-        if (!confirm || !correction.trim() || queuePending) return
+        if (!canAct() || !confirm || !correction.trim() || queuePending) return
         setQueuePending(true)
         try {
-          const ok = await queueMainCorrection(parentId, correction.trim())
+          const ok = await queueMainCorrection(parentId, assistantId, correction.trim(), revision)
+          if (!canAct()) return
           setFeedback(ok ? copy.ui.correctionQueued : copy.ui.correctionFailed)
           if (ok) { setCorrection(''); setConfirm(false); setCorrectionOpen(false) }
-        } catch { setFeedback(copy.ui.correctionFailed) }
+        } catch { if (canAct()) setFeedback(copy.ui.correctionFailed) }
         finally { setQueuePending(false) }
       }
       const conversation = resource?.value
@@ -6790,7 +6938,7 @@ window.__ModuleLoader__.load({
             el('p', null, copy.ui.assistantContext)),
           el('div', { className: 'dtd-assistant-header-actions' },
             resource?.value?.purpose === 'discussion' ? el('button', { type: 'button', className: 'dtd-assistant-action',
-              onClick: () => { setCorrectionOpen(true); setConfirm(false); setFeedback('') } }, copy.ui.queueCorrection) : null,
+              onClick: () => { if (canAct()) { setCorrectionOpen(true); setConfirm(false); setFeedback('') } } }, copy.ui.queueCorrection) : null,
             assistantServices?.sidebarRight.closeRightbar ? el('button', { type: 'button', className: 'dtd-assistant-close',
               'aria-label': copy.ui.close, title: copy.ui.close,
               onClick: () => assistantServices?.sidebarRight.closeRightbar?.() }, '×') : null)),
@@ -6854,8 +7002,10 @@ window.__ModuleLoader__.load({
     function DeltaBrandName(): unknown {
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
-    function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
-      if (deltaFeatures.isDeleted(sessionId)) return null
+    function SessionHoverDetail({ sessionId }: SessionHoverProps, controller: DeltaController): unknown {
+      const revision = useContentProtectionRevision()
+      const mode = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot).mode
+      if (mode !== 'delta' || !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return null
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
@@ -6867,6 +7017,8 @@ window.__ModuleLoader__.load({
           'aria-label': copy.ui.copySessionId,
           onClick: () => {
             const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+            if (controller.getSnapshot().mode !== 'delta' || revision !== deltaFeatures.getContentProtectionRevision() ||
+                !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return
             const request = navigator.clipboard?.writeText(sessionId)
             if (!request) { showDeltaToast(labels.copyFailed); return }
             void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
@@ -7291,7 +7443,7 @@ window.__ModuleLoader__.load({
                 name: 'sidebar.session.row.hover',
                 id: 'delta.session.identity',
                 order: 500,
-              }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
+              }, props => SessionHoverDetail(props, controller)))
 
               // Guard Host workspace mutations, register session move/lock/delete menus, and project durable session changes.
               scope.inject(['workspaces'], workspaceScope => {

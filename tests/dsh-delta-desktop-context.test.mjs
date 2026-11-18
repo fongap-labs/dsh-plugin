@@ -38,6 +38,9 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   let hookKey = 'default'
   let hookIndex = 0
   let draftValue = draft
+  let protectionState = { hasPin: false, lockMode: 'none', lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {} }
+  let nextReady
+  const hookEffects = new Map()
   const root = { lang: 'en', setAttribute() {}, removeAttribute() {}, getAttribute() { return undefined } }
   const body = { appendChild(node) { node.parentNode = body }, removeChild(node) { node.parentNode = null } }
   const document = {
@@ -49,13 +52,17 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     querySelector() { return null },
   }
   const context = {
-    window: { __ModuleLoader__: { load(entry) { registration = entry } } },
+    window: { __ModuleLoader__: { load(entry) { registration = entry } }, location: { href: 'https://harness.test/' } },
+    fetch: async path => ({ ok: true, json: async () => path === '/api/delta-desktop/state' ? { state: protectionState } : {} }),
     document, navigator: { language: 'en-US' }, URL, URLSearchParams, AbortController,
     localStorage: { getItem(key) { return storage.get(key) ?? null }, setItem(key, value) { storage.set(key, value) } },
     MutationObserver: class { observe() {} disconnect() {} },
     console: { error(...values) { diagnosticMessages.push(values.map(String).join(' ')) }, warn(...values) { diagnosticMessages.push(values.map(String).join(' ')) } },
   }
-  vm.runInNewContext(clientSource, context)
+  // The production fixture is wrapped in an IIFE; expose the test hook inside it.
+  const testClientSource = clientSource.replace(/\n\}\)\(\);\n$/, '\n;globalThis.testFeatures = deltaFeatures\n})();\n')
+  assert.notEqual(testClientSource, clientSource, 'desktop fixture wrapper must be present')
+  vm.runInNewContext(testClientSource, context)
   const react = {
     createElement(type, props, ...children) { return { type, props: props || {}, children } },
     useState(initial) {
@@ -72,7 +79,13 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
       if (!(index in values)) values[index] = { current: initial }
       return values[index]
     },
-    useEffect(effect) { effect() },
+    useEffect(effect, deps) {
+      const key = hookKey + ':' + hookIndex++
+      const prev = hookEffects.get(key)
+      if (deps && prev && deps.length === prev.deps?.length && deps.every((value, i) => Object.is(value, prev.deps[i]))) return
+      prev?.cleanup?.()
+      hookEffects.set(key, { deps, cleanup: effect() })
+    },
     useSyncExternalStore(_subscribe, get) { return get() },
   }
   const primitives = { MenuItemButton() {} }
@@ -94,7 +107,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
         getSnapshot() { return { running: mainRunning && sessionId === 'main-1' } },
       }
       return {
-        sessionId, binding: { session }, ready: Promise.resolve(),
+        sessionId, binding: { session }, ready: (() => { const ready = nextReady; nextReady = undefined; return ready ?? Promise.resolve() })(),
         release() { refCounts.set(sessionId, refCounts.get(sessionId) - 1) },
       }
     },
@@ -187,7 +200,12 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   }
   return { components, effects, prompts, commands, created, opened, refCounts, storage, resources, tabs,
     dialogRoots, diagnosticMessages, mcpMutations, mcpFormQueries, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
-    get draft() { return draftValue }, sessions }
+    get draft() { return draftValue }, sessions,
+    ready: context.testFeatures.refreshState(),
+    revision: () => context.testFeatures.getContentProtectionRevision(),
+    setProtection: async patch => { protectionState = { ...protectionState, ...patch }; await context.testFeatures.refreshState() },
+    deferRetain: () => { let resolve; nextReady = new Promise(done => { resolve = done }); return resolve },
+  }
 }
 function textOf(node) {
   if (typeof node === 'string' || typeof node === 'number') return String(node)
@@ -586,6 +604,7 @@ test('failed privacy settings writes keep credentials out of the Host form and s
 
 test('independent discussion and input optimization use a separate tool-free session', async () => {
   const app = makeHarness()
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   assert.ok(input)
   let tree = app.render('input', input.component, app.mainProps)
@@ -620,13 +639,17 @@ test('independent discussion and input optimization use a separate tool-free ses
 
 test('main-task corrections require a review step and are queued without steering', async () => {
   const app = makeHarness()
-  const address = 'dsh-resource://dtdelta/session/assistant-1?parent=main-1&purpose=discussion'
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
+  await turn()
+  const address = app.opened[0]
   const tab = [...app.components.values()].find(value => value.spec.name === 'sidebar.right.pane.tab' && value.spec.key === '@fongap-labs/dsh-delta-desktop')
   assert.ok(tab)
   const props = {
     ...app.mainProps,
     useTabInfo: () => ({ tab: { contentId: address } }),
-    useResource: () => ({ value: { parentSessionId: 'main-1', assistantSessionId: 'assistant-1', purpose: 'discussion', reference: {} } }),
+    useResource: () => ({ value: { parentSessionId: 'main-1', assistantSessionId: 'assistant-1', purpose: 'discussion', reference: {}, protectionRevision: app.revision() } }),
     SessionProvider: () => null,
     renderSlot: () => null,
   }
@@ -655,9 +678,10 @@ test('main-task corrections require a review step and are queued without steerin
   assert.equal(app.commands.length, 0)
 })
 
-test('automatic compaction activity appears in the chat and not in the composer', () => {
+test('automatic compaction activity appears in the chat and not in the composer', async () => {
   const app = makeHarness({ pressure: { projectedTokens: 8_600, contextWindow: 10_000 },
     compactionStatus: { seq: 4, phase: 'running', failed: false } })
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   const tree = app.render('input', input.component, app.mainProps)
   assert.doesNotMatch(textOf(tree), /86%|Compact now|Latest structured summary|Condensing earlier conversation/)
@@ -669,8 +693,9 @@ test('automatic compaction activity appears in the chat and not in the composer'
   assert.equal(findClass(notice, 'dtd-compaction-event is-running')?.props.role, 'status')
 })
 
-test('a completed compaction shows its structured checkpoint in the chat activity row', () => {
+test('a completed compaction shows its structured checkpoint in the chat activity row', async () => {
   const app = makeHarness({ compactionStatus: { seq: 12, phase: 'completed', failed: false } })
+  await app.ready
   const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
   const tree = app.render('compaction', activity.component, app.mainProps)
   assert.match(textOf(tree), /Earlier conversation condensed/)
@@ -679,9 +704,10 @@ test('a completed compaction shows its structured checkpoint in the chat activit
   assert.match(textOf(tree), /Keep user constraints/)
 })
 
-test('a failed automatic compaction reports in the chat and preserves the draft', () => {
+test('a failed automatic compaction reports in the chat and preserves the draft', async () => {
   const app = makeHarness({ pressure: { projectedTokens: 9_100, contextWindow: 10_000 },
     compactionStatus: { seq: 12, phase: 'failed', failed: true } })
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   const composer = app.render('input', input.component, app.mainProps)
   assert.doesNotMatch(textOf(composer), /compression failed/i)
@@ -695,6 +721,7 @@ test('a failed automatic compaction reports in the chat and preserves the draft'
 
 test('input optimization refuses to replace a draft edited while the result was being prepared', async () => {
   const app = makeHarness()
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   await findButton(app.render('input', input.component, app.mainProps), 'Optimize input').props.onClick()
   await turn()
@@ -715,6 +742,7 @@ test('input optimization refuses to replace a draft edited while the result was 
 
 test('restoring optimized text does not overwrite a newer main draft', async () => {
   const app = makeHarness()
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   await findButton(app.render('input', input.component, app.mainProps), 'Optimize input').props.onClick()
   await turn()
@@ -732,4 +760,64 @@ test('restoring optimized text does not overwrite a newer main draft', async () 
   const after = app.render('result', action.component, props)
   assert.match(textOf(after), /main draft changed/i)
   assert.equal(app.draft, 'A newer user draft.')
+})
+
+
+test('locked parent suppresses assistant controls, hover copy and checkpoint activity', async () => {
+  const app = makeHarness({ compactionStatus: { seq: 12, phase: 'completed', failed: false } })
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  const before = app.render('input', input.component, app.mainProps)
+  const old = findButton(before, 'Discuss independently')
+  const hover = app.components.get('sidebar.session.row.hover:delta.session.identity')
+  const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
+  assert.ok(hover)
+  assert.ok(app.render('hover', hover.component, { sessionId: 'main-1' }), 'confirmed ordinary session can display its ID')
+  await app.setProtection({ hasPin: true, lockMode: 'totp', lockedSessionIds: ['session-main-1'] })
+  assert.equal(app.render('input', input.component, app.mainProps), null)
+  assert.equal(app.render('hover', hover.component, { sessionId: 'main-1' }), null)
+  assert.equal(app.render('activity', activity.component, app.mainProps), null)
+  await app.setProtection({ hasPin: false, lockMode: 'none', lockedSessionIds: [] })
+  old.props.onClick()
+  await turn()
+  assert.equal(app.created.length, 0, 'previous protection revision never regains permission')
+})
+
+test('protection change during assistant retain prevents queued context, resource opening and leaks', async () => {
+  const app = makeHarness()
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  const release = app.deferRetain()
+  findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
+  await turn()
+  assert.equal(app.refCounts.get('assistant-1'), 1)
+  await app.setProtection({ hasPin: true, lockMode: 'totp', lockedSessionIds: ['main-1'] })
+  assert.equal(app.refCounts.get('assistant-1'), 0, 'not-yet-ready reference releases immediately')
+  release()
+  await turn()
+  assert.equal(app.prompts.length, 0)
+  assert.equal(app.opened.length, 0)
+  assert.equal(app.refCounts.get('assistant-1'), 0)
+})
+
+test('assistant resource validates association and revokes its retained reference on protection change', async () => {
+  const app = makeHarness()
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
+  await turn()
+  const provider = app.resources.find(row => row.protocol === 'dtdelta')
+  const address = app.opened[0]
+  assert.ok(provider && address)
+  const forged = 'dsh-resource://dtdelta/session/main-1?parent=main-1&purpose=discussion'
+  const signal = new AbortController().signal
+  await assert.rejects(provider.open(forged, { signal }).next(), /protected or invalid resource/)
+  const iterator = provider.open(address, { signal })
+  const opened = await iterator.next()
+  assert.equal(opened.value.value.parentSessionId, 'main-1')
+  assert.equal(app.refCounts.get('assistant-1'), 1)
+  await app.setProtection({ hasPin: true, lockMode: 'totp', lockedSessionIds: ['main-1'] })
+  assert.equal(app.refCounts.get('assistant-1'), 0)
+  assert.equal((await iterator.next()).done, true)
+  await assert.rejects(provider.open(address, { signal }).next(), /protected or invalid resource/)
 })
