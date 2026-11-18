@@ -38,6 +38,8 @@ test('release guard rejects activation of retired native sidebar layout compatib
     "root . setAttribute('data-delta-compat', '1')",
     "root['setAttribute'](`data-delta-compat`, '1')",
     "root.dataset . deltaCompat = '1'",
+    "root.dataset.deltaCompat ||= '1'",
+    "root['dataset']['deltaCompatStatus'] ??= 'mounted'",
     "root['dataset']['deltaCompatStatus'] = 'mounted'",
     'data-dtd-nav-tail',
   ]) {

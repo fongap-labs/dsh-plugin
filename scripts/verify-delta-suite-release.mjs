@@ -164,7 +164,7 @@ const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
 ]
-const LEGACY_COMPAT_DATASET_WRITE = /(?:\.\s*dataset|\[\s*['"`]dataset['"`]\s*\])(?:\s*\[\s*['"`]deltaCompat(?:Status)?['"`]\s*\]|\s*\.\s*deltaCompat(?:Status)?)\s*=/
+const LEGACY_COMPAT_DATASET_WRITE = /(?:\.\s*dataset|\[\s*['"`]dataset['"`]\s*\])(?:\s*\[\s*['"`]deltaCompat(?:Status)?['"`]\s*\]|\s*\.\s*deltaCompat(?:Status)?)\s*(?:\?\?=|&&=|\|\|=|[+\-*\/%&|^]=|=(?!=|>))/
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
