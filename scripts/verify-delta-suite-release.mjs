@@ -119,9 +119,8 @@ export function hasUnsafeHostPatch(source) {
   return executable.includes('workspaceRegistry') || executable.includes('protected-default-workspace')
 }
 
-// ZIP3 retains its approved sidebar/search adapter until the feature-registry
-// migration eliminates private DOM dependencies. We pin both regions and the
-// exact author-provided ZIP theme; no arbitrary Host takeover is authorized.
+// ZIP3 pins the audited transition adapter and author-provided theme exactly.
+// Unavailable native sidebar layout features must stay on the Harness fallback.
 // Reviewed 2026-11-18: removed native running-status DOM text rewriting.
 // Reviewed 2026-11-18: removed native page heading DOM text rewriting.
 // Reviewed 2026-11-18: native Settings labels are no longer rewritten.
@@ -158,12 +157,14 @@ export function hasUnsafeHostPatch(source) {
 // menu/separator CSS retired; Delta-owned context menu keeps its own danger treatment.
 // Reviewed 2026-11-18: native Settings rows and empty Ungrouped buckets no longer
 // rely on private DOM/text hiding. Protected-session ACL and tombstone guards remain.
-const ZIP3_THEME_BLOB = '3de1c2ed2d5b77b9dba9e0893a53699525d65706'
+// Reviewed 2026-11-19: disabled legacy sidebar layout activation and Settings-nav order writes.
+// Transitional protection DOM and Host command guards remain outside native layout ownership.
+const ZIP3_THEME_BLOB = 'c3c9c4c4f5fd0672263cff14dc8d8e1c65d14a0e'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'ecfa123033d1fa9be0abd6b58ead3031cdf25029',
+    sha1: 'b786277407dee9cc2581d885381b02b1cb0b038e',
   },
   {
     begin: 'function installHostSearch(',
@@ -202,12 +203,14 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
-  // The exact public Slot implementation is pinned by ZIP3_COMPAT_REGIONS.
-  // Keep emitted-fixture compatibility while rejecting legacy native DOM takeover.
-  ensure(client.includes('dtd-host-search') && client.includes('data-delta-compat') &&
+  // The exact reviewed adapter regions are pinned by ZIP3_COMPAT_REGIONS.
+  // Keep emitted-fixture compatibility while rejecting legacy native layout takeover.
+  ensure(client.includes('dtd-host-search') &&
     !client.includes('dtd-native-search') &&
+    !/\.setAttribute\(['"]data-delta-compat['"]/.test(client) &&
+    !client.includes('data-dtd-nav-tail') &&
     !client.includes('navParent.insertBefore(shell, navigationRow)'),
-    'ZIP3 emitted sidebar adapter incomplete or legacy native search proxy retained')
+    'ZIP3 emitted sidebar adapter incomplete or legacy native layout takeover retained')
   ensure(!client.includes('dtd-search-dialog-backdrop') && !client.includes('openSearchDialog(') &&
     !client.includes('workspaceRegistry') && !client.includes('app.asar'),
     'non-ZIP3 Host DOM or legacy search takeover')

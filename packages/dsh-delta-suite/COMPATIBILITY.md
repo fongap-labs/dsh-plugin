@@ -46,10 +46,12 @@
 - 契约 v1 采用显式 `contractVersion` + `capabilities[]`；协商返回 `compatible`、`available`、`missing`、`reason`。
 - 未提供 manifest / 契约版本不符 / 缺少必需能力均拒绝启用对应集成，不能当作功能通过。
 - `theme.tokens`、`settings.section`、`sidebar.brand` 可以继续通过 DSH 现有公开插槽走独立扩展，不能据此推断 `sidebar.compose` 等更深层能力已实现。
-- `workspace.before-delete` 必须由宿主在业务操作边界提供正式钩子；此前客户端与宿主两处 `delete` 方法替换逻辑均已撤销。能力尚不可用时，不声称默认工作区删除保护已实现。
+- `workspace.before-delete` 必须由宿主在业务操作边界提供正式钩子。当前 `installWorkspaceMutationGuards` 仍对公开的 `workspaces.delete` / `unarchiveSession` 方法安装生命周期受管的兼容包装；这不是 Host 原生授权边界，也不满足默认工作区删除保护的公开契约。能力尚不可用时，不声称默认工作区删除保护已实现。
 - `conversation.transport` / `conversation.stream` / `conversation.stop` / `approval.request` 必须通过真实宿主会话集成测试验证，不能使用 UI 主题启用结果替代。
 - 旧 DOM 模拟测试已退役；保留负向回归，防止重新绑定 `data-sidebar-scrollport` 等非稳定结构。
 - 本次交付仅包含稳定边界与发布阻断，不包含受限 Host UI 功能；发布状态以 `feature-readiness.json` 和真实 Windows 验收共同决定。
+
+当前边界：能力名称与协商 helper 目前只是导出的契约定义；运行时没有 Host manifest provider/consumer 接线，因此尚未完成能力协商，也不能据此声称 `sidebar.compose`、`workspace.before-delete` 等能力可用。
 
 下一阶段：DSH Adapter 通过宿主正式插件 API 建立可探测的能力清单，Delta Suite 依据已协商能力逐项装配界面；任何宿主不支持的特性必须显式标记不可用并回退原生体验。
 
@@ -83,8 +85,8 @@
 
 - 已删除 Client 运行时对原生 Slots `entries`/`entriesOfSlot` 的方法替换及 `_core`、`_host` 等私有对象访问。
 - 已删除对 Cordis `cordis.original` 的反射解包、Locale 字典原位修改、`register`/`translate`/`installLocale` 方法替换；Delta 自己的字典和通过公开 Slots 注册的内容继续保留。
-- 原生设置项与反馈入口不再被 Slot 查询拦截过滤；Harness Locale 的状态及导航翻译不再由 Delta 方法劫持。**注意：旧的 `installSidebarCompatibility` 仍包含基于 DOM 的状态文字修改**，这一行为尚未完成治理，因此不能承诺屏幕显示完全原生。
-- 尚未移除的 `installSidebarCompatibility` 以及其他宿主 DOM 结构依赖仍是后续 P0 的专项审计对象；**不能**据此宣称所有 DOM 接管已经治理完毕。
+- 原生设置项与反馈入口不再被 Slot 查询拦截过滤；Harness Locale 的状态及导航翻译不再由 Delta 方法劫持。**注意：`installSidebarCompatibility` 仍扫描原生 DOM，为锁定/已删除会话添加标记与徽章、隐藏受限命令和 sole-workspace 删除项，并折叠错误行**；这些行为尚未完成公开 API 迁移，不能承诺屏幕显示完全原生。
+- 剩余 `installSidebarCompatibility` DOM 结构依赖、全页 MutationObserver，以及 `installWorkspaceMutationGuards` 的公开方法包装仍是后续 P0 专项审计对象；**不能**据此宣称所有 DOM 或方法接管已经治理完毕。
 - 此阶段未应用 Harness 源码 Patch，未修改安装身份、发布包名或独立运行时。
 
 ## 2026-11-18 原生运行状态文案保留（Issue #333 分阶段治理）
@@ -429,3 +431,16 @@
 - A new runtime state filename and `DELTA_SUITE_STATE_FILE` override replace the previous naming namespace. If **no explicit new override** is set and the new state file is missing, the Host store may read the previous Profile state file, validate it, atomically write the normalized state to the new location with private permissions, and only then publish it. Existing deleted-session tombstones, locks and 2FA keys are retained. An unreadable, corrupt or unpersistable previous state fails closed. The previous file is not deleted, making rollback possible; users must not discard it before acceptance.
 - Client/Host request paths, theme owner IDs, storage keys, UI labels, build-time placeholders, lockfile entries and release validation now use the same product identity. A naming regression test searches repository paths and current source content for retired spellings during both `pnpm test` and `pnpm validate`. Historic display labels in immutable `CHANGELOG.md` entries are the sole documented exception required by central release governance; package IDs and paths remain prohibited everywhere. An unneeded archived ZIP carrying a prior package identity was removed from the current working tree; the approved ZIP3 design and scoped adapter implementations remain in source.
 - Source and CI checks do not prove Windows Harness install/uninstall, startup, Session migration, Profile rollback, or long-session stability. They remain separate real-device acceptance requirements. No Harness patch, independent client, private UI interception, or A/B testing is introduced.
+
+## 2026-11-19 模型 Effort 元数据接口前置条件（Issue #280）
+
+- 当前公开 Harness API 没有稳定、版本无关且按当前 Gateway 凭据隔离的模型目录读取/更新能力，也没有第三方插件写入模型 `reasoningEfforts` / `reasoning_policy` 元数据的契约。`ModelSelectInjected` 的目录读取、加载和选择接口不能替代这项能力；不得从插件直接读取凭据或自行请求 Gateway `/v1/models`。
+- 插件侧默认请求必须省略 reasoning 参数。用户显式选择 Off 必须保留独立状态，并使用对应协议认可的 `none` 或 `thinking.disabled` 表示；若 Host/协议没有有效编码，界面不能声称 Off 已生效。当前 Host 原生 Effort 编辑器的 `null` 会省略请求参数，不能据此确认显式 Off。
+- 后续接入的前提是 Host 发布可探测的版本化 API，明确凭据作用域、模型身份、Effort 取值/编码、刷新与错误语义。实现后还须覆盖 Default、Off、已选值保持、元数据缺失回退及凭据隔离回归；此前相关 readiness 能力维持 `false`，Issue #280 保持开放。
+
+## 2026-11-19 原生侧栏布局回退（Issue #333）
+
+- 客户端不再设置 `data-delta-compat` 或兼容状态标记，因此旧 CSS 兼容布局没有运行时激活路径；不再扫描并重排原生 Settings 导航，也不再扫描无操作的会话/工作区菜单。Harness 保留原生侧栏布局、导航和菜单顺序。
+- 删除 `data-dtd-nav-tail` 的主题规则。公开能力缺失时继续保留 Harness 原生 UI；sidebar 搜索位置/间距等能力仍为未交付，不改变 `feature-readiness.json` 的 `false` 状态。
+- 为避免削弱现有保护，本次保留客户端锁定、墓碑、受限命令和 sole-workspace 菜单的 DOM 呈现/事件守卫，以及对应 Host 业务保护。它们仍是过渡性客户端路径，不构成 Host 原生授权边界；工作区删除前置钩子缺失时不能宣称已实现默认工作区保护。
+- ZIP3 客户端区域和主题哈希继续精确校验。该源码回退不替代 Windows Harness 真实交互验收；Issue #333 保持开放。

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- 维护: 明确能力协商 helper 尚未接入运行时 Host manifest；未公开能力继续回退原生体验（Issue #190）。
+
+- 维护: 记录模型 Effort 接入所需的凭据范围 Host API，以及 Default 与显式 Off 的协议验收边界；现有未验证模型能力保持未交付（Issue #280）。
+
+- 修复: 不再启用旧 `data-delta-compat` 侧栏样式、重排 Settings 导航或扫描无操作菜单；保留 Harness 原生布局/菜单顺序及现有锁定、删除安全路径（Issue #333）。
+
 - 修复: 在官方 Settings 和 Plugins 页面显示“Delta 扩展套件”配置入口，复用原设置页，不修改原生导航（Issue #333）。
 
 - 修复: 恢复 Harness 原生设置行及空“未分组”容器显示，不再按私有类名或文案隐藏；保留锁定、删除及受限命令保护（Issue #333）。
