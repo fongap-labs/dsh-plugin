@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code 增加性能问题排查、运行时取证、界面视觉一致性检查、Skill 效果评估四类专项工作流技能，扩展中英文任务自动路由及回归测试（PR #403）。
+
 - 修复: Delta Code GitHub 连接按账号或组织隔离 Token，同一归属下仓库数量不限，由 GitHub 验证实际权限；新增 Actions Job 原始日志只读诊断工具，安全处理重定向、脱敏与响应限额（PR #402）。
 
 - 维护: 明确能力协商 helper 尚未接入运行时 Host manifest；未公开能力继续回退原生体验（Issue #190）。
