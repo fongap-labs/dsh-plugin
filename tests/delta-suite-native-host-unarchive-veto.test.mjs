@@ -1118,3 +1118,71 @@ test('alias-based unlock never revives a deleted session or bypasses a locked wo
     await assert.rejects(workspace.event({ sessionId: 'delta' }), /DELTA_SESSION_LOCKED/)
   } finally { workspace.dispose() }
 })
+
+
+test('logical move replaces all equivalent legacy aliases without touching unrelated sessions', async () => {
+  const f = fixture({ initial: { movedSessions: {
+    alpha: 'ordinary',
+    'session-alpha': 'ordinary',
+    unrelated: 'ordinary',
+  } } })
+  try {
+    const result = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'session-alpha', targetWorkspaceId: 'new-workspace', targetPath: '/new',
+    })
+    assert.equal(result.status, 200)
+    assert.deepEqual(f.store.getCached().movedSessions, {
+      'session-alpha': 'new-workspace', unrelated: 'ordinary',
+    })
+    const reverse = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'alpha', targetWorkspaceId: 'ordinary', targetPath: '/ordinary',
+    })
+    assert.equal(reverse.status, 200)
+    assert.deepEqual(f.store.getCached().movedSessions, {
+      alpha: 'ordinary', unrelated: 'ordinary',
+    }, 'moving back under the raw ID must remove the previous prefixed alias')
+  } finally { f.dispose() }
+})
+
+test('single delete removes all stale logical move aliases but retains unrelated overlays', async () => {
+  const f = fixture({ initial: { movedSessions: {
+    beta: 'ordinary', 'session-beta': 'new-workspace', other: 'ordinary',
+  } } })
+  try {
+    const result = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'session-beta' })
+    assert.equal(result.status, 200)
+    assert.deepEqual(f.store.getCached().movedSessions, { other: 'ordinary' })
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['session-beta'])
+    const attempt = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'beta', targetWorkspaceId: 'ordinary',
+    })
+    assert.equal(attempt.status, 404)
+    assert.equal(attempt.data.error, 'SESSION_DELETED',
+      'the surviving tombstone must still protect the other ID spelling')
+  } finally { f.dispose() }
+})
+
+test('bulk delete removes stale aliases only for eligible sessions and preserves locked overlays', async () => {
+  const f = fixture({ initial: {
+    lockedSessionIds: ['locked'],
+    movedSessions: {
+      alpha: 'ordinary', 'session-alpha': 'new-workspace',
+      beta: 'ordinary', 'session-beta': 'new-workspace',
+      locked: 'ordinary', 'session-locked': 'ordinary',
+      untouched: 'ordinary',
+    },
+  } })
+  try {
+    const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
+      sessionIds: ['session-alpha', 'beta', 'session-locked'],
+    })
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data.deletedIds, ['session-alpha', 'beta'])
+    assert.deepEqual(result.data.skippedLockedIds, ['session-locked'])
+    assert.deepEqual(f.store.getCached().movedSessions, {
+      locked: 'ordinary', 'session-locked': 'ordinary', untouched: 'ordinary',
+    })
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['session-alpha', 'beta'])
+    assert.deepEqual(f.store.getCached().lockedSessionIds, ['locked'])
+  } finally { f.dispose() }
+})

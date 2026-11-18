@@ -321,6 +321,18 @@ const sameSessionId = (left: string, right: string): boolean => {
   return sessionAliases(right).some(id => aliases.has(id))
 }
 
+// Historical Delta overlays can store both raw and session-prefixed IDs.
+// Replace the entire equivalent alias set; do not change native membership.
+const withoutMoveAliases = (
+  moved: Record<string, string>, sessionIds: readonly string[],
+): Record<string, string> => {
+  const next = { ...moved }
+  for (const key of Object.keys(next)) {
+    if (sessionIds.some(id => sameSessionId(key, id))) delete next[key]
+  }
+  return next
+}
+
 const nativeArchivedAliases = (reg: HostWorkspaceRegistryLike, sessionId: string): string[] | undefined =>
   Array.isArray(reg.archivedSessionIds)
     ? [...new Set(reg.archivedSessionIds.filter(id => typeof id === 'string' && sameSessionId(id, sessionId)))]
@@ -712,7 +724,10 @@ export function installHostSessionOps(
     // membership remain Host-owned until an explicit relocation API exists.
     const next = await store.update(cur => ({
       ...cur,
-      movedSessions: { ...cur.movedSessions, [sessionId]: targetWorkspaceId },
+      movedSessions: {
+        ...withoutMoveAliases(cur.movedSessions, [sessionId]),
+        [sessionId]: targetWorkspaceId,
+      },
     }))
     notifySessionChanged(sessionId)
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
@@ -793,12 +808,10 @@ export function installHostSessionOps(
     // A failed state write must leave the session intact; interrupted cleanup
     // remains safely replayable from the durable tombstone at next startup.
     const next = await store.update(cur => {
-      const restMoved = { ...cur.movedSessions }
-      delete restMoved[sessionId]
       return {
         ...cur,
-        movedSessions: restMoved,
-        lockedSessionIds: cur.lockedSessionIds.filter(id => id !== sessionId),
+        movedSessions: withoutMoveAliases(cur.movedSessions, [sessionId]),
+        lockedSessionIds: cur.lockedSessionIds.filter(id => !sameSessionId(id, sessionId)),
         deletedSessionIds: cur.deletedSessionIds.includes(sessionId)
           ? cur.deletedSessionIds
           : [...cur.deletedSessionIds, sessionId],
@@ -861,15 +874,11 @@ export function installHostSessionOps(
     // effect. If cleanup fails midway, every eligible ID remains tombstoned
     // for startup reconciliation; locked entries are never added.
     const next = await store.update(cur => {
-      const restMoved = { ...cur.movedSessions }
       const delSet = new Set(cur.deletedSessionIds)
-      for (const sid of toDeleteIds) {
-        delete restMoved[sid]
-        delSet.add(sid)
-      }
+      for (const sid of toDeleteIds) delSet.add(sid)
       return {
         ...cur,
-        movedSessions: restMoved,
+        movedSessions: withoutMoveAliases(cur.movedSessions, toDeleteIds),
         deletedSessionIds: [...delSet],
       }
     })
