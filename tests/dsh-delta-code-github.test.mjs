@@ -25,7 +25,7 @@ describe('GitHub account configuration and automatic routing', () => {
     assert.equal(selectGitHubAccount(accounts, 'third-org/example').tokenEnv, 'GITHUB_TOKEN_THIRD')
   })
   it('rejects missing or ambiguous owners without guessing a token', () => {
-    assert.throws(() => selectGitHubAccount(accounts, 'unknown/repository'), /no GitHub account/)
+    assert.throws(() => selectGitHubAccount(accounts, 'unknown/repository'), /specify account/)
     assert.throws(() => selectGitHubAccount([...accounts, { owner: 'fongap-labs', tokenEnv: 'DSH_TEST_OTHER_TOKEN' }], 'fongap-labs/other'), /ambiguous/)
     assert.throws(() => selectGitHubAccount(accounts, '../repo'), /invalid/)
     assert.throws(() => selectGitHubAccount(accounts, 'fongap-labs/..'), /invalid/)
@@ -59,13 +59,37 @@ describe('GitHub account configuration and automatic routing', () => {
       'code_github_skill_candidates', 'code_github_skill_review',
     ])
   })
-  it('fails closed before any network request for unmatched owners or unauthorized writes', async () => {
+  it('fails closed before any network request for ambiguous credentials or unauthorized writes', async () => {
     const config = normalizeConfig({ github: { accounts } })
     const tools = createGitHubTools({ get: () => undefined }, config)
     const exec = { signal: new AbortController().signal }
-    await assert.rejects(tools[0].execute({ repository: 'unknown/repo' }, exec), /no GitHub account/)
+    await assert.rejects(tools[0].execute({ repository: 'unknown/repo' }, exec), /specify account/)
     await assert.rejects(tools.find((tool) => tool.name === 'code_github_branch').execute({ repository: 'fongap-labs/delta', branch: 'feat/test' }, exec), /writes are disabled/)
   })
+  it('inherits native GITHUB_TOKEN for arbitrary repositories without plugin accounts', async () => {
+    const old = process.env.GITHUB_TOKEN
+    process.env.GITHUB_TOKEN = 'native-test-only'
+    const requests = []
+    const previousFetch = globalThis.fetch
+    try {
+      const settings = normalizeConfig({})
+      assert.equal(settings.githubEnabled, true)
+      const tool = createGitHubTools({ get: () => undefined }, settings).find(t => t.name === 'code_github_connection')
+      globalThis.fetch = async (url, options) => {
+        requests.push({ url: String(url), authorization: options.headers.Authorization })
+        return new Response(JSON.stringify({ permissions: { pull: true } }), { status: 200 })
+      }
+      const output = await tool.execute({ repository: 'independent-org/private-repo' }, { signal: new AbortController().signal })
+      assert.equal(output.account, 'native')
+      assert.equal(requests[0].authorization, 'Bearer native-test-only')
+      assert.doesNotMatch(JSON.stringify(output), /native-test-only/)
+    } finally {
+      globalThis.fetch = previousFetch
+      if (old === undefined) delete process.env.GITHUB_TOKEN
+      else process.env.GITHUB_TOKEN = old
+    }
+  })
+
   it('uses the matching token for each of multiple repository owners', async () => {
     const config = normalizeConfig({ github: { accounts: accounts.slice(0, 2) } })
     const connection = createGitHubTools({ get: () => undefined }, config)
