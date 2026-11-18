@@ -104,8 +104,8 @@ function allowedLogRedirect(location: string): URL {
   return url
 }
 
-function redactGitHubLog(text: string): string {
-  return text
+function redactGitHubLog(text: string, token: string): string {
+  return text.replaceAll(token, '[REDACTED]')
     .replace(/github_pat_[A-Za-z0-9_]+/g, '[REDACTED]')
     .replace(/gh[pousr]_[A-Za-z0-9_]+/g, '[REDACTED]')
     .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+/gi, '$1[REDACTED]')
@@ -113,7 +113,7 @@ function redactGitHubLog(text: string): string {
     .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]')
 }
 
-async function boundedLogExcerpt(response: Response, signal: AbortSignal): Promise<{
+async function boundedLogExcerpt(response: Response, signal: AbortSignal, token: string): Promise<{
   excerpt: string; truncated: boolean; bytesRead: number
 }> {
   const reader = response.body?.getReader()
@@ -152,7 +152,7 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal): Promi
   const selection = last === undefined
     ? log.slice(-LOG_EXCERPT_CHARS)
     : lines.slice(Math.max(0, last - 35), Math.min(lines.length, last + 12)).join('\n').slice(-LOG_CONTEXT_CHARS)
-  return { excerpt: redactGitHubLog(selection), truncated: truncated || selection.length < log.length, bytesRead: total }
+  return { excerpt: redactGitHubLog(selection, token), truncated: truncated || selection.length < log.length, bytesRead: total }
 }
 
 async function requestGitHubJobLogs(
@@ -184,7 +184,7 @@ async function requestGitHubJobLogs(
     logResponse = await fetch(signedUrl, { method: 'GET', signal, redirect: 'error' })
     if (!logResponse.ok) throw new Error('GitHub Actions log download failed with HTTP ' + logResponse.status)
   }
-  const bounded = await boundedLogExcerpt(logResponse, signal)
+  const bounded = await boundedLogExcerpt(logResponse, signal, token)
   return { repository, account, ...bounded }
 }
 
