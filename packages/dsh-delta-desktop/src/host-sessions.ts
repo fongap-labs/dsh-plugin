@@ -353,6 +353,19 @@ export function installHostSessionOps(
   hooks?: { onSessionChanged?: (sessionId: string) => void },
 ): () => void {
   const unregisterCallbacks: Array<() => void> = []
+  let isDisposed = false
+  let operationChain: Promise<unknown> = Promise.resolve()
+  // Serialize protection checks with the side effects they authorize across both transports.
+  const serialize = <T>(operation: () => Promise<T>): Promise<T> => {
+    const result = operationChain.then(operation)
+    operationChain = result.catch(() => {})
+    return result
+  }
+  const serializeRequest = (operation: () => Promise<unknown>): Promise<unknown> => serialize(async () => {
+    if (isDisposed) return makeJsonResponse(503, { ok: false, error: 'SESSION_OPS_UNAVAILABLE' })
+    try { return await operation() }
+    catch { return makeJsonResponse(500, { ok: false, error: 'SESSION_OPS_FAILED' }) }
+  })
   let workspaceRegistryRef = ctx.get?.('workspaceRegistry') as HostWorkspaceRegistryLike | undefined
   const pendingSetups = new Map<string, { secret: string; uri: string; expiresAt: number }>()
 
@@ -363,31 +376,31 @@ export function installHostSessionOps(
 
   const archiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
     const reg = getRegistry()
-    if (!reg || typeof reg.archiveSession !== 'function') return false
+    if (isDisposed || !reg || typeof reg.archiveSession !== 'function') return false
     if (Array.isArray(reg.archivedSessionIds) && reg.archivedSessionIds.includes(sessionId)) return true
     try {
       await Promise.resolve(reg.archiveSession(sessionId, {}))
-      return true
+      return getRegistry() === reg && (!Array.isArray(reg.archivedSessionIds) || reg.archivedSessionIds.includes(sessionId))
     } catch {
-      try {
-        await Promise.resolve(reg.archiveSession(sessionId, { stopActivity: true }))
-        return true
-      } catch {
-        return false
-      }
+      // An archive refusal is not authorization to terminate active work.
+      return false
     }
   }
 
   const unarchiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
     const reg = getRegistry()
-    if (!reg || typeof reg.unarchiveSession !== 'function') return false
+    if (isDisposed || !reg || typeof reg.unarchiveSession !== 'function') return false
     if (Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)) return true
     try {
       await Promise.resolve(reg.unarchiveSession(sessionId))
-      return true
+      return getRegistry() === reg && (!Array.isArray(reg.archivedSessionIds) || !reg.archivedSessionIds.includes(sessionId))
     } catch {
       return false
     }
+  }
+
+  const notifySessionChanged = (sessionId: string): void => {
+    try { hooks?.onSessionChanged?.(sessionId) } catch {}
   }
 
   const pruneExpiredSetups = (): void => {
@@ -419,7 +432,7 @@ export function installHostSessionOps(
     const current = await store.read()
 
     if (action === 'setup-begin') {
-      if (current.totpSecret) {
+      if (current.totpSecret || current.pinHash) {
         return makeJsonResponse(409, { ok: false, error: 'TOTP_ALREADY_CONFIGURED' })
       }
       pruneExpiredSetups()
@@ -428,6 +441,7 @@ export function installHostSessionOps(
       const secret = await generateTotpSecret()
       const otpauthUri = buildOtpAuthUri(secret)
       pendingSetups.set(token, { secret, uri: otpauthUri, expiresAt: Date.now() + 15 * 60 * 1000 })
+      pruneExpiredSetups()
       return makeJsonResponse(200, {
         ok: true,
         setupToken: token,
@@ -439,6 +453,9 @@ export function installHostSessionOps(
     }
 
     if (action === 'setup-confirm') {
+      if (current.totpSecret || current.pinHash) {
+        return makeJsonResponse(409, { ok: false, error: 'TOTP_ALREADY_CONFIGURED' })
+      }
       pruneExpiredSetups()
       const pending = setupToken ? pendingSetups.get(setupToken) : undefined
       if (!pending) {
@@ -454,7 +471,6 @@ export function installHostSessionOps(
       if (sessionId && current.deletedSessionIds.includes(sessionId)) {
         return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
       }
-      pendingSetups.delete(setupToken)
       const next = await store.update(cur => ({
         ...cur,
         totpSecret: pending.secret,
@@ -466,11 +482,10 @@ export function installHostSessionOps(
           ? [...cur.lockedWorkspaceIds, workspaceId]
           : cur.lockedWorkspaceIds,
       }))
-      if (sessionId) {
-        await archiveSessionOnHost(sessionId)
-        hooks?.onSessionChanged?.(sessionId)
-      }
-      return makeJsonResponse(200, { ok: true, state: toPublicHostState(next), archived: Boolean(sessionId) })
+      pendingSetups.clear()
+      const isArchived = sessionId ? await archiveSessionOnHost(sessionId) : false
+      if (sessionId) notifySessionChanged(sessionId)
+      return makeJsonResponse(200, { ok: true, state: toPublicHostState(next), archived: isArchived })
     }
 
     if (action === 'lock') {
@@ -490,15 +505,18 @@ export function installHostSessionOps(
           ? [...cur.lockedWorkspaceIds, workspaceId]
           : cur.lockedWorkspaceIds,
       }))
-      if (sessionId) {
-        await archiveSessionOnHost(sessionId)
-        hooks?.onSessionChanged?.(sessionId)
-      }
-      return makeJsonResponse(200, { ok: true, state: toPublicHostState(next), archived: Boolean(sessionId) })
+      const isArchived = sessionId ? await archiveSessionOnHost(sessionId) : false
+      if (sessionId) notifySessionChanged(sessionId)
+      return makeJsonResponse(200, { ok: true, state: toPublicHostState(next), archived: isArchived })
     }
 
     if (action === 'verify' || action === 'unlock') {
       if (!sessionId && !workspaceId) return makeJsonResponse(400, { ok: false, error: 'MISSING_TARGET_ID' })
+      if (!current.totpSecret && !current.pinHash) return makeJsonResponse(403, { ok: false, error: 'TOTP_NOT_CONFIGURED' })
+      if ((sessionId && !current.lockedSessionIds.includes(sessionId)) ||
+          (workspaceId && !current.lockedWorkspaceIds.includes(workspaceId))) {
+        return makeJsonResponse(409, { ok: false, error: 'TARGET_NOT_LOCKED' })
+      }
       if (current.totpSecret) {
         if (!isSixDigitCode(code)) {
           return makeJsonResponse(403, { ok: false, error: 'INVALID_TOTP_CODE' })
@@ -519,16 +537,15 @@ export function installHostSessionOps(
           lockedSessionIds: sessionId ? cur.lockedSessionIds.filter(id => id !== sessionId) : cur.lockedSessionIds,
           lockedWorkspaceIds: workspaceId ? cur.lockedWorkspaceIds.filter(id => id !== workspaceId) : cur.lockedWorkspaceIds,
         }))
-        if (sessionId) {
-          await unarchiveSessionOnHost(sessionId)
-          hooks?.onSessionChanged?.(sessionId)
-        }
-        return makeJsonResponse(200, { ok: true, verified: true, state: toPublicHostState(next), unarchived: Boolean(sessionId) })
+        const isUnarchived = sessionId ? await unarchiveSessionOnHost(sessionId) : false
+        if (sessionId) notifySessionChanged(sessionId)
+        return makeJsonResponse(200, { ok: true, verified: true, state: toPublicHostState(next), unarchived: isUnarchived })
       }
       return makeJsonResponse(200, { ok: true, verified: true, state: toPublicHostState(current) })
     }
 
     if (action === 'clear-pin' || action === 'unbind-2fa') {
+      if (!current.totpSecret && !current.pinHash) return makeJsonResponse(403, { ok: false, error: 'TOTP_NOT_CONFIGURED' })
       if (current.totpSecret) {
         if (!isSixDigitCode(code)) {
           return makeJsonResponse(403, { ok: false, error: 'INVALID_TOTP_CODE' })
@@ -547,11 +564,15 @@ export function installHostSessionOps(
         lockedSessionIds: [],
         lockedWorkspaceIds: [],
       }))
+      pendingSetups.clear()
+      const unarchivedIds: string[] = []
+      const pendingUnarchiveIds: string[] = []
       for (const sid of previouslyLocked) {
-        await unarchiveSessionOnHost(sid)
-        hooks?.onSessionChanged?.(sid)
+        if (await unarchiveSessionOnHost(sid)) unarchivedIds.push(sid)
+        else pendingUnarchiveIds.push(sid)
+        notifySessionChanged(sid)
       }
-      return makeJsonResponse(200, { ok: true, unarchivedIds: previouslyLocked, state: toPublicHostState(next) })
+      return makeJsonResponse(200, { ok: true, unarchivedIds, pendingUnarchiveIds, state: toPublicHostState(next) })
     }
 
     return makeJsonResponse(400, { ok: false, error: 'UNKNOWN_LOCK_ACTION' })
@@ -628,7 +649,7 @@ export function installHostSessionOps(
       ...cur,
       movedSessions: { ...cur.movedSessions, [sessionId]: targetWorkspaceId },
     }))
-    hooks?.onSessionChanged?.(sessionId)
+    notifySessionChanged(sessionId)
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
@@ -709,7 +730,7 @@ export function installHostSessionOps(
           : [...cur.deletedSessionIds, sessionId],
       }
     })
-    hooks?.onSessionChanged?.(sessionId)
+    notifySessionChanged(sessionId)
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
@@ -757,7 +778,7 @@ export function installHostSessionOps(
       }
     })
     for (const sid of toDeleteIds) {
-      hooks?.onSessionChanged?.(sid)
+      notifySessionChanged(sid)
     }
     return makeJsonResponse(200, {
       ok: true,
@@ -791,7 +812,9 @@ export function installHostSessionOps(
   }
 
   // Prime state cache once at startup, sweep deleted session artifacts, and sync locked -> archived
-  void store.read().then(async (initial) => {
+  void serialize(async () => {
+    if (isDisposed) return
+    const initial = await store.read()
     for (const delId of initial.deletedSessionIds) {
       await purgeSessionArtifacts(ctx, delId)
     }
@@ -808,8 +831,12 @@ export function installHostSessionOps(
     try {
       const unsubWs = ctx.inject(['workspaceRegistry'], (scope: { workspaceRegistry?: HostWorkspaceRegistryLike }) => {
         workspaceRegistryRef = scope?.workspaceRegistry
-        void store.read().then(async (initial) => {
+        const registry = workspaceRegistryRef
+        void serialize(async () => {
+          if (isDisposed || !registry || getRegistry() !== registry) return
+          const initial = await store.read()
           for (const lockedId of initial.lockedSessionIds) {
+            if (isDisposed || getRegistry() !== registry) return
             await archiveSessionOnHost(lockedId)
           }
         }).catch(() => {})
@@ -848,25 +875,25 @@ export function installHostSessionOps(
             path: DELTA_SESSION_LOCK_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
-            fetch: req => handleLock(req),
+            fetch: req => serializeRequest(() => handleLock(req)),
           }),
           scope.connection.fetch.register({
             path: DELTA_SESSION_MOVE_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
-            fetch: req => handleMove(req),
+            fetch: req => serializeRequest(() => handleMove(req)),
           }),
           scope.connection.fetch.register({
             path: DELTA_SESSION_DELETE_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
-            fetch: req => handleDelete(req),
+            fetch: req => serializeRequest(() => handleDelete(req)),
           }),
           scope.connection.fetch.register({
             path: DELTA_SESSION_DELETE_UNGROUPED_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
-            fetch: req => handleDeleteUngrouped(req),
+            fetch: req => serializeRequest(() => handleDeleteUngrouped(req)),
           }),
           scope.connection.fetch.register({
             path: DELTA_OPEN_FOLDER_PATH,
@@ -924,10 +951,10 @@ export function installHostSessionOps(
         })
         const stops = [
           ws.register(makeRoute(DELTA_STATE_PATH, () => handleState())),
-          ws.register(makeRoute(DELTA_SESSION_LOCK_PATH, req => handleLock(req))),
-          ws.register(makeRoute(DELTA_SESSION_MOVE_PATH, req => handleMove(req))),
-          ws.register(makeRoute(DELTA_SESSION_DELETE_PATH, req => handleDelete(req))),
-          ws.register(makeRoute(DELTA_SESSION_DELETE_UNGROUPED_PATH, req => handleDeleteUngrouped(req))),
+          ws.register(makeRoute(DELTA_SESSION_LOCK_PATH, req => serializeRequest(() => handleLock(req)))),
+          ws.register(makeRoute(DELTA_SESSION_MOVE_PATH, req => serializeRequest(() => handleMove(req)))),
+          ws.register(makeRoute(DELTA_SESSION_DELETE_PATH, req => serializeRequest(() => handleDelete(req)))),
+          ws.register(makeRoute(DELTA_SESSION_DELETE_UNGROUPED_PATH, req => serializeRequest(() => handleDeleteUngrouped(req)))),
           ws.register(makeRoute(DELTA_OPEN_FOLDER_PATH, req => handleOpenFolder(req))),
         ]
         return () => {
@@ -945,6 +972,8 @@ export function installHostSessionOps(
   }
 
   return () => {
+    isDisposed = true
+    pendingSetups.clear()
     for (let i = unregisterCallbacks.length - 1; i >= 0; i--) {
       try { unregisterCallbacks[i]() } catch {}
     }

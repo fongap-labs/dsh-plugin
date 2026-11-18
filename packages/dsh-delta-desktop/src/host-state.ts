@@ -394,9 +394,10 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
         deletedSessionIds: [...cur.deletedSessionIds],
         proxy: { ...cur.proxy },
       }))
+      await write(mutated)
+      // Publish only a durable update; a rejected rename/write leaves the prior state visible.
       cached = mutated
       isLoaded = true
-      await write(mutated)
       return mutated
     })
     writeChain = nextRun.catch(() => {})
