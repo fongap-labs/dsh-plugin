@@ -125,9 +125,9 @@ test('session list stays native-owned; workspace compatibility scope remains exp
   assert.doesNotMatch(source, /installProjectedList(?:<[^>]*>)?\(\s*sessionsApi\.list/)
   assert.match(source, /installProjectedList<WorkspaceSnapshot>\(workspaces\.list/)
   assert.match(source, /await sessionsApi\?\.refresh\?\.\(\)/)
-  assert.match(source, /if \(deltaFeatures\.isDeleted\(sessionId\)\) return/)
-  assert.match(source, /if \(deltaFeatures\.isDeleted\(item\.id\)\) continue/)
-  assert.match(source, /if \(deltaFeatures\.isDeleted\(item\.sessionId\) \|\| seen\.has/)
+  assert.match(source, /!readSearchProtection\(\)\.allowsSession\(sessionId, workspaceId\)/)
+  assert.match(source, /if \(!policy\.allowsSession\(item\.id, item\.workspaceId\)\) continue/)
+  assert.match(source, /if \(!policy\.allowsSession\(item\.sessionId, item\.workspaceId\) \|\| seen\.has/)
 })
 
 test('workspace overlay retains native identities and ignores unrelated state revisions', () => {
@@ -530,4 +530,30 @@ test('guard lifecycle preserves native receivers, rejects stale callbacks and do
   await assert.rejects(stale('b'), /workspace-guard-disposed/)
   assert.deepEqual(calls, [['delete', 'b'], ['unarchive', 'ordinary']])
   assert.equal(notices.length, 3)
+})
+
+const makeSearchProtection = vm.runInNewContext(compiled.slice(start, end) + '\ncreateSearchContentProtection')
+test('client search excludes durable protection independently of temporary viewing grants', () => {
+  const empty = { isSearchProtectionReady: true, lockedSessionIds: [], deletedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {} }
+  const raw = { items: [
+    { workspaceId: 'a', path: '/locked', sessionIds: ['session-native', 'away'] },
+    { workspaceId: 'b', path: '/ordinary', sessionIds: ['incoming', 'ordinary'] },
+  ] }
+  const protectedState = { ...empty, lockedSessionIds: ['direct'], deletedSessionIds: ['gone'],
+    lockedWorkspaceIds: ['/locked'], movedSessions: { away: 'b', incoming: 'a' }, tempUnlockedIds: ['direct'] }
+  const policy = makeSearchProtection(protectedState, () => raw)
+  for (const id of ['session-direct', 'session-gone', 'native', 'away', 'incoming']) assert.equal(policy.allowsSession(id), false, id)
+  assert.equal(policy.allowsSession('ordinary'), true)
+  assert.equal(policy.allowsSession('not-in-list', 'a'), false)
+  assert.equal(policy.allowsWorkspace('a'), false)
+  assert.equal(policy.allowsWorkspace('b'), true)
+  assert.equal(policy.canUseNativeFallback, false)
+  const unavailable = makeSearchProtection(protectedState, () => { throw new Error('offline') })
+  assert.equal(unavailable.canQuery, false)
+  assert.equal(unavailable.allowsSession('ordinary'), false)
+  const cold = makeSearchProtection({ ...empty, isSearchProtectionReady: false }, () => raw)
+  assert.equal(cold.allowsSession('ordinary'), false)
+  assert.equal(cold.allowsWorkspace('b'), false)
+  assert.equal(cold.canUseNativeFallback, false)
+  assert.equal(makeSearchProtection(empty, () => { throw new Error('not needed') }).canUseNativeFallback, true)
 })
