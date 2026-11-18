@@ -6,7 +6,10 @@ import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/dsh-delta-suite/src/client.ts')
+const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/dsh-delta-suite/src/theme.css')
+const begin = normalizedSource.indexOf('function installSidebarCompatibility(')
+const end = normalizedSource.indexOf('\ntype SearchTabId', begin)
 
 const emitted = [
   'function installSidebarCompatibility() {}',
@@ -23,10 +26,13 @@ test('Settings navigation remains under Harness layout and label ownership', () 
 
 test('ZIP3 release verifier rejects reintroduced native Settings layout activation', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const tampered = source.replace(
-    'const sync = (): void => {',
-    "const sync = (): void => { document.documentElement.dataset.deltaCompat = '1'",
-  )
-  assert.notEqual(tampered, source, 'negative fixture must mutate the compatibility function')
+  const anchor = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
+  const anchorOffset = normalizedSource.indexOf(anchor, begin)
+  assert.ok(begin >= 0 && end > begin && anchorOffset >= begin && anchorOffset < end,
+    'mutation fixture must target the pinned sidebar region')
+  const tampered = normalizedSource.slice(0, anchorOffset) +
+    normalizedSource.slice(anchorOffset).replace(anchor,
+      anchor + "\n    document.documentElement.dataset.deltaCompat = '1'")
+  assert.notEqual(tampered, normalizedSource, 'negative fixture must mutate the compatibility function')
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
 })

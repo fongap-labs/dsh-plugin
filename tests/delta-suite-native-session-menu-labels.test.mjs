@@ -29,9 +29,13 @@ test('native session menu labels and destructive styling stay Harness-owned', ()
 
 test('ZIP3 approved client region rejects reintroduced native label interception', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const anchor = 'const sync = (): void => {'
-  assert.ok(source.includes(anchor))
-  const tampered = source.replace(anchor, anchor + '\n    document.querySelector("[role=menuitem]").textContent = "Open in app"')
-  assert.notEqual(tampered, source)
+  const anchor = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
+  const anchorOffset = normalizedSource.indexOf(anchor, begin)
+  assert.ok(begin >= 0 && end > begin && anchorOffset >= begin && anchorOffset < end,
+    'mutation fixture must target the pinned sidebar region')
+  const tampered = normalizedSource.slice(0, anchorOffset) +
+    normalizedSource.slice(anchorOffset).replace(anchor,
+      anchor + '\n    document.querySelector("[role=menuitem]").textContent = "Open in app"')
+  assert.notEqual(tampered, normalizedSource)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
 })

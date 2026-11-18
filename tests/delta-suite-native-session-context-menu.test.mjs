@@ -35,10 +35,14 @@ test('native session context menus retain Harness order and appearance', () => {
 
 test('release guard rejects unapproved session DOM mutation and CSS rule', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const marker = 'const sync = (): void => {'
-  assert.ok(source.includes(marker))
-  const tampered = source.replace(marker, marker + '\n    document.querySelector("[role=menu]")?.appendChild(document.createElement("div"))')
-  assert.notEqual(tampered, source)
+  const marker = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
+  const markerOffset = norm.indexOf(marker, begin)
+  assert.ok(begin >= 0 && end > begin && markerOffset >= begin && markerOffset < end,
+    'mutation fixture must target the pinned sidebar region')
+  const tampered = norm.slice(0, markerOffset) +
+    norm.slice(markerOffset).replace(marker,
+      marker + '\n    document.querySelector("[role=menu]")?.appendChild(document.createElement("div"))')
+  assert.notEqual(tampered, norm)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
   const alteredCss = theme.replace(
     '.dtd-context-menu-item[data-danger="1"]',

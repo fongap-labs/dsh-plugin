@@ -33,6 +33,12 @@ test('release guard rejects activation of retired native sidebar layout compatib
     "root.dataset.deltaCompat = '1'",
     "root.dataset['deltaCompatStatus'] = 'mounted'",
     "button.setAttribute('data-dtd-nav-tail', '1')",
+    "root.setAttribute('DATA-DELTA-COMPAT', '1')",
+    "root.setAttribute(`DATA-DELTA-COMPAT-STATUS`, 'mounted')",
+    "root . setAttribute('data-delta-compat', '1')",
+    "root['setAttribute'](`data-delta-compat`, '1')",
+    "root.dataset . deltaCompat = '1'",
+    "root['dataset']['deltaCompatStatus'] = 'mounted'",
     'data-dtd-nav-tail',
   ]) {
     assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\n' + takeover, source),
