@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 变更: 插件统一命名为 `dsh-delta-suite`、`Delta 扩展套件` 和 `Delta Suite`，同步源码目录、Cordis 注册名、客户端与 Host 接口、构建校验、发行资产及测试路径；不改变 Harness 原生插件接管边界。
+- 修复 [breaking, migration]: 插件统一命名为 `dsh-delta-suite`、`Delta 扩展套件` 和 `Delta Suite`，同步源码目录、Cordis 注册名、客户端与 Host 接口、构建校验、发行资产及测试路径；不改变 Harness 原生插件接管边界。
 - 修复: 更名后首次加载安全迁移先前 Profile 状态，完整保留会话锁定、删除墓碑与 2FA 配置；导入失败时拒绝以空状态继续运行，并新增源代码命名检查和迁移回归。
 
 - 修复: 原生会话删除现在隔离 Sessions.cancel 与各会话句柄 cancel 的异常；单项删除还会检查原始/session- 等价 ID 的现有句柄，避免某个取消方法报错后遗漏仍在运行的会话（Issue #333）。
