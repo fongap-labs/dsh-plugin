@@ -924,6 +924,7 @@ interface ClientEffectiveProxy {
   noProxy: string
 }
 interface ClientFeatureSnapshot {
+  isSearchProtectionReady: boolean
   hasPin: boolean
   lockMode?: 'totp' | 'pin' | 'none'
   lockedSessionIds: readonly string[]
@@ -1304,6 +1305,7 @@ function canCallHostHttp(): boolean {
 
 interface ClientFeatureManager {
   getSnapshot(): ClientFeatureSnapshot
+  readSearchProtection(): SearchContentProtection
   subscribe(listener: () => void): () => void
   ensureLoaded(): void
   getWorkspaces(): readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
@@ -1656,8 +1658,65 @@ function installWorkspaceMutationGuards(
   }
 }
 
+// Scope this policy to Delta's search UI, not native owner content ACLs.
+interface SearchContentProtection {
+  canQuery: boolean
+  canUseNativeFallback: boolean
+  allowsSession(id: string, workspaceId?: string): boolean
+  allowsWorkspace(id: string, path?: string): boolean
+}
+function createSearchContentProtection(
+  state: WorkspaceProtectionState & { isSearchProtectionReady: boolean },
+  readNative: () => WorkspaceSnapshot,
+): SearchContentProtection {
+  const excluded = new Set([...state.lockedSessionIds, ...state.deletedSessionIds].flatMap(workspaceSessionAliases))
+  if (!state.isSearchProtectionReady) return {
+    canQuery: false, canUseNativeFallback: false,
+    allowsSession: () => false, allowsWorkspace: () => false,
+  }
+  const lockedKeys = new Set(state.lockedWorkspaceIds)
+  let isComplete = true
+  if (lockedKeys.size > 0) {
+    try {
+      const snapshot = readNative()
+      if (!Array.isArray(snapshot.items)) throw new Error('invalid workspace membership')
+      const known = new Set<string>()
+      const rows = new Set<string>()
+      for (const row of snapshot.items) {
+        const { workspaceId, path, sessionIds } = row
+        if (typeof workspaceId !== 'string' || !workspaceId || typeof path !== 'string' || !path ||
+            rows.has(workspaceId) || !Array.isArray(sessionIds) ||
+            sessionIds.some(id => typeof id !== 'string' || !id)) throw new Error('invalid workspace membership')
+        rows.add(workspaceId)
+        if (lockedKeys.has(workspaceId) || lockedKeys.has(path)) {
+          if (state.lockedWorkspaceIds.includes(workspaceId)) known.add(workspaceId)
+          if (state.lockedWorkspaceIds.includes(path)) known.add(path)
+          lockedKeys.add(workspaceId)
+          lockedKeys.add(path)
+          for (const id of sessionIds) for (const alias of workspaceSessionAliases(id)) excluded.add(alias)
+        }
+      }
+      if (state.lockedWorkspaceIds.some(key => !known.has(key))) isComplete = false
+    } catch { isComplete = false }
+    for (const [id, target] of Object.entries(state.movedSessions)) {
+      if (lockedKeys.has(target)) for (const alias of workspaceSessionAliases(id)) excluded.add(alias)
+    }
+  }
+  const allowsWorkspace = (id: string, path?: string): boolean =>
+    isComplete && !lockedKeys.has(id) && !(path && lockedKeys.has(path))
+  return {
+    canQuery: isComplete,
+    canUseNativeFallback: isComplete && lockedKeys.size === 0 && excluded.size === 0,
+    allowsWorkspace,
+    allowsSession: (id, workspaceId) => isComplete &&
+      !workspaceSessionAliases(id).some(alias => excluded.has(alias)) &&
+      (!workspaceId || allowsWorkspace(workspaceId)),
+  }
+}
+
 function createClientFeatureManager(): ClientFeatureManager {
   let state: ClientFeatureSnapshot = Object.freeze({
+    isSearchProtectionReady: false,
     hasPin: false,
     lockMode: 'none',
     lockedSessionIds: Object.freeze([]),
@@ -1782,6 +1841,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     const hasSameMoves = previousMoves.length === nextMoves.length &&
       previousMoves.every(([id, target], index) => id === nextMoves[index][0] && target === nextMoves[index][1])
     publish({
+      isSearchProtectionReady: isConfirmedLockState(payload),
       hasPin: Boolean(payload.hasPin),
       lockMode: payload.lockMode ?? (payload.hasPin ? 'totp' : 'none'),
       lockedSessionIds: stableIds(state.lockedSessionIds, locked),
@@ -1829,8 +1889,8 @@ function createClientFeatureManager(): ClientFeatureManager {
           if (stData?.state) {
             hasSyncedStateFromHost = true
             applyHostStatePayload(stData.state)
-          }
-        }
+          } else if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+        } else if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
         if (pxRes.ok) {
           const pxData = (await pxRes.json().catch(() => null)) as { proxy?: ClientProxyConfig; effective?: ClientEffectiveProxy } | null
           if (pxData?.proxy) {
@@ -1848,7 +1908,9 @@ function createClientFeatureManager(): ClientFeatureManager {
             visionEngineAccount: vsData?.account ?? null,
           })
         }
-      } catch {}
+      } catch {
+        if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+      }
       finally {
         refreshInFlight = undefined
       }
@@ -2866,6 +2928,10 @@ function createClientFeatureManager(): ClientFeatureManager {
       return () => { listeners.delete(listener) }
     },
     ensureLoaded,
+    readSearchProtection: () => createSearchContentProtection(state, () => {
+      if (!readNativeWorkspaceSnapshot) throw new Error('workspace membership unavailable')
+      return readNativeWorkspaceSnapshot()
+    }),
     getWorkspaces: () => workspacesApi?.list?.getSnapshot?.()?.items ?? [],
     setWorkspacesApi: (api, readNative) => {
       if (workspacesApi !== api) pendingArchives.clear()
@@ -4634,6 +4700,7 @@ function installHostSearch(
   let inlineTimer: number | undefined
   let inlinePending: AbortController | undefined
   let inlineSerial = 0
+  let inlineRenderSerial = 0
   let inlineRemoteItems: HostContentHit[] = []
   let isInlineSearching = false
   let hasInlineError = false
@@ -4682,16 +4749,36 @@ function installHostSearch(
     }
   }
 
+  const readSearchProtection = () => deltaFeatures.readSearchProtection()
+  const filterSearchHits = (hits: HostContentHit[]): HostContentHit[] => {
+    const policy = readSearchProtection()
+    try {
+      const rows = sessions.list.getSnapshot().byId
+      return hits.filter(hit => typeof hit?.sessionId === 'string' && !!hit.sessionId &&
+        policy.allowsSession(hit.sessionId, hit.workspaceId) &&
+        policy.allowsSession(hit.sessionId, rows[hit.sessionId]?.workspaceId))
+    } catch { return [] }
+  }
+
   const dispatchContentSearch = (
     query: string,
     signal: AbortSignal,
     onDone: (res: { items: HostContentHit[]; ok: boolean; fromDisabledOnly?: boolean }) => void,
   ): void => {
+    const finish = (res: { items: HostContentHit[]; ok: boolean; fromDisabledOnly?: boolean }): void => {
+      if (signal.aborted || isDisposed) return
+      onDone({ ...res, items: filterSearchHits(res.items) })
+    }
     const queryLegacy = (): void => {
+      if (signal.aborted || isDisposed) return
+      if (!readSearchProtection().canUseNativeFallback) {
+        finish({ items: [], ok: false })
+        return
+      }
       void sessions.search(query, signal).then(
         fallback => {
           if (fallback.ok) {
-            onDone({
+            finish({
               items: (fallback.value?.items ?? []).map(item => ({
                 sessionId: item.sessionId,
                 snippet: item.snippet,
@@ -4701,16 +4788,20 @@ function installHostSearch(
             return
           }
           const errMsg = fallback.error?.message ?? ''
-          onDone(/DISABLED|UNAVAILABLE/i.test(errMsg) ? { items: [], ok: true, fromDisabledOnly: true } : { items: [], ok: false })
+          finish(/DISABLED|UNAVAILABLE/i.test(errMsg) ? { items: [], ok: true, fromDisabledOnly: true } : { items: [], ok: false })
         },
         reason => {
           if (signal.aborted) return
           console.warn('[dsh-delta-desktop] native Session search failed', reason)
-          onDone({ items: [], ok: false })
+          finish({ items: [], ok: false })
         },
       )
     }
 
+    if (!readSearchProtection().canQuery) {
+      finish({ items: [], ok: false })
+      return
+    }
     if (!canQueryHostSearchHttp()) {
       queryLegacy()
       return
@@ -4721,10 +4812,11 @@ function installHostSearch(
       signal,
     }).then(
       async res => {
+        if (signal.aborted || isDisposed) return
         if (res.ok) {
-          const data = (await res.json()) as { items?: HostContentHit[] }
+          const data = (await res.json().catch(() => null)) as { items?: HostContentHit[] } | null
           if (Array.isArray(data?.items)) {
-            onDone({ items: data.items, ok: true })
+            finish({ items: data.items, ok: true })
             return
           }
         }
@@ -4737,15 +4829,10 @@ function installHostSearch(
   }
 
   const openSessionHit = (sessionId: string, workspaceId?: string, turn?: number, snippet?: string): void => {
-    if (deltaFeatures.isDeleted(sessionId)) return
-    if (deltaFeatures.isLocked(sessionId)) {
-      const ws = searchScope?.get?.('workspaces') as WorkspacesApi | undefined
-      const archived = ws?.list?.getSnapshot?.()?.archivedSessionIds?.includes(sessionId) ?? false
-      if (archived || deltaFeatures.isProtectedView(sessionId)) {
-        deltaFeatures.openUnlockPinDialog(sessionId)
-        return
-      }
-    }
+    if (isDisposed || !readSearchProtection().allowsSession(sessionId, workspaceId)) return
+    try {
+      if (!readSearchProtection().allowsSession(sessionId, sessions.list.getSnapshot().byId[sessionId]?.workspaceId)) return
+    } catch { return }
     stopRevealTimer?.()
     stopRevealTimer = undefined
     try {
@@ -4755,6 +4842,16 @@ function installHostSearch(
     } catch (reason) {
       console.warn('[dsh-delta-desktop] native Session navigation failed', reason)
     }
+  }
+
+  const openWorkspaceHit = (workspaceId: string): void => {
+    if (isDisposed) return
+    const policy = readSearchProtection()
+    const ws = getWorkspaces().find(w => w.workspaceId === workspaceId)
+    if (!ws || !policy.allowsWorkspace(ws.workspaceId, ws.path)) return
+    const sid = ws.sessionIds?.find(id => policy.allowsSession(id, workspaceId))
+    if (sid) openSessionHit(sid, workspaceId)
+    else if (Array.isArray(ws.sessionIds) && ws.sessionIds.length === 0) navigation.startSession(workspaceId)
   }
 
   const syncSidebarLabels = (): void => {
@@ -4771,6 +4868,8 @@ function installHostSearch(
   const renderInline = (): void => {
     syncSidebarLabels()
     results.replaceChildren()
+    const renderSerial = ++inlineRenderSerial
+    const policy = readSearchProtection()
     const query = input.value.trim().toLocaleLowerCase()
     if (!query || !isActive()) { results.hidden = true; return }
     results.hidden = false
@@ -4780,7 +4879,7 @@ function installHostSearch(
     const matches: { id: string; title: string; snippet?: string; turn?: number; workspaceId?: string; isWorkspace?: boolean }[] = []
 
     for (const item of Object.values(sessions.list.getSnapshot().byId)) {
-      if (deltaFeatures.isDeleted(item.id)) continue
+      if (!policy.allowsSession(item.id, item.workspaceId)) continue
       const title = item.title?.trim() ?? ''
       if (!item.blank && title.toLocaleLowerCase().includes(query)) {
         matches.push({ id: item.id, title: redactSensitiveText(title), workspaceId: item.workspaceId })
@@ -4789,7 +4888,7 @@ function installHostSearch(
       if (matches.length >= 20) break
     }
     for (const item of inlineRemoteItems) {
-      if (deltaFeatures.isDeleted(item.sessionId) || seen.has(item.sessionId) || matches.length >= 20) continue
+      if (!policy.allowsSession(item.sessionId, item.workspaceId) || seen.has(item.sessionId) || matches.length >= 20) continue
       const title = item.title?.trim() || sessions.list.getSnapshot().byId[item.sessionId]?.title?.trim() || item.sessionId
       matches.push({
         id: item.sessionId,
@@ -4802,6 +4901,7 @@ function installHostSearch(
     }
     for (const ws of getWorkspaces()) {
       if (matches.length >= 20) break
+      if (!policy.allowsWorkspace(ws.workspaceId, ws.path)) continue
       const wsTitle = ws.title?.trim() || redactPathForUi(ws.path)
       const wsPath = redactPathForUi(ws.path)
       if (wsTitle.toLocaleLowerCase().includes(query) || wsPath.toLocaleLowerCase().includes(query)) {
@@ -4830,12 +4930,10 @@ function installHostSearch(
         button.appendChild(detail)
       }
       button.addEventListener('click', () => {
+        if (!isActive() || renderSerial !== inlineRenderSerial) return
         try {
           if (match.isWorkspace && match.workspaceId) {
-            const ws = getWorkspaces().find(w => w.workspaceId === match.workspaceId)
-            const targetSid = ws?.sessionIds?.find(id => !deltaFeatures.isDeleted(id))
-            if (targetSid) openSessionHit(targetSid, match.workspaceId)
-            else navigation.startSession(match.workspaceId)
+            openWorkspaceHit(match.workspaceId)
           } else {
             openSessionHit(match.id, match.workspaceId, match.turn, match.snippet)
           }
@@ -4939,7 +5037,7 @@ function installHostSearch(
   const readCommandTarget = (scope: ClientContext, sessionId: string) => {
     try {
       if (isDisposed || controller.getSnapshot().mode !== 'delta' ||
-          getUniqueMainSessionId() !== sessionId || deltaFeatures.isLocked(sessionId) ||
+          getUniqueMainSessionId() !== sessionId || !readSearchProtection().allowsSession(sessionId) || deltaFeatures.isLocked(sessionId) ||
           deltaFeatures.isSessionInLockedWorkspace(sessionId) || deltaFeatures.isDeleted(sessionId)) return undefined
       const binding = sessions.binding?.(sessionId)
       const session = binding?.session.getSnapshot()
@@ -5017,7 +5115,7 @@ function installHostSearch(
 
     try {
       const targetSid = target?.sessionId ?? getUniqueMainSessionId()
-      if (targetSid && !deltaFeatures.isLocked(targetSid) && !deltaFeatures.isSessionInLockedWorkspace(targetSid) &&
+      if (targetSid && readSearchProtection().allowsSession(targetSid) && !deltaFeatures.isLocked(targetSid) && !deltaFeatures.isSessionInLockedWorkspace(targetSid) &&
           !deltaFeatures.isDeleted(targetSid) && remote?.commands?.list) {
         const res = await remote.commands.list(targetSid)
         if (res?.ok && Array.isArray(res.value)) {
@@ -5132,7 +5230,8 @@ function installHostSearch(
     const q = query.trim().toLowerCase()
     const terms = q ? q.split(/\s+/).filter(Boolean).slice(0, 6) : []
     const items: PaletteItem[] = []
-    const wsList = getWorkspaces()
+    const policy = readSearchProtection()
+    const wsList = getWorkspaces().filter(ws => policy.allowsWorkspace(ws.workspaceId, ws.path))
     const wsById = new Map(wsList.map(w => [w.workspaceId, w]))
 
     const matchText = (text: string): boolean => {
@@ -5143,38 +5242,37 @@ function installHostSearch(
 
     // 1. Sessions (titles + host in-memory message content hits)
     const allSessions = Object.values(sessions.list.getSnapshot().byId)
-      .filter(s => !s.blank)
+      .filter(s => !s.blank && policy.allowsSession(s.id, s.workspaceId))
       .sort((a, b) => normalizeSearchTime(b.updatedAt) - normalizeSearchTime(a.updatedAt))
 
     const contentHitsBySession = new Map<string, HostContentHit>()
     for (const hit of hostHits) {
+      const sess = sessions.list.getSnapshot().byId[hit.sessionId]
+      if (!policy.allowsSession(hit.sessionId, hit.workspaceId) ||
+          !policy.allowsSession(hit.sessionId, sess?.workspaceId)) continue
       if (!contentHitsBySession.has(hit.sessionId)) {
         contentHitsBySession.set(hit.sessionId, hit)
       }
-      const sess = sessions.list.getSnapshot().byId[hit.sessionId]
       const rawTitle = hit.title?.trim() || sess?.title?.trim() || hit.sessionId
-      if (deltaFeatures.isDeleted(hit.sessionId)) continue
       const wsId = hit.workspaceId ?? sess?.workspaceId
       const ws = wsId ? wsById.get(wsId) : undefined
       const roleLabel = hit.role === 'user' ? pCopy.roleUser : hit.role === 'assistant' ? pCopy.roleAssistant : ''
       const turnText = hit.turn ? pCopy.turnLabel.replace('{turn}', String(hit.turn)) : ''
       const metaParts = [roleLabel, turnText, ws?.title].filter(Boolean)
-      const locked = deltaFeatures.isLocked(hit.sessionId)
       items.push({
         id: `hit:${hit.sessionId}:${hit.seq ?? hit.turn ?? 'c'}`,
         tab: 'session',
         kind: 'content',
         title: redactSensitiveText(rawTitle),
-        snippet: locked ? copy.sessionMenu.lockedShieldTitle : redactSensitiveText(hit.snippet),
+        snippet: redactSensitiveText(hit.snippet),
         badge: pCopy.kindContent,
         meta: metaParts.join(' · ') || undefined,
         score: (hit.score ?? 100) + 20,
-        run: () => openSessionHit(hit.sessionId, wsId, hit.turn, locked ? undefined : hit.snippet),
+        run: () => openSessionHit(hit.sessionId, wsId, hit.turn, hit.snippet),
       })
     }
 
     for (const s of allSessions) {
-      if (deltaFeatures.isDeleted(s.id)) continue
       const title = redactSensitiveText(s.title?.trim() || s.id)
       const ws = s.workspaceId ? wsById.get(s.workspaceId) : undefined
       const wsLabel = ws ? (ws.title || redactPathForUi(ws.path)) : ''
@@ -5184,8 +5282,7 @@ function installHostSearch(
         continue
       }
       const isPrefix = q ? title.toLowerCase().startsWith(q) : false
-      const locked = deltaFeatures.isLocked(s.id)
-      const isArchived = Boolean(s.archived || locked)
+      const isArchived = Boolean(s.archived)
       items.push({
         id: 'sess:' + s.id,
         tab: 'session',
@@ -5193,9 +5290,7 @@ function installHostSearch(
         title,
         snippet: wsLabel || redactPathForUi(ws?.path ?? ''),
         badge: pCopy.kindSession,
-        meta: locked
-          ? (language() === 'zh' ? '\u5DF2\u9501\u5B9A · \u5DF2\u5F52\u6863' : 'Locked · Archived')
-          : isArchived ? (language() === 'zh' ? '\u5DF2\u5F52\u6863' : 'Archived') : undefined,
+        meta: isArchived ? (language() === 'zh' ? '\u5DF2\u5F52\u6863' : 'Archived') : undefined,
         score: q ? (isPrefix ? 140 : 110) : 70,
         run: () => openSessionHit(s.id, s.workspaceId),
       })
@@ -5214,13 +5309,9 @@ function installHostSearch(
         title: redactSensitiveText(title),
         snippet: safePath,
         badge: pCopy.kindWorkspace,
-        meta: ws.sessionIds ? `${ws.sessionIds.length}` : undefined,
+        meta: ws.sessionIds ? `${ws.sessionIds.filter(id => policy.allowsSession(id, ws.workspaceId)).length}` : undefined,
         score: q ? 85 : 50,
-        run: () => {
-          const sid = ws.sessionIds?.find(id => !deltaFeatures.isDeleted(id))
-          if (sid) openSessionHit(sid, ws.workspaceId)
-          else navigation.startSession(ws.workspaceId)
-        },
+        run: () => openWorkspaceHit(ws.workspaceId),
       })
     }
 
@@ -5286,6 +5377,7 @@ function installHostSearch(
     cachedCatalog = undefined
     currentFilteredItems = []
     clearModalRequest()
+    modalRemoteHits = []
     if (backdropEl) {
       backdropEl.hidden = true
       backdropEl.remove()
@@ -5772,22 +5864,58 @@ function installHostSearch(
   observer = new MutationObserver(scheduleSync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
-  let lastDeletedIds = deltaFeatures.getSnapshot().deletedSessionIds
-  const unsubscribeDeleted = deltaFeatures.subscribe(() => {
-    const next = deltaFeatures.getSnapshot().deletedSessionIds
-    if (isDisposed || next === lastDeletedIds) return
-    lastDeletedIds = next
+  const invalidateSearchProtection = (): void => {
+    if (isDisposed) return
+    clearInlineRequest()
+    clearModalRequest()
+    inlineRemoteItems = []
+    modalRemoteHits = []
+    cachedCatalog = undefined
+    catalogSerial += 1
+    currentFilteredItems = []
+    inlineRenderSerial += 1
+    isInlineSearching = false
+    isModalSearching = false
+    stopRevealTimer?.()
+    stopRevealTimer = undefined
     try { renderInline() } catch { results.replaceChildren() }
-    try { renderPalette() } catch {
-      currentFilteredItems = []
-      modalListEl?.replaceChildren()
-    }
+    try { renderPalette() } catch { modalListEl?.replaceChildren() }
+  }
+  let previousProtection = deltaFeatures.getSnapshot()
+  const unsubscribeProtection = deltaFeatures.subscribe(() => {
+    const next = deltaFeatures.getSnapshot()
+    const prev = previousProtection
+    previousProtection = next
+    if (next.isSearchProtectionReady === prev.isSearchProtectionReady &&
+        next.lockedSessionIds === prev.lockedSessionIds &&
+        next.lockedWorkspaceIds === prev.lockedWorkspaceIds &&
+        next.deletedSessionIds === prev.deletedSessionIds &&
+        next.movedSessions === prev.movedSessions) return
+    invalidateSearchProtection()
   })
+  // Membership may change without a new Delta state payload.
+  try { searchScope?.inject(['workspaces'], scope => {
+    if (isDisposed) return
+    const list = scope.workspaces?.list
+    if (!list?.subscribe) return
+    scope.effect(() => {
+      let isListening = true
+      const stop = list.subscribe?.(() => {
+        if (isListening && deltaFeatures.getSnapshot().lockedWorkspaceIds.length > 0) invalidateSearchProtection()
+      })
+      if (deltaFeatures.getSnapshot().lockedWorkspaceIds.length > 0) invalidateSearchProtection()
+      return () => {
+        isListening = false
+        stop?.()
+        invalidateSearchProtection()
+      }
+    }, 'dsh-delta-desktop: search workspace protection observer')
+  }) } catch { /* An unavailable workspace snapshot remains excluded by the policy. */ }
   sync()
   return () => {
     if (isDisposed) return
     isDisposed = true
-    unsubscribeDeleted()
+    unsubscribeProtection()
     frameScheduler.cancel()
     stopRevealTimer?.()
     closePalette()
