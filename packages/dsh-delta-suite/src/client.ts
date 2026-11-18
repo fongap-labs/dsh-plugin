@@ -3337,19 +3337,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       if (!isSessionMenu && !isWorkspaceMenu) continue
 
       if (isWorkspaceMenu) {
-        const lockEls = items.filter(el => {
-          const l = getMenuLabel(el)
-          return l.startsWith('\u9501\u5b9a\u5de5\u4f5c\u533a') || l.startsWith('\u89e3\u9501\u5de5\u4f5c\u533a') ||
-                 l.startsWith('Lock workspace') || l.startsWith('Unlock workspace') ||
-                 el.classList?.contains('dtd-workspace-lock-item')
-        })
-        if (lockEls.length > 1) {
-          for (let i = 1; i < lockEls.length; i++) {
-            lockEls[i].remove()
-            const idx = items.indexOf(lockEls[i])
-            if (idx >= 0) items.splice(idx, 1)
-          }
-        }
+        // Harness and other plugins own all workspace lock commands.
+        // Never remove suspected duplicates from a native menu.
         for (let i = 0; i < items.length; i++) {
           const el = items[i]
           const isSep = el.getAttribute?.('role') === 'separator' || (typeof el.className === 'string' && el.className.includes('_separator_'))

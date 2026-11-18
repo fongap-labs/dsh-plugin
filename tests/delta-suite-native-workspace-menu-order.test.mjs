@@ -8,7 +8,7 @@ const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.met
 const source = read('packages/dsh-delta-suite/src/client.ts')
 const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/dsh-delta-suite/src/theme.css')
-const start = normalizedSource.indexOf('      if (isWorkspaceMenu) {\n        const lockEls =')
+const start = normalizedSource.indexOf('      if (isWorkspaceMenu) {\n        // Harness and other plugins own all workspace lock commands.')
 const end = normalizedSource.indexOf('      if (isSessionMenu) {\n', start)
 const emitted = [
   'function installSidebarCompatibility() {}',
@@ -24,7 +24,7 @@ test('native workspace order/separators remain untouched while deletion is still
     assert.equal(workspace.includes(forbidden), false, 'workspace ordering remains: ' + forbidden)
   }
   assert.doesNotMatch(source, /WORKSPACE_MENU_ORDERS/)
-  assert.match(workspace, /lockEls\.length > 1/, 'duplicate lock rows remain safely guarded')
+  assert.doesNotMatch(workspace, /lockEls|\.remove\(\)|items\.splice\(/, 'Host and third-party menu items stay intact')
   assert.match(workspace, /Delete workspace/, 'destructive action recognition remains')
   assert.match(workspace, /data-danger/)
   assert.match(workspace, /getWorkspaceCount\(\) <= 1/)
