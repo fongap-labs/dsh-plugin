@@ -15,7 +15,7 @@
 
 两个入口共享原有设置控制器，可以调整 Delta/官方主题及其他 Suite 选项。停用插件会撤销注册；不修改原生设置按钮、菜单或导航 DOM。
 
-**代码合并与 CI 通过并不会自动更新正在运行的 Harness。** `dsh-delta-desktop` 是旧包，不能自动覆盖新 Cordis ID `dsh-delta-suite`；必须发布包含新注册的 Suite 构建并在实际使用的 Profile 中安装/启用、重载客户端。若两个入口都不存在，先核实插件加载状态和是否出现 `[dsh-delta-suite] Settings mount failed` 或 `deferred Settings registration failed` 日志；不能通过私有 DOM 插入按钮伪装成功。
+**代码合并与 CI 通过并不会自动更新正在运行的 Harness。** 先前安装的历史包不会自动覆盖新 Cordis ID `dsh-delta-suite`；必须发布包含新注册的 Suite 构建并在实际使用的 Profile 中安装/启用、重载客户端。若两个入口都不存在，先核实插件加载状态和是否出现 `[dsh-delta-suite] Settings mount failed` 或 `deferred Settings registration failed` 日志；不能通过私有 DOM 插入按钮伪装成功。
 
 ## 当前实现状态
 
