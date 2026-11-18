@@ -16,7 +16,9 @@ async function credentialForRequest(host: GitHubCredentialHost | undefined, ref:
   if (provider !== undefined) {
     if (typeof provider.resolve !== 'function') throw new Error('GitHub Host credential service is incomplete')
     const resolved = await provider.resolve(ref)
-    if (!resolved?.value?.trim()) throw new Error('GitHub credential not configured for account ' + account)
+    if (typeof resolved?.value !== 'string' || !resolved.value.trim()) {
+      throw new Error('GitHub credential not configured for account ' + account)
+    }
     return resolved.value.trim()
   }
   // Compatibility with older Hosts lacking the credentials service.

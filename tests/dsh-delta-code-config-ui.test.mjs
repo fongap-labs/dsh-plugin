@@ -88,3 +88,18 @@ describe('code worker cyclic config protection', () => {
     assert.throws(() => normalizeConfig({ nested }), /configuration nesting limit exceeded/)
   })
 })
+
+it('provides beginner GitHub settings through native Settings without leaking PATs to ConfigForm', () => {
+  const client = read('src/client.ts')
+  assert.match(client, /name: 'settings.section', id: 'delta-code'/)
+  assert.match(client, /ctx.configForms.get\('dsh-delta-code'\)/)
+  assert.match(client, /ctx.remote.credentials/)
+  assert.match(client, /credentials!\.set\(update.ref, update.token\)/)
+  assert.match(client, /type: isSecret \? 'password' : 'text'/)
+  assert.match(client, /Token 已保存（尚未验证仓库权限）/)
+  assert.match(client, /Token 尚未配置/)
+  assert.match(client, /defaultGithubTokenRef/)
+  assert.match(client, /setTokenInputs\(\{\}\)/)
+  assert.doesNotMatch(client, /plugins\.row\.config', \(\)/)
+  assert.doesNotMatch(client, /set\(\[\.\.\.prefix, 'token'\]/)
+})

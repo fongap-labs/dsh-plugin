@@ -195,7 +195,18 @@ function installClient(require: (id: string) => unknown) {
     const [credentialStates, setCredentialStates] = React.useState<Record<string, CredentialInfo>>({})
     const [credentialNotice, setCredentialNotice] = React.useState('')
     const refsKey = draft.accounts.map(a => a.tokenEnv).filter(Boolean).join('|')
-    React.useEffect(() => { setDraft(readDraft(state?.value)); setNotice('') }, [state?.revision])
+    React.useEffect(() => {
+      setDraft(previous => {
+        const refreshed = readDraft(state?.value)
+        for (const account of refreshed.accounts) {
+          const before = previous.accounts.find(candidate => candidate.owner === account.owner &&
+            candidate.tokenEnv === account.tokenEnv)
+          if (before) account.uiKey = before.uiKey
+        }
+        return refreshed
+      })
+      setNotice('')
+    }, [state?.revision])
     React.useEffect(() => {
       let active = true
       const refs = [...new Set(draft.accounts.map(a => a.tokenEnv).filter(ref => ENV.test(ref)))]
@@ -242,6 +253,12 @@ function installClient(require: (id: string) => unknown) {
     const save = async () => {
       const error = validation(draft, state.value)
       if (error) { setNotice(error); return }
+      const unconfigured = draft.accounts.find(account => account.sourceIndex < 0 &&
+        !tokenInputs[account.uiKey]?.trim() && credentialStates[account.tokenEnv]?.configured !== true)
+      if (unconfigured) {
+        setNotice(t('新账号需要填写访问令牌。', 'Enter an access token for the new account.'))
+        return
+      }
       const ops = operations(draft, state.value)
       const updates = draft.accounts.flatMap(a => {
         const token = tokenInputs[a.uiKey]?.trim()
@@ -287,6 +304,42 @@ function installClient(require: (id: string) => unknown) {
     return h('div', { style: { display: 'grid', gap: '6px', minWidth: 0, paddingBottom: '16px' }, 'data-code-worker-settings': 'true' },
       hint(t('设置通过 DSH 原生配置服务保存。关闭页面不会保存草稿；执行权限默认关闭。',
         'Saved through the native DSH configuration service. Changes are staged; execution is off by default.')),
+      section(t('GitHub 连接', 'GitHub connections'),
+        toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
+        toggle(t('允许创建分支、提交和 PR（默认关闭）', 'Allow branches, commits and PRs (off by default)'), draft.githubAllowWrites,
+          v => patch({ githubAllowWrites: v })),
+        hint(t('① 添加账号或组织  ② 粘贴 GitHub 访问令牌（PAT）  ③ 保存。Token 由 Harness 凭据服务保管，不写入插件配置。',
+          '1. Add an account or organization. 2. Paste a GitHub personal access token (PAT). 3. Save. The token stays in Host credentials, not plugin settings.')),
+        h('a', { href: 'https://github.com/settings/personal-access-tokens/new', target: '_blank', rel: 'noopener noreferrer', style: { fontSize: '12px' } },
+          t('在 GitHub 创建访问令牌', 'Create a GitHub access token')),
+        credentialNotice && hint(credentialNotice),
+        ...draft.accounts.map((a, i) => h('div', { key: a.sourceIndex >= 0 ? 'existing-' + a.sourceIndex : 'new-' + i,
+          style: { ...inset, padding: '12px', border: '1px solid var(--dsw-alias-border-l2, #ddd)', borderRadius: '10px' } },
+          field(t('GitHub 用户名或组织名', 'GitHub username or organization'), a.owner, v => updateAccount(i, 'owner', v)),
+          h('div', { style: { fontSize: '12px', opacity: 0.8 } },
+            credentialStates[a.tokenEnv] === undefined
+              ? t('正在确认凭据状态', 'Checking credential status')
+              : credentialStates[a.tokenEnv]?.configured
+                ? t('Token 已保存（尚未验证仓库权限）', 'Token saved (repository permissions not verified)')
+                : t('Token 尚未配置', 'Token not configured')),
+          field(t('访问令牌（Token，留空表示不更换）', 'Access token (leave blank to keep existing)'),
+            tokenInputs[a.uiKey] ?? '', value => setTokenInputs(old => ({ ...old, [a.uiKey]: value })),
+            true, t('粘贴 GitHub Token', 'Paste GitHub token')),
+          field(t('指定仓库（可选，用逗号分隔）', 'Repositories (optional, comma separated)'),
+            a.repositories, v => updateAccount(i, 'repositories', v), false, 'org/backend, org/frontend'),
+          h('details', null, h('summary', { style: { fontSize: '12px', cursor: 'pointer' } },
+            t('高级：凭据引用', 'Advanced: credential reference')),
+            h('code', { style: { fontSize: '11px', overflowWrap: 'anywhere' } }, a.tokenEnv || t('填写用户名后自动生成', 'Generated after entering a username'))),
+          h('button', { type: 'button', disabled, style: actionStyle,
+            onClick: () => {
+              patch({ accounts: draft.accounts.filter((_, j) => j !== i) })
+              setTokenInputs(old => { const next = { ...old }; delete next[a.uiKey]; return next })
+            } },
+            t('删除账号', 'Remove account')))),
+        h('button', { type: 'button', disabled, style: actionStyle,
+          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', tokenEnv: '', repositories: '', sourceIndex: -1,
+            uiKey: 'new-' + (++nextAccountRow) }] }) },
+          t('添加 GitHub 账号', 'Add GitHub account'))),
       section(t('基本与 Git', 'General & Git'),
         toggle(t('启用编程工具', 'Enable coding tools'), draft.enabled, v => patch({ enabled: v })),
         toggle(t('自动路由编程请求', 'Auto-route coding requests'), draft.autoRouting, v => patch({ autoRouting: v })),
@@ -308,40 +361,6 @@ function installClient(require: (id: string) => unknown) {
         hint(t('请选择宿主已提供的写入接口语义，不按 DSH 版本判断；不会通过试写探测，拒绝自动降级。',
           'Select the supported Host write semantics, not a DSH version. No probing writes or unsafe fallback.')),
         hint(t('执行脚本仅适用于可信工作区。', 'Only enable project commands in trusted workspaces.'))),
-      section(t('GitHub 连接', 'GitHub connections'),
-        toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
-        toggle(t('允许创建分支、提交和 PR（默认关闭）', 'Allow branches, commits and PRs (off by default)'), draft.githubAllowWrites,
-          v => patch({ githubAllowWrites: v })),
-        hint(t('① 添加账号或组织  ② 粘贴 GitHub 访问令牌（PAT）  ③ 保存。Token 由 Harness 凭据服务保管，不写入插件配置。',
-          '1. Add an account or organization. 2. Paste a GitHub personal access token (PAT). 3. Save. The token stays in Host credentials, not plugin settings.')),
-        h('a', { href: 'https://github.com/settings/personal-access-tokens/new', target: '_blank', rel: 'noopener noreferrer', style: { fontSize: '12px' } },
-          t('在 GitHub 创建访问令牌', 'Create a GitHub access token')),
-        credentialNotice && hint(credentialNotice),
-        ...draft.accounts.map((a, i) => h('div', { key: a.sourceIndex >= 0 ? 'existing-' + a.sourceIndex : 'new-' + i,
-          style: { ...inset, padding: '12px', border: '1px solid var(--dsw-alias-border-l2, #ddd)', borderRadius: '10px' } },
-          field(t('GitHub 用户名或组织名', 'GitHub username or organization'), a.owner, v => updateAccount(i, 'owner', v)),
-          h('div', { style: { fontSize: '12px', opacity: 0.8 } },
-            credentialStates[a.tokenEnv]?.configured
-              ? t('Token 已保存（尚未验证仓库权限）', 'Token saved (repository permissions not verified)')
-              : t('Token 尚未配置', 'Token not configured')),
-          field(t('访问令牌（Token，留空表示不更换）', 'Access token (leave blank to keep existing)'),
-            tokenInputs[a.uiKey] ?? '', value => setTokenInputs(old => ({ ...old, [a.uiKey]: value })),
-            true, t('粘贴 GitHub Token', 'Paste GitHub token')),
-          field(t('指定仓库（可选，用逗号分隔）', 'Repositories (optional, comma separated)'),
-            a.repositories, v => updateAccount(i, 'repositories', v), false, 'org/backend, org/frontend'),
-          h('details', null, h('summary', { style: { fontSize: '12px', cursor: 'pointer' } },
-            t('高级：凭据引用', 'Advanced: credential reference')),
-            h('code', { style: { fontSize: '11px', overflowWrap: 'anywhere' } }, a.tokenEnv || t('填写用户名后自动生成', 'Generated after entering a username'))),
-          h('button', { type: 'button', disabled, style: actionStyle,
-            onClick: () => {
-              patch({ accounts: draft.accounts.filter((_, j) => j !== i) })
-              setTokenInputs(old => { const next = { ...old }; delete next[a.uiKey]; return next })
-            } },
-            t('删除账号', 'Remove account')))),
-        h('button', { type: 'button', disabled, style: actionStyle,
-          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', tokenEnv: '', repositories: '', sourceIndex: -1,
-            uiKey: 'new-' + (++nextAccountRow) }] }) },
-          t('添加 GitHub 账号', 'Add GitHub account'))),
       section(t('语言服务器', 'Language servers'),
         ...draft.servers.map((s, i) => h('div', { key: 'server-' + i,
           style: { ...inset, padding: '12px', border: '1px solid var(--dsw-alias-border-l2, #ddd)', borderRadius: '10px' } },
@@ -361,7 +380,7 @@ function installClient(require: (id: string) => unknown) {
       !state.writable && hint(t('当前 Profile 为只读，无法保存。', 'The active profile is read-only.')),
       h('div', { style: { display: 'flex', gap: '10px', marginTop: '10px' } },
         h('button', { type: 'button', disabled, style: actionStyle,
-          onClick: () => { setDraft(readDraft(state.value)); setNotice('') } },
+          onClick: () => { setDraft(readDraft(state.value)); setTokenInputs({}); setNotice('') } },
           t('放弃修改', 'Discard')),
         h('button', { type: 'button', disabled, onClick: () => { void save() },
           style: { ...actionStyle, background: 'var(--dsw-alias-brand-primary, #286F78)', color: 'white' } },
@@ -374,12 +393,13 @@ function installClient(require: (id: string) => unknown) {
       // The plugin row's Cordis config namespace is its patch id, not its
       // package name. The Settings section uses the same revision-fenced form.
       const form = ctx.configForms.get('dsh-delta-code')
+      const credentials: CredentialsRemote = ctx.remote.credentials
       function NativePage() {
         const [snapshot, setSnapshot] = React.useState<ConfigState>(() => form.getSnapshot())
         React.useEffect(() => form.subscribe(() => setSnapshot(form.getSnapshot())), [])
         return h(Page, { view: 'page', form: {
           state: snapshot, mutate: (ops: Op[], revision?: number) => form.mutate(ops, revision),
-        }, credentials: ctx.remote.credentials })
+        }, credentials })
       }
       // settings.section is shared by native Settings and the Plugins page.
       // Do not register plugins.row.config as well, which would hide this page
