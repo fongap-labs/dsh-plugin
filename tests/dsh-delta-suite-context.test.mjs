@@ -10,6 +10,7 @@ const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/dsh-delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const clientSource = buildDesktopClientFixture()
+const readiness = JSON.parse(readFileSync(fixture('projects/dsh-delta-suite/feature-readiness.json'), 'utf8'))
 const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusProjection } = await import(pathToFileURL(
   fixture('packages/dsh-delta-suite/lib/context-projection.js')).href)
 
@@ -484,6 +485,7 @@ test('DeepSeek Account and model display preferences persist independently', () 
 })
 
 test('model label shows only the DeepSeek Account route name under its separate preference', () => {
+  assert.equal(readiness.required.generic_model_label_preference, true)
   const app = makeHarness()
   const label = app.components.get('conversation.input.model.label:').component
   const renderLabel = props => app.render('model-label', label, props)
