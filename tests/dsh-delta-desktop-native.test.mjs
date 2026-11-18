@@ -42,7 +42,9 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
     localStorage: { getItem() { return stored }, setItem(_key, value) { stored = value } },
     MutationObserver: class { constructor(callback) { context.observers.push(callback) } observe() {} disconnect() {} },
   }
-  vm.runInNewContext(source + '\n;globalThis.testDeltaFeatures = deltaFeatures', context)
+  const fixtureSource = source.replace('\n})();\n', '\n;globalThis.testDeltaFeatures = deltaFeatures\n})();\n')
+  assert.notEqual(fixtureSource, source, 'test exposure stays inside the compiled client scope')
+  vm.runInNewContext(fixtureSource, context)
   const components = new Map()
   const client = registration.factory(id => {
     if (id === '@deepseek-ai/dsh-client-ui-primitives') return { MenuItemButton() {} }
