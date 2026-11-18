@@ -39,7 +39,9 @@ Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，�
 
 编程任务关键词由 `delta-code-strategy/builtin-task-signals.ts` 统一维护；有序路由规则位于 `task-routing.ts`，资源触发条件与相应指导文本位于 `task-resource-policy.ts`。新增技能或资源不需要在匹配引擎中增加分支。宿主适配层允许注入经过审核的 `DeltaCodeRoutingPolicy`（`routeRules`、`resourceRules`），未注入时保持现有中英文默认识别结果。
 
-策略输入仅限可信插件代码，不从模型输出、GitHub 仓库内容、外部 Skill 或动态配置中执行任意正则。禁用 Code Worker、禁用外部 Skills、续接当前任务、当前用户消息校验与真实 Host 权限均不可由策略规则覆盖。资源提示只指引使用已有授权工具，不会自动安装 MCP 或远程脚本。规则变化使用单元测试和真实 Harness 验收，不引入 A/B 试验。
+工作流模式（快速修改、缺陷诊断、PR/CI、研究及计划执行）和技能装配顺序已移至 `delta-code-strategy/workflow-policy.ts` 的 `DEFAULT_CODING_WORKFLOW_RULES`，`workflow-route.ts` 只执行确定性匹配、任务依赖波次规划和强制安全检查。可信策略装配可以通过 `deltaCodeStrategy` 的可选 `workflowRules` 注入审核后的规则；`code_workflow_route` 工具参数与原调用保持一致。
+
+策略输入仅限可信插件代码，不从模型输出、GitHub 仓库内容、外部 Skill 或动态配置中执行任意正则。禁用 Code Worker、禁用外部 Skills、续接当前任务、当前用户消息校验与真实 Host 权限均不可由策略规则覆盖。即使错误的规则请求并行，仍必须是规划型 feature/refactor、宿主原生子代理已确认可用且每项任务有不重叠的显式写入集合；其他任务顺序执行。必要权限、破坏性操作审批、CI 失败或证据缺失的阻断条件始终强制执行，策略不可替换。资源提示只指引使用已有授权工具，不会自动安装 MCP 或远程脚本。规则变化使用单元测试和真实 Harness 验收，不引入 A/B 试验。
 
 ## 宿主兼容与依赖
 

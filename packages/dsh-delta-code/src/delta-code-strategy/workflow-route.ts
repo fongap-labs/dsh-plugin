@@ -1,9 +1,13 @@
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
+import {
+  CODING_TASK_KINDS, CODING_SCOPES, CODING_RISKS, DEFAULT_CODING_WORKFLOW_RULES,
+  REQUIRED_WORKFLOW_STOP_CONDITIONS, type CodingWorkflowRule,
+  type CodingTaskKind, type CodingScope, type CodingRisk, type CodingWorkflowMode,
+  type WorkflowStepCondition,
+} from './workflow-policy.js'
 
-export type CodingTaskKind = 'feature' | 'bugfix' | 'refactor' | 'review' | 'ci' | 'research'
-export type CodingScope = 'small' | 'medium' | 'large'
-export type CodingRisk = 'low' | 'medium' | 'high'
+export type { CodingTaskKind, CodingScope, CodingRisk, CodingWorkflowMode, CodingWorkflowRule } from './workflow-policy.js'
 
 export interface RouteInput {
   taskKind: CodingTaskKind
@@ -15,7 +19,7 @@ export interface RouteInput {
   taskDependencies?: number[][]
 }
 export interface RouteResult {
-  mode: 'fast' | 'diagnose' | 'planned' | 'review' | 'ci-repair' | 'research'
+  mode: CodingWorkflowMode
   skills: string[]
   parallelCandidate: boolean
   executionWaves: number[][]
@@ -85,82 +89,71 @@ export function planCodingWaves(
   return waves
 }
 
-/** Deterministic routing, not a second scheduler or an autonomous background loop. */
-export function decideCodingWorkflow(input: RouteInput): RouteResult {
+/**
+ * Data selects the workflow; this function only enforces safety invariants and
+ * computes a bounded dependency-wave plan. It never dispatches agents.
+ */
+export function decideCodingWorkflow(
+  input: RouteInput,
+  rules: readonly CodingWorkflowRule[] = DEFAULT_CODING_WORKFLOW_RULES,
+): RouteResult {
+  if (!CODING_TASK_KINDS.includes(input.taskKind) ||
+      !CODING_SCOPES.includes(input.scope) ||
+      !CODING_RISKS.includes(input.risk)) {
+    throw new Error('invalid taskKind, scope or risk')
+  }
   const independentTasks = input.independentTasks ?? 1
   if (!Number.isSafeInteger(independentTasks) || independentTasks < 1 || independentTasks > 100) {
     throw new Error('independentTasks must be an integer from 1 to 100')
   }
-  const isHighRisk = input.risk === 'high'
-  const isLarge = input.scope === 'large'
-  const shouldPlan = isHighRisk || isLarge || input.scope === 'medium'
-  const allowParallel = shouldPlan && independentTasks >= 2 && input.nativeSubagents === true &&
-    (input.taskKind === 'feature' || input.taskKind === 'refactor')
+  const isHighImpact = input.risk === 'high' || input.scope === 'large'
+  const isPlanned = isHighImpact || input.scope === 'medium'
+  const profile = rules.find(rule =>
+    rule.taskKinds.includes(input.taskKind) &&
+    (rule.shouldPlan === undefined || rule.shouldPlan === isPlanned))
+  if (!profile) throw new Error('no reviewed coding workflow policy matches the task')
+
+  // A catalog cannot permit unsafe parallel execution, even if canParallelize
+  // was mistakenly enabled for a diagnostic or read-only workflow.
+  const isParallelPermitted = profile.mode === 'planned' &&
+    profile.canParallelize === true && isPlanned &&
+    (input.taskKind === 'feature' || input.taskKind === 'refactor') &&
+    independentTasks >= 2 && input.nativeSubagents === true
   const executionWaves = planCodingWaves(independentTasks,
-    input.taskPaths, input.taskDependencies, allowParallel)
+    input.taskPaths, input.taskDependencies, isParallelPermitted)
   const canParallelize = executionWaves.some(wave => wave.length > 1)
-  const stopConditions = [
-    'Host permissions or credentials unavailable: stop, do not silently fall back or escalate.',
-    'Destructive or irreversible action: require explicit authorization.',
-    'Tests fail, required CI is red/pending, or evidence is missing: do not claim verified completion.',
-    'Parallel tasks require verified native subagents and disjoint declared write paths.',
-  ]
-  const verification = [
-    'Inspect changed paths and relevant source/test diffs.',
-    'Run focused behavior tests and applicable project checks; report exact commands and exit codes.',
-    'For a PR, verify required checks against its current HEAD SHA.',
-  ]
+  const conditions: Record<WorkflowStepCondition, boolean> = {
+    planned: isPlanned,
+    'high-impact': isHighImpact,
+    parallel: canParallelize,
+    sequential: !canParallelize,
+  }
+  const skills = profile.steps
+    .filter(step => (step.when === undefined || conditions[step.when]) &&
+      (canParallelize || (step.skill !== 'code-parallel-work' &&
+        step.skill !== 'code-subagent-delivery')))
+    .map(step => step.skill)
 
-  if (input.taskKind === 'ci') return {
-    mode: 'ci-repair', skills: ['code-ci-repair', 'code-verification-gate'], parallelCandidate: false, executionWaves,
-    verification, stopConditions,
+  return {
+    mode: profile.mode,
+    skills,
+    parallelCandidate: canParallelize,
+    executionWaves,
+    verification: [...profile.verification],
+    stopConditions: [...REQUIRED_WORKFLOW_STOP_CONDITIONS],
   }
-  if (input.taskKind === 'review') return {
-    mode: 'review', skills: ['code-review-readiness', 'code-verification-gate'], parallelCandidate: false, executionWaves,
-    verification, stopConditions,
-  }
-  if (input.taskKind === 'research') return {
-    mode: 'research', skills: ['code-context-discipline', 'code-brainstorming'], parallelCandidate: false, executionWaves,
-    verification: ['Cite the source files and facts supporting each conclusion; distinguish hypotheses.'],
-    stopConditions,
-  }
-  if (input.taskKind === 'bugfix') return {
-    mode: 'diagnose',
-    skills: [
-      'code-root-cause-debugging',
-      // Diagnose before planning, then execute one verified step at a time.
-      // Avoid speculative parallel writes while the root cause is unsettled.
-      ...(shouldPlan ? ['code-writing-plans', 'code-executing-plans'] : []),
-      'code-test-driven-development',
-      ...(isHighRisk || isLarge ? ['code-request-review'] : []),
-      'code-verification-gate', 'code-finish-branch',
-    ],
-    parallelCandidate: false, executionWaves, verification, stopConditions,
-  }
-  if (!shouldPlan) return {
-    mode: 'fast', skills: ['code-fast-change', 'code-verification-gate'], parallelCandidate: false, executionWaves,
-    verification, stopConditions,
-  }
-
-  const skills = [
-    ...(isHighRisk || isLarge ? ['code-brainstorming'] : []),
-    'code-writing-plans',
-    ...(canParallelize ? ['code-parallel-work', 'code-subagent-delivery'] : ['code-executing-plans']),
-    'code-test-driven-development',
-    ...(isHighRisk || isLarge ? ['code-request-review', 'code-review-readiness'] : []),
-    'code-verification-gate', 'code-finish-branch',
-  ]
-  return { mode: 'planned', skills, parallelCandidate: canParallelize, executionWaves, verification, stopConditions }
 }
 
-export function createWorkflowRouteTool(): ToolDefinition {
+export function createWorkflowRouteTool(
+  rules: readonly CodingWorkflowRule[] = DEFAULT_CODING_WORKFLOW_RULES,
+): ToolDefinition {
   return defineTool({
     name: 'code_workflow_route',
     description: 'Choose a compact, deterministic coding lifecycle from existing Code Worker Skills. Read-only; does not dispatch agents, run commands or change files. For substantial tasks only: tiny changes can load code-fast-change directly.',
     parameters: {
-      taskKind: { type: 'string', required: true, enum: ['feature', 'bugfix', 'refactor', 'review', 'ci', 'research'] },
-      scope: { type: 'string', required: true, enum: ['small', 'medium', 'large'] },
-      risk: { type: 'string', required: true, enum: ['low', 'medium', 'high'] },
+      taskKind: { type: 'string', required: true, enum: [...CODING_TASK_KINDS] },
+      scope: { type: 'string', required: true, enum: [...CODING_SCOPES] },
+      risk: { type: 'string', required: true, enum: [...CODING_RISKS] },
       independentTasks: { type: 'integer', description: 'Number of independently reviewable work items, 1..100; default 1.' },
       nativeSubagents: { type: 'boolean', description: 'True only after confirming DSH native subagent dispatch is available and permitted.' },
       taskPaths: { type: 'array', description: 'Explicit repository-relative write sets for each task, required for parallel execution.',
@@ -186,6 +179,6 @@ export function createWorkflowRouteTool(): ToolDefinition {
         ...value.stopConditions.map(line => 'Stop: ' + line),
       ].join('\n') }]
     } },
-    execute: async (args) => decideCodingWorkflow(args as RouteInput),
+    execute: async (args) => decideCodingWorkflow(args as RouteInput, rules),
   })
 }
