@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 将已有公开模型标签插槽与独立名称偏好纳入就绪清单和使用说明；Windows 实机验收边界保持明确。
+
 - 维护: 明确能力协商 helper 尚未接入运行时 Host manifest；未公开能力继续回退原生体验（Issue #190）。
 
 - 维护: 记录模型 Effort 接入所需的凭据范围 Host API，以及 Default 与显式 Off 的协议验收边界；现有未验证模型能力保持未交付（Issue #280）。

@@ -19,11 +19,12 @@
 
 ## 当前实现状态
 
-功能交付以 `projects/dsh-delta-suite/feature-readiness.json` 为唯一状态源。当前只有以下三项具备明确的公开扩展接口并标记为已完成：
+功能交付以 `projects/dsh-delta-suite/feature-readiness.json` 为唯一状态源。当前以下四项具备明确的公开扩展接口和源码回归覆盖，并标记为已完成：
 
 1. **原生个性设置**：通过 `settings.section` 注册独立设置栏目。
 2. **主题令牌**：通过公开 Theme API 覆盖品牌色，并由 disposer 释放。
 3. **品牌插槽**：通过 `sidebar.brand.mark/name` 替换品牌图标和名称。
+4. **通用模型名称偏好**：通过 `conversation.input.model.label` 显示公开插槽提供的模型名称，并由独立偏好控制；不读取凭证信息。
 
 以上仅代表源码与公开接口层面的能力，不代表 Windows 实机验收已经完成。
 
@@ -35,7 +36,7 @@
 - 原生会话运行状态文案替换，以及完整会话悬浮卡布局替换。
 - 工作区首次默认折叠、默认工作区删除前置保护。
 - Profile 上下文压缩、结构化检查点、原生引用选择、助手侧栏协作。
-- 安全输入优化、模型标签/路由偏好、请求脱敏、Vision 和 MCP 管理的完整宿主验收。
+- 安全输入优化、DeepSeek Account 路由显示偏好、DeepSeek 模型路由切换、请求脱敏、Vision 和 MCP 管理。
 
 公开的 `sidebar.panellist.actions` 只提供 More 菜单入口；`sidebar.session.row.hover` 只提供悬浮卡装饰区域，均不能据此推断完整侧栏重排或悬浮卡替换已可实现。
 

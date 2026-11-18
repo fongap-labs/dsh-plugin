@@ -16,7 +16,7 @@
     "native_selection_quotes": false,
     "assistant_sidebar_collaboration": false,
     "safe_input_optimization": false,
-    "generic_model_label_preference": false,
+    "generic_model_label_preference": true,
     "deepseek_account_route_label_preference": false,
     "deepseek_model_route_toggle": false,
     "request_redaction": false,
@@ -25,13 +25,13 @@
     "generic_vision_protocols": false,
     "mcp_server_management": false
   },
-  "note": "Public API review baseline: deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738 (2026-11-17, documentation only; no runtime version pin). Only native_personalization, theme_tokens and brand_slots currently have confirmed public extension contracts for this delivery. Sidebar ordering/search placement, workspace initial collapse/delete guard, full hover-card layout and RunningStatus copy remain false because no suitable public contract exists. Runtime capability detection remains version-agnostic; DOM takeover, private Store access and method interception are retired. Source tests do not prove Host compatibility or Windows acceptance.",
+  "note": "Public API review baseline: deepseek-ai/deepseek-harness@2e39e70496aa02986ca6a820c5d497e816b69d7e (master, 2026-11-18; documentation only, no runtime version pin). Confirmed public contracts cover native_personalization, theme_tokens, brand_slots, and generic_model_label_preference through conversation.input.model.label. The generic model label shows only the model name supplied by the public slot and follows its separate user preference; no credential fields are read. Sidebar ordering/search placement, workspace initial collapse/delete guard, full hover-card layout and RunningStatus copy remain false because no suitable public contract exists. Runtime capability detection remains version-agnostic; DOM takeover, private Store access and method interception are retired. Source tests do not prove Host compatibility or Windows acceptance.",
   "verification": {
     "native_client": "tests/dsh-delta-suite-native.test.mjs",
     "dom_compat": "retired: no direct DOM sidebar takeover",
     "host_guard": "tests/dsh-delta-suite-host-guard.test.mjs",
     "mcp_management": "tests/dsh-delta-suite-context.test.mjs",
     "privacy_vision": "tests/dsh-delta-suite-privacy.test.mjs",
-    "upstream_reference": "deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738; public API documentation reference only, no runtime version pin"
+    "upstream_reference": "deepseek-ai/deepseek-harness@2e39e70496aa02986ca6a820c5d497e816b69d7e (master); public API documentation reference only, no runtime version pin"
   }
 }
