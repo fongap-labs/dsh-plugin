@@ -1308,7 +1308,6 @@ interface ClientFeatureManager {
   ensureLoaded(): void
   getWorkspaces(): readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
   setWorkspacesApi(api: WorkspacesApi | undefined, readNative?: () => WorkspaceSnapshot): void
-  setRawUnarchiveSession(fn: ((sessionId: string) => Promise<unknown>) | undefined): void
   setSessionsApi(api: SearchSessionsApi | undefined): void
   setNavigationApi(api: SearchNavigationApi | undefined): void
   setActiveSessionId(id: string | undefined): void
@@ -1551,7 +1550,6 @@ function createClientFeatureManager(): ClientFeatureManager {
   let workspacesApi: WorkspacesApi | undefined
   let readNativeWorkspaceSnapshot: (() => WorkspaceSnapshot) | undefined
   const pendingArchives = new Map<string, Promise<void>>()
-  let rawUnarchiveSessionFn: ((sessionId: string) => Promise<unknown>) | undefined
   let sessionsApi: SearchSessionsApi | undefined
   let navigationApi: SearchNavigationApi | undefined
   let hasSyncedStateFromHost = false
@@ -1589,10 +1587,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       try {
         await Promise.resolve(fn.call(api, sessionId))
       } catch {
-        if (workspacesApi !== api || !state.lockedSessionIds.includes(sessionId)) return
-        try {
-          await Promise.resolve(fn.call(api, sessionId, { stopActivity: true }))
-        } catch {}
+        // Reconciliation is not consent to stop running activity.
       }
     }).finally(() => {
       if (pendingArchives.get(sessionId) === operation) pendingArchives.delete(sessionId)
@@ -1602,10 +1597,18 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const unarchiveSessionBestEffort = async (sessionId: string): Promise<void> => {
-    const fn = rawUnarchiveSessionFn ?? workspacesApi?.unarchiveSession
-    if (typeof fn !== 'function') return
+    const api = workspacesApi
+    if (!api) return
+    // A previously scheduled archive must settle before restoring this row.
+    // Resolve the current public method, never retain a bypass around its guard.
+    await pendingArchives.get(sessionId)
+    if (workspacesApi !== api || state.lockedSessionIds.includes(sessionId) ||
+        state.deletedSessionIds.includes(sessionId)) return
     try {
-      await Promise.resolve(fn.call(workspacesApi, sessionId))
+      if (isSessionInLockedWorkspace(sessionId)) return
+      const archived = readNativeWorkspaceSnapshot?.().archivedSessionIds
+      if (!archived?.includes(sessionId) || typeof api.unarchiveSession !== 'function') return
+      await api.unarchiveSession(sessionId)
     } catch {}
   }
 
@@ -1818,17 +1821,21 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
   }
 
-  const generatePreviewBase32Secret = (): string => {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
-    const bytes = new Uint8Array(20)
-    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-      crypto.getRandomValues(bytes)
-    } else {
-      for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256)
-    }
-    let out = ''
-    for (let i = 0; i < 32; i++) out += alphabet[bytes[i % bytes.length] & 31]
-    return out
+  // Lock operations require the complete public Host state, never a locally
+  // fabricated success. Reject partial acknowledgements before applying them.
+  const isConfirmedLockState = (payload: unknown): boolean => {
+    if (!payload || typeof payload !== 'object') return false
+    const value = payload as Partial<ClientFeatureSnapshot>
+    const isIdList = (items: unknown): boolean =>
+      Array.isArray(items) && items.every(id => typeof id === 'string' && id.length > 0)
+    return typeof value.hasPin === 'boolean' &&
+      (value.lockMode === 'none' || value.lockMode === 'pin' || value.lockMode === 'totp') &&
+      value.hasPin === (value.lockMode !== 'none') &&
+      isIdList(value.lockedSessionIds) && isIdList(value.lockedWorkspaceIds) &&
+      isIdList(value.deletedSessionIds) &&
+      !!value.movedSessions && typeof value.movedSessions === 'object' && !Array.isArray(value.movedSessions) &&
+      Object.values(value.movedSessions).every(id => typeof id === 'string' && id.length > 0) &&
+      (value.hasPin || (value.lockedSessionIds?.length === 0 && value.lockedWorkspaceIds?.length === 0))
   }
 
   const beginTotpSetup = async (): Promise<{
@@ -1838,17 +1845,12 @@ function createClientFeatureManager(): ClientFeatureManager {
     otpauthUri?: string
     error?: string
   }> => {
-    if (!canCallHostHttp()) {
-      const secret = generatePreviewBase32Secret()
-      return {
-        ok: true,
-        setupToken: 'preview-setup',
-        secret,
-        otpauthUri: `otpauth://totp/Delta%20Desktop:DeepSeek%20Harness?secret=${secret}&issuer=Delta%20Desktop&algorithm=SHA1&digits=6&period=30`,
-      }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', { action: 'setup-begin' })
-    if (!res.ok || !res.data?.secret || !res.data?.otpauthUri) {
+    if (!res.ok || res.data?.ok !== true || typeof res.data.setupToken !== 'string' || !res.data.setupToken ||
+        typeof res.data.secret !== 'string' || !res.data.secret ||
+        typeof res.data.otpauthUri !== 'string' || !res.data.otpauthUri) {
       return { ok: false, error: res.data?.error ?? 'TOTP_INIT_FAILED' }
     }
     return {
@@ -1866,20 +1868,8 @@ function createClientFeatureManager(): ClientFeatureManager {
   ): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (!/^\d{6}$/.test(trimmed)) return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
-    if (!canCallHostHttp()) {
-      const nextLocked = state.lockedSessionIds.includes(sessionId)
-        ? state.lockedSessionIds
-        : Object.freeze([...state.lockedSessionIds, sessionId])
-      publish({
-        hasPin: true,
-        lockMode: 'totp',
-        lockedSessionIds: nextLocked,
-        tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
-      })
-      await archiveSessionBestEffort(sessionId)
-      notifyDataApis()
-      return { ok: true }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', {
       action: 'setup-confirm',
       sessionId,
@@ -1887,7 +1877,12 @@ function createClientFeatureManager(): ClientFeatureManager {
       code: trimmed,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
-    if (res.data?.state) applyHostStatePayload(res.data.state)
+    const confirmedState = res.data?.state
+    if (res.data?.ok !== true || !isConfirmedLockState(confirmedState) ||
+        confirmedState.hasPin !== true || !confirmedState.lockedSessionIds.includes(sessionId)) {
+      return { ok: false, error: 'LOCK_UNCONFIRMED' }
+    }
+    applyHostStatePayload(confirmedState)
     publish({
       tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
     })
@@ -1903,19 +1898,8 @@ function createClientFeatureManager(): ClientFeatureManager {
   ): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (!/^\d{6}$/.test(trimmed)) return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
-    if (!canCallHostHttp()) {
-      const nextLocked = state.lockedWorkspaceIds.includes(workspaceId)
-        ? state.lockedWorkspaceIds
-        : Object.freeze([...state.lockedWorkspaceIds, workspaceId])
-      publish({
-        hasPin: true,
-        lockMode: 'totp',
-        lockedWorkspaceIds: nextLocked,
-        tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
-      })
-      notifyDataApis()
-      return { ok: true }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', {
       action: 'setup-confirm',
       workspaceId,
@@ -1923,7 +1907,12 @@ function createClientFeatureManager(): ClientFeatureManager {
       code: trimmed,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
-    if (res.data?.state) applyHostStatePayload(res.data.state)
+    const confirmedState = res.data?.state
+    if (res.data?.ok !== true || !isConfirmedLockState(confirmedState) ||
+        confirmedState.hasPin !== true || !confirmedState.lockedWorkspaceIds.includes(workspaceId)) {
+      return { ok: false, error: 'LOCK_UNCONFIRMED' }
+    }
+    applyHostStatePayload(confirmedState)
     publish({
       tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
     })
@@ -1932,26 +1921,19 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const lockSession = async (sessionId: string, _newPin?: string): Promise<{ ok: boolean; error?: string }> => {
-    if (!canCallHostHttp()) {
-      const nextLocked = state.lockedSessionIds.includes(sessionId)
-        ? state.lockedSessionIds
-        : Object.freeze([...state.lockedSessionIds, sessionId])
-      publish({
-        hasPin: true,
-        lockMode: state.lockMode === 'pin' ? 'pin' : 'totp',
-        lockedSessionIds: nextLocked,
-        tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
-      })
-      await archiveSessionBestEffort(sessionId)
-      notifyDataApis()
-      return { ok: true }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', {
       action: 'lock',
       sessionId,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'LOCK_FAILED' }
-    if (res.data?.state) applyHostStatePayload(res.data.state)
+    const confirmedState = res.data?.state
+    if (res.data?.ok !== true || !isConfirmedLockState(confirmedState) ||
+        confirmedState.hasPin !== true || !confirmedState.lockedSessionIds.includes(sessionId)) {
+      return { ok: false, error: 'LOCK_UNCONFIRMED' }
+    }
+    applyHostStatePayload(confirmedState)
     publish({
       tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
     })
@@ -1961,25 +1943,19 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const lockWorkspace = async (workspaceId: string): Promise<{ ok: boolean; error?: string }> => {
-    if (!canCallHostHttp()) {
-      const nextLocked = state.lockedWorkspaceIds.includes(workspaceId)
-        ? state.lockedWorkspaceIds
-        : Object.freeze([...state.lockedWorkspaceIds, workspaceId])
-      publish({
-        hasPin: true,
-        lockMode: state.lockMode === 'pin' ? 'pin' : 'totp',
-        lockedWorkspaceIds: nextLocked,
-        tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
-      })
-      notifyDataApis()
-      return { ok: true }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', {
       action: 'lock',
       workspaceId,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'LOCK_FAILED' }
-    if (res.data?.state) applyHostStatePayload(res.data.state)
+    const confirmedState = res.data?.state
+    if (res.data?.ok !== true || !isConfirmedLockState(confirmedState) ||
+        confirmedState.hasPin !== true || !confirmedState.lockedWorkspaceIds.includes(workspaceId)) {
+      return { ok: false, error: 'LOCK_UNCONFIRMED' }
+    }
+    applyHostStatePayload(confirmedState)
     publish({
       tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
     })
@@ -1993,23 +1969,8 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     }
-    if (!canCallHostHttp()) {
-      if (isPermanent) {
-        publish({
-          lockedSessionIds: Object.freeze(state.lockedSessionIds.filter(id => id !== sessionId)),
-          tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
-        })
-        await unarchiveSessionBestEffort(sessionId)
-        notifyDataApis()
-      } else {
-        publish({
-          tempUnlockedIds: state.tempUnlockedIds.includes(sessionId)
-            ? state.tempUnlockedIds
-            : Object.freeze([...state.tempUnlockedIds, sessionId]),
-        })
-      }
-      return { ok: true }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', {
       action: isPermanent ? 'unlock' : 'verify',
       sessionId,
@@ -2017,7 +1978,12 @@ function createClientFeatureManager(): ClientFeatureManager {
       pin: trimmed,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
-    if (res.data?.state) applyHostStatePayload(res.data.state)
+    const confirmedState = res.data?.state
+    if (res.data?.ok !== true || res.data.verified !== true || !isConfirmedLockState(confirmedState) ||
+        confirmedState.hasPin !== true || confirmedState.lockedSessionIds.includes(sessionId) === isPermanent) {
+      return { ok: false, error: 'LOCK_UNCONFIRMED' }
+    }
+    applyHostStatePayload(confirmedState)
     if (isPermanent) {
       await unarchiveSessionBestEffort(sessionId)
       notifyDataApis()
@@ -2032,22 +1998,8 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     }
-    if (!canCallHostHttp()) {
-      if (isPermanent) {
-        publish({
-          lockedWorkspaceIds: Object.freeze(state.lockedWorkspaceIds.filter(id => id !== workspaceId)),
-          tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => id !== workspaceId)),
-        })
-        notifyDataApis()
-      } else {
-        publish({
-          tempUnlockedWorkspaceIds: (state.tempUnlockedWorkspaceIds ?? []).includes(workspaceId)
-            ? state.tempUnlockedWorkspaceIds
-            : Object.freeze([...(state.tempUnlockedWorkspaceIds ?? []), workspaceId]),
-        })
-      }
-      return { ok: true }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', {
       action: isPermanent ? 'unlock' : 'verify',
       workspaceId,
@@ -2055,7 +2007,12 @@ function createClientFeatureManager(): ClientFeatureManager {
       pin: trimmed,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
-    if (res.data?.state) applyHostStatePayload(res.data.state)
+    const confirmedState = res.data?.state
+    if (res.data?.ok !== true || res.data.verified !== true || !isConfirmedLockState(confirmedState) ||
+        confirmedState.hasPin !== true || confirmedState.lockedWorkspaceIds.includes(workspaceId) === isPermanent) {
+      return { ok: false, error: 'LOCK_UNCONFIRMED' }
+    }
+    applyHostStatePayload(confirmedState)
     if (isPermanent) {
       notifyDataApis()
     } else if (!(state.tempUnlockedWorkspaceIds ?? []).includes(workspaceId)) {
@@ -2070,30 +2027,27 @@ function createClientFeatureManager(): ClientFeatureManager {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     }
     const previouslyLocked = [...state.lockedSessionIds]
-    if (!canCallHostHttp()) {
-      publish({
-        hasPin: false,
-        lockMode: 'none',
-        lockedSessionIds: Object.freeze([]),
-        lockedWorkspaceIds: Object.freeze([]),
-        tempUnlockedIds: Object.freeze([]),
-        tempUnlockedWorkspaceIds: Object.freeze([]),
-      })
-      for (const sid of previouslyLocked) await unarchiveSessionBestEffort(sid)
-      notifyDataApis()
-      return { ok: true }
-    }
+    if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
+
     const res = await postHostJson('/api/delta-desktop/session-lock', {
       action: 'unbind-2fa',
       code: trimmed,
       pin: trimmed,
     })
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
-    const unarchivedIds = Array.isArray(res.data?.unarchivedIds) ? (res.data.unarchivedIds as string[]) : previouslyLocked
-    for (const sid of unarchivedIds) {
-      await unarchiveSessionBestEffort(sid)
+    const confirmedState = res.data?.state
+    const reported = res.data?.unarchivedIds
+    if (res.data?.ok !== true || !isConfirmedLockState(confirmedState) ||
+        confirmedState.hasPin !== false || confirmedState.lockMode !== 'none' ||
+        confirmedState.lockedSessionIds.length !== 0 || confirmedState.lockedWorkspaceIds.length !== 0 ||
+        !Array.isArray(reported) || reported.some(id => typeof id !== 'string')) {
+      return { ok: false, error: 'LOCK_UNCONFIRMED' }
     }
-    if (res.data?.state) applyHostStatePayload(res.data.state)
+    applyHostStatePayload(confirmedState)
+    // Never restore rows outside the prior confirmed lock set.
+    for (const sid of previouslyLocked) {
+      if (reported.includes(sid)) await unarchiveSessionBestEffort(sid)
+    }
     notifyDataApis()
     return { ok: true }
   }
@@ -2789,7 +2743,6 @@ function createClientFeatureManager(): ClientFeatureManager {
         }
       }
     },
-    setRawUnarchiveSession: (fn) => { rawUnarchiveSessionFn = fn },
     setSessionsApi: (api) => {
       sessionsApi = api
       if (api) {
@@ -7095,7 +7048,6 @@ window.__ModuleLoader__.load({
 
                 if (typeof workspaces.unarchiveSession === 'function') {
                   const originalUnarchive = workspaces.unarchiveSession
-                  deltaFeatures.setRawUnarchiveSession(originalUnarchive)
                   const guardedUnarchive = (sessionId: string): Promise<unknown> => {
                     if (deltaFeatures.isLocked(sessionId)) {
                       deltaFeatures.openUnlockPinDialog(sessionId)
@@ -7106,7 +7058,6 @@ window.__ModuleLoader__.load({
                   try {
                     workspaces.unarchiveSession = guardedUnarchive
                     workspaceScope.effect(() => () => {
-                      deltaFeatures.setRawUnarchiveSession(undefined)
                       if (workspaces.unarchiveSession === guardedUnarchive) workspaces.unarchiveSession = originalUnarchive
                     }, 'dsh-delta-desktop: workspace unarchive lock guard')
                   } catch (error) {

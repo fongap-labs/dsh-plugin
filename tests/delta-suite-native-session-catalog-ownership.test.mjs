@@ -55,7 +55,7 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
     refresh: async () => { calls.push(['refresh']); if (rejectRefresh) throw new Error('offline') },
   })
   manager.setNavigationApi({ startSession: () => calls.push(['new']) })
-  return { manager, calls, state, list, snapshot }
+  return { manager, calls, state, list, snapshot, env }
 }
 
 test('unavailable, rejected or unacknowledged deletion never synthesizes a tombstone', async () => {
@@ -323,4 +323,115 @@ test('equal Host membership payloads retain identity across refreshes', async ()
   for (const key of ['lockedSessionIds', 'lockedWorkspaceIds', 'movedSessions', 'deletedSessionIds']) {
     assert.equal(after[key], before[key], key)
   }
+})
+
+const lockedState = {
+  hasPin: true, lockMode: 'totp', lockedSessionIds: ['target'], lockedWorkspaceIds: ['b'],
+  deletedSessionIds: [], movedSessions: {},
+}
+const clearedState = {
+  ...lockedState, hasPin: false, lockMode: 'none', lockedSessionIds: [], lockedWorkspaceIds: [],
+}
+
+test('lock controls fail closed without Host transport, including temporary unlock and unbind', async () => {
+  const f = fixture({ initial: lockedState })
+  await f.manager.refreshState()
+  f.env.window.location = undefined
+  const before = f.manager.getSnapshot()
+  for (const result of [
+    await f.manager.beginTotpSetup(),
+    await f.manager.confirmTotpSetup('other', 'token', '123456'),
+    await f.manager.confirmTotpSetupWorkspace('a', 'token', '123456'),
+    await f.manager.lockSession('other'),
+    await f.manager.lockWorkspace('a'),
+    await f.manager.verifyOrUnlockSession('target', '123456', false),
+    await f.manager.verifyOrUnlockSession('target', '123456', true),
+    await f.manager.verifyOrUnlockWorkspace('b', '123456', false),
+    await f.manager.verifyOrUnlockWorkspace('b', '123456', true),
+    await f.manager.clearPin('123456'),
+  ]) assert.equal(result.ok, false)
+  assert.equal(f.manager.getSnapshot(), before)
+  assert.equal(f.manager.isProtectedView('target'), true)
+  assert.equal(f.manager.isWorkspaceProtected('b'), true)
+  assert.equal(f.calls.length, 0)
+})
+
+test('HTTP success or partial verification cannot release a protected view', async () => {
+  for (const data of [
+    { ok: false, verified: true, state: lockedState },
+    { ok: true, state: lockedState },
+    { ok: true, verified: true, state: { lockedSessionIds: [] } },
+    { ok: true, verified: true, state: clearedState },
+  ]) {
+    const f = fixture({ initial: lockedState, response: { status: 200, data } })
+    await f.manager.refreshState()
+    const before = f.manager.getSnapshot()
+    assert.equal((await f.manager.verifyOrUnlockSession('target', '123456', false)).ok, false)
+    assert.equal((await f.manager.verifyOrUnlockWorkspace('b', '123456', false)).ok, false)
+    assert.equal(f.manager.getSnapshot(), before)
+    assert.equal(f.manager.isProtectedView('target'), true)
+    assert.equal(f.manager.isWorkspaceProtected('b'), true)
+  }
+})
+
+test('confirmed temporary verification preserves the durable lock; permanent unlock needs removal', async () => {
+  const temporary = fixture({ initial: lockedState, response: {
+    status: 200, data: { ok: true, verified: true, state: lockedState },
+  } })
+  await temporary.manager.refreshState()
+  assert.equal((await temporary.manager.verifyOrUnlockSession('target', '123456', true)).ok, false)
+  assert.equal((await temporary.manager.verifyOrUnlockSession('target', '123456', false)).ok, true)
+  assert.equal(temporary.manager.isLocked('target'), true)
+  assert.equal(temporary.manager.isProtectedView('target'), false)
+  const durable = fixture({ initial: lockedState, response: {
+    status: 200, data: { ok: true, verified: true, state: { ...lockedState, lockedSessionIds: [] } },
+  } })
+  await durable.manager.refreshState()
+  const raw = { items: [], archivedSessionIds: ['target'] }
+  const workspace = { list: { getSnapshot: () => raw }, unarchiveSession: () => assert.fail('stale method') }
+  durable.manager.setWorkspacesApi(workspace)
+  workspace.unarchiveSession = id => {
+    assert.equal(durable.manager.isLocked(id), false, 'must apply confirmed state first')
+    durable.calls.push(['unarchive', id])
+  }
+  assert.equal((await durable.manager.verifyOrUnlockSession('target', '123456', true)).ok, true)
+  assert.equal(durable.manager.isLocked('target'), false)
+  assert.deepEqual(durable.calls.map(call => call[0]), ['post', 'unarchive'])
+})
+
+test('unbind applies confirmed state before restoring only previously locked rows', async () => {
+  const f = fixture({ initial: lockedState, response: {
+    status: 200, data: { ok: true, state: clearedState, unarchivedIds: ['target', 'other'] },
+  } })
+  await f.manager.refreshState()
+  const raw = { items: [], archivedSessionIds: ['target', 'other'] }
+  f.manager.setWorkspacesApi({
+    list: { getSnapshot: () => raw },
+    unarchiveSession(id) {
+      assert.equal(f.manager.isLocked(id), false)
+      f.calls.push(['unarchive', id])
+    },
+  })
+  assert.equal((await f.manager.clearPin('123456')).ok, true)
+  assert.equal(f.manager.getSnapshot().hasPin, false)
+  assert.equal(f.manager.isWorkspaceLocked('b'), false)
+  assert.deepEqual(f.calls.filter(call => call[0] === 'unarchive'), [['unarchive', 'target']])
+})
+
+test('archive reconciliation never turns a failure into a stop-activity request', async () => {
+  const f = fixture({ initial: lockedState })
+  await f.manager.refreshState()
+  const raw = { items: [], archivedSessionIds: [] }
+  f.manager.setWorkspacesApi({
+    list: { getSnapshot: () => raw },
+    async archiveSession(id, options) {
+      f.calls.push(['archive', id, options])
+      throw new Error('transport or active-session refusal')
+    },
+  })
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.deepEqual(f.calls, [['archive', 'target', undefined]])
+  assert.equal(f.manager.isLocked('target'), true)
 })
