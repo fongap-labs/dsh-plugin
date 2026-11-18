@@ -7,7 +7,7 @@ const source = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/s
 const style = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/theme.css', import.meta.url)), 'utf8')
 const readiness = JSON.parse(readFileSync(fileURLToPath(new URL('../projects/dsh-delta-suite/feature-readiness.json', import.meta.url)), 'utf8'))
 
-test('ZIP3 owns the sidebar, SearchPalette and modal chrome without legacy competing UI', () => {
+test('ZIP3 leaves unsupported native sidebar layout under Harness ownership', () => {
   assert.match(source, /function installSidebarCompatibility/)
   assert.match(source, /function installHostSearch/)
   assert.match(source, /SearchTabId/)
@@ -112,10 +112,9 @@ test('Host owns frame columns, splitters and expand/collapse behavior without De
     /grid-template-columns:[^;]*--dtd/,
   ]) assert.doesNotMatch(style, forbidden)
   assert.match(compat, /syncPrivacyDom\(\)/)
-  assert.match(compat, /syncSettingsNav\(\)/)
-  assert.match(compat, /syncMenus\(\)/)
+  assert.doesNotMatch(compat, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
+  assert.doesNotMatch(compat, /setAttribute\(['"]data-delta-compat['"]|data-delta-compat-status/)
   assert.doesNotMatch(compat, /syncModalPanel|onModalPointerDown|onModalDblClick/)
-  assert.match(compat, /syncMenus\(\)/)
   assert.equal(readiness.required.sidebar_spacing, false, 'unverified layout capability must stay disabled')
 })
 
@@ -163,21 +162,15 @@ test('native modal panels and masks stay Host-owned without Delta pointer interc
   assert.ok(style.includes('.dtd-dialog-card'), 'Delta-owned dialogs keep their own styling')
   assert.ok(source.includes('openDeleteDialog'), 'protected delete dialog is retained')
   assert.ok(source.includes('openUnlockPinDialog'), 'protected unlock dialog is retained')
-  assert.ok(compatibility.includes('syncMenus()'), 'menu ACL controls remain unchanged')
+  assert.ok(compatibility.includes('syncPrivacyDom()'), 'privacy and workspace safeguards remain active')
 })
-test('native menu items and footer layout remain Harness-owned', () => {
+test('native menus keep Harness order while explicit safety guards remain', () => {
   const begin = source.indexOf('function installSidebarCompatibility(')
   const end = source.indexOf('type SearchTabId', begin)
   assert.ok(begin >= 0 && end > begin)
   const compatibility = source.slice(begin, end)
-  const a = compatibility.indexOf('      if (isWorkspaceMenu) {')
-  const b = compatibility.indexOf('      if (isSessionMenu) {', a)
-  assert.ok(a >= 0 && b > a)
-  const workspace = compatibility.slice(a, b)
-  assert.equal(workspace.includes('lockEls'), false)
-  assert.equal(workspace.includes('items.splice('), false)
-  assert.equal(workspace.includes('lockEls[i].remove()'), false)
-  assert.ok(workspace.includes('getWorkspaceCount() <= 1'))
+  assert.doesNotMatch(compatibility, /syncMenus|getMenuLabel\(.*items|appendChild\(.*separator/)
+  assert.ok(compatibility.includes('getWorkspaceCount() === 1'))
   assert.ok(source.includes('onMenuClickCapture'))
   assert.ok(source.includes('LOCKED_WORKSPACE_MUTATION_LABELS'))
   assert.equal(style.includes('Context & View-Options Menu Dynamic Reordering'), false)
@@ -185,21 +178,17 @@ test('native menu items and footer layout remain Harness-owned', () => {
   assert.equal(style.includes(':root[data-delta-ui="delta"] [class*="_footer_"] {'), false)
 })
 
-test('native menu danger coloring is not injected into Host or third-party rows', () => {
+test('Delta safety prompts do not inject menu styling into Host rows', () => {
   const begin = source.indexOf('function installSidebarCompatibility(')
   const end = source.indexOf('type SearchTabId', begin)
   assert.ok(begin >= 0 && end > begin)
   const compatibility = source.slice(begin, end)
-  const menuBegin = compatibility.indexOf('  const syncMenus = (): void => {')
-  const menuEnd = compatibility.indexOf('  const syncSettingsNav = (): void => {', menuBegin)
-  assert.ok(menuBegin >= 0 && menuEnd > menuBegin)
-  const nativeMenu = compatibility.slice(menuBegin, menuEnd)
-  assert.doesNotMatch(nativeMenu, /dtd-menu-danger|data-danger|classList\.add\(/)
+  assert.doesNotMatch(compatibility, /syncMenus|dtd-menu-danger|classList\.add\(/)
   assert.doesNotMatch(style, /\.dtd-menu-danger|\[role="menu"\] \[role="separator"\]/)
   assert.match(style, /\.dtd-context-menu-item\[data-danger="1"\]/)
   assert.match(compatibility, /onMenuClickCapture/)
   assert.match(compatibility, /LOCKED_WORKSPACE_MUTATION_LABELS|LOCKED_MUTATION_LABELS/)
-  assert.match(compatibility, /getWorkspaceCount\(\) <= 1/)
+  assert.match(compatibility, /getWorkspaceCount\(\) === 1/)
 })
 
 test('native Settings rows and Ungrouped bucket remain Host-owned without text-based hiding', () => {

@@ -8,36 +8,40 @@ const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.met
 const source = read('packages/dsh-delta-suite/src/client.ts')
 const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/dsh-delta-suite/src/theme.css')
-const start = normalizedSource.indexOf('      if (isWorkspaceMenu) {\n        // Harness and other plugins own all workspace lock commands.')
-const end = normalizedSource.indexOf('      if (isSessionMenu) {\n', start)
+const begin = normalizedSource.indexOf('function installSidebarCompatibility(')
+const end = normalizedSource.indexOf('\ntype SearchTabId', begin)
+const compatibility = normalizedSource.slice(begin, end)
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'dtd-host-search data-delta-compat',
+  'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 
-test('native workspace order/separators remain untouched while deletion is still guarded', () => {
-  assert.ok(start >= 0 && end > start)
-  const workspace = normalizedSource.slice(start, end)
-  for (const forbidden of ['setMenuNodeOrder(', 'sortContainerChildrenByOrder(', 'createSepNode(', 'container.appendChild(', 'hiddenSepNodes']) {
-    assert.equal(workspace.includes(forbidden), false, 'workspace ordering remains: ' + forbidden)
+test('native workspace order stays Harness-owned while deletion guards remain', () => {
+  assert.ok(begin >= 0 && end > begin)
+  for (const forbidden of [
+    'setMenuNodeOrder(', 'sortContainerChildrenByOrder(', 'createSepNode(',
+    'WORKSPACE_MENU_ORDERS', 'SESSION_MENU_ORDERS', 'data-dtd-menu-order', 'dtd-injected-sep',
+  ]) {
+    assert.equal(compatibility.includes(forbidden), false, 'native workspace takeover remains: ' + forbidden)
   }
-  assert.doesNotMatch(source, /WORKSPACE_MENU_ORDERS/)
-  assert.doesNotMatch(workspace, /lockEls|\.remove\(\)|items\.splice\(/, 'Host and third-party menu items stay intact')
-  assert.match(workspace, /Delete workspace/, 'destructive action recognition remains')
-  assert.doesNotMatch(workspace, /data-danger|dtd-menu-danger/, 'native workspace menu color stays Host-owned')
-  assert.match(workspace, /getWorkspaceCount\(\) <= 1/)
-  assert.match(workspace, /hiddenSoleWorkspaceNodes/)
-  assert.doesNotMatch(source, /SESSION_MENU_ORDERS/, 'the session ordering table was removed')
-  assert.match(source, /if \(isSessionMenu\) \{/)
+  assert.match(compatibility, /const soleWorkspace = deltaFeatures\.getWorkspaceCount\(\) === 1/)
+  assert.match(compatibility, /const isWorkspaceMenu = soleWorkspace/)
+  assert.match(compatibility, /WORKSPACE_DELETE_LABELS\.has\(labels\[i\]\)/)
+  assert.match(compatibility, /hiddenSoleWorkspaceNodes/)
+  assert.match(compatibility, /onMenuClickCapture/)
 })
 
-test('ZIP3 review pin still rejects an unapproved workspace DOM reorder', () => {
-  assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const anchor = '        // Built-in workspace separators and item order belong to Harness.'
-  assert.ok(source.includes(anchor))
-  const tampered = source.replace(anchor, anchor + '\n        container.appendChild(items[0])')
-  assert.notEqual(tampered, source)
+test('ZIP3 review pin rejects an unapproved workspace DOM reorder', () => {
+  assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, normalizedSource))
+  const anchor = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
+  const anchorOffset = normalizedSource.indexOf(anchor, begin)
+  assert.ok(begin >= 0 && end > begin && anchorOffset >= begin && anchorOffset < end,
+    'mutation fixture must target the pinned sidebar region')
+  const tampered = normalizedSource.slice(0, anchorOffset) +
+    normalizedSource.slice(anchorOffset).replace(anchor,
+      anchor + '\n    document.querySelector("[role=menu]")?.appendChild(document.createElement("div"))')
+  assert.notEqual(tampered, normalizedSource)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
 })

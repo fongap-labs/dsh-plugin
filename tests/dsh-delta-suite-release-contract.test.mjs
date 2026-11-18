@@ -13,7 +13,6 @@ const emittedClient = (style = theme) => [
   'window.__ModuleLoader__.load({',
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'data-delta-compat',
   'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
 ].join('\n')
@@ -25,7 +24,31 @@ test('release guard accepts only the reviewed ZIP3 adapter and canonical theme',
 
 test('release guard rejects the retired native sidebar search proxy', () => {
   assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\ndtd-native-search', source),
-    /legacy native search proxy retained/)
+    /legacy native layout takeover retained/)
+})
+
+test('release guard rejects activation of retired native sidebar layout compatibility', () => {
+  for (const takeover of [
+    "document.documentElement.setAttribute('data-delta-compat', '1')",
+    "root.dataset.deltaCompat = '1'",
+    "root.dataset['deltaCompatStatus'] = 'mounted'",
+    "button.setAttribute('data-dtd-nav-tail', '1')",
+    "root.setAttribute('DATA-DELTA-COMPAT', '1')",
+    "root.setAttribute(`DATA-DELTA-COMPAT-STATUS`, 'mounted')",
+    "root . setAttribute('data-delta-compat', '1')",
+    "root['setAttribute'](`data-delta-compat`, '1')",
+    "root.dataset . deltaCompat = '1'",
+    "root.dataset.deltaCompat ||= '1'",
+    "root.dataset.deltaCompat <<= 1",
+    "root.dataset.deltaCompat >>= 1",
+    "root.dataset.deltaCompat >>>= 1",
+    "root['dataset']['deltaCompatStatus'] ??= 'mounted'",
+    "root['dataset']['deltaCompatStatus'] = 'mounted'",
+    'data-dtd-nav-tail',
+  ]) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\n' + takeover, source),
+      /legacy native layout takeover retained/)
+  }
 })
 
 test('release guard refuses changes to either approved compatibility implementation', () => {

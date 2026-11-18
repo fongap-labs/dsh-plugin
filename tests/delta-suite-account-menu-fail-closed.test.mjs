@@ -11,7 +11,7 @@ const theme = read('packages/dsh-delta-suite/src/theme.css')
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'data-delta-compat dtd-host-search',
+  'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 
@@ -25,7 +25,6 @@ test('retired account menu guessing cannot intercept native commands', () => {
     'data-dtd-silent-menu', 'triggerNativeSettingsShortcut', 'dtd-native-profile-trigger',
     'dtd-btn-settings', 'dtd-btn-auth', 'dtd-btn-update',
   ]) assert.equal(sidebar.includes(removed), false, 'private account proxy remains: ' + removed)
-  assert.match(sidebar, /Harness owns native footer controls/)
 })
 
 test('native account footer is neither hidden by CSS nor mirrored into Delta DOM', () => {
@@ -37,10 +36,16 @@ test('native account footer is neither hidden by CSS nor mirrored into Delta DOM
 
 test('review pins reject attempts to restore the unapproved account-menu interception', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const anchor = '// Harness owns native footer controls, account state and update actions.'
-  assert.ok(source.includes(anchor))
-  const tampered = source.replace(anchor, anchor + '\n      const findTargetItem = () => document.querySelectorAll("[role=menuitem]")[0].click()')
-  assert.notEqual(tampered, source)
+  const begin = normalized.indexOf('function installSidebarCompatibility(')
+  const end = normalized.indexOf('\ntype SearchTabId', begin)
+  const anchor = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
+  const anchorOffset = normalized.indexOf(anchor, begin)
+  assert.ok(begin >= 0 && end > begin && anchorOffset >= begin && anchorOffset < end,
+    'mutation fixture must target the pinned sidebar region')
+  const tampered = normalized.slice(0, anchorOffset) +
+    normalized.slice(anchorOffset).replace(anchor,
+      anchor + '\n    document.querySelectorAll("[role=menuitem]")[0]?.click()')
+  assert.notEqual(tampered, normalized)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
   const injectedCss = theme + '\n[class*="footArea"] { opacity: 0; }'
   const maliciousClient = emitted.split('\n').map(line => line.startsWith('const OWNED_CSS = ')

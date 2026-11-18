@@ -11,8 +11,7 @@ const theme = read('packages/dsh-delta-suite/src/theme.css')
 test('Delta Suite leaves built-in Harness page headings in native ownership', () => {
   assert.doesNotMatch(source, /\b(?:syncPageHeadings|mutatedPageHeadings)\b/)
   assert.doesNotMatch(source, /PluginManagerPage\|TaskManagerPage\|pageHeading/)
-  assert.match(source, /const syncSettingsNav = /, 'settings navigation remains separate')
-  assert.match(source, /const syncMenus = /, 'menu functionality is untouched')
+  assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
   assert.match(source, /function installSidebarCompatibility\(/)
 })
 

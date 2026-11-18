@@ -647,12 +647,7 @@
   .dtd-page * { transition: none !important; }
 }
 
-/* Harness owns native modal masks, panels, positioning and drag behavior.
- * Delta-owned dialogs retain their own .dtd-dialog-* styling. */
-:root[data-delta-ui="delta"] [class*="AnXs9G_navCell"][data-dtd-nav-tail="1"] {
-  order: 9999 !important;
-}
-
+/* Harness owns native modal masks, panels, positioning, drag behavior, and Settings order. */
 /* ============================================================================
  * 5. Brand Suppression, Hero Preview Badge Removal & Hover Cards
  * ============================================================================ */

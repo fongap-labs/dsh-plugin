@@ -14,8 +14,7 @@ test('native sidebar navigation labels and accessibility text are not rewritten'
   }
   assert.doesNotMatch(source, /hiddenMoreElements/, 'the native More action must no longer be hidden')
   assert.doesNotMatch(source, /target\.style\.setProperty\('display', 'none', 'important'\)/)
-  assert.match(source, /const syncSettingsNav = /)
-  assert.match(source, /const syncMenus = /)
+  assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
   assert.match(source, /function installSidebarCompatibility\(/)
 })
 

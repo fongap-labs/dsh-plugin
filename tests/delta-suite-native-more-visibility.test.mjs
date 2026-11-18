@@ -6,11 +6,14 @@ import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/dsh-delta-suite/src/client.ts')
+const normalized = source.replace(/\r\n/g, '\n')
+const begin = normalized.indexOf('function installSidebarCompatibility(')
+const end = normalized.indexOf('\ntype SearchTabId', begin)
 const css = read('packages/dsh-delta-suite/src/theme.css')
 const emitted = (style = css) => [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'data-delta-compat dtd-host-search',
+  'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
 ].join('\n')
 
@@ -21,16 +24,19 @@ test('Harness More remains visible; Delta does not hide the native navigation ac
   assert.match(css, /6\.2 Navigation Rows: Harness retains the native More action/)
   assert.match(css, /\[class\*="wtg9ga_moreMenu"\]/, 'unrelated native menu cosmetics remain')
   assert.match(source, /function installSidebarCompatibility\(/)
-  assert.match(source, /const syncMenus = /)
+  assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
 })
 
 test('release guard accepts reviewed More restoration and rejects unreviewed client/theme changes', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted(), source))
-  const mutatedClient = source.replace(
-    '      // Harness owns native footer controls, account state and update actions.',
-    '      const nativeMore = document.querySelector("button")\n      nativeMore?.style?.setProperty("display", "none")',
-  )
-  assert.notEqual(mutatedClient, source)
+  const anchor = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
+  const anchorOffset = normalized.indexOf(anchor, begin)
+  assert.ok(begin >= 0 && end > begin && anchorOffset >= begin && anchorOffset < end,
+    'mutation fixture must target the pinned sidebar region')
+  const mutatedClient = normalized.slice(0, anchorOffset) +
+    normalized.slice(anchorOffset).replace(anchor,
+      anchor + '\n    document.querySelector("button")?.style?.setProperty("display", "none")')
+  assert.notEqual(mutatedClient, normalized)
   assert.throws(() => verifyApprovedZip3Client(emitted(), mutatedClient), /approved compatibility adapter changed/)
   const mutatedTheme = css.replace(
     '/* 6.2 Navigation Rows: Harness retains the native More action. */',

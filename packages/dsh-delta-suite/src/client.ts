@@ -3001,8 +3001,9 @@ const deltaFeatures = createClientFeatureManager()
 
 
 /**
- * Compatibility layer for the public Harness sidebar DOM. The Host retains
- * ownership of all React nodes, commands, and session data.
+ * Transitional presentation safeguards for Delta lock and privacy state.
+ * Harness retains native layout, navigation order, and menu ownership; these
+ * client guards do not replace Host-side authorization.
  */
 function installSidebarCompatibility(controller: DeltaController): () => void {
   const root = document.documentElement
@@ -3018,7 +3019,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const hiddenSoleWorkspaceNodes = new Set<HTMLElement>()
   const hiddenDeletedRows = new Set<HTMLElement>()
   const collapsibleErrorHandlers = new Map<HTMLElement, (e: Event) => void>()
-  const modifiedTailNavCells = new Set<HTMLElement>()
   let lastMenuSessionId: string | undefined
   let lastMenuWorkspaceId: string | undefined
   const LOCKED_WORKSPACE_MUTATION_LABELS = new Set(['\u91cd\u547d\u540d', 'Rename', '\u5220\u9664\u5de5\u4f5c\u533a', 'Delete workspace'])
@@ -3047,12 +3047,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
   const reset = (): void => {
     closeUngroupedMenu()
-    for (const navBtn of modifiedTailNavCells) {
-      try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
-    }
-    modifiedTailNavCells.clear()
-    root?.removeAttribute?.('data-delta-compat')
-    root?.removeAttribute?.('data-delta-compat-status')
   }
   const BLOCKED_COMMAND_RE = /^\/(?:export|feedback)(?:\s|$)/i
   const LOCKED_UNARCHIVE_LABELS = new Set(['\u53D6\u6D88\u5F52\u6863', 'Unarchive', 'Unarchive session'])
@@ -3241,143 +3235,14 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
   }
 
-  const syncMenus = (): void => {
-    // Harness owns native Feedback menu entries; Delta must not hide them by DOM label.
-    syncPrivacyDom()
-    if (typeof document?.querySelectorAll !== 'function') return
-    const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_"], [class*="_footer_"], [role="menu"]')
-    for (const container of containers) {
-      if (container.getAttribute?.('role') === 'menu' && container.querySelector?.('[class*="_viewport_"], [class*="_footer_"]')) {
-        continue
-      }
-      const items = Array.from(container.children ?? []) as HTMLElement[]
-      if (items.length === 0) continue
-      const labels = items.map(getMenuLabel)
-      if (items.length < 2) continue
-      const isFooterContainer = typeof container.className === 'string' && container.className.includes('_footer_')
-      const isSessionFooter = isFooterContainer || (
-        labels.some(t => t.includes('\u5f52\u6863') || t.includes('Archive'))
-        && labels.some(t => t.includes('\u9501\u5b9a') || t.includes('Lock')
-          || t.includes('\u79fb\u52a8') || t.includes('Move')
-          || t.includes('\u5220\u9664') || t.includes('Delete'))
-      )
-      const isWorkspaceMenu = !isFooterContainer && !isSessionFooter && labels.some(t =>
-        t === '\u5220\u9664\u5de5\u4f5c\u533a' || t === 'Delete workspace' ||
-        t.startsWith('\u9501\u5b9a\u5de5\u4f5c\u533a') || t.startsWith('\u89e3\u9501\u5de5\u4f5c\u533a') ||
-        t.startsWith('Lock workspace') || t.startsWith('Unlock workspace')
-      ) && !labels.some(t =>
-        t === '\u7f6e\u9876\u4f1a\u8bdd' || t === '\u53d6\u6d88\u7f6e\u9876' || t === '\u5206\u53c9\u4f1a\u8bdd' || t === '\u79fb\u52a8\u4f1a\u8bdd' ||
-        t === '\u9501\u5b9a\u4f1a\u8bdd' || t === '\u89e3\u9501\u4f1a\u8bdd' || t === '\u5f52\u6863\u4f1a\u8bdd' || t === '\u53d6\u6d88\u5f52\u6863' ||
-        t === '\u5220\u9664\u4f1a\u8bdd' || t.includes('Session ID')
-      )
-      const isSessionViewport = !isWorkspaceMenu && !isFooterContainer && !isSessionFooter && (
-        labels.some(t => t.includes('\u7f6e\u9876') || t.includes('Pin'))
-        || (labels.some(t => t.includes('\u91cd\u547d\u540d') || t.includes('Rename')) && (
-          labels.some(t => t.includes('\u5206\u53c9') || t.includes('Fork'))
-          || labels.some(t => t.includes('\u79fb\u52a8') || t.includes('Move'))
-          || labels.some(t => t.includes('Session ID'))
-          || labels.some(t => t.includes('\u5728\u5e94\u7528\u4e2d\u6253\u5f00') || t.includes('\u5728\u6587\u4ef6\u5939\u663e\u793a') || t.includes('Show in folder'))
-        ))
-        || (labels.some(t => t.includes('Session ID')) && labels.some(t => t.includes('\u5728\u5e94\u7528\u4e2d\u6253\u5f00') || t.includes('\u5728\u6587\u4ef6\u5939\u663e\u793a') || t.includes('Show in folder')))
-      )
-      const isSessionMenu = !isWorkspaceMenu && (isSessionViewport || isSessionFooter)
-      if (!isSessionMenu && !isWorkspaceMenu) continue
-
-      if (isWorkspaceMenu) {
-        // Harness and other plugins own all workspace lock commands.
-        // Never remove suspected duplicates from a native menu.
-        for (let i = 0; i < items.length; i++) {
-          const el = items[i]
-          const isSep = el.getAttribute?.('role') === 'separator' || (typeof el.className === 'string' && el.className.includes('_separator_'))
-          if (isSep) continue
-          const l = getMenuLabel(el)
-          if (l === '\u5220\u9664\u5de5\u4f5c\u533a' || l === 'Delete workspace') {
-            // This remains a visual compatibility fallback, not the ACL.
-            if (deltaFeatures.getWorkspaceCount() <= 1) {
-              hidePrivacyNode(el, 'data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
-            }
-          }
-        }
-        // Built-in workspace separators and item order belong to Harness.
-        continue
-      }
-
-      if (isSessionMenu) {
-        if (isFooterContainer || isSessionFooter) {
-          // Native session footer item order, labels, separators, and danger styling belong to Harness.
-          continue
-        }
-
-        // Native session context menu order, separators, accessible text, and danger styling belong to Harness.
-        continue
-      }
-
-    }
-  }
-
-  const syncSettingsNav = (): void => {
-    for (const stale of modifiedTailNavCells) {
-      if (!stale.isConnected) modifiedTailNavCells.delete(stale)
-    }
-    if (typeof document?.querySelectorAll !== 'function') return
-    const settingsNavButtons = document.querySelectorAll<HTMLButtonElement>(
-      '[class*="AnXs9G_navCell"], [class*="navCell"], [role="dialog"] nav button, [role="dialog"] [role="tab"]'
-    )
-    for (const btn of settingsNavButtons) {
-      // Harness retains ownership of built-in Settings labels and their accessibility text.
-      const labelText = (btn.querySelector?.('[class*="navLabel"]')?.textContent ?? btn.textContent ?? '').trim()
-      if (labelText === 'Agent \u9884\u8BBE' || labelText === 'Agent Presets' || labelText === 'Agent presets') {
-        if (btn.getAttribute('data-dtd-nav-tail') !== '1') {
-          btn.setAttribute('data-dtd-nav-tail', '1')
-          modifiedTailNavCells.add(btn)
-        }
-      } else if (btn.hasAttribute('data-dtd-nav-tail')) {
-        btn.removeAttribute('data-dtd-nav-tail')
-        modifiedTailNavCells.delete(btn)
-      }
-    }
-  }
   const sync = (): void => {
     if (isDisposed || isSyncing) return
     isSyncing = true
     try {
-      deltaFeatures.ensureLoaded()
       syncPrivacyDom()
-      if (controller.getSnapshot().mode !== 'delta') {
-        if (root?.hasAttribute?.('data-delta-compat')) reset()
-        return
-      }
-      if (typeof document?.querySelector !== 'function') return
-      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]') ??
-        document.querySelector<HTMLElement>('[class*="wtg9ga_root"], [class*="SidebarRoot_root"]') ??
-        document.querySelector<HTMLElement>('nav')?.parentElement ?? null
-      if (!viewport) {
-        if (root?.hasAttribute?.('data-delta-compat')) reset()
-        return
-      }
-      if (root.getAttribute('data-delta-compat') !== '1') root.setAttribute('data-delta-compat', '1')
-      if (root.getAttribute('data-delta-compat-status') !== 'mounted') root.setAttribute('data-delta-compat-status', 'mounted')
-
-      // Native sidebar search remains Harness-owned. Delta search uses its own
-      // sessions/navigation service path without synthetic native input events.
-
-      // The native new-session button stays under Harness ownership.
-      // Harness owns native hover-card DOM and presentation.
-
-      // Harness owns native footer controls, account state and update actions.
-
-      // Native status text stays under Harness ownership.
-      if (typeof document?.querySelectorAll === 'function') {
-        syncSettingsNav()
-        syncMenus()
-      }
-
-
-      // Workspace expansion belongs to Harness. Do not read private view state or
-      // synthesize clicks until a supported public collapse capability exists.
     } catch (error) {
       reset()
-      console.error('[dsh-delta-suite] Native compatibility disabled:', error)
+      console.error('[dsh-delta-suite] Native privacy safeguards disabled:', error)
     } finally {
       observer?.takeRecords?.()
       isSyncing = false
@@ -3385,16 +3250,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
 
   observer = typeof MutationObserver !== 'undefined'
-    ? new MutationObserver(() => {
-      if (!isDisposed && !isSyncing) {
-        if (controller.getSnapshot().mode === 'delta') {
-          syncMenus()
-        } else {
-          syncPrivacyDom()
-        }
-      }
-      scheduleSync()
-    })
+    ? new MutationObserver(() => scheduleSync())
     : undefined
   observer?.observe(document.body ?? root, {
     subtree: true,
