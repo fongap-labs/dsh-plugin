@@ -41,7 +41,7 @@ describe('code worker native settings contract', () => {
     const tsconfig = JSON.parse(read('tsconfig.json'))
     assert.equal(tsconfig.compilerOptions.moduleDetection, 'legacy')
     assert.equal(pkg.dsh.client.platform,'web')
-    assert.match(read('src/client.ts'), /plugins\.row\.config/)
+    assert.match(read('src/client.ts'), /settings\.section/)
     assert.match(read('src/client.ts'), /mutate\(ops, state\.revision\)/)
   })
   it('supports an explicit legacy and guarded Host FS write contract in native settings', () => {
@@ -58,7 +58,11 @@ describe('code worker native settings contract', () => {
     assert.match(source, /sourceIndex/)
     assert.match(source,/set\(\[\.\.\.prefix, 'tokenEnv'\], a\.tokenEnv\)/)
     assert.doesNotMatch(source,/set\(\[\.\.\.prefix, 'token'\]/)
-    assert.doesNotMatch(source,/type: 'password'/)
+    assert.match(source,/type: isSecret \? 'password'/)
+    assert.match(source,/ctx\.remote\.credentials/)
+    assert.match(source,/credentials!\.set\(/)
+    assert.doesNotMatch(source,/set\(\[\.\.\.prefix, 'token'\]/)
+    assert.doesNotMatch(source,/plugins\.row\.config', \(\)/)
   })
 })
 

@@ -1,7 +1,8 @@
 /**
- * Native DSH Plugins -> Code Worker -> Configure page.
- * Single, self-contained lazy-CJS client module; no DOM patching or Host fetch endpoints.
- * All writes use the Host's revision-fenced ConfigForm, with path-level secret edits.
+ * DSH native Settings -> Delta Code page (also appears on the plugin's detail page).
+ * Uses the official settings.section slot and ConfigForms; no DOM patching.
+ * Config stores credential REFERENCES only. PATs flow solely through the Host
+ * credentials Remote, and are never read back into a client config snapshot.
  */
 // Self-contained classic script: DSH may evaluate multiple clients in one lexical scope.
 ;(() => {
@@ -11,7 +12,7 @@ interface ReactApi {
   useEffect(fn: () => void | (() => void), deps?: readonly unknown[]): void
 }
 type Op = { op: 'set'; path: string[]; value: unknown } | { op: 'unset'; path: string[] }
-type Account = { owner: string; tokenEnv: string; repositories: string; sourceIndex: number }
+type Account = { owner: string; tokenEnv: string; repositories: string; sourceIndex: number; uiKey: string }
 type Server = { language: string; command: string; args: string }
 interface Draft {
   enabled: boolean
@@ -29,15 +30,24 @@ interface Draft {
   servers: Server[]
 }
 interface ConfigState { status: string; value?: any; revision?: number; writable: boolean }
+interface CredentialInfo { configured: boolean; writable: boolean }
+interface CredentialsRemote {
+  describe(refs: string[]): Promise<Record<string, CredentialInfo>>
+  set(ref: string, value: string): Promise<void>
+  unset(ref: string): Promise<void>
+}
 interface ConfigPageProps {
   view: 'page' | 'summary'
   form?: { state: ConfigState; mutate(ops: Op[], revision?: number): Promise<boolean> }
+  credentials?: CredentialsRemote
 }
 const NAME = '@fongap-labs/dsh-delta-code'
-const ROW_KEY = NAME + '#dsh-delta-code'
 const OWNER = /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i
 const ENV = /^[A-Z_][A-Z0-9_]*$/
 const REPOSITORY = /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?\/(?!\.{1,2}$)[a-z0-9_.-]{1,100}$/i
+const defaultGithubTokenRef = (owner: string) => owner && OWNER.test(owner)
+  ? 'DSH_DELTA_CODE_GITHUB_' + owner.toUpperCase().replace(/-/g, '_') + '_TOKEN' : ''
+let nextAccountRow = 0
 const repositoryList = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean)
 const inset: Record<string, string> = { display: 'grid', gap: '10px', margin: '12px 0' }
 const inputStyle: Record<string, string> = {
@@ -75,7 +85,7 @@ function readDraft(value: any): Draft {
     accounts: (github.accounts ?? []).map((item: any, index: number) => ({
       owner: item.owner ?? '', tokenEnv: item.tokenEnv ?? '',
       repositories: Array.isArray(item.repositories) ? item.repositories.join(', ') : '',
-      sourceIndex: index,
+      sourceIndex: index, uiKey: 'saved-' + index,
     })),
     servers: Array.isArray(lsp.servers)
       ? lsp.servers.map((server: any) => ({
@@ -93,7 +103,6 @@ function validation(draft: Draft, value: any): string | undefined {
     if (!OWNER.test(owner)) return 'GitHub owner must be a valid username or organization.'
     if (owners.has(owner)) return 'GitHub owner 不允许重复：' + owner
     owners.add(owner)
-    const old = account.sourceIndex >= 0 ? value?.github?.accounts?.[account.sourceIndex] : undefined
     if (!account.tokenEnv) return owner + '：需要 Token 环境变量。'
     if (!ENV.test(account.tokenEnv)) return owner + ': invalid token environment variable name.'
     const assigned = repositoryList(account.repositories)
@@ -180,7 +189,30 @@ function installClient(require: (id: string) => unknown) {
     const [draft, setDraft] = React.useState<Draft>(() => readDraft(state?.value))
     const [saving, setSaving] = React.useState(false)
     const [notice, setNotice] = React.useState('')
+    // Secrets live only in this transient input state. They never enter readDraft,
+    // operations(), Host ConfigForm or the plugin's persisted settings.
+    const [tokenInputs, setTokenInputs] = React.useState<Record<string, string>>({})
+    const [credentialStates, setCredentialStates] = React.useState<Record<string, CredentialInfo>>({})
+    const [credentialNotice, setCredentialNotice] = React.useState('')
+    const refsKey = draft.accounts.map(a => a.tokenEnv).filter(Boolean).join('|')
     React.useEffect(() => { setDraft(readDraft(state?.value)); setNotice('') }, [state?.revision])
+    React.useEffect(() => {
+      let active = true
+      const refs = [...new Set(draft.accounts.map(a => a.tokenEnv).filter(ref => ENV.test(ref)))]
+      if (!refs.length) { setCredentialStates({}); return () => { active = false } }
+      if (!props.credentials?.describe) {
+        setCredentialNotice(t('当前 Host 未提供凭据服务。', 'Host credential service is unavailable.'))
+        return () => { active = false }
+      }
+      // Host caps one describe call at 64 refs. No secret values are returned.
+      const chunks = Array.from({ length: Math.ceil(refs.length / 64) }, (_, i) => refs.slice(i * 64, (i + 1) * 64))
+      void Promise.all(chunks.map(chunk => props.credentials!.describe(chunk))).then(views => {
+        if (!active) return
+        setCredentialStates(Object.assign({}, ...views))
+        setCredentialNotice('')
+      }).catch(() => { if (active) setCredentialNotice(t('凭据状态读取失败，请检查 Host 连接。', 'Could not read credential status.')) })
+      return () => { active = false }
+    }, [refsKey, props.credentials])
     if (props.view === 'summary') return t('Delta 编程助手 · 编程工具与 GitHub 多账号配置', 'Delta Code Worker · Coding tools and GitHub accounts')
     if (!props.form || state?.status !== 'ready') return hint(t('当前配置尚未由 Host 加载。', 'Host configuration is not available.'))
     const disabled = !state.writable || saving
@@ -194,8 +226,15 @@ function installClient(require: (id: string) => unknown) {
       h('label', { style: { display: 'flex', gap: '8px', alignItems: 'center', fontSize: '13px' } },
         h('input', { type: 'checkbox', checked: isChecked, disabled, onChange: (e: any) => change(e.target.checked) }), label)
     const patch = (value: Partial<Draft>) => setDraft(old => ({ ...old, ...value }))
-    const updateAccount = (idx: number, prop: keyof Account, value: string) => setDraft(old => ({
-      ...old, accounts: old.accounts.map((a, i) => i === idx ? { ...a, [prop]: value } : a),
+    const updateAccount = (idx: number, prop: 'owner' | 'repositories', value: string) => setDraft(old => ({
+      ...old, accounts: old.accounts.map((a, i) => {
+        if (i !== idx) return a
+        const updated = { ...a, [prop]: value }
+        // New rows get a deterministic reference; the user never needs to
+        // know what an environment variable is. Existing references remain stable.
+        if (prop === 'owner' && a.sourceIndex < 0) updated.tokenEnv = defaultGithubTokenRef(value.trim())
+        return updated
+      }),
     }))
     const updateServer = (idx: number, prop: keyof Server, value: string) => setDraft(old => ({
       ...old, servers: old.servers.map((s, i) => i === idx ? { ...s, [prop]: value } : s),
@@ -204,15 +243,45 @@ function installClient(require: (id: string) => unknown) {
       const error = validation(draft, state.value)
       if (error) { setNotice(error); return }
       const ops = operations(draft, state.value)
-      if (!ops.length) { setNotice(t('没有待保存的变更。', 'No changes to save.')); return }
+      const updates = draft.accounts.flatMap(a => {
+        const token = tokenInputs[a.uiKey]?.trim()
+        return token ? [{ ref: a.tokenEnv, token }] : []
+      })
+      if (!ops.length && !updates.length) {
+        setNotice(t('没有待保存的变更。', 'No changes to save.')); return
+      }
+      if (updates.length && !props.credentials?.set) {
+        setNotice(t('当前 Host 不支持安全保存 Token，已阻止保存。', 'Host secure credential saving is unavailable.'))
+        return
+      }
       setSaving(true)
       setNotice('')
+      let configSaved = false
       try {
-        const ok = await props.form!.mutate(ops, state.revision)
-        setNotice(ok ? t('配置已保存。Token 不会回显。', 'Saved. Tokens are never displayed.')
-          : t('保存被 Host 拒绝，可能已有其他位置修改配置。请刷新后重试。', 'Host rejected the save. Refresh and retry.'))
+        if (ops.length) {
+          const ok = await props.form!.mutate(ops, state.revision)
+          if (!ok) {
+            setNotice(t('保存被 Host 拒绝。请刷新后重试，Token 未发送。',
+              'Host rejected the configuration. Refresh and retry; tokens were not sent.'))
+            return
+          }
+          configSaved = true
+        }
+        // Never send token values through settings.mutate or its revision log.
+        for (const update of updates) await props.credentials!.set(update.ref, update.token)
+        setTokenInputs({})
+        if (updates.length) {
+          const refs = [...new Set(updates.map(update => update.ref))]
+          const descriptions = await props.credentials!.describe(refs)
+          setCredentialStates(old => ({ ...old, ...descriptions }))
+        }
+        setNotice(t('已保存。Token 仅存于 Host 凭据服务，界面不会回显。',
+          'Saved. Token values are held by Host credentials and never echoed.'))
       } catch {
-        setNotice(t('保存失败，请检查 Host 连接及日志。', 'Save failed. Check the Host connection.'))
+        setNotice(configSaved
+          ? t('账号配置已保存，但 Token 写入或状态读取失败。请检查凭据服务并重试。',
+              'Account settings saved, but token write or status lookup failed. Check credentials and retry.')
+          : t('保存失败，请检查 Host 连接及日志。', 'Save failed. Check the Host connection.'))
       } finally { setSaving(false) }
     }
     return h('div', { style: { display: 'grid', gap: '6px', minWidth: 0, paddingBottom: '16px' }, 'data-code-worker-settings': 'true' },
@@ -239,24 +308,39 @@ function installClient(require: (id: string) => unknown) {
         hint(t('请选择宿主已提供的写入接口语义，不按 DSH 版本判断；不会通过试写探测，拒绝自动降级。',
           'Select the supported Host write semantics, not a DSH version. No probing writes or unsafe fallback.')),
         hint(t('执行脚本仅适用于可信工作区。', 'Only enable project commands in trusted workspaces.'))),
-      section(t('GitHub 多账号', 'GitHub accounts'),
+      section(t('GitHub 连接', 'GitHub connections'),
         toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
-        toggle(t('允许远程写入（默认关闭）', 'Allow remote writes (off by default)'), draft.githubAllowWrites,
+        toggle(t('允许创建分支、提交和 PR（默认关闭）', 'Allow branches, commits and PRs (off by default)'), draft.githubAllowWrites,
           v => patch({ githubAllowWrites: v })),
-        hint(t('账号凭据按用户隔离；可绑定其他组织的具体仓库。未绑定时保留原有按 owner 匹配。Token 不会写入配置。',
-          'Credentials are isolated by account. Bind repositories from other organizations explicitly; legacy owner matching remains the fallback. Tokens are not stored.')),
+        hint(t('① 添加账号或组织  ② 粘贴 GitHub 访问令牌（PAT）  ③ 保存。Token 由 Harness 凭据服务保管，不写入插件配置。',
+          '1. Add an account or organization. 2. Paste a GitHub personal access token (PAT). 3. Save. The token stays in Host credentials, not plugin settings.')),
+        h('a', { href: 'https://github.com/settings/personal-access-tokens/new', target: '_blank', rel: 'noopener noreferrer', style: { fontSize: '12px' } },
+          t('在 GitHub 创建访问令牌', 'Create a GitHub access token')),
+        credentialNotice && hint(credentialNotice),
         ...draft.accounts.map((a, i) => h('div', { key: a.sourceIndex >= 0 ? 'existing-' + a.sourceIndex : 'new-' + i,
           style: { ...inset, padding: '12px', border: '1px solid var(--dsw-alias-border-l2, #ddd)', borderRadius: '10px' } },
-          field(t('用户名或组织名', 'Username or organization'), a.owner, v => updateAccount(i, 'owner', v)),
-          field(t('Token 环境变量名称', 'Token environment variable name'), a.tokenEnv,
-            v => updateAccount(i, 'tokenEnv', v), false, 'GITHUB_TOKEN_NAME'),
-          field(t('绑定仓库（可选，逗号分隔）', 'Bound repositories (optional, comma separated)'),
+          field(t('GitHub 用户名或组织名', 'GitHub username or organization'), a.owner, v => updateAccount(i, 'owner', v)),
+          h('div', { style: { fontSize: '12px', opacity: 0.8 } },
+            credentialStates[a.tokenEnv]?.configured
+              ? t('Token 已保存（尚未验证仓库权限）', 'Token saved (repository permissions not verified)')
+              : t('Token 尚未配置', 'Token not configured')),
+          field(t('访问令牌（Token，留空表示不更换）', 'Access token (leave blank to keep existing)'),
+            tokenInputs[a.uiKey] ?? '', value => setTokenInputs(old => ({ ...old, [a.uiKey]: value })),
+            true, t('粘贴 GitHub Token', 'Paste GitHub token')),
+          field(t('指定仓库（可选，用逗号分隔）', 'Repositories (optional, comma separated)'),
             a.repositories, v => updateAccount(i, 'repositories', v), false, 'org/backend, org/frontend'),
+          h('details', null, h('summary', { style: { fontSize: '12px', cursor: 'pointer' } },
+            t('高级：凭据引用', 'Advanced: credential reference')),
+            h('code', { style: { fontSize: '11px', overflowWrap: 'anywhere' } }, a.tokenEnv || t('填写用户名后自动生成', 'Generated after entering a username'))),
           h('button', { type: 'button', disabled, style: actionStyle,
-            onClick: () => patch({ accounts: draft.accounts.filter((_, j) => j !== i) }) },
+            onClick: () => {
+              patch({ accounts: draft.accounts.filter((_, j) => j !== i) })
+              setTokenInputs(old => { const next = { ...old }; delete next[a.uiKey]; return next })
+            } },
             t('删除账号', 'Remove account')))),
         h('button', { type: 'button', disabled, style: actionStyle,
-          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', tokenEnv: '', repositories: '', sourceIndex: -1 }] }) },
+          onClick: () => patch({ accounts: [...draft.accounts, { owner: '', tokenEnv: '', repositories: '', sourceIndex: -1,
+            uiKey: 'new-' + (++nextAccountRow) }] }) },
           t('添加 GitHub 账号', 'Add GitHub account'))),
       section(t('语言服务器', 'Language servers'),
         ...draft.servers.map((s, i) => h('div', { key: 'server-' + i,
@@ -285,11 +369,26 @@ function installClient(require: (id: string) => unknown) {
     )
   }
   return {
-    inject: ['slots'],
+    inject: ['slots', 'configForms', 'remote', 'remote.credentials'],
     apply(ctx: any) {
-      ctx.effect(() => ctx.slots.inject('plugins.row.config', () => ctx.slots.register({
-        name: 'plugins.row.config', key: ROW_KEY,
-      }, Page)), 'dsh-delta-code: native settings page')
+      // The plugin row's Cordis config namespace is its patch id, not its
+      // package name. The Settings section uses the same revision-fenced form.
+      const form = ctx.configForms.get('dsh-delta-code')
+      function NativePage() {
+        const [snapshot, setSnapshot] = React.useState<ConfigState>(() => form.getSnapshot())
+        React.useEffect(() => form.subscribe(() => setSnapshot(form.getSnapshot())), [])
+        return h(Page, { view: 'page', form: {
+          state: snapshot, mutate: (ops: Op[], revision?: number) => form.mutate(ops, revision),
+        }, credentials: ctx.remote.credentials })
+      }
+      // settings.section is shared by native Settings and the Plugins page.
+      // Do not register plugins.row.config as well, which would hide this page
+      // in the plugin manager and create two competing configuration surfaces.
+      ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section', id: 'delta-code', order: 65,
+        label: () => /^zh/i.test(document.documentElement.lang || navigator.language || 'zh')
+          ? 'Delta 编程助手' : 'Delta Code Worker',
+      }, NativePage)), 'dsh-delta-code: native settings section')
     },
   }
 }
