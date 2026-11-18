@@ -3029,131 +3029,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     ungroupedMenuEl?.remove?.()
     ungroupedMenuEl = undefined
   }
-  let trackedModalPanel: HTMLElement | undefined
-  let modalOffsetX = 0
-  let modalOffsetY = 0
-  let activeModalDragCleanup: (() => void) | undefined
-
-  const applyModalOffset = (panel: HTMLElement, x: number, y: number): void => {
-    modalOffsetX = Math.round(x)
-    modalOffsetY = Math.round(y)
-    panel.style?.setProperty?.('--dtd-modal-x', `${modalOffsetX}px`)
-    panel.style?.setProperty?.('--dtd-modal-y', `${modalOffsetY}px`)
-  }
-
-  const resetModalState = (): void => {
-    activeModalDragCleanup?.()
-    activeModalDragCleanup = undefined
-    const panels = new Set<HTMLElement>()
-    if (trackedModalPanel) panels.add(trackedModalPanel)
-    if (typeof document?.querySelectorAll === 'function') {
-      try {
-        for (const p of document.querySelectorAll<HTMLElement>('[class*="AnXs9G_panel"]')) {
-          panels.add(p)
-        }
-      } catch {}
-    }
-    for (const p of panels) {
-      try {
-        p.removeAttribute?.('data-dtd-dragging')
-        p.style?.removeProperty?.('--dtd-modal-x')
-        p.style?.removeProperty?.('--dtd-modal-y')
-      } catch {}
-    }
-    trackedModalPanel = undefined
-    modalOffsetX = 0
-    modalOffsetY = 0
-  }
-
-  const syncModalPanel = (): void => {
-    if (typeof document?.querySelector !== 'function') return
-    const current = document.querySelector<HTMLElement>('[class*="AnXs9G_panel"]') ?? undefined
-    if (current !== trackedModalPanel) {
-      activeModalDragCleanup?.()
-      activeModalDragCleanup = undefined
-      if (trackedModalPanel) {
-        try {
-          trackedModalPanel.removeAttribute?.('data-dtd-dragging')
-          trackedModalPanel.style?.removeProperty?.('--dtd-modal-x')
-          trackedModalPanel.style?.removeProperty?.('--dtd-modal-y')
-        } catch {}
-      }
-      trackedModalPanel = current
-      modalOffsetX = 0
-      modalOffsetY = 0
-    }
-  }
-
-  const onModalPointerDown = (e: Event): void => {
-    const pe = e as PointerEvent
-    if (isDisposed || controller.getSnapshot().mode !== 'delta') return
-    if (pe.button !== undefined && pe.button !== 0) return
-    const target = pe.target as HTMLElement | null
-    const headerHandle = target?.closest?.<HTMLElement>('[class*="AnXs9G_navTitle"], [class*="AnXs9G_header"]')
-    if (!headerHandle) return
-    if (target?.closest?.('button, a, input, select, textarea, [role="button"], [tabindex="0"]')) return
-    const panel = headerHandle.closest?.<HTMLElement>('[class*="AnXs9G_panel"]')
-    if (!panel) return
-    const panelRect = panel.getBoundingClientRect?.()
-    if (!panelRect) return
-    const vw = (typeof window !== 'undefined' ? window.innerWidth : 0) || 1200
-    const vh = (typeof window !== 'undefined' ? window.innerHeight : 0) || 800
-    if (panelRect.width >= vw - 16 && panelRect.height >= vh - 16) return
-
-    pe.preventDefault()
-    activeModalDragCleanup?.()
-    if (trackedModalPanel !== panel) {
-      trackedModalPanel = panel
-      modalOffsetX = 0
-      modalOffsetY = 0
-    }
-    const startMouseX = pe.clientX
-    const startMouseY = pe.clientY
-    const startOffX = modalOffsetX
-    const startOffY = modalOffsetY
-    const baseLeft = panelRect.left - startOffX
-    const baseRight = panelRect.right - startOffX
-    const baseTop = panelRect.top - startOffY
-    const baseBottom = panelRect.bottom - startOffY
-    const minX = -baseLeft + 8
-    const maxX = vw - baseRight - 8
-    const minY = -baseTop + 8
-    const maxY = vh - baseBottom - 8
-    panel.setAttribute?.('data-dtd-dragging', '1')
-
-    const onMove = (moveEv: PointerEvent): void => {
-      const rawX = startOffX + (moveEv.clientX - startMouseX)
-      const rawY = startOffY + (moveEv.clientY - startMouseY)
-      const clampedX = minX <= maxX ? Math.max(minX, Math.min(rawX, maxX)) : 0
-      const clampedY = minY <= maxY ? Math.max(minY, Math.min(rawY, maxY)) : 0
-      applyModalOffset(panel, clampedX, clampedY)
-    }
-    const onEnd = (): void => {
-      panel.removeAttribute?.('data-dtd-dragging')
-      activeModalDragCleanup?.()
-      activeModalDragCleanup = undefined
-    }
-    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('pointermove', onMove, { capture: true })
-      window.addEventListener('pointerup', onEnd, { capture: true })
-      window.addEventListener('pointercancel', onEnd, { capture: true })
-      activeModalDragCleanup = () => {
-        window.removeEventListener('pointermove', onMove, { capture: true })
-        window.removeEventListener('pointerup', onEnd, { capture: true })
-        window.removeEventListener('pointercancel', onEnd, { capture: true })
-      }
-    }
-  }
-
-  const onModalDblClick = (e: Event): void => {
-    if (isDisposed || controller.getSnapshot().mode !== 'delta') return
-    const target = e.target as HTMLElement | null
-    const headerHandle = target?.closest?.<HTMLElement>('[class*="AnXs9G_navTitle"], [class*="AnXs9G_header"]')
-    if (!headerHandle || target?.closest?.('button, a, input, select, textarea, [role="button"]')) return
-    const panel = headerHandle.closest?.<HTMLElement>('[class*="AnXs9G_panel"]')
-    if (panel) applyModalOffset(panel, 0, 0)
-  }
-
   const restoreHiddenNodes = (attrName: string, store: Set<HTMLElement>): void => {
     for (const node of store) {
       try {
@@ -3174,7 +3049,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
   const reset = (): void => {
     closeUngroupedMenu()
-    resetModalState()
     restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
     for (const navBtn of modifiedTailNavCells) {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
@@ -3585,7 +3459,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         syncMenus()
       }
 
-      syncModalPanel()
 
       // Workspace expansion belongs to Harness. Do not read private view state or
       // synthesize clicks until a supported public collapse capability exists.
@@ -3687,9 +3560,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const k = wsEl.getAttribute('data-row-key') ?? ''
       if (k.startsWith('workspace:')) lastMenuWorkspaceId = k.slice(10)
     }
-    if (!(e as PointerEvent).defaultPrevented) {
-      onModalPointerDown(e)
-    }
   }
   const onMenuClickCapture = (e: Event): void => {
     const target = e.target as HTMLElement | null
@@ -3743,7 +3613,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     document.addEventListener('contextmenu', onPointerDownCapture, { capture: true })
     document.addEventListener('click', onMenuClickCapture, { capture: true })
     document.addEventListener('keydown', onComposerGuardKeyDown, { capture: true })
-    document.addEventListener('dblclick', onModalDblClick, { capture: true })
   }
 
   const stopFeaturesSync = deltaFeatures.subscribe(() => scheduleSync())
@@ -3760,7 +3629,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       document.removeEventListener('contextmenu', onPointerDownCapture, { capture: true })
       document.removeEventListener('click', onMenuClickCapture, { capture: true })
       document.removeEventListener('keydown', onComposerGuardKeyDown, { capture: true })
-      document.removeEventListener('dblclick', onModalDblClick, { capture: true })
     }
     reset()
     restoreHiddenNodes('data-dtd-hidden-session-log', hiddenSessionLogNodes)

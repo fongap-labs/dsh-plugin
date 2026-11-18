@@ -576,7 +576,7 @@
 :root[data-delta-ui="delta"] [data-dtd-hidden-footer-sep="1"] { display: none !important; }
 
 /* ============================================================================
- * 4. Settings Modal (Personalization Page, Draggable Panel & Nav Tail Order)
+ * 4. Settings Page and Host Navigation Tail Order
  * ============================================================================ */
 .dtd-page {
   --dtd-surface: var(--dtd-bg-surface, var(--dsw-alias-bg-layer-2, transparent));
@@ -659,24 +659,8 @@
   .dtd-page * { transition: none !important; }
 }
 
-/* Draggable Settings Panel & Consistent Modal Surface */
-:root[data-delta-ui="delta"] [class*="AnXs9G_mask"] {
-  background: var(--dtd-bg-mask) !important;
-}
-:root[data-delta-ui="delta"] [class*="AnXs9G_panel"] {
-  background: var(--dtd-modal-bg) !important;
-  border: 1px solid var(--dtd-modal-border) !important;
-  box-shadow: var(--dtd-modal-shadow) !important;
-  transform: translate3d(var(--dtd-modal-x, 0px), var(--dtd-modal-y, 0px), 0) !important;
-}
-:root[data-delta-ui="delta"] :is([class*="AnXs9G_navTitle"], [class*="AnXs9G_header"]) {
-  cursor: grab;
-  user-select: none;
-  -webkit-user-select: none;
-}
-:root[data-delta-ui="delta"] [class*="AnXs9G_panel"][data-dtd-dragging="1"] :is([class*="AnXs9G_navTitle"], [class*="AnXs9G_header"]) {
-  cursor: grabbing;
-}
+/* Harness owns native modal masks, panels, positioning and drag behavior.
+ * Delta-owned dialogs retain their own .dtd-dialog-* styling. */
 :root[data-delta-ui="delta"] [class*="AnXs9G_navCell"][data-dtd-nav-tail="1"] {
   order: 9999 !important;
 }

@@ -114,8 +114,8 @@ test('Host owns frame columns, splitters and expand/collapse behavior without De
   assert.match(compat, /syncPrivacyDom\(\)/)
   assert.match(compat, /syncSettingsNav\(\)/)
   assert.match(compat, /syncMenus\(\)/)
-  assert.match(compat, /syncModalPanel\(\)/)
-  assert.match(compat, /onModalPointerDown\(e\)/)
+  assert.doesNotMatch(compat, /syncModalPanel|onModalPointerDown|onModalDblClick/)
+  assert.match(compat, /syncMenus\(\)/)
   assert.equal(readiness.required.sidebar_spacing, false, 'unverified layout capability must stay disabled')
 })
 
@@ -138,6 +138,32 @@ test('native session and workspace hover cards remain Host-owned; public Slot ke
   assert.ok(source.includes('SessionHoverDetail(props, controller)'))
   assert.ok(source.includes('deltaFeatures.readSearchProtection().allowsSession(sessionId)'))
   assert.equal(readiness.required.session_hover_card_layout, false)
+})
+test('native modal panels and masks stay Host-owned without Delta pointer interception', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('type SearchTabId', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const compatibility = source.slice(begin, end)
+  for (const marker of [
+    'syncModalPanel', 'resetModalState', 'onModalPointerDown',
+    'onModalDblClick', 'applyModalOffset', 'trackedModalPanel',
+    'activeModalDragCleanup', 'AnXs9G_panel', 'AnXs9G_mask',
+    'AnXs9G_navTitle', 'AnXs9G_header', 'data-dtd-dragging',
+    '--dtd-modal-x', '--dtd-modal-y',
+  ]) {
+    assert.equal(compatibility.includes(marker), false, 'private native modal manipulation: ' + marker)
+  }
+  for (const marker of [
+    '[class*="AnXs9G_panel"]', '[class*="AnXs9G_mask"]',
+    '[class*="AnXs9G_navTitle"]', '[class*="AnXs9G_header"]',
+    'data-dtd-dragging', '--dtd-modal-x', '--dtd-modal-y',
+  ]) {
+    assert.equal(style.includes(marker), false, 'native modal CSS override: ' + marker)
+  }
+  assert.ok(style.includes('.dtd-dialog-card'), 'Delta-owned dialogs keep their own styling')
+  assert.ok(source.includes('openDeleteDialog'), 'protected delete dialog is retained')
+  assert.ok(source.includes('openUnlockPinDialog'), 'protected unlock dialog is retained')
+  assert.ok(compatibility.includes('syncMenus()'), 'menu ACL controls remain unchanged')
 })
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
