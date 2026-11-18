@@ -1008,3 +1008,113 @@ test('an empty valid bulk delete is a successful no-op even when state writes ar
     assert.deepEqual(observed, [])
   } finally { f.dispose() }
 })
+
+
+test('raw and prefixed aliases share one durable lock and verified unlock restores the actual archived ID', async () => {
+  const calls = []
+  const registry = {
+    archivedSessionIds: [],
+    archiveSession(id) {
+      calls.push(['archive', id])
+      this.archivedSessionIds.push(id)
+    },
+    async unarchiveSession(id) {
+      calls.push(['unarchive', id])
+      await f.event({ sessionId: id })
+      this.archivedSessionIds = this.archivedSessionIds.filter(value => value !== id)
+    },
+  }
+  const f = fixture({ initial: { totpSecret: secret }, registry })
+  try {
+    const first = await f.call({ action: 'lock', sessionId: 'alpha' })
+    assert.equal(first.status, 200)
+    assert.equal(first.data.archived, true)
+    const alias = await f.call({ action: 'lock', sessionId: 'session-alpha' })
+    assert.equal(alias.status, 200)
+    assert.equal(alias.data.archived, true)
+    assert.deepEqual(f.store.getCached().lockedSessionIds, ['alpha'],
+      'locking another spelling must not duplicate a durable lock')
+    assert.deepEqual(calls, [['archive', 'alpha']],
+      'a known archived native alias must not be archived twice')
+    const code = await state.generateTotpCode(secret)
+    const verified = await f.call({ action: 'verify', sessionId: 'session-alpha', code })
+    assert.equal(verified.status, 200)
+    assert.equal(verified.data.verified, true)
+    const unlocked = await f.call({ action: 'unlock', sessionId: 'session-alpha', code })
+    assert.equal(unlocked.status, 200)
+    assert.equal(unlocked.data.unarchived, true)
+    assert.deepEqual(f.store.getCached().lockedSessionIds, [])
+    assert.deepEqual(registry.archivedSessionIds, [])
+    assert.deepEqual(calls, [['archive', 'alpha'], ['unarchive', 'alpha']],
+      'native restoration must address the archived ID rather than the spelling in the request')
+    await f.event({ sessionId: 'alpha' })
+  } finally { f.dispose() }
+})
+
+test('legacy mixed-alias locks are fully cleared while unrelated direct locks remain protected', async () => {
+  const calls = []
+  const registry = {
+    archivedSessionIds: ['beta', 'session-beta', 'unrelated'],
+    async unarchiveSession(id) {
+      calls.push(id)
+      await f.event({ sessionId: id })
+      this.archivedSessionIds = this.archivedSessionIds.filter(value => value !== id)
+    },
+  }
+  const f = fixture({
+    initial: { totpSecret: secret, lockedSessionIds: ['session-beta', 'beta', 'unrelated'] },
+    registry,
+  })
+  try {
+    const code = await state.generateTotpCode(secret)
+    assert.equal((await f.call({ action: 'verify', sessionId: 'beta', code })).status, 200)
+    const restored = await f.call({ action: 'unlock', sessionId: 'beta', code })
+    assert.equal(restored.status, 200)
+    assert.equal(restored.data.unarchived, true)
+    assert.deepEqual(restored.data.state.lockedSessionIds, ['unrelated'],
+      'every equivalent durable alias must be removed in one authenticated mutation')
+    assert.deepEqual(calls, ['beta', 'session-beta'])
+    assert.deepEqual(registry.archivedSessionIds, ['unrelated'])
+    await assert.rejects(f.event({ sessionId: 'unrelated' }), /DELTA_SESSION_LOCKED/)
+  } finally { f.dispose() }
+})
+
+test('alias-based unlock never revives a deleted session or bypasses a locked workspace', async () => {
+  const calls = []
+  const tombstoned = fixture({
+    initial: { totpSecret: secret, lockedSessionIds: ['gamma'], deletedSessionIds: ['session-gamma'] },
+    registry: {
+      archivedSessionIds: ['gamma'],
+      unarchiveSession(id) { calls.push(['tombstoned', id]); this.archivedSessionIds = [] },
+    },
+  })
+  try {
+    const code = await state.generateTotpCode(secret)
+    const unlocked = await tombstoned.call({ action: 'unlock', sessionId: 'session-gamma', code })
+    assert.equal(unlocked.status, 200)
+    assert.equal(unlocked.data.unarchived, false)
+    assert.deepEqual(unlocked.data.state.lockedSessionIds, [])
+    assert.deepEqual(unlocked.data.state.deletedSessionIds, ['session-gamma'])
+    assert.deepEqual(calls, [])
+    await assert.rejects(tombstoned.event({ sessionId: 'gamma' }), /DELTA_SESSION_DELETED/)
+  } finally { tombstoned.dispose() }
+
+  const workspace = fixture({
+    initial: { totpSecret: secret, lockedSessionIds: ['delta'], lockedWorkspaceIds: ['protected'] },
+    registry: {
+      archivedSessionIds: ['delta'],
+      list: () => [{ id: 'protected', path: '/protected', sessionIds: ['session-delta'] }],
+      unarchiveSession(id) { calls.push(['workspace', id]); this.archivedSessionIds = [] },
+    },
+  })
+  try {
+    const code = await state.generateTotpCode(secret)
+    const unlocked = await workspace.call({ action: 'unlock', sessionId: 'session-delta', code })
+    assert.equal(unlocked.status, 200)
+    assert.equal(unlocked.data.unarchived, false)
+    assert.deepEqual(unlocked.data.state.lockedSessionIds, [])
+    assert.deepEqual(unlocked.data.state.lockedWorkspaceIds, ['protected'])
+    assert.deepEqual(calls, [])
+    await assert.rejects(workspace.event({ sessionId: 'delta' }), /DELTA_SESSION_LOCKED/)
+  } finally { workspace.dispose() }
+})
