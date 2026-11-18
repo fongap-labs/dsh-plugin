@@ -231,3 +231,13 @@ describe('Host-authoritative per-session filesystem sandbox policy', () => {
     assert.equal(count, 1)
   })
 })
+
+it('does not let a full-access Host session escape the Delta workspace via canonical aliases', async () => {
+  const f = host({ type: 'file', version: 'v1' }, { escape: true })
+  f.ctx.get('fs').sandboxMode = 'workspace-write'
+  const ctx = { get: name => name === 'sandboxPolicy'
+    ? { resolve: () => ({ mode: 'danger-full-access', workspaceRoot: root }) } : f.ctx.get(name) }
+  await assert.rejects(writeTextSafe(ctx, execution(), root, 'file.txt', 'after', normalizeConfig(undefined)),
+    /escapes workspace/)
+  assert.equal(f.writes.length, 0)
+})

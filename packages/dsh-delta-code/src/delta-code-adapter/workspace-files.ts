@@ -134,7 +134,7 @@ export async function validateWriteTargetSafe(
       const { intent } = await guardedWriteTarget(fs, root, absolute, exec.signal)
       return intent
     }
-    if (settings?.fsWriteContract === 'native-unguarded') {
+    if (settings?.fsWriteContract === 'native-unguarded' || (fs as HostFsCapabilities).sandboxMode !== undefined) {
       await nativeWriteTarget(fs, root, absolute, exec.signal)
       return undefined
     }
@@ -409,7 +409,11 @@ export async function writeTextSafe(
       const target = await nativeWriteTarget(fs, root, absolute, signal)
       return writeDshHostText(fs, target, content, signal, 'native-unguarded', undefined, resolvePolicy())
     }
-    const resolved = await fs.resolve(absolute, { cwd: root, signal })
+    // Sandbox-aware providers must retain Delta's own workspace boundary,
+    // even when the Host grants the session broader permissions.
+    const resolved = policyFs.sandboxMode !== undefined
+      ? await nativeWriteTarget(fs, root, absolute, signal)
+      : await fs.resolve(absolute, { cwd: root, signal })
     await writeDshHostText(fs, resolved, content, signal, 'legacy-overwrite', undefined, resolvePolicy())
     return
   }

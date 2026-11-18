@@ -128,3 +128,53 @@ describe('Code Worker project profiling via DSH Host FS', () => {
     assert.equal(host.observed.includes('readText'), false)
   })
 })
+
+describe('Project profile bounded Host monorepo discovery', () => {
+  it('finds nested Vue/Tauri/Rust modules and keeps child checks scoped', async () => {
+    const directories = [workspace, join(workspace, 'apps'), join(workspace, 'apps', 'windows'),
+      join(workspace, 'apps', 'windows', 'src-tauri'), join(workspace, 'node_modules')];
+    const manifests = {
+      [join(workspace, 'README.md')]: 'root',
+      [join(workspace, 'apps', 'windows', 'package.json')]: JSON.stringify({
+        dependencies: { vue: '3', '@tauri-apps/api': '2' },
+        devDependencies: { typescript: '5' },
+        scripts: { test: 'private command', typecheck: 'tsc' },
+      }),
+      [join(workspace, 'apps', 'windows', 'src-tauri', 'Cargo.toml')]: '[package]',
+      [join(workspace, 'apps', 'windows', 'src-tauri', 'tauri.conf.json')]: '{}',
+      [join(workspace, 'node_modules', 'package.json')]: '{}',
+    }
+    const reads = [], listed = []
+    const fs = {
+      async resolve(path) { return { targetKey: path } },
+      contains(parent, target) { return mockHostPathContains(parent, target, 'targetKey') },
+      async stat(target) {
+        const path = target.targetKey
+        if (directories.includes(path)) return { type: 'directory' }
+        return Object.hasOwn(manifests, path) ? { type: 'file' } : undefined
+      },
+      async listDir(target) {
+        const parent = target.targetKey
+        listed.push(parent)
+        return [...directories.map(path => ({ path, type: 'directory' })),
+          ...Object.keys(manifests).map(path => ({ path, type: 'file' }))]
+          .filter(entry => entry.path.startsWith(parent + sep) &&
+            !entry.path.slice(parent.length + 1).includes(sep))
+          .map(entry => ({ name: entry.path.slice(parent.length + 1),
+            type: entry.type, target: { targetKey: entry.path } }))
+      },
+      async readText(target) { reads.push(target.targetKey); return manifests[target.targetKey] },
+    }
+    const result = await createProjectProfileTool(mockHostFsContext(fs),
+      normalizeConfig({ workspaceRoot: workspace })).execute({}, exec())
+    assert.deepEqual(new Set(result.technologies), new Set(['node', 'vue', 'typescript', 'tauri', 'rust']))
+    assert.deepEqual(result.scripts, [])
+    assert.deepEqual(result.modules.map(module => module.path), ['apps/windows', 'apps/windows/src-tauri'])
+    assert.deepEqual(result.modules[0].scripts, ['test', 'typecheck'])
+    assert.deepEqual(result.modules[1].technologies, ['rust', 'tauri'])
+    assert.equal(result.moduleScanTruncated, false)
+    assert.equal(listed.includes(join(workspace, 'node_modules')), false)
+    assert.deepEqual(reads, [join(workspace, 'apps', 'windows', 'package.json')])
+    assert.equal(JSON.stringify(result).includes('private command'), false)
+  })
+})

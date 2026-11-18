@@ -7,7 +7,7 @@ export type HostWriteIntent =
 export interface HostFsCapabilities {
   resolve(path: string, options: { cwd: string; signal?: AbortSignal }): Promise<unknown>
   contains?(parent: unknown, child: unknown): boolean
-  stat?(target: unknown, signal?: AbortSignal): Promise<{ type: string; version?: unknown } | undefined>
+  stat?(target: unknown, signal?: AbortSignal): Promise<{ type: string; version?: unknown; size?: number } | undefined>
   readText?(target: unknown, signal?: AbortSignal): Promise<string>
   /** Optional Host capability fact: a confining backend requires per-call Host policy. */
   readonly sandboxMode?: unknown
