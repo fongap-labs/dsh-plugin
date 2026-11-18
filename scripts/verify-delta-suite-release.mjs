@@ -159,8 +159,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: native Settings rows and empty Ungrouped buckets no longer
 // rely on private DOM/text hiding. Protected-session ACL and tombstone guards remain.
 // Reviewed 2026-11-19: disabled legacy sidebar layout activation and Settings-nav order writes.
+// Reviewed 2026-11-19: retired native turn error row scanning, collapse handlers and private CSS.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '5fd770c13750a6f08048e5c0f8b81047975e52da'
+const ZIP3_THEME_BLOB = '7e0a813e91d7b4932591afba392bd4880bac7cc5'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -170,7 +171,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'b786277407dee9cc2581d885381b02b1cb0b038e',
+    sha1: 'e8336e4a3a11323da498a612134e39157c125fd6',
   },
   {
     begin: 'function installHostSearch(',

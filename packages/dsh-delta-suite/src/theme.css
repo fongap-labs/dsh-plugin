@@ -2112,65 +2112,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   padding: 0 12px !important;
 }
 
-/* Collapse Turn Failure Row to 1 Line by Default, Click to Expand */
-[class*="turnErrorRow"][data-dtd-collapsible="1"] {
-  cursor: pointer !important;
-  user-select: text;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"]::after {
-  content: "›";
-  font-size: 15px;
-  line-height: 1;
-  color: var(--dtd-fg-muted, currentColor);
-  margin-left: 4px;
-  transition: transform 0.14s ease;
-  align-self: center;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"] {
-  grid-template-columns: 10px minmax(0, 1fr) auto auto !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="0"] {
-  align-items: center !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="0"] [class*="turnErrorDot"] {
-  margin-top: 0 !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="0"] [class*="turnErrorCopy"] {
-  display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-  white-space: nowrap !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="0"] [class*="turnErrorTitle"] {
-  flex: none !important;
-  margin-right: 0 !important;
-  white-space: nowrap !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="0"] [class*="turnErrorMessage"] {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="0"] [class*="turnErrorCode"] {
-  flex: none !important;
-  white-space: nowrap !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="1"]::after {
-  transform: rotate(90deg);
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="1"] [class*="turnErrorCopy"] {
-  display: block !important;
-  white-space: normal !important;
-}
-[class*="turnErrorRow"][data-dtd-collapsible="1"][data-dtd-expanded="1"] [class*="turnErrorMessage"] {
-  white-space: normal !important;
-  overflow: visible !important;
-}
-
 /* Floating context menu for "\00672A\005206\007EC4" (Ungrouped) permanent deletion */
 .dtd-context-menu {
   position: fixed;

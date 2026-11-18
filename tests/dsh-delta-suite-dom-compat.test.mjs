@@ -215,6 +215,16 @@ test('native Settings rows and Ungrouped bucket remain Host-owned without text-b
   assert.match(style, /data-dtd-hidden-privacy-cmd/)
   assert.match(style, /data-dtd-hidden-sole-workspace/)
 })
+test('native turn error rows and details remain Harness-owned', () => {
+  for (const marker of [
+    'turnErrorRow', 'data-dtd-collapsible', 'data-dtd-expanded',
+    'collapsibleErrorHandlers', 'cleanupCollapsibleErrors',
+  ]) {
+    assert.equal(source.includes(marker), false, 'Delta must not mutate native error rows: ' + marker)
+    assert.equal(style.includes(marker), false, 'Delta must not style native error rows: ' + marker)
+  }
+})
+
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))
