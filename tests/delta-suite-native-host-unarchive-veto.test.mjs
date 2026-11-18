@@ -38,6 +38,10 @@ function fixture({ initial = {}, registry, readFails = false, writeFails = false
   }
   const hostRegistry = registry ?? {
     archivedSessionIds: ['locked', 'ordinary'],
+    list: () => [
+      { id: 'ordinary', path: '/ordinary', sessionIds: ['ordinary'] },
+      { id: 'new-workspace', path: '/new', sessionIds: [] },
+    ],
     async unarchiveSession(id) {
       // Match the public event contract: await before updating native state.
       await listener({ sessionId: id })
@@ -420,4 +424,45 @@ test('logical workspace moves never rewrite native session files, including on f
       assert.equal(existsSync(targetFile), false, 'no unowned native target log was created')
     } finally { f.dispose(); rmSync(root, { recursive: true, force: true }) }
   }
+})
+
+test('logical moves reject missing, malformed or mismatched public Host destinations', async () => {
+  const valid = [
+    { id: 'ordinary', path: '/ordinary', sessionIds: ['source'] },
+    { id: 'target', path: '/target', sessionIds: [] },
+  ]
+  const invalidCases = [
+    ['no public workspace list', {}, 'target', '/target'],
+    ['empty catalog', { list: () => [] }, 'target', '/target'],
+    ['unknown workspace id', { list: () => valid }, 'ghost', '/target'],
+    ['mismatched path hint', { list: () => valid }, 'target', '/wrong'],
+    ['incomplete row', { list: () => [{ id: 'target', path: '/target' }] }, 'target', '/target'],
+    ['duplicate workspace ID', { list: () => [...valid, valid[1]] }, 'target', '/target'],
+    ['unreadable catalog', { list: () => { throw new Error('offline') } }, 'target', '/target'],
+  ]
+  for (const [name, registry, targetWorkspaceId, targetPath] of invalidCases) {
+    const f = fixture({ registry, initial: { movedSessions: { existing: 'ordinary' } } })
+    try {
+      const result = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+        sessionId: 'source', targetWorkspaceId, targetPath,
+      })
+      assert.equal(result.status, 503, name)
+      assert.equal(result.data.error, 'WORKSPACE_DESTINATION_UNAVAILABLE', name)
+      assert.deepEqual(f.store.getCached().movedSessions, { existing: 'ordinary' }, name)
+    } finally { f.dispose() }
+  }
+
+  const f = fixture({ registry: { list: () => valid } })
+  try {
+    const result = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'source', targetWorkspaceId: 'target', targetPath: '/target',
+    })
+    assert.equal(result.status, 200)
+    assert.deepEqual(f.store.getCached().movedSessions, { source: 'target' })
+    const withoutHint = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'another', targetWorkspaceId: 'target',
+    })
+    assert.equal(withoutHint.status, 200, 'a proven workspace ID is sufficient without a path hint')
+    assert.deepEqual(f.store.getCached().movedSessions, { source: 'target', another: 'target' })
+  } finally { f.dispose() }
 })
