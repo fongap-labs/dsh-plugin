@@ -11,13 +11,13 @@ export interface LspServerConfig {
   args?: string[]
 }
 
-/** A GitHub account selected automatically by the repository owner (user or organization). */
+/** Optional credential identity; its Token permissions, not repository bindings, determine access. */
 export interface GitHubAccountConfig {
   /** GitHub username or organization name (left side of owner/repository). */
   owner: string
   /** Environment variable name that holds the GitHub personal access token. */
   tokenEnv: string
-  /** Optional explicit owner/repository bindings, allowing an account to access other organizations. */
+  /** Optional routing preference for ambiguous multi-account setups, never an access allowlist. */
   repositories?: string[]
 }
 

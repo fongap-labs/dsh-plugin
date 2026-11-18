@@ -36,7 +36,7 @@ describe('Delta Code GitHub port', () => {
     assert.ok(requests.every(x => x.method === 'GET' && x.signal === signal))
   })
 
-  it('does not reach a provider when the account is not authorized', async () => {
+  it('does not reach a provider when an explicitly selected credential identity is unknown', async () => {
     let calls = 0
     const settings = normalizeConfig({ github: { accounts: [
       { owner: 'company', tokenEnv: 'DSH_COMPANY_TOKEN' },
@@ -44,8 +44,8 @@ describe('Delta Code GitHub port', () => {
     const transport = { async request() { calls++; throw Error('should not request') } }
     const connection = createGitHubTools({ get: () => undefined }, settings, transport)[0]
     await assert.rejects(
-      connection.execute({ repository: 'personal/project' }, { signal: new AbortController().signal }),
-      /no GitHub account/,
+      connection.execute({ repository: 'personal/project', account: 'nonexistent' }, { signal: new AbortController().signal }),
+      /unknown or ambiguous GitHub account/,
     )
     assert.equal(calls, 0)
   })

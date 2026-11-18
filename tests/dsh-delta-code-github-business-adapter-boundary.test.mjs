@@ -29,7 +29,7 @@ describe('Delta Code GitHub business and DSH registration boundary', () => {
       }
     }
     assert.ok(operations.includes('GitHubWriteUncertain'))
-    assert.ok(operations.includes('selectGitHubAccount(settings.githubAccounts, repo)'))
+    assert.ok(operations.includes('selectGitHubAccount(settings.githubAccounts, repo, exec.account)'))
     assert.ok(operations.includes("if (!settings.githubAllowWrites)"))
     assert.ok(adapter.includes("args: ['remote', 'get-url', 'origin']"))
     assert.ok(adapter.includes('createGitHubToolSpecs(settings, transport, resolveRepo)'))

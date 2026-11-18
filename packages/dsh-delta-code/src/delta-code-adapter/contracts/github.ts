@@ -16,8 +16,25 @@ export interface DeltaGitHubResponse {
   readonly data: any
 }
 
+export interface DeltaGitHubJobLogsRequest {
+  readonly repository: string
+  readonly account: string
+  readonly jobId: number
+  readonly signal: AbortSignal
+}
+
+export interface DeltaGitHubJobLogsResponse {
+  readonly repository: string
+  readonly account: string
+  readonly excerpt: string
+  readonly truncated: boolean
+  readonly bytesRead: number
+}
+
 export interface DeltaGitHubTransport {
   request(input: DeltaGitHubRequest): Promise<DeltaGitHubResponse>
+  /** Optional for older providers: no GitHub permissions may be bypassed if unavailable. */
+  jobLogs?(input: DeltaGitHubJobLogsRequest): Promise<DeltaGitHubJobLogsResponse>
 }
 
 /** Error semantics are owned by Delta; transport providers only translate failures. */
