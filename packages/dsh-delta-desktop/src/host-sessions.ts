@@ -771,7 +771,7 @@ export function installHostSessionOps(
     }
   }
 
-  const cancelLiveSession = async (sid: string, inspectAliases = false): Promise<void> => {
+  const cancelLiveSession = async (sid: string, shouldInspectAliases = false): Promise<void> => {
     let sessions: {
       get?: (id: string) => { cancel?: () => Promise<void> | void } | undefined
       cancel?: (id: string) => Promise<void> | void
@@ -781,7 +781,7 @@ export function installHostSessionOps(
     // A Host-level cancellation failure must not prevent a session-handle
     // cancellation attempt. Both APIs are optional and may throw separately.
     try { await Promise.resolve(sessions?.cancel?.(sid)) } catch {}
-    const ids = inspectAliases ? [...new Set(sessionAliases(sid))] : [sid]
+    const ids = shouldInspectAliases ? [...new Set(sessionAliases(sid))] : [sid]
     for (const id of ids) {
       try { await Promise.resolve(sessions?.get?.(id)?.cancel?.()) } catch {}
     }
