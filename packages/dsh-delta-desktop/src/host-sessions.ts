@@ -352,6 +352,35 @@ export function readHostSessionProtection(state: DeltaHostState, getRegistry: ()
   }
 }
 
+// A Delta-only relocation still needs an existing native destination. Lock
+// checks do not establish that a workspace exists when no workspace is locked.
+// Use the public registry list, never private maps or a caller-supplied path
+// as authority. Incomplete/unstable Host catalogs cannot authorize a mapping.
+const hasNativeMoveDestination = (
+  getRegistry: () => unknown,
+  workspaceId: string,
+  hintedPath: string,
+): boolean => {
+  try {
+    const reg = getRegistry() as HostWorkspaceRegistryLike | undefined
+    if (typeof reg?.list !== 'function') return false
+    const seen = new Set<string>()
+    let nativePath: string | undefined
+    for (const row of reg.list()) {
+      if (!row || typeof row.id !== 'string' || !row.id ||
+          typeof row.path !== 'string' || !row.path ||
+          !Array.isArray(row.sessionIds) ||
+          row.sessionIds.some(sid => typeof sid !== 'string' || !sid) ||
+          seen.has(row.id)) return false
+      seen.add(row.id)
+      if (row.id === workspaceId) nativePath = row.path
+    }
+    return getRegistry() === reg &&
+      nativePath !== undefined &&
+      (!hintedPath || hintedPath === nativePath)
+  } catch { return false }
+}
+
 // Both the native unarchive veto and Delta's content search consume the same
 // authoritative protection decision. Tombstones must never be resurrected by
 // a Host-native unarchive, including a raw/session-prefixed ID alias.
@@ -626,6 +655,9 @@ export function installHostSessionOps(
     if (sourceVerdict !== 'clear') return protectionFailure(sourceVerdict)
     const targetVerdict = protection.destination(targetWorkspaceId, targetPath)
     if (targetVerdict !== 'clear') return protectionFailure(targetVerdict)
+    if (!hasNativeMoveDestination(getRegistry, targetWorkspaceId, targetPath)) {
+      return makeJsonResponse(503, { ok: false, error: 'WORKSPACE_DESTINATION_UNAVAILABLE' })
+    }
     // The public Harness workspace API cannot atomically relocate an existing
     // session. Only update Delta's own mapping; native logs, cwd and workspace
     // membership remain Host-owned until an explicit relocation API exists.
