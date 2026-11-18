@@ -169,7 +169,9 @@ pnpm test
 
 ## GitHub 多账号连接
 
-在本机 **用户 Profile** 的 `cordis.patch.yml` 中，对 `dsh-delta-code` 配置 `github.accounts`。每个 GitHub 账号需填写 **用户名或组织名 `owner` 与 Token 环境变量名 `tokenEnv`**。Token 真实值**永不写入配置文件**，而是由运行环境在启动前注入对应环境变量。账号数量不限：
+默认**无需配置 `github.accounts` 或逐个绑定仓库**：Delta Code 通过 Harness 原生凭据服务解析 `GITHUB_TOKEN`（旧版无凭据服务的 Host 使用同名环境变量），并核实它的 GitHub 登录用户；原生凭据仅用于该用户自己名下的仓库。**一个 Token 只绑定一个账号或组织，不能跨账号/组织复用**；该归属下的仓库数量不限，GitHub 根据该 Token 对具体仓库的授权决定能否访问。访问组织仓库时，须单独配置该组织的 `owner` 与 `tokenEnv`。CLI 的 `gh auth login` 凭据属于另一套存储，不会自动作为 `GITHUB_TOKEN` 提供给本插件。
+
+如需分别使用多个 GitHub 身份，可在用户 Profile 的 `cordis.patch.yml` 中配置可选的 `github.accounts`。每个账号填写 **凭据路由名 `owner` 与宿主凭据引用 `tokenEnv`**；真实 Token 保存在 Harness 凭据服务中或由旧版环境变量提供，不写入插件配置。账号数量不限：
 
 ```yaml
 github:
@@ -184,11 +186,11 @@ github:
       tokenEnv: GITHUB_TOKEN_THIRD
 ```
 
-支持只配置 1 个、2 个或者多个账号。实际授权来源是 Token 持有者，组织名不意味着组织有自己的 Token：填写组织名时，需要使用已获授权访问该组织仓库的 GitHub 账号的 Token。推荐细粒度个人访问令牌，并仅授权必要仓库及最小权限。
+支持零个、一个或多个额外账号。每个 `owner` 必须使用独立的 `tokenEnv`；同一个 Token 引用不得绑定不同账号或组织。组织名是仓库归属标识，Token 仍由已获得该组织仓库授权的个人或应用颁发。推荐细粒度 PAT，仅授权必要仓库及最小权限。
 
-调用 GitHub 工具时，插件自动读取当前 Git 工作区 `origin` 仓库地址（或显式传入 `repository: owner/repo`），使用 `owner` 匹配对应账号的 `tokenEnv` 环境变量：例如 `fongap-labs/delta` 和 `fongap-labs/dsh-plugin` 都选择 `owner: fongap-labs`，不需要手动绑定仓库。不区分大小写，同一 `owner` 不允许重复，未匹配时拒绝操作，不会使用其他账号的 Token。
+调用 GitHub 工具时，省略 `repository` 则读取当前 Git 工作区 `origin`；也可显式指定 `repository: owner/repo`。配置了账号时，**只能使用与仓库 owner 相同的账号凭据**；工具可选 `account` 参数同样必须匹配仓库 owner，不允许跨归属复用。未配置账号时，原生 `GITHUB_TOKEN` 经 GitHub `/user` 验证登录归属后，仅能访问该用户自己的仓库。旧配置中的 `repositories` 字段只接受本账号下的仓库，不作为数量上限或访问允许列表。
 
-**安全要求：** 配置文件**不保存任何 Token**，只记录环境变量名。Token 必须在启动 Harness 前注入对应环境变量。不要将 Token 环境变量值提交到公开仓库、Bundle 默认配置、PR、Issue 或聊天。不要启用 Profile 文件的云端明文同步。Token 不会返回给模型，但本地 Profile 仍应限制文件访问权限。
+**安全要求：** 配置文件**不保存任何 Token**，仅保存宿主凭据引用。不要将真实 Token 提交到仓库、PR、Issue 或聊天。不要明文同步 Profile 凭据文件。Token 不会返回给模型；写操作仍需额外开启 `github.allowWrites`，并且必须通过 GitHub 服务端权限校验。
 
 | GitHub 工具 | 用途 |
 | --- | --- |
@@ -197,6 +199,7 @@ github:
 | `code_github_pulls` | 查询 PR |
 | `code_github_checks` | 查看 PR 检查结果、失败上下文及 Action Worker 检查链接 |
 | `code_github_jobs` | 查看指定 GitHub Actions 运行的作业和失败步骤 |
+| `code_github_job_logs` | 读取失败 Job 的原始日志诊断片段（限量、脱敏，不依赖 annotations/artifacts） |
 | `code_github_branch` | 创建远程功能分支（写入需授权） |
 | `code_github_commit_file` | 更新功能分支文件（写入需授权） |
 | `code_github_create_pr` | 发起 PR（写入需授权） |

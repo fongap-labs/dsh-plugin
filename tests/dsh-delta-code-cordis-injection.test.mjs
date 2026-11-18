@@ -81,7 +81,7 @@ describe('Code Worker optional subprocess capability', () => {
       assert.equal(registered.has('code_git_status'), false)
       assert.equal(registered.has('code_workspace_map'), false)
       assert.equal(registered.has('code_lsp_probe'), false)
-      assert.equal(registered.has('code_github_connection'), false, 'no authorized GitHub account configured')
+      assert.equal(registered.has('code_github_connection'), true, 'native GitHub credential is resolved lazily at request time')
       for (const name of ['code_multi_edit', 'code_project_profile', 'code_host_probe']) {
         assert.ok(registered.has(name), name + ' should be mounted without subprocess')
       }
