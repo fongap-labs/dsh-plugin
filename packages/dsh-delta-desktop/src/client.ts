@@ -1396,18 +1396,30 @@ function createWorkspaceCompatibilityProjection(): (base: WorkspaceSnapshot, f: 
   return (base, f) => {
     if (base === previousBase && f.deletedSessionIds === previousDeleted &&
         f.lockedSessionIds === previousLocked && f.movedSessions === previousMoved && previousResult) return previousResult
+    const moves = Object.entries(f.movedSessions)
+    if (f.deletedSessionIds.length === 0 && f.lockedSessionIds.length === 0 && moves.length === 0) return base
     const deleted = new Set(f.deletedSessionIds)
     const locked = new Set(f.lockedSessionIds.filter(id => !deleted.has(id)))
     const workspaceIds = new Set(base.items.map(ws => ws.workspaceId))
-    const moves = Object.entries(f.movedSessions).filter(([sid, target]) => !deleted.has(sid) && workspaceIds.has(target))
-    const targets = new Map(moves)
+    const targets = new Map<string, string>()
+    const incomingByWorkspace = new Map<string, string[]>()
+    for (const [sid, target] of moves) {
+      if (deleted.has(sid) || !workspaceIds.has(target)) continue
+      targets.set(sid, target)
+      const incoming = incomingByWorkspace.get(target) ?? []
+      incoming.push(sid)
+      incomingByWorkspace.set(target, incoming)
+    }
     let hasItemsChanged = false
     const items = base.items.map(ws => {
       const original = ws.sessionIds
       let next = (original ?? []).filter(sid => !deleted.has(sid) &&
         (!targets.has(sid) || targets.get(sid) === ws.workspaceId))
-      const incoming = moves.filter(([sid, target]) => target === ws.workspaceId && !next.includes(sid)).map(([sid]) => sid)
-      if (incoming.length) next = [...incoming.reverse(), ...next]
+      const incoming = incomingByWorkspace.get(ws.workspaceId)
+      if (incoming?.length) {
+        const existing = new Set(next)
+        next = [...incoming.filter(sid => !existing.has(sid)).reverse(), ...next]
+      }
       if ((!original && next.length === 0) || sameIds(original, next)) return ws
       hasItemsChanged = true
       return { ...ws, sessionIds: next }
@@ -2010,14 +2022,16 @@ function createClientFeatureManager(): ClientFeatureManager {
 
   const moveSession = async (sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }> => {
     if (state.deletedSessionIds.includes(sessionId)) return { ok: false, error: 'SESSION_DELETED' }
-    if (state.lockedSessionIds.includes(sessionId) || isSessionInLockedWorkspace(sessionId) ||
-        isWorkspaceLocked(targetWorkspaceId)) return { ok: false, error: 'SESSION_LOCKED' }
     if (!canCallHostHttp()) return { ok: false, error: 'MOVE_UNAVAILABLE' }
     let targetWs: WorkspaceSnapshot['items'][number] | undefined
-    try { targetWs = readNativeWorkspaceSnapshot?.().items.find(item => item.workspaceId === targetWorkspaceId) }
-    catch { return { ok: false, error: 'MOVE_UNAVAILABLE' } }
+    let sourceCwd: string | undefined
+    try {
+      if (state.lockedSessionIds.includes(sessionId) || isSessionInLockedWorkspace(sessionId) ||
+          isWorkspaceLocked(targetWorkspaceId)) return { ok: false, error: 'SESSION_LOCKED' }
+      targetWs = readNativeWorkspaceSnapshot?.().items.find(item => item.workspaceId === targetWorkspaceId)
+      sourceCwd = findWorkspaceCwdForSession(sessionId)
+    } catch { return { ok: false, error: 'MOVE_UNAVAILABLE' } }
     if (!targetWs?.path) return { ok: false, error: 'MOVE_UNAVAILABLE' }
-    const sourceCwd = findWorkspaceCwdForSession(sessionId)
     const res = await postHostJson('/api/delta-desktop/session-move', {
       sessionId,
       targetWorkspaceId,

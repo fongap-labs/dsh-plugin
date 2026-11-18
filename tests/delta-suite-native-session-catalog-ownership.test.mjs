@@ -210,3 +210,16 @@ test('workspace move requires a known native target and explicit durable acknowl
   assert.deepEqual(f.calls.map(call => call[0]), ['post'])
   assert.equal(f.calls[0][2].targetPath, '/b')
 })
+
+test('move never posts from a locked session or into a locked workspace', async () => {
+  const f = fixture({ initial: { lockedSessionIds: ['locked'], lockedWorkspaceIds: ['b'] } })
+  const raw = { items: [
+    { workspaceId: 'a', path: '/a', title: 'A', sessionIds: ['locked', 'target'] },
+    { workspaceId: 'b', path: '/b', title: 'B', sessionIds: [] },
+  ] }
+  f.manager.setWorkspacesApi({ list: { getSnapshot: () => raw } }, () => raw)
+  await f.manager.refreshState()
+  assert.equal((await f.manager.moveSession('locked', 'a')).error, 'SESSION_LOCKED')
+  assert.equal((await f.manager.moveSession('target', 'b')).error, 'SESSION_LOCKED')
+  assert.equal(f.calls.length, 0)
+})
