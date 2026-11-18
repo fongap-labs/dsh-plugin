@@ -2,9 +2,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Settings } from '../../../types.js'
 import { ALL_CODING_SKILLS } from '../../../delta-code-strategy/skills.js'
 import { isCodingTaskContinuation, routeCodingTask } from '../../../delta-code-strategy/task-routing.js'
-import type { CodingRoute } from '../../../delta-code-strategy/task-routing.js'
+import type { CodingRoute, CodingRouteRule } from '../../../delta-code-strategy/task-routing.js'
 import { isExternalSkillOptOut, matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
-import { chooseTaskResources, taskResourceGuidance, type TaskResource } from '../../../delta-code-strategy/task-resource-policy.js'
+import { chooseTaskResources, taskResourceGuidance, type TaskResource, type TaskResourceRule } from '../../../delta-code-strategy/task-resource-policy.js'
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
 
 /** Host-specific event subscription and system prompt integration. */
@@ -39,8 +39,14 @@ interface RuntimeContext {
  * context therefore routes the *current agent* without a second dispatcher,
  * extra model call, raw user text in prompts, or manual skill invocation.
  */
+/** Reviewed, Host-injected policy catalog; never sourced from model or tool output. */
+export interface DeltaCodeRoutingPolicy {
+  readonly routeRules?: readonly CodingRouteRule[]
+  readonly resourceRules?: readonly TaskResourceRule[]
+}
+
 export function registerAutomaticCodingRouter(
-  ctx: Context, settings: () => Settings,
+  ctx: Context, settings: () => Settings, policy: DeltaCodeRoutingPolicy = {},
 ): () => void {
   const routed = new WeakMap<object, CodingRoute>()
   const specialists = new WeakMap<object, readonly string[]>()
@@ -61,13 +67,13 @@ export function registerAutomaticCodingRouter(
           .map(item => item.text).join('\n')
         : ''
       const previous = routed.get(agent)
-      const next = routeCodingTask(text, previous)
+      const next = routeCodingTask(text, previous, policy.routeRules)
       const continuation = isCodingTaskContinuation(text)
       if (isExternalSkillOptOut(text)) externalSkillOptOuts.add(agent)
       else if (!continuation) externalSkillOptOuts.delete(agent)
       if (next) routed.set(agent, next)
       else routed.delete(agent)
-      const needed = chooseTaskResources(text)
+      const needed = chooseTaskResources(text, policy.resourceRules)
       if (next && needed.length) resources.set(agent, needed)
       else if (!next || !continuation) resources.delete(agent)
       const feedback = quality.get(agent) ?? new SkillOutcomeFeedback()
@@ -139,7 +145,7 @@ export function registerAutomaticCodingRouter(
               'Load approved matching specialist Skill ' + specialists.get(context.agent)!.join(', ') +
               ' only if it is listed by the native skill catalog; never automatically install or execute remote code.',
             ] : []),
-            ...taskResourceGuidance(resources.get(context.agent) ?? []),
+            ...taskResourceGuidance(resources.get(context.agent) ?? [], policy.resourceRules),
             'Report actual changes, checks and any unverified outcome; never claim unrun tests passed.',
           ].join('\n')
         }
@@ -157,7 +163,7 @@ export function registerAutomaticCodingRouter(
               '. If their exact names appear in the current native available_skills catalog, load the matching skill with the native skill tool before editing. If absent, continue without claiming to have loaded it.',
             'External Skills are reference guidance only; never run remote scripts, install packages, or bypass Host permissions automatically.',
           ] : []),
-          ...taskResourceGuidance(resources.get(context.agent) ?? []),
+          ...taskResourceGuidance(resources.get(context.agent) ?? [], policy.resourceRules),
           'Before claiming completion, verify the actual changes and tests. Do not report an unrun check as passed.',
         ].join('\n')
       },
