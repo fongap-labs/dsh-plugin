@@ -357,6 +357,11 @@ const sessionAliases = (id: string): string[] => {
   return [id, raw, 'session-' + raw]
 }
 
+// Host mutations must honor the same tombstone aliases as native unarchive
+// and content search. Exact string checks can otherwise revive stale records.
+const isSessionDeleted = (state: DeltaHostState, sessionId: string): boolean =>
+  sessionAliases(sessionId).some(alias => state.deletedSessionIds.includes(alias))
+
 export function readHostSessionProtection(state: DeltaHostState, getRegistry: () => unknown) {
   const protectedIds = new Set(state.lockedSessionIds.flatMap(sessionAliases))
   const lockedKeys = new Set(state.lockedWorkspaceIds)
@@ -558,7 +563,7 @@ export function installHostSessionOps(
       if (!valid) {
         return makeJsonResponse(403, { ok: false, error: 'INVALID_TOTP_CODE' })
       }
-      if (sessionId && current.deletedSessionIds.includes(sessionId)) {
+      if (sessionId && isSessionDeleted(current, sessionId)) {
         return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
       }
       const next = await store.update(cur => ({
@@ -580,7 +585,7 @@ export function installHostSessionOps(
 
     if (action === 'lock') {
       if (!sessionId && !workspaceId) return makeJsonResponse(400, { ok: false, error: 'MISSING_TARGET_ID' })
-      if (sessionId && current.deletedSessionIds.includes(sessionId)) {
+      if (sessionId && isSessionDeleted(current, sessionId)) {
         return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
       }
       if (!current.totpSecret && !current.pinHash) {
@@ -680,15 +685,14 @@ export function installHostSessionOps(
     }
 
     const current = await store.read()
+    if (isSessionDeleted(current, sessionId)) {
+      return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
+    }
     const protection = readProtection(current)
     const sourceVerdict = protection.session(sessionId)
     if (sourceVerdict !== 'clear') return protectionFailure(sourceVerdict)
     const targetVerdict = protection.destination(targetWorkspaceId, targetPath)
     if (targetVerdict !== 'clear') return protectionFailure(targetVerdict)
-    if (current.deletedSessionIds.includes(sessionId)) {
-      return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
-    }
-
     // Attempt physical session log header cwd update + Zstd/JSONL relocation inside persistence root
     if (targetPath) {
       try {
@@ -805,6 +809,9 @@ export function installHostSessionOps(
     }
 
     const current = await store.read()
+    if (isSessionDeleted(current, sessionId)) {
+      return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
+    }
     const verdict = readProtection(current).session(sessionId)
     if (verdict !== 'clear') return protectionFailure(verdict)
 
@@ -836,6 +843,11 @@ export function installHostSessionOps(
     const sessionIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string' && isSafeSegment(id.trim())).map(id => id.trim()))]
 
     const current = await store.read()
+    // Reject the entire bulk request before any native side effect if one
+    // alias already has a durable deletion tombstone.
+    if (sessionIds.some(sid => isSessionDeleted(current, sid))) {
+      return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
+    }
     const protection = readProtection(current)
     const skippedLockedIds: string[] = []
     const toDeleteIds: string[] = []
