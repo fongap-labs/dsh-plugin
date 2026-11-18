@@ -34,6 +34,17 @@ test('unverified host-only capabilities remain unclaimed until Windows validatio
   }
 })
 
+test('native workspace expansion stays Host-owned until an official capability exists', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('\ntype SearchTabId', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const compatibility = source.slice(begin, end)
+  assert.doesNotMatch(compatibility, /dsh\.workspace\.view\.v5/)
+  assert.doesNotMatch(compatibility, /\bpersistedExpansion\b/)
+  assert.doesNotMatch(compatibility, /\brow\.click\(\)/)
+  assert.equal(readiness.required.workspace_initial_collapse, false)
+})
+
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

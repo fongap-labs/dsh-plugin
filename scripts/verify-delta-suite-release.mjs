@@ -143,12 +143,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: shortcut catalog rows are display-only unless backed by explicit Delta action routes; no synthetic registry invocation.
 // Reviewed 2026-11-18: Search Palette copies slash commands via Clipboard API; no Host editor DOM injection.
 // Reviewed 2026-11-18: explicit session-scoped composer Slot uses public revision-guarded InputActions; unscoped search remains copy-only.
+// Reviewed 2026-11-18: retired private workspace expansion storage reads and synthetic row clicks; native expansion is Host-owned.
 const ZIP3_THEME_BLOB = '96c382f064f3b5922c645014aaafd3ea1302627f'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'db74a4528e807a781b12771d69cc7e2e3dc3314b',
+    sha1: '9b1317f7af5235c3f37ecbc0db01f7326a285421',
   },
   {
     begin: 'function installHostSearch(',
