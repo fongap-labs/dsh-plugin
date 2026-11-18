@@ -53,6 +53,8 @@ Delta Code 不使用旧式 `skills.register()` 作为兼容降级。仅当 Harne
 
 中央 CI 现在使用真实 `@deepseek-ai/cordis` 的插件生命周期，挂载模拟的 `tools`、`skills` 和 `systemPrompt` 服务，验证：Skill Provider 只公开元数据、`get()` 按需加载、同一 Agent 的消息续接、其他 Agent 隔离、卸载注销，以及 Host 不提供可注销 Provider 时仅关闭技能。此项是**实际 Cordis 框架 + 模拟 Harness 服务**的集成测试，不等同于真实 DeepSeek Harness 客户端验收。
 
+接口依据：Harness 官方 [Skill Provider 说明](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/skill/skill/README.md) 确认 `registerProvider()` 同步注册、返回可注销 disposer，`list()` 提供目录而 `get()` 按需读取内容。实际子代理需要遵循官方 [Subagent 能力与权限文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/subsystems/subagent.md)。
+
 在安装了 Delta Code 的实际 Harness 中，仍需验证以下行为并保留本机证据：
 
 1. 调用 `code_host_probe`，记录读到的 Host 服务能力；它只验证方法存在，不验证写入权限。
