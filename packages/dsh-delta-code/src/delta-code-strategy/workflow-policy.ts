@@ -18,11 +18,11 @@ export interface WorkflowSkillStep {
 export interface CodingWorkflowRule {
   readonly id: string
   readonly taskKinds: readonly CodingTaskKind[]
-  readonly requiresPlan?: boolean
+  readonly shouldPlan?: boolean
   readonly mode: CodingWorkflowMode
   readonly steps: readonly WorkflowSkillStep[]
   /** Only reviewed, safe workflows may opt into native Host parallel candidates. */
-  readonly mayParallelize?: boolean
+  readonly canParallelize?: boolean
   readonly verification: readonly string[]
 }
 
@@ -89,7 +89,7 @@ export const DEFAULT_CODING_WORKFLOW_RULES: readonly CodingWorkflowRule[] = [
   {
     id: 'small-change',
     taskKinds: ['feature', 'refactor'],
-    requiresPlan: false,
+    shouldPlan: false,
     mode: 'fast',
     steps: [{ skill: 'code-fast-change' }, { skill: 'code-verification-gate' }],
     verification: STANDARD_WORKFLOW_VERIFICATION,
@@ -97,9 +97,9 @@ export const DEFAULT_CODING_WORKFLOW_RULES: readonly CodingWorkflowRule[] = [
   {
     id: 'planned-delivery',
     taskKinds: ['feature', 'refactor'],
-    requiresPlan: true,
+    shouldPlan: true,
     mode: 'planned',
-    mayParallelize: true,
+    canParallelize: true,
     steps: [
       { skill: 'code-brainstorming', when: 'high-impact' },
       { skill: 'code-writing-plans' },
