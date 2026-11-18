@@ -2224,44 +2224,5 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   }
 }
 
-:root[data-delta-ui="delta"] .dtd-menu-danger,
-:root[data-delta-ui="delta"] [data-danger="1"],
-:root[data-delta-ui="delta"] [role="menuitem"][data-danger="1"],
-:root[data-delta-ui="delta"] [role="menuitem"].dtd-menu-danger,
-:root[data-delta-ui="delta"] [data-danger="1"] [role="menuitem"],
-:root[data-delta-ui="delta"] [class*="_itemWrap_"][data-danger="1"] [class*="_itemLabel_"],
-:root[data-delta-ui="delta"] [class*="_itemWrap_"][data-danger="1"] span {
-  color: var(--dtd-fg-danger, #B91C1C) !important;
-}
-:root[data-delta-ui="delta"] [data-danger="1"] svg,
-:root[data-delta-ui="delta"] .dtd-menu-danger svg {
-  stroke: var(--dtd-fg-danger, #B91C1C) !important;
-  color: var(--dtd-fg-danger, #B91C1C) !important;
-}
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] .dtd-menu-danger,
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [data-danger="1"],
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [role="menuitem"][data-danger="1"],
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [role="menuitem"].dtd-menu-danger,
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [data-danger="1"] [role="menuitem"],
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [class*="_itemWrap_"][data-danger="1"] [class*="_itemLabel_"],
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [class*="_itemWrap_"][data-danger="1"] span {
-  color: var(--dtd-fg-danger, #F87171) !important;
-}
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [data-danger="1"] svg,
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] .dtd-menu-danger svg {
-  stroke: var(--dtd-fg-danger, #F87171) !important;
-  color: var(--dtd-fg-danger, #F87171) !important;
-}
-
-:root[data-delta-ui="delta"] [role="menu"] [role="separator"],
-:root[data-delta-ui="delta"] [class*="_separator_"] {
-  height: 1px;
-  background-color: var(--dtd-border, rgba(0, 0, 0, 0.08));
-  margin: 4px 8px;
-  flex-shrink: 0;
-}
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [role="menu"] [role="separator"],
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [class*="_separator_"] {
-  background-color: var(--dtd-border, rgba(255, 255, 255, 0.08));
-}
-
+/* Host menus and separators retain their native styling.
+ * Only Delta-owned .dtd-context-menu-item has its own dangerous-action treatment. */

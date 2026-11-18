@@ -185,6 +185,23 @@ test('native menu items and footer layout remain Harness-owned', () => {
   assert.equal(style.includes(':root[data-delta-ui="delta"] [class*="_footer_"] {'), false)
 })
 
+test('native menu danger coloring is not injected into Host or third-party rows', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('type SearchTabId', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const compatibility = source.slice(begin, end)
+  const menuBegin = compatibility.indexOf('  const syncMenus = (): void => {')
+  const menuEnd = compatibility.indexOf('  const syncSettingsNav = (): void => {', menuBegin)
+  assert.ok(menuBegin >= 0 && menuEnd > menuBegin)
+  const nativeMenu = compatibility.slice(menuBegin, menuEnd)
+  assert.doesNotMatch(nativeMenu, /dtd-menu-danger|data-danger|classList\.add\(/)
+  assert.doesNotMatch(style, /\.dtd-menu-danger|\[role="menu"\] \[role="separator"\]/)
+  assert.match(style, /\.dtd-context-menu-item\[data-danger="1"\]/)
+  assert.match(compatibility, /onMenuClickCapture/)
+  assert.match(compatibility, /LOCKED_WORKSPACE_MUTATION_LABELS|LOCKED_MUTATION_LABELS/)
+  assert.match(compatibility, /getWorkspaceCount\(\) <= 1/)
+})
+
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

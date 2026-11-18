@@ -9,7 +9,7 @@ const source = read('packages/dsh-delta-suite/src/client.ts')
 const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/dsh-delta-suite/src/theme.css')
 const start = normalizedSource.indexOf('        if (isFooterContainer || isSessionFooter) {\n')
-const end = normalizedSource.indexOf('        // Native session context menu item order and separators belong to Harness.\n', start)
+const end = normalizedSource.indexOf('        // Native session context menu order, separators, accessible text, and danger styling belong to Harness.\n', start)
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
@@ -17,23 +17,21 @@ const emitted = [
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 
-test('Harness session footer menu owns order and separators, Delta retains destructive action marker', () => {
+test('Harness session footer menu owns order, separators and danger presentation', () => {
   assert.ok(start >= 0 && end > start, 'footer and remaining viewport branches are distinct')
   const footer = normalizedSource.slice(start, end)
   for (const removed of ['setMenuNodeOrder(', 'sortContainerChildrenByOrder(', 'createSepNode(', 'hiddenSepNodes', 'container.appendChild(']) {
     assert.equal(footer.includes(removed), false, 'footer DOM takeover remains: ' + removed)
   }
-  assert.match(footer, /Native session footer item order and separators belong to Harness/)
-  assert.match(footer, /dtd-menu-danger/)
-  assert.match(footer, /data-danger/)
-  assert.match(footer, /Delete session/)
+  assert.match(footer, /Native session footer item order, labels, separators, and danger styling belong to Harness/)
+  assert.doesNotMatch(footer, /dtd-menu-danger|data-danger|setAttribute|classList\.add/)
   assert.doesNotMatch(normalizedSource, /SESSION_MENU_ORDERS/)
-  assert.match(normalizedSource, /Native session context menu item order and separators belong to Harness/)
+  assert.match(normalizedSource, /Native session context menu order, separators, accessible text, and danger styling belong to Harness/)
 })
 
 test('ZIP3 guard rejects reintroducing unapproved footer DOM mutation', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const marker = '// Native session footer item order and separators belong to Harness.'
+  const marker = '// Native session footer item order, labels, separators, and danger styling belong to Harness.'
   assert.ok(source.includes(marker))
   const changed = source.replace(marker, marker + '\n          container.appendChild(items[0])')
   assert.notEqual(changed, source)

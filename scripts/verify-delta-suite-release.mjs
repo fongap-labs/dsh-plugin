@@ -154,12 +154,14 @@ export function hasUnsafeHostPatch(source) {
 // Host owns native Dialog chrome; Delta-owned dialogs retain their own CSS and service guards.
 // Reviewed 2026-11-18: retired native workspace lock-row DOM deletion and broad
 // Host menu/footer Flex rules; service ACL and locked/sole-workspace guards remain.
-const ZIP3_THEME_BLOB = 'f51224467cfe0515406d63842c96b5697bf5a8b4'
+// Reviewed 2026-11-18: native menu danger color/class injection and broad Host
+// menu/separator CSS retired; Delta-owned context menu keeps its own danger treatment.
+const ZIP3_THEME_BLOB = 'a801379b3cf537dc82daf97fa14d48a45a19d948'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '419b604ec9e5018e6fb071b58754b402020d3b5b',
+    sha1: '648ffc7baa67c31d6e9085ef2501e854337674c1',
   },
   {
     begin: 'function installHostSearch(',
