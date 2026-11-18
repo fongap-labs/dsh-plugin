@@ -18,18 +18,18 @@ test('Delta leaves native view-options menu ordering intact', () => {
   for (const removed of ['VIEW_OPTIONS_ORDERS', 'isViewMenu', 'seenSep']) {
     assert.equal(source.includes(removed), false, 'view menu takeover remains: ' + removed)
   }
-  assert.match(source, /if \(!isSessionMenu && !isWorkspaceMenu\) continue/)
-  assert.match(source, /const syncMenus = \(\): void => \{/)
-  assert.match(source, /if \(isWorkspaceMenu\) \{/, 'workspace menu remains a separate migration')
-  assert.match(source, /if \(isSessionMenu\) \{/, 'session menu remains a separate migration')
+  assert.doesNotMatch(source, /syncMenus|isSessionMenu|isWorkspaceMenu/)
+  assert.match(source, /onMenuClickCapture/, 'protected menu actions remain guarded')
+  assert.match(source, /LOCKED_MUTATION_LABELS/)
+  assert.match(source, /const soleWorkspace = deltaFeatures\.getWorkspaceCount\(\) === 1/)
   assert.match(source, /function installSidebarCompatibility\(/)
 })
 
 test('ZIP3 checksum still rejects unreviewed view-menu takeover', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted(), source))
-  const anchor = '      if (!isSessionMenu && !isWorkspaceMenu) continue'
+  const anchor = '  const sync = (): void => {'
   assert.ok(source.includes(anchor))
-  const changed = source.replace(anchor, anchor + '\n      container.appendChild(items[0])')
+  const changed = source.replace(anchor, anchor + '\n    document.querySelector("button")?.parentElement?.appendChild(document.querySelector("button"))')
   assert.notEqual(changed, source)
   assert.throws(() => verifyApprovedZip3Client(emitted(), changed), /approved compatibility adapter changed/)
 })

@@ -8,37 +8,37 @@ const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.met
 const source = read('packages/dsh-delta-suite/src/client.ts')
 const norm = source.replace(/\r\n/g, '\n')
 const theme = read('packages/dsh-delta-suite/src/theme.css')
-const from = norm.indexOf('        // Native session context menu order, separators, accessible text, and danger styling belong to Harness.\n')
-const to = norm.indexOf('        continue\n      }\n\n    }\n  }\n\n  const syncSettingsNav', from)
+const begin = norm.indexOf('function installSidebarCompatibility(')
+const end = norm.indexOf('\ntype SearchTabId', begin)
+const compatibility = norm.slice(begin, end)
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'dtd-host-search data-delta-compat',
+  'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 
-test('native session context menu retains its own appearance while lock checks remain', () => {
-  assert.ok(from >= 0 && to > from)
-  const section = norm.slice(from, to)
-  for (const forbidden of ['setMenuNodeOrder(', 'getSessionMenuOrder(', 'sortContainerChildrenByOrder(', 'createSepNode(', 'hidePrivacyNode(', 'appendChild(']) {
-    assert.equal(section.includes(forbidden), false, 'context menu mutation remains: ' + forbidden)
+test('native session context menus retain Harness order and appearance', () => {
+  assert.ok(begin >= 0 && end > begin)
+  for (const forbidden of [
+    'setMenuNodeOrder(', 'getSessionMenuOrder(', 'sortContainerChildrenByOrder(',
+    'createSepNode(', 'syncMenus', 'syncSettingsNav', 'data-dtd-menu-order', 'dtd-injected-sep',
+  ]) {
+    assert.equal(compatibility.includes(forbidden), false, 'native menu takeover remains: ' + forbidden)
   }
-  for (const forbidden of ['SESSION_MENU_ORDERS', 'modifiedMenuNodes', 'hiddenSepNodes', 'data-dtd-menu-order', 'dtd-injected-sep']) {
-    assert.equal(norm.includes(forbidden), false, 'orphaned client mutation: ' + forbidden)
-    assert.equal(theme.includes(forbidden), false, 'orphaned theme mutation: ' + forbidden)
-  }
-  assert.doesNotMatch(section, /dtd-menu-danger|data-danger|setAttribute|classList\.add/)
-  assert.match(section, /danger styling belong to Harness/)
-  assert.match(norm, /onMenuClickCapture/)
-  assert.match(norm, /LOCKED_MUTATION_LABELS/)
-  assert.match(norm, /hiddenSoleWorkspaceNodes/)
+  assert.doesNotMatch(compatibility, /dtd-menu-danger|classList\.add\(['"]dtd-menu-danger/)
+  assert.match(compatibility, /onMenuClickCapture/)
+  assert.match(compatibility, /LOCKED_MUTATION_LABELS/)
+  assert.match(compatibility, /hiddenSoleWorkspaceNodes/)
+  assert.equal(theme.includes('Context & View-Options Menu Dynamic Reordering'), false)
 })
 
 test('release guard rejects unapproved session DOM mutation and CSS rule', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const marker = '// Native session context menu order, separators, accessible text, and danger styling belong to Harness.'
+  const marker = 'const sync = (): void => {'
   assert.ok(source.includes(marker))
-  const tampered = source.replace(marker, marker + '\n        container.appendChild(items[0])')
+  const tampered = source.replace(marker, marker + '\n    document.querySelector("[role=menu]")?.appendChild(document.createElement("div"))')
+  assert.notEqual(tampered, source)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
   const alteredCss = theme.replace(
     '.dtd-context-menu-item[data-danger="1"]',

@@ -13,7 +13,6 @@ const emittedClient = (style = theme) => [
   'window.__ModuleLoader__.load({',
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'data-delta-compat',
   'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
 ].join('\n')
@@ -31,6 +30,8 @@ test('release guard rejects the retired native sidebar search proxy', () => {
 test('release guard rejects activation of retired native sidebar layout compatibility', () => {
   for (const takeover of [
     "document.documentElement.setAttribute('data-delta-compat', '1')",
+    "root.dataset.deltaCompat = '1'",
+    "root.dataset['deltaCompatStatus'] = 'mounted'",
     "button.setAttribute('data-dtd-nav-tail', '1')",
     'data-dtd-nav-tail',
   ]) {

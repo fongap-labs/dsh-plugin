@@ -7,29 +7,26 @@ import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/dsh-delta-suite/src/client.ts')
 const theme = read('packages/dsh-delta-suite/src/theme.css')
-const from = source.indexOf('  const syncSettingsNav = (): void => {')
-const to = source.indexOf('  const sync = (): void => {', from)
 
-test('Settings navigation no longer rewrites native labels', () => {
-  assert.ok(from >= 0 && to > from, 'Settings compatibility function must remain traceable')
-  const settings = source.slice(from, to)
-  assert.doesNotMatch(settings, /replaceButtonText\(/)
-  assert.doesNotMatch(settings, /\\u8D26\\u53F7|\\u6A21\\u578B/)
-  assert.match(settings, /Harness retains ownership of built-in Settings labels/)
-  assert.match(settings, /data-dtd-nav-tail/, 'Agent preset layout marker is unchanged for later migration')
-  assert.doesNotMatch(source, /const replaceButtonText = /, 'native navigation label patch helper is now fully removed')
-  assert.match(source, /syncSettingsNav\(\)\s+syncMenus\(\)/)
+const emitted = [
+  'function installSidebarCompatibility() {}',
+  'function installHostSearch() {}',
+  'dtd-host-search',
+  'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
+].join('\n')
+
+test('Settings navigation remains under Harness layout and label ownership', () => {
+  assert.doesNotMatch(source, /const syncSettingsNav\s*=|data-dtd-nav-tail/)
+  assert.doesNotMatch(source, /setAttribute\(['"]data-delta-compat/)
+  assert.doesNotMatch(source, /const replaceButtonText\s*=/)
 })
 
-test('ZIP3 release verifier still blocks an unreviewed settings label rewrite', () => {
-  const emitted = [
-    'function installSidebarCompatibility() {}',
-    'function installHostSearch() {}',
-    'data-delta-compat dtd-host-search',
-    'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
-  ].join('\n')
+test('ZIP3 release verifier rejects reintroduced native Settings layout activation', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const mutated = source.replace('const labelText = (btn.querySelector?', 'replaceButtonText(btn, "x", "y")\n      const labelText = (btn.querySelector?')
-  assert.notEqual(mutated, source, 'negative fixture must actually mutate the Settings code')
-  assert.throws(() => verifyApprovedZip3Client(emitted, mutated), /approved compatibility adapter changed/)
+  const tampered = source.replace(
+    'const sync = (): void => {',
+    "const sync = (): void => { document.documentElement.dataset.deltaCompat = '1'",
+  )
+  assert.notEqual(tampered, source, 'negative fixture must mutate the compatibility function')
+  assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
 })

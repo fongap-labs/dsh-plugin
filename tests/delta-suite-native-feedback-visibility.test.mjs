@@ -19,8 +19,7 @@ test('native Feedback entry is no longer hidden; other protections remain', () =
     assert.equal(source.includes(term), false, 'Feedback DOM suppression remains: ' + term)
     assert.equal(theme.includes(term), false, 'Feedback theme suppression remains: ' + term)
   }
-  assert.match(source, /Harness owns native Feedback menu entries/)
-  assert.match(source, /const syncMenus =/)
+  assert.doesNotMatch(source, /syncMenus|Harness owns native Feedback menu entries/)
   assert.match(source, /BLOCKED_COMMAND_RE/, 'slash command policy remains separate')
   assert.match(source, /hiddenSessionLogNodes/, 'session log privacy remains')
   assert.match(source, /hiddenSoleWorkspaceNodes/, 'sole workspace guard remains')
@@ -30,9 +29,9 @@ test('native Feedback entry is no longer hidden; other protections remain', () =
 
 test('ZIP3 client and theme pins reject an unapproved Feedback hide', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted(), source))
-  const marker = '// Harness owns native Feedback menu entries; Delta must not hide them by DOM label.'
+  const marker = 'const cmdContainers = document.querySelectorAll'
   assert.ok(source.includes(marker))
-  const changed = source.replace(marker, marker + '\n    document.querySelector("[role=menuitem]")?.setAttribute("hidden", "")')
+  const changed = source.replace(marker, 'document.querySelector("[role=menuitem]")?.setAttribute("hidden", "")\n    ' + marker)
   assert.notEqual(changed, source)
   assert.throws(() => verifyApprovedZip3Client(emitted(), changed), /approved compatibility adapter changed/)
   const changedCss = theme.replace('[data-dtd-hidden-session-log="1"]', '[data-dtd-hidden-feedback="1"]')

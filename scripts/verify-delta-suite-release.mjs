@@ -159,7 +159,7 @@ export function hasUnsafeHostPatch(source) {
 // rely on private DOM/text hiding. Protected-session ACL and tombstone guards remain.
 // Reviewed 2026-11-19: disabled legacy sidebar layout activation and Settings-nav order writes.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = 'c3c9c4c4f5fd0672263cff14dc8d8e1c65d14a0e'
+const ZIP3_THEME_BLOB = '5fd770c13750a6f08048e5c0f8b81047975e52da'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
@@ -207,7 +207,7 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   // Keep emitted-fixture compatibility while rejecting legacy native layout takeover.
   ensure(client.includes('dtd-host-search') &&
     !client.includes('dtd-native-search') &&
-    !/\.setAttribute\(['"]data-delta-compat['"]/.test(client) &&
+    !/(?:\.setAttribute\s*\(\s*['"]data-delta-compat(?:-status)?['"]|\.dataset(?:\[['"]deltaCompat(?:Status)?['"]\]|\.deltaCompat(?:Status)?)\s*=)/.test(client) &&
     !client.includes('data-dtd-nav-tail') &&
     !client.includes('navParent.insertBefore(shell, navigationRow)'),
     'ZIP3 emitted sidebar adapter incomplete or legacy native layout takeover retained')

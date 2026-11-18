@@ -21,7 +21,7 @@ test('Harness More remains visible; Delta does not hide the native navigation ac
   assert.match(css, /6\.2 Navigation Rows: Harness retains the native More action/)
   assert.match(css, /\[class\*="wtg9ga_moreMenu"\]/, 'unrelated native menu cosmetics remain')
   assert.match(source, /function installSidebarCompatibility\(/)
-  assert.match(source, /const syncMenus = /)
+  assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
 })
 
 test('release guard accepts reviewed More restoration and rejects unreviewed client/theme changes', () => {
