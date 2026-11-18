@@ -1314,15 +1314,12 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   background: transparent !important;
   padding: 0 !important;
 }
+/* Only plugin-controlled protected states may be visually concealed here.
+ * Native Settings rows and empty Ungrouped buckets remain Harness-owned. */
 [data-dtd-hidden-session-log="1"],
 [data-dtd-hidden-privacy-cmd="1"],
-[data-dtd-hidden-settings-row="1"],
 [data-dtd-hidden-sole-workspace="1"],
-[data-dtd-hidden-deleted="1"],
-[data-dtd-hidden-empty-ungrouped="1"],
-[data-setting-id="session-log-deepseek"],
-[data-setting-id="current-version"],
-[class*="_0NG6bG_row"] {
+[data-dtd-hidden-deleted="1"] {
   display: none !important;
   visibility: hidden !important;
   height: 0 !important;

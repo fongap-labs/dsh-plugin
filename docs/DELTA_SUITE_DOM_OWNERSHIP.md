@@ -12,14 +12,14 @@
 | 会话悬浮卡 | `sidebar.session.row.hover` 仅允许声明式装饰扩展，不支持替换整个原生悬浮卡 | **已退役** `processHoverCards` 原生 DOM 扫描、类名注入、全局 mouseover 监听及私有悬浮卡 CSS 覆写；保留受保护会话访问策略约束的公开 Slot 注册，不隐藏其他插槽 | Harness 控制卡片内容、排版、路径与时间展示；其他插件 Slot 可共存 | 源码/ZIP3 与权限回归；Windows 插件启停后原生卡片和第三方扩展正常 |
 | 原生运行状态与设置导航文案 | 未确认公开的原生文案替换能力 | 历次审计已退役状态和部分导航文本 DOM 改写；继续保持原生文案 | 原生与第三方文案不应被覆盖 | 中英文切换及第三方设置栏目正常 |
 | 模态窗口拖动与外观 | 未确认公开的 Harness 原生 Dialog Chrome / 拖动接管 API | **已退役** `syncModalPanel`、`onModalPointerDown`、双击复位、私有 `AnXs9G_*` 选择器和原生遮罩/面板覆写；Harness 保有原生窗口定位及拖动，Delta 自有 `.dtd-dialog-*` 弹窗与权限保护保留 | 不向宿主或第三方 Dialog 注册私有拖动监听，停用 Delta 不留下位置变量 | ZIP3 源码/样式回归；Windows 实机打开设置及第三方 Dialog，验证拖动、遮罩、关闭和停用恢复 |
-| 隐私与受保护会话显示 | 服务侧安全授权为权威；DOM 隐藏不是安全边界 | 保留服务侧 fail-closed；DOM 隐藏/拦截为待迁移的视觉兼容债务 | 不得以视觉隐藏替代访问控制 | 锁定、删除墓碑与 2FA 由 Host 拒绝未经授权命令 |
+| 隐私与受保护会话显示 | 服务侧安全授权为权威；DOM 隐藏不是安全边界，且没有公开的原生设置行或未分组容器控制接口 | **本轮退役**原生 Settings 行的文本/私有类名隐藏，以及空“未分组”容器的 DOM 隐藏；原生 UI 由 Harness 管理。继续保留受保护会话、删除墓碑、受限命令和单工作区删除的兼容防护，待独立证明服务层控制后才能迁移 | 不再隐藏原生设置项和第三方设置行；不影响原生分组状态 | CI 防回退、锁定/删除/2FA 权限回归；Windows 设置页、分组、停用恢复和第三方插件实测 |
 | 品牌、主题、独立设置 | 已确认 `sidebar.brand.mark/name`、Theme API、`settings.section` | 保留官方 Slot/Service 与生命周期 disposer，停用恢复原生 | 按官方优先级共存 | Slot 卸载、主题释放、设置恢复及 Windows 实机验证 |
 
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
 - 无公开接口时保留 Harness 原生，不通过字符串选择器、私有 Store 或合成点击伪装功能实现。
-- 已退役“工作区首次折叠”“新会话按钮镜像”“原生搜索输入代理”“服务搜索私有 DOM 挂载”“私有弹性三栏/分隔条/边缘折叠接管”及“原生悬浮卡 DOM/CSS 接管”及“宿主原生模态窗口 DOM/拖动接管”；Search Palette 使用 `conversation.input.left` 官方 Slot，但宿主布局、宽度、折叠与拖动仍由 Harness 控制。其余 DOM 兼容路径尚待处理，**#333 和 Windows 实机验收仍未完成**。
+- 已退役“工作区首次折叠”“新会话按钮镜像”“原生搜索输入代理”“服务搜索私有 DOM 挂载”“私有弹性三栏/分隔条/边缘折叠接管”及“原生悬浮卡 DOM/CSS 接管”及“宿主原生模态窗口 DOM/拖动接管”；Search Palette 使用 `conversation.input.left` 官方 Slot，但宿主布局、宽度、折叠与拖动仍由 Harness 控制。原生设置行及空“未分组”视觉隐藏也已退役，其余隐私 DOM 兼容路径尚待处理，**#333 和 Windows 实机验收仍未完成**。
 - 上游公开接口依据：`deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738` 的 `packages/client/ui-sidebar/src/client/contract/slots.ts` 及 `SidebarRoot.tsx`；仅作设计参考，不锁定运行版本。
 - 保留插件单体、官方 UI 所有权、停止/卸载回退与第三方插件兼容性；不添加独立客户端、Host Patch 或 A/B 对照测试。
 - 真实 Windows Harness 安装、升级、停用恢复、第三方插件共存、长会话稳定性需要独立验证；Central Windows CI 不能替代实机验收。

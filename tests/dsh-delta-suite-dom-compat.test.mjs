@@ -202,6 +202,30 @@ test('native menu danger coloring is not injected into Host or third-party rows'
   assert.match(compatibility, /getWorkspaceCount\(\) <= 1/)
 })
 
+test('native Settings rows and Ungrouped bucket remain Host-owned without text-based hiding', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('type SearchTabId', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const compatibility = source.slice(begin, end)
+  for (const marker of [
+    'SETTINGS_HIDDEN_TEXT_RE', 'hiddenSettingsRows', 'data-dtd-hidden-settings-row',
+    'hiddenEmptyUngroupedNodes', 'data-dtd-hidden-empty-ungrouped',
+    '_0NG6bG_row', 'session-log-deepseek', 'current-version',
+  ]) {
+    assert.equal(compatibility.includes(marker), false, 'unowned native visual suppression: ' + marker)
+    assert.equal(style.includes(marker), false, 'native CSS suppression: ' + marker)
+  }
+  assert.match(compatibility, /syncPrivacyDom\(\)/)
+  assert.match(compatibility, /BLOCKED_COMMAND_RE/)
+  assert.match(compatibility, /hiddenPrivacyCmdNodes/)
+  assert.match(compatibility, /hiddenDeletedRows/)
+  assert.match(compatibility, /hiddenSoleWorkspaceNodes/)
+  assert.match(compatibility, /syncLockShieldOverlay/)
+  assert.match(compatibility, /onMenuClickCapture/)
+  assert.match(style, /data-dtd-hidden-deleted/)
+  assert.match(style, /data-dtd-hidden-privacy-cmd/)
+  assert.match(style, /data-dtd-hidden-sole-workspace/)
+})
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

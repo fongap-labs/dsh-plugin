@@ -3015,10 +3015,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
   const hiddenSessionLogNodes = new Set<HTMLElement>()
   const hiddenPrivacyCmdNodes = new Set<HTMLElement>()
-  const hiddenSettingsRows = new Set<HTMLElement>()
   const hiddenSoleWorkspaceNodes = new Set<HTMLElement>()
   const hiddenDeletedRows = new Set<HTMLElement>()
-  const hiddenEmptyUngroupedNodes = new Set<HTMLElement>()
   const collapsibleErrorHandlers = new Map<HTMLElement, (e: Event) => void>()
   const modifiedTailNavCells = new Set<HTMLElement>()
   let lastMenuSessionId: string | undefined
@@ -3049,7 +3047,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
   const reset = (): void => {
     closeUngroupedMenu()
-    restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
     for (const navBtn of modifiedTailNavCells) {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
     }
@@ -3058,7 +3055,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     root?.removeAttribute?.('data-delta-compat-status')
   }
   const BLOCKED_COMMAND_RE = /^\/(?:export|feedback)(?:\s|$)/i
-  const SETTINGS_HIDDEN_TEXT_RE = /^(?:\u5F53\u524D\u7248\u672C|Current version)\s*[:：]|\u4E0A\u4F20\s*Session\s*Log|Upload\s+session\s+log|\u5E2E\u52A9\u6539\u8FDB\s*DeepSeek/i
   const LOCKED_UNARCHIVE_LABELS = new Set(['\u53D6\u6D88\u5F52\u6863', 'Unarchive', 'Unarchive session'])
   const LOCKED_MUTATION_LABELS = new Set([
     '\u91CD\u547D\u540D', 'Rename', '\u5206\u53C9\u4F1A\u8BDD', 'Fork', 'Fork session',
@@ -3099,17 +3095,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     for (const stale of hiddenPrivacyCmdNodes) {
       if (!stale.isConnected) hiddenPrivacyCmdNodes.delete(stale)
     }
-    for (const stale of hiddenSettingsRows) {
-      if (!stale.isConnected) hiddenSettingsRows.delete(stale)
-    }
     for (const stale of hiddenSoleWorkspaceNodes) {
       if (!stale.isConnected) hiddenSoleWorkspaceNodes.delete(stale)
     }
     for (const stale of hiddenDeletedRows) {
       if (!stale.isConnected) hiddenDeletedRows.delete(stale)
-    }
-    for (const stale of hiddenEmptyUngroupedNodes) {
-      if (!stale.isConnected) hiddenEmptyUngroupedNodes.delete(stale)
     }
     for (const [row, handler] of collapsibleErrorHandlers) {
       if (!row.isConnected) {
@@ -3119,19 +3109,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     }
     if (typeof document?.querySelectorAll !== 'function') return
-
-    // 1. Hide "\u4E0A\u4F20 Session Log" & "\u5F53\u524D\u7248\u672C" rows inside Settings dialog
-    const settingRows = document.querySelectorAll<HTMLElement>(
-      '[class*="_0NG6bG_row"], [data-slot="settings.general.item"] > *, [class*="RmVo8q_section"] [class*="_row"], [role="dialog"] [data-setting-id="session-log-deepseek"], [role="dialog"] [data-setting-id="current-version"]'
-    )
-    for (const row of settingRows) {
-      if (row.getAttribute?.('data-slot') || row.querySelector?.('[data-slot], [data-delta-personalization]')) continue
-      const cls = typeof row.className === 'string' ? row.className : ''
-      const txt = (row.textContent ?? '').trim()
-      if (cls.includes('_0NG6bG_row') || (txt.length > 0 && txt.length < 240 && SETTINGS_HIDDEN_TEXT_RE.test(txt))) {
-        hidePrivacyNode(row, 'data-dtd-hidden-settings-row', hiddenSettingsRows)
-      }
-    }
 
     // 2. Sync locked session badges, deleted rows, and active session lock shield
     const sessionRows = document.querySelectorAll<HTMLElement>('[data-row-key^="session:"]')
@@ -3262,36 +3239,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     }
 
-    // 5. Auto-hide empty "\u672A\u5206\u7EC4" (Ungrouped) bucket when zero visible sessions belong to it
-    const ungroupedRows = document.querySelectorAll<HTMLElement>('[data-row-key="workspace:"]')
-    const hasSessApi = deltaFeatures.hasSessionsApi()
-    const visibleUngroupedCount = hasSessApi ? deltaFeatures.getUngroupedSessionIds(false).length : -1
-    for (const uRow of ungroupedRows) {
-      const groupSection = uRow.closest?.<HTMLElement>('[class*="groupSection"]') ?? uRow.parentElement
-      const targetBox = groupSection && groupSection !== document.body && groupSection !== document.documentElement ? groupSection : uRow
-      const domSessionRows = targetBox.querySelectorAll?.<HTMLElement>('[data-row-key^="session:"]') ?? []
-      let hasVisibleDomSession = false
-      for (const sr of domSessionRows) {
-        const k = sr.getAttribute?.('data-row-key') ?? ''
-        const sid = k.startsWith('session:') ? k.slice(8) : ''
-        if (sid && !deltaFeatures.isDeleted(sid) && !sr.hidden && sr.getAttribute?.('data-dtd-hidden-deleted') !== '1') {
-          hasVisibleDomSession = true
-          break
-        }
-      }
-      const isExpanded = uRow.getAttribute?.('aria-expanded') === 'true'
-      const shouldHide = hasSessApi
-        ? (visibleUngroupedCount === 0 && !hasVisibleDomSession)
-        : (isExpanded && !hasVisibleDomSession)
-      if (shouldHide && controller.getSnapshot().mode === 'delta') {
-        hidePrivacyNode(targetBox, 'data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
-      } else if (targetBox.getAttribute?.('data-dtd-hidden-empty-ungrouped') === '1') {
-        targetBox.removeAttribute?.('data-dtd-hidden-empty-ungrouped')
-        targetBox.removeAttribute?.('aria-hidden')
-        targetBox.hidden = false
-        hiddenEmptyUngroupedNodes.delete(targetBox)
-      }
-    }
   }
 
   const syncMenus = (): void => {
@@ -3599,10 +3546,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     reset()
     restoreHiddenNodes('data-dtd-hidden-session-log', hiddenSessionLogNodes)
     restoreHiddenNodes('data-dtd-hidden-privacy-cmd', hiddenPrivacyCmdNodes)
-    restoreHiddenNodes('data-dtd-hidden-settings-row', hiddenSettingsRows)
     restoreHiddenNodes('data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
     restoreHiddenNodes('data-dtd-hidden-deleted', hiddenDeletedRows)
-    restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
     closeUngroupedMenu()
     cleanupCollapsibleErrors()
     deltaFeatures.resetSessionOverlays()
