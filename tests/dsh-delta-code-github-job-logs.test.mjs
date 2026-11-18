@@ -53,6 +53,34 @@ describe('Delta Code GitHub Actions raw job log diagnostics', () => {
     }
   })
 
+  it('keeps the concrete TAP failure when a generic exit code appears much later', async () => {
+    const oldFetch = globalThis.fetch
+    const oldToken = process.env[ACCOUNT.tokenEnv]
+    process.env[ACCOUNT.tokenEnv] = 'test-log-token'
+    try {
+      globalThis.fetch = async () => new Response([
+        '2026-11-18T00:00:00Z # Subtest: registers tools',
+        '2026-11-18T00:00:01Z not ok 3 - registers the expected Code Worker tools',
+        '2026-11-18T00:00:02Z error: Expected values to be strictly deep-equal:',
+        '2026-11-18T00:00:03Z + actual includes code_github_job_logs',
+        ...Array.from({ length: 110 }, (_, i) => '2026-11-18T00:01:00Z other output ' + i),
+        '2026-11-18T00:02:00Z ##[error]Process completed with exit code 1.',
+      ].join('\n'), { status: 200 })
+      const response = JSON.parse((await jobTool().execute({
+        repository: 'fongap-labs/action-worker', jobId: 123,
+      }, { signal: signal() })).result)
+      assert.match(response.excerpt, /not ok 3 - registers the expected Code Worker tools/)
+      assert.match(response.excerpt, /Expected values to be strictly deep-equal/)
+      assert.match(response.excerpt, /Process completed with exit code 1/)
+      assert.doesNotMatch(response.excerpt, /test-log-token/)
+      assert.equal(response.truncated, true)
+    } finally {
+      globalThis.fetch = oldFetch
+      if (oldToken === undefined) delete process.env[ACCOUNT.tokenEnv]
+      else process.env[ACCOUNT.tokenEnv] = oldToken
+    }
+  })
+
   it('rejects unknown or cross-owner identities before making a request', async () => {
     const tool = jobTool()
     await assert.rejects(tool.execute({ repository: 'other-org/action-worker', jobId: 1 },
