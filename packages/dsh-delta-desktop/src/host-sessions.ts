@@ -771,15 +771,20 @@ export function installHostSessionOps(
     }
   }
 
-  const cancelLiveSession = async (sid: string): Promise<void> => {
-    try {
-      const sessions = ctx.get?.('sessions') as {
-        get?: (id: string) => { cancel?: () => Promise<void> | void } | undefined
-        cancel?: (id: string) => Promise<void> | void
-      } | undefined
-      await Promise.resolve(sessions?.cancel?.(sid))
-      await Promise.resolve(sessions?.get?.(sid)?.cancel?.())
-    } catch {}
+  const cancelLiveSession = async (sid: string, shouldInspectAliases = false): Promise<void> => {
+    let sessions: {
+      get?: (id: string) => { cancel?: () => Promise<void> | void } | undefined
+      cancel?: (id: string) => Promise<void> | void
+    } | undefined
+    try { sessions = ctx.get?.('sessions') as typeof sessions } catch { return }
+
+    // A Host-level cancellation failure must not prevent a session-handle
+    // cancellation attempt. Both APIs are optional and may throw separately.
+    try { await Promise.resolve(sessions?.cancel?.(sid)) } catch {}
+    const ids = shouldInspectAliases ? [...new Set(sessionAliases(sid))] : [sid]
+    for (const id of ids) {
+      try { await Promise.resolve(sessions?.get?.(id)?.cancel?.()) } catch {}
+    }
   }
 
   const handleDelete = async (request: unknown): Promise<unknown> => {
@@ -817,7 +822,9 @@ export function installHostSessionOps(
       }
     })
 
-    await cancelLiveSession(sessionId)
+    // A single-delete caller may supply only one spelling while the active
+    // native Sessions handle is registered under its alternate spelling.
+    await cancelLiveSession(sessionId, true)
     await purgeSessionArtifacts(ctx, sessionId, sourceCwd)
     // Never unarchive a tombstoned session, including on older native Hosts
     // that do not provide a public pre-unarchive veto.
