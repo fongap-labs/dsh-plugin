@@ -103,3 +103,11 @@ it('provides beginner GitHub settings through native Settings without leaking PA
   assert.doesNotMatch(client, /plugins\.row\.config', \(\)/)
   assert.doesNotMatch(client, /set\(\[\.\.\.prefix, 'token'\]/)
 })
+
+it('hides advanced setup behind a native disclosure and states default encryption limits', () => {
+  const client = read('src/client.ts')
+  assert.match(client, /高级设置：Git、执行权限与语言服务器/)
+  assert.match(client, /h\('details'/)
+  assert.match(client, /默认本地凭据文件并非加密文件/)
+  assert.match(client, /Token 已保存（尚未验证仓库权限）/)
+})
