@@ -27,8 +27,8 @@ describe('Delta Code GitHub Actions raw job log diagnostics', () => {
         return new Response([
           '2026-01-01T00:00:00Z Running tests',
           '2026-01-01T00:00:01Z Error: test regression',
-          '2026-01-01T00:00:02Z Authorization: Bearer ghp_secretshouldnotappear',
-          '2026-01-01T00:00:03Z GITHUB_TOKEN=github_pat_secretshouldnotappear',
+          '2026-01-01T00:00:02Z Authorization: Bearer ghp_maskme',
+          '2026-01-01T00:00:03Z GITHUB_TOKEN=github_pat_maskme',
           '2026-01-01T00:00:04Z ##[error]Process completed with exit code 1.',
         ].join('\n'), { status: 200 })
       }
@@ -39,7 +39,7 @@ describe('Delta Code GitHub Actions raw job log diagnostics', () => {
       assert.equal(payload.jobId, 42)
       assert.match(payload.excerpt, /test regression/)
       assert.match(payload.excerpt, /Process completed with exit code 1/)
-      assert.doesNotMatch(JSON.stringify(result), /test-log-token|ghp_secretshouldnotappear|github_pat_secretshouldnotappear/)
+      assert.doesNotMatch(JSON.stringify(result), /test-log-token|ghp_maskme|github_pat_maskme/)
       assert.equal(seen.length, 2)
       assert.equal(seen[0].authorization, 'Bearer test-log-token')
       assert.equal(seen[0].redirect, 'manual')
