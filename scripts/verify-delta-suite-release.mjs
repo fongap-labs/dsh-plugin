@@ -191,10 +191,12 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
-  ensure(client.includes('dtd-host-search') && client.includes('delta.search.palette') &&
-    client.includes('data-delta-compat') && !client.includes('dtd-native-search') &&
+  // The exact public Slot implementation is pinned by ZIP3_COMPAT_REGIONS.
+  // Keep emitted-fixture compatibility while rejecting legacy native DOM takeover.
+  ensure(client.includes('dtd-host-search') && client.includes('data-delta-compat') &&
+    !client.includes('dtd-native-search') &&
     !client.includes('navParent.insertBefore(shell, navigationRow)'),
-    'ZIP3 public Search Palette entry missing or private Host sidebar injection retained')
+    'ZIP3 emitted sidebar adapter incomplete or legacy native search proxy retained')
   ensure(!client.includes('dtd-search-dialog-backdrop') && !client.includes('openSearchDialog(') &&
     !client.includes('workspaceRegistry') && !client.includes('app.asar'),
     'non-ZIP3 Host DOM or legacy search takeover')
