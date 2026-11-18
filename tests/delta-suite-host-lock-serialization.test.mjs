@@ -162,7 +162,13 @@ test('durable session maps ignore object-prototype keys but retain existing prot
     deletedSessionIds: ['constructor'],
   }))
   const crafted = JSON.parse('{"__proto__":"fake","prototype":"fake","constructor":"fake","toString":"fake","hasOwnProperty":"fake"}')
-  Object.assign(raw.movedSessions, crafted)
+  for (const [key, value] of Object.entries(crafted)) {
+    Object.defineProperty(raw.movedSessions, key, {
+      value, enumerable: true, writable: true, configurable: true,
+    })
+  }
+  assert.equal(Object.hasOwn(raw.movedSessions, '__proto__'), true,
+    'exercise the actual own-key case from previously persisted JSON')
   const normalized = state.normalizeDeltaState(raw)
   assert.deepEqual(normalized.movedSessions, {
     regular: 'workspace-a', 'session-safe': 'workspace-b',
