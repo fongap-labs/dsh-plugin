@@ -20,6 +20,9 @@ const start = compiled.indexOf('function canCallHostHttp(')
 const end = compiled.indexOf('const deltaFeatures = createClientFeatureManager()', start)
 assert.ok(start >= 0 && end > start)
 const managerSource = compiled.slice(start, end) + '\ncreateClientFeatureManager()'
+const createProjection = () => vm.runInNewContext(
+  compiled.slice(start, end) + '\ncreateWorkspaceCompatibilityProjection()',
+)
 
 function fixture({ initial = {}, response, unavailable = false, rejectRefresh = false } = {}) {
   const calls = []
@@ -122,4 +125,101 @@ test('session list stays native-owned; workspace compatibility scope remains exp
   assert.match(source, /if \(deltaFeatures\.isDeleted\(sessionId\)\) return/)
   assert.match(source, /if \(deltaFeatures\.isDeleted\(item\.id\)\) continue/)
   assert.match(source, /if \(deltaFeatures\.isDeleted\(item\.sessionId\) \|\| seen\.has/)
+})
+
+test('workspace overlay retains native identities and ignores unrelated state revisions', () => {
+  const project = createProjection()
+  const base = Object.freeze({
+    items: Object.freeze([
+      Object.freeze({ workspaceId: 'a', title: 'A', path: '/a', sessionIds: Object.freeze(['target']) }),
+      Object.freeze({ workspaceId: 'b', title: 'B', path: '/b', sessionIds: Object.freeze([]) }),
+      Object.freeze({ workspaceId: 'c', title: 'C', path: '/c', sessionIds: Object.freeze(['other']) }),
+    ]),
+    archivedSessionIds: Object.freeze([]),
+    pinnedSessionIds: Object.freeze(['target']),
+  })
+  const empty = { deletedSessionIds: [], lockedSessionIds: [], movedSessions: {} }
+  assert.equal(project(base, empty), base)
+  assert.equal(project(base, { ...empty, movedSessions: { target: 'a' } }), base)
+  assert.equal(project(base, { ...empty, movedSessions: { target: 'missing' } }), base)
+  const state = { ...empty, movedSessions: { target: 'b' } }
+  const moved = project(base, state)
+  assert.notEqual(moved, base)
+  assert.equal(moved.items[2], base.items[2], 'unaffected row stays native')
+  assert.equal(moved.archivedSessionIds, base.archivedSessionIds)
+  assert.equal(moved.pinnedSessionIds, base.pinnedSessionIds)
+  assert.equal(JSON.stringify(moved.items[0].sessionIds), '[]')
+  assert.equal(JSON.stringify(moved.items[1].sessionIds), '["target"]')
+  assert.equal(project(base, { ...state, revision: 999 }), moved)
+  assert.equal(JSON.stringify(base.items[0].sessionIds), '["target"]')
+  const locked = project(base, { ...empty, lockedSessionIds: ['target'] })
+  assert.equal(JSON.stringify(locked.archivedSessionIds), '["target"]')
+  assert.equal(JSON.stringify(locked.pinnedSessionIds), '[]')
+  const nativeArchived = { ...base, archivedSessionIds: ['target'], pinnedSessionIds: [] }
+  assert.equal(project(nativeArchived, { ...empty, lockedSessionIds: ['target'] }), nativeArchived)
+})
+
+test('native archive reconciliation ignores projected membership and coalesces in-flight requests', async () => {
+  const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
+  await f.manager.refreshState()
+  let release
+  let raw = { items: [], archivedSessionIds: [] }
+  const api = {
+    list: { getSnapshot: () => ({ items: [], archivedSessionIds: ['locked'] }) },
+    archiveSession(id) {
+      f.calls.push(['archive', id])
+      return new Promise(resolve => { release = resolve })
+    },
+  }
+  f.manager.setWorkspacesApi(api, () => raw)
+  await Promise.resolve()
+  assert.deepEqual(f.calls, [['archive', 'locked']])
+  await f.manager.refreshState()
+  assert.deepEqual(f.calls, [['archive', 'locked']], 'pending archive is not duplicated')
+  raw = { items: [], archivedSessionIds: ['locked'] }
+  release()
+  await Promise.resolve()
+  await Promise.resolve()
+  await f.manager.refreshState()
+  assert.deepEqual(f.calls, [['archive', 'locked']], 'confirmed native archive needs no mutation')
+  f.manager.setWorkspacesApi(undefined)
+})
+
+test('workspace move requires a known native target and explicit durable acknowledgement', async () => {
+  for (const options of [
+    { unavailable: true },
+    { response: { status: 200, data: { ok: true, state: { movedSessions: {} } } } },
+    { response: { status: 500, data: { ok: false } } },
+  ]) {
+    const f = fixture(options)
+    const raw = { items: [{ workspaceId: 'b', path: '/b', title: 'B', sessionIds: [] }] }
+    f.manager.setWorkspacesApi({ list: { getSnapshot: () => raw } }, () => raw)
+    await f.manager.refreshState()
+    assert.equal((await f.manager.moveSession('target', 'missing')).ok, false)
+    assert.equal((await f.manager.moveSession('target', 'b')).ok, false)
+    assert.equal(f.manager.getSnapshot().movedSessions.target, undefined)
+  }
+  const f = fixture({ response: { status: 200, data: { ok: true, state: {
+    lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: { target: 'b' },
+  } } } })
+  const raw = { items: [{ workspaceId: 'b', path: '/b', title: 'B', sessionIds: [] }] }
+  f.manager.setWorkspacesApi({ list: { getSnapshot: () => raw } }, () => raw)
+  await f.manager.refreshState()
+  assert.equal((await f.manager.moveSession('target', 'b')).ok, true)
+  assert.equal(f.manager.getSnapshot().movedSessions.target, 'b')
+  assert.deepEqual(f.calls.map(call => call[0]), ['post'])
+  assert.equal(f.calls[0][2].targetPath, '/b')
+})
+
+test('move never posts from a locked session or into a locked workspace', async () => {
+  const f = fixture({ initial: { lockedSessionIds: ['locked'], lockedWorkspaceIds: ['b'] } })
+  const raw = { items: [
+    { workspaceId: 'a', path: '/a', title: 'A', sessionIds: ['locked', 'target'] },
+    { workspaceId: 'b', path: '/b', title: 'B', sessionIds: [] },
+  ] }
+  f.manager.setWorkspacesApi({ list: { getSnapshot: () => raw } }, () => raw)
+  await f.manager.refreshState()
+  assert.equal((await f.manager.moveSession('locked', 'a')).error, 'SESSION_LOCKED')
+  assert.equal((await f.manager.moveSession('target', 'b')).error, 'SESSION_LOCKED')
+  assert.equal(f.calls.length, 0)
 })
