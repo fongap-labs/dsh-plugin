@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 的 GitHub Actions 诊断不再写死中央 CI 仓库；从运行或 Job 链接识别实际仓库，严格核对显式参数并使用匹配归属的 Token，防止跨账号误用。
+
 - 修复: Delta Suite 发布校验正确检查 Host 能力兼容导出与实际适配器实现，继续拒绝缺失或错误模块，恢复 ZIP/TGZ 构建验收。
 
 - 修复: 停止扫描和折叠 Harness 原生失败回合错误行，移除相关属性、事件监听及选择器样式，将错误详情布局交还 Host（Issue #333）。

@@ -1,7 +1,7 @@
 /** Host-independent GitHub repository operations and tool contract definitions. */
 import type { Settings } from '../types.js'
 import {
-  selectGitHubAccount, validBranch, validPath, validatedCommitSha,
+  selectGitHubAccount, validBranch, validPath, validatedCommitSha, githubActionsTargetFromUrl,
 } from './github-policy.js'
 import { GitHubApiFailure, GitHubWriteUncertain } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
@@ -95,7 +95,7 @@ export function createGitHubToolSpecs(
       const response = await githubRequest(exec, args.repository, 'GET', (repo) => encodeRepo(repo) + '/pulls?per_page=30&state=' + state)
       return envelope(response, response.data.map((pr: any) => ({ number: pr.number, title: pr.title, state: pr.state, draft: pr.draft, html_url: pr.html_url })))
     }),
-    tool('checks', 'Inspect all check runs and commit statuses for a GitHub pull request, including central Action Worker check links.', {
+    tool('checks', 'Inspect all check runs and commit statuses for a GitHub pull request, including links to external CI workflows.', {
       repository: optional, prNumber: { type: 'integer', required: true },
     }, async (args, exec) => {
       if (!Number.isSafeInteger(args.prNumber) || args.prNumber <= 0) throw new Error('invalid pull request number')
@@ -115,13 +115,23 @@ export function createGitHubToolSpecs(
         })),
       })
     }),
-    tool('jobs', 'Inspect failed GitHub Actions jobs and steps by workflow run ID. Use code_github_job_logs with a failed job ID for the actual error log; central CI jobs reside in repository=fongap-labs/action-worker.', {
-      repository: optional, runId: { type: 'integer', required: true },
+    tool('jobs', 'Inspect GitHub Actions jobs using runId and repository, or supply runUrl from a GitHub check/status link. The URL selects the actual CI repository; use its owner-bound Delta Code Token. Use code_github_job_logs with the failed job ID.', {
+      repository: optional, runId: { type: 'integer' }, runUrl: optional,
     }, async (args, exec) => {
-      if (!Number.isSafeInteger(args.runId) || args.runId <= 0) throw new Error('invalid workflow run ID')
-      const response = await githubRequest(exec, args.repository, 'GET', (repo) => encodeRepo(repo) + '/actions/runs/' + args.runId + '/jobs?per_page=100')
+      const link = args.runUrl === undefined ? undefined : githubActionsTargetFromUrl(args.runUrl)
+      if (link && args.repository !== undefined &&
+          (typeof args.repository !== 'string' || args.repository.toLowerCase() !== link.repository.toLowerCase())) {
+        throw new Error('GitHub Actions URL repository differs from explicit repository')
+      }
+      if (link && args.runId !== undefined && args.runId !== link.runId) {
+        throw new Error('GitHub Actions run URL differs from explicit runId')
+      }
+      const runId = args.runId ?? link?.runId
+      if (!Number.isSafeInteger(runId) || runId <= 0) throw new Error('invalid workflow run ID')
+      const response = await githubRequest(exec, link?.repository ?? args.repository, 'GET', (repo) =>
+        encodeRepo(repo) + '/actions/runs/' + runId + '/jobs?per_page=100')
       return envelope(response, {
-        runId: args.runId,
+        runId,
         total: response.data.total_count,
         jobs: (response.data.jobs ?? []).slice(0, 100).map((job: any) => ({
           id: job.id, name: job.name, conclusion: job.conclusion, url: job.html_url,
@@ -130,18 +140,28 @@ export function createGitHubToolSpecs(
         })),
       })
     }),
-    tool('job_logs', 'Read a bounded, redacted excerpt of a GitHub Actions job log to diagnose the actual failing step. For central CI, use its repository and failed job ID from code_github_jobs. No artifacts or annotations are needed.', {
-      repository: optional, jobId: { type: 'integer', required: true },
+    tool('job_logs', 'Read a bounded, redacted GitHub Actions job log by jobId and repository, or by its jobUrl. The link selects the actual CI repository and matching account credential. No artifacts or annotations are needed.', {
+      repository: optional, jobId: { type: 'integer' }, jobUrl: optional,
     }, async (args, exec) => {
-      if (!Number.isSafeInteger(args.jobId) || args.jobId <= 0) throw new Error('invalid GitHub job ID')
-      const repo = await resolveRepo(args.repository, exec)
+      const link = args.jobUrl === undefined ? undefined : githubActionsTargetFromUrl(args.jobUrl)
+      if (link && link.jobId === undefined) throw new Error('GitHub Actions job URL must include a job ID')
+      if (link && args.repository !== undefined &&
+          (typeof args.repository !== 'string' || args.repository.toLowerCase() !== link.repository.toLowerCase())) {
+        throw new Error('GitHub Actions URL repository differs from explicit repository')
+      }
+      if (link && args.jobId !== undefined && args.jobId !== link.jobId) {
+        throw new Error('GitHub Actions job URL differs from explicit jobId')
+      }
+      const jobId = args.jobId ?? link?.jobId
+      if (!Number.isSafeInteger(jobId) || jobId <= 0) throw new Error('invalid GitHub job ID')
+      const repo = await resolveRepo(link?.repository ?? args.repository, exec)
       const account = selectGitHubAccount(settings.githubAccounts, repo, exec.account)
       if (!transport.jobLogs) throw new Error('GitHub job log transport unavailable; update Delta Code provider')
       const response = await transport.jobLogs({
-        repository: repo, account: account.owner, jobId: args.jobId, signal: exec.signal,
+        repository: repo, account: account.owner, jobId, signal: exec.signal,
       })
       return envelope({ repository: response.repository, account: response.account, data: null }, {
-        jobId: args.jobId, excerpt: response.excerpt, truncated: response.truncated,
+        jobId, excerpt: response.excerpt, truncated: response.truncated,
         bytesRead: response.bytesRead,
         note: response.truncated ? 'Excerpt is incomplete; inspect the GitHub job page if the failure lies outside this excerpt.' : 'Complete job log excerpt.',
       })
