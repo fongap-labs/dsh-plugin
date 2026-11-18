@@ -892,6 +892,14 @@ export function installHostSessionOps(
         void serialize(async () => {
           if (isDisposed || !registry || getRegistry() !== registry) return
           const initial = await store.read()
+          // Startup cleanup may have run before the public Registry existed.
+          // Re-apply durable deletion tombstones when it becomes available or
+          // is remounted, without ever unarchiving a deleted native session.
+          if (isDisposed || getRegistry() !== registry) return
+          for (const deletedId of initial.deletedSessionIds) {
+            if (isDisposed || getRegistry() !== registry) return
+            await detachFromRegistry([deletedId], true)
+          }
           for (const lockedId of initial.lockedSessionIds) {
             if (isDisposed || getRegistry() !== registry) return
             await archiveSessionOnHost(lockedId)
