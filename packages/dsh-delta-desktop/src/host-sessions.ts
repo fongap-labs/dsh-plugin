@@ -74,6 +74,10 @@ async function removeSessionProjCache(ctx: SessionOpsHostContext, sessionId: str
       pathMod.join(baseDir, `session-${rawId}.json`),
     ])
     for (const t of targets) {
+      // The cache directory itself may be a junction or symlink outside
+      // DSH_HOME. A safe filename is not proof that the target stays inside
+      // the profile once parent links are resolved.
+      if (!await isInsideRealRoot(fs, pathMod, dshHome, t)) continue
       await fs.rm(t, { force: true }).catch(() => {})
     }
   } catch {}
