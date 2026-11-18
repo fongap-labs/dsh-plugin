@@ -359,8 +359,10 @@ const sessionAliases = (id: string): string[] => {
 
 // Host mutations must honor the same tombstone aliases as native unarchive
 // and content search. Exact string checks can otherwise revive stale records.
-const isSessionDeleted = (state: DeltaHostState, sessionId: string): boolean =>
-  sessionAliases(sessionId).some(alias => state.deletedSessionIds.includes(alias))
+const isSessionDeleted = (state: DeltaHostState, sessionId: string): boolean => {
+  const deletedAliases = new Set(state.deletedSessionIds.flatMap(sessionAliases))
+  return sessionAliases(sessionId).some(alias => deletedAliases.has(alias))
+}
 
 export function readHostSessionProtection(state: DeltaHostState, getRegistry: () => unknown) {
   const protectedIds = new Set(state.lockedSessionIds.flatMap(sessionAliases))
