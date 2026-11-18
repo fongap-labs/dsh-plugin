@@ -1385,6 +1385,85 @@ function observeConfirmedMainSession(list: SearchSessionsApi['list'], onConfirme
 // Transitional UI-only projection. Preserve the raw Host snapshot and row
 // identities wherever the overlay has no actual effect. Cache only relevant
 // membership inputs, not the feature manager's unrelated revision counter.
+// Transitional list adapter: notify only subscriptions acquired through this
+// compatibility view. Never mutate or invalidate the Host's native store.
+function installProjectedList<S>(
+  listObj: { getSnapshot(): S; subscribe?(listener: () => void): () => void },
+  projectFn: (base: S) => S,
+  onDataMutate: (listener: () => void) => () => void,
+): () => void {
+  const origSnap = listObj.getSnapshot
+  const origSub = listObj.subscribe
+  if (typeof origSnap !== 'function' || typeof origSub !== 'function') return () => {}
+  const localListeners = new Set<() => void>()
+  let isDisposed = false
+  let stopNotify: (() => void) | undefined
+  const projectedSnap = (): S => projectFn(origSnap.call(listObj))
+  const wrappedSubscribe = (listener: () => void): (() => void) => {
+    if (isDisposed) return origSub.call(listObj, listener)
+    let isReleased = false
+    let last = projectedSnap()
+    const notify = (): void => {
+      if (isReleased) return
+      const next = listObj.getSnapshot()
+      if (Object.is(last, next)) return
+      last = next
+      listener()
+    }
+    const onNative = (): void => {
+      if (isReleased) return
+      // Preserve the native notification contract even after adapter disposal.
+      if (!isDisposed) {
+        try { last = listObj.getSnapshot() } catch {}
+      }
+      listener()
+    }
+    const stopNative = origSub.call(listObj, onNative)
+    localListeners.add(notify)
+    return () => {
+      if (isReleased) return
+      isReleased = true
+      localListeners.delete(notify)
+      stopNative()
+    }
+  }
+  const notifyLocal = (): void => {
+    for (const notify of [...localListeners]) {
+      try { notify() } catch {}
+    }
+  }
+  const restore = (): void => {
+    // Restore only exact functions installed by this adapter, never a later
+    // Host/third-party replacement.
+    try { if (listObj.getSnapshot === projectedSnap) listObj.getSnapshot = origSnap } catch {}
+    try { if (listObj.subscribe === wrappedSubscribe) listObj.subscribe = origSub } catch {}
+  }
+  const dispose = (): void => {
+    if (isDisposed) return
+    isDisposed = true
+    try { stopNotify?.() } catch {}
+    restore()
+    // Existing native subscriptions belong to their callers and must remain
+    // usable. Notify the compatibility subscribers of the restored view once.
+    notifyLocal()
+    localListeners.clear()
+  }
+  try {
+    listObj.getSnapshot = projectedSnap
+    listObj.subscribe = wrappedSubscribe
+    if (listObj.getSnapshot !== projectedSnap || listObj.subscribe !== wrappedSubscribe) {
+      dispose()
+      return () => {}
+    }
+    stopNotify = onDataMutate(notifyLocal)
+    return dispose
+  } catch {
+    // A sealed service or failed registration must not leave a partial wrapper.
+    dispose()
+    return () => {}
+  }
+}
+
 function createWorkspaceCompatibilityProjection(): (base: WorkspaceSnapshot, f: Pick<ClientFeatureSnapshot, 'deletedSessionIds' | 'lockedSessionIds' | 'movedSessions'>) => WorkspaceSnapshot {
   let previousBase: WorkspaceSnapshot | undefined
   let previousDeleted: readonly string[] | undefined
@@ -1557,13 +1636,20 @@ function createClientFeatureManager(): ClientFeatureManager {
     const lockedWorkspaces = Array.isArray(payload.lockedWorkspaceIds) ? payload.lockedWorkspaceIds : []
     const deleted = Array.isArray(payload.deletedSessionIds) ? payload.deletedSessionIds : []
     const moved = payload.movedSessions && typeof payload.movedSessions === 'object' ? payload.movedSessions : {}
+    const stableIds = (previous: readonly string[], next: readonly string[]): readonly string[] =>
+      previous.length === next.length && previous.every((id, index) => id === next[index])
+        ? previous : Object.freeze([...next])
+    const previousMoves = Object.entries(state.movedSessions)
+    const nextMoves = Object.entries(moved)
+    const hasSameMoves = previousMoves.length === nextMoves.length &&
+      previousMoves.every(([id, target], index) => id === nextMoves[index][0] && target === nextMoves[index][1])
     publish({
       hasPin: Boolean(payload.hasPin),
       lockMode: payload.lockMode ?? (payload.hasPin ? 'totp' : 'none'),
-      lockedSessionIds: Object.freeze([...locked]),
-      lockedWorkspaceIds: Object.freeze([...lockedWorkspaces]),
-      movedSessions: Object.freeze({ ...moved }),
-      deletedSessionIds: Object.freeze([...deleted]),
+      lockedSessionIds: stableIds(state.lockedSessionIds, locked),
+      lockedWorkspaceIds: stableIds(state.lockedWorkspaceIds, lockedWorkspaces),
+      movedSessions: hasSameMoves ? state.movedSessions : Object.freeze({ ...moved }),
+      deletedSessionIds: stableIds(state.deletedSessionIds, deleted),
       tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => locked.includes(id))),
       tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => lockedWorkspaces.includes(id))),
       ...(payload.proxy ? { proxy: Object.freeze({ ...payload.proxy }) } : {}),
@@ -6989,57 +7075,6 @@ window.__ModuleLoader__.load({
                 order: 500,
               }, props => controller.getSnapshot().mode === 'delta' ? SessionHoverDetail(props) : null))
 
-              const installProjectedList = <S>(
-                listObj: { getSnapshot?: () => S; subscribe?: (listener: () => void) => () => void; invalidate?: (immediate?: boolean) => void; set?: (next: S) => void } | undefined,
-                projectFn: (base: S) => S,
-              ): (() => void) => {
-                if (!listObj || typeof listObj.getSnapshot !== 'function') return () => {}
-                const origSnap = listObj.getSnapshot
-                const origSub = listObj.subscribe
-                const origInvalidate = typeof listObj.invalidate === 'function' ? listObj.invalidate : undefined
-                const origSet = typeof listObj.set === 'function' ? listObj.set : undefined
-                const projectedSnap = (): S => projectFn(origSnap.call(listObj))
-                let isRefreshingNative = false
-                try {
-                  listObj.getSnapshot = projectedSnap
-                  const wrappedListeners = new Set<() => void>()
-                  const unsubNotify = deltaFeatures.onDataMutate(() => {
-                    if (isRefreshingNative) return
-                    isRefreshingNative = true
-                    try {
-                      wrappedListeners.forEach(fn => { try { fn() } catch {} })
-                      if (origInvalidate) {
-                        try { origInvalidate.call(listObj, true) } catch {}
-                      } else if (origSet) {
-                        try {
-                          const baseVal = origSnap.call(listObj)
-                          if (baseVal && typeof baseVal === 'object') origSet.call(listObj, { ...(baseVal as object) } as S)
-                        } catch {}
-                      }
-                    } finally {
-                      isRefreshingNative = false
-                    }
-                  })
-                  if (typeof origSub === 'function') {
-                    listObj.subscribe = (listener: () => void) => {
-                      wrappedListeners.add(listener)
-                      const stopOrig = origSub.call(listObj, listener)
-                      return () => {
-                        wrappedListeners.delete(listener)
-                        stopOrig?.()
-                      }
-                    }
-                  }
-                  return () => {
-                    unsubNotify?.()
-                    if (listObj.getSnapshot === projectedSnap) listObj.getSnapshot = origSnap
-                    if (origSub && listObj.subscribe !== origSub) listObj.subscribe = origSub
-                  }
-                } catch {
-                  return () => {}
-                }
-              }
-
               // Guard Host workspace mutations, register session move/lock/delete menus, and project durable session changes.
               scope.inject(['workspaces'], workspaceScope => {
                 const workspaces = workspaceScope.workspaces
@@ -7051,7 +7086,8 @@ window.__ModuleLoader__.load({
                 const readNative = () => nativeSnapshot.call(workspaces.list)
                 const projectWorkspace = createWorkspaceCompatibilityProjection()
                 const stopWsProjection = installProjectedList<WorkspaceSnapshot>(workspaces.list,
-                  base => projectWorkspace(base, deltaFeatures.getSnapshot()))
+                  base => projectWorkspace(base, deltaFeatures.getSnapshot()),
+                  deltaFeatures.onDataMutate)
                 workspaceScope.effect(() => stopWsProjection, 'dsh-delta-desktop: workspace session overlay')
                 deltaFeatures.setWorkspacesApi(workspaces, readNative)
                 workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
