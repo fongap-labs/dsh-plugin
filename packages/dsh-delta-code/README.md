@@ -169,7 +169,9 @@ pnpm test
 
 ## GitHub 多账号连接
 
-在本机 **用户 Profile** 的 `cordis.patch.yml` 中，对 `dsh-delta-code` 配置 `github.accounts`。每个 GitHub 账号需填写 **用户名或组织名 `owner` 与 Token 环境变量名 `tokenEnv`**。Token 真实值**永不写入配置文件**，而是由运行环境在启动前注入对应环境变量。账号数量不限：
+默认**无需配置 `github.accounts` 或单独绑定仓库**：Delta Code 会通过 Harness 原生凭据服务解析 `GITHUB_TOKEN`（旧版无凭据服务的 Host 使用同名环境变量）。无论个人仓库还是组织仓库，能否访问由 GitHub 对该 Token 的实际权限决定，插件不设置仓库数量上限或自有允许列表。使用 CLI 的 `gh auth login` 凭据属于另一套存储，并不会自动作为 `GITHUB_TOKEN` 提供给此 HTTP 工具。
+
+如需分别使用多个 GitHub 身份，可在用户 Profile 的 `cordis.patch.yml` 中配置可选的 `github.accounts`。每个账号填写 **凭据路由名 `owner` 与宿主凭据引用 `tokenEnv`**；真实 Token 保存在 Harness 凭据服务中或由旧版环境变量提供，不写入插件配置。账号数量不限：
 
 ```yaml
 github:
@@ -184,11 +186,11 @@ github:
       tokenEnv: GITHUB_TOKEN_THIRD
 ```
 
-支持只配置 1 个、2 个或者多个账号。实际授权来源是 Token 持有者，组织名不意味着组织有自己的 Token：填写组织名时，需要使用已获授权访问该组织仓库的 GitHub 账号的 Token。推荐细粒度个人访问令牌，并仅授权必要仓库及最小权限。
+支持零个、一个或多个额外账号。组织名只是用于选择凭据的标识，并不是组织专用 Token。推荐细粒度 PAT，仅授权必要仓库及最小权限。
 
-调用 GitHub 工具时，插件自动读取当前 Git 工作区 `origin` 仓库地址（或显式传入 `repository: owner/repo`），使用 `owner` 匹配对应账号的 `tokenEnv` 环境变量：例如 `fongap-labs/delta` 和 `fongap-labs/dsh-plugin` 都选择 `owner: fongap-labs`，不需要手动绑定仓库。不区分大小写，同一 `owner` 不允许重复，未匹配时拒绝操作，不会使用其他账号的 Token。
+调用 GitHub 工具时，省略 `repository` 则优先读取当前 Git 工作区 `origin`；也可显式指定 `repository: owner/repo`。凭据选择顺序为：工具参数 `account`（显式选用已配置的凭据身份）、可选仓库路由偏好、同名 owner、唯一已配置账号；未配置账号时使用原生 `GITHUB_TOKEN`。有多个账号却无法确定身份时会提示指定 `account`，而不是按仓库名称拒绝访问。仓库是否允许读写完全取决于 GitHub 对所选凭据的授权。
 
-**安全要求：** 配置文件**不保存任何 Token**，只记录环境变量名。Token 必须在启动 Harness 前注入对应环境变量。不要将 Token 环境变量值提交到公开仓库、Bundle 默认配置、PR、Issue 或聊天。不要启用 Profile 文件的云端明文同步。Token 不会返回给模型，但本地 Profile 仍应限制文件访问权限。
+**安全要求：** 配置文件**不保存任何 Token**，仅保存宿主凭据引用。不要将真实 Token 提交到仓库、PR、Issue 或聊天。不要明文同步 Profile 凭据文件。Token 不会返回给模型；写操作仍需额外开启 `github.allowWrites`，并且必须通过 GitHub 服务端权限校验。
 
 | GitHub 工具 | 用途 |
 | --- | --- |
