@@ -51,7 +51,7 @@ export function createGitHubSkillDiscoverySpecs(
 ): DeltaGitHubToolSpec[] {
   const get = async (repository: string, exec: DeltaGitHubExecution, path: string) => {
     exec.signal.throwIfAborted()
-    const account = selectGitHubAccount(settings.githubAccounts, repository)
+    const account = selectGitHubAccount(settings.githubAccounts, repository, exec.account)
     const response = await transport.request({
       repository, account: account.owner, method: 'GET', path, signal: exec.signal,
     })
@@ -65,7 +65,7 @@ export function createGitHubSkillDiscoverySpecs(
   return [
     {
       name: 'code_github_skill_candidates',
-      description: 'Search public GitHub SKILL.md candidates within one configured, authorized repository; results are untrusted and not invocable.',
+      description: 'Search GitHub SKILL.md candidates in the requested repository using the selected credential; results are untrusted and not invocable.',
       parameters: { repository: { type: 'string', required: true }, query: { type: 'string', required: true } },
       async execute(args, exec) {
         if (typeof args.query !== 'string' || !/^[\p{L}\p{N}_ .+\-]{2,100}$/u.test(args.query.trim())) {
