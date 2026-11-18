@@ -1386,88 +1386,7 @@ function observeConfirmedMainSession(list: SearchSessionsApi['list'], onConfirme
   }
 }
 
-// Transitional UI-only projection. Preserve the raw Host snapshot and row
-// identities wherever the overlay has no actual effect. Cache only relevant
-// membership inputs, not the feature manager's unrelated revision counter.
-// Transitional list adapter: notify only subscriptions acquired through this
-// compatibility view. Never mutate or invalidate the Host's native store.
-function installProjectedList<S>(
-  listObj: { getSnapshot(): S; subscribe?(listener: () => void): () => void },
-  projectFn: (base: S) => S,
-  onDataMutate: (listener: () => void) => () => void,
-): () => void {
-  const origSnap = listObj.getSnapshot
-  const origSub = listObj.subscribe
-  if (typeof origSnap !== 'function' || typeof origSub !== 'function') return () => {}
-  const localListeners = new Set<() => void>()
-  let isDisposed = false
-  let stopNotify: (() => void) | undefined
-  const projectedSnap = (): S => projectFn(origSnap.call(listObj))
-  const wrappedSubscribe = (listener: () => void): (() => void) => {
-    if (isDisposed) return origSub.call(listObj, listener)
-    let isReleased = false
-    let last = projectedSnap()
-    const notify = (): void => {
-      if (isReleased) return
-      const next = listObj.getSnapshot()
-      if (Object.is(last, next)) return
-      last = next
-      listener()
-    }
-    const onNative = (): void => {
-      if (isReleased) return
-      // Preserve the native notification contract even after adapter disposal.
-      if (!isDisposed) {
-        try { last = listObj.getSnapshot() } catch {}
-      }
-      listener()
-    }
-    const stopNative = origSub.call(listObj, onNative)
-    localListeners.add(notify)
-    return () => {
-      if (isReleased) return
-      isReleased = true
-      localListeners.delete(notify)
-      stopNative()
-    }
-  }
-  const notifyLocal = (): void => {
-    for (const notify of [...localListeners]) {
-      try { notify() } catch {}
-    }
-  }
-  const restore = (): void => {
-    // Restore only exact functions installed by this adapter, never a later
-    // Host/third-party replacement.
-    try { if (listObj.getSnapshot === projectedSnap) listObj.getSnapshot = origSnap } catch {}
-    try { if (listObj.subscribe === wrappedSubscribe) listObj.subscribe = origSub } catch {}
-  }
-  const dispose = (): void => {
-    if (isDisposed) return
-    isDisposed = true
-    try { stopNotify?.() } catch {}
-    restore()
-    // Existing native subscriptions belong to their callers and must remain
-    // usable. Notify the compatibility subscribers of the restored view once.
-    notifyLocal()
-    localListeners.clear()
-  }
-  try {
-    listObj.getSnapshot = projectedSnap
-    listObj.subscribe = wrappedSubscribe
-    if (listObj.getSnapshot !== projectedSnap || listObj.subscribe !== wrappedSubscribe) {
-      dispose()
-      return () => {}
-    }
-    stopNotify = onDataMutate(notifyLocal)
-    return dispose
-  } catch {
-    // A sealed service or failed registration must not leave a partial wrapper.
-    dispose()
-    return () => {}
-  }
-}
-
+// Scoped projection for Delta-owned views; never replace Host list methods.
 function createWorkspaceCompatibilityProjection(): (base: WorkspaceSnapshot, f: Pick<ClientFeatureSnapshot, 'deletedSessionIds' | 'lockedSessionIds' | 'movedSessions'>) => WorkspaceSnapshot {
   let previousBase: WorkspaceSnapshot | undefined
   let previousDeleted: readonly string[] | undefined
@@ -1746,6 +1665,13 @@ function createClientFeatureManager(): ClientFeatureManager {
   const listeners = new Set<() => void>()
   let workspacesApi: WorkspacesApi | undefined
   let readNativeWorkspaceSnapshot: (() => WorkspaceSnapshot) | undefined
+  const projectDeltaWorkspace = createWorkspaceCompatibilityProjection()
+  const readDeltaWorkspaceSnapshot = (): WorkspaceSnapshot | undefined => {
+    try {
+      const base = readNativeWorkspaceSnapshot?.()
+      return base ? projectDeltaWorkspace(base, state) : undefined
+    } catch { return undefined }
+  }
   const pendingArchives = new Map<string, Promise<void>>()
   let sessionsApi: SearchSessionsApi | undefined
   let navigationApi: SearchNavigationApi | undefined
@@ -2270,7 +2196,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const findWorkspaceCwdForSession = (sessionId: string): string | undefined => {
-    const wsItems = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const wsItems = readNativeWorkspaceSnapshot?.().items ?? []
     const ws = wsItems.find(item => item.sessionIds?.includes(sessionId))
     if (ws?.path) return ws.path
     const sess = sessionsApi?.list?.getSnapshot?.()?.byId?.[sessionId] as { cwd?: string } | undefined
@@ -2337,7 +2263,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const getUngroupedSessionIds = (isIncludingArchived = false): string[] => {
-    const wsSnap = workspacesApi?.list?.getSnapshot?.()
+    const wsSnap = readNativeWorkspaceSnapshot?.()
     const sessSnap = sessionsApi?.list?.getSnapshot?.()
     if (!sessSnap?.byId) return []
     const accounted = new Set<string>()
@@ -2646,7 +2572,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       showDeltaToast(copy.sessionMenu.unlockFirst)
       return
     }
-    const items = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const items = readDeltaWorkspaceSnapshot()?.items ?? []
     const currentWsId = state.movedSessions[sessionId] ?? items.find(w => w.sessionIds?.includes(sessionId))?.workspaceId
     const candidates = items.filter(w => w.workspaceId !== currentWsId)
     mountModal(card => {
@@ -2764,7 +2690,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (!wsIdOrPath) return false
     const list = state.lockedWorkspaceIds ?? []
     if (list.includes(wsIdOrPath)) return true
-    const wsList = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const wsList = readNativeWorkspaceSnapshot?.().items ?? []
     for (const ws of wsList) {
       if (ws.workspaceId === wsIdOrPath || ws.path === wsIdOrPath) {
         if (list.includes(ws.workspaceId) || list.includes(ws.path)) return true
@@ -2777,7 +2703,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (!wsIdOrPath || !isWorkspaceLocked(wsIdOrPath)) return false
     const tempUnlocked = state.tempUnlockedWorkspaceIds ?? []
     if (tempUnlocked.includes(wsIdOrPath)) return false
-    const wsList = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const wsList = readNativeWorkspaceSnapshot?.().items ?? []
     for (const ws of wsList) {
       if (ws.workspaceId === wsIdOrPath || ws.path === wsIdOrPath) {
         if (tempUnlocked.includes(ws.workspaceId) || tempUnlocked.includes(ws.path)) return false
@@ -2788,7 +2714,9 @@ function createClientFeatureManager(): ClientFeatureManager {
 
   const isSessionInLockedWorkspace = (sessionId: string | undefined): boolean => {
     if (!sessionId) return false
-    const wsList = workspacesApi?.list?.getSnapshot?.()?.items ?? []
+    const wsList = readNativeWorkspaceSnapshot?.().items ?? []
+    const mappedWorkspace = state.movedSessions[sessionId]
+    if (mappedWorkspace && isWorkspaceProtected(mappedWorkspace)) return true
     for (const ws of wsList) {
       if (ws.sessionIds?.includes(sessionId)) {
         if (isWorkspaceProtected(ws.workspaceId) || isWorkspaceProtected(ws.path)) {
@@ -2896,7 +2824,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       viewBtn.disabled = true; permBtn.disabled = true
       let parentWsId: string | undefined
       if (isWsOnly) {
-        for (const ws of workspacesApi?.list?.getSnapshot?.()?.items ?? []) {
+        for (const ws of readNativeWorkspaceSnapshot?.().items ?? []) {
           if (ws.sessionIds?.includes(activeId)) {
             if (isWorkspaceProtected(ws.workspaceId) || isWorkspaceProtected(ws.path)) {
               parentWsId = ws.workspaceId
@@ -2955,7 +2883,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       if (!readNativeWorkspaceSnapshot) throw new Error('workspace membership unavailable')
       return readNativeWorkspaceSnapshot()
     }),
-    getWorkspaces: () => workspacesApi?.list?.getSnapshot?.()?.items ?? [],
+    getWorkspaces: () => readDeltaWorkspaceSnapshot()?.items ?? [],
     setWorkspacesApi: (api, readNative) => {
       if (workspacesApi !== api) pendingArchives.clear()
       try { stopNativeContentMembership?.() } catch {}
@@ -3002,7 +2930,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     isWorkspaceLocked,
     isWorkspaceProtected,
     isSessionInLockedWorkspace,
-    getWorkspaceCount: () => workspacesApi?.list?.getSnapshot?.()?.items?.length ?? 0,
+    getWorkspaceCount: () => readNativeWorkspaceSnapshot?.()?.items.length ?? 0,
     hasSessionsApi: () => Boolean(sessionsApi),
     getUngroupedSessionIds,
     refreshState,
@@ -7450,15 +7378,9 @@ window.__ModuleLoader__.load({
                 const workspaces = workspaceScope.workspaces
                 if (!workspaces) return
 
-                // Capture the native read before the compatibility view is installed.
-                // Mutation and archive decisions must never infer Host facts from that view.
+                // Native WorkspaceBrowser and third-party subscribers keep Host ownership.
                 const nativeSnapshot = workspaces.list.getSnapshot
                 const readNative = () => nativeSnapshot.call(workspaces.list)
-                const projectWorkspace = createWorkspaceCompatibilityProjection()
-                const stopWsProjection = installProjectedList<WorkspaceSnapshot>(workspaces.list,
-                  base => projectWorkspace(base, deltaFeatures.getSnapshot()),
-                  deltaFeatures.onDataMutate)
-                workspaceScope.effect(() => stopWsProjection, 'dsh-delta-desktop: workspace session overlay')
                 deltaFeatures.setWorkspacesApi(workspaces, readNative)
                 workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
                   'dsh-delta-desktop: workspaces reference')
