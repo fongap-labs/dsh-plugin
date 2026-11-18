@@ -2037,16 +2037,18 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (!res.ok) return { ok: false, error: res.data?.error ?? 'INVALID_TOTP_CODE' }
     const confirmedState = res.data?.state
     const reported = res.data?.unarchivedIds
+    const pending = res.data?.pendingUnarchiveIds ?? []
     if (res.data?.ok !== true || !isConfirmedLockState(confirmedState) ||
         confirmedState.hasPin !== false || confirmedState.lockMode !== 'none' ||
         confirmedState.lockedSessionIds.length !== 0 || confirmedState.lockedWorkspaceIds.length !== 0 ||
-        !Array.isArray(reported) || reported.some(id => typeof id !== 'string')) {
+        !Array.isArray(reported) || reported.some(id => typeof id !== 'string') ||
+        !Array.isArray(pending) || pending.some(id => typeof id !== 'string')) {
       return { ok: false, error: 'LOCK_UNCONFIRMED' }
     }
     applyHostStatePayload(confirmedState)
     // Never restore rows outside the prior confirmed lock set.
     for (const sid of previouslyLocked) {
-      if (reported.includes(sid)) await unarchiveSessionBestEffort(sid)
+      if (reported.includes(sid) || pending.includes(sid)) await unarchiveSessionBestEffort(sid)
     }
     notifyDataApis()
     return { ok: true }
