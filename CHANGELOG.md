@@ -2,8 +2,6 @@
 
 ## [Unreleased]
 
-- 修复: Delta Code 同步宿主会话沙箱策略，兼容换行匹配，准确传播批量编辑失败，支持授权绝对路径和多模块项目识别。
-
 - 修复: Host 全文搜索先读取持久化保护状态，排除锁定工作区、会话别名及已删除记录，并在观察和响应阶段复核权限（Issue #333）。
 
 - 修复: 工作区客户端删除和解归档守卫统一使用原生成员与持久化锁定状态，临时查看授权不等于变更权限，卸载后旧回调失效（Issue #333）。
@@ -511,6 +509,8 @@
 - 维护: Code Worker 显示名称统一为“Delta 编程助手”。
 
 - 维护: 对齐 Delta Desktop README、兼容性说明与 feature-readiness.json，明确缺少公开扩展契约的功能保持未交付。
+
+- 修复: Delta Code 同步宿主会话沙箱策略，兼容换行匹配，准确传播批量编辑失败，支持授权绝对路径和多模块项目识别。
 
 ## [0.1.0-beta.1](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-suite-delta-v0.1.0-beta.1) - 2026-11-03
 
