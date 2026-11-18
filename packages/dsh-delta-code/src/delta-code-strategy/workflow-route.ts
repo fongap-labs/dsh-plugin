@@ -129,7 +129,9 @@ export function decideCodingWorkflow(
     sequential: !canParallelize,
   }
   const skills = profile.steps
-    .filter(step => step.when === undefined || conditions[step.when])
+    .filter(step => (step.when === undefined || conditions[step.when]) &&
+      (canParallelize || (step.skill !== 'code-parallel-work' &&
+        step.skill !== 'code-subagent-delivery')))
     .map(step => step.skill)
 
   return {
