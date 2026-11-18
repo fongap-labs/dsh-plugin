@@ -649,7 +649,7 @@ export function installHostSessionOps(
       ...cur,
       movedSessions: { ...cur.movedSessions, [sessionId]: targetWorkspaceId },
     }))
-    hooks?.onSessionChanged?.(sessionId)
+    notifySessionChanged(sessionId)
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
@@ -730,7 +730,7 @@ export function installHostSessionOps(
           : [...cur.deletedSessionIds, sessionId],
       }
     })
-    hooks?.onSessionChanged?.(sessionId)
+    notifySessionChanged(sessionId)
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
@@ -778,7 +778,7 @@ export function installHostSessionOps(
       }
     })
     for (const sid of toDeleteIds) {
-      hooks?.onSessionChanged?.(sid)
+      notifySessionChanged(sid)
     }
     return makeJsonResponse(200, {
       ok: true,

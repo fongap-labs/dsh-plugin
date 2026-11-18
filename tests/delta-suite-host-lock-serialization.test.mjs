@@ -12,6 +12,7 @@ let ops, state
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
     file('packages/dsh-delta-desktop/tsconfig.json'), '--outDir', dir], { stdio: 'pipe' })
+  await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }))
   ops = await import(pathToFileURL(path.join(dir, 'host-sessions.js')).href)
   state = await import(pathToFileURL(path.join(dir, 'host-state.js')).href)
 } finally { await fs.rm(dir, { recursive: true, force: true }) }
@@ -111,7 +112,7 @@ test('lock and unlock effects are serialized and report actual archive membershi
   } finally { release(); f.dispose() }
 })
 
-test('unbind separates confirmed and pending restoration and clears enrollment tokens', async () => {
+test('unbind separates confirmed and pending restoration', async () => {
   const registry = {
     archivedSessionIds: ['a', 'b'],
     async unarchiveSession(id) {
