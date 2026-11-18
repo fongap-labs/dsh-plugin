@@ -18,6 +18,8 @@ function matches(pattern: RegExp, text: string): boolean {
 }
 
 export function matchesDeclarativeRule(rule: DeclarativePatternRule, text: string): boolean {
+  // A malformed empty rule must never silently match every task.
+  if (!rule.anyOf?.length && !rule.allOf?.length) return false
   return (rule.anyOf?.length ? rule.anyOf.some(pattern => matches(pattern, text)) : true) &&
     (rule.allOf?.every(pattern => matches(pattern, text)) ?? true) &&
     !(rule.noneOf?.some(pattern => matches(pattern, text)) ?? false)
