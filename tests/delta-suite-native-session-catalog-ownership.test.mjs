@@ -435,3 +435,99 @@ test('archive reconciliation never turns a failure into a stop-activity request'
   assert.deepEqual(f.calls, [['archive', 'target', undefined]])
   assert.equal(f.manager.isLocked('target'), true)
 })
+
+const makeMutationPolicy = vm.runInNewContext(
+  compiled.slice(start, end) + '\nreadWorkspaceMutationPolicy',
+)
+const installMutationGuards = vm.runInNewContext(
+  compiled.slice(start, end) + '\ninstallWorkspaceMutationGuards',
+)
+const mutationRows = [
+  { workspaceId: 'a', path: '/protected', sessionIds: ['session-member', 'moved-away'] },
+  { workspaceId: 'b', path: '/ordinary', sessionIds: ['ordinary', 'moved-in'] },
+  { workspaceId: 'default', path: 'C:\\deepseek-harness\\default-workspace', sessionIds: [] },
+]
+const mutationState = {
+  lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {},
+  tempUnlockedIds: [], tempUnlockedWorkspaceIds: [],
+}
+
+test('native mutation policy protects durable workspace membership, aliases and moves despite temporary viewing grants', () => {
+  const state = {
+    ...mutationState, lockedSessionIds: ['direct'], lockedWorkspaceIds: ['/protected'],
+    deletedSessionIds: ['gone'], movedSessions: { 'moved-away': 'b', 'moved-in': 'a' },
+    tempUnlockedIds: ['direct'], tempUnlockedWorkspaceIds: ['a', '/protected'],
+  }
+  const policy = makeMutationPolicy(state, () => ({ items: mutationRows }))
+  for (const id of ['member', 'session-member', 'moved-away', 'moved-in']) {
+    assert.equal(policy.unarchive(id).reason, 'workspace-locked')
+  }
+  assert.equal(policy.unarchive('session-direct').lockId, 'direct')
+  assert.equal(policy.unarchive('session-gone').reason, 'session-deleted')
+  assert.equal(policy.unarchive('ordinary'), undefined)
+  assert.equal(policy.deleteWorkspace('a', false), 'workspace-locked')
+  assert.equal(policy.deleteWorkspace('b', false), undefined)
+})
+
+test('workspace deletion respects native and mapped direct locks and preserves default protection', () => {
+  const read = () => ({ items: mutationRows })
+  const direct = makeMutationPolicy({ ...mutationState, lockedSessionIds: ['member'] }, read)
+  assert.equal(direct.deleteWorkspace('a', true), 'session-locked')
+  const moved = makeMutationPolicy({
+    ...mutationState, lockedSessionIds: ['incoming'], movedSessions: { incoming: 'b' },
+  }, read)
+  assert.equal(moved.deleteWorkspace('b', false), 'session-locked')
+  const defaultPolicy = makeMutationPolicy({
+    ...mutationState, movedSessions: { incoming: 'default' },
+  }, read)
+  assert.equal(defaultPolicy.deleteWorkspace('default', true), 'protected-default-workspace')
+  assert.equal(defaultPolicy.deleteWorkspace('default', false), undefined)
+  assert.equal(makeMutationPolicy(mutationState, () => ({ items: mutationRows.slice(0, 1) }))
+    .deleteWorkspace('a', false), 'sole-workspace-protected')
+})
+
+test('uncertain workspace membership cannot authorize guarded mutations', () => {
+  for (const read of [
+    () => { throw new Error('offline') },
+    () => ({ items: [] }),
+    () => ({ items: [{ workspaceId: 'a', path: '/protected' }] }),
+    () => ({ items: [{ workspaceId: 'a', path: '/protected', sessionIds: [] },
+      { workspaceId: 'b', path: '/ordinary' }] }),
+  ]) {
+    const policy = makeMutationPolicy({ ...mutationState, lockedWorkspaceIds: ['a'] }, read)
+    assert.equal(policy.unarchive('other').reason, 'workspace-state-unavailable')
+    assert.ok(policy.deleteWorkspace('b', false))
+  }
+})
+
+test('guard lifecycle preserves native receivers, rejects stale callbacks and does not overwrite third-party methods', async () => {
+  const calls = [], notices = []
+  let state = { ...mutationState, lockedWorkspaceIds: ['a'] }
+  const list = { getSnapshot: () => ({ items: mutationRows }) }
+  const api = {
+    list,
+    delete(id) { assert.equal(this, api); calls.push(['delete', id]); return Promise.resolve('deleted') },
+    unarchiveSession(id) { assert.equal(this, api); calls.push(['unarchive', id]); return Promise.resolve('restored') },
+  }
+  const nativeDelete = api.delete
+  const nativeUnarchive = api.unarchiveSession
+  const stop = installMutationGuards(api, list.getSnapshot, () => state, () => true,
+    (reason, lockId) => notices.push([reason, lockId]))
+  const stale = api.delete
+  await assert.rejects(api.delete('a'), /workspace-locked/)
+  await assert.rejects(api.unarchiveSession('member'), /workspace-locked/)
+  assert.equal(calls.length, 0)
+  state = { ...mutationState }
+  assert.equal(await api.delete('b'), 'deleted')
+  assert.equal(await api.unarchiveSession('ordinary'), 'restored')
+  const later = () => Promise.resolve('other plugin')
+  api.unarchiveSession = later
+  stop()
+  stop()
+  assert.equal(api.delete, nativeDelete)
+  assert.notEqual(api.unarchiveSession, nativeUnarchive)
+  assert.equal(api.unarchiveSession, later)
+  await assert.rejects(stale('b'), /workspace-guard-disposed/)
+  assert.deepEqual(calls, [['delete', 'b'], ['unarchive', 'ordinary']])
+  assert.equal(notices.length, 3)
+})
