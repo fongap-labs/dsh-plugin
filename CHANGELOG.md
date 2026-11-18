@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 技能仅通过可注销的宿主 Provider 按需加载，缺失生命周期能力时关闭对应技能，停止在系统提示词中预先注入完整技能正文（PR #404）。
+
 - 修复: Delta Code GitHub 连接按账号或组织隔离 Token，同一归属下仓库数量不限，由 GitHub 验证实际权限；新增 Actions Job 原始日志只读诊断工具，安全处理重定向、脱敏与响应限额（PR #402）。
 
 - 维护: 明确能力协商 helper 尚未接入运行时 Host manifest；未公开能力继续回退原生体验（Issue #190）。
