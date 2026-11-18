@@ -696,3 +696,128 @@ test('disposal during the startup state read prevents subsequent native reconcil
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('stale connection routes reject state reads and folder requests after plugin disposal', async () => {
+  const registered = new Map()
+  let reads = 0
+  const current = state.normalizeDeltaState({ lockedSessionIds: ['locked'] })
+  const store = {
+    async read() { reads++; return current },
+    getCached: () => current,
+    async update(mutator) { return state.normalizeDeltaState(await mutator(current)) },
+  }
+  const ctx = {
+    get() { return undefined },
+    inject(deps, callback) {
+      if (deps[0] === 'connection') return callback({
+        connection: { fetch: { register(route) {
+          registered.set(route.path, route.fetch)
+          return () => registered.delete(route.path)
+        } } },
+      })
+      return () => {}
+    },
+  }
+  const stop = ops.installHostSessionOps(ctx, store)
+  const stateRoute = registered.get(ops.DELTA_STATE_PATH)
+  const folderRoute = registered.get(ops.DELTA_OPEN_FOLDER_PATH)
+  try {
+    assert.equal((await stateRoute()).status, 200)
+    assert.equal((await folderRoute({ json: async () => ({ path: '' }) })).status, 400)
+    stop()
+    const readsBeforeStaleCall = reads
+    const staleState = await stateRoute()
+    const staleFolder = await folderRoute({ json: async () => ({ path: '' }) })
+    assert.equal(staleState.status, 503)
+    assert.equal((await staleState.json()).error, 'SESSION_OPS_UNAVAILABLE')
+    assert.equal(staleFolder.status, 503)
+    assert.equal((await staleFolder.json()).error, 'SESSION_OPS_UNAVAILABLE')
+    assert.equal(reads, readsBeforeStaleCall, 'no additional durable state reads after disposal')
+  } finally { stop() }
+})
+
+test('stale webServer fallback routes also fail closed after plugin disposal', async () => {
+  const registered = new Map()
+  const current = state.normalizeDeltaState(undefined)
+  const store = {
+    read: async () => current,
+    getCached: () => current,
+    update: async mutator => state.normalizeDeltaState(await mutator(current)),
+  }
+  const ctx = {
+    get() { return undefined },
+    inject(deps, callback) {
+      if (deps[0] === 'webServer') return callback({
+        webServer: { register(route) {
+          registered.set(route.path, route.handler)
+          return () => registered.delete(route.path)
+        } },
+      })
+      return () => {}
+    },
+  }
+  const stop = ops.installHostSessionOps(ctx, store)
+  const stateRoute = registered.get(ops.DELTA_STATE_PATH)
+  const folderRoute = registered.get(ops.DELTA_OPEN_FOLDER_PATH)
+  const invoke = async handler => {
+    let status
+    let payload
+    await handler({ json: async () => ({ path: '' }) }, {
+      writeHead(value) { status = value },
+      end(value) { payload = JSON.parse(value) },
+    })
+    return { status, payload }
+  }
+  try {
+    assert.equal((await invoke(stateRoute)).status, 200)
+    assert.equal((await invoke(folderRoute)).status, 400)
+    stop()
+    assert.deepEqual(await invoke(stateRoute), {
+      status: 503, payload: { ok: false, error: 'SESSION_OPS_UNAVAILABLE' },
+    })
+    assert.deepEqual(await invoke(folderRoute), {
+      status: 503, payload: { ok: false, error: 'SESSION_OPS_UNAVAILABLE' },
+    })
+  } finally { stop() }
+})
+
+test('late Host dependency injection after disposal does not re-register any routes', async () => {
+  const callbacks = new Map()
+  const registered = []
+  const store = {
+    read: async () => state.normalizeDeltaState(undefined),
+    getCached: () => state.normalizeDeltaState(undefined),
+    update: async mutator => state.normalizeDeltaState(await mutator(state.normalizeDeltaState(undefined))),
+  }
+  const stop = ops.installHostSessionOps({
+    get() { return undefined },
+    inject(deps, callback) {
+      callbacks.set(deps[0], callback)
+      return () => {}
+    },
+  }, store)
+  try {
+    stop()
+    const connCleanup = callbacks.get('connection')({
+      connection: { fetch: { register(spec) {
+        registered.push(['connection', spec.path])
+        return () => {}
+      } } },
+    })
+    const webCleanup = callbacks.get('webServer')({
+      webServer: { register(spec) {
+        registered.push(['webServer', spec.path])
+        return () => {}
+      } },
+    })
+    const registryCleanup = callbacks.get('workspaceRegistry')({ workspaceRegistry: {
+      archiveSession() { registered.push(['registry', 'archive']) },
+    } })
+    connCleanup?.()
+    webCleanup?.()
+    registryCleanup?.()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.deepEqual(registered, [],
+      'Host services mounted after Delta shutdown must not re-register stale endpoints')
+  } finally { stop() }
+})

@@ -894,6 +894,7 @@ export function installHostSessionOps(
   if (typeof ctx.inject === 'function') {
     try {
       const unsubWs = ctx.inject(['workspaceRegistry'], (scope: { workspaceRegistry?: HostWorkspaceRegistryLike }) => {
+        if (isDisposed) return () => {}
         workspaceRegistryRef = scope?.workspaceRegistry
         const registry = workspaceRegistryRef
         void serialize(async () => {
@@ -935,13 +936,14 @@ export function installHostSessionOps(
           }
         }
       }) => {
+        if (isDisposed) return () => {}
         if (typeof scope?.connection?.fetch?.register !== 'function') return () => {}
         const stops = [
           scope.connection.fetch.register({
             path: DELTA_STATE_PATH,
             methods: ['GET'],
             requestBody: 'buffered',
-            fetch: () => handleState(),
+            fetch: () => serializeRequest(() => handleState()),
           }),
           scope.connection.fetch.register({
             path: DELTA_SESSION_LOCK_PATH,
@@ -971,7 +973,7 @@ export function installHostSessionOps(
             path: DELTA_OPEN_FOLDER_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
-            fetch: req => handleOpenFolder(req),
+            fetch: req => serializeRequest(() => handleOpenFolder(req)),
           }),
         ]
         const cleanup = () => {
@@ -1004,6 +1006,7 @@ export function installHostSessionOps(
           }) => () => void
         }
       }) => {
+        if (isDisposed) return () => {}
         const ws = scope?.webServer
         if (!ws || typeof ws.register !== 'function') return () => {}
         const makeRoute = (path: string, handler: (req: unknown) => Promise<unknown>) => ({
@@ -1022,12 +1025,12 @@ export function installHostSessionOps(
           },
         })
         const stops = [
-          ws.register(makeRoute(DELTA_STATE_PATH, () => handleState())),
+          ws.register(makeRoute(DELTA_STATE_PATH, () => serializeRequest(() => handleState()))),
           ws.register(makeRoute(DELTA_SESSION_LOCK_PATH, req => serializeRequest(() => handleLock(req)))),
           ws.register(makeRoute(DELTA_SESSION_MOVE_PATH, req => serializeRequest(() => handleMove(req)))),
           ws.register(makeRoute(DELTA_SESSION_DELETE_PATH, req => serializeRequest(() => handleDelete(req)))),
           ws.register(makeRoute(DELTA_SESSION_DELETE_UNGROUPED_PATH, req => serializeRequest(() => handleDeleteUngrouped(req)))),
-          ws.register(makeRoute(DELTA_OPEN_FOLDER_PATH, req => handleOpenFolder(req))),
+          ws.register(makeRoute(DELTA_OPEN_FOLDER_PATH, req => serializeRequest(() => handleOpenFolder(req)))),
         ]
         return () => {
           for (const s of stops) {
