@@ -23,7 +23,7 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
       ctx.logger?.warn?.('dsh-delta-code: native Skill provider lifecycle unavailable; approved GitHub Skills disabled')
       return
     }
-    let enabled = true
+    let isEnabled = true
     let control: SkillProviderControl | undefined
     const cancelled = new AbortController()
     let dispose: (() => void) | void
@@ -35,9 +35,9 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
         })
         return {
           ...provider,
-          async list(options) { return enabled && isActive ? provider.list(options) : [] },
+          async list(options) { return isEnabled && isActive ? provider.list(options) : [] },
           async get(candidate, options) {
-            return enabled && isActive ? provider.get(candidate, options) : undefined
+            return isEnabled && isActive ? provider.get(candidate, options) : undefined
           },
         }
       })
@@ -48,7 +48,7 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
       return
     }
     if (typeof dispose !== 'function') {
-      enabled = false
+      isEnabled = false
       cancelled.abort()
       unsupported.add(registry)
       try { control?.invalidate() } catch { /* missing lifecycle is already disabled */ }
@@ -56,11 +56,11 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
       return
     }
     const unregister = dispose
-    let released = false
+    let isReleased = false
     const release = () => {
-      if (released) return
-      released = true
-      enabled = false
+      if (isReleased) return
+      isReleased = true
+      isEnabled = false
       cancelled.abort()
       registrations.delete(registry)
       try { unregister() } catch {
