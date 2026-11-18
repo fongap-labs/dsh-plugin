@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 会话目录归还 Harness 原生所有权；Delta 自身过滤已确认删除的会话，删除失败不伪造成功，成功后使用公开目录刷新（Issue #333）。
+
 - 新增: 通过 Harness 公开会话级 InputActions 在明确绑定、空白且可编辑的主会话中插入斜杠指令；不自动发送，拒绝时保留草稿，全局搜索仍为显式复制；阻止迟到命令目录跨会话复用（Issue #333）。
 
 - 修复: Search Palette 不再通过全局编辑器 DOM、原型 setter 或 `execCommand('insertText')` 注入斜杠命令；改为显式复制并由用户粘贴到 Harness 原生输入框，失败时明确提示（Issue #333）。

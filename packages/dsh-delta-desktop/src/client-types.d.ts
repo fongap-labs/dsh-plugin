@@ -143,6 +143,8 @@ interface SearchSessionRecord {
   retainedBy?: { readonly mainView?: number }
 }
 interface SearchSessionsApi {
+  /** Public Host-authoritative catalog refresh; optional on older hosts. */
+  refresh?(): Promise<void>
   binding?(sessionId: string): {
     ctx: unknown
     session: { getSnapshot(): { sessionId: string; removed: boolean; subagent: unknown; openState: string } }

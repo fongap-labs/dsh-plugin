@@ -1959,40 +1959,35 @@ function createClientFeatureManager(): ClientFeatureManager {
     return { ok: true }
   }
 
+  const refreshSessionsAfterDelete = async (): Promise<void> => {
+    // The public refresh operation publishes a Host-owned catalog. Never patch its store.
+    try { await sessionsApi?.refresh?.() } catch {
+      // A confirmed tombstone remains effective inside Delta if the catalog is stale.
+    }
+  }
+
   const deleteSession = async (sessionId: string): Promise<{ ok: boolean; error?: string }> => {
-    try { await Promise.resolve(sessionsApi?.cancel?.(sessionId)) } catch {}
     if (state.lockedSessionIds.includes(sessionId) || isSessionInLockedWorkspace(sessionId)) {
       return { ok: false, error: 'SESSION_LOCKED' }
     }
-    if (canCallHostHttp()) {
-      try {
-        const res = await postHostJson('/api/delta-desktop/session-delete', {
-          sessionId,
-          ...(findWorkspaceCwdForSession(sessionId) ? { sourceCwd: findWorkspaceCwdForSession(sessionId) } : {}),
-        })
-        if (!res.ok) {
-          if (res.data?.error === 'SESSION_LOCKED') return { ok: false, error: 'SESSION_LOCKED' }
-        } else if (res.data?.state) {
-          applyHostStatePayload(res.data.state)
-        }
-      } catch (err) {
-        console.warn('[delta-desktop] host session-delete call error:', err)
-      }
-    }
-    const nextMoved = { ...state.movedSessions }
-    delete nextMoved[sessionId]
-    publish({
-      movedSessions: Object.freeze(nextMoved),
-      lockedSessionIds: Object.freeze(state.lockedSessionIds.filter(id => id !== sessionId)),
-      deletedSessionIds: state.deletedSessionIds.includes(sessionId)
-        ? state.deletedSessionIds
-        : Object.freeze([...state.deletedSessionIds, sessionId]),
+    if (!canCallHostHttp()) return { ok: false, error: 'DELETE_UNAVAILABLE' }
+    const sourceCwd = findWorkspaceCwdForSession(sessionId)
+    const res = await postHostJson('/api/delta-desktop/session-delete', {
+      sessionId,
+      ...(sourceCwd ? { sourceCwd } : {}),
     })
-    notifyDataApis()
+    if (!res.ok || res.data?.ok !== true) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
+    const confirmedState = res.data?.state
+    if (!Array.isArray(confirmedState?.deletedSessionIds) || !confirmedState.deletedSessionIds.includes(sessionId)) {
+      return { ok: false, error: 'DELETE_UNCONFIRMED' }
+    }
+    // Apply only a Host-confirmed durable deletion, never a speculative local tombstone.
+    applyHostStatePayload(confirmedState)
     if (state.activeSessionId === sessionId) {
       publish({ activeSessionId: undefined })
       try { navigationApi?.startSession() } catch {}
     }
+    await refreshSessionsAfterDelete()
     return { ok: true }
   }
 
@@ -2021,46 +2016,34 @@ function createClientFeatureManager(): ClientFeatureManager {
   const deleteUngroupedSessions = async (sessionIds: string[]): Promise<{ ok: boolean; error?: string; deletedIds?: string[] }> => {
     const targets = [...new Set(sessionIds.filter(Boolean))]
     if (targets.length === 0) return { ok: true, deletedIds: [] }
-    for (const sid of targets) {
-      try { await Promise.resolve(sessionsApi?.cancel?.(sid)) } catch {}
+    const eligible = targets.filter(id => !state.lockedSessionIds.includes(id) && !isSessionInLockedWorkspace(id))
+    if (eligible.length === 0) return { ok: false, error: 'SESSION_LOCKED' }
+    if (!canCallHostHttp()) return { ok: false, error: 'DELETE_UNAVAILABLE' }
+    const cwds: Record<string, string> = {}
+    for (const sid of eligible) {
+      const cwd = findWorkspaceCwdForSession(sid)
+      if (cwd) cwds[sid] = cwd
     }
-    let deletedIds = targets.filter(id => !state.lockedSessionIds.includes(id) && !isSessionInLockedWorkspace(id))
-    if (deletedIds.length === 0) return { ok: false, error: 'SESSION_LOCKED' }
-
-    if (canCallHostHttp()) {
-      try {
-        const cwds: Record<string, string> = {}
-        for (const sid of targets) {
-          const cwd = findWorkspaceCwdForSession(sid)
-          if (cwd) cwds[sid] = cwd
-        }
-        const res = await postHostJson('/api/delta-desktop/session-delete-ungrouped', { sessionIds: targets, cwds })
-        if (res.ok) {
-          if (Array.isArray(res.data?.deletedIds)) deletedIds = res.data.deletedIds
-          if (res.data?.state) applyHostStatePayload(res.data.state)
-        } else if (res.data?.error === 'SESSION_LOCKED') {
-          return { ok: false, error: 'SESSION_LOCKED' }
-        }
-      } catch (err) {
-        console.warn('[delta-desktop] host session-delete-ungrouped call error:', err)
-      }
+    // Only eligible IDs may reach the existing Host deletion endpoint.
+    const res = await postHostJson('/api/delta-desktop/session-delete-ungrouped', { sessionIds: eligible, cwds })
+    if (!res.ok || res.data?.ok !== true) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
+    const confirmedState = res.data?.state
+    const reported = res.data?.deletedIds
+    if (!Array.isArray(reported) || !Array.isArray(confirmedState?.deletedSessionIds) ||
+        reported.some(id => typeof id !== 'string' || !eligible.includes(id) || !confirmedState.deletedSessionIds.includes(id))) {
+      return { ok: false, error: 'DELETE_UNCONFIRMED' }
     }
-
-    const nextMoved = { ...state.movedSessions }
-    for (const sid of deletedIds) delete nextMoved[sid]
-    const delSet = new Set(state.deletedSessionIds)
-    for (const sid of deletedIds) delSet.add(sid)
-    publish({
-      movedSessions: Object.freeze(nextMoved),
-      deletedSessionIds: Object.freeze([...delSet]),
-    })
-    notifyDataApis()
-
+    const deletedIds = [...new Set<string>(reported)]
+    if (deletedIds.length === 0) return { ok: false, error: 'DELETE_UNCONFIRMED' }
+    applyHostStatePayload(confirmedState)
     if (state.activeSessionId && deletedIds.includes(state.activeSessionId)) {
       publish({ activeSessionId: undefined })
       try { navigationApi?.startSession() } catch {}
     }
-    return { ok: true, deletedIds }
+    await refreshSessionsAfterDelete()
+    return deletedIds.length === targets.length
+      ? { ok: true, deletedIds }
+      : { ok: false, error: 'PARTIAL_DELETE', deletedIds }
   }
 
   const closeDialog = (): void => {
@@ -4488,6 +4471,7 @@ function installHostSearch(
   }
 
   const openSessionHit = (sessionId: string, workspaceId?: string, turn?: number, snippet?: string): void => {
+    if (deltaFeatures.isDeleted(sessionId)) return
     if (deltaFeatures.isLocked(sessionId)) {
       const ws = searchScope?.get?.('workspaces') as WorkspacesApi | undefined
       const archived = ws?.list?.getSnapshot?.()?.archivedSessionIds?.includes(sessionId) ?? false
@@ -4530,6 +4514,7 @@ function installHostSearch(
     const matches: { id: string; title: string; snippet?: string; turn?: number; workspaceId?: string; isWorkspace?: boolean }[] = []
 
     for (const item of Object.values(sessions.list.getSnapshot().byId)) {
+      if (deltaFeatures.isDeleted(item.id)) continue
       const title = item.title?.trim() ?? ''
       if (!item.blank && title.toLocaleLowerCase().includes(query)) {
         matches.push({ id: item.id, title: redactSensitiveText(title), workspaceId: item.workspaceId })
@@ -4538,7 +4523,7 @@ function installHostSearch(
       if (matches.length >= 20) break
     }
     for (const item of inlineRemoteItems) {
-      if (seen.has(item.sessionId) || matches.length >= 20) continue
+      if (deltaFeatures.isDeleted(item.sessionId) || seen.has(item.sessionId) || matches.length >= 20) continue
       const title = item.title?.trim() || sessions.list.getSnapshot().byId[item.sessionId]?.title?.trim() || item.sessionId
       matches.push({
         id: item.sessionId,
@@ -4582,7 +4567,7 @@ function installHostSearch(
         try {
           if (match.isWorkspace && match.workspaceId) {
             const ws = getWorkspaces().find(w => w.workspaceId === match.workspaceId)
-            const targetSid = ws?.sessionIds?.[0]
+            const targetSid = ws?.sessionIds?.find(id => !deltaFeatures.isDeleted(id))
             if (targetSid) openSessionHit(targetSid, match.workspaceId)
             else navigation.startSession(match.workspaceId)
           } else {
@@ -4966,7 +4951,7 @@ function installHostSearch(
         meta: ws.sessionIds ? `${ws.sessionIds.length}` : undefined,
         score: q ? 85 : 50,
         run: () => {
-          const sid = ws.sessionIds?.[0]
+          const sid = ws.sessionIds?.find(id => !deltaFeatures.isDeleted(id))
           if (sid) openSessionHit(sid, ws.workspaceId)
           else navigation.startSession(ws.workspaceId)
         },
@@ -5521,10 +5506,22 @@ function installHostSearch(
   observer = new MutationObserver(scheduleSync)
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
+  let lastDeletedIds = deltaFeatures.getSnapshot().deletedSessionIds
+  const unsubscribeDeleted = deltaFeatures.subscribe(() => {
+    const next = deltaFeatures.getSnapshot().deletedSessionIds
+    if (isDisposed || next === lastDeletedIds) return
+    lastDeletedIds = next
+    try { renderInline() } catch { results.replaceChildren() }
+    try { renderPalette() } catch {
+      currentFilteredItems = []
+      modalListEl?.replaceChildren()
+    }
+  })
   sync()
   return () => {
     if (isDisposed) return
     isDisposed = true
+    unsubscribeDeleted()
     frameScheduler.cancel()
     stopRevealTimer?.()
     closePalette()
@@ -5997,9 +5994,11 @@ window.__ModuleLoader__.load({
     ): Promise<string> {
       const services = assistantServices
       if (!services) throw new Error('Harness assistant capabilities are unavailable')
+      if (deltaFeatures.isDeleted(parentSessionId)) throw new Error('Session was deleted')
       let assistantSessionId = purpose === 'discussion' ? savedAssistantSession(parentSessionId) : undefined
       let isCreated = false
-      if (assistantSessionId && services.sessions.list.getSnapshot().byId?.[assistantSessionId] === undefined) {
+      if (assistantSessionId && (deltaFeatures.isDeleted(assistantSessionId) ||
+          services.sessions.list.getSnapshot().byId?.[assistantSessionId] === undefined)) {
         assistantSessionId = undefined
       }
       if (!assistantSessionId) {
@@ -6011,9 +6010,11 @@ window.__ModuleLoader__.load({
         isCreated = true
         if (purpose === 'discussion') rememberAssistantSession(parentSessionId, assistantSessionId)
       }
+      if (deltaFeatures.isDeleted(parentSessionId) || deltaFeatures.isDeleted(assistantSessionId)) throw new Error('Session was deleted')
       const reference = services.sessions.retain(assistantSessionId, { source: 'sidebarChat' })
       try {
         await reference.ready
+        if (deltaFeatures.isDeleted(parentSessionId) || deltaFeatures.isDeleted(assistantSessionId)) throw new Error('Session was deleted')
         if (isCreated) {
           const result = await reference.binding.session.prompt([{ type: 'text', text: initialPrompt }], 'queue')
           if (!result.ok) throw new Error(result.error?.message || 'Assistant prompt was rejected')
@@ -6025,10 +6026,11 @@ window.__ModuleLoader__.load({
     }
     async function queueMainCorrection(parentSessionId: string, correction: string): Promise<boolean> {
       const services = assistantServices
-      if (!services || !correction.trim()) return false
+      if (!services || !correction.trim() || deltaFeatures.isDeleted(parentSessionId)) return false
       const reference = services.sessions.retain(parentSessionId, { source: 'sidebarChat' })
       try {
         await reference.ready
+        if (deltaFeatures.isDeleted(parentSessionId)) return false
         const result = await reference.binding.session.prompt([{
           type: 'text', text: `User correction from the Delta side conversation. Treat this as the user's queued instruction for the main task:\n\n${correction.trim()}`,
         }], 'queue')
@@ -6459,6 +6461,7 @@ window.__ModuleLoader__.load({
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
     function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
+      if (deltaFeatures.isDeleted(sessionId)) return null
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
@@ -7068,29 +7071,7 @@ window.__ModuleLoader__.load({
 
                 // Native navigation stays intact. Observe confirmed mainView retention
                 // rather than recording the target of a possibly rejected navigation.
-                // The deleted-session compatibility projection is unchanged here.
-                let cachedBaseSess: ReturnType<SearchSessionsApi['list']['getSnapshot']> | undefined
-                let cachedSessRev = -1
-                let cachedProjSess: ReturnType<SearchSessionsApi['list']['getSnapshot']> | undefined
-                const stopSessProjection = installProjectedList(sessionsApi.list, (base) => {
-                  const f = deltaFeatures.getSnapshot()
-                  if (f.deletedSessionIds.length === 0) return base
-                  if (base === cachedBaseSess && f.revision === cachedSessRev && cachedProjSess) return cachedProjSess
-                  const del = new Set(f.deletedSessionIds)
-                  const nextById: Record<string, SearchSessionRecord> = {}
-                  for (const [k, v] of Object.entries(base.byId)) {
-                    if (!del.has(k)) nextById[k] = v
-                  }
-                  cachedBaseSess = base
-                  cachedSessRev = f.revision
-                  cachedProjSess = {
-                    ...base,
-                    byId: nextById,
-                    ...(Array.isArray(base.ids) ? { ids: base.ids.filter(id => !del.has(id)) } : {}),
-                  }
-                  return cachedProjSess
-                })
-                searchScope.effect(() => stopSessProjection, 'dsh-delta-desktop: deleted sessions snapshot filter')
+                // Host Session catalogs are authoritative; Delta filters its own UI only.
                 deltaFeatures.setSessionsApi(sessionsApi)
                 deltaFeatures.setNavigationApi(navApi)
                 searchScope.effect(() => observeConfirmedMainSession(
