@@ -44,10 +44,36 @@ export function planTextEdit(edit: TextEditInput, isPreflight: boolean): Planned
 
 /** In guarded preflight reject ambiguous matches; legacy mode still replaces the first one. */
 export function applyTextEdit(original: string, edit: Extract<PlannedTextEdit, { action: 'replace' }>, shouldRequireUnique = false): string {
-  const index = original.indexOf(edit.find)
-  if (index === -1) throw new Error('find substring not present')
-  if (shouldRequireUnique && original.indexOf(edit.find, index + 1) !== -1) {
+  // Match newline spellings without normalizing the entire file, which would
+  // change unrelated bytes and invalidate guarded snapshots. Keep exact
+  // literal semantics for searches that do not contain a newline.
+  const find = edit.find.replace(/\r\n/g, '\n')
+  if (!find.includes('\n')) {
+    const index = original.indexOf(edit.find)
+    if (index === -1) throw new Error('find substring not present')
+    if (shouldRequireUnique && original.indexOf(edit.find, index + 1) !== -1) {
+      throw new Error('find substring matches multiple locations; supply a more specific target')
+    }
+    return original.slice(0, index) + edit.replace + original.slice(index + edit.find.length)
+  }
+  const escaped = find.split('\n').map(part => part.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&'))
+  const pattern = new RegExp(escaped.join('(?:\\r\\n|(?<!\\r)\\n)'), 'g')
+  const match = pattern.exec(original)
+  if (!match) throw new Error('find substring not present')
+  // Check overlapping matches too, just as the literal search did.
+  pattern.lastIndex = match.index + 1
+  if (shouldRequireUnique && pattern.exec(original)) {
     throw new Error('find substring matches multiple locations; supply a more specific target')
   }
-  return original.slice(0, index) + edit.replace + original.slice(index + edit.find.length)
+  const matched = match[0]
+  const hasCrLf = matched.includes('\r\n')
+  const hasLf = /(?<!\r)\n/.test(matched)
+  let replacement = edit.replace
+  if (hasCrLf && hasLf) {
+    // An ambiguous mixed-ending span must not be silently converted.
+    if (matched !== edit.find) throw new Error('mixed line endings in target; supply exact find text')
+  } else {
+    replacement = replacement.replace(/\r?\n/g, hasCrLf ? '\r\n' : '\n')
+  }
+  return original.slice(0, match.index) + replacement + original.slice(match.index + matched.length)
 }

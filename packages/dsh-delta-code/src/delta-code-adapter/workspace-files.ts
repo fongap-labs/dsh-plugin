@@ -7,7 +7,7 @@ import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { resolveInside, isPathInside, SandboxViolationError } from '@fongap-labs/shared'
 import type { Settings } from '../types.js'
 import { requireHostFs } from './providers/dsh/host-fs.js'
-import { writeDshHostText } from './providers/dsh/fs-write.js'
+import { resolveDshFsSandboxPolicy, writeDshHostText } from './providers/dsh/fs-write.js'
 import { lookupDshWorkingDirectory } from './providers/dsh/host-adapter.js'
 import type { HostFsCapabilities, HostWriteIntent } from './providers/dsh/host-fs.js'
 
@@ -134,7 +134,7 @@ export async function validateWriteTargetSafe(
       const { intent } = await guardedWriteTarget(fs, root, absolute, exec.signal)
       return intent
     }
-    if (settings?.fsWriteContract === 'native-unguarded') {
+    if (settings?.fsWriteContract === 'native-unguarded' || (fs as HostFsCapabilities).sandboxMode !== undefined) {
       await nativeWriteTarget(fs, root, absolute, exec.signal)
       return undefined
     }
@@ -392,18 +392,29 @@ export async function writeTextSafe(
   const fs = requireHostFs(ctx, ['resolve', 'writeText'], 'refusing local fallback')
   if (fs) {
     const signal = exec.signal
+    const policyFs = fs as HostFsCapabilities
+    // Resolve at each mutation (including guarded recovery) so session mode
+    // changes take effect without a plugin reload or locally cached grants.
+    const resolvePolicy = () => resolveDshFsSandboxPolicy(
+      ctx as unknown as { get(name: 'sandboxPolicy'): unknown }, policyFs,
+      exec as unknown as { agent?: { session?: unknown } },
+    )
     if (settings?.fsWriteContract === 'guarded-intent') {
       const { target, intent } = await guardedWriteTarget(fs, root, absolute, signal)
       // Never replace the preflight snapshot's version with a newer one:
       // the Host must atomically reject concurrent changes, not adopt them.
-      return writeDshHostText(fs, target, content, signal, 'guarded-intent', pinnedIntent ?? intent)
+      return writeDshHostText(fs, target, content, signal, 'guarded-intent', pinnedIntent ?? intent, resolvePolicy())
     }
     if (settings?.fsWriteContract === 'native-unguarded') {
       const target = await nativeWriteTarget(fs, root, absolute, signal)
-      return writeDshHostText(fs, target, content, signal, 'native-unguarded')
+      return writeDshHostText(fs, target, content, signal, 'native-unguarded', undefined, resolvePolicy())
     }
-    const resolved = await fs.resolve(absolute, { cwd: root, signal })
-    await writeDshHostText(fs, resolved, content, signal, 'legacy-overwrite')
+    // Sandbox-aware providers must retain Delta's own workspace boundary,
+    // even when the Host grants the session broader permissions.
+    const resolved = policyFs.sandboxMode !== undefined
+      ? await nativeWriteTarget(fs, root, absolute, signal)
+      : await fs.resolve(absolute, { cwd: root, signal })
+    await writeDshHostText(fs, resolved, content, signal, 'legacy-overwrite', undefined, resolvePolicy())
     return
   }
   if (settings?.fsWriteContract === 'guarded-intent' ||

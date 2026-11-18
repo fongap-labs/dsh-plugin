@@ -316,3 +316,20 @@ describe('Delta Code Worker Host Git worktree authority', () => {
     }, execute()), /host subprocess service is required/)
   })
 })
+
+describe('Workspace map authorized absolute cwd', () => {
+  it('uses a Host-authorized absolute path without leaking it into display paths', async () => {
+    const f = fixture()
+    const data = await createWorkspaceMapTool(f.ctx, f.settings).execute({
+      cwd: join(ROOT, 'repo-b'), query: 'runtime',
+    }, execute())
+    assert.deepEqual(data.repositories, ['repo-b'])
+    assert.deepEqual(data.selected, ['repo-b/src/runtime.ts'])
+  })
+  it('maps the explicit workspace root and denies an outside absolute path', async () => {
+    const f = fixture({ rootIsRepo: true })
+    const tool = createWorkspaceMapTool(f.ctx, f.settings)
+    assert.deepEqual((await tool.execute({ cwd: ROOT }, execute())).repositories, ['.'])
+    await assert.rejects(tool.execute({ cwd: '/outside' }, execute()), /escapes Host workspace/)
+  })
+})

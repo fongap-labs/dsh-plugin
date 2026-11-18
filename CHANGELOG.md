@@ -512,6 +512,8 @@
 
 - 维护: 对齐 Delta Desktop README、兼容性说明与 feature-readiness.json，明确缺少公开扩展契约的功能保持未交付。
 
+- 修复: Delta Code 同步宿主会话沙箱策略，兼容换行匹配，准确传播批量编辑失败，支持授权绝对路径和多模块项目识别。
+
 ## [0.1.0-beta.1](https://github.com/fongap-labs/dsh-plugin/releases/tag/dsh-suite-delta-v0.1.0-beta.1) - 2026-11-03
 
 ### 新增

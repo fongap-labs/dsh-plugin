@@ -60,3 +60,24 @@ describe('Shared multi-edit validation and first-match text transformation', () 
     assert.equal(input.find, '.')
   })
 })
+
+describe('Multi-edit newline compatibility', () => {
+  it('matches LF input in CRLF files and preserves unrelated bytes and CRLF replacements', () => {
+    const plan = planTextEdit({ find: 'first\nsecond', replace: 'third\nfourth' }, true)
+    assert.equal(applyTextEdit('before\r\nfirst\r\nsecond\r\nafter\n', plan, true),
+      'before\r\nthird\r\nfourth\r\nafter\n')
+  })
+  it('matches CRLF input in LF files without adding CRLF', () => {
+    const plan = planTextEdit({ find: 'first\r\nsecond', replace: 'third\r\nfourth' }, false)
+    assert.equal(applyTextEdit('first\nsecond\n', plan), 'third\nfourth\n')
+  })
+  it('rejects ambiguity across newline styles in preflight', () => {
+    const plan = planTextEdit({ find: 'a\nb', replace: 'c' }, true)
+    assert.throws(() => applyTextEdit('a\r\nb\na\nb', plan, true), /multiple locations/)
+  })
+})
+
+it('does not mistake the LF inside a CRLF pair for a second match', () => {
+  const plan = planTextEdit({ find: '\n', replace: '!' }, true)
+  assert.equal(applyTextEdit('a\r\nb', plan, true), 'a!b')
+})
