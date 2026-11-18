@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 会话逻辑移动映射拒绝 __proto__、constructor、toString 等对象原型保留键及非法路径标识；读取旧持久化状态时跳过危险键，保留既有锁定与删除墓碑（Issue #333）。
+
 - 修复: 会话删除时的 session_projcache 清理现在验证真实 DSH_HOME 归属，阻止通过外部目录符号链接或 Windows junction 删除其他目录的同名缓存文件（Issue #333）。
 
 - 修复: 会话日志物理删除在词法路径检查之外，再校验根目录与候选路径解析后的真实位置，防止通过目录符号链接删除 Harness 会话根目录外的文件（Issue #333）。
