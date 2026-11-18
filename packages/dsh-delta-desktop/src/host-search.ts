@@ -355,6 +355,8 @@ export function installHostSessionSearch(
   ctx: SearchHostContext,
   options?: {
     isExcluded?: (sessionId: string) => boolean
+    prepareExclusion?: () => Promise<unknown>
+    readExclusion?: () => (sessionId: string) => boolean
     registerInvalidator?: (fn: (sessionId: string) => void) => void
   },
 ): () => void {
@@ -364,8 +366,32 @@ export function installHostSessionSearch(
     if (!isDisposed) corpusCache.delete(sessionId)
   })
 
+  // All checks use current policy, never the result of a pre-observation check
+  // after an await. A malformed/unavailable policy excludes the row.
+  const readExclusion = (): ((sessionId: string) => boolean) => {
+    try {
+      const current = options?.readExclusion?.()
+      if (options?.readExclusion && typeof current !== 'function') return () => true
+      return id => {
+        try { return Boolean(current?.(id) || options?.isExcluded?.(id)) }
+        catch { return true }
+      }
+    } catch { return () => true }
+  }
+  const isExcluded = (id: string): boolean => {
+    if (!isDisposed && !readExclusion()(id)) return false
+    corpusCache.delete(id)
+    return true
+  }
+  const filterCurrent = (payload: HostSearchResponsePayload): HostSearchResponsePayload => {
+    if (isDisposed) return { items: [], truncated: false, redacted: true }
+    const exclude = readExclusion()
+    for (const id of corpusCache.keys()) if (exclude(id)) corpusCache.delete(id)
+    return { ...payload, items: payload.items.filter(hit => !exclude(hit.sessionId)) }
+  }
+
   const getCachedOrObserve = async (summary: SessionSummary): Promise<SessionTextBlock[]> => {
-    if (isDisposed) return []
+    if (isExcluded(summary.sessionId)) return []
     const now = Date.now()
     const cached = corpusCache.get(summary.sessionId)
     if (cached && cached.updatedAt === summary.updatedAt && now - cached.cachedAt < CORPUS_TTL_MS) {
@@ -385,9 +411,9 @@ export function installHostSessionSearch(
     let lease: ObservationLeaseLike | undefined
     try {
       lease = await sessionQuery.observeSession(summary.sessionId, { projectionMode: 'none' })
+      // A protection change during observation must not extract or cache text.
+      if (isExcluded(summary.sessionId)) return []
       const blocks = extractConversationBlocks(lease?.events)
-      // An observation can finish after plugin teardown; never recreate cleared cache.
-      if (isDisposed) return []
       if (corpusCache.size >= MAX_CORPUS_ENTRIES) {
         const oldestKey = corpusCache.keys().next().value
         if (oldestKey !== undefined) corpusCache.delete(oldestKey)
@@ -498,6 +524,14 @@ export function installHostSessionSearch(
     const { q, limit, workspaceId } = readJsonParam(rawUrl)
     if (!q) return { items: [], truncated: false, redacted: true }
 
+    // Load the durable protection state before enumerating or observing content.
+    // Never search against the initial empty in-memory state of a cold store.
+    try { await options?.prepareExclusion?.() } catch {
+      corpusCache.clear()
+      return empty()
+    }
+    if (isDisposed) return empty()
+    filterCurrent(empty())
     const startMs = Date.now()
     const summaries = await listSummaries(workspaceId)
     if (isDisposed) return empty()
@@ -510,22 +544,21 @@ export function installHostSessionSearch(
         isTruncated = true
         break
       }
-      if (options?.isExcluded?.(summary.sessionId)) {
-        corpusCache.delete(summary.sessionId)
-        continue
-      }
+      if (isExcluded(summary.sessionId)) continue
       const blocks = await getCachedOrObserve(summary)
       if (isDisposed) return empty()
+      if (isExcluded(summary.sessionId)) continue
       const hit = scoreAndExtractSessionHit(q, summary, blocks)
       if (hit) hits.push(hit)
     }
 
-    hits.sort((a, b) => (b.score - a.score) || (b.updatedAt - a.updatedAt))
-    if (hits.length > limit) {
+    const currentHits = filterCurrent({ items: hits, truncated: isTruncated, redacted: true }).items
+    currentHits.sort((a, b) => (b.score - a.score) || (b.updatedAt - a.updatedAt))
+    if (currentHits.length > limit) {
       isTruncated = true
     }
     return {
-      items: hits.slice(0, limit),
+      items: currentHits.slice(0, limit),
       truncated: isTruncated,
       redacted: true,
     }
@@ -553,7 +586,7 @@ export function installHostSessionSearch(
           requestBody: 'buffered',
           fetch: async (request) => {
             const payload = await executeQuery(request?.url ?? '')
-            return makeJsonResponse(payload)
+            return makeJsonResponse(filterCurrent(payload))
           },
         })
       })
