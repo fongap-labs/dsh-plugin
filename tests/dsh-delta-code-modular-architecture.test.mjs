@@ -17,9 +17,14 @@ function mockHost() {
     } },
     inject(dependencies, callback) {
       if (dependencies.includes('skills')) {
-        callback({ skills: { register(skill) {
-          skills.set(skill.name, skill)
-          return () => skills.delete(skill.name)
+        callback({ skills: { registerProvider(factory) {
+          const controller = new AbortController()
+          const provider = factory({ signal: controller.signal, invalidate() {} })
+          skills.set(provider.name, provider)
+          return () => {
+            skills.delete(provider.name)
+            controller.abort(new Error('provider disposed'))
+          }
         } } })
       } else if (dependencies.includes('systemPrompt')) {
         callback({ systemPrompt: {

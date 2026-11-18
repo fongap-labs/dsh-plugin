@@ -37,6 +37,13 @@ Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，�
 
 ## 宿主兼容与依赖
 
+### Skills 能力检测与按需生命周期
+
+Delta Code 不使用旧式 `skills.register()` 作为兼容降级。仅当 Harness 提供可注销的 `skills.registerProvider()` 接口时，才启用内置编程 Skills 与经过审查的 GitHub Skills。Provider 的 `list()` 只返回名称、描述等元数据；用户任务实际需要某项 Skill 时，Harness 原生 `skill` 工具通过 `get()` 按需获取正文。自动路由只提示选用技能，不再在系统提示词中预先展开完整内容。
+
+Host 不提供 `registerProvider` 或注册后没有返回注销函数时，**对应技能功能关闭，不回退旧式注册接口**。若一个不合规 Host 已登记无法注销的 Provider，Delta 会立即将其置为不可用并请求宿主刷新目录；核心编辑、GitHub、LSP、工程验证功能继续按各自能力运行。卸载插件/Host 子上下文时注销可释放的 Provider 并取消远程加载。**已进入历史会话上下文的技能文本不能被插件追溯清除**；需要完整隔离时应开启新会话。此能力以接口检测为准，不以 Harness 版本号判断。
+
+
 与 `dsh-ui-delta` 一致，Code Worker 使用 Harness 的原生 `ctx.tools` 工具注册服务，不将 `@deepseek-ai/dsh-tools` 作为发布包的运行时或 peer 依赖。它的 TypeScript 类型仅供开发时校验，编译后不会强制安装另一份 Host tools。工具注册前仍检查宿主服务是否存在；缺少服务时工具不可用，不会绕过 Harness 的权限或沙箱。
 
 开发构建继续使用仓库锁文件中固定的依赖，**固定开发依赖不等于限定宿主可运行版本**。兼容性由宿主服务接口、回归测试及真实宿主验证共同决定，而不是把每一个候选版本硬编码到包元数据中。若未来 Harness 接口发生不兼容变更，应适配接口并增加验证，而不是无条件声称兼容所有版本。
