@@ -13,7 +13,7 @@ const to = norm.indexOf('        continue\n      }\n\n    }\n  }\n\n  const sync
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'dtd-native-search data-delta-compat',
+  'dtd-host-search data-delta-compat',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 

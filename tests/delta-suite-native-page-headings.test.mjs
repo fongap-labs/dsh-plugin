@@ -20,7 +20,7 @@ test('release integrity pin remains active for the remaining ZIP3 compatibility 
   const emitted = [
     'function installSidebarCompatibility() {}',
     'function installHostSearch() {}',
-    'data-delta-compat dtd-native-search',
+    'data-delta-compat dtd-host-search',
     'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))

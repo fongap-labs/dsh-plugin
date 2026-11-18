@@ -10,7 +10,7 @@ const css = read('packages/dsh-delta-suite/src/theme.css')
 const emitted = (style = css) => [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'data-delta-compat dtd-native-search',
+  'data-delta-compat dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
 ].join('\n')
 

@@ -13,7 +13,7 @@ const end = normalizedSource.indexOf('        // Native session context menu ite
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'data-delta-compat dtd-native-search',
+  'data-delta-compat dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 

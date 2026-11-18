@@ -4075,23 +4075,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]') ??
         document.querySelector<HTMLElement>('[class*="wtg9ga_root"], [class*="SidebarRoot_root"]') ??
         document.querySelector<HTMLElement>('nav')?.parentElement ?? null
-      const navigation = viewport?.querySelector<HTMLElement>(':scope > nav') ??
-        viewport?.querySelector<HTMLElement>('nav') ??
-        document.querySelector<HTMLElement>('nav')
-      const header = viewport?.querySelector<HTMLElement>('[data-sidebar-workspace-header]') ??
-        viewport?.querySelector<HTMLElement>('[class*="sectionHeader"], [class*="GAkraW_sectionHeader"]') ??
-        document.querySelector<HTMLElement>('[data-sidebar-workspace-header]') ??
-        document.querySelector<HTMLElement>('[class*="sectionHeader"], [class*="GAkraW_sectionHeader"]')
-      const nativeInput = header?.querySelector<HTMLInputElement>('input[type="text"]') ??
-        header?.querySelector<HTMLInputElement>('input[class*="searchInput"]') ??
-        document.querySelector<HTMLInputElement>('[data-sidebar-workspace-header] input[type="text"]') ??
-        document.querySelector<HTMLInputElement>('input[class*="searchInput"]') ?? null
-      const nativeSearch = header?.querySelector<HTMLButtonElement>('button[aria-expanded]') ??
-        header?.querySelector<HTMLButtonElement>('button[class*="searchButton"]') ??
-        header?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="\u641C\u7D22"]') ??
-        document.querySelector<HTMLButtonElement>('[data-sidebar-workspace-header] button[aria-expanded]') ??
-        document.querySelector<HTMLButtonElement>('button[class*="searchButton"]') ?? null
-      if (!viewport || !navigation || !header || !nativeSearch) {
+      if (!viewport) {
         if (mounted.size > 0 || root?.hasAttribute?.('data-delta-compat')) reset()
         syncElasticLayout()
         return
@@ -4099,75 +4083,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       if (root.getAttribute('data-delta-compat') !== '1') root.setAttribute('data-delta-compat', '1')
       if (root.getAttribute('data-delta-compat-status') !== 'mounted') root.setAttribute('data-delta-compat-status', 'mounted')
 
-      // If service-backed search is mounted, delegate search to it; otherwise mount proxy search.
-      const hasServiceSearch = viewport.querySelector('[data-delta-search="sessions"]')
-      if (hasServiceSearch) {
-        mounted.get('search')?.remove()
-        mounted.delete('search')
-      } else {
-        let search = mounted.get('search')
-        if (!search || !search.isConnected) {
-          search = document.createElement('div')
-          search.className = 'dtd-native-search'
-          search.setAttribute('data-delta-search', '')
-
-          search.appendChild(createSearchIconSvg())
-
-          const input = document.createElement('input')
-          input.type = 'search'
-          input.className = 'dtd-native-search-input'
-          const initDict = DICTIONARIES[language()] ?? DICTIONARIES.en
-          input.setAttribute('aria-label', initDict.ui.searchSessions)
-          input.placeholder = initDict.searchPalette.sidebarPlaceholder
-          input.maxLength = 500
-          input.addEventListener('input', () => {
-            const hostHeader = document.querySelector<HTMLElement>('[data-sidebar-workspace-header]') ??
-              document.querySelector<HTMLElement>('[class*="sectionHeader"], [class*="GAkraW_sectionHeader"]')
-            let hostInput = hostHeader?.querySelector<HTMLInputElement>('input[type="text"]') ??
-              hostHeader?.querySelector<HTMLInputElement>('input[class*="searchInput"]') ??
-              document.querySelector<HTMLInputElement>('[data-sidebar-workspace-header] input[type="text"]') ??
-              document.querySelector<HTMLInputElement>('input[class*="searchInput"]')
-            const hostButton = hostHeader?.querySelector<HTMLButtonElement>('button[aria-expanded]') ??
-              hostHeader?.querySelector<HTMLButtonElement>('button[class*="searchButton"]') ??
-              hostHeader?.querySelector<HTMLButtonElement>('button[aria-label*="search" i], button[aria-label*="\u641C\u7D22"]') ??
-              document.querySelector<HTMLButtonElement>('[data-sidebar-workspace-header] button[aria-expanded]') ??
-              document.querySelector<HTMLButtonElement>('button[class*="searchButton"]')
-            if (hostButton && hostButton.getAttribute('aria-expanded') !== 'true') hostButton.click()
-            if (!hostInput) hostInput = document.querySelector<HTMLInputElement>('[data-sidebar-workspace-header] input[type="text"]') ??
-              document.querySelector<HTMLInputElement>('input[class*="searchInput"]')
-            if (!hostInput) return
-            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-            setter?.call(hostInput, input.value)
-            hostInput.dispatchEvent(new Event('input', { bubbles: true }))
-            input.focus()
-          })
-          input.addEventListener('keydown', event => {
-            if (event.key !== 'Escape') return
-            input.value = ''
-            input.dispatchEvent(new Event('input', { bubbles: true }))
-            input.blur()
-          })
-          search.appendChild(input)
-          mounted.set('search', search)
-        }
-        const navParent = navigation.parentElement ?? viewport
-        if (search.parentElement !== navParent || search.nextElementSibling !== navigation) {
-          navParent.insertBefore(search, navigation)
-        }
-        const proxy = search.querySelector<HTMLInputElement>('input')
-        if (proxy && nativeInput && document.activeElement !== proxy && proxy.value !== nativeInput.value) {
-          proxy.value = nativeInput.value
-        }
-      }
-
-      const dict = DICTIONARIES[language()] ?? DICTIONARIES.en
-      const searchPlaceholder = dict.searchPalette.sidebarPlaceholder
-      const searchEl = mounted.get('search')
-      const searchProxy = searchEl?.querySelector?.<HTMLInputElement>('input')
-      if (searchProxy && searchProxy.placeholder !== searchPlaceholder) {
-        searchProxy.placeholder = searchPlaceholder
-        searchProxy.setAttribute?.('aria-label', dict.ui.searchSessions)
-      }
+      // Native sidebar search remains Harness-owned. Delta search uses its own
+      // sessions/navigation service path without synthetic native input events.
 
       // The native new-session button stays under Harness ownership.
       processHoverCards()
@@ -5760,8 +5677,6 @@ function installHostSearch(
         }
         return
       }
-      const staleNative = navParent.querySelector?.<HTMLElement>('.dtd-native-search')
-      if (staleNative && staleNative !== shell) staleNative.remove?.()
       if (shell.parentElement !== navParent || shell.nextElementSibling !== navigationRow) {
         navParent.insertBefore(shell, navigationRow)
       }
