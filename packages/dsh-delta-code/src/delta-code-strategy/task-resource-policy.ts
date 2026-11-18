@@ -2,7 +2,7 @@
 import { isExternalSkillOptOut } from './trusted-github-skills.js'
 import { OFFICIAL_DOCS, CROSS_REPO, SKILL_DISCOVERY, NATIVE_TOOLS } from './builtin-task-signals.js'
 import { matchesDeclarativeRule, type DeclarativePatternRule } from './declarative-rules.js'
-export type TaskResource = 'official-docs' | 'cross-repo' | 'native-tools' | 'skill-discovery'
+export type TaskResource = 'official-docs' | 'cross-repo' | 'native-tools' | 'skill-discovery' | (string & {})
 
 
 /** Reviewed resource descriptions, with their selection and guidance kept together. */
