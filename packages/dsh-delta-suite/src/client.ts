@@ -3007,7 +3007,6 @@ const deltaFeatures = createClientFeatureManager()
 function installSidebarCompatibility(controller: DeltaController): () => void {
   const root = document.documentElement
   const mounted = new Map<string, HTMLElement>()
-  const initialized = new Set<string>()
   const getUiCopy = (): DeltaCopy['ui'] => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
   const boundTooltips = new WeakSet<Element>()
   let tooltipEl: HTMLElement | undefined
@@ -3683,14 +3682,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     root?.removeAttribute?.('data-delta-compat')
     root?.removeAttribute?.('data-delta-compat-status')
   }
-  const persistedExpansion = (): Record<string, boolean> => {
-    try {
-      const stored = JSON.parse(localStorage.getItem('dsh.workspace.view.v5') ?? '{}') as {
-        groupExpansion?: Record<string, boolean>
-      }
-      return stored.groupExpansion ?? {}
-    } catch { return {} }
-  }
   const BLOCKED_COMMAND_RE = /^\/(?:export|feedback)(?:\s|$)/i
   const SETTINGS_HIDDEN_TEXT_RE = /^(?:\u5F53\u524D\u7248\u672C|Current version)\s*[:：]|\u4E0A\u4F20\s*Session\s*Log|Upload\s+session\s+log|\u5E2E\u52A9\u6539\u8FDB\s*DeepSeek/i
   const LOCKED_UNARCHIVE_LABELS = new Set(['\u53D6\u6D88\u5F52\u6863', 'Unarchive', 'Unarchive session'])
@@ -4247,18 +4238,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       syncElasticLayout()
       syncModalPanel()
 
-      const saved = persistedExpansion()
-      for (const row of viewport.querySelectorAll<HTMLElement>('[data-row-key^="workspace:"][aria-expanded="true"], [class*="workspace"][aria-expanded="true"]')) {
-        const key = row.getAttribute('data-row-key')?.slice('workspace:'.length) ?? ''
-        if (!key) continue
-        if (deltaFeatures.isWorkspaceLocked(key)) {
-          row.click()
-          continue
-        }
-        if (initialized.has(key) || saved[key] !== undefined) continue
-        initialized.add(key)
-        row.click()
-      }
+      // Workspace expansion belongs to Harness. Do not read private view state or
+      // synthesize clicks until a supported public collapse capability exists.
     } catch (error) {
       reset()
       console.error('[dsh-delta-suite] Native compatibility disabled:', error)

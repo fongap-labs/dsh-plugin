@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 移除通过 Harness 私有工作区展开状态及模拟 DOM 点击强制折叠原生工作区的逻辑，缺少公开接口时保持原生行为并更新 ZIP3 发布校验与回归测试（Issue #333）。
+
 - 修复 [breaking, migration]: 插件统一命名为 `dsh-delta-suite`、`Delta 扩展套件` 和 `Delta Suite`，同步源码目录、Cordis 注册名、客户端与 Host 接口、构建校验、发行资产及测试路径；不改变 Harness 原生插件接管边界。
 - 修复 [breaking, migration]: 更名后首次加载安全迁移先前 Profile 状态，完整保留会话锁定、删除墓碑与 2FA 配置；导入失败时拒绝以空状态继续运行，并新增源代码命名检查和迁移回归。
 
