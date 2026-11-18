@@ -560,20 +560,8 @@
   color: var(--dtd-spinner-color) !important;
 }
 
-/* Context & View-Options Menu Dynamic Reordering (pure flex order, React-safe) */
-:root[data-delta-ui="delta"] :is([class*="_viewport_1p5el"], [class*="_footer_1p5el"], [class*="_viewport_"], [class*="_footer_"], [role="menu"]) {
-  display: flex !important;
-  flex-direction: column !important;
-}
-:root[data-delta-ui="delta"] [class*="_footer_"] {
-  border-top: 1px solid var(--dtd-border, rgba(0, 0, 0, 0.08)) !important;
-  margin-top: 4px !important;
-  padding-top: 4px !important;
-}
-:root[data-delta-ui="delta"][data-ds-dark-theme="true"] [class*="_footer_"] {
-  border-top-color: var(--dtd-border, rgba(255, 255, 255, 0.08)) !important;
-}
-:root[data-delta-ui="delta"] [data-dtd-hidden-footer-sep="1"] { display: none !important; }
+/* Harness owns native menu layout, footer separation, and third-party items.
+ * Delta does not force menu Flex layout or hide Host footer separators. */
 
 /* ============================================================================
  * 4. Settings Page and Host Navigation Tail Order

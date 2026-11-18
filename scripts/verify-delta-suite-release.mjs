@@ -152,12 +152,14 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: native hover-card class injection, global mouseover scanner and private card CSS removed; official Slot preserved.
 // Reviewed 2026-11-18: retired native Harness modal panel drag and mask/panel overrides;
 // Host owns native Dialog chrome; Delta-owned dialogs retain their own CSS and service guards.
-const ZIP3_THEME_BLOB = 'adf95c502bcb26486ea0e456d55f55fa4c254c79'
+// Reviewed 2026-11-18: retired native workspace lock-row DOM deletion and broad
+// Host menu/footer Flex rules; service ACL and locked/sole-workspace guards remain.
+const ZIP3_THEME_BLOB = 'f51224467cfe0515406d63842c96b5697bf5a8b4'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'bfd77d6021f86630adb6baaf0dc4676c671b245a',
+    sha1: '419b604ec9e5018e6fb071b58754b402020d3b5b',
   },
   {
     begin: 'function installHostSearch(',
