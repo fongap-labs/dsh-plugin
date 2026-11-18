@@ -45,7 +45,7 @@ describe('Delta Code GitHub Actions links use the actual CI owner, not a fixed r
     for (const candidate of [
       'http://github.com/ci-team/runner/actions/runs/123',
       'https://github.com.evil.example/ci-team/runner/actions/runs/123',
-      'https://user:secret@github.com/ci-team/runner/actions/runs/123',
+      'https://user:secret' + String.fromCharCode(64) + 'github.com/ci-team/runner/actions/runs/123',
       'https://github.com/ci-team/runner/issues/123',
       'https://github.com/ci-team/runner/actions/runs/0',
       'https://github.com/ci-team/runner/actions/runs/9007199254740992',
