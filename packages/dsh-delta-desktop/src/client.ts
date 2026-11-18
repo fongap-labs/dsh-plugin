@@ -1831,9 +1831,16 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
   }
 
+  // Preserve the last confirmed lock membership while revoking authorization.
+  // Reset the sync flag so ensureLoaded may retry after transient Host failures.
+  const revokeHostConfirmation = (): void => {
+    hasSyncedStateFromHost = false
+    if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+  }
+
   const refreshState = async (): Promise<void> => {
     if (!canCallHostHttp()) {
-      if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+      revokeHostConfirmation()
       return
     }
     if (refreshInFlight) return refreshInFlight
@@ -1841,21 +1848,18 @@ function createClientFeatureManager(): ClientFeatureManager {
     refreshInFlight = (async () => {
       try {
         const [stRes, pxRes, vsRes] = await Promise.all([
-          fetch('/api/delta-desktop/state', { credentials: 'same-origin' }),
-          fetch('/api/delta-desktop/proxy', { credentials: 'same-origin' }),
+          fetch('/api/delta-desktop/state', { credentials: 'same-origin' }).catch(() => null),
+          fetch('/api/delta-desktop/proxy', { credentials: 'same-origin' }).catch(() => null),
           fetch('/api/delta-desktop/vision/status', { credentials: 'same-origin' }).catch(() => null),
         ])
-        if (stRes.ok) {
+        if (stRes?.ok) {
           const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
           if (isConfirmedLockState(stData?.state)) {
             hasSyncedStateFromHost = true
             applyHostStatePayload(stData!.state)
-          } else {
-            hasSyncedStateFromHost = false
-            if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
-          }
-        } else if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
-        if (pxRes.ok) {
+          } else revokeHostConfirmation()
+        } else revokeHostConfirmation()
+        if (pxRes?.ok) {
           const pxData = (await pxRes.json().catch(() => null)) as { proxy?: ClientProxyConfig; effective?: ClientEffectiveProxy } | null
           if (pxData?.proxy) {
             publish({
@@ -1873,7 +1877,7 @@ function createClientFeatureManager(): ClientFeatureManager {
           })
         }
       } catch {
-        if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+        revokeHostConfirmation()
       }
       finally {
         refreshInFlight = undefined
