@@ -387,7 +387,7 @@ test('logical workspace moves never rewrite native session files, including on f
     const sourceDir = join(root, 'original', 'session-demo')
     const sourceFile = join(sourceDir, 'session.jsonl')
     const targetFile = join(root, 'replacement', 'session-demo', 'session.jsonl')
-    const original = '{"id":"demo","cwd":"/old"}\\n{"kind":"message","text":"preserve me"}\\n'
+    const original = '{"id":"demo","cwd":"/old"}\n{"kind":"message","text":"preserve me"}\n'
     mkdirSync(sourceDir, { recursive: true })
     writeFileSync(sourceFile, original, 'utf8')
     let persistenceReads = 0
