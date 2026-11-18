@@ -10,6 +10,7 @@ import { createGitHubSkillDiscoverySpecs } from './github-skill-discovery.js'
 export interface DeltaGitHubExecution {
   readonly signal: AbortSignal
   readonly agent?: unknown
+  readonly account?: string
 }
 export type DeltaGitHubRepositoryResolver =
   (requested: string | undefined, exec: DeltaGitHubExecution) => Promise<string>
@@ -31,7 +32,7 @@ function createGitHubRequest(
     data?: unknown,
   ): Promise<{ repository: string; account: string; data: any }> {
     const repo = await resolveRepo(repository, exec)
-    const account = selectGitHubAccount(settings.githubAccounts, repo)
+    const account = selectGitHubAccount(settings.githubAccounts, repo, exec.account)
     return transport.request({
       repository: repo, account: account.owner,
       method, path: path(repo), data, signal: exec.signal,
@@ -51,7 +52,11 @@ function tool(
   parameters: Record<string, any>,
   action: (args: any, exec: DeltaGitHubExecution) => Promise<{ repository: string; account: string; result: string }>,
 ): DeltaGitHubToolSpec {
-  return { name: 'code_github_' + name, description, parameters, execute: action }
+  return {
+    name: 'code_github_' + name, description,
+    parameters: { ...parameters, account: optional },
+    execute: (args, exec) => action(args, { ...exec, account: args.account }),
+  }
 }
 
 export function createGitHubToolSpecs(
@@ -281,6 +286,11 @@ export function createGitHubToolSpecs(
         }
       }),
 
-    ...createGitHubSkillDiscoverySpecs(settings, transport, resolveRepo),
+    ...createGitHubSkillDiscoverySpecs(settings, transport, resolveRepo).map(spec => ({
+      ...spec,
+      parameters: { ...spec.parameters, account: optional },
+      execute: (args: any, exec: DeltaGitHubExecution) =>
+        spec.execute(args, { ...exec, account: args.account }),
+    })),
   ]
 }
