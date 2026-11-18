@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 退役 Delta 对 Harness 三栏网格、原生分隔条指针事件、边缘折叠按钮与持久化宽度的私有兼容接管；保留原生布局和拖动，清理对应 CSS，并同步 ZIP3 审核哈希及回归保护（Issue #333）。
+
 - 修复: 停用 Delta 搜索向 Harness 侧栏 DOM 插入搜索框及私有定位/观察逻辑，改由已确认的 `conversation.input.left` 公开 Slot 打开 Search Palette，保留原生搜索和发布完整性校验（Issue #333）。
 
 - 修复: 服务式 Delta 侧栏搜索仅在已识别的 Harness 侧栏滚动区域内挂载；没有直属导航时仅清理插件 UI 并让原生搜索继续工作；过滤无关及 Delta 自有结果区域 DOM 变化，避免重复同步（Issue #333）。

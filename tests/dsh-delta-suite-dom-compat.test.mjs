@@ -89,6 +89,34 @@ test('service search uses only the public composer Slot, never inserts a Host si
   assert.doesNotMatch(search, /new MutationObserver\(scheduleSync\)/)
 })
 
+test('Host owns frame columns, splitters and expand/collapse behavior without Delta pointer hijacking', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('\n' + 'type SearchTabId', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const compat = source.slice(begin, end)
+  for (const forbidden of [
+    /syncElasticLayout|resetElasticLayout|onSplitterPointerDown/,
+    /splitGridTracks|readStoredPaneWidth|writeStoredPaneWidth/,
+    /mP3x-q_frame|mP3x-q_handle/,
+    /dtd-edge-toggle|data-dtd-elastic|data-dtd-sidebar-open|data-dtd-rightbar-open/,
+    /--dtd-sidebar-col|--dtd-rightbar-col|--dsh-windows-sidebar-width/,
+    /dsh-delta-suite:(?:sidebar|rightbar)-width/,
+    /frameResizeObserver|modifiedHandles|activeDragCleanup/,
+  ]) assert.doesNotMatch(compat, forbidden)
+  for (const forbidden of [
+    /data-dtd-elastic|data-dtd-sidebar-open|data-dtd-rightbar-open/,
+    /dtd-edge-toggle|mP3x-q_handle|mP3x-q_frame/,
+    /--dtd-sidebar-col|--dtd-rightbar-col|--dtd-pane-min-width/,
+    /grid-template-columns:[^;]*--dtd/,
+  ]) assert.doesNotMatch(style, forbidden)
+  assert.match(compat, /syncPrivacyDom\(\)/)
+  assert.match(compat, /syncSettingsNav\(\)/)
+  assert.match(compat, /syncMenus\(\)/)
+  assert.match(compat, /syncModalPanel\(\)/)
+  assert.match(compat, /onModalPointerDown\(e\)/)
+  assert.equal(readiness.required.sidebar_spacing, false, 'unverified layout capability must stay disabled')
+})
+
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

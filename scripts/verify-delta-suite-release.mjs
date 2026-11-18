@@ -148,12 +148,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: retired native sidebar search proxy/input mirroring and restored original Harness search slot.
 // Reviewed 2026-11-18: replaced private service-search sidebar insertion with a public composer Search Palette entry.
 // Reviewed 2026-11-18: PR #392 scoped legacy Host sidebar placement; this is superseded by public Slot ownership.
-const ZIP3_THEME_BLOB = '864b38d877553209ca4628900aaa0d4c40439892'
+// Reviewed 2026-11-18: retired private three-column resizing, synthetic edge buttons, persisted layout widths and Host splitter pointer interception; native layout is authoritative.
+const ZIP3_THEME_BLOB = '34643a473388f4f46a594df25a839c3397014709'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '7da89e5739fb35e22746274ffcdd8b5f8f11f002',
+    sha1: '1cd6cc757df5604cba3aed3951232711c38f171e',
   },
   {
     begin: 'function installHostSearch(',

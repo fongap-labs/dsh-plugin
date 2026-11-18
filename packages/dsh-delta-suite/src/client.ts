@@ -3006,115 +3006,6 @@ const deltaFeatures = createClientFeatureManager()
  */
 function installSidebarCompatibility(controller: DeltaController): () => void {
   const root = document.documentElement
-  const mounted = new Map<string, HTMLElement>()
-  const getUiCopy = (): DeltaCopy['ui'] => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
-  const boundTooltips = new WeakSet<Element>()
-  let tooltipEl: HTMLElement | undefined
-  let tooltipAnchor: HTMLElement | undefined
-  let tooltipTimer: number | undefined
-  let tooltipIdCounter = 0
-
-  const hideTooltip = (): void => {
-    if (tooltipTimer !== undefined) {
-      cancelTimer(tooltipTimer)
-      tooltipTimer = undefined
-    }
-    if (tooltipAnchor) {
-      tooltipAnchor.removeAttribute?.('aria-describedby')
-      tooltipAnchor = undefined
-    }
-    if (tooltipEl) {
-      tooltipEl.hidden = true
-      tooltipEl.setAttribute('hidden', '')
-      tooltipEl.style?.setProperty?.('visibility', 'hidden')
-    }
-  }
-  const ensureTooltipEl = (): HTMLElement => {
-    if (tooltipEl && tooltipEl.isConnected) return tooltipEl
-    const tip = document.createElement('div')
-    tip.className = 'dtd-tooltip'
-    tip.setAttribute('role', 'tooltip')
-    tip.id = `dtd-tooltip-${++tooltipIdCounter}`
-    tip.hidden = true
-    tip.setAttribute('hidden', '')
-    tip.style?.setProperty?.('position', 'fixed', 'important')
-    tip.style?.setProperty?.('pointer-events', 'none', 'important')
-    tip.style?.setProperty?.('visibility', 'hidden')
-    ;(document.body ?? root)?.appendChild?.(tip)
-    tooltipEl = tip
-    return tip
-  }
-  const positionTooltip = (tip: HTMLElement, anchor: HTMLElement): void => {
-    const rect = anchor.getBoundingClientRect?.()
-    if (!rect || typeof window === 'undefined') return
-    const vw = window.innerWidth || 1200
-    const vh = window.innerHeight || 800
-    const tipRect = tip.getBoundingClientRect?.() ?? { width: 80, height: 28 }
-    const side = anchor.getAttribute?.('data-dtd-tooltip-side') || 'top'
-    let left = rect.left + rect.width / 2 - tipRect.width / 2
-    let top = rect.top - tipRect.height - 6
-    if (side === 'right') {
-      left = rect.right + 8
-      top = rect.top + rect.height / 2 - tipRect.height / 2
-    } else if (side === 'left') {
-      left = rect.left - tipRect.width - 8
-      top = rect.top + rect.height / 2 - tipRect.height / 2
-    } else if (top < 8) {
-      top = rect.bottom + 6
-    }
-    left = Math.max(8, Math.min(left, vw - tipRect.width - 8))
-    top = Math.max(8, Math.min(top, vh - tipRect.height - 8))
-    tip.style?.setProperty?.('left', `${Math.round(left)}px`, 'important')
-    tip.style?.setProperty?.('top', `${Math.round(top)}px`, 'important')
-  }
-  const showTooltipNow = (anchor: HTMLElement): void => {
-    if (isDisposed || controller.getSnapshot().mode !== 'delta') return
-    const text = anchor.getAttribute?.('data-dtd-tooltip')?.trim()
-    if (!text) return
-    const tip = ensureTooltipEl()
-    tooltipAnchor = anchor
-    if (tip.textContent !== text) tip.textContent = text
-    tip.hidden = false
-    tip.removeAttribute?.('hidden')
-    if (tip.id) anchor.setAttribute?.('aria-describedby', tip.id)
-    positionTooltip(tip, anchor)
-    tip.style?.setProperty?.('visibility', 'visible')
-  }
-  const setDeltaTooltip = (el: HTMLElement, label: string, side: 'top' | 'left' | 'right' = 'top'): void => {
-    if (el.hasAttribute?.('title')) el.removeAttribute('title')
-    if (el.getAttribute?.('data-dtd-tooltip') !== label) el.setAttribute('data-dtd-tooltip', label)
-    if (el.getAttribute?.('aria-label') !== label) el.setAttribute('aria-label', label)
-    if (el.getAttribute?.('data-dtd-tooltip-side') !== side) el.setAttribute('data-dtd-tooltip-side', side)
-    if (tooltipAnchor === el && tooltipEl && !tooltipEl.hidden) {
-      tooltipEl.textContent = label
-      positionTooltip(tooltipEl, el)
-    }
-  }
-  const attachTooltipEvents = (el: HTMLElement): void => {
-    if (boundTooltips.has(el) || typeof el.addEventListener !== 'function') return
-    boundTooltips.add(el)
-    el.addEventListener('mouseenter', () => {
-      if (tooltipTimer !== undefined) cancelTimer(tooltipTimer)
-      tooltipTimer = scheduleTimer(() => {
-        tooltipTimer = undefined
-        showTooltipNow(el)
-      }, 220)
-    })
-    el.addEventListener('focus', () => {
-      if (tooltipTimer !== undefined) {
-        cancelTimer(tooltipTimer)
-        tooltipTimer = undefined
-      }
-      showTooltipNow(el)
-    })
-    el.addEventListener('mouseleave', () => {
-      if (tooltipAnchor === el || tooltipTimer !== undefined) hideTooltip()
-    })
-    el.addEventListener('blur', () => {
-      if (tooltipAnchor === el) hideTooltip()
-    })
-    el.addEventListener('pointerdown', () => hideTooltip())
-  }
   let isDisposed = false
   let isSyncing = false
   let observer: MutationObserver | undefined
@@ -3122,390 +3013,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const scheduleSync = (): void => {
     if (!isDisposed) frameScheduler.schedule()
   }
-  const readStoredPaneWidth = (key: string): number | undefined => {
-    try {
-      const raw = localStorage.getItem(key)
-      if (!raw) return undefined
-      const parsed = Number(raw)
-      return Number.isFinite(parsed) && parsed >= 150 ? Math.round(parsed) : undefined
-    } catch { return undefined }
-  }
-  const writeStoredPaneWidth = (key: string, width: number): void => {
-    try { localStorage.setItem(key, String(Math.round(width))) } catch {}
-  }
-  let customSidebarWidth = readStoredPaneWidth('dsh-delta-suite:sidebar-width')
-  let customRightbarWidth = readStoredPaneWidth('dsh-delta-suite:rightbar-width')
-  let frameResizeObserver: ResizeObserver | undefined
-  let observedFrameEl: HTMLElement | undefined
-  const modifiedHandles = new Set<HTMLElement>()
-  let activeDragCleanup: (() => void) | undefined
-
-  const splitGridTracks = (tpl: string): string[] => {
-    const tracks: string[] = []
-    let depth = 0
-    let current = ''
-    for (let i = 0; i < tpl.length; i++) {
-      const ch = tpl[i]
-      if (ch === '(') depth++
-      else if (ch === ')') depth = Math.max(0, depth - 1)
-      if (depth === 0 && /\s/.test(ch)) {
-        if (current) {
-          tracks.push(current)
-          current = ''
-        }
-      } else {
-        current += ch
-      }
-    }
-    if (current) tracks.push(current)
-    return tracks
-  }
-
-  const isZeroGridTrack = (track?: string): boolean => {
-    if (!track) return true
-    const t = track.trim()
-    if (!t || /^0(?:px)?$/i.test(t)) return true
-    const minmaxMatch = /^minmax\(([^,]+),([^)]+)\)$/i.exec(t)
-    if (minmaxMatch) {
-      const maxVal = parseFloat(minmaxMatch[2].trim())
-      return Number.isFinite(maxVal) && maxVal <= 0
-    }
-    const n = parseFloat(t)
-    return Number.isFinite(n) && n <= 0
-  }
-
-  const parseTrackMaxPx = (track: string | undefined, fallback: number): number => {
-    if (!track) return fallback
-    const t = track.trim()
-    const minmaxMatch = /^minmax\(([^,]+),([^)]+)\)$/i.exec(t)
-    const raw = minmaxMatch ? minmaxMatch[2].trim() : t
-    const n = parseFloat(raw)
-    return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback
-  }
-
-  const resetElasticLayout = (): void => {
-    activeDragCleanup?.()
-    activeDragCleanup = undefined
-    frameResizeObserver?.disconnect()
-    frameResizeObserver = undefined
-    observedFrameEl = undefined
-    for (const handle of modifiedHandles) {
-      try {
-        handle.removeAttribute?.('data-dragging')
-        if (handle.dataset?.dtdOrigLeft !== undefined) {
-          if (handle.dataset.dtdOrigLeft) handle.style.left = handle.dataset.dtdOrigLeft
-          else handle.style.removeProperty('left')
-          delete handle.dataset.dtdOrigLeft
-        }
-        if (handle.dataset?.dtdOrigRight !== undefined) {
-          if (handle.dataset.dtdOrigRight) handle.style.right = handle.dataset.dtdOrigRight
-          else handle.style.removeProperty('right')
-          delete handle.dataset.dtdOrigRight
-        }
-      } catch {}
-    }
-    modifiedHandles.clear()
-    if (typeof document?.querySelector === 'function') {
-      try {
-        const frame = document.querySelector<HTMLElement>('[class*="mP3x-q_frame"]')
-        if (frame) {
-          frame.removeAttribute('data-dtd-elastic')
-          frame.removeAttribute('data-dtd-sidebar-open')
-          frame.removeAttribute('data-dtd-rightbar-open')
-          frame.removeAttribute('data-dragging')
-          frame.style?.removeProperty?.('--dtd-sidebar-col')
-          frame.style?.removeProperty?.('--dtd-rightbar-col')
-        }
-      } catch {}
-    }
-  }
-
-  /** Identify whether a host splitter handle belongs to the left sidebar or right panel. */
-  const resolveHandleSide = (
-    handle: HTMLElement,
-    index: number,
-    isHostSidebarOpen: boolean,
-    isHostRightbarOpen: boolean,
-    frameRect?: DOMRect,
-    currentSidebar = 264,
-  ): 'sidebar' | 'rightbar' => {
-    const explicitSide = handle.dataset?.side || handle.getAttribute?.('data-side')
-    if (explicitSide === 'sidebar' || explicitSide === 'rightbar') return explicitSide
-    if (handle.closest?.('[data-sidebar-col], [class*="sidebarCol"]')) return 'sidebar'
-    if (handle.closest?.('[data-rightbar-col], [class*="rightbarCol"]')) return 'rightbar'
-    if (!isHostSidebarOpen && isHostRightbarOpen) return 'rightbar'
-    if (isHostSidebarOpen && !isHostRightbarOpen) return 'sidebar'
-    const handleRect = handle.getBoundingClientRect?.()
-    if (frameRect && handleRect) {
-      return Math.abs((handleRect.left - frameRect.left) - currentSidebar) <= 28 ? 'sidebar' : 'rightbar'
-    }
-    return index === 0 ? 'sidebar' : 'rightbar'
-  }
-
-  const syncElasticLayout = (): void => {
-    if (typeof document?.querySelector !== 'function') return
-    const frame = document.querySelector<HTMLElement>('[class*="mP3x-q_frame"]')
-    if (!frame || !frame.style) return
-    const tracks = splitGridTracks(frame.style.gridTemplateColumns ?? '')
-    const sidebarCol = frame.querySelector?.<HTMLElement>('[data-sidebar-col], [class*="sidebarCol"]') ?? null
-    const rightbarCol = frame.querySelector?.<HTMLElement>('[data-rightbar-col], [class*="rightbarCol"]') ?? null
-    const hasTracks = tracks.length >= 2
-    const isHostSidebarOpen = hasTracks
-      ? !isZeroGridTrack(tracks[0])
-      : Boolean(sidebarCol && (sidebarCol.offsetWidth ?? 1) > 0)
-    const rightbarHasContent = rightbarCol
-      ? ((rightbarCol.childElementCount ?? (rightbarCol as unknown as { children?: { length: number } }).children?.length ?? 0) > 0)
-      : true
-    const isHostRightbarOpen = hasTracks
-      ? (tracks.length >= 3 && !isZeroGridTrack(tracks[2]) && rightbarHasContent)
-      : Boolean(rightbarCol && rightbarHasContent && (rightbarCol.offsetWidth ?? 1) > 0)
-
-    const frameWidth = Math.round(
-      frame.getBoundingClientRect?.().width
-      || frame.clientWidth
-      || (typeof window !== 'undefined' ? window.innerWidth : 0)
-      || 1200
-    )
-
-    const hostSidebarPx = hasTracks ? parseTrackMaxPx(tracks[0], 264) : 264
-    const hostRightbarPx = hasTracks && tracks.length >= 3 ? parseTrackMaxPx(tracks[2], 360) : 360
-
-    let targetRightbar = isHostRightbarOpen ? (customRightbarWidth ?? hostRightbarPx) : 0
-    let targetSidebar = isHostSidebarOpen ? (customSidebarWidth ?? hostSidebarPx) : 0
-
-    if (isHostSidebarOpen) {
-      const reserve = 150 + (isHostRightbarOpen ? 150 : 0)
-      const maxSidebar = Math.max(150, frameWidth - reserve)
-      targetSidebar = Math.max(150, Math.min(targetSidebar, maxSidebar))
-    }
-    if (isHostRightbarOpen) {
-      const reserve = 150 + (isHostSidebarOpen ? targetSidebar : 0)
-      const maxRightbar = Math.max(150, frameWidth - reserve)
-      targetRightbar = Math.max(150, Math.min(targetRightbar, maxRightbar))
-    }
-
-    const nextSidebarAttr = isHostSidebarOpen ? '1' : '0'
-    const nextRightbarAttr = isHostRightbarOpen ? '1' : '0'
-    const nextSidebarCss = isHostSidebarOpen ? `${targetSidebar}px` : '0px'
-    const nextRightbarCss = isHostRightbarOpen ? `${targetRightbar}px` : '0px'
-
-    if (frame.getAttribute('data-dtd-elastic') !== '1') frame.setAttribute('data-dtd-elastic', '1')
-    if (frame.getAttribute('data-dtd-sidebar-open') !== nextSidebarAttr) frame.setAttribute('data-dtd-sidebar-open', nextSidebarAttr)
-    if (frame.getAttribute('data-dtd-rightbar-open') !== nextRightbarAttr) frame.setAttribute('data-dtd-rightbar-open', nextRightbarAttr)
-    if (frame.style.getPropertyValue('--dtd-sidebar-col') !== nextSidebarCss) {
-      frame.style.setProperty('--dtd-sidebar-col', nextSidebarCss)
-    }
-    if (frame.style.getPropertyValue('--dtd-rightbar-col') !== nextRightbarCss) {
-      frame.style.setProperty('--dtd-rightbar-col', nextRightbarCss)
-    }
-    if (isHostSidebarOpen) {
-      frame.style.setProperty('--dsh-windows-sidebar-width', nextSidebarCss)
-    }
-
-    const toggleLeft = (): void => {
-      const ctrl = controller as DeltaController & { toggleSidebarSafe?(): boolean }
-      if (!ctrl.toggleSidebarSafe?.()) {
-        const targetBtn = document.querySelector?.<HTMLElement>('[data-sidebar-toggle]')
-          ?? document.querySelector?.<HTMLElement>('[data-sidebar-opener]')
-        targetBtn?.click()
-      }
-      scheduleSync()
-    }
-    const toggleRight = (btn: HTMLButtonElement): void => {
-      const ctrl = controller as DeltaController & { toggleRightbarSafe?(): boolean }
-      if (!ctrl.toggleRightbarSafe?.()) {
-        const isOpenNow = btn.getAttribute('data-open') === '1'
-        const targetBtn = isOpenNow
-          ? (document.querySelector?.<HTMLElement>('[data-sidebar-right-toggle]')
-            ?? document.querySelector?.<HTMLElement>('[data-sidebar-right-expand]'))
-          : (document.querySelector?.<HTMLElement>('[data-sidebar-right-expand]')
-            ?? document.querySelector?.<HTMLElement>('[data-sidebar-right-toggle]'))
-        targetBtn?.click()
-      }
-      scheduleSync()
-    }
-    const syncEdgeToggle = (side: 'left' | 'right', isOpen: boolean, isVisible: boolean): void => {
-      const key = `edge_${side}`
-      let btn = mounted.get(key) as HTMLButtonElement | undefined
-      if (!btn || !btn.isConnected) {
-        btn = document.createElement('button')
-        btn.type = 'button'
-        btn.className = `dtd-edge-toggle dtd-edge-toggle-${side}`
-        btn.setAttribute('data-dtd-edge-toggle', side)
-        btn.addEventListener('pointerdown', (ev) => {
-          ev.stopPropagation?.()
-          hideTooltip()
-        })
-        btn.addEventListener('click', (ev) => {
-          ev.stopPropagation?.()
-          if (side === 'left') toggleLeft()
-          else toggleRight(btn!)
-        })
-        attachTooltipEvents(btn)
-        frame.appendChild?.(btn)
-        mounted.set(key, btn)
-      } else if (btn.parentElement !== frame) {
-        frame.appendChild?.(btn)
-      }
-      if (!isVisible) {
-        if (tooltipAnchor === btn) hideTooltip()
-        btn.hidden = true
-        btn.setAttribute('hidden', '')
-        return
-      }
-      btn.hidden = false
-      btn.removeAttribute?.('hidden')
-      btn.setAttribute('data-open', isOpen ? '1' : '0')
-      const uiCopy = getUiCopy()
-      const label = side === 'left'
-        ? (isOpen ? uiCopy.collapseLeftSidebar : uiCopy.expandLeftSidebar)
-        : (isOpen ? uiCopy.collapseRightSidebar : uiCopy.expandRightSidebar)
-      setDeltaTooltip(btn, label, side === 'left' ? 'right' : 'left')
-      const dir = side === 'left' ? (isOpen ? 'left' : 'right') : (isOpen ? 'right' : 'left')
-      if (btn.getAttribute?.('data-dtd-chevron') !== dir) {
-        btn.setAttribute('data-dtd-chevron', dir)
-        clearNodeChildren(btn)
-        const svg = createSvgEl('svg', {
-          viewBox: '0 0 24 24',
-          width: 12,
-          height: 12,
-          fill: 'none',
-          stroke: 'currentColor',
-          'stroke-width': 2.2,
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-        })
-        svg.appendChild(createSvgEl('polyline', {
-          points: dir === 'left' ? '15 18 9 12 15 6' : '9 18 15 12 9 6',
-        }))
-        btn.appendChild(svg)
-      }
-    }
-    const hasRightbarTarget = isHostRightbarOpen || Boolean(
-      typeof document?.querySelector === 'function' &&
-      document.querySelector('[class*="acoR2W_panel"], [data-sidebar-right-toggle], [data-sidebar-right-expand]')
-    )
-    syncEdgeToggle('left', isHostSidebarOpen, true)
-    syncEdgeToggle('right', isHostRightbarOpen, hasRightbarTarget)
-
-    if (typeof ResizeObserver !== 'undefined' && observedFrameEl !== frame) {
-      frameResizeObserver?.disconnect()
-      observedFrameEl = frame
-      frameResizeObserver = new ResizeObserver(() => scheduleSync())
-      frameResizeObserver.observe(frame)
-    }
-
-    if (typeof frame.querySelectorAll === 'function') {
-      const handles = Array.from(frame.querySelectorAll<HTMLElement>('[class*="mP3x-q_handle"]'))
-      const frameRect = frame.getBoundingClientRect?.()
-      for (let i = 0; i < handles.length; i++) {
-        const h = handles[i]
-        const side = resolveHandleSide(h, i, isHostSidebarOpen, isHostRightbarOpen, frameRect, targetSidebar)
-        if (side === 'sidebar') {
-          if (h.style.left) {
-            if (h.dataset && h.dataset.dtdOrigLeft === undefined) h.dataset.dtdOrigLeft = h.style.left
-            modifiedHandles.add(h)
-            if (h.style.left !== nextSidebarCss) h.style.setProperty('left', nextSidebarCss, 'important')
-          }
-        } else if (isHostRightbarOpen) {
-          if (h.style.right) {
-            if (h.dataset && h.dataset.dtdOrigRight === undefined) h.dataset.dtdOrigRight = h.style.right
-            modifiedHandles.add(h)
-            if (h.style.right !== nextRightbarCss) h.style.setProperty('right', nextRightbarCss, 'important')
-          } else if (h.style.left) {
-            if (h.dataset && h.dataset.dtdOrigLeft === undefined) h.dataset.dtdOrigLeft = h.style.left
-            modifiedHandles.add(h)
-            const targetLeft = `${Math.max(150, frameWidth - targetRightbar)}px`
-            if (h.style.left !== targetLeft) h.style.setProperty('left', targetLeft, 'important')
-          }
-        }
-      }
-    }
-  }
-
-  const onSplitterPointerDown = (e: Event): void => {
-    const pe = e as PointerEvent
-    if (isDisposed || controller.getSnapshot().mode !== 'delta') return
-    if (pe.button !== undefined && pe.button !== 0) return
-    const target = pe.target as HTMLElement | null
-    if (target?.closest?.('.dtd-edge-toggle')) return
-    const handle = target?.closest?.<HTMLElement>('[class*="mP3x-q_handle"]')
-    if (!handle) return
-    const frame = handle.closest?.<HTMLElement>('[class*="mP3x-q_frame"]') ?? document.querySelector<HTMLElement>('[class*="mP3x-q_frame"]')
-    if (!frame) return
-    const tracks = splitGridTracks(frame.style.gridTemplateColumns ?? '')
-    const handles = Array.from(frame.querySelectorAll<HTMLElement>('[class*="mP3x-q_handle"]'))
-    const rightbarCol = frame.querySelector<HTMLElement>('[data-rightbar-col], [class*="rightbarCol"]')
-    const isHostSidebarOpen = tracks.length >= 2 ? !isZeroGridTrack(tracks[0]) : true
-    const isHostRightbarOpen = tracks.length >= 3
-      ? !isZeroGridTrack(tracks[2])
-      : Boolean(rightbarCol && ((rightbarCol.childElementCount ?? (rightbarCol as unknown as { children?: { length: number } }).children?.length ?? 0) > 0))
-    const idx = Math.max(0, handles.indexOf(handle))
-    const frameRect = frame.getBoundingClientRect?.()
-    const currentSidebar = parseFloat(frame.style.getPropertyValue('--dtd-sidebar-col')) || parseTrackMaxPx(tracks[0], 264)
-    const currentRightbar = parseFloat(frame.style.getPropertyValue('--dtd-rightbar-col')) || parseTrackMaxPx(tracks[2], 360)
-    const isSidebarHandle = resolveHandleSide(handle, idx, isHostSidebarOpen, isHostRightbarOpen, frameRect, currentSidebar) === 'sidebar'
-
-    if ((isSidebarHandle && !isHostSidebarOpen) || (!isSidebarHandle && !isHostRightbarOpen)) return
-
-    pe.preventDefault()
-    pe.stopPropagation()
-    activeDragCleanup?.()
-
-    try {
-      if (typeof handle.setPointerCapture === 'function' && pe.pointerId !== undefined) {
-        handle.setPointerCapture(pe.pointerId)
-      }
-    } catch {}
-    modifiedHandles.add(handle)
-    frame.setAttribute?.('data-dragging', '1')
-    handle.setAttribute?.('data-dragging', '1')
-
-    const startX = pe.clientX
-    const startWidth = isSidebarHandle ? currentSidebar : currentRightbar
-    const frameWidth = Math.round(frameRect?.width || frame.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 0) || 1200)
-
-    const onMove = (moveEv: PointerEvent): void => {
-      const dx = moveEv.clientX - startX
-      if (isSidebarHandle) {
-        const maxSidebar = Math.max(150, frameWidth - 150 - (isHostRightbarOpen ? (customRightbarWidth ?? currentRightbar) : 0))
-        customSidebarWidth = Math.max(150, Math.min(Math.round(startWidth + dx), maxSidebar))
-      } else {
-        const maxRightbar = Math.max(150, frameWidth - 150 - (isHostSidebarOpen ? (customSidebarWidth ?? currentSidebar) : 0))
-        customRightbarWidth = Math.max(150, Math.min(Math.round(startWidth - dx), maxRightbar))
-      }
-      syncElasticLayout()
-    }
-    const onEnd = (): void => {
-      if (isSidebarHandle && customSidebarWidth !== undefined) {
-        writeStoredPaneWidth('dsh-delta-suite:sidebar-width', customSidebarWidth)
-      } else if (!isSidebarHandle && customRightbarWidth !== undefined) {
-        writeStoredPaneWidth('dsh-delta-suite:rightbar-width', customRightbarWidth)
-      }
-      try {
-        if (typeof handle.releasePointerCapture === 'function' && pe.pointerId !== undefined && handle.hasPointerCapture?.(pe.pointerId)) {
-          handle.releasePointerCapture(pe.pointerId)
-        }
-      } catch {}
-      frame.removeAttribute?.('data-dragging')
-      handle.removeAttribute?.('data-dragging')
-      activeDragCleanup?.()
-      activeDragCleanup = undefined
-    }
-    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('pointermove', onMove, { capture: true })
-      window.addEventListener('pointerup', onEnd, { capture: true })
-      window.addEventListener('pointercancel', onEnd, { capture: true })
-      activeDragCleanup = () => {
-        frame.removeAttribute?.('data-dragging')
-        handle.removeAttribute?.('data-dragging')
-        window.removeEventListener('pointermove', onMove, { capture: true })
-        window.removeEventListener('pointerup', onEnd, { capture: true })
-        window.removeEventListener('pointercancel', onEnd, { capture: true })
-      }
-    }
-  }
-
   const hiddenSessionLogNodes = new Set<HTMLElement>()
   const hiddenPrivacyCmdNodes = new Set<HTMLElement>()
   const hiddenSettingsRows = new Set<HTMLElement>()
@@ -3667,18 +3174,12 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
   const reset = (): void => {
     closeUngroupedMenu()
-    hideTooltip()
-    try { tooltipEl?.remove?.() } catch {}
-    tooltipEl = undefined
-    resetElasticLayout()
     resetModalState()
     restoreHiddenNodes('data-dtd-hidden-empty-ungrouped', hiddenEmptyUngroupedNodes)
     for (const navBtn of modifiedTailNavCells) {
       try { navBtn.removeAttribute?.('data-dtd-nav-tail') } catch {}
     }
     modifiedTailNavCells.clear()
-    for (const node of mounted.values()) node.remove()
-    mounted.clear()
     root?.removeAttribute?.('data-delta-compat')
     root?.removeAttribute?.('data-delta-compat-status')
   }
@@ -4067,8 +3568,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       deltaFeatures.ensureLoaded()
       syncPrivacyDom()
       if (controller.getSnapshot().mode !== 'delta') {
-        if (mounted.size > 0 || root?.hasAttribute?.('data-delta-compat')) reset()
-        else resetElasticLayout()
+        if (root?.hasAttribute?.('data-delta-compat')) reset()
         return
       }
       if (typeof document?.querySelector !== 'function') return
@@ -4076,8 +3576,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         document.querySelector<HTMLElement>('[class*="wtg9ga_root"], [class*="SidebarRoot_root"]') ??
         document.querySelector<HTMLElement>('nav')?.parentElement ?? null
       if (!viewport) {
-        if (mounted.size > 0 || root?.hasAttribute?.('data-delta-compat')) reset()
-        syncElasticLayout()
+        if (root?.hasAttribute?.('data-delta-compat')) reset()
         return
       }
       if (root.getAttribute('data-delta-compat') !== '1') root.setAttribute('data-delta-compat', '1')
@@ -4097,7 +3596,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         syncMenus()
       }
 
-      syncElasticLayout()
       syncModalPanel()
 
       // Workspace expansion belongs to Harness. Do not read private view state or
@@ -4207,7 +3705,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       const k = wsEl.getAttribute('data-row-key') ?? ''
       if (k.startsWith('workspace:')) lastMenuWorkspaceId = k.slice(10)
     }
-    onSplitterPointerDown(e)
     if (!(e as PointerEvent).defaultPrevented) {
       onModalPointerDown(e)
     }
