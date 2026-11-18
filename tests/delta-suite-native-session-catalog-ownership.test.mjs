@@ -23,9 +23,6 @@ const managerSource = compiled.slice(start, end) + '\ncreateClientFeatureManager
 const createProjection = () => vm.runInNewContext(
   compiled.slice(start, end) + '\ncreateWorkspaceCompatibilityProjection()',
 )
-const installProjection = vm.runInNewContext(
-  compiled.slice(start, end) + '\ninstallProjectedList',
-)
 
 function fixture({ initial = {}, response, unavailable = false, rejectRefresh = false } = {}) {
   const calls = []
@@ -121,9 +118,10 @@ test('unexpected bulk acknowledgement is not applied', async () => {
   assert.deepEqual(f.calls.map(call => call[0]), ['post'])
 })
 
-test('session list stays native-owned; workspace compatibility scope remains explicit', () => {
-  assert.doesNotMatch(source, /installProjectedList(?:<[^>]*>)?\(\s*sessionsApi\.list/)
-  assert.match(source, /installProjectedList<WorkspaceSnapshot>\(workspaces\.list/)
+test('native workspace and session list method ownership is preserved', () => {
+  assert.doesNotMatch(source, /function installProjectedList/)
+  assert.doesNotMatch(source, /workspaces\.list\.(?:getSnapshot|subscribe)\s*=/)
+  assert.match(source, /getWorkspaces: \(\) => readDeltaWorkspaceSnapshot\(\)\?\.items \?\? \[\]/)
   assert.match(source, /await sessionsApi\?\.refresh\?\.\(\)/)
   assert.match(source, /!readSearchProtection\(\)\.allowsSession\(sessionId, workspaceId\)/)
   assert.match(source, /if \(!policy\.allowsSession\(item\.id, item\.workspaceId\)\) continue/)
@@ -227,91 +225,55 @@ test('move never posts from a locked session or into a locked workspace', async 
   assert.equal(f.calls.length, 0)
 })
 
-test('compatibility list notifies only its own subscribers without mutating the native store', () => {
-  let base = Object.freeze({ id: 'native' })
-  let projection = base
-  let signal
-  let detaches = 0
-  let nativeReleases = 0
-  const native = new Set()
-  const originalRead = () => base
-  const originalSubscribe = listener => {
-    native.add(listener)
-    return () => { nativeReleases += 1; native.delete(listener) }
-  }
-  const list = {
-    getSnapshot: originalRead,
-    subscribe: originalSubscribe,
-    invalidate() { assert.fail('native invalidation is forbidden') },
-    set() { assert.fail('native store mutation is forbidden') },
-  }
-  let preexistingCalls = 0
-  const stopPreexisting = list.subscribe(() => { preexistingCalls += 1 })
-  const dispose = installProjection(list, () => projection, notify => {
-    signal = notify
-    return () => { detaches += 1 }
-  })
-  let viewCalls = 0
-  const stopView = list.subscribe(() => { viewCalls += 1 })
-  signal()
-  assert.equal(viewCalls, 0, 'unchanged snapshot must not notify')
-  projection = Object.freeze({ id: 'overlay' })
-  signal()
-  signal()
-  assert.equal(viewCalls, 1, 'one local projection update')
-  assert.equal(preexistingCalls, 0, 'pre-existing native subscriber is untouched')
-  assert.equal(originalRead(), base)
-  base = Object.freeze({ id: 'native-next' })
-  for (const fn of native) fn()
-  assert.equal(viewCalls, 2)
-  assert.equal(preexistingCalls, 1)
-  dispose()
-  dispose()
-  assert.equal(list.getSnapshot, originalRead)
-  assert.equal(list.subscribe, originalSubscribe)
-  assert.equal(viewCalls, 3, 'restoration notifies existing compatibility subscribers')
-  assert.equal(detaches, 1)
-  signal()
-  assert.equal(viewCalls, 3, 'late local callback is ignored')
-  for (const fn of native) fn()
-  assert.equal(viewCalls, 4, 'native subscription remains live until its own cleanup')
-  stopView()
-  stopView()
-  stopPreexisting()
-  assert.equal(nativeReleases, 2)
-  assert.equal(native.size, 0)
-})
-
-test('projection installation rolls back on a sealed subscription or registration failure', () => {
-  const read = () => Object.freeze({ items: [] })
-  const subscribe = () => () => {}
-  const sealed = { getSnapshot: read }
-  Object.defineProperty(sealed, 'subscribe', { value: subscribe, writable: false })
-  const stop1 = installProjection(sealed, value => value, () => {
-    assert.fail('must not register local callback after partial installation')
-  })
-  assert.equal(sealed.getSnapshot, read)
-  assert.equal(sealed.subscribe, subscribe)
-  stop1()
-  const failed = { getSnapshot: read, subscribe }
-  const stop2 = installProjection(failed, value => value, () => { throw new Error('unavailable') })
-  assert.equal(failed.getSnapshot, read)
-  assert.equal(failed.subscribe, subscribe)
-  stop2()
-})
-
-test('projection teardown never overwrites later Host or other plugin methods', () => {
-  const list = { getSnapshot: () => ({}), subscribe: () => () => {} }
-  let released = 0
-  const stop = installProjection(list, base => base, () => () => { released += 1 })
-  const laterRead = () => ({ current: true })
-  const laterSubscribe = () => () => {}
-  list.getSnapshot = laterRead
-  list.subscribe = laterSubscribe
+test('Delta scoped list projection preserves frozen native methods, subscribers and rows', async () => {
+  const f = fixture({ initial: {
+    deletedSessionIds: ['other'], lockedSessionIds: ['locked'], movedSessions: { target: 'b' },
+  } })
+  const native = Object.freeze({ items: Object.freeze([
+    Object.freeze({ workspaceId: 'a', path: '/a', title: 'A',
+      sessionIds: Object.freeze(['target', 'locked', 'other']) }),
+    Object.freeze({ workspaceId: 'b', path: '/b', title: 'B', sessionIds: Object.freeze([]) }),
+  ]), archivedSessionIds: Object.freeze([]), pinnedSessionIds: Object.freeze(['target']) })
+  const listeners = new Set()
+  const read = () => native
+  const subscribe = fn => { listeners.add(fn); return () => listeners.delete(fn) }
+  const list = Object.freeze({ getSnapshot: read, subscribe })
+  let events = 0
+  const stop = list.subscribe(() => { events++ })
+  f.manager.setWorkspacesApi({ list })
+  await f.manager.refreshState()
+  assert.equal(list.getSnapshot, read)
+  assert.equal(list.subscribe, subscribe)
+  assert.equal(list.getSnapshot(), native)
+  assert.equal(JSON.stringify(f.manager.getWorkspaces()[0].sessionIds), '["locked"]')
+  assert.equal(JSON.stringify(f.manager.getWorkspaces()[1].sessionIds), '["target"]')
+  assert.equal(JSON.stringify(native.items[0].sessionIds), '["target","locked","other"]')
+  assert.equal(events, 0, 'Delta overlay did not publish a native event')
+  for (const fn of listeners) fn()
+  assert.equal(events, 1)
+  f.manager.setWorkspacesApi(undefined)
+  assert.equal(f.manager.getWorkspaces().length, 0)
+  assert.equal(list.getSnapshot, read)
+  assert.equal(list.subscribe, subscribe)
   stop()
-  assert.equal(list.getSnapshot, laterRead)
-  assert.equal(list.subscribe, laterSubscribe)
-  assert.equal(released, 1)
+  assert.equal(listeners.size, 0)
+})
+
+test('Delta local projection reuses rows after unrelated state updates', async () => {
+  const f = fixture({ initial: { movedSessions: { target: 'b' } } })
+  const native = Object.freeze({ items: Object.freeze([
+    Object.freeze({ workspaceId: 'a', path: '/a', title: 'A', sessionIds: Object.freeze(['target']) }),
+    Object.freeze({ workspaceId: 'b', path: '/b', title: 'B', sessionIds: Object.freeze([]) }),
+  ]) })
+  const list = Object.freeze({ getSnapshot: () => native, subscribe: () => () => {} })
+  f.manager.setWorkspacesApi({ list })
+  await f.manager.refreshState()
+  const first = f.manager.getWorkspaces()
+  assert.equal(JSON.stringify(first[1].sessionIds), '["target"]')
+  f.manager.setActiveSessionId('other')
+  assert.equal(f.manager.getWorkspaces(), first)
+  assert.equal(list.getSnapshot(), native)
+  f.manager.setWorkspacesApi(undefined)
 })
 
 test('equal Host membership payloads retain identity across refreshes', async () => {
