@@ -45,6 +45,22 @@ test('native workspace expansion stays Host-owned until an official capability e
   assert.equal(readiness.required.workspace_initial_collapse, false)
 })
 
+test('native new-session button remains visible and Harness-owned', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('\ntype SearchTabId', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const compatibility = source.slice(begin, end)
+  for (const legacy of ['dtd-native-new-session', 'dtd-new-session-icon', 'nativeNew',
+    "mounted.get('newSession')", 'newSession.addEventListener',
+    'button[class*="newSession"]', 'wtg9ga_newSession']) {
+    assert.equal(compatibility.includes(legacy), false, 'legacy new-session mirroring: ' + legacy)
+  }
+  for (const legacy of ['dtd-native-new-session', 'dtd-new-session-icon',
+    'button[class*="newSession"]', 'wtg9ga_newSession']) {
+    assert.equal(style.includes(legacy), false, 'native button styling must stay under Harness: ' + legacy)
+  }
+  assert.ok(compatibility.includes('processHoverCards()'))
+})
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

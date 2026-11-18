@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 移除通过 DOM 克隆原生新会话按钮、模拟点击并隐藏原生按钮的兼容逻辑，保留 Harness 原生入口，同步 ZIP3 主题及适配器校验与回归测试（Issue #333）。
+
 - 修复: 移除通过 Harness 私有工作区展开状态及模拟 DOM 点击强制折叠原生工作区的逻辑，缺少公开接口时保持原生行为并更新 ZIP3 发布校验与回归测试（Issue #333）。
 
 - 修复 [breaking, migration]: 插件统一命名为 `dsh-delta-suite`、`Delta 扩展套件` 和 `Delta Suite`，同步源码目录、Cordis 注册名、客户端与 Host 接口、构建校验、发行资产及测试路径；不改变 Harness 原生插件接管边界。

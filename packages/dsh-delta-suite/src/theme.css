@@ -986,9 +986,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"],
 html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collapsed="true"]) {
   --dsh-windows-menu-start: 8px !important;
 }
-html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapsed"] [class*="wtg9ga_newSession"] {
-  left: 116px !important;
-}
 
 /* 6.1 Top Search Box */
 :root[data-delta-compat="1"] .dtd-host-search,
@@ -1142,57 +1139,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 :root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="\005B9A\0065F6\004EFB\0052A1"], [aria-label="\0081EA\0052A8\005316\004EFB\0052A1"], [aria-label="Schedules"], [aria-label="Tasks"])) {
   order: 1 !important;
 }
-/* 6.3 New Session Button (\005F00\0059CB\005BF9\008BDD) */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) button[class*="newSession"]:not([data-delta-action]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) button[class*="newSession"]:not([data-delta-action]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) [class*="wtg9ga_newSession"]:not([data-delta-action]) {
-  position: absolute !important;
-  width: 1px !important;
-  height: 1px !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  overflow: hidden !important;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session {
-  order: 3 !important;
-  display: flex !important;
-  box-sizing: border-box !important;
-  width: 100% !important;
-  min-height: var(--dtd-sidebar-row-height) !important;
-  height: var(--dtd-sidebar-row-height) !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  padding: 7px calc(var(--dsh-sidebar-row-padding, 12px) - var(--dsh-sidebar-paint-inset, 3px)) !important;
-  text-align: left !important;
-  border: none !important;
-  border-inline: var(--dsh-sidebar-paint-inset, 3px) solid transparent !important;
-  border-radius: var(--dsw-radius-md, var(--dtd-radius-md)) !important;
-  background: transparent padding-box padding-box !important;
-  color: var(--dtd-fg-primary) !important;
-  cursor: pointer !important;
-  font: inherit !important;
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  line-height: 22px !important;
-  gap: var(--dsh-sidebar-label-gap, 6px) !important;
-  margin: 0 0 8px 0 !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session:focus-visible {
-  outline: 1px solid var(--dtd-border-focus) !important;
-  outline-offset: -2px !important;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session .dtd-new-session-icon,
-:root[data-delta-compat="1"] .dtd-native-new-session svg {
-  width: 16px !important;
-  height: 16px !important;
-  flex-shrink: 0 !important;
-  color: currentColor !important;
-}
-:root[data-delta-compat="1"] .dtd-native-new-session:hover {
-  background-color: var(--dtd-bg-hover) !important;
-}
+/* 6.3 Harness owns the native New Session button; no mirrored controls or hiding. */
 
 /* 6.4 Workspace & Session List Region */
 :root[data-delta-ui="delta"] [data-sidebar-scrollport]:not([class*="collapsed"]) > div:has([data-sidebar-workspace-header]),
@@ -1351,8 +1298,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"] [class*="wtg9ga_collapse
 
 :root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] :is(
   .dtd-native-search,
-  .dtd-host-search,
-  .dtd-native-new-session
+  .dtd-host-search
 ) {
   display: none !important;
 }

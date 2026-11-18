@@ -4169,62 +4169,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         searchProxy.setAttribute?.('aria-label', dict.ui.searchSessions)
       }
 
-      // 5. New session button: styled identically to nav items, native icon on left
-      let newSession = mounted.get('newSession') as HTMLButtonElement | undefined
-      const nativeNew = document.querySelector<HTMLButtonElement>('button[class*="newSession"]:not([data-delta-action]), [class*="wtg9ga_newSession"]:not([data-delta-action])')
-      if (nativeNew && (!newSession || !newSession.isConnected)) {
-        newSession = document.createElement('button')
-        newSession.type = 'button'
-        newSession.className = 'dtd-native-new-session'
-        newSession.setAttribute('data-delta-action', 'new-session')
-
-        const nativeSvg = nativeNew.querySelector?.('svg')
-        if (nativeSvg && typeof nativeSvg.cloneNode === 'function') {
-          const clone = nativeSvg.cloneNode(true) as Element
-          const existingClass = clone.getAttribute?.('class') ?? ''
-          clone.setAttribute?.('class', `${existingClass} dtd-new-session-icon`.trim())
-          clone.setAttribute?.('width', '16')
-          clone.setAttribute?.('height', '16')
-          newSession.appendChild(clone)
-        } else {
-          const chatSvg = createSvgEl('svg', {
-            viewBox: '0 0 24 24',
-            width: 16,
-            height: 16,
-            fill: 'none',
-            stroke: 'currentColor',
-            'stroke-width': 1.8,
-            'stroke-linecap': 'round',
-            'stroke-linejoin': 'round',
-            class: 'dtd-new-session-icon',
-          })
-          chatSvg.appendChild(createSvgEl('path', {
-            d: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
-          }))
-          newSession.appendChild(chatSvg)
-        }
-
-        const labelSpan = document.createElement('span')
-        labelSpan.textContent = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.newConversation
-        newSession.appendChild(labelSpan)
-
-        newSession.addEventListener('click', () => {
-          document.querySelector<HTMLButtonElement>('button[class*="newSession"]:not([data-delta-action]), [class*="wtg9ga_newSession"]:not([data-delta-action])')?.click()
-        })
-        mounted.set('newSession', newSession)
-      }
-      if (newSession) {
-        const expectedNewLabel = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.newConversation
-        const labelSpan = newSession.querySelector?.('span') ?? ((newSession as unknown as { children?: HTMLElement[] }).children?.find?.(c => c.tagName?.toLowerCase?.() === 'span' || (c as unknown as { name?: string }).name === 'span') ?? null)
-        if (labelSpan && labelSpan.textContent !== expectedNewLabel) {
-          labelSpan.textContent = expectedNewLabel
-        }
-      }
-      const navParent = navigation.parentElement ?? viewport
-      if (newSession && (newSession.parentElement !== navParent || newSession.previousElementSibling !== navigation)) {
-        navigation.insertAdjacentElement('afterend', newSession)
-      }
-
+      // The native new-session button stays under Harness ownership.
       processHoverCards()
 
       // Harness owns native footer controls, account state and update actions.
