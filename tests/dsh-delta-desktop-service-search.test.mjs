@@ -218,7 +218,9 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     observers: [],
     AbortController,
   }
-  vm.runInNewContext(source, env)
+  const originalSessionSnapshot = hostSessions.list.getSnapshot
+  const originalSessionSubscribe = hostSessions.list.subscribe
+  vm.runInNewContext(source + '\n;globalThis.testFeatures = deltaFeatures', env)
   const plugin = registered.factory(() => ({
     createElement(type, props, ...children) { return { type, props, children } },
     useState(initial) { return [initial, () => {}] },
@@ -240,6 +242,8 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   env.window.addEventListener = (name, callback) => windowKeyHandlers.set(name, callback)
   env.window.removeEventListener = name => windowKeyHandlers.delete(name)
   plugin.apply(ctx)
+  assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot, 'Host snapshot method is not wrapped')
+  assert.equal(hostSessions.list.subscribe, originalSessionSubscribe, 'Host subscription method is not wrapped')
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
   body.appendChild(viewport)
   env.observers.forEach(update => update())
@@ -376,6 +380,31 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
 
   commandSlotEffects.splice(0).forEach(dispose => dispose())
   assert.equal(accessWatchers.size, 0, 'permissions subscription released')
+
+  // Simulate an authoritative tombstone while the native catalog is stale.
+  body.children.find(node => node.className === 'dtd-search-backdrop')?.children[0]
+    .emit('keydown', { key: 'Escape', preventDefault() {} })
+  input.value = 'Example'
+  input.emit('input')
+  const staleHit = results.children.find(node => node.className === 'dtd-host-search-result')
+  assert.ok(staleHit, 'initial native row is visible in Delta search')
+  env.window.location = { href: 'https://harness.test/' }
+  env.fetch = async path => ({
+    ok: true, status: 200,
+    json: async () => path === '/api/delta-desktop/state'
+      ? { state: { deletedSessionIds: ['local'], lockedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {} } }
+      : {},
+  })
+  await env.testFeatures.refreshState()
+  assert.ok(hostSessions.list.getSnapshot().byId.local, 'Delta never rewrites the stale native catalog')
+  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false,
+    'confirmed deletion immediately filters the Delta inline row')
+  const beforeStale = actions.filter(action => action[0] === 'open').length
+  staleHit.emit('click')
+  assert.equal(actions.filter(action => action[0] === 'open').length, beforeStale,
+    'previously rendered callback cannot reopen a deleted session')
+  assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot)
+  assert.equal(hostSessions.list.subscribe, originalSessionSubscribe)
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)
