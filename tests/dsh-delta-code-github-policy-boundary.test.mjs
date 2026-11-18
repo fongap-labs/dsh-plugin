@@ -23,7 +23,7 @@ describe('Delta Code Host-neutral GitHub policy', () => {
     assert.equal(selectGitHubAccount(accounts, 'COMPANY/BACKEND').owner, 'personal')
     assert.equal(selectGitHubAccount(accounts, 'company/other').owner, 'company')
     assert.strictEqual(legacySelector(accounts, 'company/backend'), accounts[0])
-    assert.throws(() => selectGitHubAccount(accounts, 'other/repo'), /no GitHub account/)
+    assert.throws(() => selectGitHubAccount(accounts, 'other/repo'), /specify account/)
   })
 
   it('preserves conservative repository, branch, path and SHA validation', () => {
