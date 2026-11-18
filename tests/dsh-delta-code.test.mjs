@@ -26,9 +26,14 @@ function createContext() {
     logger: { warn: (message) => warnings.push(String(message)) },
     inject: (deps, callback) => {
       if (deps.includes("skills")) {
-        callback({ skills: { register(skill) {
-          skills.set(skill.name, skill);
-          return () => skills.delete(skill.name);
+        callback({ skills: { registerProvider(factory) {
+          const controller = new AbortController();
+          const provider = factory({ signal: controller.signal, invalidate() {} });
+          skills.set(provider.name, provider);
+          return () => {
+            skills.delete(provider.name);
+            controller.abort(new Error("provider disposed"));
+          };
         } } });
         return;
       }
@@ -100,20 +105,27 @@ describe("dsh-delta-code", () => {
     await rm(workspace, { recursive: true, force: true });
   });
 
-  it("native skills register with content and dispose cleanly", async () => {
+  it("native skills load content on demand and dispose cleanly", async () => {
     const fresh = createContext();
     const dispose = codeWorker.apply(fresh, { workspaceRoot: workspace });
-    const names = [...fresh.registeredSkills.keys()];
+    const local = fresh.registeredSkills.get("delta-code-coding");
+    assert.ok(local, "native coding Skill Provider");
+    const catalog = await local.list();
+    const names = catalog.map(skill => skill.name);
     assert.equal(names.length, 27);
     assert.equal(new Set(names).size, names.length);
+    assert.ok(catalog.every(skill => !Object.hasOwn(skill, "content")));
     for (const name of ["code-fast-change", "code-workflow", "code-brainstorming", "code-writing-plans",
       "code-executing-plans", "code-subagent-delivery", "code-test-driven-development",
       "code-parallel-work", "code-worktrees", "code-find-skills", "code-verification-gate", "code-finish-branch", "code-autonomous-loop", "code-ci-repair",
       "code-perf-issue", "code-runtime-forensics", "code-visual-parity", "code-skill-evaluation"]) {
-      assert.ok(fresh.registeredSkills.has(name), name);
+      assert.ok(names.includes(name), name);
     }
-    assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /acceptance/);
-    assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /independent read-only diff review/);
+    const feature = catalog.find(skill => skill.name === "code-feature-delivery");
+    assert.ok(feature);
+    const loaded = await local.get(feature);
+    assert.match(loaded.content, /acceptance/);
+    assert.match(loaded.content, /independent read-only diff review/);
     dispose();
     assert.equal(fresh.registeredSkills.size, 0);
   });
