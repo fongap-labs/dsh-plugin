@@ -251,6 +251,28 @@ test('native unarchive veto rejects tombstoned sessions and both public ID alias
   }
 })
 
+test('startup tombstone reconciliation detaches native membership without any unarchive call', async () => {
+  const calls = []
+  const registry = {
+    archivedSessionIds: ['gone'],
+    unarchiveSession(id) { calls.push(['unarchive', id]); this.archivedSessionIds = [] },
+    unpinSession(id) { calls.push(['unpin', id]) },
+    list: () => [{ id: 'a', path: '/a', sessionIds: ['gone'],
+      detachSession(id) { calls.push(['detach', id]) } }],
+  }
+  const f = fixture({ initial: { deletedSessionIds: ['session-gone'] }, registry })
+  try {
+    // Host routes share a queue with the startup reconciliation.
+    assert.equal((await f.call({ action: 'not-a-mutation' })).status, 400)
+    assert.equal(calls.some(([kind]) => kind === 'unarchive'), false,
+      'a legacy Host without the pre-unarchive event must not resurrect a tombstone')
+    assert.equal(calls.some(([kind]) => kind === 'detach'), true)
+    assert.equal(calls.some(([kind]) => kind === 'unpin'), true)
+    assert.deepEqual(registry.archivedSessionIds, ['gone'])
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['session-gone'])
+  } finally { f.dispose() }
+})
+
 test('unbinding cannot restore deleted-and-locked sessions through direct Host unarchive', async () => {
   const calls = []
   const registry = {
