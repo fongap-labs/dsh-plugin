@@ -49,6 +49,21 @@ Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，�
 
 Delta Code 不使用旧式 `skills.register()` 作为兼容降级。仅当 Harness 提供可注销的 `skills.registerProvider()` 接口时，才启用内置编程 Skills 与经过审查的 GitHub Skills。Provider 的 `list()` 只返回名称、描述等元数据；用户任务实际需要某项 Skill 时，Harness 原生 `skill` 工具通过 `get()` 按需获取正文。自动路由只提示选用技能，不再在系统提示词中预先展开完整内容。
 
+### Harness 集成验收
+
+中央 CI 现在使用真实 `@deepseek-ai/cordis` 的插件生命周期，挂载模拟的 `tools`、`skills` 和 `systemPrompt` 服务，验证：Skill Provider 只公开元数据、`get()` 按需加载、同一 Agent 的消息续接、其他 Agent 隔离、卸载注销，以及 Host 不提供可注销 Provider 时仅关闭技能。此项是**实际 Cordis 框架 + 模拟 Harness 服务**的集成测试，不等同于真实 DeepSeek Harness 客户端验收。
+
+在安装了 Delta Code 的实际 Harness 中，仍需验证以下行为并保留本机证据：
+
+1. 调用 `code_host_probe`，记录读到的 Host 服务能力；它只验证方法存在，不验证写入权限。
+2. 发出「修复一个 CI 红叉」任务，检查自动路由到 `code-ci-repair`；续发「继续推进任务链」，确认沿用同一任务。
+3. 查看原生 Skill 目录，确认 `code-root-cause-debugging` 等本地 Skill 可发现、正文不预加载；明确调用原生 `skill` 工具后才读取正文。尝试重新加载/卸载插件，验证目录不重复、不残留旧 Provider。
+4. 使用显式不同的任务路径调用 `code_workflow_route`。只有原生子代理真实可用、用户授权和写集无重叠时才考虑并行；仅传入 `nativeSubagents: true` 是规划输入，**不能作为已授权启动子代理的证据**。没有能力或授权时必须顺序执行，且不得自建 Agent Runtime。
+5. 在任务中明确要求不使用外部 GitHub Skills，检查不会加载或推荐外部 Skill；退出或切换任务后再确认状态隔离。
+6. 插件退出后再次进入 Harness，确认插件工具与动态提示的注销和重建，不出现旧实例重复注册。
+
+若实际 Harness 版本缺少 `skills.registerProvider()` 或不能返回注销函数，应按能力检测关闭对应 Skill，不允许回退 `skills.register()`；把实机差异、接口形状和复现步骤回填测试，不能将模拟通过称作实机通过。
+
 Host 不提供 `registerProvider` 或注册后没有返回注销函数时，**对应技能功能关闭，不回退旧式注册接口**。若一个不合规 Host 已登记无法注销的 Provider，Delta 会立即将其置为不可用并请求宿主刷新目录；核心编辑、GitHub、LSP、工程验证功能继续按各自能力运行。卸载插件/Host 子上下文时注销可释放的 Provider 并取消远程加载。**已进入历史会话上下文的技能文本不能被插件追溯清除**；需要完整隔离时应开启新会话。此能力以接口检测为准，不以 Harness 版本号判断。
 
 
