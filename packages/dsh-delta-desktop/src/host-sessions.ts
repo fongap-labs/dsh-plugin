@@ -349,6 +349,77 @@ interface HostWorkspaceRegistryLike {
   invalidSessionPaths?: Map<string, string>
 }
 
+// Deletion and relocation already address both raw and session-prefixed IDs.
+// Protection must cover exactly that same alias set. No private registry
+// maps or caller-provided cwd hints are used to establish membership.
+const sessionAliases = (id: string): string[] => {
+  const raw = id.replace(/^session-/, '')
+  return [id, raw, 'session-' + raw]
+}
+
+export function readHostSessionProtection(state: DeltaHostState, getRegistry: () => unknown) {
+  const protectedIds = new Set(state.lockedSessionIds.flatMap(sessionAliases))
+  const lockedKeys = new Set(state.lockedWorkspaceIds)
+  const nativeTargets = new Map<string, string>()
+  let isComplete = true
+  if (lockedKeys.size > 0) {
+    try {
+      const reg = getRegistry() as HostWorkspaceRegistryLike | undefined
+      if (typeof reg?.list !== 'function') throw new Error('WORKSPACE_MEMBERSHIP_UNAVAILABLE')
+      const rows = Array.from(reg.list())
+      const matchedKeys = new Set<string>()
+      // Validate the complete public snapshot, not private record.sessionIds.
+      for (const row of rows) {
+        const { id, path, sessionIds } = row
+        if (typeof id !== 'string' || !id || typeof path !== 'string' || !path ||
+            !Array.isArray(sessionIds) || sessionIds.some(sid => typeof sid !== 'string' || !sid) ||
+            nativeTargets.has(id)) throw new Error('WORKSPACE_MEMBERSHIP_INVALID')
+        nativeTargets.set(id, path)
+        if (lockedKeys.has(id) || lockedKeys.has(path)) {
+          if (lockedKeys.has(id)) matchedKeys.add(id)
+          if (lockedKeys.has(path)) matchedKeys.add(path)
+          for (const key of [id, path]) lockedKeys.add(key)
+          for (const sid of sessionIds) for (const alias of sessionAliases(sid)) protectedIds.add(alias)
+        }
+      }
+      // A persisted lock with no matching public entity is uncertain, not
+      // proof of absence. Refuse destructive operations until reconciled.
+      if (state.lockedWorkspaceIds.some(key => !matchedKeys.has(key))) isComplete = false
+      if (getRegistry() !== reg) isComplete = false
+    } catch { isComplete = false }
+    // Protect the union of durable native membership and confirmed Delta
+    // relocation mappings, including a session moved away from a locked
+    // native workspace. Neither source can weaken the other.
+    for (const [sid, target] of Object.entries(state.movedSessions)) {
+      if (lockedKeys.has(target)) for (const alias of sessionAliases(sid)) protectedIds.add(alias)
+    }
+  }
+  return {
+    session(sessionId: string): 'locked' | 'clear' | 'unknown' {
+      if (sessionAliases(sessionId).some(id => protectedIds.has(id))) return 'locked'
+      return isComplete ? 'clear' : 'unknown'
+    },
+    destination(id: string, path: string): 'locked' | 'clear' | 'unknown' {
+      if (lockedKeys.has(id) || (path && lockedKeys.has(path))) return 'locked'
+      if (lockedKeys.size === 0) return 'clear'
+      if (!isComplete || !nativeTargets.has(id)) return 'unknown'
+      const nativePath = nativeTargets.get(id)
+      if (nativePath && lockedKeys.has(nativePath)) return 'locked'
+      // When workspace protection exists, do not let an arbitrary path
+      // turn an unlocked destination ID into a physical move elsewhere.
+      if (path && path !== nativePath) return 'unknown'
+      return 'clear'
+    },
+  }
+}
+
+export function readHostSearchExclusion(state: DeltaHostState, getRegistry: () => unknown): (sessionId: string) => boolean {
+  const protection = readHostSessionProtection(state, getRegistry)
+  const deleted = new Set(state.deletedSessionIds.flatMap(sessionAliases))
+  return sessionId => sessionAliases(sessionId).some(id => deleted.has(id)) ||
+    protection.session(sessionId) !== 'clear'
+}
+
 export function installHostSessionOps(
   ctx: SessionOpsHostContext,
   store: HostStateStore,
@@ -376,69 +447,7 @@ export function installHostSessionOps(
     return live ?? workspaceRegistryRef
   }
 
-  // Deletion and relocation already address both raw and session-prefixed IDs.
-  // Protection must cover exactly that same alias set. No private registry
-  // maps or caller-provided cwd hints are used to establish membership.
-  const sessionAliases = (id: string): string[] => {
-    const raw = id.replace(/^session-/, '')
-    return [id, raw, 'session-' + raw]
-  }
-
-  const readProtection = (state: DeltaHostState) => {
-    const protectedIds = new Set(state.lockedSessionIds.flatMap(sessionAliases))
-    const lockedKeys = new Set(state.lockedWorkspaceIds)
-    const nativeTargets = new Map<string, string>()
-    let isComplete = true
-    if (lockedKeys.size > 0) {
-      try {
-        const reg = getRegistry()
-        if (typeof reg?.list !== 'function') throw new Error('WORKSPACE_MEMBERSHIP_UNAVAILABLE')
-        const rows = Array.from(reg.list())
-        const matchedKeys = new Set<string>()
-        // Validate the complete public snapshot, not private record.sessionIds.
-        for (const row of rows) {
-          const { id, path, sessionIds } = row
-          if (typeof id !== 'string' || !id || typeof path !== 'string' || !path ||
-              !Array.isArray(sessionIds) || sessionIds.some(sid => typeof sid !== 'string' || !sid) ||
-              nativeTargets.has(id)) throw new Error('WORKSPACE_MEMBERSHIP_INVALID')
-          nativeTargets.set(id, path)
-          if (lockedKeys.has(id) || lockedKeys.has(path)) {
-            if (lockedKeys.has(id)) matchedKeys.add(id)
-            if (lockedKeys.has(path)) matchedKeys.add(path)
-            for (const key of [id, path]) lockedKeys.add(key)
-            for (const sid of sessionIds) for (const alias of sessionAliases(sid)) protectedIds.add(alias)
-          }
-        }
-        // A persisted lock with no matching public entity is uncertain, not
-        // proof of absence. Refuse destructive operations until reconciled.
-        if (state.lockedWorkspaceIds.some(key => !matchedKeys.has(key))) isComplete = false
-        if (getRegistry() !== reg) isComplete = false
-      } catch { isComplete = false }
-      // Protect the union of durable native membership and confirmed Delta
-      // relocation mappings, including a session moved away from a locked
-      // native workspace. Neither source can weaken the other.
-      for (const [sid, target] of Object.entries(state.movedSessions)) {
-        if (lockedKeys.has(target)) for (const alias of sessionAliases(sid)) protectedIds.add(alias)
-      }
-    }
-    return {
-      session(sessionId: string): 'locked' | 'clear' | 'unknown' {
-        if (sessionAliases(sessionId).some(id => protectedIds.has(id))) return 'locked'
-        return isComplete ? 'clear' : 'unknown'
-      },
-      destination(id: string, path: string): 'locked' | 'clear' | 'unknown' {
-        if (lockedKeys.has(id) || (path && lockedKeys.has(path))) return 'locked'
-        if (lockedKeys.size === 0) return 'clear'
-        if (!isComplete || !nativeTargets.has(id)) return 'unknown'
-        const nativePath = nativeTargets.get(id)
-        if (nativePath && lockedKeys.has(nativePath)) return 'locked'
-        // When workspace protection exists, do not let an arbitrary path
-        // turn an unlocked destination ID into a physical move elsewhere.
-        if (path && path !== nativePath) return 'unknown'
-        return 'clear'
-      },
-    }
-  }
+  const readProtection = (state: DeltaHostState) => readHostSessionProtection(state, getRegistry)
 
   const protectionFailure = (verdict: 'locked' | 'unknown'): unknown =>
     verdict === 'locked'
