@@ -146,6 +146,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: retired private workspace expansion storage reads and synthetic row clicks; native expansion is Host-owned.
 // Reviewed 2026-11-18: retired cloned native new-session button, synthetic click forwarding, and CSS hiding of the actual Host control.
 // Reviewed 2026-11-18: retired native sidebar search proxy/input mirroring and restored original Harness search slot.
+// Reviewed 2026-11-18: scoped Delta search mount to the expanded sidebar's direct nav; unrelated Host/third-party mutations no longer schedule sync.
 const ZIP3_THEME_BLOB = '864b38d877553209ca4628900aaa0d4c40439892'
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -156,7 +157,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: '4a5562b94fe67c11c9133122f319e08e3ebd14e8',
+    sha1: '82cc116df7f2e56cfbfb9af1be9aa65149cb94ea',
   },
 ]
 

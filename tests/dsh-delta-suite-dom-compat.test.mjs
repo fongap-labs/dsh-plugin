@@ -78,6 +78,25 @@ test('native sidebar search does not use private DOM input proxies or hide the H
   assert.equal(readiness.required.sidebar_search_placement, false)
 })
 
+test('Delta search mount rejects unrelated Host navigation and filters third-party mutations', () => {
+  const begin = source.indexOf('function installHostSearch(')
+  const end = source.indexOf('\nwindow.__ModuleLoader__.load(', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const search = source.slice(begin, end)
+  assert.match(search, /document\.querySelector<HTMLElement>\('\[data-sidebar-scrollport\]'\)/)
+  assert.match(search, /viewport\?\.querySelector<HTMLElement>\(':scope > nav'\)/)
+  assert.match(search, /navParent !== viewport/)
+  assert.doesNotMatch(search, /document\.querySelector(?:<[^>]+>)?\(['"]nav['"]\)/)
+  assert.doesNotMatch(search, /document\.querySelector\?\.\(['"]nav['"]\)/)
+  assert.doesNotMatch(search, /wtg9ga_root|SidebarRoot_root/)
+  assert.match(search, /if \(shell\.parentElement \|\| isModalOpen\)/)
+  assert.match(search, /clearInlineRequest\(\)\s+closePalette\(\)\s+shell\.remove\(\)/)
+  assert.match(search, /record\.target === shell \|\| shell\.contains\(record\.target\)/)
+  assert.match(search, /Array\.from\(record\.addedNodes\)\.some\(touchesSidebar\)/)
+  assert.match(search, /Array\.from\(record\.removedNodes\)\.some\(touchesSidebar\)/)
+  assert.equal(readiness.required.sidebar_search_placement, false)
+})
+
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

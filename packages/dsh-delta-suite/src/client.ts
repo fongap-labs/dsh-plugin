@@ -5664,14 +5664,19 @@ function installHostSearch(
         if (root.getAttribute('data-delta-search-adapter') !== null) root.removeAttribute('data-delta-search-adapter')
         return
       }
-      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]') ??
-        document.querySelector<HTMLElement>('[class*="wtg9ga_root"]') ??
-        document.querySelector<HTMLElement>('[class*="SidebarRoot_root"]') ??
-        document.querySelector<HTMLElement>('nav')?.parentElement ?? null
-      const navigationRow = viewport?.querySelector?.('nav') ?? document.querySelector?.('nav') ?? null
-      const navParent = navigationRow?.parentElement ?? viewport
-      if (!viewport || !navParent || !navigationRow) {
-        if (shell.parentElement) shell.remove()
+      // Scope the compatibility mount to the actual expanded sidebar. The
+      // upstream shell renders its panel nav directly inside this scrollport.
+      // Missing or changed Host structure is not permission to use another nav.
+      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
+      const navigationRow = viewport?.querySelector<HTMLElement>(':scope > nav') ?? null
+      const navParent = navigationRow?.parentElement ?? null
+      if (!viewport || !navigationRow || navParent !== viewport) {
+        // The native Harness search remains available; close only Delta-owned UI.
+        if (shell.parentElement || isModalOpen) {
+          clearInlineRequest()
+          closePalette()
+          shell.remove()
+        }
         if (root.getAttribute('data-delta-search-adapter') !== 'waiting-for-sidebar') {
           root.setAttribute('data-delta-search-adapter', 'waiting-for-sidebar')
         }
@@ -5687,7 +5692,26 @@ function installHostSearch(
       observer?.takeRecords?.()
     }
   }
-  observer = new MutationObserver(scheduleSync)
+  // Observe re-mounts without resynchronizing for unrelated chat/third-party
+  // updates or for result-list mutations inside our own search container.
+  const touchesSidebar = (node: Node): boolean => {
+    if (node.nodeType !== 1) return false
+    const element = node as HTMLElement
+    return Boolean(element.matches?.('[data-sidebar-scrollport]') ||
+      element.closest?.('[data-sidebar-scrollport]') ||
+      element.querySelector?.('[data-sidebar-scrollport]'))
+  }
+  observer = new MutationObserver(records => {
+    for (const record of records) {
+      if (record.target === shell || shell.contains(record.target)) continue
+      if (touchesSidebar(record.target) ||
+          Array.from(record.addedNodes).some(touchesSidebar) ||
+          Array.from(record.removedNodes).some(touchesSidebar)) {
+        scheduleSync()
+        return
+      }
+    }
+  })
   observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
   const invalidateSearchProtection = (): void => {
