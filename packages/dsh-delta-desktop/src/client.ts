@@ -6405,9 +6405,9 @@ window.__ModuleLoader__.load({
           let reference: SessionReference | undefined
           let isReleased = false
           const release = (): void => {
-            if (isReleased) return
+            if (isReleased || !reference) return
             isReleased = true
-            reference?.release()
+            reference.release()
           }
           const close = (): void => { lease.dispose(); release() }
           activeResources.add(close)
@@ -6777,10 +6777,10 @@ window.__ModuleLoader__.load({
       const [open, setOpen] = React.useState(false)
       const [edited, setEdited] = React.useState('')
       const [message, setMessage] = React.useState('')
-      const isAllowed = useAssistantContent(props.sessionId, workflow?.parentSessionId ?? '')
-      if (!isAllowed || !workflow || workflow.purpose !== 'optimization' || !props.messageId) return null
-      const canApply = (): boolean => assistantWorkflows.get(props.sessionId) === workflow &&
+      const canApply = (): boolean => !!workflow && assistantWorkflows.get(props.sessionId) === workflow &&
         allowsAssistantContent(assistantServices, props.sessionId, workflow.parentSessionId)
+      const isAllowed = React.useSyncExternalStore(deltaFeatures.subscribeContentProtection, canApply)
+      if (!isAllowed || !workflow || workflow.purpose !== 'optimization' || !props.messageId) return null
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const node = chat.nodes?.values().find(value => {
         const data = value?.data as Record<string, any> | undefined
@@ -6878,8 +6878,11 @@ window.__ModuleLoader__.load({
       const [queuePending, setQueuePending] = React.useState(false)
       const parentId = resource?.value?.parentSessionId || ''
       const assistantId = resource?.value?.assistantSessionId || ''
-      const isAllowed = useAssistantContent(parentId, assistantId, mainState.sessionId ?? '')
-      if (!isAllowed || !resource?.value?.isValid() || mainState.sessionId !== parentId) return null
+      const canRead = (): boolean => mainState.sessionId === parentId &&
+        resource?.value?.isValid() === true &&
+        allowsAssistantContent(assistantServices, parentId, assistantId)
+      const isAllowed = React.useSyncExternalStore(deltaFeatures.subscribeContentProtection, canRead)
+      if (!isAllowed) return null
       const usage = readContextUsage(mainPressure)
       const turns = mainChat.timeline?.turnOrder?.length ?? 0
       const contextExcerpt = conversationContext(mainChat, 3000)
@@ -6887,7 +6890,7 @@ window.__ModuleLoader__.load({
         : mainState.awaitingFirstTurn ? copy.ui.assistantStarting : copy.ui.sessionIdle
       const checkpoint = latestCheckpoint(mainChat)
       const send = async (): Promise<void> => {
-        if (!confirm || !correction.trim() || queuePending || !resource?.value?.isValid()) return
+        if (!confirm || !correction.trim() || queuePending || !canRead()) return
         setQueuePending(true)
         try {
           const ok = await queueMainCorrection(parentId, correction.trim(), assistantId)
@@ -6971,8 +6974,8 @@ window.__ModuleLoader__.load({
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
     function SessionHoverDetail({ sessionId }: SessionHoverProps): unknown {
-      const isAllowed = React.useSyncExternalStore(deltaFeatures.subscribeContentProtection,
-        () => deltaFeatures.readSearchProtection().allowsSession(sessionId))
+      const canRead = (): boolean => deltaFeatures.readSearchProtection().allowsSession(sessionId)
+      const isAllowed = React.useSyncExternalStore(deltaFeatures.subscribeContentProtection, canRead)
       if (!isAllowed) return null
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
@@ -6984,7 +6987,7 @@ window.__ModuleLoader__.load({
           type: 'button', className: 'dtd-session-meta-copy',
           'aria-label': copy.ui.copySessionId,
           onClick: () => {
-            if (!deltaFeatures.readSearchProtection().allowsSession(sessionId)) return
+            if (!canRead()) return
             const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
             const request = navigator.clipboard?.writeText(sessionId)
             if (!request) { showDeltaToast(labels.copyFailed); return }
