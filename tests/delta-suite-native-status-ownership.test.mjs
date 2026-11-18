@@ -12,7 +12,8 @@ test('Delta Suite does not scan or rewrite Harness native running status text no
     'RUNNING_STATUS_HOST_SELECTOR', 'visitElementTextNodes',
     'normalizeRunningStatusNodesInDoc', 'normalizeRunningDomText', 'rewrittenRunningTexts',
   ]) assert.equal(source.includes(removed), false, removed)
-  assert.match(source, /Native status text stays under Harness ownership/)
+  assert.doesNotMatch(source, /data-delta-compat-status/,
+    'legacy native status marker must not return')
   assert.match(source, /function installSidebarCompatibility\(/)
 })
 
@@ -20,7 +21,7 @@ test('approved ZIP3 region hash is updated without disabling review protection',
   const emitted = [
     'function installSidebarCompatibility() {}',
     'function installHostSearch() {}',
-    'dtd-host-search data-delta-compat',
+    'dtd-host-search',
     'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
