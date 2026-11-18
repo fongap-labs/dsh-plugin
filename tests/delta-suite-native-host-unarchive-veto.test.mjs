@@ -271,7 +271,7 @@ test('unbinding cannot restore deleted-and-locked sessions through direct Host u
     })
     assert.equal(response.status, 200)
     assert.deepEqual(response.data.unarchivedIds, [])
-    assert.deepEqual(response.data.unarchiveFailedIds, ['deleted'])
+    assert.deepEqual(response.data.pendingUnarchiveIds, ['deleted'])
     assert.deepEqual(registry.archivedSessionIds, ['deleted'])
     assert.deepEqual(calls, [], 'no native unarchive is attempted for a tombstoned ID')
     assert.deepEqual(response.data.state.deletedSessionIds, ['session-deleted'])
