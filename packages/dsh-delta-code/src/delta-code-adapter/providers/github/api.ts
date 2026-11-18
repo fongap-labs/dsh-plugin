@@ -108,9 +108,9 @@ function redactGitHubLog(text: string): string {
   return text
     .replace(/github_pat_[A-Za-z0-9_]+/g, '[REDACTED]')
     .replace(/gh[pousr]_[A-Za-z0-9_]+/g, '[REDACTED]')
-    .replace(/(Bearer\\s+)[A-Za-z0-9._~+/-]+/gi, '$1[REDACTED]')
-    .replace(/((?:GITHUB_TOKEN|GH_TOKEN|PASSWORD|SECRET|API_KEY)\\s*[=:]\\s*)[^\\s]+/gi, '$1[REDACTED]')
-    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]')
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+/gi, '$1[REDACTED]')
+    .replace(/((?:GITHUB_TOKEN|GH_TOKEN|PASSWORD|SECRET|API_KEY)\s*[=:]\s*)[^\s]+/gi, '$1[REDACTED]')
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]')
 }
 
 async function boundedLogExcerpt(response: Response, signal: AbortSignal): Promise<{
@@ -144,14 +144,14 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal): Promi
   let offset = 0
   for (const item of bytes) { buffer.set(item, offset); offset += item.byteLength }
   const log = new TextDecoder('utf-8', { fatal: false }).decode(buffer)
-  const lines = log.split('\\n')
-  const failure = /##\\[error\\]|(?:^|\\s)(?:error:|fatal:|failed|failure|exception|traceback|assertionerror)|process completed with exit code [1-9]/i
+  const lines = log.split('\n')
+  const failure = /##\[error\]|(?:^|\s)(?:error:|fatal:|failed|failure|exception|traceback|assertionerror)|process completed with exit code [1-9]/i
   const hits: number[] = []
   for (let i = 0; i < lines.length; i++) if (failure.test(lines[i]!)) hits.push(i)
   const last = hits.at(-1)
   const selection = last === undefined
     ? log.slice(-LOG_EXCERPT_CHARS)
-    : lines.slice(Math.max(0, last - 35), Math.min(lines.length, last + 12)).join('\\n').slice(-LOG_CONTEXT_CHARS)
+    : lines.slice(Math.max(0, last - 35), Math.min(lines.length, last + 12)).join('\n').slice(-LOG_CONTEXT_CHARS)
   return { excerpt: redactGitHubLog(selection), truncated: truncated || selection.length < log.length, bytesRead: total }
 }
 
