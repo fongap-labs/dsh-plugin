@@ -81,6 +81,16 @@ export function defaultVisionSettings(): VisionBridgeSettings {
   }
 }
 
+// Persisted session grouping is a string-keyed JSON dictionary. Exclude
+// Object.prototype keys before inserting into a plain object: "__proto__"
+// mutates its prototype via assignment, while "constructor"/"toString" and
+// similar keys shadow inherited methods in downstream consumers.
+export function isSafeSessionMapKey(id: string): boolean {
+  return Boolean(id) && id !== '.' && id !== '..' &&
+    !id.includes('/') && !id.includes('\\') && !id.includes('\0') &&
+    id !== 'prototype' && !Object.hasOwn(Object.prototype, id)
+}
+
 export function normalizeDeltaState(raw: unknown): DeltaHostState {
   const obj = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   const locked = Array.isArray(obj.lockedSessionIds)
@@ -95,7 +105,7 @@ export function normalizeDeltaState(raw: unknown): DeltaHostState {
   const moved: Record<string, string> = {}
   if (obj.movedSessions && typeof obj.movedSessions === 'object') {
     for (const [k, v] of Object.entries(obj.movedSessions as Record<string, unknown>)) {
-      if (typeof k === 'string' && k && typeof v === 'string' && v) {
+      if (isSafeSessionMapKey(k) && typeof v === 'string' && v) {
         moved[k] = v
       }
     }
