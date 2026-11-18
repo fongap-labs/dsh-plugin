@@ -48,7 +48,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       }),
       deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
       deltaCodeRepositoryRemote(createDshRepositoryRemoteTools(
-        ctx, settings, createGitHubTransport(settings.githubAccounts))),
+        ctx, settings, createGitHubTransport(settings.githubAccounts, ctx))),
       deltaCodeSupport(stats),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))

@@ -41,7 +41,7 @@ describe('code worker native settings contract', () => {
     const tsconfig = JSON.parse(read('tsconfig.json'))
     assert.equal(tsconfig.compilerOptions.moduleDetection, 'legacy')
     assert.equal(pkg.dsh.client.platform,'web')
-    assert.match(read('src/client.ts'), /plugins\.row\.config/)
+    assert.match(read('src/client.ts'), /settings\.section/)
     assert.match(read('src/client.ts'), /mutate\(ops, state\.revision\)/)
   })
   it('supports an explicit legacy and guarded Host FS write contract in native settings', () => {
@@ -58,7 +58,11 @@ describe('code worker native settings contract', () => {
     assert.match(source, /sourceIndex/)
     assert.match(source,/set\(\[\.\.\.prefix, 'tokenEnv'\], a\.tokenEnv\)/)
     assert.doesNotMatch(source,/set\(\[\.\.\.prefix, 'token'\]/)
-    assert.doesNotMatch(source,/type: 'password'/)
+    assert.match(source,/type: isSecret \? 'password'/)
+    assert.match(source,/ctx\.remote\.credentials/)
+    assert.match(source,/credentials!\.set\(/)
+    assert.doesNotMatch(source,/set\(\[\.\.\.prefix, 'token'\]/)
+    assert.doesNotMatch(source,/plugins\.row\.config', \(\)/)
   })
 })
 
@@ -83,4 +87,27 @@ describe('code worker cyclic config protection', () => {
     for (let i = 0; i < 75; i++) nested = { child: nested }
     assert.throws(() => normalizeConfig({ nested }), /configuration nesting limit exceeded/)
   })
+})
+
+it('provides beginner GitHub settings through native Settings without leaking PATs to ConfigForm', () => {
+  const client = read('src/client.ts')
+  assert.match(client, /name: 'settings.section', id: 'delta-code'/)
+  assert.match(client, /ctx.configForms.get\('dsh-delta-code'\)/)
+  assert.match(client, /ctx.remote.credentials/)
+  assert.match(client, /credentials!\.set\(update.ref, update.token\)/)
+  assert.match(client, /type: isSecret \? 'password' : 'text'/)
+  assert.match(client, new RegExp('Token 已保存（尚未验证仓库权限）'))
+  assert.match(client, new RegExp('Token 尚未配置'))
+  assert.match(client, /defaultGithubTokenRef/)
+  assert.match(client, /setTokenInputs\(\{\}\)/)
+  assert.doesNotMatch(client, /plugins\.row\.config', \(\)/)
+  assert.doesNotMatch(client, /set\(\[\.\.\.prefix, 'token'\]/)
+})
+
+it('hides advanced setup behind a native disclosure and states default encryption limits', () => {
+  const client = read('src/client.ts')
+  assert.match(client, new RegExp('高级设置：Git、执行权限与语言服务器'))
+  assert.match(client, /h\('details'/)
+  assert.match(client, new RegExp('默认本地凭据文件并非加密文件'))
+  assert.match(client, new RegExp('Token 已保存（尚未验证仓库权限）'))
 })

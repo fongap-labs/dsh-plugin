@@ -1,6 +1,7 @@
 /**
  * The Host projects volatile fields into the native Plugins configuration form.
- * GitHub tokens are never persisted: only the tokenEnv variable name is stored.
+ * GitHub tokens are never persisted in plugin config: only tokenEnv references
+ * are stored. The native credentials service owns values, with masked UI.
  */
 import Schema from '@deepseek-ai/schemastery'
 import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'

@@ -134,3 +134,49 @@ describe('GitHub account configuration and automatic routing', () => {
     }
   })
 })
+
+  it('uses mounted Host credentials, not process.env, and rotates without a restart', async () => {
+    const { createGitHubTransport } = await import('../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/api.js')
+    const account = { owner: 'isolated', tokenEnv: 'DSH_TEST_GITHUB_ROTATING' }
+    process.env.DSH_TEST_GITHUB_ROTATING = 'wrong-ambient-token'
+    let current = 'first-token'
+    const references = [], calls = []
+    const host = { get(name) { assert.equal(name, 'credentials'); return {
+      async resolve(ref) { references.push(ref); return current ? { value: current, source: 'file' } : undefined },
+    } } }
+    const transport = createGitHubTransport([account], host)
+    const previousFetch = globalThis.fetch
+    try {
+      globalThis.fetch = async (_url, options) => {
+        calls.push(options.headers.Authorization)
+        return new Response(JSON.stringify({ name: 'repo' }), { status: 200 })
+      }
+      const input = { repository: 'isolated/repo', account: 'isolated',
+        method: 'GET', path: '/repos/isolated/repo', signal: new AbortController().signal }
+      await transport.request(input)
+      current = 'second-token'
+      await transport.request(input)
+      current = ''
+      await assert.rejects(transport.request(input), /credential not configured/)
+      assert.deepEqual(calls, ['Bearer first-token', 'Bearer second-token'])
+      assert.deepEqual(references, Array(3).fill('DSH_TEST_GITHUB_ROTATING'))
+      assert.doesNotMatch(JSON.stringify({ references }), /first-token|second-token/)
+    } finally {
+      globalThis.fetch = previousFetch
+      delete process.env.DSH_TEST_GITHUB_ROTATING
+    }
+  })
+  it('never falls back to ambient secrets when mounted Host credentials are empty or broken', async () => {
+    const { createGitHubTransport } = await import('../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/api.js')
+    const name = 'DSH_TEST_GITHUB_NO_FALLBACK'
+    process.env[name] = 'ambient-secret'
+    const accounts = [{ owner: 'secure', tokenEnv: name }]
+    const input = { repository: 'secure/repo', account: 'secure', method: 'GET',
+      path: '/repos/secure/repo', signal: new AbortController().signal }
+    try {
+      await assert.rejects(createGitHubTransport(accounts, { get: () => ({ resolve: async () => undefined }) })
+        .request(input), /credential not configured/)
+      await assert.rejects(createGitHubTransport(accounts, { get: () => ({}) })
+        .request(input), /service is incomplete/)
+    } finally { delete process.env[name] }
+  })
