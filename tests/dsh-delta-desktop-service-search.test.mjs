@@ -90,6 +90,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const inserted = []
   const actions = []
   let archivedSessionIds = []
+  let protectionState = { hasPin: false, lockMode: 'none', deletedSessionIds: [], lockedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {} }
   let workspacePhase = 'ready'
   let workspaceState = 'idle'
   let workspaceTitle = 'Design Workspace'
@@ -99,6 +100,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const hoverDisposers = []
   const refreshSessions = () => { for (const listener of [...sessionListeners]) listener() }
   let sessionRunning = false
+  let nextNativeSearch
   let sessionPhase = 'ready'
   let isSessionSnapshotUnavailable = false
   let mainSession = 'local'
@@ -142,7 +144,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const hostWorkspaces = {
     list: {
       getSnapshot: () => ({ phase: workspacePhase, state: workspaceState, archivedSessionIds, items: [
-        { workspaceId: 'design', title: workspaceTitle, path: 'C:\\Users\\private\\secret' },
+        { workspaceId: 'design', title: workspaceTitle, path: 'C:\\Users\\private\\secret', sessionIds: ['local'] },
       ] }),
       subscribe(callback) { refreshWorkspaces = callback; return () => { refreshWorkspaces = () => {} } },
     },
@@ -167,11 +169,16 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
     search: async (query, signal) => {
       actions.push(['search', query])
       assert.equal(signal.aborted, false)
+      if (nextNativeSearch) {
+        const task = nextNativeSearch
+        nextNativeSearch = undefined
+        return task(signal)
+      }
       return { ok: true, value: { items: [{ sessionId: 'remote', snippet: 'Example content match' }], hasMore: false } }
     },
   }
   const ctx = {
-    get(name) { return name === 'conversation' ? hostConversation : name === 'uiSession' ? hostUiSession : undefined },
+    get(name) { return name === 'conversation' ? hostConversation : name === 'uiSession' ? hostUiSession : name === 'workspaces' ? hostWorkspaces : undefined },
     theme: { overrideTokens() { return () => {} } },
     layout: { toggleSidebar() {}, selectPanel(id) { actions.push(['panel', id]) } },
     sessions: hostSessions,
@@ -242,6 +249,12 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   env.window.addEventListener = (name, callback) => windowKeyHandlers.set(name, callback)
   env.window.removeEventListener = name => windowKeyHandlers.delete(name)
   plugin.apply(ctx)
+  env.window.location = { href: 'https://harness.test/' }
+  env.fetch = async path => ({
+    ok: !path.includes('/session-search'), status: path.includes('/session-search') ? 503 : 200,
+    json: async () => path === '/api/delta-desktop/state' ? { state: protectionState } : {},
+  })
+  await env.testFeatures.refreshState()
   assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot, 'Host snapshot method is not wrapped')
   assert.equal(hostSessions.list.subscribe, originalSessionSubscribe, 'Host subscription method is not wrapped')
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
@@ -388,13 +401,53 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   input.emit('input')
   const staleHit = results.children.find(node => node.className === 'dtd-host-search-result')
   assert.ok(staleHit, 'initial native row is visible in Delta search')
-  env.window.location = { href: 'https://harness.test/' }
-  env.fetch = async path => ({
-    ok: true, status: 200,
-    json: async () => path === '/api/delta-desktop/state'
-      ? { state: { deletedSessionIds: ['local'], lockedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {} } }
-      : {},
-  })
+  // Run only the most recent debounce callback, avoiding unrelated UI timers.
+  let resolveNative, observedSignal
+  nextNativeSearch = signal => {
+    observedSignal = signal
+    return new Promise(resolve => { resolveNative = resolve })
+  }
+  const runLastTimer = async () => {
+    const [id, callback] = [...timers.entries()].at(-1)
+    timers.delete(id)
+    callback()
+    await flushCatalog()
+  }
+  await runLastTimer()
+  assert.ok(observedSignal && resolveNative, 'unprotected query may use public native fallback')
+  protectionState = { ...protectionState, hasPin: true, lockMode: 'totp', lockedSessionIds: ['session-local'] }
+  await env.testFeatures.refreshState()
+  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false,
+    'direct lock alias suppresses native title')
+  assert.equal(observedSignal.aborted, true, 'protection change aborts fallback')
+  resolveNative({ ok: true, value: { items: [{ sessionId: 'local', snippet: 'late protected secret' }], hasMore: false } })
+  await flushCatalog()
+  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false)
+  const searches = actions.filter(action => action[0] === 'search').length
+  input.emit('input')
+  await runLastTimer()
+  assert.equal(actions.filter(action => action[0] === 'search').length, searches,
+    'Host endpoint refusal does not fall back while lock is active')
+  const beforeLock = actions.filter(action => action[0] === 'open').length
+  staleHit.emit('click')
+  assert.equal(actions.filter(action => action[0] === 'open').length, beforeLock)
+  protectionState = { ...protectionState, lockedSessionIds: [], lockedWorkspaceIds: ['design'] }
+  await env.testFeatures.refreshState()
+  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false,
+    'locked workspace member is excluded')
+  input.emit('keydown', { key: 'Enter', preventDefault() {} })
+  const lockedDialog = body.children.find(node => node.className === 'dtd-search-backdrop').children[0]
+  const flatten = node => [node.textContent, ...node.children.flatMap(flatten)].join(' ')
+  assert.doesNotMatch(flatten(lockedDialog), /Example Session|Design Workspace/)
+  lockedDialog.emit('keydown', { key: 'Escape', preventDefault() {} })
+  protectionState = { ...protectionState, lockedWorkspaceIds: [], hasPin: false, lockMode: 'none' }
+  await env.testFeatures.refreshState()
+  assert.ok(results.children.some(node => node.className === 'dtd-host-search-result'))
+  const beforeOld = actions.filter(action => action[0] === 'open').length
+  staleHit.emit('click')
+  assert.equal(actions.filter(action => action[0] === 'open').length, beforeOld,
+    'old result stays invalid after unlock')
+  protectionState = { ...protectionState, deletedSessionIds: ['local'] }
   await env.testFeatures.refreshState()
   assert.ok(hostSessions.list.getSnapshot().byId.local, 'Delta never rewrites the stale native catalog')
   assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false,
