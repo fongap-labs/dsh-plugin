@@ -5,10 +5,10 @@ import { WORKFLOW_SKILLS } from '../packages/dsh-delta-code/lib/workflow-skills.
 
 test('one-plugin coding workflow catalog is complete, unique and loadable', () => {
   const names = ALL_CODING_SKILLS.map(skill => skill.name)
-  assert.equal(names.length, 23)
+  assert.equal(names.length, 27)
   assert.equal(new Set(names).size, names.length)
   assert.equal(CODING_SKILLS.length, 4)
-  assert.equal(WORKFLOW_SKILLS.length, 19)
+  assert.equal(WORKFLOW_SKILLS.length, 23)
   for (const skill of ALL_CODING_SKILLS) {
     assert.match(skill.name, /^code-[a-z0-9]+(?:-[a-z0-9]+)*$/)
     assert.ok(skill.title.length > 8, skill.name)
@@ -25,6 +25,7 @@ test('one-plugin coding workflow catalog is complete, unique and loadable', () =
     'code-worktrees', 'code-find-skills', 'code-official-docs', 'code-request-review', 'code-receive-review',
     'code-verification-gate', 'code-finish-branch', 'code-skill-authoring',
     'code-context-discipline', 'code-incident-diagnosis', 'code-autonomous-loop', 'code-ci-repair',
+    'code-perf-issue', 'code-runtime-forensics', 'code-visual-parity', 'code-skill-evaluation',
   ]) assert.ok(names.includes(id), id)
 })
 

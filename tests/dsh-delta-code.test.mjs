@@ -104,11 +104,12 @@ describe("dsh-delta-code", () => {
     const fresh = createContext();
     const dispose = codeWorker.apply(fresh, { workspaceRoot: workspace });
     const names = [...fresh.registeredSkills.keys()];
-    assert.equal(names.length, 23);
+    assert.equal(names.length, 27);
     assert.equal(new Set(names).size, names.length);
     for (const name of ["code-fast-change", "code-workflow", "code-brainstorming", "code-writing-plans",
       "code-executing-plans", "code-subagent-delivery", "code-test-driven-development",
-      "code-parallel-work", "code-worktrees", "code-find-skills", "code-verification-gate", "code-finish-branch", "code-autonomous-loop", "code-ci-repair"]) {
+      "code-parallel-work", "code-worktrees", "code-find-skills", "code-verification-gate", "code-finish-branch", "code-autonomous-loop", "code-ci-repair",
+      "code-perf-issue", "code-runtime-forensics", "code-visual-parity", "code-skill-evaluation"]) {
       assert.ok(fresh.registeredSkills.has(name), name);
     }
     assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /acceptance/);

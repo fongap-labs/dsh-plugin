@@ -6,6 +6,8 @@
  * Code Worker README). Each body is loaded by the Host Skills service only
  * when selected. Avoid prescribing APIs the Host has not exposed.
  */
+
+import { SPECIALIST_WORKFLOW_SKILLS } from './specialist-workflow-skills.js'
 export interface WorkflowSkill {
   name: string
   title: string
@@ -254,5 +256,5 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'After pushing to a feature branch, inspect the new head SHA and new check conclusions. Report pending/running/failed exactly; never claim a red PR is fixed before its latest gates pass.',
     ],
   },
-
+  ...SPECIALIST_WORKFLOW_SKILLS,
 ]
