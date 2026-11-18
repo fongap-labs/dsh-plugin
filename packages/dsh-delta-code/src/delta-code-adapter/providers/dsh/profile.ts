@@ -149,7 +149,7 @@ async function discoverModules(reader: ModuleReader, signal: AbortSignal): Promi
   ]
   const modules: ProjectModuleProfile[] = []
   let visited = 0
-  let truncated = false
+  let isTruncated = false
   while (queue.length && visited < MAX_MODULE_DIRECTORIES && modules.length < MAX_MODULES) {
     signal.throwIfAborted()
     const directory = queue.shift()!
@@ -171,12 +171,12 @@ async function discoverModules(reader: ModuleReader, signal: AbortSignal): Promi
     }
     if (directory.depth >= MAX_MODULE_DEPTH) continue
     for (const child of candidateDirectories(entries)) {
-      if (visited + queue.length >= MAX_MODULE_DIRECTORIES) { truncated = true; break }
+      if (visited + queue.length >= MAX_MODULE_DIRECTORIES) { isTruncated = true; break }
       queue.push({ target: child.target, path: directory.path ? directory.path + '/' + child.name : child.name,
         depth: directory.depth + 1 })
     }
   }
-  return { modules, truncated: truncated || queue.length > 0 }
+  return { modules, truncated: isTruncated || queue.length > 0 }
 }
 
 async function addModuleProfiles(ctx: Context, exec: { signal: AbortSignal }, cwd: string, root: string,
