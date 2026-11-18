@@ -62,6 +62,9 @@ async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, hos
 export function createGitHubTransport(accounts: readonly GitHubAccountConfig[], host?: GitHubCredentialHost): DeltaGitHubTransport {
   // Snapshot approved bindings: feature modules only use an opaque account key.
   const bindings = new Map<string, string>(accounts.map(entry => [entry.owner.toLowerCase(), entry.tokenEnv] as const))
+  // The native Host credential is the default when no plugin identities are configured.
+  // This does not import the separate gh CLI login store.
+  if (!accounts.length) bindings.set('native', 'GITHUB_TOKEN')
   return {
     request(input) {
       const credentialEnv = bindings.get(input.account.toLowerCase())
