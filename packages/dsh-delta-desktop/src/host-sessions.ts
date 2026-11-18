@@ -745,7 +745,7 @@ export function installHostSessionOps(
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
-  const detachFromRegistry = async (sessionIds: string[]): Promise<void> => {
+  const detachFromRegistry = async (sessionIds: string[], skipUnarchive = false): Promise<void> => {
     const reg: any = getRegistry()
     if (!reg) return
     for (const sid of sessionIds) {
@@ -753,7 +753,11 @@ export function installHostSessionOps(
       const rawId = sid.replace(/^session-/, '')
       const idVariants = [sid, rawId, `session-${rawId}`]
       for (const v of idVariants) {
-        try { await Promise.resolve(reg.unarchiveSession?.(v)).catch(() => {}) } catch {}
+        // Startup tombstone replay must never trigger native unarchive: older
+        // Hosts may lack the public pre-unarchive veto entirely.
+        if (!skipUnarchive) {
+          try { await Promise.resolve(reg.unarchiveSession?.(v)).catch(() => {}) } catch {}
+        }
         try { await Promise.resolve(reg.unpinSession?.(v)).catch(() => {}) } catch {}
       }
       try {
@@ -932,7 +936,7 @@ export function installHostSessionOps(
     }
     if (initial.deletedSessionIds.length > 0) {
       await purgeSessionsFromWorkspaceJson(ctx, initial.deletedSessionIds)
-      await detachFromRegistry(initial.deletedSessionIds)
+      await detachFromRegistry(initial.deletedSessionIds, true)
     }
     for (const lockedId of initial.lockedSessionIds) {
       await archiveSessionOnHost(lockedId)
