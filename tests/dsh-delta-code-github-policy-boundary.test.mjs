@@ -17,13 +17,13 @@ describe('Delta Code Host-neutral GitHub policy', () => {
 
   it('keeps explicit repository account routing independent from the Host', () => {
     const accounts = [
-      { owner: 'personal', tokenEnv: 'PERSONAL', repositories: ['company/backend'] },
+      { owner: 'personal', tokenEnv: 'PERSONAL', repositories: ['personal/backend'] },
       { owner: 'company', tokenEnv: 'COMPANY' },
     ]
-    assert.equal(selectGitHubAccount(accounts, 'COMPANY/BACKEND').owner, 'personal')
+    assert.equal(selectGitHubAccount(accounts, 'PERSONAL/BACKEND').owner, 'personal')
     assert.equal(selectGitHubAccount(accounts, 'company/other').owner, 'company')
-    assert.strictEqual(legacySelector(accounts, 'company/backend'), accounts[0])
-    assert.throws(() => selectGitHubAccount(accounts, 'other/repo'), /specify account/)
+    assert.strictEqual(legacySelector(accounts, 'personal/backend'), accounts[0])
+    assert.throws(() => selectGitHubAccount(accounts, 'other/repo'), /no GitHub account/)
   })
 
   it('preserves conservative repository, branch, path and SHA validation', () => {

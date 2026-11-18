@@ -98,6 +98,7 @@ function readDraft(value: any): Draft {
 function validation(draft: Draft, value: any): string | undefined {
   const owners = new Set<string>()
   const repositories = new Set<string>()
+  const credentialRefs = new Set<string>()
   for (const account of draft.accounts) {
     const owner = account.owner.trim().toLowerCase()
     if (!OWNER.test(owner)) return 'GitHub owner must be a valid username or organization.'
@@ -105,9 +106,12 @@ function validation(draft: Draft, value: any): string | undefined {
     owners.add(owner)
     if (!account.tokenEnv) return owner + '：需要 Token 环境变量。'
     if (!ENV.test(account.tokenEnv)) return owner + ': invalid token environment variable name.'
+    if (credentialRefs.has(account.tokenEnv)) return '一个 Token 引用只能绑定一个 GitHub 账号或组织。'
+    credentialRefs.add(account.tokenEnv)
     const assigned = repositoryList(account.repositories)
     for (const item of assigned) {
       if (!REPOSITORY.test(item)) return 'GitHub repository must be owner/name: ' + item
+      if (item.split('/')[0].toLowerCase() !== owner) return '仓库必须属于对应的 GitHub 账号或组织：' + item
       const key = item.toLowerCase()
       if (repositories.has(key)) return 'Duplicate GitHub repository binding: ' + key
       repositories.add(key)
@@ -307,8 +311,8 @@ function installClient(require: (id: string) => unknown) {
         toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
         toggle(t('允许创建分支、提交和 PR（默认关闭）', 'Allow branches, commits and PRs (off by default)'), draft.githubAllowWrites,
           v => patch({ githubAllowWrites: v })),
-        hint(t('默认直接使用 Harness 原生凭据 GITHUB_TOKEN，可访问的仓库完全由该 Token 的 GitHub 权限决定；无需逐仓库配置。仅在需要切换多个 GitHub 身份时添加账号。',
-          'By default, use the native Harness GITHUB_TOKEN credential. GitHub determines accessible repositories; no per-repository setup is needed. Add accounts only to switch identities.')),
+        hint(t('一个 Token 只绑定一个账号或组织，该归属下仓库数量不限，实际授权由 GitHub 决定。原生 GITHUB_TOKEN 仅用于其登录用户自己的仓库，组织仓库须单独配置对应账号和 Token。',
+          'Each token binds to one account or organization, with unlimited repositories under that owner. Native GITHUB_TOKEN is limited to its authenticated user repositories; organizations need their own configured credentials.')),
         hint(credentialStates.GITHUB_TOKEN?.configured
           ? t('原生 GITHUB_TOKEN 已配置（实际仓库权限由 GitHub 验证）。', 'Native GITHUB_TOKEN configured (GitHub verifies repository permissions).')
           : t('原生 GITHUB_TOKEN 尚未在 Host 凭据服务中配置。', 'Native GITHUB_TOKEN is not configured in Host credentials.')),
@@ -329,7 +333,7 @@ function installClient(require: (id: string) => unknown) {
           field(t('访问令牌（Token，留空表示不更换）', 'Access token (leave blank to keep existing)'),
             tokenInputs[a.uiKey] ?? '', value => setTokenInputs(old => ({ ...old, [a.uiKey]: value })),
             true, t('粘贴 GitHub Token', 'Paste GitHub token')),
-          field(t('优先使用此账号的仓库（可选，仅用于多账号路由）', 'Prefer this account for repositories (optional routing only)'),
+          field(t('本账号下的仓库（可选，无数量上限）', 'Repositories under this owner (optional, unlimited)'),
             a.repositories, v => updateAccount(i, 'repositories', v), false, 'org/backend, org/frontend'),
           h('details', null, h('summary', { style: { fontSize: '12px', cursor: 'pointer' } },
             t('高级：凭据引用', 'Advanced: credential reference')),

@@ -169,7 +169,7 @@ pnpm test
 
 ## GitHub 多账号连接
 
-默认**无需配置 `github.accounts` 或单独绑定仓库**：Delta Code 会通过 Harness 原生凭据服务解析 `GITHUB_TOKEN`（旧版无凭据服务的 Host 使用同名环境变量）。无论个人仓库还是组织仓库，能否访问由 GitHub 对该 Token 的实际权限决定，插件不设置仓库数量上限或自有允许列表。使用 CLI 的 `gh auth login` 凭据属于另一套存储，并不会自动作为 `GITHUB_TOKEN` 提供给此 HTTP 工具。
+默认**无需配置 `github.accounts` 或逐个绑定仓库**：Delta Code 通过 Harness 原生凭据服务解析 `GITHUB_TOKEN`（旧版无凭据服务的 Host 使用同名环境变量），并核实它的 GitHub 登录用户；原生凭据仅用于该用户自己名下的仓库。**一个 Token 只绑定一个账号或组织，不能跨账号/组织复用**；该归属下的仓库数量不限，GitHub 根据该 Token 对具体仓库的授权决定能否访问。访问组织仓库时，须单独配置该组织的 `owner` 与 `tokenEnv`。CLI 的 `gh auth login` 凭据属于另一套存储，不会自动作为 `GITHUB_TOKEN` 提供给本插件。
 
 如需分别使用多个 GitHub 身份，可在用户 Profile 的 `cordis.patch.yml` 中配置可选的 `github.accounts`。每个账号填写 **凭据路由名 `owner` 与宿主凭据引用 `tokenEnv`**；真实 Token 保存在 Harness 凭据服务中或由旧版环境变量提供，不写入插件配置。账号数量不限：
 
@@ -186,9 +186,9 @@ github:
       tokenEnv: GITHUB_TOKEN_THIRD
 ```
 
-支持零个、一个或多个额外账号。组织名只是用于选择凭据的标识，并不是组织专用 Token。推荐细粒度 PAT，仅授权必要仓库及最小权限。
+支持零个、一个或多个额外账号。每个 `owner` 必须使用独立的 `tokenEnv`；同一个 Token 引用不得绑定不同账号或组织。组织名是仓库归属标识，Token 仍由已获得该组织仓库授权的个人或应用颁发。推荐细粒度 PAT，仅授权必要仓库及最小权限。
 
-调用 GitHub 工具时，省略 `repository` 则优先读取当前 Git 工作区 `origin`；也可显式指定 `repository: owner/repo`。凭据选择顺序为：工具参数 `account`（显式选用已配置的凭据身份）、可选仓库路由偏好、同名 owner、唯一已配置账号；未配置账号时使用原生 `GITHUB_TOKEN`。有多个账号却无法确定身份时会提示指定 `account`，而不是按仓库名称拒绝访问。仓库是否允许读写完全取决于 GitHub 对所选凭据的授权。
+调用 GitHub 工具时，省略 `repository` 则读取当前 Git 工作区 `origin`；也可显式指定 `repository: owner/repo`。配置了账号时，**只能使用与仓库 owner 相同的账号凭据**；工具可选 `account` 参数同样必须匹配仓库 owner，不允许跨归属复用。未配置账号时，原生 `GITHUB_TOKEN` 经 GitHub `/user` 验证登录归属后，仅能访问该用户自己的仓库。旧配置中的 `repositories` 字段只接受本账号下的仓库，不作为数量上限或访问允许列表。
 
 **安全要求：** 配置文件**不保存任何 Token**，仅保存宿主凭据引用。不要将真实 Token 提交到仓库、PR、Issue 或聊天。不要明文同步 Profile 凭据文件。Token 不会返回给模型；写操作仍需额外开启 `github.allowWrites`，并且必须通过 GitHub 服务端权限校验。
 
