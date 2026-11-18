@@ -42,7 +42,11 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
     localStorage: { getItem() { return stored }, setItem(_key, value) { stored = value } },
     MutationObserver: class { constructor(callback) { context.observers.push(callback) } observe() {} disconnect() {} },
   }
-  vm.runInNewContext(source, context)
+  const fixtureEnd = '\n})();\n'
+  assert.ok(source.endsWith(fixtureEnd), 'compiled client closure is available for fixture-only instrumentation')
+  const fixtureSource = source.slice(0, -fixtureEnd.length) +
+    '\n;globalThis.testDeltaFeatures = deltaFeatures\n})();\n'
+  vm.runInNewContext(fixtureSource, context)
   const components = new Map()
   const client = registration.factory(id => {
     if (id === '@deepseek-ai/dsh-client-ui-primitives') return { MenuItemButton() {} }
@@ -87,6 +91,7 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
   client.apply(ctx)
   return { registration, context, documentElement, components, slots, layers, changes,
     workspaces, deletedWorkspaces, originalDelete, defaultSessions,
+    features: context.testDeltaFeatures,
     cleanup() { effects.forEach(fn => fn?.()) },
     get removed() { return removed },
     get stored() { return stored } }
@@ -251,6 +256,19 @@ test('workspace deletion remains Host owned regardless of appearance mode', asyn
   const app = harness()
   assert.notEqual(app.workspaces.delete, app.originalDelete,
     'ZIP protects the default workspace through a guarded Host call')
+  await assert.rejects(() => app.workspaces.delete('default'), /delta\/workspace-state-unavailable/)
+  await assert.rejects(() => app.workspaces.delete('other'), /delta\/workspace-state-unavailable/)
+  assert.deepEqual(app.deletedWorkspaces, [], 'no native mutations before Host confirmation')
+  app.context.window.location = { href: 'https://harness.test/' }
+  app.context.fetch = async path => ({
+    ok: true, status: 200,
+    json: async () => path === '/api/delta-desktop/state'
+      ? { state: {
+        hasPin: false, lockMode: 'none',
+        lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {},
+      } } : {},
+  })
+  await app.features.refreshState()
   await assert.rejects(() => app.workspaces.delete('default'), /delta\/protected-default-workspace/)
   await app.workspaces.delete('other')
   const controller = app.components.get('settings.section').spec.inject().controller
