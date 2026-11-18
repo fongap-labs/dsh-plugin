@@ -150,12 +150,14 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: PR #392 scoped legacy Host sidebar placement; this is superseded by public Slot ownership.
 // Reviewed 2026-11-18: retired private three-column resizing, synthetic edge buttons, persisted layout widths and Host splitter pointer interception; native layout is authoritative.
 // Reviewed 2026-11-18: native hover-card class injection, global mouseover scanner and private card CSS removed; official Slot preserved.
-const ZIP3_THEME_BLOB = '786e7f326c437f9291af0fac9c17d9c47b009e32'
+// Reviewed 2026-11-18: retired native Harness modal panel drag and mask/panel overrides;
+// Host owns native Dialog chrome; Delta-owned dialogs retain their own CSS and service guards.
+const ZIP3_THEME_BLOB = 'adf95c502bcb26486ea0e456d55f55fa4c254c79'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'a4f2b0e8923e718a676544db300c9e565e1f857d',
+    sha1: 'bfd77d6021f86630adb6baaf0dc4676c671b245a',
   },
   {
     begin: 'function installHostSearch(',
