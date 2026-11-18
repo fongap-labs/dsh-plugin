@@ -11,7 +11,7 @@ const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-host-lock-'))
 let ops, state
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-    file('packages/dsh-delta-desktop/tsconfig.json'), '--outDir', dir], { stdio: 'pipe' })
+    file('packages/dsh-delta-suite/tsconfig.json'), '--outDir', dir], { stdio: 'pipe' })
   await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }))
   ops = await import(pathToFileURL(path.join(dir, 'host-sessions.js')).href)
   state = await import(pathToFileURL(path.join(dir, 'host-state.js')).href)
@@ -132,10 +132,10 @@ test('unbind separates confirmed and pending restoration', async () => {
 
 test('failed durable write does not publish an in-memory lock change', async () => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-host-durable-'))
-  const previous = process.env.DELTA_DESKTOP_STATE_FILE
+  const previous = process.env.DELTA_SUITE_STATE_FILE
   try {
     const filePath = path.join(home, 'state.json')
-    process.env.DELTA_DESKTOP_STATE_FILE = filePath
+    process.env.DELTA_SUITE_STATE_FILE = filePath
     const store = state.createHostStateStore({})
     await store.update(cur => ({ ...cur, totpSecret: secret, lockedSessionIds: ['a'] }))
     const committed = store.getCached()
@@ -148,8 +148,8 @@ test('failed durable write does not publish an in-memory lock change', async () 
     await store.update(cur => ({ ...cur, lockedSessionIds: ['b'] }))
     assert.deepEqual((await store.read()).lockedSessionIds, ['b'])
   } finally {
-    if (previous === undefined) delete process.env.DELTA_DESKTOP_STATE_FILE
-    else process.env.DELTA_DESKTOP_STATE_FILE = previous
+    if (previous === undefined) delete process.env.DELTA_SUITE_STATE_FILE
+    else process.env.DELTA_SUITE_STATE_FILE = previous
     await fs.rm(home, { recursive: true, force: true })
   }
 })
@@ -184,10 +184,10 @@ test('durable session maps ignore object-prototype keys but retain existing prot
   assert.equal(Object.hasOwn(normalized.movedSessions, 'constructor'), false)
 
   const home = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-map-safe-'))
-  const previous = process.env.DELTA_DESKTOP_STATE_FILE
+  const previous = process.env.DELTA_SUITE_STATE_FILE
   try {
     const filePath = path.join(home, 'state.json')
-    process.env.DELTA_DESKTOP_STATE_FILE = filePath
+    process.env.DELTA_SUITE_STATE_FILE = filePath
     await fs.writeFile(filePath, JSON.stringify(raw), 'utf8')
     const store = state.createHostStateStore({})
     assert.deepEqual((await store.read()).movedSessions,
@@ -202,8 +202,83 @@ test('durable session maps ignore object-prototype keys but retain existing prot
     assert.deepEqual(persisted.lockedSessionIds, ['__proto__'])
     assert.deepEqual(persisted.deletedSessionIds, ['constructor'])
   } finally {
-    if (previous === undefined) delete process.env.DELTA_DESKTOP_STATE_FILE
-    else process.env.DELTA_DESKTOP_STATE_FILE = previous
+    if (previous === undefined) delete process.env.DELTA_SUITE_STATE_FILE
+    else process.env.DELTA_SUITE_STATE_FILE = previous
+    await fs.rm(home, { recursive: true, force: true })
+  }
+})
+
+
+test('suite rename imports the previous profile state without losing locks, tombstones or TOTP', async () => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-suite-migrate-'))
+  const oldEnvKey = ['DELTA', 'DESKTOP', 'STATE', 'FILE'].join('_')
+  const oldEnv = {
+    DSH_HOME: process.env.DSH_HOME, DSH_PROFILE: process.env.DSH_PROFILE,
+    DELTA_SUITE_STATE_FILE: process.env.DELTA_SUITE_STATE_FILE,
+    previousFile: process.env[oldEnvKey],
+  }
+  try {
+    const profileDir = path.join(home, 'profiles', 'migrated')
+    await fs.mkdir(profileDir, { recursive: true })
+    const previousFile = path.join(profileDir, ['.delta', 'desktop', 'state.json'].join('-'))
+    const previousData = {
+      lockedSessionIds: ['locked'],
+      deletedSessionIds: ['deleted'],
+      movedSessions: { moved: 'workspace' },
+      totpSecret: secret,
+    }
+    await fs.writeFile(previousFile, JSON.stringify(previousData), 'utf8')
+    process.env.DSH_HOME = home
+    process.env.DSH_PROFILE = 'migrated'
+    delete process.env.DELTA_SUITE_STATE_FILE
+    delete process.env[oldEnvKey]
+    const store = state.createHostStateStore({})
+    const nextPath = await store.resolvePath()
+    assert.equal(nextPath, path.join(profileDir, '.delta-suite-state.json'))
+    const loaded = await store.read()
+    assert.deepEqual(loaded.lockedSessionIds, ['locked'])
+    assert.deepEqual(loaded.deletedSessionIds, ['deleted'])
+    assert.deepEqual(loaded.movedSessions, { moved: 'workspace' })
+    assert.equal(loaded.totpSecret, secret)
+    const saved = JSON.parse(await fs.readFile(nextPath, 'utf8'))
+    assert.deepEqual(saved.deletedSessionIds, ['deleted'])
+    assert.deepEqual(saved.lockedSessionIds, ['locked'])
+    await store.update(current => ({ ...current, deletedSessionIds: [...current.deletedSessionIds, 'new'] }))
+    assert.deepEqual(JSON.parse(await fs.readFile(nextPath, 'utf8')).deletedSessionIds, ['deleted', 'new'])
+    assert.deepEqual(JSON.parse(await fs.readFile(previousFile, 'utf8')), previousData,
+      'migration leaves the previous file untouched for rollback')
+  } finally {
+    for (const [key, val] of Object.entries({
+      DSH_HOME: oldEnv.DSH_HOME, DSH_PROFILE: oldEnv.DSH_PROFILE,
+      DELTA_SUITE_STATE_FILE: oldEnv.DELTA_SUITE_STATE_FILE,
+      [oldEnvKey]: oldEnv.previousFile,
+    })) { if (val === undefined) delete process.env[key]; else process.env[key] = val }
+    await fs.rm(home, { recursive: true, force: true })
+  }
+})
+
+test('corrupt previous state fails closed instead of silently dropping deletion protection', async () => {
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-suite-corrupt-'))
+  const oldKey = ['DELTA', 'DESKTOP', 'STATE', 'FILE'].join('_')
+  const original = { home: process.env.DSH_HOME, profile: process.env.DSH_PROFILE,
+    file: process.env.DELTA_SUITE_STATE_FILE, legacy: process.env[oldKey] }
+  try {
+    const profileDir = path.join(home, 'profiles', 'corrupt')
+    await fs.mkdir(profileDir, { recursive: true })
+    await fs.writeFile(path.join(profileDir, ['.delta', 'desktop', 'state.json'].join('-')), '{"deletedSessionIds":[', 'utf8')
+    process.env.DSH_HOME = home
+    process.env.DSH_PROFILE = 'corrupt'
+    delete process.env.DELTA_SUITE_STATE_FILE
+    delete process.env[oldKey]
+    const store = state.createHostStateStore({})
+    await assert.rejects(store.read())
+    await assert.rejects(fs.readFile(path.join(profileDir, '.delta-suite-state.json'), 'utf8'),
+      { code: 'ENOENT' })
+  } finally {
+    for (const [key, val] of Object.entries({
+      DSH_HOME: original.home, DSH_PROFILE: original.profile,
+      DELTA_SUITE_STATE_FILE: original.file, [oldKey]: original.legacy,
+    })) { if (val === undefined) delete process.env[key]; else process.env[key] = val }
     await fs.rm(home, { recursive: true, force: true })
   }
 })

@@ -36,7 +36,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/dsh-delta-desktop:
+  packages/dsh-delta-suite:
     dependencies:
       '@deepseek-ai/schemastery':
         specifier: 3.18.5

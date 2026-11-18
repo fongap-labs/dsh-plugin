@@ -2,7 +2,7 @@
 
 ## Delta Suite 第一阶段：当前已迁移的结构
 
-当前安装包仍为 `@fongap-labs/dsh-delta-desktop`；第一阶段只提取模块边界，保留插件入口、现有导出及 Profile 发布配置。改名与安装迁移将单独进行，避免破坏已有使用者。
+当前安装包仍为 `@fongap-labs/dsh-delta-suite`；第一阶段只提取模块边界，保留插件入口、现有导出及 Profile 发布配置。改名与安装迁移将单独进行，避免破坏已有使用者。
 
 - `src/delta-suite-composition.ts`：现有 Host 功能的装配入口；Cordis 仍控制插件生命周期。
 - `src/delta-suite-kernel/feature-lifecycle-registry.ts`：内部功能注册、失败回滚及逆序释放，不重复 Cordis。
@@ -13,11 +13,11 @@
 
 ## 独立产品
 
-`dsh-plugin` 是多包工作区，每个插件单独安装及发布；Delta Desktop 是一个可持续扩展的原生客户端插件，而不是独立网页或第二套 Agent。
+`dsh-plugin` 是多包工作区，每个插件单独安装及发布；Delta Suite 是一个可持续扩展的原生客户端插件，而不是独立网页或第二套 Agent。
 
 | 位置 | 职责 |
 | --- | --- |
-| `packages/dsh-delta-desktop/` | Delta 桌面唯一插件入口，原生体验层及未来 Host Adapter |
+| `packages/dsh-delta-suite/` | Delta 扩展套件唯一插件入口，原生体验层及未来 Host Adapter |
 | `packages/dsh-delta-code/` | 独立的 Delta 编程助手 |
 | `packages/shared/` | 中立的工具注册及安全执行能力 |
 | `projects/<plugin>/release.manifest.json` | Action Worker 单产品发行契约 |
@@ -46,7 +46,7 @@
 
 ## 替换范围与迁移
 
-本次用原生客户端插件**整体替换了旧版 `dsh-delta-desktop` 实现**，删除旧 Host 网页路由、独立浏览器入口及对应测试、脚本；保留历史 Release 供查证，不在源码中保留无人维护的兼容分支。旧安装的 Profile/路由不是新插件的迁移输入，升级前应做好独立备份并在隔离 Profile 测试。
+本次用原生客户端插件**整体替换了旧版 `dsh-delta-suite` 实现**，删除旧 Host 网页路由、独立浏览器入口及对应测试、脚本；保留历史 Release 供查证，不在源码中保留无人维护的兼容分支。旧安装的 Profile/路由不是新插件的迁移输入，升级前应做好独立备份并在隔离 Profile 测试。
 
 ## 构建与发布
 

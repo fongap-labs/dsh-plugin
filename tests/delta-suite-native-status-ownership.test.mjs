@@ -2,10 +2,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { verifyApprovedZip3Client } from '../scripts/verify-delta-desktop-release.mjs'
+import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
 
-const source = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/src/client.ts', import.meta.url)), 'utf8')
-const theme = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/src/theme.css', import.meta.url)), 'utf8')
+const source = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url)), 'utf8')
+const theme = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/theme.css', import.meta.url)), 'utf8')
 
 test('Delta Suite does not scan or rewrite Harness native running status text nodes', () => {
   for (const removed of [

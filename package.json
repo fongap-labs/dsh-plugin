@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Delta Desktop and Harness extensions",
+  "description": "Delta Suite and Harness extensions",
   "license": "MIT",
   "packageManager": "pnpm@11.28.5",
   "engines": {
@@ -11,9 +11,9 @@
   },
   "scripts": {
     "test": "node --test \"tests/**/*.test.mjs\"",
-    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-delta-code/tsconfig.json --noEmit && tsc -p packages/dsh-delta-desktop/tsconfig.json --noEmit && tsc -p packages/dsh-delta-desktop/tsconfig.client.json --noEmit",
-    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-delta-code/tsconfig.json && tsc -p packages/dsh-delta-desktop/tsconfig.json && tsc -p packages/dsh-delta-desktop/tsconfig.client.json && node packages/dsh-delta-desktop/scripts/finalize-client.mjs",
-    "validate": "node scripts/pack-bundles.mjs --check",
+    "typecheck": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-delta-code/tsconfig.json --noEmit && tsc -p packages/dsh-delta-suite/tsconfig.json --noEmit && tsc -p packages/dsh-delta-suite/tsconfig.client.json --noEmit",
+    "build": "tsc -p packages/shared/tsconfig.json && tsc -p packages/dsh-delta-code/tsconfig.json && tsc -p packages/dsh-delta-suite/tsconfig.json && tsc -p packages/dsh-delta-suite/tsconfig.client.json && node packages/dsh-delta-suite/scripts/finalize-client.mjs",
+    "validate": "node scripts/pack-bundles.mjs --check && node scripts/verify-delta-suite-naming.mjs",
     "pack:bundles": "node scripts/pack-bundles.mjs",
     "link:dev": "node scripts/link-profile.mjs",
     "install:bundle": "node scripts/link-profile.mjs --install"

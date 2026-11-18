@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const client = read('packages/dsh-delta-desktop/src/client.ts')
+const client = read('packages/dsh-delta-suite/src/client.ts')
 
 test('Delta Suite does not rewrite Harness Slots internals or built-in contributions', () => {
   for (const forbidden of [
