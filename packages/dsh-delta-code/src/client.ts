@@ -98,6 +98,7 @@ function readDraft(value: any): Draft {
 function validation(draft: Draft, value: any): string | undefined {
   const owners = new Set<string>()
   const repositories = new Set<string>()
+  const credentialRefs = new Set<string>()
   for (const account of draft.accounts) {
     const owner = account.owner.trim().toLowerCase()
     if (!OWNER.test(owner)) return 'GitHub owner must be a valid username or organization.'
@@ -105,10 +106,12 @@ function validation(draft: Draft, value: any): string | undefined {
     owners.add(owner)
     if (!account.tokenEnv) return owner + '：需要 Token 环境变量。'
     if (!ENV.test(account.tokenEnv)) return owner + ': invalid token environment variable name.'
+    if (credentialRefs.has(account.tokenEnv)) return '一个 Token 引用只能绑定一个 GitHub 账号或组织。'
+    credentialRefs.add(account.tokenEnv)
     const assigned = repositoryList(account.repositories)
-    if (assigned.length > 256) return 'GitHub repository binding limit exceeded.'
     for (const item of assigned) {
       if (!REPOSITORY.test(item)) return 'GitHub repository must be owner/name: ' + item
+      if (item.split('/')[0].toLowerCase() !== owner) return '仓库必须属于对应的 GitHub 账号或组织：' + item
       const key = item.toLowerCase()
       if (repositories.has(key)) return 'Duplicate GitHub repository binding: ' + key
       repositories.add(key)
@@ -209,7 +212,7 @@ function installClient(require: (id: string) => unknown) {
     }, [state?.revision])
     React.useEffect(() => {
       let isActive = true
-      const refs = [...new Set(draft.accounts.map(a => a.tokenEnv).filter(ref => ENV.test(ref)))]
+      const refs = [...new Set(['GITHUB_TOKEN', ...draft.accounts.map(a => a.tokenEnv)].filter(ref => ENV.test(ref)))]
       if (!refs.length) { setCredentialStates({}); return () => { isActive = false } }
       if (!props.credentials?.describe) {
         setCredentialNotice(t('当前 Host 未提供凭据服务。', 'Host credential service is unavailable.'))
@@ -224,7 +227,7 @@ function installClient(require: (id: string) => unknown) {
       }).catch(() => { if (isActive) setCredentialNotice(t('凭据状态读取失败，请检查 Host 连接。', 'Could not read credential status.')) })
       return () => { isActive = false }
     }, [refsKey, props.credentials])
-    if (props.view === 'summary') return t('Delta 编程助手 · 编程工具与 GitHub 多账号配置', 'Delta Code Worker · Coding tools and GitHub accounts')
+    if (props.view === 'summary') return t('Delta 编程助手 · 原生 GitHub 凭据与多账号', 'Delta Code Worker · Native GitHub credentials and accounts')
     if (!props.form || state?.status !== 'ready') return hint(t('当前配置尚未由 Host 加载。', 'Host configuration is not available.'))
     const disabled = !state.writable || saving
     const field = (label: string, value: string, change: (v: string) => void, isSecret = false, placeholder = '') =>
@@ -308,8 +311,11 @@ function installClient(require: (id: string) => unknown) {
         toggle(t('启用 GitHub 工具', 'Enable GitHub tools'), draft.githubEnabled, v => patch({ githubEnabled: v })),
         toggle(t('允许创建分支、提交和 PR（默认关闭）', 'Allow branches, commits and PRs (off by default)'), draft.githubAllowWrites,
           v => patch({ githubAllowWrites: v })),
-        hint(t('① 添加账号或组织  ② 粘贴 GitHub 访问令牌（PAT）  ③ 保存。Token 由 Harness 凭据服务保管，不写入插件配置。',
-          '1. Add an account or organization. 2. Paste a GitHub personal access token (PAT). 3. Save. The token stays in Host credentials, not plugin settings.')),
+        hint(t('一个 Token 只绑定一个账号或组织，该归属下仓库数量不限，实际授权由 GitHub 决定。原生 GITHUB_TOKEN 仅用于其登录用户自己的仓库，组织仓库须单独配置对应账号和 Token。',
+          'Each token binds to one account or organization, with unlimited repositories under that owner. Native GITHUB_TOKEN is limited to its authenticated user repositories; organizations need their own configured credentials.')),
+        hint(credentialStates.GITHUB_TOKEN?.configured
+          ? t('原生 GITHUB_TOKEN 已配置（实际仓库权限由 GitHub 验证）。', 'Native GITHUB_TOKEN configured (GitHub verifies repository permissions).')
+          : t('原生 GITHUB_TOKEN 尚未在 Host 凭据服务中配置。', 'Native GITHUB_TOKEN is not configured in Host credentials.')),
         h('a', { href: 'https://github.com/settings/personal-access-tokens/new', target: '_blank', rel: 'noopener noreferrer', style: { fontSize: '12px' } },
           t('在 GitHub 创建访问令牌', 'Create a GitHub access token')),
         hint(t('安全提示：Token 输入已隐藏且不会写入插件配置。静态加密能力由 Host 凭据提供方决定；默认本地凭据文件并非加密文件。',
@@ -327,7 +333,7 @@ function installClient(require: (id: string) => unknown) {
           field(t('访问令牌（Token，留空表示不更换）', 'Access token (leave blank to keep existing)'),
             tokenInputs[a.uiKey] ?? '', value => setTokenInputs(old => ({ ...old, [a.uiKey]: value })),
             true, t('粘贴 GitHub Token', 'Paste GitHub token')),
-          field(t('指定仓库（可选，用逗号分隔）', 'Repositories (optional, comma separated)'),
+          field(t('本账号下的仓库（可选，无数量上限）', 'Repositories under this owner (optional, unlimited)'),
             a.repositories, v => updateAccount(i, 'repositories', v), false, 'org/backend, org/frontend'),
           h('details', null, h('summary', { style: { fontSize: '12px', cursor: 'pointer' } },
             t('高级：凭据引用', 'Advanced: credential reference')),

@@ -26,9 +26,14 @@ function createContext() {
     logger: { warn: (message) => warnings.push(String(message)) },
     inject: (deps, callback) => {
       if (deps.includes("skills")) {
-        callback({ skills: { register(skill) {
-          skills.set(skill.name, skill);
-          return () => skills.delete(skill.name);
+        callback({ skills: { registerProvider(factory) {
+          const controller = new AbortController();
+          const provider = factory({ signal: controller.signal, invalidate() {} });
+          skills.set(provider.name, provider);
+          return () => {
+            skills.delete(provider.name);
+            controller.abort(new Error("provider disposed"));
+          };
         } } });
         return;
       }
@@ -100,19 +105,27 @@ describe("dsh-delta-code", () => {
     await rm(workspace, { recursive: true, force: true });
   });
 
-  it("native skills register with content and dispose cleanly", async () => {
+  it("native skills load content on demand and dispose cleanly", async () => {
     const fresh = createContext();
     const dispose = codeWorker.apply(fresh, { workspaceRoot: workspace });
-    const names = [...fresh.registeredSkills.keys()];
-    assert.equal(names.length, 23);
+    const local = fresh.registeredSkills.get("delta-code-coding");
+    assert.ok(local, "native coding Skill Provider");
+    const catalog = await local.list();
+    const names = catalog.map(skill => skill.name);
+    assert.equal(names.length, 27);
     assert.equal(new Set(names).size, names.length);
+    assert.ok(catalog.every(skill => !Object.hasOwn(skill, "content")));
     for (const name of ["code-fast-change", "code-workflow", "code-brainstorming", "code-writing-plans",
       "code-executing-plans", "code-subagent-delivery", "code-test-driven-development",
-      "code-parallel-work", "code-worktrees", "code-find-skills", "code-verification-gate", "code-finish-branch", "code-autonomous-loop", "code-ci-repair"]) {
-      assert.ok(fresh.registeredSkills.has(name), name);
+      "code-parallel-work", "code-worktrees", "code-find-skills", "code-verification-gate", "code-finish-branch", "code-autonomous-loop", "code-ci-repair",
+      "code-perf-issue", "code-runtime-forensics", "code-visual-parity", "code-skill-evaluation"]) {
+      assert.ok(names.includes(name), name);
     }
-    assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /acceptance/);
-    assert.match(fresh.registeredSkills.get("code-feature-delivery").content, /independent read-only diff review/);
+    const feature = catalog.find(skill => skill.name === "code-feature-delivery");
+    assert.ok(feature);
+    const loaded = await local.get(feature);
+    assert.match(loaded.content, /acceptance/);
+    assert.match(loaded.content, /independent read-only diff review/);
     dispose();
     assert.equal(fresh.registeredSkills.size, 0);
   });
@@ -124,7 +137,7 @@ describe("dsh-delta-code", () => {
 
   it("registers the expected Code Worker tools", () => {
     const names = [...ctx.registered.keys()].sort();
-    assert.deepEqual(names, ["code_delivery_gate", "code_execution_stats", "code_git_diff", "code_git_status", "code_git_worktree", "code_host_probe", "code_lsp_probe", "code_multi_edit", "code_project_profile", "code_resume", "code_verify", "code_verify_suite", "code_workflow_route", "code_workspace_map"]);
+    assert.deepEqual(names, ["code_delivery_gate","code_execution_stats","code_git_diff","code_git_status","code_git_worktree","code_github_branch","code_github_checks","code_github_commit_file","code_github_connection","code_github_create_pr","code_github_file","code_github_job_logs","code_github_jobs","code_github_pulls","code_github_skill_candidates","code_github_skill_review","code_host_probe","code_lsp_probe","code_multi_edit","code_project_profile","code_resume","code_verify","code_verify_suite","code_workflow_route","code_workspace_map"]);
   });
 
   it("code_multi_edit: local fallback rejects symlink escapes on reads and writes", { skip: process.platform === "win32" }, async () => {

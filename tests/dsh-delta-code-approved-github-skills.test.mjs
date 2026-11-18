@@ -179,7 +179,7 @@ describe('Delta Code approved GitHub Skills', () => {
     assert.ok((await active.list()).length > 0)
     dispose()
     assert.deepEqual(releases, ['registered', 'disposed'])
-    await assert.rejects(active.list(), /disposed/)
+    assert.deepEqual(await active.list(), [])
     dispose()
     assert.deepEqual(releases, ['registered', 'disposed'])
   })

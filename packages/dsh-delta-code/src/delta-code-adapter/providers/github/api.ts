@@ -1,6 +1,6 @@
 /** External GitHub HTTP and credential boundary. Repository rules belong to the feature. */
 import { GitHubApiFailure, GitHubWriteUncertain } from '../../contracts/github.js'
-import type { DeltaGitHubRequest, DeltaGitHubResponse, DeltaGitHubTransport } from '../../contracts/github.js'
+import type { DeltaGitHubRequest, DeltaGitHubResponse, DeltaGitHubTransport, DeltaGitHubJobLogsRequest, DeltaGitHubJobLogsResponse } from '../../contracts/github.js'
 import type { GitHubAccountConfig } from '../../../types.js'
 
 const API = 'https://api.github.com'
@@ -28,9 +28,38 @@ async function credentialForRequest(host: GitHubCredentialHost | undefined, ref:
   return ambient.trim()
 }
 
+/** Native credentials are account-scoped; organizations use explicit owner bindings. */
+async function assertNativeGitHubOwner(
+  account: string, repository: string, token: string, signal: AbortSignal,
+): Promise<void> {
+  if (account !== 'native') return
+  let identity: Response
+  try {
+    identity = await fetch(API + '/user', {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'dsh-delta-code',
+      },
+      signal,
+      redirect: 'error',
+    })
+  } catch (error) {
+    throw new Error('native GitHub credential identity could not be verified', { cause: error })
+  }
+  if (!identity.ok) throw new GitHubApiFailure(identity.status, repository, 'GET')
+  const login = (await identity.json())?.login
+  if (typeof login !== 'string' || login.toLowerCase() !== repository.split('/')[0]!.toLowerCase()) {
+    throw new Error('native GITHUB_TOKEN owner does not match repository owner; configure a dedicated account or organization credential')
+  }
+}
+
 async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, host?: GitHubCredentialHost): Promise<DeltaGitHubResponse> {
   const { repository, account, method, path, data, signal } = input
   const token = await credentialForRequest(host, tokenEnv, account)
+  await assertNativeGitHubOwner(account, repository, token, signal)
   const url = API + path
   if (!url.startsWith(API + '/') || !new URL(url).hostname.endsWith('github.com')) {
     throw new Error('invalid GitHub API URL')
@@ -58,15 +87,137 @@ async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, hos
   return { repository, account, data: response.status === 204 ? null : await response.json() }
 }
 
+/** GitHub Actions job logs are a signed, redirected text download, never JSON.
+ * GitHub's credential is sent only to api.github.com, never to the signed URL. */
+const MAX_JOB_LOG_BYTES = 1024 * 1024
+const LOG_EXCERPT_CHARS = 12_000
+const LOG_CONTEXT_CHARS = 7_000
+
+function allowedLogRedirect(location: string): URL {
+  const url = new URL(location)
+  const host = url.hostname.toLowerCase()
+  if (url.protocol !== 'https:' || url.username || url.password ||
+      !(host === 'githubusercontent.com' || host.endsWith('.githubusercontent.com') ||
+        host.endsWith('.blob.core.windows.net'))) {
+    throw new Error('GitHub Actions log redirect destination is not an approved HTTPS storage host')
+  }
+  return url
+}
+
+function redactGitHubLog(text: string, token: string): string {
+  return text.replaceAll(token, '[REDACTED]')
+    .replace(/github_pat_[A-Za-z0-9_]+/g, '[REDACTED]')
+    .replace(/gh[pousr]_[A-Za-z0-9_]+/g, '[REDACTED]')
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+/-]+/gi, '$1[REDACTED]')
+    .replace(/((?:GITHUB_TOKEN|GH_TOKEN|PASSWORD|SECRET|API_KEY)\s*[=:]\s*)[^\s]+/gi, '$1[REDACTED]')
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]')
+}
+
+async function boundedLogExcerpt(response: Response, signal: AbortSignal, token: string): Promise<{
+  excerpt: string; truncated: boolean; bytesRead: number
+}> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('GitHub job log has no readable body')
+  const bytes: Uint8Array[] = []
+  let total = 0
+  let isTruncated = false
+  try {
+    while (true) {
+      signal.throwIfAborted()
+      const next = await reader.read()
+      if (next.done) break
+      const available = MAX_JOB_LOG_BYTES - total
+      if (next.value.byteLength > available) {
+        if (available > 0) bytes.push(next.value.subarray(0, available))
+        total += Math.max(0, available)
+        isTruncated = true
+        await reader.cancel()
+        break
+      }
+      bytes.push(next.value)
+      total += next.value.byteLength
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const buffer = new Uint8Array(total)
+  let offset = 0
+  for (const item of bytes) { buffer.set(item, offset); offset += item.byteLength }
+  const log = new TextDecoder('utf-8', { fatal: false }).decode(buffer)
+  const lines = log.split('\n')
+  // Root failures typically precede the generic "Process completed with exit code 1".
+  // Preserve the first concrete failure and independent later failures instead of
+  // displaying only the final exit-code wrapper.
+  const concreteFailure = /\bnot ok\s+\d+\s+-|\bfailureType:|\bAssertionError\b|\b(?:error|fatal):\s*\S|\b(?:error|exception)\s+TS\d{4}:|\bTraceback\b|##\[error\](?!Process completed with exit code)/i
+  const hits: number[] = []
+  for (let i = 0; i < lines.length; i++) if (concreteFailure.test(lines[i]!)) hits.push(i)
+  let selection: string
+  if (!hits.length) {
+    selection = log.slice(-LOG_EXCERPT_CHARS)
+  } else {
+    const anchors = hits.filter((index, position) => position === 0 || index - hits[position - 1]! > 40).slice(0, 3)
+    const last = hits.at(-1)!
+    if (last - anchors.at(-1)! > 40 && anchors.length < 3) anchors.push(last)
+    const windows = anchors.map((index) =>
+      '[Failure evidence, log line ' + (index + 1) + ']\n' +
+      lines.slice(Math.max(0, index - 5), Math.min(lines.length, index + 48)).join('\n').slice(0, LOG_CONTEXT_CHARS))
+    const tail = lines.slice(-12).join('\n').slice(-1500)
+    selection = windows.join('\n\n---\n\n').slice(0, LOG_EXCERPT_CHARS - 1600) +
+      '\n\n[Final job outcome]\n' + tail
+  }
+  return { excerpt: redactGitHubLog(selection, token), truncated: isTruncated || selection.length < log.length, bytesRead: total }
+}
+
+async function requestGitHubJobLogs(
+  input: DeltaGitHubJobLogsRequest, tokenEnv: string, host?: GitHubCredentialHost,
+): Promise<DeltaGitHubJobLogsResponse> {
+  const { repository, account, jobId, signal } = input
+  if (!Number.isSafeInteger(jobId) || jobId <= 0) throw new Error('invalid GitHub job ID')
+  const token = await credentialForRequest(host, tokenEnv, account)
+  await assertNativeGitHubOwner(account, repository, token, signal)
+  const path = repository.split('/').map(encodeURIComponent).join('/')
+  const response = await fetch(API + '/repos/' + path + '/actions/jobs/' + jobId + '/logs', {
+    method: 'GET',
+    headers: {
+      Authorization: 'Bearer ' + token,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'dsh-delta-code',
+    },
+    signal,
+    redirect: 'manual',
+  })
+  if (response.status !== 302 && !response.ok) throw new GitHubApiFailure(response.status, repository, 'GET')
+  let logResponse = response
+  if (response.status === 302) {
+    const location = response.headers.get('location')
+    if (!location) throw new Error('GitHub Actions log redirect is missing')
+    const signedUrl = allowedLogRedirect(location)
+    // Never forward GitHub credentials or cookies to the storage endpoint.
+    logResponse = await fetch(signedUrl, { method: 'GET', signal, redirect: 'error' })
+    if (!logResponse.ok) throw new Error('GitHub Actions log download failed with HTTP ' + logResponse.status)
+  }
+  const bounded = await boundedLogExcerpt(logResponse, signal, token)
+  return { repository, account, ...bounded }
+}
+
 /** Provider implementation supplied only by the composition root. */
 export function createGitHubTransport(accounts: readonly GitHubAccountConfig[], host?: GitHubCredentialHost): DeltaGitHubTransport {
   // Snapshot approved bindings: feature modules only use an opaque account key.
   const bindings = new Map<string, string>(accounts.map(entry => [entry.owner.toLowerCase(), entry.tokenEnv] as const))
+  // The native Host credential is the default when no plugin identities are configured.
+  // This does not import the separate gh CLI login store.
+  if (!accounts.length) bindings.set('native', 'GITHUB_TOKEN')
   return {
     request(input) {
       const credentialEnv = bindings.get(input.account.toLowerCase())
       if (!credentialEnv) throw new Error('GitHub account binding unavailable for ' + input.account)
       return requestGitHubApi(input, credentialEnv, host)
+    },
+    jobLogs(input) {
+      const credentialEnv = bindings.get(input.account.toLowerCase())
+      if (!credentialEnv) throw new Error('GitHub account binding unavailable for ' + input.account)
+      return requestGitHubJobLogs(input, credentialEnv, host)
     },
   }
 }

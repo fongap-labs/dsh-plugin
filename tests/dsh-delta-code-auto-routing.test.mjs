@@ -52,6 +52,17 @@ describe('Code Worker automatic user-task routing', () => {
     assert.equal(routeCodingTask('继续推进任务链'), undefined)
   })
 
+  it('routes specialist performance, runtime, visual and skill evaluation tasks', () => {
+    assert.equal(routeCodingTask('优化启动性能，减少 500ms 延迟'), 'code-perf-issue')
+    assert.equal(routeCodingTask('benchmark 显示内存泄漏，追踪 CPU profile'), 'code-runtime-forensics')
+    assert.equal(routeCodingTask('页面截图与设计稿对齐，像素级视觉一致性'), 'code-visual-parity')
+    assert.equal(routeCodingTask('评估新 Skill 的行为表现，对比旧版本输出'), 'code-skill-evaluation')
+    assert.equal(routeCodingTask('measure latency and compare baseline'), 'code-perf-issue')
+    assert.equal(routeCodingTask('analyze heap snapshot for leak'), 'code-runtime-forensics')
+    assert.equal(routeCodingTask('visual regression test against reference screenshot'), 'code-visual-parity')
+    assert.equal(routeCodingTask('evaluate prompt change against rubric'), 'code-skill-evaluation')
+  })
+
   it('prioritizes the instruction after a long CI log instead of stale failure text', () => {
     const log = 'GitHub Actions CI failed: error 500\n'.repeat(240)
     assert.ok(log.length > 4096)
@@ -110,6 +121,8 @@ describe('Code Worker automatic user-task routing', () => {
     assert.equal(routeCodingTask('解释一下 Python 是什么'), undefined)
     assert.equal(routeCodingTask('不要使用 Code Worker，帮我改 TypeScript 代码'), undefined)
     assert.equal(routeCodingTask('continue'), undefined)
+    assert.equal(routeCodingTask('为什么我的电脑最近性能很差'), undefined)
+    assert.equal(routeCodingTask('解释一下 Skill evaluation 是什么'), undefined)
   })
   it('automatically applies only the current agent coding workflow', () => {
     const f = fixture()
@@ -121,6 +134,8 @@ describe('Code Worker automatic user-task routing', () => {
     f.claim(bob, '实现一个 React 新功能')
     assert.match(f.render(bob), /code-feature-delivery/)
     assert.match(f.render(bob), /independent read-only diff review/)
+    assert.match(f.render(bob), /load it through the native skill tool/)
+    assert.doesNotMatch(f.render(bob), /For each ready task, create or adjust a failing test/)
     assert.match(f.render(alice), /code-ci-repair/)
     f.claim(alice, '继续推进任务链')
     assert.match(f.render(alice), /code-ci-repair/)

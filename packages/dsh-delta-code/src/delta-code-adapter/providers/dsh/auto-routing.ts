@@ -47,7 +47,7 @@ export function registerAutomaticCodingRouter(
   const externalSkillOptOuts = new WeakSet<object>()
   const resources = new WeakMap<object, readonly TaskResource[]>()
   const quality = new WeakMap<object, SkillOutcomeFeedback>()
-  const byName = new Map(ALL_CODING_SKILLS.map(skill => [skill.name, skill]))
+  const knownSkills = new Set(ALL_CODING_SKILLS.map(skill => skill.name))
   const runtime = ctx as unknown as RuntimeContext
   const disposers: Array<() => void> = []
   let isActive = true
@@ -123,8 +123,7 @@ export function registerAutomaticCodingRouter(
         if (!isActive || !settings().enabled || !settings().autoRoutingEnabled || !context.agent) return ''
         const route = routed.get(context.agent)
         if (!route) return ''
-        const skill = byName.get(route)
-        if (!skill) return ''
+        if (!knownSkills.has(route)) return ''
         const skipExternalSkills = externalSkillOptOuts.has(context.agent)
         const optOutGuidance = skipExternalSkills
           ? ['External GitHub Skills are disabled by the user for this task. Do not discover, recommend or invoke them.']
@@ -133,6 +132,7 @@ export function registerAutomaticCodingRouter(
           return [
             '# Code Worker: minimal fast change',
             'Use native DSH editing and the smallest meaningful native test first. Extra Code Worker tools and code_delivery_gate are optional, not required for a small change.',
+            'Load code-fast-change through the native skill tool only when needed and available; no Skill body is included in this prompt.',
             'Locate the actual file or running UI component first. Use narrow Host search; avoid unbounded **/* glob and generated build trees.',
             ...optOutGuidance,
             ...(!skipExternalSkills && specialists.get(context.agent)?.length ? [
@@ -146,8 +146,8 @@ export function registerAutomaticCodingRouter(
         return [
           '# Code Worker: automatically selected coding workflow',
           'The current user message is a coding request. Follow the user and repository instructions first.',
-          'Selected procedure: ' + skill.name + '. Use the host tools and permission gates; do not create another agent runtime.',
-          ...skill.instructions.filter(line => !skipExternalSkills || !/\b(?:github|external|approved)\s+skills?\b|\bcode-find-skills\b/i.test(line)).map(line => '- ' + line),
+          'Selected procedure: ' + route + '. If needed, load it through the native skill tool when the current available_skills catalog lists it. Otherwise use native tools and report the missing Skill capability.',
+          'Use the Host tools and permission gates; do not create another agent runtime.',
           ...optOutGuidance,
           ...(route === 'code-feature-delivery' ? [
             'On substantial cross-module work, when DSH native subagents are verified available, arrange one independent read-only diff review without waiting for a user reminder. Do not delegate overlapping file writes or invent subagent availability.',

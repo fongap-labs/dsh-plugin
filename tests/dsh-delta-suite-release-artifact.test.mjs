@@ -16,7 +16,11 @@ function validEntries(version = '0.1.0-beta.2') {
     }),
     'cordis.patch.yml': 'id: dsh-delta-suite\nname: @fongap-labs/dsh-delta-suite',
     'lib/index.js': 'export { negotiateHostCapabilities, DELTA_HOST_CONTRACT_VERSION } from "./host-capabilities.js"',
-    'lib/host-capabilities.js': 'export function negotiateHostCapabilities() {}',
+    'lib/host-capabilities.js': "export * from './delta-suite-adapter/host-capability-contract.js';",
+    'lib/delta-suite-adapter/host-capability-contract.js': [
+      'export const DELTA_HOST_CONTRACT_VERSION = 1;',
+      'export function negotiateHostCapabilities() {}',
+    ].join('\n'),
     'lib/client.js': [
       'window.__ModuleLoader__.load({ settings.section sidebar.brand.mark data-delta-ui',
       'function installSidebarCompatibility() {}',
@@ -82,6 +86,36 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
   unsafeCss.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString()
     .replace('--dtd-brand:', '--dtd-unapproved-brand:')))
   assert.throws(() => verifyEntries(unsafeCss, '0.1.0-beta.2', 'ZIP'), /approved theme differs/)
+})
+
+test('validates the concrete capability contract and compatibility link in ZIP and TGZ', () => {
+  const valid = validEntries()
+  const implementation = 'lib/delta-suite-adapter/host-capability-contract.js'
+  const compatibility = 'lib/host-capabilities.js'
+  for (const format of ['ZIP', 'TGZ']) {
+    assert.doesNotThrow(() => verifyEntries(valid, '0.1.0-beta.2', format))
+
+    const noImplementation = new Map(valid)
+    noImplementation.delete(implementation)
+    assert.throws(() => verifyEntries(noImplementation, '0.1.0-beta.2', format),
+      /missing lib\/delta-suite-adapter\/host-capability-contract\.js/)
+
+    const wrongLink = new Map(valid)
+    wrongLink.set(compatibility, Buffer.from("export * from './incorrect-module.js';"))
+    assert.throws(() => verifyEntries(wrongLink, '0.1.0-beta.2', format),
+      /capability compatibility export/)
+
+    for (const invalid of [
+      'export const DELTA_HOST_CONTRACT_VERSION = 1;',
+      'export function negotiateHostCapabilities() {}',
+      'export function missingCapabilityContract() {}',
+    ]) {
+      const incomplete = new Map(valid)
+      incomplete.set(implementation, Buffer.from(invalid))
+      assert.throws(() => verifyEntries(incomplete, '0.1.0-beta.2', format),
+        /capability module/)
+    }
+  }
 })
 
 test('central manual release verifies both packaged archives after build', () => {
