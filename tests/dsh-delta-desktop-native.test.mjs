@@ -42,8 +42,10 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
     localStorage: { getItem() { return stored }, setItem(_key, value) { stored = value } },
     MutationObserver: class { constructor(callback) { context.observers.push(callback) } observe() {} disconnect() {} },
   }
-  const fixtureSource = source.replace('\n})();\n', '\n;globalThis.testDeltaFeatures = deltaFeatures\n})();\n')
-  assert.notEqual(fixtureSource, source, 'test exposure stays inside the compiled client scope')
+  const fixtureEnd = '\n})();\n'
+  assert.ok(source.endsWith(fixtureEnd), 'compiled client closure is available for fixture-only instrumentation')
+  const fixtureSource = source.slice(0, -fixtureEnd.length) +
+    '\n;globalThis.testDeltaFeatures = deltaFeatures\n})();\n'
   vm.runInNewContext(fixtureSource, context)
   const components = new Map()
   const client = registration.factory(id => {
