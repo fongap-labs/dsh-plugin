@@ -59,7 +59,10 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     MutationObserver: class { observe() {} disconnect() {} },
     console: { error(...values) { diagnosticMessages.push(values.map(String).join(' ')) }, warn(...values) { diagnosticMessages.push(values.map(String).join(' ')) } },
   }
-  vm.runInNewContext(clientSource + '\n;globalThis.testFeatures = deltaFeatures', context)
+  // The production fixture is wrapped in an IIFE; expose the test hook inside it.
+  const testClientSource = clientSource.replace(/\n\}\)\(\);\n$/, '\n;globalThis.testFeatures = deltaFeatures\n})();\n')
+  assert.notEqual(testClientSource, clientSource, 'desktop fixture wrapper must be present')
+  vm.runInNewContext(testClientSource, context)
   const react = {
     createElement(type, props, ...children) { return { type, props: props || {}, children } },
     useState(initial) {
