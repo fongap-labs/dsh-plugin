@@ -135,6 +135,14 @@ test('shared Host protection excludes aliases, deleted rows, native and moved wo
   assert.equal(readHostSearchExclusion(emptyProtection, () => undefined)('ordinary'), false)
 })
 
+test('tombstone and native unarchive use identical search exclusion for raw and prefixed IDs', () => {
+  const state = { ...emptyProtection, deletedSessionIds: ['session-gone'] }
+  const excluded = readHostSearchExclusion(state, () => undefined)
+  assert.equal(excluded('gone'), true)
+  assert.equal(excluded('session-gone'), true)
+  assert.equal(excluded('ordinary'), false)
+})
+
 test('new protection during an observation suppresses text, title and cache writes', async () => {
   const released = []
   let resolveLease, began

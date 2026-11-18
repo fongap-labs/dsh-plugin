@@ -322,3 +322,8 @@
 
 - An unavailable/invalid Host lock response revokes delete/unarchive authorization and clears the confirmed-sync flag, but **retains** prior durable membership and tombstones. After the existing guarded retry interval, normal Delta requests can re-read the Host state instead of staying indefinitely blocked by a stale 'already synced' flag. No optimistic lock removal is allowed.
 - Proxy and vision status are optional, independently caught fetches; their transport errors must not invalidate an otherwise verified Host session protection response. A lock endpoint failure still fails closed regardless of other successful endpoint responses. Native list ownership and methods remain unchanged; no additional Harness patch, ZIP3 change, CSS change or A/B testing.
+
+## Native unarchive tombstone veto (Issue #333)
+
+- The public `workspace/session-unarchiving` Host event now rejects both durable lock membership and durable deleted-session tombstones (including `session-`/raw ID aliases). The Delta unbind/unlock restore path consumes the same decision, never invoking native unarchive for an already deleted session; the Delta-owned search endpoint consumes the same predicate to avoid mismatched policy decisions.
+- A rejected event preserves native archive membership under the reviewed pinned Harness contract. This does **not** add a workspace pre-delete event, make client wrappers an owner ACL or guarantee interception on older Hosts lacking this public event. Retain the compatibility wrapper until a supported, verified safe replacement exists. No Host patch, standalone client, ZIP3/CSS change or A/B test. Linux/Windows CI and real Windows integration acceptance remain separate.

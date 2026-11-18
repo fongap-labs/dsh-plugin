@@ -413,11 +413,21 @@ export function readHostSessionProtection(state: DeltaHostState, getRegistry: ()
   }
 }
 
-export function readHostSearchExclusion(state: DeltaHostState, getRegistry: () => unknown): (sessionId: string) => boolean {
+// Both the native unarchive veto and Delta's content search consume the same
+// authoritative protection decision. Tombstones must never be resurrected by
+// a Host-native unarchive, including a raw/session-prefixed ID alias.
+export function readHostUnarchiveProtection(
+  state: DeltaHostState, getRegistry: () => unknown,
+): (sessionId: string) => 'deleted' | 'locked' | 'unknown' | 'clear' {
   const protection = readHostSessionProtection(state, getRegistry)
   const deleted = new Set(state.deletedSessionIds.flatMap(sessionAliases))
-  return sessionId => sessionAliases(sessionId).some(id => deleted.has(id)) ||
-    protection.session(sessionId) !== 'clear'
+  return sessionId => sessionAliases(sessionId).some(id => deleted.has(id))
+    ? 'deleted' : protection.session(sessionId)
+}
+
+export function readHostSearchExclusion(state: DeltaHostState, getRegistry: () => unknown): (sessionId: string) => boolean {
+  const verdict = readHostUnarchiveProtection(state, getRegistry)
+  return sessionId => verdict(sessionId) !== 'clear'
 }
 
 export function installHostSessionOps(
@@ -448,6 +458,7 @@ export function installHostSessionOps(
   }
 
   const readProtection = (state: DeltaHostState) => readHostSessionProtection(state, getRegistry)
+  const readUnarchiveProtection = (state: DeltaHostState) => readHostUnarchiveProtection(state, getRegistry)
 
   const protectionFailure = (verdict: 'locked' | 'unknown'): unknown =>
     verdict === 'locked'
@@ -469,7 +480,7 @@ export function installHostSessionOps(
 
   const unarchiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
     try {
-      if (readProtection(await store.read()).session(sessionId) !== 'clear') return false
+      if (readUnarchiveProtection(await store.read())(sessionId) !== 'clear') return false
       const reg = getRegistry()
       if (isDisposed || !reg || typeof reg.unarchiveSession !== 'function') return false
       if (Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)) return true
@@ -903,7 +914,8 @@ export function installHostSessionOps(
         if (typeof sessionId !== 'string' || !sessionId) throw new Error('DELTA_SESSION_TARGET_INVALID')
         const confirmed = await store.read()
         if (isDisposed) return
-        const verdict = readProtection(confirmed).session(sessionId)
+        const verdict = readUnarchiveProtection(confirmed)(sessionId)
+        if (verdict === 'deleted') throw new Error('DELTA_SESSION_DELETED')
         if (verdict === 'locked') throw new Error('DELTA_SESSION_LOCKED')
         if (verdict === 'unknown') throw new Error('DELTA_WORKSPACE_PROTECTION_UNAVAILABLE')
       })

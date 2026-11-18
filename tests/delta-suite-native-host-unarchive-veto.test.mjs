@@ -226,3 +226,69 @@ test('direct session unlock does not unarchive a member of a still locked worksp
     await assert.rejects(f.event({ sessionId: 'member' }), /DELTA_SESSION_LOCKED/)
   } finally { f.dispose() }
 })
+
+
+test('native unarchive veto rejects tombstoned sessions and both public ID aliases', async () => {
+  for (const tombstone of ['deleted', 'session-deleted']) {
+    const blocked = tombstone === 'deleted' ? 'session-deleted' : 'deleted'
+    const registry = {
+      archivedSessionIds: [blocked, 'ordinary'],
+      async unarchiveSession(id) {
+        await f.event({ sessionId: id })
+        this.archivedSessionIds = this.archivedSessionIds.filter(row => row !== id)
+      },
+    }
+    const f = fixture({ initial: { deletedSessionIds: [tombstone] }, registry })
+    try {
+      await assert.rejects(f.event({ sessionId: blocked }), /DELTA_SESSION_DELETED/)
+      await assert.rejects(registry.unarchiveSession(blocked), /DELTA_SESSION_DELETED/)
+      assert.deepEqual(registry.archivedSessionIds, [blocked, 'ordinary'],
+        'native archived membership stays unchanged on rejected event')
+      await registry.unarchiveSession('ordinary')
+      assert.deepEqual(registry.archivedSessionIds, [blocked])
+      assert.deepEqual(f.store.getCached().deletedSessionIds, [tombstone])
+    } finally { f.dispose() }
+  }
+})
+
+test('unbinding cannot restore deleted-and-locked sessions through direct Host unarchive', async () => {
+  const calls = []
+  const registry = {
+    archivedSessionIds: ['deleted'],
+    async unarchiveSession(id) {
+      calls.push(id)
+      this.archivedSessionIds = []
+    },
+  }
+  const f = fixture({
+    initial: { totpSecret: secret, lockedSessionIds: ['deleted'],
+      deletedSessionIds: ['session-deleted'] },
+    registry,
+  })
+  try {
+    const response = await f.call({
+      action: 'unbind-2fa', code: await state.generateTotpCode(secret),
+    })
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.data.unarchivedIds, [])
+    assert.deepEqual(response.data.unarchiveFailedIds, ['deleted'])
+    assert.deepEqual(registry.archivedSessionIds, ['deleted'])
+    assert.deepEqual(calls, [], 'no native unarchive is attempted for a tombstoned ID')
+    assert.deepEqual(response.data.state.deletedSessionIds, ['session-deleted'])
+  } finally { f.dispose() }
+})
+
+test('Host event, restoration and content search agree on deleted/locked/unknown protection precedence', async () => {
+  const snapshot = state.normalizeDeltaState({
+    lockedSessionIds: ['direct'], deletedSessionIds: ['session-direct', 'deleted'],
+    lockedWorkspaceIds: ['missing'],
+  })
+  const decide = ops.readHostUnarchiveProtection(snapshot, () => undefined)
+  const excluded = ops.readHostSearchExclusion(snapshot, () => undefined)
+  assert.equal(decide('direct'), 'deleted')
+  assert.equal(decide('session-deleted'), 'deleted')
+  assert.equal(decide('other'), 'unknown')
+  for (const sessionId of ['direct', 'session-direct', 'deleted', 'session-deleted', 'other']) {
+    assert.equal(excluded(sessionId), decide(sessionId) !== 'clear')
+  }
+})
