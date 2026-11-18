@@ -314,6 +314,18 @@ const sessionAliases = (id: string): string[] => {
   return [id, raw, 'session-' + raw]
 }
 
+// Direct session lock decisions must use the same alias equivalence as
+// native unarchive, content search and durable deletion tombstones.
+const sameSessionId = (left: string, right: string): boolean => {
+  const aliases = new Set(sessionAliases(left))
+  return sessionAliases(right).some(id => aliases.has(id))
+}
+
+const nativeArchivedAliases = (reg: HostWorkspaceRegistryLike, sessionId: string): string[] | undefined =>
+  Array.isArray(reg.archivedSessionIds)
+    ? [...new Set(reg.archivedSessionIds.filter(id => typeof id === 'string' && sameSessionId(id, sessionId)))]
+    : undefined
+
 // Host mutations must honor the same tombstone aliases as native unarchive
 // and content search. Exact string checks can otherwise revive stale records.
 const isSessionDeleted = (state: DeltaHostState, sessionId: string): boolean => {
@@ -462,9 +474,9 @@ export function installHostSessionOps(
     try {
       const reg = getRegistry()
       if (isDisposed || !reg || typeof reg.archiveSession !== 'function') return false
-      if (Array.isArray(reg.archivedSessionIds) && reg.archivedSessionIds.includes(sessionId)) return true
+      if (nativeArchivedAliases(reg, sessionId)?.length) return true
       await Promise.resolve(reg.archiveSession(sessionId, {}))
-      return getRegistry() === reg && Array.isArray(reg.archivedSessionIds) && reg.archivedSessionIds.includes(sessionId)
+      return !isDisposed && getRegistry() === reg && Boolean(nativeArchivedAliases(reg, sessionId)?.length)
     } catch {
       // An activity refusal or storage failure is not authorization to stop work.
       return false
@@ -476,9 +488,16 @@ export function installHostSessionOps(
       if (readUnarchiveProtection(await store.read())(sessionId) !== 'clear') return false
       const reg = getRegistry()
       if (isDisposed || !reg || typeof reg.unarchiveSession !== 'function') return false
-      if (Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)) return true
-      await Promise.resolve(reg.unarchiveSession(sessionId))
-      return getRegistry() === reg && Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)
+      const archived = nativeArchivedAliases(reg, sessionId)
+      if (archived && archived.length === 0) return true
+      // One native session can appear under raw and session-prefixed IDs in
+      // legacy Host catalogs. Clear every observed alias, not just the
+      // requested spelling, and confirm none remain before reporting success.
+      for (const alias of archived ?? [sessionId]) {
+        await Promise.resolve(reg.unarchiveSession(alias))
+        if (isDisposed || getRegistry() !== reg) return false
+      }
+      return nativeArchivedAliases(reg, sessionId)?.length === 0
     } catch { return false }
   }
 
@@ -558,7 +577,7 @@ export function installHostSessionOps(
         ...cur,
         totpSecret: pending.secret,
         pinHash: undefined,
-        lockedSessionIds: sessionId && !cur.lockedSessionIds.includes(sessionId)
+        lockedSessionIds: sessionId && !cur.lockedSessionIds.some(id => sameSessionId(id, sessionId))
           ? [...cur.lockedSessionIds, sessionId]
           : cur.lockedSessionIds,
         lockedWorkspaceIds: workspaceId && !cur.lockedWorkspaceIds.includes(workspaceId)
@@ -581,7 +600,7 @@ export function installHostSessionOps(
       }
       const next = await store.update(cur => ({
         ...cur,
-        lockedSessionIds: sessionId && !cur.lockedSessionIds.includes(sessionId)
+        lockedSessionIds: sessionId && !cur.lockedSessionIds.some(id => sameSessionId(id, sessionId))
           ? [...cur.lockedSessionIds, sessionId]
           : cur.lockedSessionIds,
         lockedWorkspaceIds: workspaceId && !cur.lockedWorkspaceIds.includes(workspaceId)
@@ -596,7 +615,7 @@ export function installHostSessionOps(
     if (action === 'verify' || action === 'unlock') {
       if (!sessionId && !workspaceId) return makeJsonResponse(400, { ok: false, error: 'MISSING_TARGET_ID' })
       if (!current.totpSecret && !current.pinHash) return makeJsonResponse(403, { ok: false, error: 'TOTP_NOT_CONFIGURED' })
-      if ((sessionId && !current.lockedSessionIds.includes(sessionId)) ||
+      if ((sessionId && !current.lockedSessionIds.some(id => sameSessionId(id, sessionId))) ||
           (workspaceId && !current.lockedWorkspaceIds.includes(workspaceId))) {
         return makeJsonResponse(409, { ok: false, error: 'TARGET_NOT_LOCKED' })
       }
@@ -617,7 +636,7 @@ export function installHostSessionOps(
       if (action === 'unlock') {
         const next = await store.update(cur => ({
           ...cur,
-          lockedSessionIds: sessionId ? cur.lockedSessionIds.filter(id => id !== sessionId) : cur.lockedSessionIds,
+          lockedSessionIds: sessionId ? cur.lockedSessionIds.filter(id => !sameSessionId(id, sessionId)) : cur.lockedSessionIds,
           lockedWorkspaceIds: workspaceId ? cur.lockedWorkspaceIds.filter(id => id !== workspaceId) : cur.lockedWorkspaceIds,
         }))
         const isUnarchived = sessionId ? await unarchiveSessionOnHost(sessionId) : false
