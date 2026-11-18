@@ -1307,7 +1307,7 @@ interface ClientFeatureManager {
   subscribe(listener: () => void): () => void
   ensureLoaded(): void
   getWorkspaces(): readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
-  setWorkspacesApi(api: WorkspacesApi | undefined): void
+  setWorkspacesApi(api: WorkspacesApi | undefined, readNative?: () => WorkspaceSnapshot): void
   setRawUnarchiveSession(fn: ((sessionId: string) => Promise<unknown>) | undefined): void
   setSessionsApi(api: SearchSessionsApi | undefined): void
   setNavigationApi(api: SearchNavigationApi | undefined): void
@@ -1382,6 +1382,55 @@ function observeConfirmedMainSession(list: SearchSessionsApi['list'], onConfirme
   }
 }
 
+// Transitional UI-only projection. Preserve the raw Host snapshot and row
+// identities wherever the overlay has no actual effect. Cache only relevant
+// membership inputs, not the feature manager's unrelated revision counter.
+function createWorkspaceCompatibilityProjection(): (base: WorkspaceSnapshot, f: Pick<ClientFeatureSnapshot, 'deletedSessionIds' | 'lockedSessionIds' | 'movedSessions'>) => WorkspaceSnapshot {
+  let previousBase: WorkspaceSnapshot | undefined
+  let previousDeleted: readonly string[] | undefined
+  let previousLocked: readonly string[] | undefined
+  let previousMoved: ClientFeatureSnapshot['movedSessions'] | undefined
+  let previousResult: WorkspaceSnapshot | undefined
+  const sameIds = (a: readonly string[] | undefined, b: readonly string[]): boolean =>
+    !!a && a.length === b.length && a.every((id, index) => id === b[index])
+  return (base, f) => {
+    if (base === previousBase && f.deletedSessionIds === previousDeleted &&
+        f.lockedSessionIds === previousLocked && f.movedSessions === previousMoved && previousResult) return previousResult
+    const deleted = new Set(f.deletedSessionIds)
+    const locked = new Set(f.lockedSessionIds.filter(id => !deleted.has(id)))
+    const workspaceIds = new Set(base.items.map(ws => ws.workspaceId))
+    const moves = Object.entries(f.movedSessions).filter(([sid, target]) => !deleted.has(sid) && workspaceIds.has(target))
+    const targets = new Map(moves)
+    let hasItemsChanged = false
+    const items = base.items.map(ws => {
+      const original = ws.sessionIds
+      let next = (original ?? []).filter(sid => !deleted.has(sid) &&
+        (!targets.has(sid) || targets.get(sid) === ws.workspaceId))
+      const incoming = moves.filter(([sid, target]) => target === ws.workspaceId && !next.includes(sid)).map(([sid]) => sid)
+      if (incoming.length) next = [...incoming.reverse(), ...next]
+      if ((!original && next.length === 0) || sameIds(original, next)) return ws
+      hasItemsChanged = true
+      return { ...ws, sessionIds: next }
+    })
+    const archived = [...new Set([...(base.archivedSessionIds ?? []).filter(id => !deleted.has(id)), ...locked])]
+    const pinned = base.pinnedSessionIds?.filter(id => !deleted.has(id) && !locked.has(id))
+    const hasArchiveChanged = (base.archivedSessionIds !== undefined || archived.length > 0) && !sameIds(base.archivedSessionIds, archived)
+    const hasPinChanged = pinned !== undefined && !sameIds(base.pinnedSessionIds, pinned)
+    const result = !hasItemsChanged && !hasArchiveChanged && !hasPinChanged ? base : {
+      ...base,
+      ...(hasItemsChanged ? { items } : {}),
+      ...(hasArchiveChanged ? { archivedSessionIds: archived } : {}),
+      ...(hasPinChanged ? { pinnedSessionIds: pinned } : {}),
+    }
+    previousBase = base
+    previousDeleted = f.deletedSessionIds
+    previousLocked = f.lockedSessionIds
+    previousMoved = f.movedSessions
+    previousResult = result
+    return result
+  }
+}
+
 function createClientFeatureManager(): ClientFeatureManager {
   let state: ClientFeatureSnapshot = Object.freeze({
     hasPin: false,
@@ -1409,6 +1458,8 @@ function createClientFeatureManager(): ClientFeatureManager {
   })
   const listeners = new Set<() => void>()
   let workspacesApi: WorkspacesApi | undefined
+  let readNativeWorkspaceSnapshot: (() => WorkspaceSnapshot) | undefined
+  const pendingArchives = new Map<string, Promise<void>>()
   let rawUnarchiveSessionFn: ((sessionId: string) => Promise<unknown>) | undefined
   let sessionsApi: SearchSessionsApi | undefined
   let navigationApi: SearchNavigationApi | undefined
@@ -1433,16 +1484,30 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
   }
 
-  const archiveSessionBestEffort = async (sessionId: string): Promise<void> => {
-    const fn = workspacesApi?.archiveSession
-    if (typeof fn !== 'function') return
+  const archiveSessionBestEffort = (sessionId: string): Promise<void> => {
+    const api = workspacesApi
+    const fn = api?.archiveSession
+    if (!api || typeof fn !== 'function') return Promise.resolve()
+    const previous = pendingArchives.get(sessionId)
+    if (previous) return previous
     try {
-      await Promise.resolve(fn.call(workspacesApi, sessionId))
-    } catch {
+      if (readNativeWorkspaceSnapshot?.().archivedSessionIds?.includes(sessionId)) return Promise.resolve()
+    } catch { return Promise.resolve() }
+    const operation = Promise.resolve().then(async () => {
+      if (workspacesApi !== api || !state.lockedSessionIds.includes(sessionId)) return
       try {
-        await Promise.resolve(fn.call(workspacesApi, sessionId, { stopActivity: true }))
-      } catch {}
-    }
+        await Promise.resolve(fn.call(api, sessionId))
+      } catch {
+        if (workspacesApi !== api || !state.lockedSessionIds.includes(sessionId)) return
+        try {
+          await Promise.resolve(fn.call(api, sessionId, { stopActivity: true }))
+        } catch {}
+      }
+    }).finally(() => {
+      if (pendingArchives.get(sessionId) === operation) pendingArchives.delete(sessionId)
+    })
+    pendingArchives.set(sessionId, operation)
+    return operation
   }
 
   const unarchiveSessionBestEffort = async (sessionId: string): Promise<void> => {
@@ -1455,7 +1520,10 @@ function createClientFeatureManager(): ClientFeatureManager {
 
   const syncLockedArchiveMembership = (lockedIds: readonly string[]): void => {
     if (lockedIds.length === 0 || !workspacesApi || typeof workspacesApi.archiveSession !== 'function') return
-    const archivedSet = new Set(workspacesApi.list?.getSnapshot?.()?.archivedSessionIds ?? [])
+    // Projected archive membership is not evidence of a durable Host archive.
+    let archivedSet: Set<string>
+    try { archivedSet = new Set(readNativeWorkspaceSnapshot?.().archivedSessionIds ?? []) }
+    catch { return }
     for (const sid of lockedIds) {
       if (!archivedSet.has(sid)) {
         void archiveSessionBestEffort(sid)
@@ -1941,21 +2009,27 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const moveSession = async (sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }> => {
-    const wsItems = workspacesApi?.list?.getSnapshot?.()?.items ?? []
-    const targetWs = wsItems.find(item => item.workspaceId === targetWorkspaceId)
-    if (canCallHostHttp()) {
-      const res = await postHostJson('/api/delta-desktop/session-move', {
-        sessionId,
-        targetWorkspaceId,
-        ...(targetWs?.path ? { targetPath: targetWs.path } : {}),
-        ...(findWorkspaceCwdForSession(sessionId) ? { sourceCwd: findWorkspaceCwdForSession(sessionId) } : {}),
-      })
-      if (!res.ok) return { ok: false, error: res.data?.error ?? 'MOVE_FAILED' }
-      if (res.data?.state) applyHostStatePayload(res.data.state)
-    } else {
-      publish({ movedSessions: Object.freeze({ ...state.movedSessions, [sessionId]: targetWorkspaceId }) })
-      notifyDataApis()
+    if (state.deletedSessionIds.includes(sessionId)) return { ok: false, error: 'SESSION_DELETED' }
+    if (state.lockedSessionIds.includes(sessionId) || isSessionInLockedWorkspace(sessionId) ||
+        isWorkspaceLocked(targetWorkspaceId)) return { ok: false, error: 'SESSION_LOCKED' }
+    if (!canCallHostHttp()) return { ok: false, error: 'MOVE_UNAVAILABLE' }
+    let targetWs: WorkspaceSnapshot['items'][number] | undefined
+    try { targetWs = readNativeWorkspaceSnapshot?.().items.find(item => item.workspaceId === targetWorkspaceId) }
+    catch { return { ok: false, error: 'MOVE_UNAVAILABLE' } }
+    if (!targetWs?.path) return { ok: false, error: 'MOVE_UNAVAILABLE' }
+    const sourceCwd = findWorkspaceCwdForSession(sessionId)
+    const res = await postHostJson('/api/delta-desktop/session-move', {
+      sessionId,
+      targetWorkspaceId,
+      targetPath: targetWs.path,
+      ...(sourceCwd ? { sourceCwd } : {}),
+    })
+    if (!res.ok || res.data?.ok !== true) return { ok: false, error: res.data?.error ?? 'MOVE_FAILED' }
+    const confirmedState = res.data?.state
+    if (confirmedState?.movedSessions?.[sessionId] !== targetWorkspaceId) {
+      return { ok: false, error: 'MOVE_UNCONFIRMED' }
     }
+    applyHostStatePayload(confirmedState)
     return { ok: true }
   }
 
@@ -2602,8 +2676,10 @@ function createClientFeatureManager(): ClientFeatureManager {
     },
     ensureLoaded,
     getWorkspaces: () => workspacesApi?.list?.getSnapshot?.()?.items ?? [],
-    setWorkspacesApi: (api) => {
+    setWorkspacesApi: (api, readNative) => {
+      if (workspacesApi !== api) pendingArchives.clear()
       workspacesApi = api
+      readNativeWorkspaceSnapshot = api ? (readNative ?? (() => api.list.getSnapshot())) : undefined
       if (api) {
         if (hasSyncedStateFromHost) {
           syncLockedArchiveMembership(state.lockedSessionIds)
@@ -6955,52 +7031,15 @@ window.__ModuleLoader__.load({
                 const workspaces = workspaceScope.workspaces
                 if (!workspaces) return
 
-                let cachedBaseSnap: WorkspaceSnapshot | undefined
-                let cachedRev = -1
-                let cachedProjected: WorkspaceSnapshot | undefined
-                const stopWsProjection = installProjectedList<WorkspaceSnapshot>(workspaces.list, (base) => {
-                  const f = deltaFeatures.getSnapshot()
-                  const deletedSet = new Set(f.deletedSessionIds)
-                  const lockedSet = new Set(f.lockedSessionIds.filter(id => !deletedSet.has(id)))
-                  if (deletedSet.size === 0 && lockedSet.size === 0 && Object.keys(f.movedSessions).length === 0) return base
-                  if (base === cachedBaseSnap && f.revision === cachedRev && cachedProjected) return cachedProjected
-                  const nextItems = base.items.map(ws => ({
-                    ...ws,
-                    ...(Array.isArray(ws.sessionIds) ? { sessionIds: [...ws.sessionIds] } : {}),
-                  }))
-                  const byWsId = new Map(nextItems.map(w => [w.workspaceId, w]))
-                  for (const ws of nextItems) {
-                    if (!ws.sessionIds) continue
-                    ws.sessionIds = ws.sessionIds.filter(sid => !deletedSet.has(sid) && (!f.movedSessions[sid] || f.movedSessions[sid] === ws.workspaceId))
-                  }
-                  for (const [sid, targetWsId] of Object.entries(f.movedSessions)) {
-                    if (deletedSet.has(sid)) continue
-                    const targetWs = byWsId.get(targetWsId)
-                    if (targetWs) {
-                      const existing = Array.isArray(targetWs.sessionIds) ? targetWs.sessionIds : []
-                      if (!existing.includes(sid)) {
-                        targetWs.sessionIds = [sid, ...existing]
-                      }
-                    }
-                  }
-                  const baseArchived = Array.isArray(base.archivedSessionIds) ? base.archivedSessionIds : []
-                  const nextArchivedSet = new Set(baseArchived.filter(id => !deletedSet.has(id)))
-                  for (const lid of lockedSet) nextArchivedSet.add(lid)
-                  const nextArchived = [...nextArchivedSet]
-                  cachedBaseSnap = base
-                  cachedRev = f.revision
-                  cachedProjected = {
-                    ...base,
-                    items: nextItems,
-                    archivedSessionIds: nextArchived,
-                    ...(Array.isArray(base.pinnedSessionIds)
-                      ? { pinnedSessionIds: base.pinnedSessionIds.filter(id => !deletedSet.has(id) && !lockedSet.has(id)) }
-                      : {}),
-                  }
-                  return cachedProjected
-                })
+                // Capture the native read before the compatibility view is installed.
+                // Mutation and archive decisions must never infer Host facts from that view.
+                const nativeSnapshot = workspaces.list.getSnapshot
+                const readNative = () => nativeSnapshot.call(workspaces.list)
+                const projectWorkspace = createWorkspaceCompatibilityProjection()
+                const stopWsProjection = installProjectedList<WorkspaceSnapshot>(workspaces.list,
+                  base => projectWorkspace(base, deltaFeatures.getSnapshot()))
                 workspaceScope.effect(() => stopWsProjection, 'dsh-delta-desktop: workspace session overlay')
-                deltaFeatures.setWorkspacesApi(workspaces)
+                deltaFeatures.setWorkspacesApi(workspaces, readNative)
                 workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
                   'dsh-delta-desktop: workspaces reference')
 
@@ -7033,7 +7072,9 @@ window.__ModuleLoader__.load({
                     showDeltaToast(copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
                     return Promise.reject(new Error('delta/workspace-locked'))
                   }
-                  const items = workspaces.list.getSnapshot().items
+                  let items: WorkspaceSnapshot['items']
+                  try { items = readNative().items }
+                  catch { return Promise.reject(new Error('delta/workspace-state-unavailable')) }
                   if (items.length <= 1) {
                     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
                     showDeltaToast(copy.ui.cannotDeleteSoleWorkspace)
@@ -7045,7 +7086,9 @@ window.__ModuleLoader__.load({
                     path?.endsWith('/default-workspace') === true
                   if (controller.getSnapshot().mode === 'delta' && protectedDefault) {
                     const hasOtherWorkspace = items.some(item => item.workspaceId !== id)
-                    const hasSessions = target?.sessionIds === undefined || target.sessionIds.length > 0
+                    const overlayTarget = workspaces.list.getSnapshot().items.find(item => item.workspaceId === id)
+                    const hasSessions = target?.sessionIds === undefined || target.sessionIds.length > 0 ||
+                      overlayTarget?.sessionIds === undefined || overlayTarget.sessionIds.length > 0
                     if (!hasOtherWorkspace || hasSessions) {
                       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
                       showDeltaToast(copy.ui.protectedDefaultWorkspace)
