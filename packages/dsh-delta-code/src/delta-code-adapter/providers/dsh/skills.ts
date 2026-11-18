@@ -107,13 +107,14 @@ export function registerCodingSkills(ctx: Context): () => void {
       ctx.logger?.warn?.('dsh-delta-code: coding Skill provider has no disposer; coding Skills disabled')
       return
     }
+    const unregister = dispose
     let released = false
     const release = () => {
       if (released) return
       released = true
       enabled = false
       registrations.delete(registry)
-      try { dispose() } catch {
+      try { unregister() } catch {
         ctx.logger?.warn?.('dsh-delta-code: coding Skill provider disposal failed')
       }
     }
