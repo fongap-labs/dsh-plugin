@@ -115,7 +115,7 @@ export function createGitHubToolSpecs(
         })),
       })
     }),
-    tool('jobs', 'Inspect failed GitHub Actions jobs and steps by workflow run ID; for central CI use repository=fongap-labs/action-worker.', {
+    tool('jobs', 'Inspect failed GitHub Actions jobs and steps by workflow run ID. Use code_github_job_logs with a failed job ID for the actual error log; central CI jobs reside in repository=fongap-labs/action-worker.', {
       repository: optional, runId: { type: 'integer', required: true },
     }, async (args, exec) => {
       if (!Number.isSafeInteger(args.runId) || args.runId <= 0) throw new Error('invalid workflow run ID')
@@ -128,6 +128,22 @@ export function createGitHubToolSpecs(
           failedSteps: (job.steps ?? []).filter((step: any) => step.conclusion === 'failure')
             .map((step: any) => ({ name: step.name, number: step.number })),
         })),
+      })
+    }),
+    tool('job_logs', 'Read a bounded, redacted excerpt of a GitHub Actions job log to diagnose the actual failing step. For central CI, use its repository and failed job ID from code_github_jobs. No artifacts or annotations are needed.', {
+      repository: optional, jobId: { type: 'integer', required: true },
+    }, async (args, exec) => {
+      if (!Number.isSafeInteger(args.jobId) || args.jobId <= 0) throw new Error('invalid GitHub job ID')
+      const repo = await resolveRepo(args.repository, exec)
+      const account = selectGitHubAccount(settings.githubAccounts, repo, exec.account)
+      if (!transport.jobLogs) throw new Error('GitHub job log transport unavailable; update Delta Code provider')
+      const response = await transport.jobLogs({
+        repository: repo, account: account.owner, jobId: args.jobId, signal: exec.signal,
+      })
+      return envelope({ repository: response.repository, account: response.account, data: null }, {
+        jobId: args.jobId, excerpt: response.excerpt, truncated: response.truncated,
+        bytesRead: response.bytesRead,
+        note: response.truncated ? 'Excerpt is incomplete; inspect the GitHub job page if the failure lies outside this excerpt.' : 'Complete job log excerpt.',
       })
     }),
     tool('branch', 'Create a feature branch from the repository default (or a supplied base) without modifying protected branches.', { repository: optional, branch: string, base: optional }, async (args, exec) => {

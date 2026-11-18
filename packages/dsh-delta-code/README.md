@@ -199,6 +199,7 @@ github:
 | `code_github_pulls` | 查询 PR |
 | `code_github_checks` | 查看 PR 检查结果、失败上下文及 Action Worker 检查链接 |
 | `code_github_jobs` | 查看指定 GitHub Actions 运行的作业和失败步骤 |
+| `code_github_job_logs` | 读取失败 Job 的原始日志诊断片段（限量、脱敏，不依赖 annotations/artifacts） |
 | `code_github_branch` | 创建远程功能分支（写入需授权） |
 | `code_github_commit_file` | 更新功能分支文件（写入需授权） |
 | `code_github_create_pr` | 发起 PR（写入需授权） |

@@ -14,7 +14,7 @@ export const DEFAULT_GUIDANCE = [
   'On resumed multi-step coding work, consult native Todo/session history first; use code_resume only if native progress is missing and the Host exposes a compatible checkpoint. Reconcile real repository state before replaying edits.',
   'Use code_delivery_gate only for substantial Git-backed work when Host script execution is authorized, declared scripts exist, and implementation Todos are complete. Never create a self-referential Todo to pass the gate. In non-Git projects or when execution is denied, rely on permitted native evidence and explicitly report verification as incomplete; do not repeatedly call the gate or claim a pass.',
   'Use `code_git_worktree` for isolated branches when worktree creation is enabled. Pass the task worktree as cwd to context, Git, and verification tools; prepend it to file paths for multi-edit.',
-  'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations.',
+  'Use `code_github_connection` to verify a repository-scoped GitHub account before remote operations. When CI fails, call code_github_jobs for the failed job ID, then code_github_job_logs to read the actual error; empty check summaries and absent artifacts do not mean logs are unavailable.',
   'Each GitHub credential belongs to exactly one account or organization. Unlimited repositories under that owner are allowed subject to GitHub permissions. Never route credentials across owners or expose tokens.',
   'GitHub write tools create changes on feature branches and open pull requests; do not bypass merge gates.',
   'Use code_lsp_probe only to diagnose missing language-server availability; it is not a substitute for Host LSP diagnostics.',

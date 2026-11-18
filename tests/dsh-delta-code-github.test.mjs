@@ -55,7 +55,7 @@ describe('GitHub account configuration and automatic routing', () => {
     const tools = createGitHubTools({ get: () => undefined }, config)
     assert.deepEqual(tools.map((tool) => tool.name), [
       'code_github_connection', 'code_github_file', 'code_github_pulls',
-      'code_github_checks', 'code_github_jobs', 'code_github_branch', 'code_github_commit_file', 'code_github_create_pr',
+      'code_github_checks', 'code_github_jobs', 'code_github_job_logs', 'code_github_branch', 'code_github_commit_file', 'code_github_create_pr',
       'code_github_skill_candidates', 'code_github_skill_review',
     ])
   })
