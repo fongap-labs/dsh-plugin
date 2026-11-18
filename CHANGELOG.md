@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 退役 Delta 对 Harness 原生会话和工作区悬浮卡的 DOM 扫描、类名注入、鼠标监听与私有布局 CSS 覆写；保留公开悬浮 Slot 及锁定会话访问保护，同步 ZIP3 校验与回归（Issue #333）。
+
 - 修复: 退役 Delta 对 Harness 三栏网格、原生分隔条指针事件、边缘折叠按钮与持久化宽度的私有兼容接管；保留原生布局和拖动，清理对应 CSS，并同步 ZIP3 审核哈希及回归保护（Issue #333）。
 
 - 修复: 停用 Delta 搜索向 Harness 侧栏 DOM 插入搜索框及私有定位/观察逻辑，改由已确认的 `conversation.input.left` 公开 Slot 打开 Search Palette，保留原生搜索和发布完整性校验（Issue #333）。

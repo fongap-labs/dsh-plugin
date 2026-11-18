@@ -3550,17 +3550,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     }
   }
-  const processHoverCards = (): void => {
-    if (typeof document === 'undefined' || !document.querySelectorAll) return
-    const hoverCards = document.querySelectorAll<HTMLElement>('[class*="hoverContent"], [class*="SessionHoverContent"], .wnFoaW_hoverContent')
-    for (let i = 0; i < hoverCards.length; i++) {
-      const card = hoverCards[i]
-      const outerCard = card.closest?.<HTMLElement>('[class*="_card_bgejw"], [class*="HoverCard"], [class*="card"]') ?? card.parentElement
-      if (outerCard && outerCard.classList && !outerCard.classList.contains('dtd-session-hover-card')) {
-        outerCard.classList.add('dtd-session-hover-card')
-      }
-    }
-  }
   const sync = (): void => {
     if (isDisposed || isSyncing) return
     isSyncing = true
@@ -3586,7 +3575,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       // sessions/navigation service path without synthetic native input events.
 
       // The native new-session button stays under Harness ownership.
-      processHoverCards()
+      // Harness owns native hover-card DOM and presentation.
 
       // Harness owns native footer controls, account state and update actions.
 
@@ -3629,13 +3618,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     attributeFilter: ['style'],
   })
 
-  const onMouseOver = (e: Event): void => {
-    const target = e.target as HTMLElement | null
-    if (!target) return
-    if (target.closest?.('[class*="hoverContent"], [class*="SessionHoverContent"], [class*="_card_bgejw"], [data-row-key^="session:"]')) {
-      processHoverCards()
-    }
-  }
   const openUngroupedContextMenu = (x: number, y: number): void => {
     closeUngroupedMenu()
     if (isDisposed || controller.getSnapshot().mode !== 'delta' || typeof document?.body?.appendChild !== 'function') return
@@ -3757,7 +3739,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
   }
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-    document.addEventListener('mouseover', onMouseOver, { capture: true, passive: true })
     document.addEventListener('pointerdown', onPointerDownCapture, { capture: true })
     document.addEventListener('contextmenu', onPointerDownCapture, { capture: true })
     document.addEventListener('click', onMenuClickCapture, { capture: true })
@@ -3775,7 +3756,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     unsubscribe()
     observer?.disconnect()
     if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
-      document.removeEventListener('mouseover', onMouseOver, { capture: true })
       document.removeEventListener('pointerdown', onPointerDownCapture, { capture: true })
       document.removeEventListener('contextmenu', onPointerDownCapture, { capture: true })
       document.removeEventListener('click', onMenuClickCapture, { capture: true })

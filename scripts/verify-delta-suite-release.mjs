@@ -149,12 +149,13 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: replaced private service-search sidebar insertion with a public composer Search Palette entry.
 // Reviewed 2026-11-18: PR #392 scoped legacy Host sidebar placement; this is superseded by public Slot ownership.
 // Reviewed 2026-11-18: retired private three-column resizing, synthetic edge buttons, persisted layout widths and Host splitter pointer interception; native layout is authoritative.
-const ZIP3_THEME_BLOB = '34643a473388f4f46a594df25a839c3397014709'
+// Reviewed 2026-11-18: native hover-card class injection, global mouseover scanner and private card CSS removed; official Slot preserved.
+const ZIP3_THEME_BLOB = '786e7f326c437f9291af0fac9c17d9c47b009e32'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '1cd6cc757df5604cba3aed3951232711c38f171e',
+    sha1: 'a4f2b0e8923e718a676544db300c9e565e1f857d',
   },
   {
     begin: 'function installHostSearch(',
