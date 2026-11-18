@@ -5534,6 +5534,25 @@ function installHostSearch(
     }).catch(() => { /* no stale catalog or guessed commands on failure */ })
   }
 
+  // Public Search Palette access is independent of private composer InputActions.
+  // An unavailable public Slot must fall back to Harness native search.
+  if (React && searchScope) {
+    const react = React
+      // Official composer Slot, not a guessed Host sidebar DOM insertion point.
+      try {
+        searchScope.slots.inject('conversation.input.left', () => searchScope.slots.register({
+          name: 'conversation.input.left', id: 'delta.search.palette', order: 65,
+          label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions,
+        }, () => controller.getSnapshot().mode === 'delta'
+          ? react.createElement('button', {
+            type: 'button',
+            'aria-label': (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions,
+            onClick: () => openPalette(''),
+          }, (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
+          : null))
+      } catch { /* official Slot missing: preserve native Harness search */ }
+  }
+
   // Register only in the declared session-scoped Host Slot. Older Host builds
   // without the public provider/props simply keep the copy-only sidebar route.
   if (React && searchScope && typeof React.useRef === 'function' && typeof React.useEffect === 'function') {
@@ -5626,19 +5645,6 @@ function installHostSearch(
         return react.createElement(ScopedCommandEntry, props as unknown as Record<string, unknown>)
       }
 
-      // Official composer Slot, not a guessed Host sidebar DOM insertion point.
-      try {
-        composerScope.slots.inject('conversation.input.left', () => composerScope.slots.register({
-          name: 'conversation.input.left', id: 'delta.search.palette', order: 65,
-          label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions,
-        }, () => controller.getSnapshot().mode === 'delta'
-          ? react.createElement('button', {
-            type: 'button',
-            'aria-label': (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions,
-            onClick: () => openPalette(''),
-          }, (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
-          : null))
-      } catch { /* official Slot missing: preserve native Harness search */ }
       try {
         composerScope.slots.inject('conversation.input.left', () => composerScope.slots.register<CommandSlotProps>({
           name: 'conversation.input.left', id: 'delta.search.composer-commands', order: 70,

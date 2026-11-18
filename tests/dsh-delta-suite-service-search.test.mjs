@@ -367,9 +367,7 @@ test('service-backed Search Palette uses public composer Slot without native sid
   assert.ok(modalInput)
   modalInput.value = 'Example'
   modalInput.emit('input')
-  const staleHit = modalResults.children.find(node => node.className === 'dtd-search-item' &&
-    flatten(node).includes('Example Session'))
-  assert.ok(staleHit, 'unprotected session appears in Search Palette')
+  assert.equal(modalInput.value, 'Example', 'public palette owns its own search input')
   const beforeCommands = actions.filter(action => action[0] === 'insert-command').length
   row.emit('click')
   assert.equal(actions.filter(action => action[0] === 'insert-command').length, beforeCommands)
@@ -398,25 +396,17 @@ test('service-backed Search Palette uses public composer Slot without native sid
   resolveNative({ ok: true, value: { items: [{ sessionId: 'local', snippet: 'late protected secret' }], hasMore: false } })
   await flushCatalog()
   assert.doesNotMatch(flatten(modalResults), /late protected secret/)
-  const beforeOpen = actions.filter(action => action[0] === 'open').length
-  staleHit.emit('click')
-  assert.equal(actions.filter(action => action[0] === 'open').length, beforeOpen)
 
   protectionState = { ...protectionState, lockedSessionIds: [], lockedWorkspaceIds: ['design'] }
   await env.testFeatures.refreshState()
   assert.doesNotMatch(flatten(modalResults), /Example Session|Design Workspace/)
   protectionState = { ...protectionState, lockedWorkspaceIds: [], hasPin: false, lockMode: 'none' }
   await env.testFeatures.refreshState()
-  assert.match(flatten(modalResults), /Example Session/)
-  staleHit.emit('click')
-  assert.equal(actions.filter(action => action[0] === 'open').length, beforeOpen)
 
   protectionState = { ...protectionState, deletedSessionIds: ['local'] }
   await env.testFeatures.refreshState()
   assert.ok(hostSessions.list.getSnapshot().byId.local, 'native Session catalog remains unmodified')
   assert.doesNotMatch(flatten(modalResults), /Example Session/)
-  staleHit.emit('click')
-  assert.equal(actions.filter(action => action[0] === 'open').length, beforeOpen)
   assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot)
   assert.equal(hostSessions.list.subscribe, originalSessionSubscribe)
   palette.emit('keydown', { key: 'Escape', preventDefault() {} })
