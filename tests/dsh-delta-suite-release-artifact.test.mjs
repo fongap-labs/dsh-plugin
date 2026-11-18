@@ -22,7 +22,7 @@ function validEntries(version = '0.1.0-beta.2') {
       'function installSidebarCompatibility() {}',
       'function installHostSearch() {}',
       'data-delta-compat',
-      'dtd-native-search',
+      'dtd-host-search',
       'const OWNED_CSS = ' + JSON.stringify(approvedTheme) + ';',
     ].join('\n'),
     'locale/en.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'New conversation' } }),
