@@ -153,3 +153,51 @@ test('failed durable write does not publish an in-memory lock change', async () 
     await fs.rm(home, { recursive: true, force: true })
   }
 })
+
+
+test('durable session maps ignore object-prototype keys but retain existing protection records', async () => {
+  const raw = JSON.parse(JSON.stringify({
+    movedSessions: { regular: 'workspace-a', 'session-safe': 'workspace-b' },
+    lockedSessionIds: ['__proto__'],
+    deletedSessionIds: ['constructor'],
+  }))
+  const crafted = JSON.parse('{"__proto__":"fake","prototype":"fake","constructor":"fake","toString":"fake","hasOwnProperty":"fake"}')
+  Object.assign(raw.movedSessions, crafted)
+  const normalized = state.normalizeDeltaState(raw)
+  assert.deepEqual(normalized.movedSessions, {
+    regular: 'workspace-a', 'session-safe': 'workspace-b',
+  })
+  assert.equal(Object.getPrototypeOf(normalized.movedSessions), Object.prototype)
+  assert.deepEqual(normalized.lockedSessionIds, ['__proto__'],
+    'existing lock protections are not silently discarded')
+  assert.deepEqual(normalized.deletedSessionIds, ['constructor'],
+    'existing deletion tombstones must survive normalization')
+  assert.deepEqual(state.toPublicHostState(normalized).movedSessions,
+    { regular: 'workspace-a', 'session-safe': 'workspace-b' })
+  assert.equal(Object.hasOwn(normalized.movedSessions, '__proto__'), false)
+  assert.equal(Object.hasOwn(normalized.movedSessions, 'constructor'), false)
+
+  const home = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-map-safe-'))
+  const previous = process.env.DELTA_DESKTOP_STATE_FILE
+  try {
+    const filePath = path.join(home, 'state.json')
+    process.env.DELTA_DESKTOP_STATE_FILE = filePath
+    await fs.writeFile(filePath, JSON.stringify(raw), 'utf8')
+    const store = state.createHostStateStore({})
+    assert.deepEqual((await store.read()).movedSessions,
+      { regular: 'workspace-a', 'session-safe': 'workspace-b' })
+    await store.update(cur => ({
+      ...cur, movedSessions: { ...cur.movedSessions, normal: 'workspace-c' },
+    }))
+    const persisted = JSON.parse(await fs.readFile(filePath, 'utf8'))
+    assert.deepEqual(persisted.movedSessions, {
+      regular: 'workspace-a', 'session-safe': 'workspace-b', normal: 'workspace-c',
+    })
+    assert.deepEqual(persisted.lockedSessionIds, ['__proto__'])
+    assert.deepEqual(persisted.deletedSessionIds, ['constructor'])
+  } finally {
+    if (previous === undefined) delete process.env.DELTA_DESKTOP_STATE_FILE
+    else process.env.DELTA_DESKTOP_STATE_FILE = previous
+    await fs.rm(home, { recursive: true, force: true })
+  }
+})
