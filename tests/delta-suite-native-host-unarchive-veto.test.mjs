@@ -316,8 +316,11 @@ test('Host event, restoration and content search agree on deleted/locked/unknown
 })
 
 test('tombstoned aliases cannot be re-enrolled or re-locked through Host routes', async () => {
-  for (const tombstone of ['deleted', 'session-deleted']) {
-    const alias = tombstone === 'deleted' ? 'session-deleted' : 'deleted'
+  for (const [tombstone, alias] of [
+    ['deleted', 'session-deleted'],
+    ['session-deleted', 'deleted'],
+    ['deleted', 'session-session-deleted'],
+  ]) {
     const enrolling = fixture({ initial: { deletedSessionIds: [tombstone] } })
     try {
       const begin = await enrolling.call({ action: 'setup-begin' })
@@ -344,8 +347,11 @@ test('tombstoned aliases cannot be re-enrolled or re-locked through Host routes'
 })
 
 test('tombstone aliases reject move, single delete and mixed bulk delete before side effects', async () => {
-  for (const tombstone of ['deleted', 'session-deleted']) {
-    const alias = tombstone === 'deleted' ? 'session-deleted' : 'deleted'
+  for (const [tombstone, alias] of [
+    ['deleted', 'session-deleted'],
+    ['session-deleted', 'deleted'],
+    ['deleted', 'session-session-deleted'],
+  ]) {
     const f = fixture({ initial: { deletedSessionIds: [tombstone] } })
     try {
       const before = f.store.getCached()
