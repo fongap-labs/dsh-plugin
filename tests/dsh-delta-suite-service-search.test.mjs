@@ -29,7 +29,6 @@ const source = compiled.replace("'__DELTA_SUITE_LOCALES__'", JSON.stringify(loca
 class Element {
   constructor(tag) {
     this.tagName = tag
-    this.nodeType = tag === '#text' ? 3 : 1
     this.parentElement = null
     this.children = []
     this.attrs = new Map()
@@ -68,40 +67,17 @@ class Element {
   emit(type, args = {}) { this.listeners.get(type)?.({ type, ...args }) }
   blur() { this.focused = false }
   focus() { this.focused = true }
-  matches(selector) { return selector === '[data-sidebar-scrollport]' && this.attrs.has('data-sidebar-scrollport') }
-  closest(selector) {
-    for (let parent = this; parent; parent = parent.parentElement) {
-      if (parent.matches(selector)) return parent
-    }
-    return null
-  }
-  contains(node) {
-    for (let parent = node; parent; parent = parent.parentElement) {
-      if (parent === this) return true
-    }
-    return false
-  }
   querySelector(selector) {
-    if (selector === 'nav' || selector === ':scope > nav') {
-      return this.children.find(item => item.tagName === 'nav') ?? null
-    }
-    if (selector === '[data-sidebar-scrollport]') {
-      for (const child of this.children) {
-        if (child.matches(selector)) return child
-        const nested = child.querySelector(selector)
-        if (nested) return nested
-      }
-    }
+    if (selector === 'nav') return this.children.find(item => item.tagName === 'nav') ?? null
     return null
   }
 }
 
-test('service-backed sidebar search waits for native sidebar, uses Host search/navigation and disposes', async () => {
+test('service-backed Search Palette uses public composer Slot without native sidebar injection', async () => {
   const root = new Element('html')
   const body = new Element('body')
   root.appendChild(body)
   const viewport = new Element('div')
-  viewport.setAttribute('data-sidebar-scrollport', '')
   const nav = new Element('nav')
   viewport.appendChild(nav)
   const nativeWorkspace = new Element('section')
@@ -281,58 +257,27 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   await env.testFeatures.refreshState()
   assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot, 'Host snapshot method is not wrapped')
   assert.equal(hostSessions.list.subscribe, originalSessionSubscribe, 'Host subscription method is not wrapped')
-  assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
-  const unrelatedNav = new Element('nav')
-  body.appendChild(unrelatedNav)
-  // The presence of an unrelated Host/third-party nav is not a sidebar mount.
-  env.observers.forEach(update => update([{ target: body, addedNodes: [unrelatedNav], removedNodes: [] }]))
-  assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
-  assert.equal(unrelatedNav.children.length, 0)
+  assert.equal(root.getAttribute('data-delta-search-adapter'), null)
   body.appendChild(viewport)
-  env.observers.forEach(update => update([{ target: body, addedNodes: [viewport], removedNodes: [] }]))
-  const shell = viewport.children[0]
-  assert.equal(shell.getAttribute('data-delta-search'), 'sessions')
-  assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
-  assert.equal(viewport.children[1], nav)
-  assert.equal(viewport.children[2], nativeWorkspace)
-
-  const searchField = shell.children[0]
-  const input = searchField.children.find(node => node.tagName === 'input')
-  const results = shell.children[1]
-  assert.ok(input, 'ZIP owns the sidebar search input')
-  assert.equal(input.placeholder, locales.zh.searchPalette.sidebarPlaceholder)
-  assert.equal(results.hidden, true)
-  input.value = 'Example'
-  input.emit('input')
-  assert.ok(results.children.some(node => node.className === 'dtd-host-search-result'),
-    'typing presents inline matches')
-  assert.equal(body.children.some(node => node.className === 'dtd-search-backdrop'), false,
-    'clicking or typing must not force the full-screen palette')
-
-  const firstHit = results.children.find(node => node.className === 'dtd-host-search-result')
-  firstHit.emit('click')
-  assert.ok(actions.some(action => action[0] === 'open' && action[1] === 'local'),
-    'search navigation uses the public Host API')
-
-  input.value = 'Example'
-  input.emit('keydown', { key: 'Enter', preventDefault() {} })
-  assert.ok(body.children.some(node => node.className === 'dtd-search-backdrop'),
-    'Enter explicitly opens the 7-category SearchPalette')
-  const modal = body.children.find(node => node.className === 'dtd-search-backdrop')
-  const dialog = modal.children[0]
-  assert.equal(dialog.className, 'dtd-search-modal')
-  assert.equal(dialog.children[1].children.length, 7)
-
-  assert.equal(windowKeyHandlers.has('keydown'), false,
-    'Delta must not capture the global Harness shortcut')
-  dialog.emit('keydown', { key: 'Escape', preventDefault() {} })
-  assert.equal(body.children.some(node => node.className === 'dtd-search-backdrop'), false,
-    'Escape closes the Delta-owned modal only')
-  input.emit('keydown', { key: 'Enter', preventDefault() {} })
-  assert.ok(body.children.some(node => node.className === 'dtd-search-backdrop'),
-    'Enter in Delta sidebar search explicitly opens SearchPalette')
-  body.children.find(node => node.className === 'dtd-search-backdrop').children[0]
-    .emit('keydown', { key: 'Escape', preventDefault() {} })
+  // No sidebar observer is installed: this test must not dispatch Host DOM mutations.
+  assert.equal(viewport.children[0], nav, 'Host navigation retains its position')
+  assert.equal(viewport.children[1], nativeWorkspace)
+  assert.equal(viewport.children.length, 2, 'no Delta search shell inserted into Host sidebar')
+  const paletteSlot = inserted.find(([spec]) => spec.id === 'delta.search.palette')
+  assert.ok(paletteSlot, 'public composer Slot contributes Search Palette entry')
+  const openGeneralPalette = () => {
+    const entry = paletteSlot[1]()
+    assert.equal(entry.type, 'button')
+    entry.props.onClick()
+    const overlay = body.children.find(node => node.className === 'dtd-search-backdrop')
+    assert.ok(overlay)
+    return overlay.children[0]
+  }
+  const generalDialog = openGeneralPalette()
+  assert.equal(generalDialog.children[1].children.length, 7)
+  assert.equal(windowKeyHandlers.has('keydown'), false, 'Host owns global shortcut')
+  generalDialog.emit('keydown', { key: 'Escape', preventDefault() {} })
+  assert.equal(body.children.some(node => node.className === 'dtd-search-backdrop'), false)
 
   const commandSlot = inserted.find(([spec]) => spec.id === 'delta.search.composer-commands')
   assert.ok(commandSlot, 'only a public session-scope slot contributes the command entry')
@@ -411,27 +356,25 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes,
     'unmounted Slot never writes even if the Session generation is still retained')
 
-  // Late row callbacks from a previous catalog must not address a new palette.
+  // Stale scoped command callbacks cannot edit a later general Search Palette.
   commandDialog = await openCommandPicker()
   row = firstCommand(commandDialog)
   commandDialog.emit('keydown', { key: 'Escape', preventDefault() {} })
-  input.value = ''
-  input.emit('keydown', { key: 'Enter', preventDefault() {} })
-  await flushCatalog()
+  const palette = openGeneralPalette()
+  const modalInput = palette.children[0].children.find(node => node.tagName === 'input')
+  const modalResults = palette.children[2]
+  const flatten = node => [node.textContent, ...node.children.flatMap(flatten)].join(' ')
+  assert.ok(modalInput)
+  modalInput.value = 'Example'
+  modalInput.emit('input')
+  assert.equal(modalInput.value, 'Example', 'public palette owns its own search input')
+  const beforeCommands = actions.filter(action => action[0] === 'insert-command').length
   row.emit('click')
-  assert.equal(actions.filter(action => action[0] === 'insert-command').length, writes, 'stale scoped row cannot insert')
-
+  assert.equal(actions.filter(action => action[0] === 'insert-command').length, beforeCommands)
   commandSlotEffects.splice(0).forEach(dispose => dispose())
-  assert.equal(accessWatchers.size, 0, 'permissions subscription released')
+  assert.equal(accessWatchers.size, 0, 'command permission listener released')
 
-  // Simulate an authoritative tombstone while the native catalog is stale.
-  body.children.find(node => node.className === 'dtd-search-backdrop')?.children[0]
-    .emit('keydown', { key: 'Escape', preventDefault() {} })
-  input.value = 'Example'
-  input.emit('input')
-  const staleHit = results.children.find(node => node.className === 'dtd-host-search-result')
-  assert.ok(staleHit, 'initial native row is visible in Delta search')
-  // Run only the most recent debounce callback, avoiding unrelated UI timers.
+  // An in-flight public Host search cannot republish protected content.
   let resolveNative, observedSignal
   nextNativeSearch = signal => {
     observedSignal = signal
@@ -439,72 +382,51 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   }
   const runLastTimer = async () => {
     const [id, callback] = [...timers.entries()].at(-1)
+    assert.ok(callback, 'search debounce scheduled')
     timers.delete(id)
     callback()
     await flushCatalog()
   }
   await runLastTimer()
-  assert.ok(observedSignal && resolveNative, 'unprotected query may use public native fallback')
+  assert.ok(observedSignal && resolveNative, 'unprotected query may use Host search')
   protectionState = { ...protectionState, hasPin: true, lockMode: 'totp', lockedSessionIds: ['session-local'] }
   await env.testFeatures.refreshState()
-  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false,
-    'direct lock alias suppresses native title')
-  assert.equal(observedSignal.aborted, true, 'protection change aborts fallback')
+  assert.doesNotMatch(flatten(modalResults), /Example Session/, 'locked session removed')
+  assert.equal(observedSignal.aborted, true, 'lock aborts Host request')
   resolveNative({ ok: true, value: { items: [{ sessionId: 'local', snippet: 'late protected secret' }], hasMore: false } })
   await flushCatalog()
-  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false)
-  const searches = actions.filter(action => action[0] === 'search').length
-  input.emit('input')
-  await runLastTimer()
-  assert.equal(actions.filter(action => action[0] === 'search').length, searches,
-    'Host endpoint refusal does not fall back while lock is active')
-  const beforeLock = actions.filter(action => action[0] === 'open').length
-  staleHit.emit('click')
-  assert.equal(actions.filter(action => action[0] === 'open').length, beforeLock)
+  assert.doesNotMatch(flatten(modalResults), /late protected secret/)
+
   protectionState = { ...protectionState, lockedSessionIds: [], lockedWorkspaceIds: ['design'] }
   await env.testFeatures.refreshState()
-  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false,
-    'locked workspace member is excluded')
-  input.emit('keydown', { key: 'Enter', preventDefault() {} })
-  const lockedDialog = body.children.find(node => node.className === 'dtd-search-backdrop').children[0]
-  const flatten = node => [node.textContent, ...node.children.flatMap(flatten)].join(' ')
-  assert.doesNotMatch(flatten(lockedDialog), /Example Session|Design Workspace/)
-  lockedDialog.emit('keydown', { key: 'Escape', preventDefault() {} })
+  assert.doesNotMatch(flatten(modalResults), /Example Session|Design Workspace/)
   protectionState = { ...protectionState, lockedWorkspaceIds: [], hasPin: false, lockMode: 'none' }
   await env.testFeatures.refreshState()
-  assert.ok(results.children.some(node => node.className === 'dtd-host-search-result'))
-  const beforeOld = actions.filter(action => action[0] === 'open').length
-  staleHit.emit('click')
-  assert.equal(actions.filter(action => action[0] === 'open').length, beforeOld,
-    'old result stays invalid after unlock')
+
   protectionState = { ...protectionState, deletedSessionIds: ['local'] }
   await env.testFeatures.refreshState()
-  assert.ok(hostSessions.list.getSnapshot().byId.local, 'Delta never rewrites the stale native catalog')
-  assert.equal(results.children.some(node => node.className === 'dtd-host-search-result'), false,
-    'confirmed deletion immediately filters the Delta inline row')
-  const beforeStale = actions.filter(action => action[0] === 'open').length
-  staleHit.emit('click')
-  assert.equal(actions.filter(action => action[0] === 'open').length, beforeStale,
-    'previously rendered callback cannot reopen a deleted session')
+  assert.ok(hostSessions.list.getSnapshot().byId.local, 'native Session catalog remains unmodified')
+  assert.doesNotMatch(flatten(modalResults), /Example Session/)
   assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot)
   assert.equal(hostSessions.list.subscribe, originalSessionSubscribe)
+  palette.emit('keydown', { key: 'Escape', preventDefault() {} })
   callbacks.forEach(dispose => dispose())
   assert.equal(viewport.children[0], nav)
   assert.equal(viewport.children[1], nativeWorkspace)
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
 })
 
-test('ZIP sidebar search activates only after public Host Session and navigation services arrive', () => {
+test('public Search Palette entry waits for Host Session and navigation services', () => {
   const root = new Element('html')
   const body = new Element('body')
   root.appendChild(body)
   const viewport = new Element('div')
-  viewport.setAttribute('data-sidebar-scrollport', '')
   const nativeNav = new Element('nav')
   viewport.appendChild(nativeNav)
   body.appendChild(viewport)
   const effects = []
   const delayed = []
+  const registeredSlots = []
   const actions = []
   let registration
   const ctx = {
@@ -514,6 +436,7 @@ test('ZIP sidebar search activates only after public Host Session and navigation
         if (typeof dispose === 'function') effects.push(dispose)
       },
       register(options, component) {
+        registeredSlots.push(options.id)
         return () => {}
       },
     },
@@ -576,9 +499,10 @@ test('ZIP sidebar search activates only after public Host Session and navigation
     entry.names.includes('sessions') && entry.names.includes('uiWorkspace'))) {
     pending.callback(ctx)
   }
-  assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
-  assert.equal(viewport.children[0].getAttribute('data-delta-search'), 'sessions')
-  assert.equal(viewport.children[1], nativeNav)
+  assert.equal(root.getAttribute('data-delta-search-adapter'), null)
+  assert.equal(viewport.children.length, 1, 'Host sidebar remains unchanged')
+  assert.equal(viewport.children[0], nativeNav)
+  assert.ok(registeredSlots.includes('delta.search.palette'), 'public entry registers with Host services')
   effects.forEach(dispose => dispose?.())
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
   assert.equal(viewport.children[0], nativeNav)

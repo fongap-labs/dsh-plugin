@@ -146,7 +146,8 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: retired private workspace expansion storage reads and synthetic row clicks; native expansion is Host-owned.
 // Reviewed 2026-11-18: retired cloned native new-session button, synthetic click forwarding, and CSS hiding of the actual Host control.
 // Reviewed 2026-11-18: retired native sidebar search proxy/input mirroring and restored original Harness search slot.
-// Reviewed 2026-11-18: scoped Delta search mount to the expanded sidebar's direct nav; unrelated Host/third-party mutations no longer schedule sync.
+// Reviewed 2026-11-18: replaced private service-search sidebar insertion with a public composer Search Palette entry.
+// Reviewed 2026-11-18: PR #392 scoped legacy Host sidebar placement; this is superseded by public Slot ownership.
 const ZIP3_THEME_BLOB = '864b38d877553209ca4628900aaa0d4c40439892'
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -157,7 +158,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: '82cc116df7f2e56cfbfb9af1be9aa65149cb94ea',
+    sha1: '46e893f0d9e8a0c4472cc3db4a9ad068a2f0fb38',
   },
 ]
 
@@ -191,8 +192,11 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
+  // The exact public Slot implementation is pinned by ZIP3_COMPAT_REGIONS.
+  // Keep emitted-fixture compatibility while rejecting legacy native DOM takeover.
   ensure(client.includes('dtd-host-search') && client.includes('data-delta-compat') &&
-    !client.includes('dtd-native-search'),
+    !client.includes('dtd-native-search') &&
+    !client.includes('navParent.insertBefore(shell, navigationRow)'),
     'ZIP3 emitted sidebar adapter incomplete or legacy native search proxy retained')
   ensure(!client.includes('dtd-search-dialog-backdrop') && !client.includes('openSearchDialog(') &&
     !client.includes('workspaceRegistry') && !client.includes('app.asar'),
