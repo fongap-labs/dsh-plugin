@@ -50,7 +50,7 @@ export const SPECIALIST_WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Write a short rubric with observable criteria such as correctness, required evidence, safety boundaries and output usefulness. Keep the rubric hidden from candidate runs when a blinded comparison is feasible.',
       'Run the same prompts against the previous and proposed Skill under comparable model, tool and project conditions. Label outputs neutrally; do not leak the rubric or variant identity to candidate agents.',
       'Have a separate reviewer or model score anonymized outputs against the rubric when available. Otherwise score them yourself and disclose that the comparison was not blind or independent.',
-      'Inspect the actual work products and tool evidence, not the agents' claims about following instructions. Record regressions, failures and meaningful uncertainty alongside improvements.',
+      'Inspect the actual work products and tool evidence, not unverified claims about following instructions. Record regressions, failures and meaningful uncertainty alongside improvements.',
       'Keep the change only when it improves target behavior without material safety or quality regressions. Bound runs, context and cost; never expose private transcripts or use hidden evaluation metadata in candidate prompts.',
     ],
   },
