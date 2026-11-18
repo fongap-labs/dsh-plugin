@@ -98,7 +98,7 @@ test('validates the concrete capability contract and compatibility link in ZIP a
     const noImplementation = new Map(valid)
     noImplementation.delete(implementation)
     assert.throws(() => verifyEntries(noImplementation, '0.1.0-beta.2', format),
-      /missing lib\\/delta-suite-adapter\\/host-capability-contract\\.js/)
+      /missing lib\/delta-suite-adapter\/host-capability-contract\.js/)
 
     const wrongLink = new Map(valid)
     wrongLink.set(compatibility, Buffer.from("export * from './incorrect-module.js';"))
