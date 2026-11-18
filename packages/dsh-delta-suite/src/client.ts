@@ -3018,7 +3018,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const hiddenPrivacyCmdNodes = new Set<HTMLElement>()
   const hiddenSoleWorkspaceNodes = new Set<HTMLElement>()
   const hiddenDeletedRows = new Set<HTMLElement>()
-  const collapsibleErrorHandlers = new Map<HTMLElement, (e: Event) => void>()
   let lastMenuSessionId: string | undefined
   let lastMenuWorkspaceId: string | undefined
   const LOCKED_WORKSPACE_MUTATION_LABELS = new Set(['\u91cd\u547d\u540d', 'Rename', '\u5220\u9664\u5de5\u4f5c\u533a', 'Delete workspace'])
@@ -3059,19 +3058,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const WORKSPACE_DELETE_LABELS = new Set(['\u5220\u9664\u5DE5\u4F5C\u533A', 'Delete workspace'])
   const WORKSPACE_RENAME_LABELS = new Set(['\u91CD\u547D\u540D', '\u91CD\u547D\u540D\u5DE5\u4F5C\u533A', 'Rename', 'Rename workspace'])
 
-  const cleanupCollapsibleErrors = (): void => {
-    for (const [row, handler] of collapsibleErrorHandlers) {
-      try {
-        row.removeAttribute?.('data-dtd-collapsible')
-        row.removeAttribute?.('data-dtd-expanded')
-        row.removeAttribute?.('aria-expanded')
-        row.removeEventListener?.('click', handler)
-        row.removeEventListener?.('keydown', handler)
-      } catch {}
-    }
-    collapsibleErrorHandlers.clear()
-  }
-
   const getMenuLabel = (el: HTMLElement): string => {
     const labelEl = el.querySelector?.<HTMLElement>('[class*="_itemLabel_"]')
     if (labelEl?.textContent) return labelEl.textContent.trim()
@@ -3094,13 +3080,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
     for (const stale of hiddenDeletedRows) {
       if (!stale.isConnected) hiddenDeletedRows.delete(stale)
-    }
-    for (const [row, handler] of collapsibleErrorHandlers) {
-      if (!row.isConnected) {
-        row.removeEventListener?.('click', handler)
-        row.removeEventListener?.('keydown', handler)
-        collapsibleErrorHandlers.delete(row)
-      }
     }
     if (typeof document?.querySelectorAll !== 'function') return
 
@@ -3176,30 +3155,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       deltaFeatures.syncLockShieldOverlay(centerCol)
     }
 
-    // 3. Default-collapse failed turn error rows to a single line with click toggle
-    const errorRows = document.querySelectorAll<HTMLElement>('[class*="turnErrorRow"]')
-    for (const errRow of errorRows) {
-      if (errRow.getAttribute?.('data-dtd-collapsible') === '1') continue
-      errRow.setAttribute?.('data-dtd-collapsible', '1')
-      errRow.setAttribute?.('data-dtd-expanded', '0')
-      errRow.setAttribute?.('aria-expanded', 'false')
-      const toggle = (e: Event) => {
-        if (e.type === 'keydown') {
-          const ke = e as KeyboardEvent
-          if (ke.key !== 'Enter' && ke.key !== ' ') return
-          ke.preventDefault?.()
-        }
-        const cur = errRow.getAttribute?.('data-dtd-expanded') === '1'
-        const next = cur ? '0' : '1'
-        errRow.setAttribute?.('data-dtd-expanded', next)
-        errRow.setAttribute?.('aria-expanded', next === '1' ? 'true' : 'false')
-      }
-      errRow.addEventListener?.('click', toggle)
-      errRow.addEventListener?.('keydown', toggle)
-      collapsibleErrorHandlers.set(errRow, toggle)
-    }
-
-    // 4. Hide blocked commands (/export, /feedback) and session-log download menu + sole-workspace delete menu
+    // 3. Hide blocked commands (/export, /feedback) and session-log download menu + sole-workspace delete menu
     const cmdContainers = document.querySelectorAll<HTMLElement>('[role="listbox"], [class*="command"]')
     for (const box of cmdContainers) {
       const cmdItems = typeof box.querySelectorAll === 'function'
@@ -3405,7 +3361,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     restoreHiddenNodes('data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
     restoreHiddenNodes('data-dtd-hidden-deleted', hiddenDeletedRows)
     closeUngroupedMenu()
-    cleanupCollapsibleErrors()
     deltaFeatures.resetSessionOverlays()
   }
 }
