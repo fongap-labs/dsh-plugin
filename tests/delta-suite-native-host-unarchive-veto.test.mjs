@@ -1277,3 +1277,86 @@ test('exact and prefixed repeated input IDs still yield one logical deletion', a
     assert.equal(redelete.data.error, 'SESSION_DELETED')
   } finally { f.dispose() }
 })
+
+
+test('single delete cancels an alternate native session handle even if earlier cancellation methods throw', async () => {
+  const calls = []
+  let f
+  const sessions = {
+    cancel(id) {
+      calls.push(['service-cancel', id, [...f.store.getCached().deletedSessionIds]])
+      throw new Error('public service cancellation refused')
+    },
+    get(id) {
+      calls.push(['get', id, [...f.store.getCached().deletedSessionIds]])
+      if (id === 'alpha') throw new Error('raw handle not yet available')
+      if (id === 'session-alpha') return { cancel() {
+        calls.push(['handle-cancel', id, [...f.store.getCached().deletedSessionIds]])
+      } }
+      return undefined
+    },
+  }
+  const registry = {
+    list: () => [{ id: 'ordinary', path: '/ordinary', sessionIds: ['alpha', 'session-alpha'] }],
+    unpinSession(id) { calls.push(['unpin', id, [...f.store.getCached().deletedSessionIds]]) },
+  }
+  f = fixture({ sessions, registry })
+  try {
+    const deleted = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'alpha' })
+    assert.equal(deleted.status, 200)
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['alpha'])
+    assert.deepEqual(calls.filter(([action]) =>
+      action === 'service-cancel' || action === 'get' || action === 'handle-cancel'), [
+      ['service-cancel', 'alpha', ['alpha']],
+      ['get', 'alpha', ['alpha']],
+      ['get', 'session-alpha', ['alpha']],
+      ['handle-cancel', 'session-alpha', ['alpha']],
+    ], 'a failing service cancel or first handle lookup must not suppress a live alias cancellation')
+    assert.ok(calls.some(([action]) => action === 'unpin'),
+      'native detachment continues after best-effort cancellation failures')
+    assert.equal(calls.every(([, , tombstones]) =>
+      Array.isArray(tombstones) && tombstones.includes('alpha')), true,
+      'every native side effect observes the durable deletion tombstone')
+  } finally { f.dispose() }
+})
+
+test('bulk deletion isolates each cancellation failure and continues to later eligible sessions', async () => {
+  const calls = []
+  let f
+  const sessions = {
+    async cancel(id) {
+      calls.push(['service-cancel', id, [...f.store.getCached().deletedSessionIds]])
+      if (id === 'alpha') throw new Error('cannot stop alpha via service')
+    },
+    get(id) {
+      calls.push(['get', id, [...f.store.getCached().deletedSessionIds]])
+      return { async cancel() {
+        calls.push(['handle-cancel', id, [...f.store.getCached().deletedSessionIds]])
+        if (id === 'alpha') throw new Error('cannot stop alpha via handle')
+      } }
+    },
+  }
+  const registry = {
+    list: () => [{ id: 'ordinary', path: '/ordinary', sessionIds: ['alpha', 'beta'] }],
+    unpinSession(id) { calls.push(['unpin', id, [...f.store.getCached().deletedSessionIds]]) },
+  }
+  f = fixture({ sessions, registry })
+  try {
+    const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
+      sessionIds: ['alpha', 'beta'],
+    })
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data.deletedIds, ['alpha', 'beta'])
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['alpha', 'beta'])
+    assert.deepEqual(calls.filter(([name]) =>
+      name === 'service-cancel' || name === 'get' || name === 'handle-cancel'), [
+      ['service-cancel', 'alpha', ['alpha', 'beta']],
+      ['get', 'alpha', ['alpha', 'beta']],
+      ['handle-cancel', 'alpha', ['alpha', 'beta']],
+      ['service-cancel', 'beta', ['alpha', 'beta']],
+      ['get', 'beta', ['alpha', 'beta']],
+      ['handle-cancel', 'beta', ['alpha', 'beta']],
+    ], 'a failed alpha cancellation must not prevent the beta service and handle cancellation')
+    assert.deepEqual(calls.filter(([action, id]) => action === 'unpin' && id === 'beta').length, 1)
+  } finally { f.dispose() }
+})
