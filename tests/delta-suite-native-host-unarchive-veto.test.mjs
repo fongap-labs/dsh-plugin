@@ -22,7 +22,7 @@ try {
 
 const secret = 'JBSWY3DPEHPK3PXP'
 
-function fixture({ initial = {}, registry, readFails = false, writeFails = false, persistence } = {}) {
+function fixture({ initial = {}, registry, readFails = false, writeFails = false, persistence, sessions } = {}) {
   let current = state.normalizeDeltaState(initial)
   let listener
   let releases = 0
@@ -50,7 +50,8 @@ function fixture({ initial = {}, registry, readFails = false, writeFails = false
   }
   const ctx = {
     get: name => name === 'workspaceRegistry' ? hostRegistry
-      : name === 'sessionPersistence' ? persistence : undefined,
+      : name === 'sessionPersistence' ? persistence
+        : name === 'sessions' ? sessions : undefined,
     on(event, cb) {
       assert.equal(event, 'workspace/session-unarchiving')
       listener = cb
@@ -465,4 +466,80 @@ test('logical moves reject missing, malformed or mismatched public Host destinat
     assert.equal(withoutHint.status, 200, 'a proven workspace ID is sufficient without a path hint')
     assert.deepEqual(f.store.getCached().movedSessions, { source: 'target', another: 'target' })
   } finally { f.dispose() }
+})
+
+test('failed tombstone writes stop all destructive Host delete actions', async () => {
+  const observed = []
+  const registry = {
+    list: () => [{ id: 'ordinary', path: '/ordinary', sessionIds: ['one', 'two'] }],
+    unarchiveSession(id) { observed.push(['unarchive', id]) },
+    unpinSession(id) { observed.push(['unpin', id]) },
+  }
+  const sessions = { cancel(id) { observed.push(['cancel', id]) } }
+  const persistence = {
+    listGenerations() { observed.push(['read-generations']); return Promise.resolve([]) },
+  }
+  const f = fixture({
+    registry, sessions, persistence, writeFails: true,
+    initial: { movedSessions: { one: 'ordinary', two: 'ordinary' } },
+  })
+  try {
+    const original = f.store.getCached()
+    for (const [path, body] of [
+      [ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'one' }],
+      [ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, { sessionIds: ['one', 'two'] }],
+    ]) {
+      const response = await f.request(path, body)
+      assert.equal(response.status, 500, 'the failure is a storage write, not a successful deletion')
+      assert.deepEqual(f.store.getCached(), original,
+        'failed persistence leaves the previous state visible')
+      assert.deepEqual(observed, [],
+        'native registry, session cancel and persistence must not run before tombstone commit')
+    }
+  } finally { f.dispose() }
+})
+
+test('single and bulk deletes make tombstones visible before native side effects', async () => {
+  for (const bulk of [false, true]) {
+    const observed = []
+    let f
+    const registry = {
+      list: () => [{ id: 'ordinary', path: '/ordinary', sessionIds: ['free', 'locked'] }],
+      archivedSessionIds: ['free'],
+      unarchiveSession(id) { observed.push(['unarchive', id]) },
+      unpinSession(id) {
+        observed.push(['unpin', id, [...f.store.getCached().deletedSessionIds]])
+      },
+    }
+    const sessions = {
+      cancel(id) { observed.push(['cancel', id, [...f.store.getCached().deletedSessionIds]]) },
+    }
+    f = fixture({
+      registry, sessions,
+      initial: {
+        lockedSessionIds: bulk ? ['locked'] : [],
+        movedSessions: { free: 'ordinary', locked: 'ordinary' },
+      },
+    })
+    try {
+      const result = await f.request(
+        bulk ? ops.DELTA_SESSION_DELETE_UNGROUPED_PATH : ops.DELTA_SESSION_DELETE_PATH,
+        bulk ? { sessionIds: ['free', 'locked'] } : { sessionId: 'free' },
+      )
+      assert.equal(result.status, 200)
+      assert.deepEqual(f.store.getCached().deletedSessionIds, ['free'])
+      assert.equal(Object.hasOwn(f.store.getCached().movedSessions, 'free'), false)
+      assert.equal(f.store.getCached().movedSessions.locked, 'ordinary')
+      assert.equal(observed.some(([kind]) => kind === 'unarchive'), false,
+        'deleting a tombstoned session must never invoke legacy unarchive')
+      const cancels = observed.filter(([kind]) => kind === 'cancel')
+      assert.equal(cancels.length, 1)
+      assert.deepEqual(cancels[0], ['cancel', 'free', ['free']])
+      assert.ok(observed.some(([kind, , tombstones]) =>
+        kind === 'unpin' && tombstones.includes('free')))
+      assert.equal(observed.some(([, sid]) => sid === 'locked'), false,
+        'protected members are not part of the durable delete batch')
+      if (bulk) assert.deepEqual(result.data.skippedLockedIds, ['locked'])
+    } finally { f.dispose() }
+  }
 })
