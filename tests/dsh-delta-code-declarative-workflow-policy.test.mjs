@@ -81,7 +81,7 @@ describe('Delta Code declarative coding workflow policy', () => {
       }
     }
     const policy = readFileSync(new URL('../packages/dsh-delta-code/src/delta-code-strategy/workflow-policy.ts', import.meta.url), 'utf8')
-    for (const prohibited of ['@deepseek-ai', 'Context', 'subprocess', 'fetch(', 'node:fs']) {
+    for (const prohibited of ['@deepseek-ai', 'Context', 'runCommand(', 'fetch(', 'node:fs']) {
       assert.equal(policy.includes(prohibited), false, prohibited)
     }
   })
