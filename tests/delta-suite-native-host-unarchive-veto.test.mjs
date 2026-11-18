@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -22,7 +22,7 @@ try {
 
 const secret = 'JBSWY3DPEHPK3PXP'
 
-function fixture({ initial = {}, registry, readFails = false, writeFails = false, persistence, sessions } = {}) {
+function fixture({ initial = {}, registry, readFails = false, writeFails = false, persistence, sessions, profileContext } = {}) {
   let current = state.normalizeDeltaState(initial)
   let listener
   let releases = 0
@@ -51,7 +51,8 @@ function fixture({ initial = {}, registry, readFails = false, writeFails = false
   const ctx = {
     get: name => name === 'workspaceRegistry' ? hostRegistry
       : name === 'sessionPersistence' ? persistence
-        : name === 'sessions' ? sessions : undefined,
+        : name === 'sessions' ? sessions
+          : name === 'profileContext' ? profileContext : undefined,
     on(event, cb) {
       assert.equal(event, 'workspace/session-unarchiving')
       listener = cb
@@ -820,4 +821,51 @@ test('late Host dependency injection after disposal does not re-register any rou
     assert.deepEqual(registered, [],
       'Host services mounted after Delta shutdown must not re-register stale endpoints')
   } finally { stop() }
+})
+
+test('session artifact cleanup checks real paths and refuses linked directories outside the Host root', async t => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-cleanup-realpath-'))
+  const root = join(home, 'sessions')
+  const normalDir = join(root, '..project', 'victim')
+  const normalFile = join(normalDir, 'session.jsonl')
+  const externalDir = join(home, 'outside', 'victim')
+  const externalFile = join(externalDir, 'session.jsonl')
+  const linkParent = join(root, 'linked')
+  const linkedFile = join(linkParent, 'victim', 'session.jsonl')
+  mkdirSync(normalDir, { recursive: true })
+  mkdirSync(externalDir, { recursive: true })
+  writeFileSync(normalFile, 'native session under safe root', 'utf8')
+  writeFileSync(externalFile, 'unrelated external session - do not touch', 'utf8')
+
+  let linked = false
+  try {
+    try {
+      symlinkSync(join(home, 'outside'), linkParent,
+        process.platform === 'win32' ? 'junction' : 'dir')
+      linked = true
+    } catch (err) {
+      if (!['EPERM', 'EACCES', 'ENOTSUP', 'EOPNOTSUPP'].includes(err?.code)) throw err
+      t.diagnostic('Host OS does not permit test directory links; normal containment is still checked')
+    }
+
+    const generations = [{ sessionId: 'victim', sourcePath: normalFile },
+      { sessionId: 'victim', sourcePath: externalFile }]
+    if (linked) generations.push({ sessionId: 'victim', sourcePath: linkedFile })
+    const f = fixture({
+      profileContext: { home },
+      persistence: { root, listGenerations: async () => generations },
+    })
+    try {
+      const response = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'victim' })
+      assert.equal(response.status, 200)
+      assert.deepEqual(f.store.getCached().deletedSessionIds, ['victim'])
+      assert.equal(existsSync(normalDir), false,
+        'ordinary artifacts inside a project named ..project must still be deleted')
+      assert.equal(readFileSync(externalFile, 'utf8'),
+        'unrelated external session - do not touch',
+        'external files must survive direct and symlinked persistence paths')
+    } finally { f.dispose() }
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
 })
