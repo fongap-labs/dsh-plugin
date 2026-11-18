@@ -651,3 +651,48 @@ test('late workspaceRegistry injection replays durable tombstones without revivi
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('disposal during the startup state read prevents subsequent native reconciliation', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-disposed-recovery-'))
+  const observed = []
+  let notifyRead
+  let finishRead
+  const reading = new Promise(resolve => { notifyRead = resolve })
+  const pending = new Promise(resolve => { finishRead = resolve })
+  const store = {
+    async read() {
+      notifyRead()
+      await pending
+      return {
+        get deletedSessionIds() { observed.push('enumerate deleted'); return ['gone'] },
+        get lockedSessionIds() { observed.push('enumerate locked'); return ['locked'] },
+      }
+    },
+  }
+  const registry = {
+    unpinSession(id) { observed.push(['unpin', id]) },
+    archiveSession(id) { observed.push(['archive', id]) },
+  }
+  const ctx = {
+    get(name) {
+      if (name === 'workspaceRegistry') return registry
+      if (name === 'profileContext') return { home }
+      if (name === 'sessionPersistence') { observed.push('read persistence'); return { root: join(home, 'sessions') } }
+      return undefined
+    },
+    inject() { return () => {} },
+  }
+  const stop = ops.installHostSessionOps(ctx, store)
+  try {
+    await reading
+    stop()
+    finishRead()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.deepEqual(observed, [],
+      'a disposed plugin must not inspect tombstones or begin native cleanup after read finishes')
+  } finally {
+    stop()
+    finishRead()
+    rmSync(home, { recursive: true, force: true })
+  }
+})
