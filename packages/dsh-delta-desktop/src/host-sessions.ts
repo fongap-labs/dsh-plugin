@@ -809,6 +809,14 @@ export function installHostSessionOps(
     const sessionIds = [...new Set((rawIds as string[]).map(id => id.trim()))]
 
     const current = await store.read()
+    if (sessionIds.length === 0) {
+      // A valid empty batch is a no-op, not a state-file rewrite or a native
+      // cleanup request. Preserve the existing successful response contract.
+      return makeJsonResponse(200, {
+        ok: true, deletedIds: [], skippedLockedIds: [],
+        state: toPublicHostState(current),
+      })
+    }
     // Reject the entire bulk request before any native side effect if one
     // alias already has a durable deletion tombstone.
     if (sessionIds.some(sid => isSessionDeleted(current, sid))) {
