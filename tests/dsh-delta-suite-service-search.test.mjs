@@ -259,7 +259,7 @@ test('service-backed Search Palette uses public composer Slot without native sid
   assert.equal(hostSessions.list.subscribe, originalSessionSubscribe, 'Host subscription method is not wrapped')
   assert.equal(root.getAttribute('data-delta-search-adapter'), null)
   body.appendChild(viewport)
-  env.observers.forEach(update => update())
+  // No sidebar observer is installed: this test must not dispatch Host DOM mutations.
   assert.equal(viewport.children[0], nav, 'Host navigation retains its position')
   assert.equal(viewport.children[1], nativeWorkspace)
   assert.equal(viewport.children.length, 2, 'no Delta search shell inserted into Host sidebar')
