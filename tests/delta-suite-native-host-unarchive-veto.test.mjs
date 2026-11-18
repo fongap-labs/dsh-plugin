@@ -869,3 +869,49 @@ test('session artifact cleanup checks real paths and refuses linked directories 
     rmSync(home, { recursive: true, force: true })
   }
 })
+
+test('project-cache cleanup removes in-profile aliases but never follows a linked cache directory outside DSH_HOME', async t => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-project-cache-root-'))
+  const outside = mkdtempSync(join(tmpdir(), 'delta-project-cache-outside-'))
+  const cacheParent = join(home, 'storages', 'session_projcache')
+  const cacheDir = join(cacheParent, 'sessions')
+  try {
+    mkdirSync(cacheDir, { recursive: true })
+    for (const name of ['victim.json', 'session-victim.json']) {
+      writeFileSync(join(cacheDir, name), 'in-profile cache', 'utf8')
+    }
+    const normal = fixture({ profileContext: { home } })
+    try {
+      const result = await normal.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'victim' })
+      assert.equal(result.status, 200)
+      assert.equal(existsSync(join(cacheDir, 'victim.json')), false)
+      assert.equal(existsSync(join(cacheDir, 'session-victim.json')), false)
+    } finally { normal.dispose() }
+
+    rmSync(cacheDir, { recursive: true, force: true })
+    writeFileSync(join(outside, 'victim.json'), 'outside cache belongs to another owner', 'utf8')
+    writeFileSync(join(outside, 'session-victim.json'), 'second outside cache', 'utf8')
+    try {
+      symlinkSync(outside, cacheDir, process.platform === 'win32' ? 'junction' : 'dir')
+    } catch (error) {
+      if (!['EPERM', 'EACCES', 'ENOTSUP', 'EOPNOTSUPP'].includes(error?.code)) throw error
+      t.diagnostic('Host OS does not allow cache directory symlinks; in-profile cleanup was verified')
+      return
+    }
+
+    const linked = fixture({ profileContext: { home } })
+    try {
+      const result = await linked.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'victim' })
+      assert.equal(result.status, 200)
+      assert.deepEqual(linked.store.getCached().deletedSessionIds, ['victim'],
+        'the durable tombstone is retained even when unsafe cache cleanup is rejected')
+      assert.equal(readFileSync(join(outside, 'victim.json'), 'utf8'),
+        'outside cache belongs to another owner')
+      assert.equal(readFileSync(join(outside, 'session-victim.json'), 'utf8'),
+        'second outside cache')
+    } finally { linked.dispose() }
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+    rmSync(outside, { recursive: true, force: true })
+  }
+})

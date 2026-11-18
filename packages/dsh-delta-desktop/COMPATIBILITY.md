@@ -373,3 +373,10 @@
 - A valid native project folder named with an initial `..` sequence (for example `..project`) is not treated as a parent traversal unless it is exactly `..` or begins with the actual OS parent-directory separator. This preserves normal in-root cleanup while refusing traversal.
 - The checks mitigate symlink-redirected cleanup but are **not** an atomic filesystem transaction: symlinks can theoretically change between `realpath` and `rm`. Stronger race-free deletion requires Host-owned file handles/atomic APIs. The durable deletion tombstone and startup reconciliation remain authoritative even if physical cleanup is skipped. On Windows platforms without test symlink privileges, the test retains normal-root coverage; Linux CI exercises the symlink case.
 - No Harness patch, owner ACL bypass, standalone desktop client, ZIP3/CSS edit, or A/B testing is introduced. Real Windows Harness integration still requires physical lifecycle and deletion validation.
+
+## Project-cache deletion containment after session tombstones (Issue #333)
+
+- Cache cleanup under `storages/session_projcache/sessions` resolves the real DSH profile root and each existing `sessionId.json` alias target before unlinking. A symlinked or junctioned parent that resolves outside that profile is not sufficient authorization to delete a cache file, even if the lexical path appears beneath `DSH_HOME`.
+- Normal cache aliases whose resolved paths remain inside the active profile continue to be removed. Missing cache files and unresolved paths are skipped without undoing the durable deletion tombstone or blocking best-effort native session log cleanup.
+- This closes another parent-directory symlink escape in the existing Host deletion flow. The operation is still not atomic with filesystem namespace changes between checking and removing; an atomic Host-owned cleanup facility would be needed to eliminate that TOCTOU boundary. Windows Harness end-to-end lifecycle and cache deletion behavior still require real installation validation.
+- No Host patch, private service interception, standalone client, ZIP3/CSS modification or A/B comparison is introduced.
