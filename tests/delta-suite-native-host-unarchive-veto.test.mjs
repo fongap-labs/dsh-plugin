@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -22,7 +22,7 @@ try {
 
 const secret = 'JBSWY3DPEHPK3PXP'
 
-function fixture({ initial = {}, registry, readFails = false } = {}) {
+function fixture({ initial = {}, registry, readFails = false, writeFails = false, persistence } = {}) {
   let current = state.normalizeDeltaState(initial)
   let listener
   let releases = 0
@@ -30,7 +30,11 @@ function fixture({ initial = {}, registry, readFails = false } = {}) {
   const store = {
     async read() { if (readFails) throw new Error('unreadable state'); return current },
     getCached: () => current,
-    async update(mutator) { current = state.normalizeDeltaState(await mutator(current)); return current },
+    async update(mutator) {
+      if (writeFails) throw new Error('durable write failed')
+      current = state.normalizeDeltaState(await mutator(current))
+      return current
+    },
   }
   const hostRegistry = registry ?? {
     archivedSessionIds: ['locked', 'ordinary'],
@@ -41,7 +45,8 @@ function fixture({ initial = {}, registry, readFails = false } = {}) {
     },
   }
   const ctx = {
-    get: name => name === 'workspaceRegistry' ? hostRegistry : undefined,
+    get: name => name === 'workspaceRegistry' ? hostRegistry
+      : name === 'sessionPersistence' ? persistence : undefined,
     on(event, cb) {
       assert.equal(event, 'workspace/session-unarchiving')
       listener = cb
@@ -373,5 +378,46 @@ test('tombstone aliases reject move, single delete and mixed bulk delete before 
       assert.equal(f.store.getCached().movedSessions.ordinary, 'ordinary')
       assert.deepEqual(f.store.getCached().deletedSessionIds, [tombstone])
     } finally { f.dispose() }
+  }
+})
+
+test('logical workspace moves never rewrite native session files, including on failed state writes', async () => {
+  for (const writeFails of [false, true]) {
+    const root = mkdtempSync(join(tmpdir(), 'delta-native-move-files-'))
+    const sourceDir = join(root, 'original', 'session-demo')
+    const sourceFile = join(sourceDir, 'session.jsonl')
+    const targetFile = join(root, 'replacement', 'session-demo', 'session.jsonl')
+    const original = '{"id":"demo","cwd":"/old"}\n{"kind":"message","text":"preserve me"}\n'
+    mkdirSync(sourceDir, { recursive: true })
+    writeFileSync(sourceFile, original, 'utf8')
+    let persistenceReads = 0
+    const persistence = {
+      root,
+      listGenerations() {
+        persistenceReads++
+        return Promise.resolve([{ sessionId: 'demo', sourcePath: sourceFile }])
+      },
+      locate(meta) {
+        persistenceReads++
+        return { path: meta.cwd === '/new' ? targetFile : sourceFile }
+      },
+    }
+    const f = fixture({ writeFails, persistence })
+    try {
+      const result = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+        sessionId: 'demo',
+        targetWorkspaceId: 'new-workspace',
+        sourceCwd: '/old',
+        targetPath: '/new',
+      })
+      assert.equal(result.status, writeFails ? 500 : 200)
+      assert.deepEqual(f.store.getCached().movedSessions,
+        writeFails ? {} : { demo: 'new-workspace' })
+      assert.equal(persistenceReads, 0,
+        'a logical move must not invoke low-level persistence or relocation')
+      assert.equal(readFileSync(sourceFile, 'utf8'), original,
+        'native log header and messages are preserved byte-for-byte')
+      assert.equal(existsSync(targetFile), false, 'no unowned native target log was created')
+    } finally { f.dispose(); rmSync(root, { recursive: true, force: true }) }
   }
 })

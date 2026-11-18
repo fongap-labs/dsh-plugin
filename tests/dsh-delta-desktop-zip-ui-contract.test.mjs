@@ -48,6 +48,13 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.equal((client.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1)
     assert.equal((client.match(/function installHostSearch\(/g) ?? []).length, 1)
   })
+  it('describes workspace moves as Delta-only grouping, not a native file relocation', () => {
+    for (const dictionary of [zh, en]) {
+      assert.match(dictionary.sessionMenu.moveDescription, /Delta/)
+      assert.match(dictionary.sessionMenu.moveDescription, /Harness/)
+      assert.match(dictionary.sessionMenu.movedToast, /Delta/)
+    }
+  })
   it('retains ZIP translations but adds main-only context, MCP and Vision labels', () => {
     for (const dictionary of [zh, en]) {
       assert.ok(dictionary.searchPalette.tabAll)

@@ -42,58 +42,6 @@ function isSafeSegment(id: string): boolean {
   return Boolean(id) && id !== '.' && id !== '..' && !id.includes('/') && !id.includes('\\')
 }
 
-function isZstdPathOrBuffer(filePath: string, buf?: Uint8Array): boolean {
-  const lower = filePath.toLowerCase()
-  if (lower.endsWith('.zstd') || lower.endsWith('.zst')) return true
-  return Boolean(buf && buf.length >= 4 && buf[0] === 0x28 && buf[1] === 0xb5 && buf[2] === 0x2f && buf[3] === 0xfd)
-}
-
-async function decodeSessionLogText(filePath: string, rawBuf: Uint8Array): Promise<string> {
-  if (!isZstdPathOrBuffer(filePath, rawBuf)) {
-    const bufMod = await loadNodeModule<any>('node:buffer')
-    return bufMod.Buffer.from(rawBuf).toString('utf8')
-  }
-  const zlib = await loadNodeModule<any>('node:zlib')
-  if (typeof zlib?.zstdDecompressSync !== 'function') {
-    throw new Error('Zstd decompression unavailable in runtime')
-  }
-  const out = zlib.zstdDecompressSync(rawBuf)
-  return out.toString('utf8')
-}
-
-async function encodeSessionLogBuffer(filePath: string, text: string): Promise<unknown> {
-  const bufMod = await loadNodeModule<any>('node:buffer')
-  const utf8 = bufMod.Buffer.from(text, 'utf8')
-  if (!filePath.toLowerCase().endsWith('.zstd') && !filePath.toLowerCase().endsWith('.zst')) {
-    return utf8
-  }
-  const zlib = await loadNodeModule<any>('node:zlib')
-  if (typeof zlib?.zstdCompressSync !== 'function') {
-    throw new Error('Zstd compression unavailable in runtime')
-  }
-  return zlib.zstdCompressSync(utf8)
-}
-
-async function copyDirExtras(
-  fs: any,
-  pathMod: any,
-  srcDir: string,
-  destDir: string,
-  skipBasename?: string,
-): Promise<void> {
-  const entries = await fs.readdir(srcDir, { withFileTypes: true }).catch(() => [])
-  for (const entry of entries) {
-    if (skipBasename && entry.name === skipBasename) continue
-    const from = pathMod.join(srcDir, entry.name)
-    const to = pathMod.join(destDir, entry.name)
-    if (entry.isDirectory()) {
-      await fs.cp(from, to, { recursive: true, force: true }).catch(() => {})
-    } else if (entry.isFile()) {
-      await fs.copyFile(from, to).catch(() => {})
-    }
-  }
-}
-
 async function removeSessionProjCache(ctx: SessionOpsHostContext, sessionId: string): Promise<void> {
   if (!isSafeSegment(sessionId)) return
   try {
@@ -117,7 +65,7 @@ async function resolveSessionFiles(
   ctx: SessionOpsHostContext,
   sessionId: string,
   hintedCwd?: string,
-): Promise<{ root?: string; dirs: string[]; files: string[]; header?: Record<string, unknown> }> {
+): Promise<{ root?: string; dirs: string[]; files: string[] }> {
   if (!isSafeSegment(sessionId)) return { dirs: [], files: [] }
   const sp = ctx.get?.('sessionPersistence') as {
     root?: string
@@ -190,23 +138,7 @@ async function resolveSessionFiles(
     } catch {}
   }
 
-  let header: Record<string, unknown> | undefined
-  for (const file of files) {
-    try {
-      const rawBuf = await fs.readFile(file)
-      const text = await decodeSessionLogText(file, rawBuf)
-      const firstLine = text.split(/\r?\n/, 1)[0]
-      if (firstLine) {
-        const parsed = JSON.parse(firstLine)
-        if (parsed && typeof parsed === 'object') {
-          header = parsed as Record<string, unknown>
-          break
-        }
-      }
-    } catch {}
-  }
-
-  return { root, dirs: [...dirs], files: [...files], ...(header ? { header } : {}) }
+  return { root, dirs: [...dirs], files: [...files] }
 }
 
 async function removeDirForcefully(fs: any, targetDir: string): Promise<void> {
@@ -680,7 +612,6 @@ export function installHostSessionOps(
     const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
     const targetWorkspaceId = typeof body.targetWorkspaceId === 'string' ? body.targetWorkspaceId.trim() : ''
     const targetPath = typeof body.targetPath === 'string' ? body.targetPath.trim() : ''
-    const sourceCwd = typeof body.sourceCwd === 'string' ? body.sourceCwd.trim() : undefined
 
     if (!sessionId || !targetWorkspaceId) {
       return makeJsonResponse(400, { ok: false, error: 'MISSING_MOVE_PARAMS' })
@@ -695,54 +626,9 @@ export function installHostSessionOps(
     if (sourceVerdict !== 'clear') return protectionFailure(sourceVerdict)
     const targetVerdict = protection.destination(targetWorkspaceId, targetPath)
     if (targetVerdict !== 'clear') return protectionFailure(targetVerdict)
-    // Attempt physical session log header cwd update + Zstd/JSONL relocation inside persistence root
-    if (targetPath) {
-      try {
-        const fs = await loadNodeModule<any>('node:fs/promises')
-        const pathMod = await loadNodeModule<any>('node:path')
-        const sp = ctx.get?.('sessionPersistence') as {
-          locate?: (meta: { id: string; cwd?: string }) => { path?: string }
-        } | undefined
-        const info = await resolveSessionFiles(ctx, sessionId, sourceCwd)
-        if (info.root && info.files.length > 0 && typeof sp?.locate === 'function') {
-          const destFileRaw = sp.locate({ id: sessionId, cwd: targetPath })?.path
-          const destFile = destFileRaw ? pathMod.resolve(destFileRaw) : undefined
-          if (destFile && isInsideRoot(pathMod, info.root, destFile)) {
-            const srcFile = pathMod.resolve(info.files[0])
-            if (isInsideRoot(pathMod, info.root, srcFile) && srcFile !== destFile) {
-              const rawBuf = await fs.readFile(srcFile)
-              const decoded = await decodeSessionLogText(srcFile, rawBuf)
-              const hasTrailingNewline = decoded.endsWith('\n')
-              const lines = decoded.split(/\r?\n/)
-              if (lines[0]) {
-                const hdr = JSON.parse(lines[0]) as Record<string, unknown>
-                if (hdr && typeof hdr === 'object') {
-                  hdr.cwd = targetPath
-                  lines[0] = JSON.stringify(hdr)
-                }
-              }
-              let updatedText = lines.join('\n')
-              if (hasTrailingNewline && !updatedText.endsWith('\n')) updatedText += '\n'
-              const encodedDest = await encodeSessionLogBuffer(destFile, updatedText)
-              const destDir = pathMod.dirname(destFile)
-              const srcDir = pathMod.dirname(srcFile)
-              await fs.mkdir(destDir, { recursive: true })
-              await fs.writeFile(destFile, encodedDest)
-              if (srcDir !== destDir && isInsideRoot(pathMod, info.root, srcDir) && pathMod.basename(srcDir) === sessionId) {
-                await copyDirExtras(fs, pathMod, srcDir, destDir, pathMod.basename(srcFile))
-                await fs.rm(srcDir, { recursive: true, force: true }).catch(() => {})
-              } else {
-                await fs.rm(srcFile, { force: true }).catch(() => {})
-              }
-              await removeSessionProjCache(ctx, sessionId)
-            }
-          }
-        }
-      } catch {
-        // Non-fatal: movedSessions mapping guarantees consistent UI state even if live session isn't flushed yet
-      }
-    }
-
+    // The public Harness workspace API cannot atomically relocate an existing
+    // session. Only update Delta's own mapping; native logs, cwd and workspace
+    // membership remain Host-owned until an explicit relocation API exists.
     const next = await store.update(cur => ({
       ...cur,
       movedSessions: { ...cur.movedSessions, [sessionId]: targetWorkspaceId },
