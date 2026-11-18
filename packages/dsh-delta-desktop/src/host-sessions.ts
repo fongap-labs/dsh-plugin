@@ -35,7 +35,25 @@ interface SessionOpsHostContext {
 
 function isInsideRoot(pathMod: any, rootDir: string, candidatePath: string): boolean {
   const rel = pathMod.relative(pathMod.resolve(rootDir), pathMod.resolve(candidatePath))
-  return rel !== '' && !rel.startsWith('..') && !pathMod.isAbsolute(rel)
+  return rel !== '' && rel !== '..' && !rel.startsWith('..' + pathMod.sep) && !pathMod.isAbsolute(rel)
+}
+
+// A lexical path may still escape through a symlinked parent. Resolve both
+// the trusted root and the existing candidate before recursive removal.
+async function isInsideRealRoot(
+  fs: any, pathMod: any, rootDir: string, candidatePath: string,
+): Promise<boolean> {
+  if (!isInsideRoot(pathMod, rootDir, candidatePath)) return false
+  try {
+    const [realRoot, realCandidate] = await Promise.all([
+      fs.realpath(rootDir),
+      fs.realpath(candidatePath),
+    ])
+    return isInsideRoot(pathMod, realRoot, realCandidate)
+  } catch {
+    // Unresolvable paths cannot authorize destructive cleanup.
+    return false
+  }
 }
 
 function isSafeSegment(id: string): boolean {
@@ -244,12 +262,13 @@ async function purgeSessionArtifacts(
 
     if (info.root) {
       for (const dir of info.dirs) {
-        if (isInsideRoot(pathMod, info.root, dir) && idVariants.has(pathMod.basename(dir))) {
+        if (idVariants.has(pathMod.basename(dir)) &&
+            await isInsideRealRoot(fs, pathMod, info.root, dir)) {
           await removeDirForcefully(fs, dir)
         }
       }
       for (const file of info.files) {
-        if (isInsideRoot(pathMod, info.root, file)) {
+        if (await isInsideRealRoot(fs, pathMod, info.root, file)) {
           await fs.rm(file, { force: true }).catch(() => {})
         }
       }
