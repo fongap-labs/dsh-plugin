@@ -47,3 +47,19 @@ describe('Delta Code DSH registration fail-closed boundary', () => {
     assert.deepEqual(calls, ['code_legacy'])
   })
 })
+
+describe('DSH MultiEdit failure propagation', () => {
+  it('propagates failed and partially applied batches while retaining outcomes and successful results', async () => {
+    let registered
+    const ctx = { tools: { register(definition) { registered = definition } } }
+    let outcome = { applied: 0, results: [{ path: 'a.ts', ok: false, action: 'skipped', note: 'permission denied' }] }
+    const definition = { ...tool('code_multi_edit'), execute: async () => outcome }
+    dshToolRegistrar(ctx, stats).register(definition)
+    const exec = { signal: new AbortController().signal }
+    await assert.rejects(registered.execute({}, exec), /permission denied/)
+    outcome = { applied: 1, results: [{ path: 'a.ts', ok: true, action: 'replace' }, { path: 'b.ts', ok: false, action: 'skipped' }] }
+    await assert.rejects(registered.execute({}, exec), /"applied":1/)
+    outcome = { applied: 1, results: [{ path: 'a.ts', ok: true, action: 'replace' }] }
+    assert.deepEqual(await registered.execute({}, exec), outcome)
+  })
+})

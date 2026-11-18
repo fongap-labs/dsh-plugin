@@ -66,6 +66,20 @@ function createGitSubprocess(output, exitCode = 0) {
   } };
 }
 
+async function rejectedMultiEditResult(execution) {
+  const prefix = "MultiEdit did not complete successfully; inspect per-edit outcomes before retrying: ";
+  let result;
+  await assert.rejects(execution, (error) => {
+    assert.ok(error instanceof Error);
+    assert.ok(error.message.startsWith(prefix), "Host tool must report partial or failed MultiEdit as an error");
+    result = JSON.parse(error.message.slice(prefix.length));
+    assert.equal(typeof result.applied, "number");
+    assert.ok(Array.isArray(result.results));
+    return true;
+  });
+  return result;
+}
+
 describe("dsh-delta-code", () => {
   let workspace;
   let ctx;
@@ -123,11 +137,11 @@ describe("dsh-delta-code", () => {
       await symlink(secret, linkedFile);
       await symlink(outside, linkedDir, "dir");
       const tool = ctx.registered.get("code_multi_edit");
-      const result = await tool.execute({ preflight: false, edits: [
+      const result = await rejectedMultiEditResult(tool.execute({ preflight: false, edits: [
         { path: "external-file.txt", content: "outside-overwrite" },
         { path: "external-file.txt", find: "must-not-change", replace: "outside-replace" },
         { path: "external-dir/created.txt", content: "outside-created" },
-      ] }, { signal: new AbortController().signal });
+      ] }, { signal: new AbortController().signal }));
       assert.equal(result.applied, 0);
       assert.equal(result.results.length, 3);
       assert.ok(result.results.every(entry => !entry.ok && /sandbox|symbolic.link|escapes/i.test(entry.note)));
@@ -163,7 +177,7 @@ describe("dsh-delta-code", () => {
   it("code_multi_edit: rejects empty find without modifying content", async () => {
     await writeFile(join(workspace, "empty-find.txt"), "before", "utf8");
     const tool = ctx.registered.get("code_multi_edit");
-    const result = await tool.execute({ edits: [{ path: "empty-find.txt", find: "", replace: "x" }] }, { signal: new AbortController().signal });
+    const result = await rejectedMultiEditResult(tool.execute({ edits: [{ path: "empty-find.txt", find: "", replace: "x" }] }, { signal: new AbortController().signal }));
     assert.equal(result.applied, 0);
     assert.equal(result.results[0].ok, false);
     assert.equal(await readFile(join(workspace, "empty-find.txt"), "utf8"), "before");
@@ -205,7 +219,7 @@ describe("dsh-delta-code", () => {
 
   it("code_multi_edit: 越界路径被沙箱拒绝且不影响其它编辑", async () => {
     const tool = ctx.registered.get("code_multi_edit");
-    const result = await tool.execute(
+    const result = await rejectedMultiEditResult(tool.execute(
       {
         preflight: false,
         edits: [
@@ -214,7 +228,7 @@ describe("dsh-delta-code", () => {
         ],
       },
       { signal: new AbortController().signal },
-    );
+    ));
     assert.equal(result.applied, 1);
     assert.equal(result.results[0].ok, false);
     assert.match(result.results[0].note, /sandbox/i);
@@ -224,10 +238,10 @@ describe("dsh-delta-code", () => {
 
   it("code_multi_edit: find 未命中时跳过该编辑", async () => {
     const tool = ctx.registered.get("code_multi_edit");
-    const result = await tool.execute(
+    const result = await rejectedMultiEditResult(tool.execute(
       { edits: [{ path: "c.txt", find: "not-present", replace: "x" }] },
       { signal: new AbortController().signal },
-    );
+    ));
     assert.equal(result.applied, 0);
     assert.equal(result.results[0].ok, false);
     assert.match(result.results[0].note, /not present/i);

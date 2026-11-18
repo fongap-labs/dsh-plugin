@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import {
-  PROJECT_FILES, ancestorRuleDirectories, declaredScripts, profileSummary,
+  PROJECT_FILES, ancestorRuleDirectories, declaredScripts, declaredTechnologies, profileSummary,
 } from '../packages/dsh-delta-code/lib/delta-code-coding/project-profile-policy.js'
 import { inspectProjectWithHost } from '../packages/dsh-delta-code/lib/tools/profile.js'
 
@@ -51,4 +51,13 @@ describe('Delta Code project profile policy boundary', () => {
     assert.deepEqual(profile.suggestedChecks, ['test', 'typecheck'])
     assert.deepEqual(profileSummary('/workspace', [], ['build']).suggestedChecks, ['build'])
   })
+})
+
+it('classifies framework metadata and Tauri/Gradle markers without exposing versions', () => {
+  assert.deepEqual(declaredTechnologies(JSON.stringify({
+    dependencies: { vue: 'secret-version', '@tauri-apps/api': '2' },
+    devDependencies: { typescript: '5' },
+  })), ['vue', 'typescript', 'tauri'])
+  assert.deepEqual(profileSummary('/workspace', ['Cargo.toml', 'tauri.conf.json', 'build.gradle.kts'], []).technologies,
+    ['rust', 'tauri', 'gradle'])
 })
