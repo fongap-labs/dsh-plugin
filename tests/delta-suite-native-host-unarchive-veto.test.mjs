@@ -314,3 +314,64 @@ test('Host event, restoration and content search agree on deleted/locked/unknown
     assert.equal(excluded(sessionId), decide(sessionId) !== 'clear')
   }
 })
+
+test('tombstoned aliases cannot be re-enrolled or re-locked through Host routes', async () => {
+  for (const [tombstone, alias] of [
+    ['deleted', 'session-deleted'],
+    ['session-deleted', 'deleted'],
+    ['deleted', 'session-session-deleted'],
+  ]) {
+    const enrolling = fixture({ initial: { deletedSessionIds: [tombstone] } })
+    try {
+      const begin = await enrolling.call({ action: 'setup-begin' })
+      assert.equal(begin.status, 200)
+      const confirm = await enrolling.call({
+        action: 'setup-confirm', setupToken: begin.data.setupToken,
+        sessionId: alias, code: await state.generateTotpCode(begin.data.secret),
+      })
+      assert.equal(confirm.status, 404)
+      assert.equal(confirm.data.error, 'SESSION_DELETED')
+      assert.equal(enrolling.store.getCached().totpSecret, undefined,
+        'a rejected enrollment must not commit credentials')
+      assert.deepEqual(enrolling.store.getCached().lockedSessionIds, [])
+    } finally { enrolling.dispose() }
+
+    const configured = fixture({ initial: { totpSecret: secret, deletedSessionIds: [tombstone] } })
+    try {
+      const locked = await configured.call({ action: 'lock', sessionId: alias })
+      assert.equal(locked.status, 404)
+      assert.equal(locked.data.error, 'SESSION_DELETED')
+      assert.deepEqual(configured.store.getCached().lockedSessionIds, [])
+    } finally { configured.dispose() }
+  }
+})
+
+test('tombstone aliases reject move, single delete and mixed bulk delete before side effects', async () => {
+  for (const [tombstone, alias] of [
+    ['deleted', 'session-deleted'],
+    ['session-deleted', 'deleted'],
+    ['deleted', 'session-session-deleted'],
+  ]) {
+    const f = fixture({ initial: { deletedSessionIds: [tombstone] } })
+    try {
+      const before = f.store.getCached()
+      for (const [path, body] of [
+        [ops.DELTA_SESSION_MOVE_PATH, { sessionId: alias, targetWorkspaceId: 'ordinary' }],
+        [ops.DELTA_SESSION_DELETE_PATH, { sessionId: alias }],
+        [ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, { sessionIds: ['ordinary', alias] }],
+      ]) {
+        const response = await f.request(path, body)
+        assert.equal(response.status, 404)
+        assert.equal(response.data.error, 'SESSION_DELETED')
+        assert.deepEqual(f.store.getCached(), before,
+          'mixed bulk deletion and alias mutations must not change durable state')
+      }
+      const ordinary = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+        sessionId: 'ordinary', targetWorkspaceId: 'ordinary',
+      })
+      assert.equal(ordinary.status, 200, 'unrelated native sessions remain usable')
+      assert.equal(f.store.getCached().movedSessions.ordinary, 'ordinary')
+      assert.deepEqual(f.store.getCached().deletedSessionIds, [tombstone])
+    } finally { f.dispose() }
+  }
+})
