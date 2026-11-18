@@ -1521,6 +1521,141 @@ function createWorkspaceCompatibilityProjection(): (base: WorkspaceSnapshot, f: 
   }
 }
 
+// Transitional client guard, not a Host authorization boundary. Use durable
+// lock membership, never temporary view grants or the synthetic list wrapper.
+type WorkspaceMutationBlock = 'workspace-locked' | 'session-locked' |
+  'session-deleted' | 'workspace-state-unavailable' | 'sole-workspace-protected' |
+  'protected-default-workspace' | 'workspace-guard-disposed'
+type WorkspaceProtectionState = Pick<ClientFeatureSnapshot,
+  'lockedSessionIds' | 'lockedWorkspaceIds' | 'deletedSessionIds' | 'movedSessions'>
+
+function workspaceSessionAliases(id: string): string[] {
+  const raw = id.replace(/^session-/, '')
+  return [id, raw, 'session-' + raw]
+}
+
+function readWorkspaceMutationPolicy(
+  state: WorkspaceProtectionState,
+  readNative: () => WorkspaceSnapshot,
+) {
+  const lockedSessions = new Set(state.lockedSessionIds.flatMap(workspaceSessionAliases))
+  const deletedSessions = new Set(state.deletedSessionIds.flatMap(workspaceSessionAliases))
+  const lockedKeys = new Set(state.lockedWorkspaceIds)
+  const rowsById = new Map<string, WorkspaceSnapshot['items'][number]>()
+  let isComplete = true
+  try {
+    const snapshot = readNative()
+    if (!Array.isArray(snapshot.items)) throw new Error('invalid workspace snapshot')
+    const matchedKeys = new Set<string>()
+    for (const row of snapshot.items) {
+      const { workspaceId, path, sessionIds } = row
+      if (typeof workspaceId !== 'string' || !workspaceId || typeof path !== 'string' || !path ||
+          rowsById.has(workspaceId)) throw new Error('invalid workspace row')
+      rowsById.set(workspaceId, row)
+      if (lockedKeys.has(workspaceId) || lockedKeys.has(path)) {
+        if (lockedKeys.has(workspaceId)) matchedKeys.add(workspaceId)
+        if (lockedKeys.has(path)) matchedKeys.add(path)
+        lockedKeys.add(workspaceId)
+        lockedKeys.add(path)
+      }
+      if (lockedKeys.size > 0 && (!Array.isArray(sessionIds) ||
+          sessionIds.some(id => typeof id !== 'string' || !id))) isComplete = false
+    }
+    if (state.lockedWorkspaceIds.some(id => !matchedKeys.has(id))) isComplete = false
+  } catch { isComplete = false }
+
+  const isLockedRow = (row: WorkspaceSnapshot['items'][number]): boolean =>
+    lockedKeys.has(row.workspaceId) || lockedKeys.has(row.path)
+  const workspaceMembers = (row: WorkspaceSnapshot['items'][number]): readonly string[] | undefined => {
+    const native = row.sessionIds
+    if (!Array.isArray(native) || native.some(id => typeof id !== 'string' || !id)) return undefined
+    const moved = Object.entries(state.movedSessions)
+      .filter(([, target]) => target === row.workspaceId || target === row.path)
+      .map(([id]) => id)
+    // A relocation overlay cannot remove protection from native members.
+    return [...native, ...moved]
+  }
+  return {
+    unarchive(id: string): { reason: WorkspaceMutationBlock; lockId?: string } | undefined {
+      const aliases = workspaceSessionAliases(id)
+      if (aliases.some(alias => deletedSessions.has(alias))) return { reason: 'session-deleted' }
+      const lockId = state.lockedSessionIds.find(key => workspaceSessionAliases(key).some(alias => aliases.includes(alias)))
+      if (lockId !== undefined) return { reason: 'session-locked', lockId }
+      if (lockedKeys.size === 0) return undefined
+      for (const row of rowsById.values()) {
+        if (!isLockedRow(row)) continue
+        const members = workspaceMembers(row)
+        if (members?.some(member => workspaceSessionAliases(member).some(alias => aliases.includes(alias)))) {
+          return { reason: 'workspace-locked' }
+        }
+      }
+      if (Object.entries(state.movedSessions).some(([member, target]) =>
+        lockedKeys.has(target) && workspaceSessionAliases(member).some(alias => aliases.includes(alias)))) {
+        return { reason: 'workspace-locked' }
+      }
+      return isComplete ? undefined : { reason: 'workspace-state-unavailable' }
+    },
+    deleteWorkspace(id: string, isDeltaMode: boolean): WorkspaceMutationBlock | undefined {
+      if (lockedKeys.has(id)) return 'workspace-locked'
+      const row = rowsById.get(id)
+      if (!isComplete || !row) return 'workspace-state-unavailable'
+      if (isLockedRow(row)) return 'workspace-locked'
+      if (rowsById.size <= 1) return 'sole-workspace-protected'
+      const members = workspaceMembers(row)
+      if (lockedSessions.size > 0 &&
+          (!members || members.some(member => workspaceSessionAliases(member).some(alias => lockedSessions.has(alias))))) {
+        return members ? 'session-locked' : 'workspace-state-unavailable'
+      }
+      const path = row.path.replace(/\\/g, '/').toLowerCase()
+      const isDefault = path.endsWith('/deepseek-harness/default-workspace') || path.endsWith('/default-workspace')
+      if (isDeltaMode && isDefault && (!members || members.length > 0)) return 'protected-default-workspace'
+      return undefined
+    },
+  }
+}
+
+// Keep this one compatibility adapter lifecycle-owned until the installed Host
+// event is validated. Do not restore over a later Host or plugin method.
+function installWorkspaceMutationGuards(
+  workspaces: WorkspacesApi,
+  readNative: () => WorkspaceSnapshot,
+  readState: () => WorkspaceProtectionState,
+  isDeltaMode: () => boolean,
+  onBlocked: (reason: WorkspaceMutationBlock, lockId?: string) => void,
+): () => void {
+  let isDisposed = false
+  const originalDelete = workspaces.delete
+  const originalUnarchive = workspaces.unarchiveSession
+  const reject = (reason: WorkspaceMutationBlock, lockId?: string): Promise<never> => {
+    try { onBlocked(reason, lockId) } catch {}
+    return Promise.reject(new Error('delta/' + reason))
+  }
+  const guardedDelete = (id: string): Promise<unknown> => {
+    if (isDisposed) return reject('workspace-guard-disposed')
+    let reason: WorkspaceMutationBlock | undefined
+    try { reason = readWorkspaceMutationPolicy(readState(), readNative).deleteWorkspace(id, isDeltaMode()) }
+    catch { return reject('workspace-state-unavailable') }
+    if (reason) return reject(reason)
+    return originalDelete.call(workspaces, id)
+  }
+  const guardedUnarchive = (id: string): Promise<unknown> => {
+    if (isDisposed) return reject('workspace-guard-disposed')
+    let blocked: ReturnType<ReturnType<typeof readWorkspaceMutationPolicy>['unarchive']>
+    try { blocked = readWorkspaceMutationPolicy(readState(), readNative).unarchive(id) }
+    catch { return reject('workspace-state-unavailable') }
+    if (blocked) return reject(blocked.reason, blocked.lockId)
+    return originalUnarchive!.call(workspaces, id)
+  }
+  try { if (typeof originalDelete === 'function') workspaces.delete = guardedDelete } catch {}
+  try { if (typeof originalUnarchive === 'function') workspaces.unarchiveSession = guardedUnarchive } catch {}
+  return () => {
+    if (isDisposed) return
+    isDisposed = true
+    try { if (workspaces.delete === guardedDelete) workspaces.delete = originalDelete } catch {}
+    try { if (workspaces.unarchiveSession === guardedUnarchive) workspaces.unarchiveSession = originalUnarchive } catch {}
+  }
+}
+
 function createClientFeatureManager(): ClientFeatureManager {
   let state: ClientFeatureSnapshot = Object.freeze({
     hasPin: false,
@@ -7048,66 +7183,23 @@ window.__ModuleLoader__.load({
                 workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
                   'dsh-delta-desktop: workspaces reference')
 
-                if (typeof workspaces.unarchiveSession === 'function') {
-                  const originalUnarchive = workspaces.unarchiveSession
-                  const guardedUnarchive = (sessionId: string): Promise<unknown> => {
-                    if (deltaFeatures.isLocked(sessionId)) {
-                      deltaFeatures.openUnlockPinDialog(sessionId)
-                      return Promise.reject(new Error('delta/session-locked'))
+                workspaceScope.effect(() => installWorkspaceMutationGuards(
+                  workspaces, readNative, deltaFeatures.getSnapshot,
+                  () => controller.getSnapshot().mode === 'delta',
+                  (reason, lockId) => {
+                    if (reason === 'workspace-guard-disposed') return
+                    if (reason === 'session-locked' && lockId) {
+                      deltaFeatures.openUnlockPinDialog(lockId)
+                      return
                     }
-                    return originalUnarchive.call(workspaces, sessionId)
-                  }
-                  try {
-                    workspaces.unarchiveSession = guardedUnarchive
-                    workspaceScope.effect(() => () => {
-                      if (workspaces.unarchiveSession === guardedUnarchive) workspaces.unarchiveSession = originalUnarchive
-                    }, 'dsh-delta-desktop: workspace unarchive lock guard')
-                  } catch (error) {
-                    console.error('[dsh-delta-desktop] Workspace unarchive guard unavailable:', error)
-                  }
-                }
-
-                if (typeof workspaces.delete !== 'function') return
-                const originalDelete = workspaces.delete
-                const guardedDelete = (id: string): Promise<unknown> => {
-                  if (deltaFeatures.isWorkspaceLocked(id)) {
                     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                    showDeltaToast(copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
-                    return Promise.reject(new Error('delta/workspace-locked'))
-                  }
-                  let items: WorkspaceSnapshot['items']
-                  try { items = readNative().items }
-                  catch { return Promise.reject(new Error('delta/workspace-state-unavailable')) }
-                  if (items.length <= 1) {
-                    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                    showDeltaToast(copy.ui.cannotDeleteSoleWorkspace)
-                    return Promise.reject(new Error('delta/sole-workspace-protected'))
-                  }
-                  const target = items.find(item => item.workspaceId === id)
-                  const path = target?.path.replace(/\\/g, '/').toLowerCase()
-                  const protectedDefault = path?.endsWith('/deepseek-harness/default-workspace') === true ||
-                    path?.endsWith('/default-workspace') === true
-                  if (controller.getSnapshot().mode === 'delta' && protectedDefault) {
-                    const hasOtherWorkspace = items.some(item => item.workspaceId !== id)
-                    const overlayTarget = workspaces.list.getSnapshot().items.find(item => item.workspaceId === id)
-                    const hasSessions = target?.sessionIds === undefined || target.sessionIds.length > 0 ||
-                      overlayTarget?.sessionIds === undefined || overlayTarget.sessionIds.length > 0
-                    if (!hasOtherWorkspace || hasSessions) {
-                      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                      showDeltaToast(copy.ui.protectedDefaultWorkspace)
-                      return Promise.reject(new Error('delta/protected-default-workspace'))
-                    }
-                  }
-                  return originalDelete.call(workspaces, id)
-                }
-                try {
-                  workspaces.delete = guardedDelete
-                  workspaceScope.effect(() => () => {
-                    if (workspaces.delete === guardedDelete) workspaces.delete = originalDelete
-                  }, 'dsh-delta-desktop: workspace deletion guard')
-                } catch (error) {
-                  console.error('[dsh-delta-desktop] Workspace guard unavailable:', error)
-                }
+                    showDeltaToast(reason === 'sole-workspace-protected'
+                      ? copy.ui.cannotDeleteSoleWorkspace
+                      : reason === 'protected-default-workspace'
+                        ? copy.ui.protectedDefaultWorkspace
+                        : copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
+                  },
+                ), 'dsh-delta-desktop: workspace mutation compatibility guards')
               })
 
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
