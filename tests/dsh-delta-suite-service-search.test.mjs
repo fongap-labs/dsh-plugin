@@ -29,6 +29,7 @@ const source = compiled.replace("'__DELTA_SUITE_LOCALES__'", JSON.stringify(loca
 class Element {
   constructor(tag) {
     this.tagName = tag
+    this.nodeType = tag === '#text' ? 3 : 1
     this.parentElement = null
     this.children = []
     this.attrs = new Map()
@@ -67,8 +68,30 @@ class Element {
   emit(type, args = {}) { this.listeners.get(type)?.({ type, ...args }) }
   blur() { this.focused = false }
   focus() { this.focused = true }
+  matches(selector) { return selector === '[data-sidebar-scrollport]' && this.attrs.has('data-sidebar-scrollport') }
+  closest(selector) {
+    for (let parent = this; parent; parent = parent.parentElement) {
+      if (parent.matches(selector)) return parent
+    }
+    return null
+  }
+  contains(node) {
+    for (let parent = node; parent; parent = parent.parentElement) {
+      if (parent === this) return true
+    }
+    return false
+  }
   querySelector(selector) {
-    if (selector === 'nav') return this.children.find(item => item.tagName === 'nav') ?? null
+    if (selector === 'nav' || selector === ':scope > nav') {
+      return this.children.find(item => item.tagName === 'nav') ?? null
+    }
+    if (selector === '[data-sidebar-scrollport]') {
+      for (const child of this.children) {
+        if (child.matches(selector)) return child
+        const nested = child.querySelector(selector)
+        if (nested) return nested
+      }
+    }
     return null
   }
 }
@@ -78,6 +101,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   const body = new Element('body')
   root.appendChild(body)
   const viewport = new Element('div')
+  viewport.setAttribute('data-sidebar-scrollport', '')
   const nav = new Element('nav')
   viewport.appendChild(nav)
   const nativeWorkspace = new Element('section')
@@ -258,8 +282,14 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot, 'Host snapshot method is not wrapped')
   assert.equal(hostSessions.list.subscribe, originalSessionSubscribe, 'Host subscription method is not wrapped')
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
+  const unrelatedNav = new Element('nav')
+  body.appendChild(unrelatedNav)
+  // The presence of an unrelated Host/third-party nav is not a sidebar mount.
+  env.observers.forEach(update => update([{ target: body, addedNodes: [unrelatedNav], removedNodes: [] }]))
+  assert.equal(root.getAttribute('data-delta-search-adapter'), 'waiting-for-sidebar')
+  assert.equal(unrelatedNav.children.length, 0)
   body.appendChild(viewport)
-  env.observers.forEach(update => update())
+  env.observers.forEach(update => update([{ target: body, addedNodes: [viewport], removedNodes: [] }]))
   const shell = viewport.children[0]
   assert.equal(shell.getAttribute('data-delta-search'), 'sessions')
   assert.equal(root.getAttribute('data-delta-search-adapter'), 'active')
@@ -469,6 +499,7 @@ test('ZIP sidebar search activates only after public Host Session and navigation
   const body = new Element('body')
   root.appendChild(body)
   const viewport = new Element('div')
+  viewport.setAttribute('data-sidebar-scrollport', '')
   const nativeNav = new Element('nav')
   viewport.appendChild(nativeNav)
   body.appendChild(viewport)
