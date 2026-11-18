@@ -2,6 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 import { createGitHubTools } from '../packages/dsh-delta-code/lib/tools/github.js'
+import { createGitHubTools as createInjectedGitHubTools } from '../packages/dsh-delta-code/lib/delta-code-repository/github.js'
 
 const ACCOUNT = { owner: 'fongap-labs', tokenEnv: 'DSH_TEST_GITHUB_JOB_LOGS' }
 const settings = normalizeConfig({ github: { accounts: [ACCOUNT] } })
@@ -99,7 +100,7 @@ describe('Delta Code GitHub Actions raw job log diagnostics', () => {
 
   it('fails explicitly when a test transport has no log capability', async () => {
     const oldTransport = { request: async () => { throw Error('not invoked') } }
-    const tool = createGitHubTools({ get: () => undefined }, settings, oldTransport)
+    const tool = createInjectedGitHubTools({ get: () => undefined }, settings, oldTransport)
       .find(item => item.name === 'code_github_job_logs')
     await assert.rejects(tool.execute({ repository: 'fongap-labs/action-worker', jobId: 42 },
       { signal: signal() }), /transport unavailable/)
