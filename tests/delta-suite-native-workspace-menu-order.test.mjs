@@ -26,7 +26,7 @@ test('native workspace order/separators remain untouched while deletion is still
   assert.doesNotMatch(source, /WORKSPACE_MENU_ORDERS/)
   assert.doesNotMatch(workspace, /lockEls|\.remove\(\)|items\.splice\(/, 'Host and third-party menu items stay intact')
   assert.match(workspace, /Delete workspace/, 'destructive action recognition remains')
-  assert.match(workspace, /data-danger/)
+  assert.doesNotMatch(workspace, /data-danger|dtd-menu-danger/, 'native workspace menu color stays Host-owned')
   assert.match(workspace, /getWorkspaceCount\(\) <= 1/)
   assert.match(workspace, /hiddenSoleWorkspaceNodes/)
   assert.doesNotMatch(source, /SESSION_MENU_ORDERS/, 'the session ordering table was removed')

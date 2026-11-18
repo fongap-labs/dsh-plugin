@@ -3345,8 +3345,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
           if (isSep) continue
           const l = getMenuLabel(el)
           if (l === '\u5220\u9664\u5de5\u4f5c\u533a' || l === 'Delete workspace') {
-            el.setAttribute?.('data-danger', '1')
-            el.classList?.add('dtd-menu-danger')
+            // This remains a visual compatibility fallback, not the ACL.
             if (deltaFeatures.getWorkspaceCount() <= 1) {
               hidePrivacyNode(el, 'data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
             }
@@ -3358,33 +3357,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
       if (isSessionMenu) {
         if (isFooterContainer || isSessionFooter) {
-          // Native session footer item order and separators belong to Harness.
-          for (const el of items) {
-            const isSeparator = el.getAttribute?.('role') === 'separator' ||
-              (typeof el.className === 'string' &&
-                (el.className.includes('_separator_')))
-            if (isSeparator) continue
-            const label = getMenuLabel(el)
-            if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
-              el.setAttribute?.('data-danger', '1')
-              el.classList?.add('dtd-menu-danger')
-            }
-          }
+          // Native session footer item order, labels, separators, and danger styling belong to Harness.
           continue
         }
 
-        // Native session context menu item order and separators belong to Harness.
-        for (const el of items) {
-          const isSeparator = el.getAttribute?.('role') === 'separator' ||
-            (typeof el.className === 'string' && el.className.includes('_separator_'))
-          if (isSeparator) continue
-          const label = getMenuLabel(el)
-          // Harness owns built-in session menu action labels and accessible text.
-          if (label.includes('\u5220\u9664\u4f1a\u8bdd') || label.includes('Delete session') || label.includes('Delete conversation')) {
-            el.setAttribute?.('data-danger', '1')
-            el.classList?.add('dtd-menu-danger')
-          }
-        }
+        // Native session context menu order, separators, accessible text, and danger styling belong to Harness.
         continue
       }
 
