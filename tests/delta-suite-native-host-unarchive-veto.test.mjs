@@ -1186,3 +1186,94 @@ test('bulk delete removes stale aliases only for eligible sessions and preserves
     assert.deepEqual(f.store.getCached().lockedSessionIds, ['locked'])
   } finally { f.dispose() }
 })
+
+
+test('bulk delete deduplicates raw and prefixed IDs without losing live aliases or protected rows', async () => {
+  const calls = []
+  let f
+  const registry = {
+    list: () => [{
+      id: 'ordinary', path: '/ordinary',
+      sessionIds: ['alpha', 'session-alpha', 'beta', 'session-beta', 'locked', 'session-locked'],
+      detachSession(id) { calls.push(['detach', id]) },
+    }],
+    unpinSession(id) { calls.push(['unpin', id]) },
+  }
+  const sessions = {
+    cancel(id) { calls.push(['cancel', id, [...f.store.getCached().deletedSessionIds]]) },
+  }
+  const persistence = {
+    locate(meta) { calls.push(['locate', meta.id, meta.cwd]); return undefined },
+    listGenerations() { calls.push(['scan']); return Promise.resolve([]) },
+  }
+  f = fixture({
+    registry, sessions, persistence,
+    initial: {
+      lockedSessionIds: ['locked'],
+      movedSessions: {
+        alpha: 'ordinary', 'session-alpha': 'ordinary',
+        beta: 'ordinary', 'session-beta': 'ordinary',
+        locked: 'ordinary', 'session-locked': 'ordinary',
+        unrelated: 'ordinary',
+      },
+    },
+  })
+  try {
+    const response = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
+      sessionIds: ['alpha', 'session-alpha', 'beta', 'session-beta', 'locked', 'session-locked'],
+      cwds: { 'session-alpha': '/project-a', 'session-beta': '/project-b' },
+    })
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.data.deletedIds, ['alpha', 'beta'])
+    assert.deepEqual(response.data.skippedLockedIds, ['locked'])
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['alpha', 'beta'],
+      'one tombstone per logical session, persisted before any cancellation')
+    assert.deepEqual(f.store.getCached().movedSessions, {
+      locked: 'ordinary', 'session-locked': 'ordinary', unrelated: 'ordinary',
+    })
+    assert.deepEqual(calls.filter(([kind]) => kind === 'cancel'), [
+      ['cancel', 'alpha', ['alpha', 'beta']],
+      ['cancel', 'session-alpha', ['alpha', 'beta']],
+      ['cancel', 'beta', ['alpha', 'beta']],
+      ['cancel', 'session-beta', ['alpha', 'beta']],
+    ], 'cancel each unique submitted spelling without repeating physical cleanup')
+    assert.deepEqual(calls.filter(([kind]) => kind === 'locate'), [
+      ['locate', 'alpha', '/project-a'],
+      ['locate', 'beta', '/project-b'],
+    ], 'use a caller-supplied cwd hint even when it belongs to the second alias')
+    assert.equal(calls.filter(([kind]) => kind === 'scan').length, 2,
+      'physical discovery runs once per distinct eligible session')
+    for (const action of ['unpin', 'detach']) {
+      assert.deepEqual(calls.filter(([kind]) => kind === action).map(([, id]) => id),
+        ['alpha', 'session-alpha', 'beta', 'session-beta'],
+        'each native alias should be detached exactly once')
+    }
+    assert.equal(calls.some(([, id]) => id === 'locked' || id === 'session-locked'), false,
+      'no protected session may be cancelled, detached, or physically purged')
+  } finally { f.dispose() }
+})
+
+test('exact and prefixed repeated input IDs still yield one logical deletion', async () => {
+  const cancels = []
+  const f = fixture({
+    registry: {
+      list: () => [{ id: 'ordinary', path: '/ordinary', sessionIds: ['session-alpha'] }],
+    },
+    sessions: { cancel(id) { cancels.push(id) } },
+  })
+  try {
+    const response = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
+      sessionIds: ['alpha', 'alpha', 'session-alpha', 'session-alpha'],
+    })
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.data.deletedIds, ['alpha'])
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['alpha'])
+    assert.deepEqual(cancels, ['alpha', 'session-alpha'],
+      'each submitted spelling gets one cancellation attempt')
+    const redelete = await f.request(ops.DELTA_SESSION_DELETE_PATH, {
+      sessionId: 'session-alpha',
+    })
+    assert.equal(redelete.status, 404)
+    assert.equal(redelete.data.error, 'SESSION_DELETED')
+  } finally { f.dispose() }
+})

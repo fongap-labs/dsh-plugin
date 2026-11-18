@@ -738,8 +738,7 @@ export function installHostSessionOps(
     if (!reg) return
     for (const sid of sessionIds) {
       if (!sid) continue
-      const rawId = sid.replace(/^session-/, '')
-      const idVariants = [sid, rawId, `session-${rawId}`]
+      const idVariants = [...new Set(sessionAliases(sid))]
       for (const v of idVariants) {
         // Startup tombstone replay must never trigger native unarchive: older
         // Hosts may lack the public pre-unarchive veto entirely.
@@ -838,7 +837,14 @@ export function installHostSessionOps(
       return makeJsonResponse(400, { ok: false, error: 'INVALID_SESSION_ID' })
     }
     const cwds = body.cwds && typeof body.cwds === 'object' ? (body.cwds as Record<string, string>) : {}
-    const sessionIds = [...new Set((rawIds as string[]).map(id => id.trim()))]
+    // Retain each explicitly requested spelling for live-session cancellation,
+    // but operate on each logical Host session only once. Raw and session-
+    // prefixed IDs may be listed together in legacy ungrouped catalogs.
+    const requestedIds = [...new Set((rawIds as string[]).map(id => id.trim()))]
+    const sessionIds: string[] = []
+    for (const id of requestedIds) {
+      if (!sessionIds.some(existing => sameSessionId(existing, id))) sessionIds.push(id)
+    }
 
     const current = await store.read()
     if (sessionIds.length === 0) {
@@ -884,15 +890,21 @@ export function installHostSessionOps(
     })
 
     for (const sid of toDeleteIds) {
-      await cancelLiveSession(sid)
-      const hintedCwd = typeof cwds[sid] === 'string' && cwds[sid].trim() ? cwds[sid].trim() : undefined
+      const aliases = requestedIds.filter(id => sameSessionId(id, sid))
+      // Cancellation uses the actual requested spellings. The public Sessions
+      // service may register an active run under either alias; physical purge
+      // and native workspace detachment still execute once per logical ID.
+      for (const alias of aliases) await cancelLiveSession(alias)
+      const hintedCwd = aliases
+        .map(id => typeof cwds[id] === 'string' && cwds[id].trim() ? cwds[id].trim() : undefined)
+        .find((cwd): cwd is string => Boolean(cwd))
       await purgeSessionArtifacts(ctx, sid, hintedCwd)
     }
     await detachFromRegistry(toDeleteIds, true)
     await purgeSessionsFromWorkspaceJson(ctx, toDeleteIds)
 
-    for (const sid of toDeleteIds) {
-      notifySessionChanged(sid)
+    for (const sid of requestedIds) {
+      if (toDeleteIds.some(deleted => sameSessionId(sid, deleted))) notifySessionChanged(sid)
     }
     return makeJsonResponse(200, {
       ok: true,
