@@ -146,6 +146,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: retired private workspace expansion storage reads and synthetic row clicks; native expansion is Host-owned.
 // Reviewed 2026-11-18: retired cloned native new-session button, synthetic click forwarding, and CSS hiding of the actual Host control.
 // Reviewed 2026-11-18: retired native sidebar search proxy/input mirroring and restored original Harness search slot.
+// Reviewed 2026-11-18: replaced private service-search sidebar insertion with a public composer Search Palette entry.
 const ZIP3_THEME_BLOB = '864b38d877553209ca4628900aaa0d4c40439892'
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -156,7 +157,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: '4a5562b94fe67c11c9133122f319e08e3ebd14e8',
+    sha1: '2ab54d9071dd04c5531b8624572d32fc50c89397',
   },
 ]
 
@@ -190,9 +191,10 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
-  ensure(client.includes('dtd-host-search') && client.includes('data-delta-compat') &&
-    !client.includes('dtd-native-search'),
-    'ZIP3 emitted sidebar adapter incomplete or legacy native search proxy retained')
+  ensure(client.includes('dtd-host-search') && client.includes('delta.search.palette') &&
+    client.includes('data-delta-compat') && !client.includes('dtd-native-search') &&
+    !client.includes('navParent.insertBefore(shell, navigationRow)'),
+    'ZIP3 public Search Palette entry missing or private Host sidebar injection retained')
   ensure(!client.includes('dtd-search-dialog-backdrop') && !client.includes('openSearchDialog(') &&
     !client.includes('workspaceRegistry') && !client.includes('app.asar'),
     'non-ZIP3 Host DOM or legacy search takeover')

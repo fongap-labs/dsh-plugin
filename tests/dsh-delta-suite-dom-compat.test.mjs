@@ -78,6 +78,17 @@ test('native sidebar search does not use private DOM input proxies or hide the H
   assert.equal(readiness.required.sidebar_search_placement, false)
 })
 
+test('service search uses only the public composer Slot, never inserts a Host sidebar search shell', () => {
+  const begin = source.indexOf('function installHostSearch(')
+  const end = source.indexOf('\nwindow.__ModuleLoader__.load(', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const search = source.slice(begin, end)
+  assert.match(search, /delta\.search\.palette/)
+  assert.match(search, /conversation\.input\.left/)
+  assert.doesNotMatch(search, /navParent\.insertBefore\(shell|data-sidebar-scrollport|data-delta-search-adapter/)
+  assert.doesNotMatch(search, /new MutationObserver\(scheduleSync\)/)
+})
+
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))

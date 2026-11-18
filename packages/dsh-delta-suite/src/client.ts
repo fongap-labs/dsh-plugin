@@ -4453,8 +4453,8 @@ function revealSessionTurnInChat(turn: number | undefined, snippet: string | und
 }
 
 /**
- * Plugin-owned multi-dimension search inside the sidebar scrollport + centered Command Search Palette.
- * Searches sessions (titles + in-memory Host content), workspaces, plugins, skills/commands, shortcuts, and quick actions.
+ * Plugin-owned Search Palette opened through a verified public composer Slot.
+ * Searches sessions, workspaces, plugins, skills/commands, shortcuts, and quick actions without taking over the Host sidebar.
  */
 function installHostSearch(
   controller: DeltaController & { toggleSidebarSafe?(): boolean; toggleRightbarSafe?(): boolean },
@@ -4485,7 +4485,6 @@ function installHostSearch(
     whenAccess(sessionId: string, action: 'session/prompt', install: () => () => void): () => void
   }
   type CommandAccessLease = { sessionId: string; allowed: boolean; revision: number }
-  const root = document.documentElement
   const isDarwin = typeof navigator !== 'undefined' && /mac|iphone|ipad/i.test(navigator.platform ?? navigator.userAgent ?? '')
   const initialCopy = DICTIONARIES[language()] ?? DICTIONARIES.en
 
@@ -5627,6 +5626,19 @@ function installHostSearch(
         return react.createElement(ScopedCommandEntry, props as unknown as Record<string, unknown>)
       }
 
+      // Official composer Slot, not a guessed Host sidebar DOM insertion point.
+      try {
+        composerScope.slots.inject('conversation.input.left', () => composerScope.slots.register({
+          name: 'conversation.input.left', id: 'delta.search.palette', order: 65,
+          label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions,
+        }, () => controller.getSnapshot().mode === 'delta'
+          ? react.createElement('button', {
+            type: 'button',
+            'aria-label': (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions,
+            onClick: () => openPalette(''),
+          }, (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.searchSessions)
+          : null))
+      } catch { /* official Slot missing: preserve native Harness search */ }
       try {
         composerScope.slots.inject('conversation.input.left', () => composerScope.slots.register<CommandSlotProps>({
           name: 'conversation.input.left', id: 'delta.search.composer-commands', order: 70,
@@ -5648,47 +5660,16 @@ function installHostSearch(
     }
   })
 
-  let observer: MutationObserver | undefined
-  const frameScheduler = createFrameScheduler(() => sync())
-  const scheduleSync = (): void => {
-    if (!isDisposed) frameScheduler.schedule()
-  }
+  // No Host sidebar DOM selectors, MutationObserver, or shell insertion.
+  // Search remains accessible through the verified conversation.input.left Slot.
   const sync = (): void => {
     if (isDisposed) return
-    try {
-      syncSidebarLabels()
-      if (controller.getSnapshot().mode !== 'delta') {
-        clearInlineRequest()
-        closePalette()
-        if (shell.parentElement) shell.remove()
-        if (root.getAttribute('data-delta-search-adapter') !== null) root.removeAttribute('data-delta-search-adapter')
-        return
-      }
-      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]') ??
-        document.querySelector<HTMLElement>('[class*="wtg9ga_root"]') ??
-        document.querySelector<HTMLElement>('[class*="SidebarRoot_root"]') ??
-        document.querySelector<HTMLElement>('nav')?.parentElement ?? null
-      const navigationRow = viewport?.querySelector?.('nav') ?? document.querySelector?.('nav') ?? null
-      const navParent = navigationRow?.parentElement ?? viewport
-      if (!viewport || !navParent || !navigationRow) {
-        if (shell.parentElement) shell.remove()
-        if (root.getAttribute('data-delta-search-adapter') !== 'waiting-for-sidebar') {
-          root.setAttribute('data-delta-search-adapter', 'waiting-for-sidebar')
-        }
-        return
-      }
-      if (shell.parentElement !== navParent || shell.nextElementSibling !== navigationRow) {
-        navParent.insertBefore(shell, navigationRow)
-      }
-      if (root.getAttribute('data-delta-search-adapter') !== 'active') {
-        root.setAttribute('data-delta-search-adapter', 'active')
-      }
-    } finally {
-      observer?.takeRecords?.()
+    syncSidebarLabels()
+    if (controller.getSnapshot().mode !== 'delta') {
+      clearInlineRequest()
+      closePalette()
     }
   }
-  observer = new MutationObserver(scheduleSync)
-  observer.observe(document.body ?? root, { subtree: true, childList: true })
   const unsubscribe = controller.subscribe(sync)
   const invalidateSearchProtection = (): void => {
     if (isDisposed) return
@@ -5742,14 +5723,11 @@ function installHostSearch(
     if (isDisposed) return
     isDisposed = true
     unsubscribeProtection()
-    frameScheduler.cancel()
     stopRevealTimer?.()
     closePalette()
     clearInlineRequest()
     unsubscribe()
-    observer.disconnect()
     shell.remove()
-    root.removeAttribute('data-delta-search-adapter')
   }
 }
 
@@ -7407,7 +7385,7 @@ window.__ModuleLoader__.load({
                     deltaFeatures.setSessionsApi(undefined)
                     deltaFeatures.setNavigationApi(undefined)
                   }
-                }, 'dsh-delta-suite: native service-backed sidebar search')
+                }, 'dsh-delta-suite: public-slot service-backed search palette')
               })
 
               scope.inject(['theme'], themeScope => {
