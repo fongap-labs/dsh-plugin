@@ -1,8 +1,10 @@
 /** Host-neutral coding route policy; no Cordis/DSH API dependencies. */
 import { isExternalSkillOptOut } from './trusted-github-skills.js'
+import { matchesDeclarativeRule, type DeclarativePatternRule } from './declarative-rules.js'
 export type CodingRoute = 'code-ci-repair' | 'code-root-cause-debugging' | 'code-review-readiness'
   | 'code-writing-plans' | 'code-fast-change' | 'code-feature-delivery' | 'code-find-skills'
   | 'code-perf-issue' | 'code-runtime-forensics' | 'code-visual-parity' | 'code-skill-evaluation'
+  | (string & {})
 
 const CONTINUE = /^(?:(?:\u7ee7\u7eed|\u63a5\u7740)(?:(?:\u63a8\u8fdb|\u63a8\u8350|\u6267\u884c|\u5b8c\u6210|\u5f00\u53d1|\u4fee\u590d|\u505a)(?:\u4efb\u52a1\u94fe|\u4efb\u52a1|\u5de5\u4f5c\u6d41|\u5f00\u53d1|\u4fee\u590d)?|\u4efb\u52a1\u94fe)?|go on|continue|proceed|keep going)(?:\u4e00\u4e0b|\u5427|\u554a)?[\u3002.!\uff01\s]*$/i
 export function isCodingTaskContinuation(text: string): boolean {
@@ -26,11 +28,39 @@ const PLAN = /(?:\u8bbe\u8ba1\u65b9\u6848|\u67b6\u6784\u8bbe\u8ba1|\u67b6\u6784\
 const COMPLEX = /(?:\u6574\u4e2a|\u5168\u90e8|\u6240\u6709|\u5168\u91cf|\u5168\u4ed3|\u8de8\u4ed3\u5e93|\u8de8\u6a21\u5757|\u8de8\u5e73\u53f0|\u8fc1\u79fb|\u5927\u89c4\u6a21|\u591a\u4ed3\u5e93|\u591a\u6a21\u5757|multi[ -]?repo|cross[ -]?module|entire|all (?:files|modules|repositories))/i
 const SMALL = /(?:\u53ea|\u4ec5|\u5c31|\u7b80\u5355|\u5c0f\u6539|\u5fae\u8c03|\u4e00\u5904|\u5355\u4e2a|\u4e00\u884c|\u6539\u540d|\u91cd\u547d\u540d|\u6587\u6848|typo|small|tiny|single|one.line|rename)/i
 
+/** Ordered, auditable rules; adding a route changes data rather than branching logic. */
+export interface CodingRouteRule extends DeclarativePatternRule {
+  readonly route: CodingRoute
+  readonly requiresCodingIntent?: boolean
+  readonly requiresExternalSkillConsent?: boolean
+  readonly maxLengthExclusive?: number
+}
+
+/** Developer-reviewed policy input, never parsed from untrusted model/tool content. */
+export const DEFAULT_CODING_ROUTE_RULES: readonly CodingRouteRule[] = [
+  { route: 'code-ci-repair', anyOf: [CI_FAILURE] },
+  { route: 'code-skill-evaluation', anyOf: [SKILL_EVALUATION], requiresCodingIntent: true },
+  { route: 'code-visual-parity', anyOf: [VISUAL_PARITY], requiresCodingIntent: true },
+  { route: 'code-runtime-forensics', anyOf: [RUNTIME_FORENSICS], requiresCodingIntent: true },
+  { route: 'code-perf-issue', anyOf: [PERF_ISSUE], requiresCodingIntent: true },
+  { route: 'code-find-skills', anyOf: [SKILL_DISCOVERY], requiresExternalSkillConsent: true },
+  { route: 'code-review-readiness', anyOf: [REVIEW], requiresCodingIntent: true },
+  { route: 'code-root-cause-debugging', anyOf: [DEBUG], requiresCodingIntent: true },
+  { route: 'code-writing-plans', anyOf: [PLAN],
+    noneOf: [/(?:\u5b9e\u73b0|\u5f00\u53d1|\u843d\u5730|implement|build)/i], requiresCodingIntent: true },
+  { route: 'code-fast-change', anyOf: [SMALL], noneOf: [COMPLEX],
+    maxLengthExclusive: 220, requiresCodingIntent: true },
+]
+
 /**
  * Route only user-authored coding intent, not arbitrary tool output or quoted text.
- * Short follow-ups inherit the current task route. A general discussion has no route.
+ * Short follow-ups inherit the current route. General discussion has no route.
+ * The Host may supply a reviewed rule catalog; explicit opt-outs remain authoritative.
  */
-export function routeCodingTask(text: string, previous?: CodingRoute): CodingRoute | undefined {
+export function routeCodingTask(
+  text: string, previous?: CodingRoute,
+  rules: readonly CodingRouteRule[] = DEFAULT_CODING_ROUTE_RULES,
+): CodingRoute | undefined {
   const trimmed = text.trim()
   // Long logs often precede the actual user instruction. Favor the tail
   // when it contains a coding action, rather than routing on old CI errors.
@@ -42,18 +72,15 @@ export function routeCodingTask(text: string, previous?: CodingRoute): CodingRou
   const input = tailIntent ? finalLine : head ? head + '\n' + tail : tail
   if (!input || OPT_OUT.test(tail)) return undefined
   if (isCodingTaskContinuation(finalLine)) return previous
-  if (CI_FAILURE.test(input)) return 'code-ci-repair'
   const hasCodingIntent = CODE_OBJECT.test(input) && CODE_ACTION.test(input)
-  if (hasCodingIntent && SKILL_EVALUATION.test(input)) return 'code-skill-evaluation'
-  if (hasCodingIntent && VISUAL_PARITY.test(input)) return 'code-visual-parity'
-  if (hasCodingIntent && RUNTIME_FORENSICS.test(input)) return 'code-runtime-forensics'
-  if (hasCodingIntent && PERF_ISSUE.test(input)) return 'code-perf-issue'
-  if (SKILL_DISCOVERY.test(input) && !isExternalSkillOptOut(input)) return 'code-find-skills'
-  if (!hasCodingIntent) return undefined
-  if (REVIEW.test(input)) return 'code-review-readiness'
-  if (DEBUG.test(input)) return 'code-root-cause-debugging'
-  if (PLAN.test(input) && !/(?:\u5b9e\u73b0|\u5f00\u53d1|\u843d\u5730|implement|build)/i.test(input)) return 'code-writing-plans'
-  if (SMALL.test(input) && !COMPLEX.test(input) && input.length < 220) return 'code-fast-change'
-  return 'code-feature-delivery'
+  const isExternalSkillsDenied = isExternalSkillOptOut(input)
+  for (const rule of rules) {
+    if (rule.requiresCodingIntent && !hasCodingIntent) continue
+    // Opt-outs are always stronger than caller-supplied rule metadata.
+    if (isExternalSkillsDenied &&
+      (rule.requiresExternalSkillConsent || rule.route === 'code-find-skills')) continue
+    if (rule.maxLengthExclusive !== undefined && input.length >= rule.maxLengthExclusive) continue
+    if (matchesDeclarativeRule(rule, input)) return rule.route
+  }
+  return hasCodingIntent ? 'code-feature-delivery' : undefined
 }
-
