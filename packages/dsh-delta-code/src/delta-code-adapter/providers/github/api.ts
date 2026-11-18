@@ -31,6 +31,31 @@ async function credentialForRequest(host: GitHubCredentialHost | undefined, ref:
 async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, host?: GitHubCredentialHost): Promise<DeltaGitHubResponse> {
   const { repository, account, method, path, data, signal } = input
   const token = await credentialForRequest(host, tokenEnv, account)
+  // Native GITHUB_TOKEN is usable only for repositories owned by its verified
+  // GitHub login. Organizations require a separate explicit owner binding.
+  if (account === 'native') {
+    let identity: Response
+    try {
+      identity = await fetch(API + '/user', {
+        method: 'GET',
+        headers: {
+          Authorization: 'Bearer ' + token,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'User-Agent': 'dsh-delta-code',
+        },
+        signal,
+        redirect: 'error',
+      })
+    } catch (error) {
+      throw new Error('native GitHub credential identity could not be verified', { cause: error })
+    }
+    if (!identity.ok) throw new GitHubApiFailure(identity.status, repository, 'GET')
+    const login = (await identity.json())?.login
+    if (typeof login !== 'string' || login.toLowerCase() !== repository.split('/')[0]!.toLowerCase()) {
+      throw new Error('native GITHUB_TOKEN owner does not match repository owner; configure a dedicated account or organization credential')
+    }
+  }
   const url = API + path
   if (!url.startsWith(API + '/') || !new URL(url).hostname.endsWith('github.com')) {
     throw new Error('invalid GitHub API URL')
