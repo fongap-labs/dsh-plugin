@@ -21,7 +21,9 @@ test('ZIP3 owns the sidebar, SearchPalette and modal chrome without legacy compe
 })
 test('ZIP3 session operations retain Host permission and privacy boundaries', () => {
   assert.match(source, /deltaFeatures\.isLocked/)
-  assert.match(source, /delta\/protected-default-workspace/)
+  assert.match(source, /return 'protected-default-workspace'/)
+  assert.match(source, /new Error\('delta\/' \+ reason\)/)
+  assert.match(source, /installWorkspaceMutationGuards/)
   assert.match(source, /installClientPrivacyGuards/)
   assert.match(source, /navigator/)
   assert.doesNotMatch(source, /app\.asar/)
