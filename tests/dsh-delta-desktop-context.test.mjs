@@ -16,7 +16,7 @@ const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusP
 function makeHarness({ draft = 'Please explain the request clearly.', pressure, mainRunning = true,
   compactionStatus, command = async () => ({ matched: true }), persistedStorage = new Map(),
   mcpSnapshot, mcpNamespace = 'mcp-manager', mcpManager, mcpMutate = async () => true, deltaSettingsSnapshot,
-  deltaSettingsMutate = async () => true, credentialsRemote } = {}) {
+  deltaSettingsMutate = async () => true, credentialsRemote, protection, retainReady } = {}) {
   let registration
   let nextSessionId = 0
   const components = new Map()
@@ -38,6 +38,8 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   let hookKey = 'default'
   let hookIndex = 0
   let draftValue = draft
+  const clearProtection = { hasPin: false, lockMode: 'none', lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {} }
+  let protectionState = protection ?? clearProtection
   const root = { lang: 'en', setAttribute() {}, removeAttribute() {}, getAttribute() { return undefined } }
   const body = { appendChild(node) { node.parentNode = body }, removeChild(node) { node.parentNode = null } }
   const document = {
@@ -49,13 +51,16 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     querySelector() { return null },
   }
   const context = {
-    window: { __ModuleLoader__: { load(entry) { registration = entry } } },
+    window: { __ModuleLoader__: { load(entry) { registration = entry } },
+      location: { href: 'https://harness.test/' } },
+    fetch: async path => ({ ok: true, status: 200, json: async () =>
+      path === '/api/delta-desktop/state' ? { state: protectionState } : {} }),
     document, navigator: { language: 'en-US' }, URL, URLSearchParams, AbortController,
     localStorage: { getItem(key) { return storage.get(key) ?? null }, setItem(key, value) { storage.set(key, value) } },
     MutationObserver: class { observe() {} disconnect() {} },
     console: { error(...values) { diagnosticMessages.push(values.map(String).join(' ')) }, warn(...values) { diagnosticMessages.push(values.map(String).join(' ')) } },
   }
-  vm.runInNewContext(clientSource, context)
+  vm.runInNewContext(clientSource + '\n;globalThis.testFeatures = deltaFeatures', context)
   const react = {
     createElement(type, props, ...children) { return { type, props: props || {}, children } },
     useState(initial) {
@@ -94,7 +99,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
         getSnapshot() { return { running: mainRunning && sessionId === 'main-1' } },
       }
       return {
-        sessionId, binding: { session }, ready: Promise.resolve(),
+        sessionId, binding: { session }, ready: retainReady?.(sessionId) ?? Promise.resolve(),
         release() { refCounts.set(sessionId, refCounts.get(sessionId) - 1) },
       }
     },
@@ -160,6 +165,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     if (id === 'react-dom/client') return reactDom
     throw new Error(`Unexpected module ${id}`)
   }).apply(ctx)
+  const ready = context.testFeatures.refreshState()
   function render(key, component, props) { hookKey = key; hookIndex = 0; return component(props) }
   const mainChat = {
     legacy: { nodes: [
@@ -185,7 +191,8 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
       : key === 'deltaContextCompactionStatus' ? compactionStatus : undefined,
     inputActions: { setDraft(value) { draftValue = value }, persistDraft() { prompts.push({ persistedDraft: draftValue }) } },
   }
-  return { components, effects, prompts, commands, created, opened, refCounts, storage, resources, tabs,
+  return { components, effects, prompts, commands, created, opened, refCounts, storage, resources, tabs, ready,
+    async setProtection(next) { protectionState = { ...clearProtection, ...next }; await context.testFeatures.refreshState() },
     dialogRoots, diagnosticMessages, mcpMutations, mcpFormQueries, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
     get draft() { return draftValue }, sessions }
 }
@@ -586,6 +593,7 @@ test('failed privacy settings writes keep credentials out of the Host form and s
 
 test('independent discussion and input optimization use a separate tool-free session', async () => {
   const app = makeHarness()
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   assert.ok(input)
   let tree = app.render('input', input.component, app.mainProps)
@@ -620,13 +628,20 @@ test('independent discussion and input optimization use a separate tool-free ses
 
 test('main-task corrections require a review step and are queued without steering', async () => {
   const app = makeHarness()
-  const address = 'dsh-resource://dtdelta/session/assistant-1?parent=main-1&purpose=discussion'
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
+  await turn()
+  const address = app.opened[0]
+  const aborter = new AbortController()
+  const stream = app.resources[0].open(address, { signal: aborter.signal })
+  const resource = (await stream.next()).value.value
   const tab = [...app.components.values()].find(value => value.spec.name === 'sidebar.right.pane.tab' && value.spec.key === '@fongap-labs/dsh-delta-desktop')
   assert.ok(tab)
   const props = {
     ...app.mainProps,
     useTabInfo: () => ({ tab: { contentId: address } }),
-    useResource: () => ({ value: { parentSessionId: 'main-1', assistantSessionId: 'assistant-1', purpose: 'discussion', reference: {} } }),
+    useResource: () => ({ value: resource }),
     SessionProvider: () => null,
     renderSlot: () => null,
   }
@@ -653,11 +668,14 @@ test('main-task corrections require a review step and are queued without steerin
   assert.equal(mainPrompt.mode, 'queue')
   assert.match(mainPrompt.content[0].text, /prioritize security/)
   assert.equal(app.commands.length, 0)
+  aborter.abort()
+  await stream.return()
 })
 
-test('automatic compaction activity appears in the chat and not in the composer', () => {
+test('automatic compaction activity appears in the chat and not in the composer', async () => {
   const app = makeHarness({ pressure: { projectedTokens: 8_600, contextWindow: 10_000 },
     compactionStatus: { seq: 4, phase: 'running', failed: false } })
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   const tree = app.render('input', input.component, app.mainProps)
   assert.doesNotMatch(textOf(tree), /86%|Compact now|Latest structured summary|Condensing earlier conversation/)
@@ -669,8 +687,9 @@ test('automatic compaction activity appears in the chat and not in the composer'
   assert.equal(findClass(notice, 'dtd-compaction-event is-running')?.props.role, 'status')
 })
 
-test('a completed compaction shows its structured checkpoint in the chat activity row', () => {
+test('a completed compaction shows its structured checkpoint in the chat activity row', async () => {
   const app = makeHarness({ compactionStatus: { seq: 12, phase: 'completed', failed: false } })
+  await app.ready
   const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
   const tree = app.render('compaction', activity.component, app.mainProps)
   assert.match(textOf(tree), /Earlier conversation condensed/)
@@ -679,9 +698,10 @@ test('a completed compaction shows its structured checkpoint in the chat activit
   assert.match(textOf(tree), /Keep user constraints/)
 })
 
-test('a failed automatic compaction reports in the chat and preserves the draft', () => {
+test('a failed automatic compaction reports in the chat and preserves the draft', async () => {
   const app = makeHarness({ pressure: { projectedTokens: 9_100, contextWindow: 10_000 },
     compactionStatus: { seq: 12, phase: 'failed', failed: true } })
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   const composer = app.render('input', input.component, app.mainProps)
   assert.doesNotMatch(textOf(composer), /compression failed/i)
@@ -695,6 +715,7 @@ test('a failed automatic compaction reports in the chat and preserves the draft'
 
 test('input optimization refuses to replace a draft edited while the result was being prepared', async () => {
   const app = makeHarness()
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   await findButton(app.render('input', input.component, app.mainProps), 'Optimize input').props.onClick()
   await turn()
@@ -715,6 +736,7 @@ test('input optimization refuses to replace a draft edited while the result was 
 
 test('restoring optimized text does not overwrite a newer main draft', async () => {
   const app = makeHarness()
+  await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   await findButton(app.render('input', input.component, app.mainProps), 'Optimize input').props.onClick()
   await turn()
@@ -732,4 +754,83 @@ test('restoring optimized text does not overwrite a newer main draft', async () 
   const after = app.render('result', action.component, props)
   assert.match(textOf(after), /main draft changed/i)
   assert.equal(app.draft, 'A newer user draft.')
+})
+
+test('protected parent hides assistant controls, hover metadata and compaction excerpts', async () => {
+  const app = makeHarness({ protection: { hasPin: true, lockMode: 'totp', lockedSessionIds: ['session-main-1'],
+    lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {} },
+    compactionStatus: { seq: 1, phase: 'completed' } })
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
+  const hover = app.components.get('sidebar.session.row.hover:delta.session.identity')
+  assert.equal(app.render('input', input.component, app.mainProps), null)
+  assert.equal(app.render('compaction', activity.component, app.mainProps), null)
+  assert.equal(app.render('hover', hover.component, { sessionId: 'main-1' }), null)
+  assert.equal(app.created.length, 0)
+})
+
+test('assistant resource address must be bound to its parent and releases on protection change', async () => {
+  const app = makeHarness()
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
+  await turn()
+  const address = app.opened[0]
+  assert.ok(app.tabs[0].canOpen(address))
+  const forged = address.replace('/assistant-1?', '/main-1?')
+  assert.equal(app.tabs[0].canOpen(forged), false)
+  const wrongParent = address.replace('parent=main-1', 'parent=assistant-1')
+  const aborter = new AbortController()
+  await assert.rejects(app.resources[0].open(wrongParent, { signal: aborter.signal }).next(), /resource unavailable/)
+  const stream = app.resources[0].open(address, { signal: aborter.signal })
+  const resource = (await stream.next()).value.value
+  assert.equal(resource.isValid(), true)
+  assert.equal(app.refCounts.get('assistant-1'), 1)
+  await app.setProtection({ hasPin: true, lockMode: 'totp', lockedSessionIds: ['main-1'] })
+  assert.equal(resource.isValid(), false)
+  assert.equal(app.refCounts.get('assistant-1'), 0)
+  await app.setProtection({})
+  assert.equal(resource.isValid(), false, 'revoked resource cannot revive after unlock')
+  await stream.return()
+  assert.equal(app.refCounts.get('assistant-1'), 0, 'lease released once')
+})
+
+test('lock during assistant retain prevents initial prompt and panel open even after unlock', async () => {
+  let finish
+  const ready = new Promise(resolve => { finish = resolve })
+  const app = makeHarness({ retainReady: () => ready })
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
+  await turn()
+  assert.equal(app.refCounts.get('assistant-1'), 1)
+  await app.setProtection({ hasPin: true, lockMode: 'totp', lockedSessionIds: ['main-1'] })
+  await app.setProtection({})
+  finish()
+  await turn()
+  assert.equal(app.prompts.length, 0)
+  assert.equal(app.opened.length, 0)
+  assert.equal(app.refCounts.get('assistant-1'), 0)
+})
+
+test('locked parent revokes existing optimizer preview and old apply callback', async () => {
+  const app = makeHarness()
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  findButton(app.render('input', input.component, app.mainProps), 'Optimize input').props.onClick()
+  await turn()
+  const action = app.components.get('conversation.chat.assistant-actions:delta.context.optimizer-apply')
+  const outputChat = { nodes: { values: () => [{ data: {
+    finalNode: { messageId: 'message-1' }, blocks: [{ kind: 'text', text: 'Rewritten text.' }],
+  } }] } }
+  const props = { ...app.mainProps, sessionId: 'assistant-1', messageId: 'message-1', useChat: selector => selector(outputChat) }
+  findButton(app.render('result', action.component, props), 'Optimization preview').props.onClick()
+  const apply = findButton(app.render('result', action.component, props), 'Use this version')
+  await app.setProtection({ hasPin: true, lockMode: 'totp', lockedSessionIds: ['main-1'] })
+  assert.equal(app.render('result', action.component, props), null)
+  await app.setProtection({})
+  apply.props.onClick()
+  assert.equal(app.draft, 'Please explain the request clearly.')
+  assert.equal(app.render('result', action.component, props), null)
 })
