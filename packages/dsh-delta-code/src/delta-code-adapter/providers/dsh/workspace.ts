@@ -1,5 +1,5 @@
 import { lstat, readdir, realpath } from 'node:fs/promises'
-import { join, relative, sep } from 'node:path'
+import { join, relative, sep, posix, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, isSubprocessMounted, resolveInside, isPathInside } from '@fongap-labs/shared'
@@ -142,7 +142,7 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       query: { type: 'string', description: 'Optional single search; cannot be combined with queries.' },
       queries: { type: 'array', description: 'Optional 1..8 distinct searches sharing one fresh Git enumeration; results are capped at 250 paths total.',
         items: { type: 'string' } },
-      cwd: { type: 'string', description: 'Optional relative subdirectory or task worktree. When provided, only this directory is indexed.' },
+      cwd: { type: 'string', description: 'Optional workspace-relative or authorized absolute subdirectory or task worktree. When provided, only this directory is indexed.' },
       limit: { type: 'integer', description: 'Maximum paths, 1..250; defaults to 100.' },
     },
     output: {
@@ -180,17 +180,25 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
       const root = await resolveRoot(ctx, exec, settings)
       const fs = requireHostFs(ctx, ['resolve', 'contains', 'listDir', 'lstat', 'processPath'], 'refusing local discovery fallback')
       if (fs) {
-        if (args.cwd && (args.cwd.startsWith('/') || args.cwd.includes('\\') ||
-            /^[a-zA-Z]:/.test(args.cwd) ||
-            args.cwd.split('/').some(segment => !segment || segment === '.' || segment === '..'))) {
-          throw new Error('Host workspace cwd must be a relative subdirectory')
-        }
+        // Resolve both paths through Host FS. Derive display prefixes from
+        // canonical process paths, not model-supplied absolute paths.
         const processCwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
+        let prefix = ''
+        if (args.cwd) {
+          const processRoot = await resolveAuthorizedGitCwd(ctx, root, undefined, exec)
+          const pathApi = win32.isAbsolute(processRoot) && !posix.isAbsolute(processRoot) ? win32 : posix
+          const relativeCwd = pathApi.relative(processRoot, processCwd)
+          if (pathApi.isAbsolute(relativeCwd) || relativeCwd === '..' ||
+              relativeCwd.startsWith('..' + pathApi.sep) || relativeCwd.includes('\0')) {
+            throw new Error('Git process cwd escapes workspace')
+          }
+          prefix = relativeCwd.split(pathApi.sep).join('/')
+        }
         const base = await listTrackedFiles(ctx, settings, processCwd, exec.signal)
-        let repositories = [args.cwd ?? '.']
+        let repositories = [prefix || '.']
         let paths: string[]
         if (base.isGitRepository) {
-          paths = prefixTrackedPaths(base.paths, args.cwd ?? '')
+          paths = prefixTrackedPaths(base.paths, prefix)
         } else {
           if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
