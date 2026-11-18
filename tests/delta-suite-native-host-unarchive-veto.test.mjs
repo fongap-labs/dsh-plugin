@@ -55,11 +55,12 @@ function fixture({ initial = {}, registry, readFails = false } = {}) {
     },
   }
   const dispose = ops.installHostSessionOps(ctx, store)
-  const call = async body => {
-    const response = await routes.get(ops.DELTA_SESSION_LOCK_PATH)({ json: async () => body })
+  const request = async (path, body) => {
+    const response = await routes.get(path)({ json: async () => body })
     return { status: response.status, data: await response.json() }
   }
-  return { store, dispose, call, registry: hostRegistry, event: request => listener(request), releases: () => releases }
+  const call = body => request(ops.DELTA_SESSION_LOCK_PATH, body)
+  return { store, dispose, call, request, registry: hostRegistry, event: value => listener(value), releases: () => releases }
 }
 
 test('public Host event rejects native unarchive of a directly locked session but allows other sessions', async () => {
@@ -123,4 +124,105 @@ test('corrupt state file is not an empty profile and failed read permits later r
     else process.env.DELTA_DESKTOP_STATE_FILE = previous
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('workspace lock protects the union of native membership and confirmed relocation mappings', async () => {
+  const rows = [
+    { id: 'protected', path: '/protected', sessionIds: ['session-native', 'moved-away'] },
+    { id: 'ordinary', path: '/ordinary', sessionIds: ['ordinary', 'moved-in'] },
+  ]
+  const f = fixture({
+    initial: {
+      totpSecret: secret, lockedWorkspaceIds: ['protected'],
+      movedSessions: { 'moved-away': 'ordinary', 'moved-in': 'protected' },
+    },
+    registry: { list: () => rows },
+  })
+  try {
+    for (const id of ['native', 'session-native', 'moved-away', 'moved-in']) {
+      await assert.rejects(f.event({ sessionId: id }), /DELTA_SESSION_LOCKED/)
+      assert.equal((await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: id })).status, 403)
+      assert.equal((await f.request(ops.DELTA_SESSION_MOVE_PATH, { sessionId: id, targetWorkspaceId: 'ordinary' })).status, 403)
+    }
+    const bulk = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, { sessionIds: ['native', 'moved-in'] })
+    assert.equal(bulk.status, 403)
+    assert.deepEqual(bulk.data.skippedLockedIds, ['native', 'moved-in'])
+    for (const destination of [
+      { targetWorkspaceId: 'protected' },
+      { targetWorkspaceId: 'ordinary', targetPath: '/protected' },
+    ]) {
+      const result = await f.request(ops.DELTA_SESSION_MOVE_PATH, { sessionId: 'ordinary', ...destination })
+      assert.equal(result.status, 403)
+    }
+    await f.event({ sessionId: 'ordinary' })
+    assert.deepEqual(f.store.getCached().deletedSessionIds, [])
+    assert.deepEqual(f.store.getCached().movedSessions, { 'moved-away': 'ordinary', 'moved-in': 'protected' })
+  } finally { f.dispose() }
+})
+
+test('path lock is resolved through public workspace membership, not private records', async () => {
+  const f = fixture({
+    initial: { totpSecret: secret, lockedWorkspaceIds: ['/protected'] },
+    registry: { list: () => [
+      { id: 'protected', path: '/protected', sessionIds: ['member'], record: { sessionIds: [] } },
+      { id: 'ordinary', path: '/ordinary', sessionIds: [] },
+    ] },
+  })
+  try {
+    await assert.rejects(f.event({ sessionId: 'member' }), /DELTA_SESSION_LOCKED/)
+    assert.equal((await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'other', targetWorkspaceId: 'protected',
+    })).status, 403)
+    const mismatch = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'other', targetWorkspaceId: 'ordinary', targetPath: '/unverified',
+    })
+    assert.equal(mismatch.status, 503)
+    await f.event({ sessionId: 'other' })
+  } finally { f.dispose() }
+})
+
+test('missing or incomplete public workspace membership blocks destructive operations before side effects', async () => {
+  for (const registry of [
+    {},
+    { list: () => [] },
+    { list: () => { throw new Error('unavailable') } },
+    { list: () => [{ id: 'protected', path: '/protected', record: { sessionIds: ['member'] } }] },
+  ]) {
+    const f = fixture({ initial: { totpSecret: secret, lockedWorkspaceIds: ['protected'] }, registry })
+    try {
+      await assert.rejects(f.event({ sessionId: 'member' }), /DELTA_WORKSPACE_PROTECTION_UNAVAILABLE/)
+      for (const [path, body] of [
+        [ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'member' }],
+        [ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, { sessionIds: ['member', 'other'] }],
+        [ops.DELTA_SESSION_MOVE_PATH, { sessionId: 'member', targetWorkspaceId: 'ordinary' }],
+      ]) {
+        const result = await f.request(path, body)
+        assert.equal(result.status, 503)
+        assert.equal(result.data.error, 'WORKSPACE_PROTECTION_UNAVAILABLE')
+      }
+      assert.deepEqual(f.store.getCached().deletedSessionIds, [])
+      assert.deepEqual(f.store.getCached().movedSessions, {})
+    } finally { f.dispose() }
+  }
+})
+
+test('direct session unlock does not unarchive a member of a still locked workspace', async () => {
+  const calls = []
+  const f = fixture({
+    initial: { totpSecret: secret, lockedSessionIds: ['member'], lockedWorkspaceIds: ['protected'] },
+    registry: {
+      list: () => [{ id: 'protected', path: '/protected', sessionIds: ['member'] }],
+      archivedSessionIds: ['member'],
+      async unarchiveSession(id) { calls.push(id); this.archivedSessionIds = [] },
+    },
+  })
+  try {
+    const result = await f.call({ action: 'unlock', sessionId: 'member', code: await state.generateTotpCode(secret) })
+    assert.equal(result.status, 200)
+    assert.equal(result.data.unarchived, false)
+    assert.deepEqual(calls, [])
+    assert.deepEqual(result.data.state.lockedSessionIds, [])
+    assert.deepEqual(result.data.state.lockedWorkspaceIds, ['protected'])
+    await assert.rejects(f.event({ sessionId: 'member' }), /DELTA_SESSION_LOCKED/)
+  } finally { f.dispose() }
 })

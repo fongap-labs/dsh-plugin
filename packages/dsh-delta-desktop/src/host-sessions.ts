@@ -18,7 +18,7 @@ import {
   verifyPinSecret,
   verifyTotpCode,
 } from './host-state.js'
-import type { HostStateStore } from './host-state.js'
+import type { DeltaHostState, HostStateStore } from './host-state.js'
 
 export const DELTA_STATE_PATH = '/api/delta-desktop/state'
 export const DELTA_SESSION_LOCK_PATH = '/api/delta-desktop/session-lock'
@@ -329,6 +329,7 @@ async function purgeSessionArtifacts(
 interface HostWorkspaceEntityLike {
   id?: string
   path?: string
+  sessionIds?: readonly string[]
   record?: { sessionIds?: readonly string[]; path?: string }
   detachSession?(sessionId: string): Promise<void> | void
 }
@@ -375,6 +376,75 @@ export function installHostSessionOps(
     return live ?? workspaceRegistryRef
   }
 
+  // Deletion and relocation already address both raw and session-prefixed IDs.
+  // Protection must cover exactly that same alias set. No private registry
+  // maps or caller-provided cwd hints are used to establish membership.
+  const sessionAliases = (id: string): string[] => {
+    const raw = id.replace(/^session-/, '')
+    return [id, raw, 'session-' + raw]
+  }
+
+  const readProtection = (state: DeltaHostState) => {
+    const protectedIds = new Set(state.lockedSessionIds.flatMap(sessionAliases))
+    const lockedKeys = new Set(state.lockedWorkspaceIds)
+    const nativeTargets = new Map<string, string>()
+    let isComplete = true
+    if (lockedKeys.size > 0) {
+      try {
+        const reg = getRegistry()
+        if (typeof reg?.list !== 'function') throw new Error('WORKSPACE_MEMBERSHIP_UNAVAILABLE')
+        const rows = Array.from(reg.list())
+        const matchedKeys = new Set<string>()
+        // Validate the complete public snapshot, not private record.sessionIds.
+        for (const row of rows) {
+          const { id, path, sessionIds } = row
+          if (typeof id !== 'string' || !id || typeof path !== 'string' || !path ||
+              !Array.isArray(sessionIds) || sessionIds.some(sid => typeof sid !== 'string' || !sid) ||
+              nativeTargets.has(id)) throw new Error('WORKSPACE_MEMBERSHIP_INVALID')
+          nativeTargets.set(id, path)
+          if (lockedKeys.has(id) || lockedKeys.has(path)) {
+            if (lockedKeys.has(id)) matchedKeys.add(id)
+            if (lockedKeys.has(path)) matchedKeys.add(path)
+            for (const key of [id, path]) lockedKeys.add(key)
+            for (const sid of sessionIds) for (const alias of sessionAliases(sid)) protectedIds.add(alias)
+          }
+        }
+        // A persisted lock with no matching public entity is uncertain, not
+        // proof of absence. Refuse destructive operations until reconciled.
+        if (state.lockedWorkspaceIds.some(key => !matchedKeys.has(key))) isComplete = false
+        if (getRegistry() !== reg) isComplete = false
+      } catch { isComplete = false }
+      // Protect the union of durable native membership and confirmed Delta
+      // relocation mappings, including a session moved away from a locked
+      // native workspace. Neither source can weaken the other.
+      for (const [sid, target] of Object.entries(state.movedSessions)) {
+        if (lockedKeys.has(target)) for (const alias of sessionAliases(sid)) protectedIds.add(alias)
+      }
+    }
+    return {
+      session(sessionId: string): 'locked' | 'clear' | 'unknown' {
+        if (sessionAliases(sessionId).some(id => protectedIds.has(id))) return 'locked'
+        return isComplete ? 'clear' : 'unknown'
+      },
+      destination(id: string, path: string): 'locked' | 'clear' | 'unknown' {
+        if (lockedKeys.has(id) || (path && lockedKeys.has(path))) return 'locked'
+        if (lockedKeys.size === 0) return 'clear'
+        if (!isComplete || !nativeTargets.has(id)) return 'unknown'
+        const nativePath = nativeTargets.get(id)
+        if (nativePath && lockedKeys.has(nativePath)) return 'locked'
+        // When workspace protection exists, do not let an arbitrary path
+        // turn an unlocked destination ID into a physical move elsewhere.
+        if (path && path !== nativePath) return 'unknown'
+        return 'clear'
+      },
+    }
+  }
+
+  const protectionFailure = (verdict: 'locked' | 'unknown'): unknown =>
+    verdict === 'locked'
+      ? makeJsonResponse(403, { ok: false, error: 'SESSION_LOCKED' })
+      : makeJsonResponse(503, { ok: false, error: 'WORKSPACE_PROTECTION_UNAVAILABLE' })
+
   const archiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
     try {
       const reg = getRegistry()
@@ -390,6 +460,7 @@ export function installHostSessionOps(
 
   const unarchiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
     try {
+      if (readProtection(await store.read()).session(sessionId) !== 'clear') return false
       const reg = getRegistry()
       if (isDisposed || !reg || typeof reg.unarchiveSession !== 'function') return false
       if (Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)) return true
@@ -589,9 +660,11 @@ export function installHostSessionOps(
     }
 
     const current = await store.read()
-    if (current.lockedSessionIds.includes(sessionId)) {
-      return makeJsonResponse(403, { ok: false, error: 'SESSION_LOCKED' })
-    }
+    const protection = readProtection(current)
+    const sourceVerdict = protection.session(sessionId)
+    if (sourceVerdict !== 'clear') return protectionFailure(sourceVerdict)
+    const targetVerdict = protection.destination(targetWorkspaceId, targetPath)
+    if (targetVerdict !== 'clear') return protectionFailure(targetVerdict)
     if (current.deletedSessionIds.includes(sessionId)) {
       return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
     }
@@ -708,9 +781,8 @@ export function installHostSessionOps(
     }
 
     const current = await store.read()
-    if (current.lockedSessionIds.includes(sessionId)) {
-      return makeJsonResponse(403, { ok: false, error: 'SESSION_LOCKED' })
-    }
+    const verdict = readProtection(current).session(sessionId)
+    if (verdict !== 'clear') return protectionFailure(verdict)
 
     await cancelLiveSession(sessionId)
     await purgeSessionArtifacts(ctx, sessionId, sourceCwd)
@@ -740,15 +812,16 @@ export function installHostSessionOps(
     const sessionIds = [...new Set(rawIds.filter((id): id is string => typeof id === 'string' && isSafeSegment(id.trim())).map(id => id.trim()))]
 
     const current = await store.read()
-    const lockedSet = new Set(current.lockedSessionIds)
+    const protection = readProtection(current)
     const skippedLockedIds: string[] = []
     const toDeleteIds: string[] = []
     for (const sid of sessionIds) {
-      if (lockedSet.has(sid)) {
-        skippedLockedIds.push(sid)
-      } else {
-        toDeleteIds.push(sid)
-      }
+      const verdict = protection.session(sid)
+      // Classify every row before any cancel/purge. An uncertain member
+      // must not result in a partially executed destructive request.
+      if (verdict === 'unknown') return protectionFailure(verdict)
+      if (verdict === 'locked') skippedLockedIds.push(sid)
+      else toDeleteIds.push(sid)
     }
 
     if (sessionIds.length > 0 && toDeleteIds.length === 0) {
@@ -821,7 +894,9 @@ export function installHostSessionOps(
         if (typeof sessionId !== 'string' || !sessionId) throw new Error('DELTA_SESSION_TARGET_INVALID')
         const confirmed = await store.read()
         if (isDisposed) return
-        if (confirmed.lockedSessionIds.includes(sessionId)) throw new Error('DELTA_SESSION_LOCKED')
+        const verdict = readProtection(confirmed).session(sessionId)
+        if (verdict === 'locked') throw new Error('DELTA_SESSION_LOCKED')
+        if (verdict === 'unknown') throw new Error('DELTA_WORKSPACE_PROTECTION_UNAVAILABLE')
       })
       if (typeof off === 'function') unregisterCallbacks.push(off)
     } catch { /* Older Host: retain the existing client compatibility guard. */ }
