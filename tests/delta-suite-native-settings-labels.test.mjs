@@ -25,7 +25,7 @@ test('ZIP3 release verifier still blocks an unreviewed settings label rewrite', 
   const emitted = [
     'function installSidebarCompatibility() {}',
     'function installHostSearch() {}',
-    'data-delta-compat dtd-native-search',
+    'data-delta-compat dtd-host-search',
     'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))

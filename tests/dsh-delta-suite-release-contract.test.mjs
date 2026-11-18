@@ -14,13 +14,18 @@ const emittedClient = (style = theme) => [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
   'data-delta-compat',
-  'dtd-native-search',
+  'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
 ].join('\n')
 
 test('release guard accepts only the reviewed ZIP3 adapter and canonical theme', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emittedClient(), source))
   assert.doesNotThrow(() => verifyApprovedZip3Client(emittedClient(), source.replace(/\r?\n/g, '\r\n')))
+})
+
+test('release guard rejects the retired native sidebar search proxy', () => {
+  assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\ndtd-native-search', source),
+    /legacy native search proxy retained/)
 })
 
 test('release guard refuses changes to either approved compatibility implementation', () => {

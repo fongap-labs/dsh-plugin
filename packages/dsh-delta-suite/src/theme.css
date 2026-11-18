@@ -298,7 +298,6 @@
  * 2. Reusable Search Box & Form Input Component (Hover == Focus)
  * ============================================================================ */
 :root[data-delta-ui="delta"] :is(
-  .dtd-native-search,
   .dtd-host-search-field,
   [class~="GAkraW_searchExpanded"],
   [class~="Wd4N7W_search"],
@@ -316,8 +315,7 @@
 }
 @media (hover: hover) {
   :root[data-delta-ui="delta"] :is(
-    .dtd-native-search,
-    .dtd-host-search-field,
+      .dtd-host-search-field,
     [class~="GAkraW_searchExpanded"],
     [class~="Wd4N7W_search"],
     [class~="olCj9W_searchField"],
@@ -330,7 +328,6 @@
   }
 }
 :root[data-delta-ui="delta"] :is(
-  .dtd-native-search,
   .dtd-host-search-field,
   [class~="GAkraW_searchExpanded"],
   [class~="Wd4N7W_search"],
@@ -344,7 +341,6 @@
 }
 :root[data-delta-ui="delta"] :is(
   [class~="olCj9W_searchField"] > :first-child,
-  .dtd-native-search-input,
   .dtd-host-search-field input,
   [class~="Wd4N7W_searchInput"],
   [class~="GAkraW_searchInput"],
@@ -362,7 +358,6 @@
   color: var(--dtd-input-fg) !important;
 }
 :root[data-delta-ui="delta"] :is(
-  .dtd-native-search-input,
   .dtd-host-search-field input,
   [class~="Wd4N7W_searchInput"],
   [class~="GAkraW_searchInput"],
@@ -373,7 +368,6 @@
 }
 :root[data-delta-ui="delta"] :is(
   [class~="olCj9W_searchField"] > :first-child,
-  .dtd-native-search-input,
   .dtd-host-search-field input,
   [class~="Wd4N7W_searchInput"],
   [class~="GAkraW_searchInput"],
@@ -422,7 +416,7 @@
   [class*="qgYWUG_search"] input,
   [class*="rQbmCW_customLocation"] textarea,
   [class*="cS6V_W_detail"],
-  input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
+  input:not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
   textarea:not([aria-invalid="true"]),
   select:not([aria-invalid="true"])
 ):is(:focus, :focus-visible, :focus-within):not(:disabled) {
@@ -440,7 +434,7 @@
     [class*="qgYWUG_search"] input,
     [class*="rQbmCW_customLocation"] textarea,
     [class*="cS6V_W_detail"],
-    input:not(.dtd-native-search-input):not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
+    input:not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
     textarea:not([aria-invalid="true"]),
     select:not([aria-invalid="true"])
   ):hover:not(:disabled) {
@@ -998,13 +992,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   position: relative !important;
   margin: 0 0 8px 0 !important;
 }
-:root[data-delta-compat="1"] .dtd-native-search {
-  order: 1 !important;
-  position: relative !important;
-  width: 100% !important;
-  margin: 0 0 8px 0 !important;
-}
-:root[data-delta-compat="1"] .dtd-native-search,
 :root[data-delta-compat="1"] .dtd-host-search-field,
 :root[data-delta-ui="delta"] .dtd-host-search-field {
   display: flex !important;
@@ -1024,7 +1011,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   color: var(--dtd-fg-muted) !important;
   stroke: var(--dtd-fg-muted) !important;
 }
-:root[data-delta-compat="1"] .dtd-native-search-input,
 :root[data-delta-compat="1"] .dtd-host-search-field input,
 :root[data-delta-ui="delta"] .dtd-host-search-field input {
   flex: 1 1 auto !important;
@@ -1102,16 +1088,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
 :root[data-delta-ui="delta"] .dtd-host-search-hint {
   padding: 8px 10px !important;
 }
-:root[data-delta-compat="1"] [data-sidebar-workspace-header] [class*="searchSlot"],
-:root[data-delta-compat="1"] [class*="sectionHeader"] [class*="searchSlot"],
-:root[data-delta-compat="1"] [class*="GAkraW_searchSlot"] {
-  position: absolute !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-  width: 1px !important;
-  height: 1px !important;
-  overflow: hidden !important;
-}
+/* Harness owns its original workspace search control; Delta does not hide it. */
 
 /* 6.2 Navigation Rows: Harness retains the native More action. */
 :root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
@@ -1296,16 +1273,10 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   height: 0 !important;
 }
 
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] :is(
-  .dtd-native-search,
-  .dtd-host-search
-) {
+:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] .dtd-host-search {
   display: none !important;
 }
 
-@media (max-width: 600px) {
-  :root[data-delta-compat="1"] .dtd-native-search { min-height: var(--dtd-sidebar-row-height); }
-}
 
 .dtd-toast {
   position: fixed;

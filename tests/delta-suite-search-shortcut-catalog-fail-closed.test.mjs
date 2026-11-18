@@ -11,7 +11,7 @@ const theme = read('packages/dsh-delta-suite/src/theme.css')
 const emitted = [
   'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
-  'data-delta-compat dtd-native-search',
+  'data-delta-compat dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 const start = normalized.indexOf('function installHostSearch(')

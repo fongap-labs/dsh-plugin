@@ -20,7 +20,7 @@ test('approved ZIP3 region hash is updated without disabling review protection',
   const emitted = [
     'function installSidebarCompatibility() {}',
     'function installHostSearch() {}',
-    'dtd-native-search data-delta-compat',
+    'dtd-host-search data-delta-compat',
     'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))

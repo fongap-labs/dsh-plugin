@@ -145,17 +145,18 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: explicit session-scoped composer Slot uses public revision-guarded InputActions; unscoped search remains copy-only.
 // Reviewed 2026-11-18: retired private workspace expansion storage reads and synthetic row clicks; native expansion is Host-owned.
 // Reviewed 2026-11-18: retired cloned native new-session button, synthetic click forwarding, and CSS hiding of the actual Host control.
-const ZIP3_THEME_BLOB = 'a0fad1ede30e9e035b40558edb20b5b3d5da1f9e'
+// Reviewed 2026-11-18: retired native sidebar search proxy/input mirroring and restored original Harness search slot.
+const ZIP3_THEME_BLOB = '864b38d877553209ca4628900aaa0d4c40439892'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '053cac317c38368acdfaf80eb95d8ea00e624412',
+    sha1: '7da89e5739fb35e22746274ffcdd8b5f8f11f002',
   },
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: '71f5b46527f16f053f5b0ecc0448243353a0d9c4',
+    sha1: '4a5562b94fe67c11c9133122f319e08e3ebd14e8',
   },
 ]
 
@@ -189,8 +190,9 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
-  ensure(client.includes('dtd-native-search') && client.includes('data-delta-compat'),
-    'ZIP3 emitted sidebar adapter incomplete')
+  ensure(client.includes('dtd-host-search') && client.includes('data-delta-compat') &&
+    !client.includes('dtd-native-search'),
+    'ZIP3 emitted sidebar adapter incomplete or legacy native search proxy retained')
   ensure(!client.includes('dtd-search-dialog-backdrop') && !client.includes('openSearchDialog(') &&
     !client.includes('workspaceRegistry') && !client.includes('app.asar'),
     'non-ZIP3 Host DOM or legacy search takeover')

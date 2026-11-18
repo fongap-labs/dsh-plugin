@@ -61,6 +61,23 @@ test('native new-session button remains visible and Harness-owned', () => {
   }
   assert.ok(compatibility.includes('processHoverCards()'))
 })
+test('native sidebar search does not use private DOM input proxies or hide the Host search control', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('\ntype SearchTabId', begin)
+  assert.ok(begin >= 0 && end > begin)
+  const compatibility = source.slice(begin, end)
+  for (const legacy of ['dtd-native-search', 'nativeInput', 'nativeSearch', 'hasServiceSearch',
+    'searchProxy', 'hostButton.click()', 'HTMLInputElement.prototype',
+    "hostInput.dispatchEvent", "mounted.get('search')"]) {
+    assert.equal(compatibility.includes(legacy), false, 'legacy sidebar input proxy: ' + legacy)
+  }
+  assert.equal(source.includes('.dtd-native-search'), false)
+  assert.equal(style.includes('dtd-native-search'), false)
+  assert.equal(style.includes('[class*="searchSlot"]'), false)
+  assert.match(source, /function installHostSearch\(/)
+  assert.equal(readiness.required.sidebar_search_placement, false)
+})
+
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))
