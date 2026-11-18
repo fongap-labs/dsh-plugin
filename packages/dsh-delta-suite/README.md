@@ -6,6 +6,17 @@
 - 插件配置条目：`dsh-delta-suite`
 - 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
 
+## Delta Suite 配置入口（仅适用于已安装新构建）
+
+加载并启用 `dsh-delta-suite` 后，可以通过 Harness 的官方设置界面找到同一配置页：
+
+- **设置 → Delta 扩展套件**（英文 Delta Suite）：独立的 `settings.section`。
+- **设置 → 插件 → Delta 扩展套件**（英文 Settings → Plugins → Delta Suite）：`settings.plugins.tab` 中的插件配置标签。
+
+两个入口共享原有设置控制器，可以调整 Delta/官方主题及其他 Suite 选项。停用插件会撤销注册；不修改原生设置按钮、菜单或导航 DOM。
+
+**代码合并与 CI 通过并不会自动更新正在运行的 Harness。** `dsh-delta-desktop` 是旧包，不能自动覆盖新 Cordis ID `dsh-delta-suite`；必须发布包含新注册的 Suite 构建并在实际使用的 Profile 中安装/启用、重载客户端。若两个入口都不存在，先核实插件加载状态和是否出现 `[dsh-delta-suite] Settings mount failed` 或 `deferred Settings registration failed` 日志；不能通过私有 DOM 插入按钮伪装成功。
+
 ## 当前实现状态
 
 功能交付以 `projects/dsh-delta-suite/feature-readiness.json` 为唯一状态源。当前只有以下三项具备明确的公开扩展接口并标记为已完成：

@@ -6357,24 +6357,24 @@ window.__ModuleLoader__.load({
               const settingsModules: ReadonlyArray<{
                 id: string
                 order: number
-                labelKey: keyof DeltaCopy['ui']
                 content: (props: DeltaProps) => unknown
                 icon: (props: DeltaProps) => unknown
               }> = [
                 {
                   id: 'delta.personalization',
                   order: 18,
-                  labelKey: 'personalization',
                   content: PersonalizationSection,
                   icon: SettingsSectionIcon,
                 },
               ]
               for (const feature of settingsModules) {
+                // Keep the public Settings section visible under an explicit
+                // Suite name in both Delta and Official theme modes.
                 scope.slots.inject('settings.section', () => scope.slots.register({
                   name: 'settings.section',
                   id: feature.id,
                   order: feature.order,
-                  label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui[feature.labelKey],
+                  label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title,
                   inject: () => ({ controller }),
                 }, feature.content))
                 scope.slots.inject('settings.section.icon', () => scope.slots.register({
@@ -6382,6 +6382,15 @@ window.__ModuleLoader__.load({
                   id: feature.id,
                   order: feature.order,
                 }, feature.icon))
+                // Also expose the same form through the public Plugins tab,
+                // without modifying any native Settings DOM or controls.
+                scope.slots.inject('settings.plugins.tab', () => scope.slots.register({
+                  name: 'settings.plugins.tab',
+                  id: 'delta.suite.configuration',
+                  order: 70,
+                  label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title,
+                  inject: () => ({ controller }),
+                }, feature.content))
               }
 
               // ZIP-first: never replace the ZIP sidebar/search/theme. These

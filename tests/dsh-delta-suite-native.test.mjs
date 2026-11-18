@@ -135,7 +135,7 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 扩展套件'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
@@ -150,8 +150,13 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
   const entry = app.components.get('settings.section')
   assert.equal(entry.spec.id, 'delta.personalization')
-  assert.equal(entry.spec.label(), '个性设置')
+  assert.equal(entry.spec.label(), 'Delta 扩展套件')
+  const tab = app.components.get('settings.plugins.tab')
+  assert.equal(tab.spec.id, 'delta.suite.configuration')
+  assert.equal(tab.spec.label(), 'Delta 扩展套件')
+  assert.equal(tab.component, entry.component, 'both Host entries use the same Settings page')
   const controller = entry.spec.inject().controller
+  assert.equal(tab.spec.inject().controller, controller, 'both Host entries use the same controller')
   assert.equal(controller.getSnapshot().error, false, 'ZIP palette must be owned before reporting readiness')
   assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
     'ZIP settings own the UI and do not reintroduce the removed brand heading')
@@ -178,7 +183,8 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   app.context.observers.forEach(notify => notify())
   assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
     'language changes must preserve the ZIP settings surface')
-  assert.equal(entry.spec.label(), 'Personalization')
+  assert.equal(entry.spec.label(), 'Delta Suite')
+  assert.equal(tab.spec.label(), 'Delta Suite')
   app.cleanup(); app.cleanup()
   assert.equal(app.layers.size, 0)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
@@ -202,7 +208,8 @@ test('missing native layout does not report successful no-op actions', () => {
 test('missing theme keeps the independent Settings entry usable', () => {
   const app = harness({ failTheme: true })
   const entry = app.components.get('settings.section')
-  assert.equal(entry.spec.label(), '个性设置')
+  assert.equal(entry.spec.label(), 'Delta 扩展套件')
+  assert.equal(app.components.get('settings.plugins.tab').spec.label(), 'Delta 扩展套件')
   const controller = entry.spec.inject().controller
   assert.equal(controller.getSnapshot().error, true)
   assert.equal(app.layers.size, 0, 'missing theme must not install a broken palette')
@@ -250,6 +257,7 @@ test('obsolete standalone routes and UI packages are excluded from Desktop', () 
   assert.equal(existsSync(fixture('scripts/verify-delta-poc-host.mjs')), false)
   assert.equal(existsSync(fixture('scripts/verify-delta-suite-ui.mjs')), false)
   assert.match(source, /const settingsModules/)
+  assert.match(source, /scope\.slots\.inject\('settings\.plugins\.tab'/)
 })
 
 test('workspace deletion remains Host owned regardless of appearance mode', async () => {
