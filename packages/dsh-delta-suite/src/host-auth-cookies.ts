@@ -190,7 +190,7 @@ export function installHostAuthCookiePruner(
         try { server.off?.('request', onRequest) } catch {}
       }
       if (typeof webCtx.effect === 'function') {
-        const stopEffect = webCtx.effect(() => offListener, 'delta-desktop: auth cookie pruner')
+        const stopEffect = webCtx.effect(() => offListener, 'delta-suite: auth cookie pruner')
         if (typeof stopEffect === 'function') cleanups.push(stopEffect)
       } else {
         cleanups.push(offListener)

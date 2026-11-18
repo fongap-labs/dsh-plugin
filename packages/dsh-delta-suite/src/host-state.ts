@@ -1,5 +1,5 @@
 /**
- * Host-local state persistence for @fongap-labs/dsh-delta-desktop.
+ * Host-local state persistence for @fongap-labs/dsh-delta-suite.
  * Stores hashed session-lock PIN (scrypt), locked/moved/deleted session state,
  * and network proxy configuration in the active profile directory.
  * Never exports secret hashes to the Client and keeps zero static node:* imports
@@ -227,7 +227,7 @@ export async function generateTotpSecret(byteLength = 20): Promise<string> {
 export function buildOtpAuthUri(
   secret: string,
   account = 'DeepSeek Harness',
-  issuer = 'Delta Desktop',
+  issuer = 'Delta Suite',
 ): string {
   const clean = secret.toUpperCase().replace(/[\s\-=]+/g, '')
   const encIssuer = encodeURIComponent(issuer)
@@ -338,7 +338,7 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
   const resolvePath = async (): Promise<string> => {
     const pathMod = await loadNodeModule<any>('node:path')
     const proc = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
-    const explicit = proc?.env?.DELTA_DESKTOP_STATE_FILE
+    const explicit = proc?.env?.DELTA_SUITE_STATE_FILE
     if (typeof explicit === 'string' && explicit.trim()) {
       return pathMod.resolve(explicit.trim())
     }
@@ -346,11 +346,27 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
     const envProfile = proc?.env?.DSH_PROFILE?.trim()
     const profileCtx = ctx?.get?.('profileContext') as { dir?: string } | undefined
     if (!envHome && !envProfile && typeof profileCtx?.dir === 'string' && profileCtx.dir.trim()) {
-      return pathMod.join(pathMod.resolve(profileCtx.dir.trim()), '.delta-desktop-state.json')
+      return pathMod.join(pathMod.resolve(profileCtx.dir.trim()), '.delta-suite-state.json')
     }
     const dshHome = await resolveDshHome(ctx)
     const profile = envProfile || 'desktop'
-    return pathMod.join(dshHome, 'profiles', profile, '.delta-desktop-state.json')
+    return pathMod.join(dshHome, 'profiles', profile, '.delta-suite-state.json')
+  }
+
+  const resolveLegacyPath = async (): Promise<string | undefined> => {
+    const pathMod = await loadNodeModule<any>('node:path')
+    const proc = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process
+    // An explicit new state location is authoritative; never import a
+    // different profile's credentials or deletion tombstones into it.
+    if (proc?.env?.DELTA_SUITE_STATE_FILE?.trim()) return undefined
+
+    // Prior-version names are constructed for a one-time read-only import.
+    // They are intentionally not part of the new package's identity.
+    const previousEnvKey = ['DELTA', 'DESKTOP', 'STATE', 'FILE'].join('_')
+    const previousExplicit = proc?.env?.[previousEnvKey]?.trim()
+    if (previousExplicit) return pathMod.resolve(previousExplicit)
+    const currentPath = await resolvePath()
+    return pathMod.join(pathMod.dirname(currentPath), ['.delta', 'desktop', 'state.json'].join('-'))
   }
 
   const read = async (): Promise<DeltaHostState> => {
@@ -360,7 +376,27 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
       try {
         const fs = await loadNodeModule<any>('node:fs/promises')
         const filePath = await resolvePath()
-        const text = await fs.readFile(filePath, 'utf8')
+        let text: string
+        try {
+          text = await fs.readFile(filePath, 'utf8')
+        } catch (err) {
+          if ((err as { code?: unknown })?.code !== 'ENOENT') throw err
+          const previousPath = await resolveLegacyPath()
+          if (!previousPath) throw err
+          text = await fs.readFile(previousPath, 'utf8')
+          const previousState: unknown = JSON.parse(text)
+          if (!previousState || typeof previousState !== 'object' || Array.isArray(previousState)) {
+            throw new Error('DELTA_STATE_INVALID')
+          }
+          // A previous deletion tombstone or lock must not disappear just
+          // because the bundle name changed. Persist the new snapshot before
+          // publishing it; leave the source file available for rollback.
+          try {
+            await write(normalizeDeltaState(previousState))
+          } catch (cause) {
+            throw new Error('DELTA_STATE_MIGRATION_FAILED', { cause })
+          }
+        }
         const parsed: unknown = JSON.parse(text)
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
           throw new Error('DELTA_STATE_INVALID')

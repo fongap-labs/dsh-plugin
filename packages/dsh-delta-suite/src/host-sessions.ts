@@ -4,7 +4,7 @@
  * Respects plugin boundaries strictly:
  * - Zero monkey-patching of internal workspaces / session registries.
  * - Uses public `ctx.get('sessionPersistence')` and `ctx.get('sessions')` safely when present,
- *   plus profile-scoped `.delta-desktop-state.json` durability across restarts.
+ *   plus profile-scoped `.delta-suite-state.json` durability across restarts.
  */
 import {
   buildOtpAuthUri,
@@ -21,12 +21,12 @@ import {
 } from './host-state.js'
 import type { DeltaHostState, HostStateStore } from './host-state.js'
 
-export const DELTA_STATE_PATH = '/api/delta-desktop/state'
-export const DELTA_SESSION_LOCK_PATH = '/api/delta-desktop/session-lock'
-export const DELTA_SESSION_MOVE_PATH = '/api/delta-desktop/session-move'
-export const DELTA_SESSION_DELETE_PATH = '/api/delta-desktop/session-delete'
-export const DELTA_SESSION_DELETE_UNGROUPED_PATH = '/api/delta-desktop/session-delete-ungrouped'
-export const DELTA_OPEN_FOLDER_PATH = '/api/delta-desktop/open-folder'
+export const DELTA_STATE_PATH = '/api/delta-suite/state'
+export const DELTA_SESSION_LOCK_PATH = '/api/delta-suite/session-lock'
+export const DELTA_SESSION_MOVE_PATH = '/api/delta-suite/session-move'
+export const DELTA_SESSION_DELETE_PATH = '/api/delta-suite/session-delete'
+export const DELTA_SESSION_DELETE_UNGROUPED_PATH = '/api/delta-suite/session-delete-ungrouped'
+export const DELTA_OPEN_FOLDER_PATH = '/api/delta-suite/open-folder'
 
 interface SessionOpsHostContext {
   get?(name: string): unknown
@@ -1080,7 +1080,7 @@ export function installHostSessionOps(
         if (typeof (scope as { effect?: (fn: () => () => void, label?: string) => void }).effect === 'function') {
           (scope as { effect: (fn: () => () => void, label?: string) => void }).effect(
             () => cleanup,
-            'delta-desktop: host session ops routes',
+            'delta-suite: host session ops routes',
           )
         }
         return cleanup

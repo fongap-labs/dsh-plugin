@@ -8,13 +8,13 @@ const licenses = [
   'LICENSE',
   'packages/shared/LICENSE',
   'packages/dsh-delta-code/LICENSE',
-  'packages/dsh-delta-desktop/LICENSE',
+  'packages/dsh-delta-suite/LICENSE',
 ]
 const manifests = [
   'package.json',
   'packages/shared/package.json',
   'packages/dsh-delta-code/package.json',
-  'packages/dsh-delta-desktop/package.json',
+  'packages/dsh-delta-suite/package.json',
 ]
 
 test('repository and workspace packages consistently declare MIT', () => {

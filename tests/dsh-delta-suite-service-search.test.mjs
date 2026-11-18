@@ -15,16 +15,16 @@ const compileDir = mkdtempSync(join(tmpdir(), 'delta-search-'))
 let compiled
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-    file('packages/dsh-delta-desktop/tsconfig.client.json'), '--outDir', compileDir], { stdio: 'pipe' })
+    file('packages/dsh-delta-suite/tsconfig.client.json'), '--outDir', compileDir], { stdio: 'pipe' })
   compiled = readFileSync(join(compileDir, 'client.js'), 'utf8')
 } finally { rmSync(compileDir, { recursive: true, force: true }) }
 const locales = Object.fromEntries(['en', 'zh'].map(lang =>
-  [lang, JSON.parse(readFileSync(file('packages/dsh-delta-desktop/locale/' + lang + '.json'), 'utf8'))]))
-assert.equal(compiled.split("'__DELTA_DESKTOP_LOCALES__'").length, 2)
-assert.equal(compiled.split("'__DELTA_DESKTOP_STYLE__'").length, 2)
-const source = compiled.replace("'__DELTA_DESKTOP_LOCALES__'", JSON.stringify(locales))
-  .replace("'__DELTA_DESKTOP_STYLE__'", JSON.stringify(
-    readFileSync(file('packages/dsh-delta-desktop/src/theme.css'), 'utf8')))
+  [lang, JSON.parse(readFileSync(file('packages/dsh-delta-suite/locale/' + lang + '.json'), 'utf8'))]))
+assert.equal(compiled.split("'__DELTA_SUITE_LOCALES__'").length, 2)
+assert.equal(compiled.split("'__DELTA_SUITE_STYLE__'").length, 2)
+const source = compiled.replace("'__DELTA_SUITE_LOCALES__'", JSON.stringify(locales))
+  .replace("'__DELTA_SUITE_STYLE__'", JSON.stringify(
+    readFileSync(file('packages/dsh-delta-suite/src/theme.css'), 'utf8')))
 
 class Element {
   constructor(tag) {
@@ -252,7 +252,7 @@ test('service-backed sidebar search waits for native sidebar, uses Host search/n
   env.window.location = { href: 'https://harness.test/' }
   env.fetch = async path => ({
     ok: !path.includes('/session-search'), status: path.includes('/session-search') ? 503 : 200,
-    json: async () => path === '/api/delta-desktop/state' ? { state: protectionState } : {},
+    json: async () => path === '/api/delta-suite/state' ? { state: protectionState } : {},
   })
   await env.testFeatures.refreshState()
   assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot, 'Host snapshot method is not wrapped')

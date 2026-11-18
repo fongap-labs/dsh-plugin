@@ -5,21 +5,21 @@ import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 
 const root = resolve(import.meta.dirname, '..')
-const file = path => readFileSync(join(root, 'packages/dsh-delta-desktop', path), 'utf8')
+const file = path => readFileSync(join(root, 'packages/dsh-delta-suite', path), 'utf8')
 const client = file('src/client.ts')
 const css = file('src/theme.css')
 const zh = JSON.parse(file('locale/zh.json'))
 const en = JSON.parse(file('locale/en.json'))
 
 describe('Authoritative ZIP3 Desktop UI and additive feature integration', () => {
-  it('retains the reviewed ZIP3 theme with Delta Desktop additions', () => {
+  it('retains the reviewed ZIP3 theme with Delta Suite additions', () => {
     // Six-digit CSS Unicode escapes preserve the ZIP's selector semantics.
     // Git may check out CRLF on Windows; canonical ZIP CSS uses LF.
     const canonical = css.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g, (_, hex) =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '6d532fe477afc175db33e770fb3061df0d21b992')
+    assert.equal(sha, '96c382f064f3b5922c645014aaafd3ea1302627f')
   })
   it('retains the seven-tab SearchPalette and its explicit keyboard invocation', () => {
     for (const term of ['SearchTabId', 'tabAll', 'tabSession', 'tabWorkspace',

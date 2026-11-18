@@ -3,18 +3,18 @@ import assert from 'node:assert/strict'
 import { gzipSync } from 'node:zlib'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { readZip, readTgz, verifyEntries, hasUnsafeHostPatch } from '../scripts/verify-delta-desktop-release.mjs'
+import { readZip, readTgz, verifyEntries, hasUnsafeHostPatch } from '../scripts/verify-delta-suite-release.mjs'
 
-const approvedTheme = readFileSync(join(import.meta.dirname, '../packages/dsh-delta-desktop/src/theme.css'), 'utf8')
+const approvedTheme = readFileSync(join(import.meta.dirname, '../packages/dsh-delta-suite/src/theme.css'), 'utf8')
 
 function validEntries(version = '0.1.0-beta.2') {
   const files = {
     'package.json': JSON.stringify({
-      name: '@fongap-labs/dsh-delta-desktop', version,
+      name: '@fongap-labs/dsh-delta-suite', version,
       dsh: { client: { platform: 'web' } },
       exports: { './client': './lib/client.js' },
     }),
-    'cordis.patch.yml': 'id: dsh-delta-desktop\nname: @fongap-labs/dsh-delta-desktop',
+    'cordis.patch.yml': 'id: dsh-delta-suite\nname: @fongap-labs/dsh-delta-suite',
     'lib/index.js': 'export { negotiateHostCapabilities, DELTA_HOST_CONTRACT_VERSION } from "./host-capabilities.js"',
     'lib/host-capabilities.js': 'export function negotiateHostCapabilities() {}',
     'lib/client.js': [
@@ -66,7 +66,7 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
   noContract.delete('lib/host-capabilities.js')
   assert.throws(() => verifyEntries(noContract, '0.1.0-beta.2', 'TGZ'), /missing lib\/host-capabilities.js/)
   const unresolved = new Map(entries)
-  unresolved.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + '__DELTA_DESKTOP_STYLE__'))
+  unresolved.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + '__DELTA_SUITE_STYLE__'))
   assert.throws(() => verifyEntries(unresolved, '0.1.0-beta.2', 'ZIP'), /build markers/)
   const oldName = new Map(entries)
   oldName.set('package.json', Buffer.from(JSON.stringify({ ...JSON.parse(entries.get('package.json').toString()),
@@ -86,7 +86,7 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
 
 test('central manual release verifies both packaged archives after build', () => {
   const script = readFileSync(join(import.meta.dirname, '../scripts/build-release.mjs'), 'utf8')
-  assert.match(script, /verify-delta-desktop-release\.mjs/)
+  assert.match(script, /verify-delta-suite-release\.mjs/)
   assert.match(script, /--zip/)
   assert.match(script, /--tgz/)
   assert.match(script, /--version/)

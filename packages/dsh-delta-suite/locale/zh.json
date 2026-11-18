@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Delta 桌面",
-    "description": "Delta Desktop 原生插件，提供可扩展的桌面体验与设置。"
+    "title": "Delta 扩展套件",
+    "description": "Delta Suite 原生插件，提供可扩展的桌面体验与设置。"
   },
   "ui": {
     "preference": "切换主题，不影响会话、模型和插件。",
@@ -14,7 +14,7 @@
     "sidebar": "展开或收起侧栏",
     "status": "当前主题",
     "unavailable": "此版本缺少必要能力或操作失败，请停用此插件并恢复官方界面。",
-    "recovery": "无法显示设置时，请从宿主 Profile 禁用 dsh-delta-desktop 条目并重启。",
+    "recovery": "无法显示设置时，请从宿主 Profile 禁用 dsh-delta-suite 条目并重启。",
     "shortcut": "快捷键由官方布局管理，本插件不覆盖既有按键。",
     "personalization": "个性设置",
     "personalizationDescription": "可在 Delta 主题与官方主题之间切换。",

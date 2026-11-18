@@ -1,5 +1,5 @@
 /**
- * Vision Bridge (\u89c6\u89c9\u6865) Host Engine for @fongap-labs/dsh-delta-desktop.
+ * Vision Bridge (\u89c6\u89c9\u6865) Host Engine for @fongap-labs/dsh-delta-suite.
  * Inspired by and compatible with https://github.com/liustack/modlens.
  *
  * Provides:
@@ -36,10 +36,10 @@ function getGlobals(): NodeGlobals {
   return globalThis as unknown as NodeGlobals
 }
 
-export const DELTA_VISION_PASTE_PATH = '/api/delta-desktop/vision/paste'
-export const DELTA_VISION_RECOGNIZE_PATH = '/api/delta-desktop/vision/recognize'
-export const DELTA_VISION_STATUS_PATH = '/api/delta-desktop/vision/status'
-export const DELTA_VISION_CONFIG_PATH = '/api/delta-desktop/vision/config'
+export const DELTA_VISION_PASTE_PATH = '/api/delta-suite/vision/paste'
+export const DELTA_VISION_RECOGNIZE_PATH = '/api/delta-suite/vision/recognize'
+export const DELTA_VISION_STATUS_PATH = '/api/delta-suite/vision/status'
+export const DELTA_VISION_CONFIG_PATH = '/api/delta-suite/vision/config'
 
 export interface VisionEvidence {
   summary: string
@@ -761,7 +761,7 @@ export function registerVisionTools(ctx: any, resolveAccount: () => Promise<Visi
     const unsub2 = toolsSvc.register(buildToolDef('modlens_read_image'))
     if (typeof unsub2 === 'function') unsubs.push(unsub2)
   } catch (err) {
-    getGlobals().console?.error(`[delta-desktop] vision tools registration skipped: ${err}`)
+    getGlobals().console?.error(`[delta-suite] vision tools registration skipped: ${err}`)
   }
 
   return () => {

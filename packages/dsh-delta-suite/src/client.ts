@@ -1,5 +1,5 @@
 /**
- * Delta Desktop browser module. It only registers its lazy factory while loading.
+ * Delta Suite browser module. It only registers its lazy factory while loading.
  * Layout/session ownership always remains with the official UI plugins.
  */
 let deltaSettingsForm: McpConfigForm | undefined
@@ -111,7 +111,7 @@ type FeaturePreferences = Readonly<{
   inputOptimization: boolean
 }>
 type FeaturePreferenceKey = keyof FeaturePreferences
-const FEATURE_STORAGE_KEY = 'fongap.dsh-delta-desktop.features.v1'
+const FEATURE_STORAGE_KEY = 'fongap.dsh-delta-suite.features.v1'
 const DEFAULT_FEATURE_PREFERENCES: FeaturePreferences = Object.freeze({
   showDeepSeekAccountInfo: true, showModelInfo: true, inputOptimization: true,
 })
@@ -486,7 +486,7 @@ function installClientVisionBridge(): () => void {
     try {
       const outcomes = await Promise.allSettled(files.map(async (file) => {
         const ab = await file.arrayBuffer()
-        const res = await fetch('/api/delta-desktop/vision/paste', {
+        const res = await fetch('/api/delta-suite/vision/paste', {
           method: 'POST',
           headers: {
             'content-type': file.type || 'image/png',
@@ -518,7 +518,7 @@ function installClientVisionBridge(): () => void {
         showDeltaToast(copy.visionBridge.toastTranscribing)
         for (const p of paths) {
           try {
-            const recRes = await fetch('/api/delta-desktop/vision/recognize', {
+            const recRes = await fetch('/api/delta-suite/vision/recognize', {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify({ path: p }),
@@ -583,11 +583,11 @@ function installClientVisionBridge(): () => void {
 }
 
 // The release builder replaces both markers with data from locale/*.json and src/theme.css.
-const DICTIONARIES = '__DELTA_DESKTOP_LOCALES__' as unknown as Record<Language, DeltaCopy>
-const OWNED_CSS = '__DELTA_DESKTOP_STYLE__'
-const FEATURE_ONLY_CSS = '__DELTA_DESKTOP_FEATURE_STYLE__'
-const DELTA_DESKTOP_OWNER = '@fongap-labs/dsh-delta-desktop'
-const STORAGE_KEY = 'fongap.dsh-delta-desktop.v1'
+const DICTIONARIES = '__DELTA_SUITE_LOCALES__' as unknown as Record<Language, DeltaCopy>
+const OWNED_CSS = '__DELTA_SUITE_STYLE__'
+const FEATURE_ONLY_CSS = '__DELTA_SUITE_FEATURE_STYLE__'
+const DELTA_SUITE_OWNER = '@fongap-labs/dsh-delta-suite'
+const STORAGE_KEY = 'fongap.dsh-delta-suite.v1'
 const DELTA_PALETTE = {
   brand: { light: '#286F78', dark: '#60B4BF' },
   brandHover: { light: '#1D5E66', dark: '#75CBD5' },
@@ -712,7 +712,7 @@ function createController(): DeltaController {
     if (mode === 'official') return true
     try {
       if (!activeTheme || typeof activeTheme.overrideTokens !== 'function') return false
-      ownedLayer = activeTheme.overrideTokens(DELTA_DESKTOP_OWNER, TOKENS)
+      ownedLayer = activeTheme.overrideTokens(DELTA_SUITE_OWNER, TOKENS)
       return typeof ownedLayer === 'function'
     } catch { return false }
   }
@@ -1848,9 +1848,9 @@ function createClientFeatureManager(): ClientFeatureManager {
     refreshInFlight = (async () => {
       try {
         const [stRes, pxRes, vsRes] = await Promise.all([
-          fetch('/api/delta-desktop/state', { credentials: 'same-origin' }).catch(() => null),
-          fetch('/api/delta-desktop/proxy', { credentials: 'same-origin' }).catch(() => null),
-          fetch('/api/delta-desktop/vision/status', { credentials: 'same-origin' }).catch(() => null),
+          fetch('/api/delta-suite/state', { credentials: 'same-origin' }).catch(() => null),
+          fetch('/api/delta-suite/proxy', { credentials: 'same-origin' }).catch(() => null),
+          fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' }).catch(() => null),
         ])
         if (stRes?.ok) {
           const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
@@ -1909,7 +1909,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       })
       return true
     }
-    const res = await postHostJson('/api/delta-desktop/proxy', { ...next })
+    const res = await postHostJson('/api/delta-suite/proxy', { ...next })
     if (!res.ok) {
       const reason = res.data?.reason
       const errMsg = reason === 'socks' ? copy.networkProxy.socksUnsupported : copy.networkProxy.invalidUrl
@@ -1933,14 +1933,14 @@ function createClientFeatureManager(): ClientFeatureManager {
       })
       return true
     }
-    const res = await postHostJson('/api/delta-desktop/vision/config', { ...next })
+    const res = await postHostJson('/api/delta-suite/vision/config', { ...next })
     if (res.ok && res.data?.vision) {
       publish({
         vision: Object.freeze({ ...state.vision, ...res.data.vision }),
       })
       void (async () => {
         try {
-          const vRes = await fetch('/api/delta-desktop/vision/status', { credentials: 'same-origin' })
+          const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
           const vData = (await vRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
           if (vRes.ok) {
             publish({
@@ -1961,7 +1961,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       return { ok: true, message: copy.visionBridge.testSuccess.replace('{model}', 'Omni (Mock/Local)') }
     }
     try {
-      const res = await fetch('/api/delta-desktop/vision/status', { credentials: 'same-origin' })
+      const res = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
       const data = await res.json().catch(() => null)
       if (res.ok && data?.engineReady) {
         const modelName = data.account?.model || 'Omni'
@@ -2012,7 +2012,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   }> => {
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', { action: 'setup-begin' })
+    const res = await postHostJson('/api/delta-suite/session-lock', { action: 'setup-begin' })
     if (!res.ok || res.data?.ok !== true || typeof res.data.setupToken !== 'string' || !res.data.setupToken ||
         typeof res.data.secret !== 'string' || !res.data.secret ||
         typeof res.data.otpauthUri !== 'string' || !res.data.otpauthUri) {
@@ -2035,7 +2035,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (!/^\d{6}$/.test(trimmed)) return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', {
+    const res = await postHostJson('/api/delta-suite/session-lock', {
       action: 'setup-confirm',
       sessionId,
       setupToken,
@@ -2065,7 +2065,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (!/^\d{6}$/.test(trimmed)) return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', {
+    const res = await postHostJson('/api/delta-suite/session-lock', {
       action: 'setup-confirm',
       workspaceId,
       setupToken,
@@ -2088,7 +2088,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   const lockSession = async (sessionId: string, _newPin?: string): Promise<{ ok: boolean; error?: string }> => {
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', {
+    const res = await postHostJson('/api/delta-suite/session-lock', {
       action: 'lock',
       sessionId,
     })
@@ -2110,7 +2110,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   const lockWorkspace = async (workspaceId: string): Promise<{ ok: boolean; error?: string }> => {
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', {
+    const res = await postHostJson('/api/delta-suite/session-lock', {
       action: 'lock',
       workspaceId,
     })
@@ -2136,7 +2136,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', {
+    const res = await postHostJson('/api/delta-suite/session-lock', {
       action: isPermanent ? 'unlock' : 'verify',
       sessionId,
       code: trimmed,
@@ -2165,7 +2165,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', {
+    const res = await postHostJson('/api/delta-suite/session-lock', {
       action: isPermanent ? 'unlock' : 'verify',
       workspaceId,
       code: trimmed,
@@ -2194,7 +2194,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     const previouslyLocked = [...state.lockedSessionIds]
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
-    const res = await postHostJson('/api/delta-desktop/session-lock', {
+    const res = await postHostJson('/api/delta-suite/session-lock', {
       action: 'unbind-2fa',
       code: trimmed,
       pin: trimmed,
@@ -2239,7 +2239,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       sourceCwd = findWorkspaceCwdForSession(sessionId)
     } catch { return { ok: false, error: 'MOVE_UNAVAILABLE' } }
     if (!targetWs?.path) return { ok: false, error: 'MOVE_UNAVAILABLE' }
-    const res = await postHostJson('/api/delta-desktop/session-move', {
+    const res = await postHostJson('/api/delta-suite/session-move', {
       sessionId,
       targetWorkspaceId,
       targetPath: targetWs.path,
@@ -2267,7 +2267,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     if (!canCallHostHttp()) return { ok: false, error: 'DELETE_UNAVAILABLE' }
     const sourceCwd = findWorkspaceCwdForSession(sessionId)
-    const res = await postHostJson('/api/delta-desktop/session-delete', {
+    const res = await postHostJson('/api/delta-suite/session-delete', {
       sessionId,
       ...(sourceCwd ? { sourceCwd } : {}),
     })
@@ -2320,7 +2320,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       if (cwd) cwds[sid] = cwd
     }
     // Only eligible IDs may reach the existing Host deletion endpoint.
-    const res = await postHostJson('/api/delta-desktop/session-delete-ungrouped', { sessionIds: eligible, cwds })
+    const res = await postHostJson('/api/delta-suite/session-delete-ungrouped', { sessionIds: eligible, cwds })
     if (!res.ok || res.data?.ok !== true) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
     const confirmedState = res.data?.state
     const reported = res.data?.deletedIds
@@ -3134,8 +3134,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   const writeStoredPaneWidth = (key: string, width: number): void => {
     try { localStorage.setItem(key, String(Math.round(width))) } catch {}
   }
-  let customSidebarWidth = readStoredPaneWidth('dsh-delta-desktop:sidebar-width')
-  let customRightbarWidth = readStoredPaneWidth('dsh-delta-desktop:rightbar-width')
+  let customSidebarWidth = readStoredPaneWidth('dsh-delta-suite:sidebar-width')
+  let customRightbarWidth = readStoredPaneWidth('dsh-delta-suite:rightbar-width')
   let frameResizeObserver: ResizeObserver | undefined
   let observedFrameEl: HTMLElement | undefined
   const modifiedHandles = new Set<HTMLElement>()
@@ -3479,9 +3479,9 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
     const onEnd = (): void => {
       if (isSidebarHandle && customSidebarWidth !== undefined) {
-        writeStoredPaneWidth('dsh-delta-desktop:sidebar-width', customSidebarWidth)
+        writeStoredPaneWidth('dsh-delta-suite:sidebar-width', customSidebarWidth)
       } else if (!isSidebarHandle && customRightbarWidth !== undefined) {
-        writeStoredPaneWidth('dsh-delta-desktop:rightbar-width', customRightbarWidth)
+        writeStoredPaneWidth('dsh-delta-suite:rightbar-width', customRightbarWidth)
       }
       try {
         if (typeof handle.releasePointerCapture === 'function' && pe.pointerId !== undefined && handle.hasPointerCapture?.(pe.pointerId)) {
@@ -4261,7 +4261,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       }
     } catch (error) {
       reset()
-      console.error('[dsh-delta-desktop] Native compatibility disabled:', error)
+      console.error('[dsh-delta-suite] Native compatibility disabled:', error)
     } finally {
       observer?.takeRecords?.()
       isSyncing = false
@@ -4777,7 +4777,7 @@ function installHostSearch(
         },
         reason => {
           if (signal.aborted) return
-          console.warn('[dsh-delta-desktop] native Session search failed', reason)
+          console.warn('[dsh-delta-suite] native Session search failed', reason)
           finish({ items: [], ok: false })
         },
       )
@@ -4791,7 +4791,7 @@ function installHostSearch(
       queryLegacy()
       return
     }
-    void fetch('/api/delta-desktop/session-search?q=' + encodeURIComponent(query) + '&limit=30', {
+    void fetch('/api/delta-suite/session-search?q=' + encodeURIComponent(query) + '&limit=30', {
       method: 'GET',
       credentials: 'same-origin',
       signal,
@@ -4825,7 +4825,7 @@ function installHostSearch(
       else navigation.openSession(sessionId)
       stopRevealTimer = revealSessionTurnInChat(turn, snippet)
     } catch (reason) {
-      console.warn('[dsh-delta-desktop] native Session navigation failed', reason)
+      console.warn('[dsh-delta-suite] native Session navigation failed', reason)
     }
   }
 
@@ -4927,7 +4927,7 @@ function installHostSearch(
           inlineRemoteItems = []
           renderInline()
         } catch (reason) {
-          console.warn('[dsh-delta-desktop] native Session navigation failed', reason)
+          console.warn('[dsh-delta-suite] native Session navigation failed', reason)
           hasInlineError = true
           renderInline()
         }
@@ -5894,7 +5894,7 @@ function installHostSearch(
         stop?.()
         invalidateSearchProtection()
       }
-    }, 'dsh-delta-desktop: search workspace protection observer')
+    }, 'dsh-delta-suite: search workspace protection observer')
   }) } catch { /* An unavailable workspace snapshot remains excluded by the policy. */ }
   sync()
   return () => {
@@ -5913,7 +5913,7 @@ function installHostSearch(
 }
 
 window.__ModuleLoader__.load({
-  id: DELTA_DESKTOP_OWNER,
+  id: DELTA_SUITE_OWNER,
   factory(require) {
     let React: ReactApi
     try {
@@ -5924,7 +5924,7 @@ window.__ModuleLoader__.load({
         throw new Error('Host React platform module is incomplete')
       }
     } catch (error) {
-      console.error('[dsh-delta-desktop] React unavailable; native UI remains active:', error)
+      console.error('[dsh-delta-suite] React unavailable; native UI remains active:', error)
       return { inject: [], apply() {} }
     }
     const el = React.createElement
@@ -6272,7 +6272,7 @@ window.__ModuleLoader__.load({
               feedback ? el('p', { className: 'dtd-mcp-feedback', role: 'status' }, feedback) : null))
       )
     }
-    const ASSISTANT_TAB_ID = DELTA_DESKTOP_OWNER
+    const ASSISTANT_TAB_ID = DELTA_SUITE_OWNER
     const ASSISTANT_TAB_KIND = 'delta-context-assistant'
     const ASSISTANT_PROTOCOL = 'dtdelta'
     const ASSISTANT_PRESET = 'delta-context'
@@ -6302,7 +6302,7 @@ window.__ModuleLoader__.load({
       const workflow = assistantWorkflows.get(parsed.assistantSessionId)
       return workflow?.purpose === 'optimization' && workflow.parentSessionId === parsed.parentSessionId
     }
-    const savedAssistantKey = 'fongap.dsh-delta-desktop.assistant-sessions.v1'
+    const savedAssistantKey = 'fongap.dsh-delta-suite.assistant-sessions.v1'
     function assistantAddress(parentSessionId: string, assistantSessionId: string, purpose: 'discussion' | 'optimization'): string {
       const query = new URLSearchParams({ parent: parentSessionId, purpose })
       return `dsh-resource://${ASSISTANT_PROTOCOL}/session/${encodeURIComponent(assistantSessionId)}?${query}`
@@ -6388,7 +6388,7 @@ window.__ModuleLoader__.load({
             await lease.ended
           } finally { lease.release() }
         },
-      }), 'dsh-delta-desktop: independent assistant resources')
+      }), 'dsh-delta-suite: independent assistant resources')
       scope.effect(() => scope.sidebarRightTabs.register({
         id: ASSISTANT_TAB_ID,
         kind: ASSISTANT_TAB_KIND,
@@ -6402,7 +6402,7 @@ window.__ModuleLoader__.load({
         title: address => parseAssistantAddress(address)?.purpose === 'optimization'
           ? (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.optimizeDraft
           : (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.discussTask,
-      }), 'dsh-delta-desktop: independent assistant sidebar type')
+      }), 'dsh-delta-suite: independent assistant sidebar type')
       scope.slots.inject('sidebar.right.pane.tab', () => scope.slots.register({
         name: 'sidebar.right.pane.tab', key: ASSISTANT_TAB_ID,
         children: { 'delta.assistant.conversation': { kind: 'single', scope: 'session' } },
@@ -7224,7 +7224,7 @@ window.__ModuleLoader__.load({
               }
               scope.effect(() => {
                 const tag = document.createElement('style')
-                tag.dataset.plugin = DELTA_DESKTOP_OWNER
+                tag.dataset.plugin = DELTA_SUITE_OWNER
                 tag.textContent = OWNED_CSS
                 document.head.appendChild(tag)
                 const observer = typeof MutationObserver !== 'undefined'
@@ -7271,7 +7271,7 @@ window.__ModuleLoader__.load({
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
                 }
-              }, 'dsh-delta-desktop: personalization resource ownership')
+              }, 'dsh-delta-suite: personalization resource ownership')
 
               const settingsModules: ReadonlyArray<{
                 id: string
@@ -7312,12 +7312,12 @@ window.__ModuleLoader__.load({
                 style.textContent = FEATURE_ONLY_CSS
                 document.head.appendChild(style)
                 return () => { style.parentNode?.removeChild?.(style); closeMcpManagement() }
-              }, 'dsh-delta-desktop: optional feature styles and MCP cleanup')
+              }, 'dsh-delta-suite: optional feature styles and MCP cleanup')
 
               try { scope.inject(['configForms', 'remote'], mcpScope => {
                 const candidate = mcpScope as ClientContext
                 mcpScope.effect(() => {
-                  const form = candidate.configForms?.get('dsh-delta-desktop')
+                  const form = candidate.configForms?.get('dsh-delta-suite')
                   const credentials = candidate.remote?.credentials
                   deltaSettingsForm = form
                   deltaCredentialRemote = credentials
@@ -7329,7 +7329,7 @@ window.__ModuleLoader__.load({
                     if (deltaCredentialRemote === credentials) deltaCredentialRemote = undefined
                     publishDeltaSettings()
                   }
-                }, 'dsh-delta-desktop: vision settings contract')
+                }, 'dsh-delta-suite: vision settings contract')
                 mcpScope.effect(() => {
                   const services: McpServices = {
                     form: candidate.configForms?.get('mcp-manager') ?? candidate.configForms?.get('mcp'),
@@ -7340,7 +7340,7 @@ window.__ModuleLoader__.load({
                   return () => {
                     if (mcpServices === services) { mcpServices = undefined; renderMcpManagement() }
                   }
-                }, 'dsh-delta-desktop: MCP manager integration')
+                }, 'dsh-delta-suite: MCP manager integration')
               }) } catch { /* unavailable official settings services remain optional */ }
 
               if (MenuItemButton && ReactRoot) {
@@ -7355,7 +7355,7 @@ window.__ModuleLoader__.load({
                 if (!capabilities.sessions || !capabilities.resources ||
                     !capabilities.sidebarRightTabs || !capabilities.sidebarRight) return
                 assistantScope.effect(() => registerAssistantSurface(capabilities),
-                  'dsh-delta-desktop: context assistant and compaction activity')
+                  'dsh-delta-suite: context assistant and compaction activity')
               }) } catch { /* optional context services do not block the ZIP UI */ }
 
               const registerBrand = (
@@ -7372,7 +7372,7 @@ window.__ModuleLoader__.load({
                         const result = scope.slots.register({ name, id, order: -100, ...({ priority: -100 } as any) }, component)
                         release = typeof result === 'function' ? (result as () => void) : () => {}
                       } catch (error) {
-                        console.warn('[dsh-delta-desktop] Brand slot registration skipped:', error)
+                        console.warn('[dsh-delta-suite] Brand slot registration skipped:', error)
                       }
                     } else if (!shouldShow && release) {
                       release?.()
@@ -7407,7 +7407,7 @@ window.__ModuleLoader__.load({
                 const readNative = () => nativeSnapshot.call(workspaces.list)
                 deltaFeatures.setWorkspacesApi(workspaces, readNative)
                 workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
-                  'dsh-delta-desktop: workspaces reference')
+                  'dsh-delta-suite: workspaces reference')
 
                 workspaceScope.effect(() => installWorkspaceMutationGuards(
                   workspaces, readNative, deltaFeatures.getSnapshot,
@@ -7425,7 +7425,7 @@ window.__ModuleLoader__.load({
                         ? copy.ui.protectedDefaultWorkspace
                         : copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
                   },
-                ), 'dsh-delta-desktop: workspace mutation compatibility guards')
+                ), 'dsh-delta-suite: workspace mutation compatibility guards')
               })
 
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
@@ -7440,7 +7440,7 @@ window.__ModuleLoader__.load({
                 deltaFeatures.setNavigationApi(navApi)
                 searchScope.effect(() => observeConfirmedMainSession(
                   sessionsApi.list, id => deltaFeatures.setActiveSessionId(id),
-                ), 'dsh-delta-desktop: confirmed mainView session observer')
+                ), 'dsh-delta-suite: confirmed mainView session observer')
 
                 // Register Move, PIN Lock, Delete actions natively in DSH contextMenus when supported
                 const contextMenus = searchScope.get?.('contextMenus') as {
@@ -7555,7 +7555,7 @@ window.__ModuleLoader__.load({
                     searchScope.effect(() => () => {
                       for (const s of menuStops) { try { s?.() } catch {} }
                       for (const s of iconStops) { try { if (typeof s === 'function') (s as () => void)() } catch {} }
-                    }, 'dsh-delta-desktop: session move/lock/delete menus')
+                    }, 'dsh-delta-suite: session move/lock/delete menus')
                   } catch {}
                 }
 
@@ -7566,32 +7566,32 @@ window.__ModuleLoader__.load({
                     deltaFeatures.setSessionsApi(undefined)
                     deltaFeatures.setNavigationApi(undefined)
                   }
-                }, 'dsh-delta-desktop: native service-backed sidebar search')
+                }, 'dsh-delta-suite: native service-backed sidebar search')
               })
 
               scope.inject(['theme'], themeScope => {
                 controller.bindTheme(themeScope.theme)
                 themeScope.effect(() => () => controller.bindTheme(undefined),
-                  'dsh-delta-desktop: theme service lifetime')
+                  'dsh-delta-suite: theme service lifetime')
               })
               scope.inject(['layout'], layoutScope => {
                 controller.bindLayout(layoutScope.layout)
                 layoutScope.effect(() => () => controller.bindLayout(undefined),
-                  'dsh-delta-desktop: layout service lifetime')
+                  'dsh-delta-suite: layout service lifetime')
               })
               try {
                 scope.inject(['sidebarRight'], rightScope => {
                   controller.bindSidebarRight(rightScope.sidebarRight)
                   rightScope.effect(() => () => controller.bindSidebarRight(undefined),
-                    'dsh-delta-desktop: right sidebar service lifetime')
+                    'dsh-delta-suite: right sidebar service lifetime')
                 })
               } catch { /* sidebarRight service is optional */ }
             } catch (error) {
-              console.error('[dsh-delta-desktop] Settings mount failed; native UI preserved:', error)
+              console.error('[dsh-delta-suite] Settings mount failed; native UI preserved:', error)
             }
           })
         } catch (error) {
-          console.error('[dsh-delta-desktop] deferred Settings registration failed; native UI preserved:', error)
+          console.error('[dsh-delta-suite] deferred Settings registration failed; native UI preserved:', error)
         }
       },
     }

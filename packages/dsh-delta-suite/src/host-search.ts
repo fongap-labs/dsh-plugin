@@ -9,7 +9,7 @@
  */
 import { redactSensitiveText } from './redact.js'
 
-export const DELTA_SESSION_SEARCH_PATH = '/api/delta-desktop/session-search'
+export const DELTA_SESSION_SEARCH_PATH = '/api/delta-suite/session-search'
 
 const MAX_SCAN_SESSIONS = 120
 const DEFAULT_LIMIT = 30
@@ -348,7 +348,7 @@ function makeJsonResponse(payload: HostSearchResponsePayload): unknown {
 }
 
 /**
- * Installs the in-memory Host session search HTTP handler (`/api/delta-desktop/session-search`).
+ * Installs the in-memory Host session search HTTP handler (`/api/delta-suite/session-search`).
  * Returns a cleanup callback that clears the in-memory LRU cache immediately.
  */
 export function installHostSessionSearch(

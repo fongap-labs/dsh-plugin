@@ -1,7 +1,7 @@
-# Delta Desktop native experience plugin; official UI modules remain enabled.
+# Delta Suite native experience plugin; official UI modules remain enabled.
 - insert:
-    - id: dsh-delta-desktop
-      name: '@fongap-labs/dsh-delta-desktop'
+    - id: dsh-delta-suite
+      name: '@fongap-labs/dsh-delta-suite'
       config:
         deepSeekModelsEnabled: true
         redactionEnabled: true

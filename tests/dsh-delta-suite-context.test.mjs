@@ -1,5 +1,5 @@
 import { test } from 'node:test'
-import { buildDesktopClientFixture } from './helpers/build-desktop-client.mjs'
+import { buildDesktopClientFixture } from './helpers/build-suite-client.mjs'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
@@ -8,10 +8,10 @@ import vm from 'node:vm'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/dsh-delta-desktop/tsconfig.json')], { stdio: 'pipe' })
+  fixture('packages/dsh-delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const clientSource = buildDesktopClientFixture()
 const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusProjection } = await import(pathToFileURL(
-  fixture('packages/dsh-delta-desktop/lib/context-projection.js')).href)
+  fixture('packages/dsh-delta-suite/lib/context-projection.js')).href)
 
 function makeHarness({ draft = 'Please explain the request clearly.', pressure, mainRunning = true,
   compactionStatus, command = async () => ({ matched: true }), persistedStorage = new Map(),
@@ -53,7 +53,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   }
   const context = {
     window: { __ModuleLoader__: { load(entry) { registration = entry } }, location: { href: 'https://harness.test/' } },
-    fetch: async path => ({ ok: true, json: async () => path === '/api/delta-desktop/state' ? { state: protectionState } : {} }),
+    fetch: async path => ({ ok: true, json: async () => path === '/api/delta-suite/state' ? { state: protectionState } : {} }),
     document, navigator: { language: 'en-US' }, URL, URLSearchParams, AbortController,
     localStorage: { getItem(key) { return storage.get(key) ?? null }, setItem(key, value) { storage.set(key, value) } },
     MutationObserver: class { observe() {} disconnect() {} },
@@ -150,7 +150,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
       mcpFormQueries.push(namespace)
       return namespace === mcpNamespace ? mcpForm : undefined
     }
-    if (namespace === 'dsh-delta-desktop') return deltaForm
+    if (namespace === 'dsh-delta-suite') return deltaForm
     throw new Error(`Unexpected config namespace ${namespace}`)
   } } : undefined
   const ctx = {
@@ -393,7 +393,7 @@ test('MCP enablement changes only one field and inherited removal requires confi
 })
 
 test('the package enables the official automatic compaction backend at Profile level', () => {
-  const patch = readFileSync(fixture('packages/dsh-delta-desktop/cordis.patch.yml'), 'utf8')
+  const patch = readFileSync(fixture('packages/dsh-delta-suite/cordis.patch.yml'), 'utf8')
   assert.match(patch, /- id: dsh-delta-global-compaction\s+name: '@deepseek-ai\/dsh-compaction-basic'\s+config:\s+auto: true/)
   const preset = patch.slice(patch.indexOf('id: dsh-delta-context-preset'))
   assert.match(preset, /id: delta-context/)
@@ -509,11 +509,11 @@ test('model label shows only the DeepSeek Account route name under its separate 
 })
 
 test('retired display preference fields are removed while supported preferences are preserved', () => {
-  const storage = new Map([['fongap.dsh-delta-desktop.features.v1', JSON.stringify({
+  const storage = new Map([['fongap.dsh-delta-suite.features.v1', JSON.stringify({
     showDeepSeekAccountInfo: false, showModelInfo: false, inputOptimization: true, retiredPreference: false,
   })]])
   makeHarness({ persistedStorage: storage })
-  assert.deepEqual(JSON.parse(storage.get('fongap.dsh-delta-desktop.features.v1')),
+  assert.deepEqual(JSON.parse(storage.get('fongap.dsh-delta-suite.features.v1')),
     { showDeepSeekAccountInfo: false, showModelInfo: false, inputOptimization: true })
 })
 
@@ -644,7 +644,7 @@ test('main-task corrections require a review step and are queued without steerin
   findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
   await turn()
   const address = app.opened[0]
-  const tab = [...app.components.values()].find(value => value.spec.name === 'sidebar.right.pane.tab' && value.spec.key === '@fongap-labs/dsh-delta-desktop')
+  const tab = [...app.components.values()].find(value => value.spec.name === 'sidebar.right.pane.tab' && value.spec.key === '@fongap-labs/dsh-delta-suite')
   assert.ok(tab)
   const props = {
     ...app.mainProps,

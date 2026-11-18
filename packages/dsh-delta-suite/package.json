@@ -1,9 +1,9 @@
 {
-  "name": "@fongap-labs/dsh-delta-desktop",
+  "name": "@fongap-labs/dsh-delta-suite",
   "version": "0.0.0",
   "private": false,
   "type": "module",
-  "description": "Delta Desktop native DeepSeek Harness plugin with extensible appearance and settings.",
+  "description": "Delta Suite native DeepSeek Harness plugin with extensible appearance and settings.",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {

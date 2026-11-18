@@ -14,10 +14,10 @@ try {
   writeFileSync(join(compileDir, 'package.json'), '{"type":"module"}\n')
   const dependenciesDir = join(compileDir, 'node_modules')
   mkdirSync(dependenciesDir)
-  cpSync(fixture('packages/dsh-delta-desktop/node_modules/zod'), join(dependenciesDir, 'zod'), { recursive: true, dereference: true })
+  cpSync(fixture('packages/dsh-delta-suite/node_modules/zod'), join(dependenciesDir, 'zod'), { recursive: true, dereference: true })
   const harnessDependencies = join(dependenciesDir, '@deepseek-ai')
   mkdirSync(harnessDependencies)
-  const schemasteryPath = fixture('packages/dsh-delta-desktop/node_modules/@deepseek-ai/schemastery/package.json')
+  const schemasteryPath = fixture('packages/dsh-delta-suite/node_modules/@deepseek-ai/schemastery/package.json')
   const schemasteryRequire = createRequire(realpathSync(schemasteryPath))
   let cosmokitRoot = dirname(schemasteryRequire.resolve('@deepseek-ai/cosmokit'))
   while (basename(cosmokitRoot) !== 'cosmokit') {
@@ -25,11 +25,11 @@ try {
     if (parent === cosmokitRoot) throw new Error('Could not resolve the schemastery cosmokit dependency')
     cosmokitRoot = parent
   }
-  cpSync(fixture('packages/dsh-delta-desktop/node_modules/@deepseek-ai/schemastery'),
+  cpSync(fixture('packages/dsh-delta-suite/node_modules/@deepseek-ai/schemastery'),
     join(harnessDependencies, 'schemastery'), { recursive: true, dereference: true })
   cpSync(cosmokitRoot, join(harnessDependencies, 'cosmokit'), { recursive: true, dereference: true })
   execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-    fixture('packages/dsh-delta-desktop/tsconfig.json'), '--outDir', compileDir], { stdio: 'pipe' })
+    fixture('packages/dsh-delta-suite/tsconfig.json'), '--outDir', compileDir], { stdio: 'pipe' })
   host = await import(pathToFileURL(join(compileDir, 'index.js')).href)
 } finally { rmSync(compileDir, { recursive: true, force: true }) }
 

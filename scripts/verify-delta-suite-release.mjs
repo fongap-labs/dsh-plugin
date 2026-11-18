@@ -6,11 +6,11 @@ import { gunzipSync, inflateRawSync } from 'node:zlib'
 import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const packageName = '@fongap-labs/dsh-delta-desktop'
+const packageName = '@fongap-labs/dsh-delta-suite'
 const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/host-capabilities.js', 'lib/client.js',
   'locale/en.json', 'locale/zh.json', 'icon.svg']
 function ensure(isValid, description) {
-  if (!isValid) throw new Error('Invalid Delta Desktop release: ' + description)
+  if (!isValid) throw new Error('Invalid Delta Suite release: ' + description)
 }
 export function readZip(buffer) {
   const entries = new Map()
@@ -143,17 +143,17 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-18: shortcut catalog rows are display-only unless backed by explicit Delta action routes; no synthetic registry invocation.
 // Reviewed 2026-11-18: Search Palette copies slash commands via Clipboard API; no Host editor DOM injection.
 // Reviewed 2026-11-18: explicit session-scoped composer Slot uses public revision-guarded InputActions; unscoped search remains copy-only.
-const ZIP3_THEME_BLOB = '6d532fe477afc175db33e770fb3061df0d21b992'
+const ZIP3_THEME_BLOB = '96c382f064f3b5922c645014aaafd3ea1302627f'
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'f60be1b537d8040f2486863a8ee5055ea681233f',
+    sha1: 'db74a4528e807a781b12771d69cc7e2e3dc3314b',
   },
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: '446255b27a7ded9234251aeaf818af94e3304b7e',
+    sha1: '71f5b46527f16f053f5b0ecc0448243353a0d9c4',
   },
 ]
 
@@ -168,7 +168,7 @@ function checkedRegion(source, { begin, end, sha1 }) {
 }
 
 export function verifyApprovedZip3Client(client, sourceText = readFileSync(
-  new URL('../packages/dsh-delta-desktop/src/client.ts', import.meta.url), 'utf8'
+  new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url), 'utf8'
 )) {
   const source = sourceText.replace(/\r\n/g, '\n')
   for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
@@ -202,7 +202,7 @@ export function verifyEntries(entries, version, format) {
   ensure(manifest.dsh?.client?.platform === 'web', format + ' client platform')
   ensure(manifest.exports?.['./client'] === './lib/client.js', format + ' client export')
   const patch = entries.get('cordis.patch.yml').toString()
-  ensure(patch.includes('id: dsh-delta-desktop') && patch.includes(packageName), format + ' patch')
+  ensure(patch.includes('id: dsh-delta-suite') && patch.includes(packageName), format + ' patch')
   const host = entries.get('lib/index.js').toString()
   ensure(host.includes('negotiateHostCapabilities') && host.includes('DELTA_HOST_CONTRACT_VERSION'), format + ' Host capability contract')
   ensure(entries.get('lib/host-capabilities.js').toString().includes('negotiateHostCapabilities'), format + ' capability module')
@@ -212,8 +212,8 @@ export function verifyEntries(entries, version, format) {
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
   ensure(client.includes('data-delta-ui'), format + ' appearance lifecycle')
   verifyApprovedZip3Client(client)
-  ensure(!client.includes('__DELTA_DESKTOP_STYLE__') &&
-    !client.includes('__DELTA_DESKTOP_LOCALES__'), format + ' build markers')
+  ensure(!client.includes('__DELTA_SUITE_STYLE__') &&
+    !client.includes('__DELTA_SUITE_LOCALES__'), format + ' build markers')
   for (const lang of ['en', 'zh']) {
     const locale = JSON.parse(entries.get('locale/' + lang + '.json').toString())
     ensure(locale.meta?.title && locale.ui?.newConversation, format + ' locale ' + lang)
@@ -221,8 +221,8 @@ export function verifyEntries(entries, version, format) {
 }
 export function verifyRelease(zipPath, tgzPath, version) {
   ensure(/^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/.test(version), 'version syntax')
-  ensure(basename(zipPath) === 'fongap-labs-dsh-delta-desktop.zip', 'ZIP name')
-  ensure(basename(tgzPath) === 'fongap-labs-dsh-delta-desktop.tgz', 'TGZ name')
+  ensure(basename(zipPath) === 'fongap-labs-dsh-delta-suite.zip', 'ZIP name')
+  ensure(basename(tgzPath) === 'fongap-labs-dsh-delta-suite.tgz', 'TGZ name')
   verifyEntries(readZip(readFileSync(zipPath)), version, 'ZIP')
   verifyEntries(readTgz(readFileSync(tgzPath)), version, 'TGZ')
 }
@@ -236,6 +236,6 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     }
     ensure(args.size === 3, 'expected --zip --tgz --version')
     verifyRelease(args.get('--zip'), args.get('--tgz'), args.get('--version'))
-    console.log('Verified Delta Desktop ' + packageName + '@' + args.get('--version'))
+    console.log('Verified Delta Suite ' + packageName + '@' + args.get('--version'))
   } catch (error) { console.error(error); process.exitCode = 1 }
 }

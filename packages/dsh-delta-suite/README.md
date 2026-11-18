@@ -1,14 +1,14 @@
-# Delta Desktop · Delta 桌面
+# Delta Suite · Delta 扩展套件
 
-独立的 DeepSeek Harness 原生界面插件。
+嵌入 DeepSeek Harness 的原生扩展套件插件，不是独立桌面客户端。
 
-- npm 包名：`@fongap-labs/dsh-delta-desktop`
-- 插件配置条目：`dsh-delta-desktop`
+- npm 包名：`@fongap-labs/dsh-delta-suite`
+- 插件配置条目：`dsh-delta-suite`
 - 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
 
 ## 当前实现状态
 
-功能交付以 `projects/dsh-delta-desktop/feature-readiness.json` 为唯一状态源。当前只有以下三项具备明确的公开扩展接口并标记为已完成：
+功能交付以 `projects/dsh-delta-suite/feature-readiness.json` 为唯一状态源。当前只有以下三项具备明确的公开扩展接口并标记为已完成：
 
 1. **原生个性设置**：通过 `settings.section` 注册独立设置栏目。
 2. **主题令牌**：通过公开 Theme API 覆盖品牌色，并由 disposer 释放。
@@ -36,9 +36,9 @@
 
 ## 安装迁移
 
-旧版 `dsh-theme-delta` **不会被此包自动覆盖**。在隔离 Profile 中先停用并卸载旧主题插件，再安装 `dsh-delta-desktop`，保留官方 `ui-layout`、`ui-renderer`、`ui-theme` 和第三方插件。新包使用独立的 Cordis ID、本地状态命名空间和 Release Key；不得启用新旧两个插件。如果新包启动或渲染失败，直接禁用 `dsh-delta-desktop` 并重启恢复原生界面，禁止修改 `app.asar` 或隐藏宿主业务按钮。
+旧版 `dsh-theme-delta` **不会被此包自动覆盖**。在隔离 Profile 中先停用并卸载旧主题插件，再安装 `dsh-delta-suite`，保留官方 `ui-layout`、`ui-renderer`、`ui-theme` 和第三方插件。新包使用独立的 Cordis ID、本地状态命名空间和 Release Key；不得启用新旧两个插件。如果新包启动或渲染失败，直接禁用 `dsh-delta-suite` 并重启恢复原生界面，禁止修改 `app.asar` 或隐藏宿主业务按钮。
 
-历史 `dsh-delta-desktop` 标识曾出现于旧版更新日志，不能覆盖旧 GitHub Tag 或重复使用已发布的版本号。任何新版本都由手动发布任务明确输入。
+更名后的插件包使用新的 Cordis ID、npm 名称与 Release Key，不自动覆盖先前安装项。旧 GitHub Tag、Release 与用户设备上的已安装包不改写；迁移前先备份 Profile 并停用旧插件，任何新版本都由手动发布任务明确输入。
 
 ## 开发
 
@@ -47,7 +47,7 @@ pnpm install --frozen-lockfile
 pnpm build
 pnpm test
 pnpm validate
-pnpm link:dev dsh-delta-desktop
+pnpm link:dev dsh-delta-suite
 ```
 
 ## 验收

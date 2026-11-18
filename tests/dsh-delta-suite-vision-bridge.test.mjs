@@ -17,8 +17,8 @@ import {
   DELTA_VISION_RECOGNIZE_PATH,
   DELTA_VISION_STATUS_PATH,
   DELTA_VISION_CONFIG_PATH,
-} from '../packages/dsh-delta-desktop/lib/host-vision.js'
-import { createHostStateStore, defaultVisionSettings } from '../packages/dsh-delta-desktop/lib/host-state.js'
+} from '../packages/dsh-delta-suite/lib/host-vision.js'
+import { createHostStateStore, defaultVisionSettings } from '../packages/dsh-delta-suite/lib/host-state.js'
 
 test('Vision Bridge: detectImageMime correctly identifies image formats', () => {
   // PNG: 89 50 4E 47 0D 0A 1A 0A
@@ -432,13 +432,13 @@ test('Vision Bridge config and status never return a stored API key', async () =
   }
 })
 
-test('Delta Desktop state file replaces legacy permissive modes with a private atomic file', async () => {
+test('Delta Suite state file replaces legacy permissive modes with a private atomic file', async () => {
   const { tmpdir } = await import('node:os')
   const home = await fs.mkdtemp(path.join(tmpdir(), 'delta-private-state-'))
   try {
     const profileDir = path.join(home, 'profile')
     await fs.mkdir(profileDir, { recursive: true })
-    const filePath = path.join(profileDir, '.delta-desktop-state.json')
+    const filePath = path.join(profileDir, '.delta-suite-state.json')
     await fs.writeFile(filePath, '{}', { mode: 0o644 })
     const store = createHostStateStore({ get(name) {
       if (name === 'profileContext') return { dir: profileDir }

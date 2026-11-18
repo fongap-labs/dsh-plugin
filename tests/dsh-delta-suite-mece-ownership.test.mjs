@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const file = (relative) => readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8')
-const taxonomy = JSON.parse(file('../projects/dsh-delta-desktop/architecture-mece.json'))
-const client = file('../packages/dsh-delta-desktop/src/client.ts')
+const taxonomy = JSON.parse(file('../projects/dsh-delta-suite/architecture-mece.json'))
+const client = file('../packages/dsh-delta-suite/src/client.ts')
 
 test('MECE feature taxonomy contains exactly one owner for each declared capability', () => {
   assert.equal(taxonomy.schema_version, 1)
@@ -49,9 +49,9 @@ test('Host remains responsible for privileged effects and extensions remain cons
 })
 
 test('Host extension bootstrap uses the registered MECE domains rather than a hidden parallel installer', () => {
-  const host = file('../packages/dsh-delta-desktop/src/index.ts')
-  const composition = file('../packages/dsh-delta-desktop/src/delta-suite-composition.ts')
-  const registry = file('../packages/dsh-delta-desktop/src/delta-suite-kernel/feature-lifecycle-registry.ts')
+  const host = file('../packages/dsh-delta-suite/src/index.ts')
+  const composition = file('../packages/dsh-delta-suite/src/delta-suite-composition.ts')
+  const registry = file('../packages/dsh-delta-suite/src/delta-suite-kernel/feature-lifecycle-registry.ts')
   assert.match(host, /export \{ apply \} from '\.\/delta-suite-composition\.js'/)
   assert.match(composition, /new DeltaFeatureRegistry<PrivacyHostContext>/)
   assert.match(composition, /registry\.mount\(ctx, new Set<string>\(\)\)/)

@@ -1,9 +1,9 @@
 /** Public Host exports retained during the Delta Suite migration. */
 export { Config } from './privacy-bridge.js'
 export { DeltaFeatureRegistry, DELTA_FEATURE_OWNERS, DELTA_EXTENSION_SURFACES } from './delta-suite-kernel/feature-lifecycle-registry.js'
-export type { DeltaDesktopFeature, DeltaExtensionSurface, DeltaFeatureOwner } from './delta-suite-kernel/feature-lifecycle-registry.js'
+export type { DeltaSuiteFeature, DeltaExtensionSurface, DeltaFeatureOwner } from './delta-suite-kernel/feature-lifecycle-registry.js'
 
-export const name = '@fongap-labs/dsh-delta-desktop'
+export const name = '@fongap-labs/dsh-delta-suite'
 export const inject: string[] = []
 export {
   DELTA_HOST_CAPABILITIES,

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "title": "Delta Desktop",
-    "description": "Delta Desktop native DeepSeek Harness plugin with extensible appearance and settings."
+    "title": "Delta Suite",
+    "description": "Delta Suite native DeepSeek Harness plugin with extensible appearance and settings."
   },
   "ui": {
     "preference": "Switch theme without disabling the official layout, sessions or plugins.",
@@ -14,7 +14,7 @@
     "sidebar": "Toggle sidebar",
     "status": "Current theme",
     "unavailable": "A required capability is unavailable or an action failed. Disable this plugin to restore the official UI.",
-    "recovery": "If Settings cannot open, disable dsh-delta-desktop in the Host Profile and restart.",
+    "recovery": "If Settings cannot open, disable dsh-delta-suite in the Host Profile and restart.",
     "shortcut": "The official layout owns shortcuts; this plugin does not override existing keys.",
     "personalization": "Personalization",
     "personalizationDescription": "Switch between Delta theme and official theme.",

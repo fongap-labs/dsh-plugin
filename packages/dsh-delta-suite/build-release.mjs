@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const script = resolve(root, 'scripts/build-release.mjs')
-const result = spawnSync(process.execPath, [script, '--package', 'dsh-delta-desktop', ...process.argv.slice(2)], {
+const result = spawnSync(process.execPath, [script, '--package', 'dsh-delta-suite', ...process.argv.slice(2)], {
   stdio: 'inherit',
 })
 if (result.error) throw result.error

@@ -20,24 +20,24 @@ export function buildDesktopClientFixture() {
   try {
     execFileSync(process.execPath, [
       fixture('node_modules/typescript/bin/tsc'),
-      '-p', fixture('packages/dsh-delta-desktop/tsconfig.client.json'),
+      '-p', fixture('packages/dsh-delta-suite/tsconfig.client.json'),
       '--outDir', temp,
     ], { stdio: 'pipe' })
     let source = readFileSync(join(temp, 'client.js'), 'utf8')
     const dictionaries = Object.fromEntries(['zh', 'en'].map(lang => [
-      lang, JSON.parse(readFileSync(fixture('packages/dsh-delta-desktop/locale/' + lang + '.json'), 'utf8')),
+      lang, JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/' + lang + '.json'), 'utf8')),
     ]))
     const replacements = new Map([
-      ['__DELTA_DESKTOP_LOCALES__', JSON.stringify(dictionaries)],
-      ['__DELTA_DESKTOP_STYLE__', JSON.stringify(readFileSync(fixture('packages/dsh-delta-desktop/src/theme.css'), 'utf8'))],
-      ['__DELTA_DESKTOP_FEATURE_STYLE__', JSON.stringify(readFileSync(fixture('packages/dsh-delta-desktop/src/feature-extras.css'), 'utf8'))],
+      ['__DELTA_SUITE_LOCALES__', JSON.stringify(dictionaries)],
+      ['__DELTA_SUITE_STYLE__', JSON.stringify(readFileSync(fixture('packages/dsh-delta-suite/src/theme.css'), 'utf8'))],
+      ['__DELTA_SUITE_FEATURE_STYLE__', JSON.stringify(readFileSync(fixture('packages/dsh-delta-suite/src/feature-extras.css'), 'utf8'))],
     ])
     for (const [marker, value] of replacements) {
       const literal = "'" + marker + "'"
       if (source.split(literal).length !== 2) throw new Error('Expected exactly one ' + marker)
       source = source.replace(literal, value)
     }
-    if (/\b(?:from|import)\s*\(['"]|\bprocess\.env\b|__DELTA_DESKTOP_/.test(source)) {
+    if (/\b(?:from|import)\s*\(['"]|\bprocess\.env\b|__DELTA_SUITE_/.test(source)) {
       throw new Error('Fixture client contains unresolved runtime imports or markers')
     }
     if (!source.includes('window.__ModuleLoader__.load({')) {

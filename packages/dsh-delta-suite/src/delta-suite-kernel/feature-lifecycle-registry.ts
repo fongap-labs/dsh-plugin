@@ -16,7 +16,7 @@ export const DELTA_EXTENSION_SURFACES = [
 export type DeltaFeatureOwner = typeof DELTA_FEATURE_OWNERS[number]
 export type DeltaExtensionSurface = typeof DELTA_EXTENSION_SURFACES[number]
 
-export interface DeltaDesktopFeature<C> {
+export interface DeltaSuiteFeature<C> {
   /** Globally unique stable ID. */
   id: string
   /** Sole domain accountable for the behavior. */
@@ -43,12 +43,12 @@ export interface DeltaFeatureRuntime {
 }
 
 export class DeltaFeatureRegistry<C> {
-  private readonly definitions = new Map<string, DeltaDesktopFeature<C>>()
+  private readonly definitions = new Map<string, DeltaSuiteFeature<C>>()
   private mounted = false
   private disposed = false
   private readonly cleanups: Array<{ id: string; cleanup: () => void }> = []
 
-  register(feature: DeltaDesktopFeature<C>): void {
+  register(feature: DeltaSuiteFeature<C>): void {
     if (this.mounted || this.disposed) throw new Error('Delta feature registry is already mounted or disposed')
     if (!/^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/.test(feature.id)) {
       throw new Error('Invalid Delta feature ID: ' + feature.id)

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-const source = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/src/client.ts', import.meta.url)), 'utf8')
-const style = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/src/theme.css', import.meta.url)), 'utf8')
-const readiness = JSON.parse(readFileSync(fileURLToPath(new URL('../projects/dsh-delta-desktop/feature-readiness.json', import.meta.url)), 'utf8'))
+const source = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url)), 'utf8')
+const style = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/theme.css', import.meta.url)), 'utf8')
+const readiness = JSON.parse(readFileSync(fileURLToPath(new URL('../projects/dsh-delta-suite/feature-readiness.json', import.meta.url)), 'utf8'))
 
 test('ZIP3 owns the sidebar, SearchPalette and modal chrome without legacy competing UI', () => {
   assert.match(source, /function installSidebarCompatibility/)
@@ -35,9 +35,9 @@ test('unverified host-only capabilities remain unclaimed until Windows validatio
 })
 
 test('workspace TOTP lock and Vision Bridge stay localized and capability-gated', () => {
-  const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/locale/en.json', import.meta.url)), 'utf8'))
-  const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/locale/zh.json', import.meta.url)), 'utf8'))
-  const host = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-desktop/src/host-vision.ts', import.meta.url)), 'utf8')
+  const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/en.json', import.meta.url)), 'utf8'))
+  const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/locale/zh.json', import.meta.url)), 'utf8'))
+  const host = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/host-vision.ts', import.meta.url)), 'utf8')
   assert.equal(en.workspaceMenu.lockWorkspace, 'Lock workspace')
   assert.equal(zh.workspaceMenu.lockWorkspace, '\u9501\u5b9a\u5de5\u4f5c\u533a')
   assert.ok(en.visionBridge.title && zh.visionBridge.title)

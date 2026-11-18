@@ -72,7 +72,7 @@ export function registerCompactionStatusProjection(ctx: {
       if (!isActive) { await registered.dispose(); return }
       handle = registered
     }).catch(() => {
-      ;(child.logger || ctx.logger)?.warn?.('dsh-delta-desktop: compaction status projection registration failed')
+      ;(child.logger || ctx.logger)?.warn?.('dsh-delta-suite: compaction status projection registration failed')
     })
   })
   return () => {
@@ -80,7 +80,7 @@ export function registerCompactionStatusProjection(ctx: {
     const registered = handle
     handle = undefined
     if (registered) void registered.dispose().catch(() => {
-      ctx.logger?.warn?.('dsh-delta-desktop: compaction status projection disposal failed')
+      ctx.logger?.warn?.('dsh-delta-suite: compaction status projection disposal failed')
     })
   }
 }

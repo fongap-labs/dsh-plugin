@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/dsh-delta-desktop/tsconfig.json')], { stdio: 'pipe' })
-const built = relative => pathToFileURL(fixture(`packages/dsh-delta-desktop/lib/${relative}`)).href
+  fixture('packages/dsh-delta-suite/tsconfig.json')], { stdio: 'pipe' })
+const built = relative => pathToFileURL(fixture(`packages/dsh-delta-suite/lib/${relative}`)).href
 const { createSensitiveRedactor, redactModelRequest, restoreStream } = await import(built('privacy.js'))
 const { isValidCredentialRef, requestVisionDescription } = await import(built('vision-protocol.js'))
 const { registerPrivacyBridge } = await import(built('privacy-bridge.js'))

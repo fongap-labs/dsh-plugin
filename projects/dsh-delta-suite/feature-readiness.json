@@ -27,11 +27,11 @@
   },
   "note": "Public API review baseline: deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738 (2026-11-17, documentation only; no runtime version pin). Only native_personalization, theme_tokens and brand_slots currently have confirmed public extension contracts for this delivery. Sidebar ordering/search placement, workspace initial collapse/delete guard, full hover-card layout and RunningStatus copy remain false because no suitable public contract exists. Runtime capability detection remains version-agnostic; DOM takeover, private Store access and method interception are retired. Source tests do not prove Host compatibility or Windows acceptance.",
   "verification": {
-    "native_client": "tests/dsh-delta-desktop-native.test.mjs",
+    "native_client": "tests/dsh-delta-suite-native.test.mjs",
     "dom_compat": "retired: no direct DOM sidebar takeover",
-    "host_guard": "tests/dsh-delta-desktop-host-guard.test.mjs",
-    "mcp_management": "tests/dsh-delta-desktop-context.test.mjs",
-    "privacy_vision": "tests/dsh-delta-desktop-privacy.test.mjs",
+    "host_guard": "tests/dsh-delta-suite-host-guard.test.mjs",
+    "mcp_management": "tests/dsh-delta-suite-context.test.mjs",
+    "privacy_vision": "tests/dsh-delta-suite-privacy.test.mjs",
     "upstream_reference": "deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738; public API documentation reference only, no runtime version pin"
   }
 }

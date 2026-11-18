@@ -11,7 +11,7 @@
 import { loadNodeModule, makeJsonResponse, readRequestJson } from './host-state.js'
 import type { HostStateStore, ProxyMode, ProxySettings } from './host-state.js'
 
-export const DELTA_PROXY_PATH = '/api/delta-desktop/proxy'
+export const DELTA_PROXY_PATH = '/api/delta-suite/proxy'
 
 const PROXY_ENV_KEYS = [
   'http_proxy',

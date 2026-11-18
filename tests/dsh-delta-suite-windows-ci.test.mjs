@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
-test('Action Worker must run both Linux and Windows CI for Delta Desktop', () => {
+test('Action Worker must run both Linux and Windows CI for Delta Suite', () => {
   const manifest = JSON.parse(readFileSync(join(root, '.github/execution-manifest.json'), 'utf8'))
   const jobs = manifest.operations.ci.jobs
   assert.deepEqual(jobs.map(job => job.runner_profile).sort(), ['linux-standard', 'windows-build'])

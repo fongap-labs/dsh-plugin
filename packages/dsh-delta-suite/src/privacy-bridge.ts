@@ -241,7 +241,7 @@ export function registerPrivacyBridge(ctx: HostContext, config: DeltaPrivacyConf
           else Reflect.deleteProperty(llm, 'listModels')
         }
       } catch {
-        ctx.logger?.warn?.('dsh-delta-desktop: DeepSeek model-list adapter unavailable; request guard remains active')
+        ctx.logger?.warn?.('dsh-delta-suite: DeepSeek model-list adapter unavailable; request guard remains active')
       }
     }
     const originalResolver = llm.resolveModelInfo
@@ -270,7 +270,7 @@ export function registerPrivacyBridge(ctx: HostContext, config: DeltaPrivacyConf
           else Reflect.deleteProperty(llm, 'resolveModelInfo')
         }
       } catch {
-        ctx.logger?.warn?.('dsh-delta-desktop: vision image-admission adapter unavailable on this Host')
+        ctx.logger?.warn?.('dsh-delta-suite: vision image-admission adapter unavailable on this Host')
       }
     }
     scope.on('llm/stream', async function* (options, next) {
@@ -310,7 +310,7 @@ export function registerPrivacyBridge(ctx: HostContext, config: DeltaPrivacyConf
             outgoing = withDescription(outgoing as LlmRequest, descriptions)
           } catch {
             // Do not log prompts, image content, endpoints, or credentials.
-            ctx.logger?.warn?.('dsh-delta-desktop: vision bridge failed; original image was withheld')
+            ctx.logger?.warn?.('dsh-delta-suite: vision bridge failed; original image was withheld')
             yield staticFailure('The vision bridge could not process this image. Check its settings, credentials, and endpoint, then retry.')
             return
           }

@@ -8,12 +8,12 @@ import { join } from 'node:path'
 import vm from 'node:vm'
 
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
-const source = readFileSync(file('packages/dsh-delta-desktop/src/client.ts'), 'utf8')
+const source = readFileSync(file('packages/dsh-delta-suite/src/client.ts'), 'utf8')
 const dir = mkdtempSync(join(tmpdir(), 'delta-session-catalog-'))
 let compiled
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-    file('packages/dsh-delta-desktop/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
+    file('packages/dsh-delta-suite/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
   compiled = readFileSync(join(dir, 'client.js'), 'utf8')
 } finally { rmSync(dir, { recursive: true, force: true }) }
 const start = compiled.indexOf('function canCallHostHttp(')
@@ -48,7 +48,7 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
         return { ok: response.status === 200, status: response.status, json: async () => response.data }
       }
       return { ok: true, status: 200, json: async () =>
-        path === '/api/delta-desktop/state' ? { state: state([]) } : {} }
+        path === '/api/delta-suite/state' ? { state: state([]) } : {} }
     },
   }
   const manager = vm.runInNewContext(managerSource, env)
@@ -564,7 +564,7 @@ test('incomplete Host refresh preserves previously confirmed durable locks and r
   assert.equal(f.manager.isLocked('locked'), true)
   assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
   f.env.fetch = async path => ({
-    ok: true, status: 200, json: async () => path === '/api/delta-desktop/state'
+    ok: true, status: 200, json: async () => path === '/api/delta-suite/state'
       ? { state: { lockedSessionIds: [], deletedSessionIds: [] } } : {},
   })
   await f.manager.refreshState()
@@ -612,7 +612,7 @@ test('transient Host state failure revokes mutations yet automatically recovers 
   assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
   let stateRequests = 0
   f.env.fetch = async path => {
-    if (path === '/api/delta-desktop/state') {
+    if (path === '/api/delta-suite/state') {
       stateRequests++
       return { ok: false, status: 503, json: async () => ({ error: 'offline' }) }
     }
@@ -625,7 +625,7 @@ test('transient Host state failure revokes mutations yet automatically recovers 
   let now = Date.now() + 5000
   f.env.Date = class extends Date { static now() { return now } }
   f.env.fetch = async path => {
-    if (path === '/api/delta-desktop/state') {
+    if (path === '/api/delta-suite/state') {
       stateRequests++
       return { ok: true, status: 200, json: async () => ({ state: f.state([]) }) }
     }
@@ -646,8 +646,8 @@ test('proxy or vision outage never prevents a valid Host lock response from bein
   const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
   await f.manager.refreshState()
   f.env.fetch = async path => {
-    if (path === '/api/delta-desktop/proxy') throw new Error('proxy subsystem unavailable')
-    if (path === '/api/delta-desktop/vision/status') throw new Error('vision subsystem unavailable')
+    if (path === '/api/delta-suite/proxy') throw new Error('proxy subsystem unavailable')
+    if (path === '/api/delta-suite/vision/status') throw new Error('vision subsystem unavailable')
     return { ok: true, status: 200, json: async () => ({ state: f.state([]) }) }
   }
   await f.manager.refreshState()
@@ -664,14 +664,14 @@ test('Host transport failures do not authorize workspace mutation and recovery r
   try {
     assert.equal(await host.delete('b'), 'native')
     f.env.fetch = async path => {
-      if (path === '/api/delta-desktop/state') throw new Error('network offline')
+      if (path === '/api/delta-suite/state') throw new Error('network offline')
       return { ok: true, status: 200, json: async () => ({}) }
     }
     await f.manager.refreshState()
     await assert.rejects(host.delete('b'), /workspace-state-unavailable/)
     f.env.fetch = async path => ({
       ok: true, status: 200,
-      json: async () => path === '/api/delta-desktop/state' ? { state: f.state([]) } : {},
+      json: async () => path === '/api/delta-suite/state' ? { state: f.state([]) } : {},
     })
     await f.manager.refreshState()
     assert.equal(await host.delete('b'), 'native')

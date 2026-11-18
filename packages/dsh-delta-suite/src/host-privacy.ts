@@ -63,7 +63,7 @@ function sendPrivacyBlockedResponse(res: PrivacyHttpResponse): void {
   const body = JSON.stringify({
     ok: false,
     error: 'PRIVACY_POLICY_BLOCKED',
-    message: 'Session log export, telemetry, and tracking endpoints are blocked by dsh-delta-desktop.',
+    message: 'Session log export, telemetry, and tracking endpoints are blocked by dsh-delta-suite.',
   })
   if (typeof res.writeHead === 'function') {
     res.writeHead(403, { 'content-type': 'application/json; charset=utf-8' })
@@ -99,7 +99,7 @@ export function installHostPrivacyGuards(ctx: PrivacyHostContext): () => void {
   if (typeof ctx.on === 'function') {
     try {
       const offTelemetry = ctx.on('session-telemetry/record', () => {
-        throw new Error('dsh-delta-desktop: session telemetry prohibited by privacy policy')
+        throw new Error('dsh-delta-suite: session telemetry prohibited by privacy policy')
       })
       if (typeof offTelemetry === 'function') cleanups.push(offTelemetry)
     } catch {
