@@ -14,143 +14,188 @@ function host() {
     },
     logger: { warn(message) { warnings.push(message) } },
   }
-  return { ctx, warnings, attach: (registry) => inject({ skills: registry }) }
+  return { ctx, warnings, attach: registry => inject({ skills: registry }) }
 }
 
-describe('DSH native Skill lifecycle and rollback', () => {
-  it('registers the built-in catalog exactly once for repeated injection and cleans up in reverse order', () => {
+function disposableProviderRegistry() {
+  const controllers = []
+  const providers = []
+  let removals = 0
+  const registry = {
+    registerProvider(factory) {
+      const controller = new AbortController()
+      controllers.push(controller)
+      providers.push(factory({ signal: controller.signal, invalidate() {} }))
+      return () => {
+        removals++
+        controller.abort(new Error('provider registration disposed'))
+      }
+    },
+  }
+  return { registry, controllers, providers, get removals() { return removals } }
+}
+
+describe('DSH native Skill capability gate and lifecycle', () => {
+  it('publishes only metadata until the native loader selects a Skill', async () => {
     const h = host()
-    const loaded = []
-    const released = []
-    const registry = {
-      register(skill) {
-        loaded.push(skill.name)
-        return () => released.push(skill.name)
-      },
+    const r = disposableProviderRegistry()
+    const stop = registerCodingSkills(h.ctx)
+    const childDispose = h.attach(r.registry)
+    const provider = r.providers[0]
+    try {
+      assert.equal(provider.name, 'delta-code-coding')
+      const candidates = await provider.list()
+      assert.deepEqual(candidates.map(skill => skill.name), ALL_CODING_SKILLS.map(skill => skill.name))
+      assert.ok(candidates.every(skill => !Object.hasOwn(skill, 'content')))
+      const selected = candidates.find(skill => skill.name === 'code-root-cause-debugging')
+      assert.match((await provider.get(selected)).content, /Root-cause debugging/)
+      assert.equal(await provider.get({ ...selected, locator: 'other-skill' }), undefined)
+      assert.equal(await provider.get({ ...selected, provider: 'untrusted' }), undefined)
+    } finally {
+      childDispose()
+      stop()
     }
-    const dispose = registerCodingSkills(h.ctx)
-    const firstChildDispose = h.attach(registry)
-    h.attach(registry)
-    assert.deepEqual(loaded, ALL_CODING_SKILLS.map(skill => skill.name))
-    assert.equal(typeof firstChildDispose, 'function')
+    assert.equal(r.removals, 1)
+    assert.deepEqual(await provider.list(), [])
+  })
+
+  it('registers a single provider per Host and unregisters on Host child or plugin teardown', async () => {
+    const h = host()
+    const r = disposableProviderRegistry()
+    const stop = registerCodingSkills(h.ctx)
+    const firstChildDispose = h.attach(r.registry)
+    h.attach(r.registry)
+    assert.equal(r.providers.length, 1)
     firstChildDispose()
-    assert.deepEqual(released, [...loaded].reverse())
-    h.attach(registry)
-    assert.equal(loaded.length, ALL_CODING_SKILLS.length * 2)
-    dispose()
-    dispose()
-    assert.equal(released.length, ALL_CODING_SKILLS.length * 2)
-    h.attach(registry)
-    assert.equal(loaded.length, ALL_CODING_SKILLS.length * 2)
+    assert.equal(r.removals, 1)
+    h.attach(r.registry)
+    assert.equal(r.providers.length, 2)
+    assert.ok((await r.providers[1].list()).length)
+    stop()
+    stop()
+    assert.equal(r.removals, 2)
+    assert.deepEqual(await r.providers[1].list(), [])
+    assert.ok(r.controllers.every(x => x.signal.aborted))
+    h.attach(r.registry)
+    assert.equal(r.providers.length, 2)
     assert.deepEqual(h.warnings, [])
   })
 
-  it('rolls back all disposable registrations on a partial failure and allows retry', () => {
+  it('does not use legacy register when native provider capability is missing', () => {
     const h = host()
-    const active = new Set()
-    let fail = true
-    const registry = {
-      register(skill) {
-        if (fail && skill.name === ALL_CODING_SKILLS[4].name) throw Error('registry refused fifth Skill')
-        active.add(skill.name)
-        return () => active.delete(skill.name)
-      },
-    }
+    let legacyCalls = 0
+    const legacyHost = { register() { legacyCalls++; return () => {} } }
     const stop = registerCodingSkills(h.ctx)
-    h.attach(registry)
-    assert.equal(active.size, 0)
-    assert.ok(h.warnings.some(x => /rolled back/.test(x)))
-    fail = false
-    h.attach(registry)
-    assert.equal(active.size, ALL_CODING_SKILLS.length)
+    h.attach(legacyHost)
+    h.attach(legacyHost)
+    assert.equal(legacyCalls, 0)
+    assert.ok(h.warnings.some(text => /lifecycle unavailable.*disabled/.test(text)))
     stop()
-    assert.equal(active.size, 0)
   })
 
-  it('protects older Hosts with missing disposers from retrying a partial batch', () => {
+  it('disables a provider immediately if registration returned no disposer', async () => {
     const h = host()
-    const calls = []
-    const registry = {
-      register(skill) {
-        calls.push(skill.name)
-        if (calls.length === 3) throw Error('unrecoverable registration')
+    let provider
+    let invalidations = 0
+    let registrations = 0
+    const unsupported = {
+      registerProvider(factory) {
+        registrations++
+        provider = factory({
+          signal: new AbortController().signal,
+          invalidate() { invalidations++ },
+        })
         return undefined
       },
     }
     const stop = registerCodingSkills(h.ctx)
-    h.attach(registry)
-    h.attach(registry)
-    assert.equal(calls.length, 3)
-    assert.ok(h.warnings.some(x => /cannot be rolled back/.test(x)))
+    h.attach(unsupported)
+    assert.deepEqual(await provider.list(), [])
+    const selected = { name: 'code-fast-change', provider: 'delta-code-coding', locator: 'code-fast-change' }
+    assert.equal(await provider.get(selected), undefined)
+    assert.equal(invalidations, 1)
+    h.attach(unsupported)
+    assert.equal(registrations, 1)
+    assert.ok(h.warnings.some(text => /no disposer.*disabled/.test(text)))
     stop()
   })
 
-  it('does not duplicate legacy no-disposer registrations after child teardown', () => {
-    const h = host()
-    let count = 0
-    const registry = { register() { count++; return undefined } }
-    const stop = registerCodingSkills(h.ctx)
-    const childDispose = h.attach(registry)
-    childDispose()
-    h.attach(registry)
-    assert.equal(count, ALL_CODING_SKILLS.length)
-    assert.ok(h.warnings.some(x => /no disposer/.test(x)))
-    stop()
-  })
-
-  it('does not duplicate the provider and aborts it when the Host child is disposed', async () => {
+  it('allows retry after a rejected native provider registration without leaking Skills', async () => {
     const h = host()
     let calls = 0
-    let removals = 0
-    let provider
-    const controllers = []
+    const r = disposableProviderRegistry()
     const registry = {
       registerProvider(factory) {
         calls++
-        const controller = new AbortController()
-        controllers.push(controller)
-        provider = factory({ signal: controller.signal, invalidate() {} })
-        assert.equal(provider.name, 'delta-code-approved-github')
-        return () => {
-          removals++
-          controller.abort(new Error('provider registration disposed'))
-        }
+        if (calls === 1) throw new Error('provider conflict')
+        return r.registry.registerProvider(factory)
+      },
+    }
+    const stop = registerCodingSkills(h.ctx)
+    h.attach(registry)
+    h.attach(registry)
+    assert.equal(calls, 2)
+    assert.ok((await r.providers[0].list()).length > 0)
+    assert.ok(h.warnings.some(text => /registration failed/.test(text)))
+    stop()
+    assert.equal(r.removals, 1)
+  })
+
+  it('does not duplicate the remote provider and aborts it on child disposal', async () => {
+    const h = host()
+    const r = disposableProviderRegistry()
+    const stop = registerApprovedGitHubSkills(h.ctx)
+    const childDispose = h.attach(r.registry)
+    h.attach(r.registry)
+    assert.equal(r.providers.length, 1)
+    const provider = r.providers[0]
+    assert.equal(provider.name, 'delta-code-approved-github')
+    assert.ok((await provider.list()).length > 0)
+    childDispose()
+    assert.equal(r.removals, 1)
+    assert.deepEqual(await provider.list(), [])
+    h.attach(r.registry)
+    assert.equal(r.providers.length, 2)
+    stop()
+    assert.equal(r.removals, 2)
+    assert.deepEqual(await r.providers[1].list(), [])
+    assert.ok(r.controllers.every(controller => controller.signal.aborted))
+  })
+
+  it('disables GitHub remote Skills if provider teardown is unsupported', async () => {
+    const h = host()
+    let provider
+    let registrations = 0
+    let invalidations = 0
+    const legacy = {
+      registerProvider(factory) {
+        registrations++
+        provider = factory({ signal: new AbortController().signal, invalidate() { invalidations++ } })
+        return undefined
       },
     }
     const stop = registerApprovedGitHubSkills(h.ctx)
-    const childDispose = h.attach(registry)
-    h.attach(registry)
-    assert.equal(calls, 1)
-    assert.ok((await provider.list()).length > 0)
-    childDispose()
-    assert.equal(removals, 1)
-    await assert.rejects(provider.list(), /disposed/)
-    h.attach(registry)
-    assert.equal(calls, 2)
-    assert.ok((await provider.list()).length > 0)
+    h.attach(legacy)
+    assert.deepEqual(await provider.list(), [])
+    assert.equal(invalidations, 1)
+    h.attach(legacy)
+    assert.equal(registrations, 1)
+    assert.ok(h.warnings.some(text => /no disposer.*disabled/.test(text)))
     stop()
-    stop()
-    assert.equal(removals, 2)
-    assert.ok(controllers.every(controller => controller.signal.aborted))
-    h.attach(registry)
-    assert.equal(calls, 2)
   })
 
-  it('keeps provider conflicts optional, handles errors and other Host registries independently', () => {
+  it('isolates remote provider registration conflicts from other Host registries', async () => {
     const h = host()
     let conflicts = 0
-    const incompatible = {
-      registerProvider() { conflicts++; throw Error('provider conflict') },
-    }
-    const healthy = {
-      registerProvider() { return () => {} },
-    }
+    const incompatible = { registerProvider() { conflicts++; throw new Error('provider conflict') } }
+    const healthy = disposableProviderRegistry()
     const stop = registerApprovedGitHubSkills(h.ctx)
     h.attach(incompatible)
     h.attach(incompatible)
     assert.equal(conflicts, 2)
-    assert.equal(typeof h.attach(healthy), 'function')
-    assert.ok(h.warnings.every(x => /provider unavailable/.test(x)))
+    assert.equal(typeof h.attach(healthy.registry), 'function')
+    assert.ok(h.warnings.every(text => /provider unavailable/.test(text)))
     stop()
+    assert.equal(healthy.removals, 1)
   })
 })
