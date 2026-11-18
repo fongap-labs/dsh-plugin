@@ -412,8 +412,7 @@ function installClient(require: (id: string) => unknown) {
       // in the plugin manager and create two competing configuration surfaces.
       ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: 'delta-code', order: 65,
-        label: () => /^zh/i.test(document.documentElement.lang || navigator.language || 'zh')
-          ? 'Delta 编程助手' : 'Delta Code Worker',
+        label: () => t('Delta 编程助手', 'Delta Code Worker'),
       }, NativePage)), 'dsh-delta-code: native settings section')
     },
   }
