@@ -16,19 +16,36 @@ const REPOSITORY = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?\/(?!\.{1,2}$)
 const SAFE_PATH = /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\x00-\x1f]+$/
 const SAFE_BRANCH = /^(?!\/)(?!.*\.\.)(?!.*(?:^|\/)\.)(?!.*[~^:?*[\\\x00-\x20])[^/]+(?:\/[^/]+)*$/
 
-export function selectGitHubAccount<T extends GitHubAccountBinding>(accounts: readonly T[], repository: string): T {
+export const NATIVE_GITHUB_ACCOUNT = 'native'
+
+/** Repository names identify targets, never an allowlist. GitHub authorizes each request.
+ * Explicit credential selection avoids guessing between multiple identities. */
+export function selectGitHubAccount<T extends GitHubAccountBinding>(
+  accounts: readonly T[], repository: string, requestedAccount?: string,
+): T | GitHubAccountBinding {
   if (!REPOSITORY.test(repository)) throw new Error('invalid owner/repository')
+  if (requestedAccount !== undefined) {
+    if (typeof requestedAccount !== 'string' || !requestedAccount.trim()) throw new Error('invalid GitHub account selector')
+    const selected = requestedAccount.trim().toLowerCase()
+    if (!accounts.length && selected === NATIVE_GITHUB_ACCOUNT) return { owner: NATIVE_GITHUB_ACCOUNT }
+    const matches = accounts.filter(account => account.owner.toLowerCase() === selected)
+    if (matches.length !== 1) throw new Error('unknown or ambiguous GitHub account: ' + selected)
+    return matches[0]!
+  }
+  if (!accounts.length) return { owner: NATIVE_GITHUB_ACCOUNT }
+
   const key = repository.toLowerCase()
-  const scoped = accounts.filter((account) =>
-    account.repositories?.some((entry) => entry.toLowerCase() === key))
+  const scoped = accounts.filter(account =>
+    account.repositories?.some(entry => entry.toLowerCase() === key))
   if (scoped.length > 1) throw new Error('ambiguous GitHub repository binding: ' + key)
   if (scoped.length === 1) return scoped[0]!
+
   const owner = repository.split('/')[0]!.toLowerCase()
-  const matches = accounts.filter((account) => account.owner.toLowerCase() === owner)
-  if (matches.length !== 1) {
-    throw new Error(matches.length ? 'ambiguous GitHub owner mapping' : 'no GitHub account configured for repository owner ' + owner)
-  }
-  return matches[0]!
+  const matches = accounts.filter(account => account.owner.toLowerCase() === owner)
+  if (matches.length > 1) throw new Error('ambiguous GitHub owner mapping')
+  if (matches.length === 1) return matches[0]!
+  if (accounts.length === 1) return accounts[0]!
+  throw new Error('multiple GitHub accounts configured; specify account to select a token for ' + key)
 }
 
 export function isValidGitHubRepository(value: string): boolean {
