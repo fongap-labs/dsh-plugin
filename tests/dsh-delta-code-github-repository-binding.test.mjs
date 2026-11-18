@@ -40,7 +40,18 @@ describe('Delta Code explicit GitHub repository account bindings', () => {
     const old = validateGitHubAccounts([{ owner: 'personal', tokenEnv: 'PERSONAL_TOKEN' }])
     assert.deepEqual(old, [{ owner: 'personal', tokenEnv: 'PERSONAL_TOKEN' }])
     assert.equal(selectGitHubAccount(old, 'personal/project').owner, 'personal')
-    assert.throws(() => selectGitHubAccount(old, 'other/project'), /no GitHub account/)
+    assert.equal(selectGitHubAccount(old, 'other/project').owner, 'personal')
+  })
+
+  it('does not treat repository bindings as an allowlist and supports explicit credentials', () => {
+    const single = validateGitHubAccounts([{ owner: 'personal', tokenEnv: 'PERSONAL_TOKEN' }])
+    assert.equal(selectGitHubAccount(single, 'another-org/any-repo').owner, 'personal')
+    assert.equal(selectGitHubAccount(accounts, 'another-org/any-repo', 'work').owner, 'work')
+    assert.throws(() => selectGitHubAccount(accounts, 'another-org/any-repo'), /specify account/)
+    assert.throws(() => selectGitHubAccount(accounts, 'company/backend', 'missing'), /unknown or ambiguous/)
+    assert.equal(selectGitHubAccount([], 'any-org/any-repo').owner, 'native')
+    const many = Array.from({ length: 300 }, (_, i) => 'other/repo-' + i)
+    assert.equal(validateGitHubAccounts([{ owner: 'personal', tokenEnv: 'PERSONAL_TOKEN', repositories: many }])[0].repositories.length, 300)
   })
 
   it('routes requests for separate repositories without carrying credentials to the feature', async () => {
@@ -61,6 +72,8 @@ describe('Delta Code explicit GitHub repository account bindings', () => {
     assert.deepEqual(requests.map(r => [r.repository, r.account]), [
       ['company/backend', 'personal'], ['company/frontend', 'work'],
     ])
+    await tool.execute({ repository: 'other/third', account: 'work' }, { signal })
+    assert.deepEqual([requests.at(-1).repository, requests.at(-1).account], ['other/third', 'work'])
     assert.ok(requests.every(r => r.signal === signal && !Object.hasOwn(r, 'tokenEnv')))
   })
 })
