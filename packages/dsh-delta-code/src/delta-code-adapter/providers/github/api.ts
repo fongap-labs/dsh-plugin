@@ -120,7 +120,7 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
   if (!reader) throw new Error('GitHub job log has no readable body')
   const bytes: Uint8Array[] = []
   let total = 0
-  let truncated = false
+  let isTruncated = false
   try {
     while (true) {
       signal.throwIfAborted()
@@ -130,7 +130,7 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
       if (next.value.byteLength > available) {
         if (available > 0) bytes.push(next.value.subarray(0, available))
         total += Math.max(0, available)
-        truncated = true
+        isTruncated = true
         await reader.cancel()
         break
       }
@@ -152,7 +152,7 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
   const selection = last === undefined
     ? log.slice(-LOG_EXCERPT_CHARS)
     : lines.slice(Math.max(0, last - 35), Math.min(lines.length, last + 12)).join('\n').slice(-LOG_CONTEXT_CHARS)
-  return { excerpt: redactGitHubLog(selection, token), truncated: truncated || selection.length < log.length, bytesRead: total }
+  return { excerpt: redactGitHubLog(selection, token), truncated: isTruncated || selection.length < log.length, bytesRead: total }
 }
 
 async function requestGitHubJobLogs(
