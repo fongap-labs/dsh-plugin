@@ -57,7 +57,7 @@ export function applyTextEdit(original: string, edit: Extract<PlannedTextEdit, {
     return original.slice(0, index) + edit.replace + original.slice(index + edit.find.length)
   }
   const escaped = find.split('\n').map(part => part.replace(/[.*+?^$(){}|[\]\\]/g, '\\$&'))
-  const pattern = new RegExp(escaped.join('\\r?\\n'), 'g')
+  const pattern = new RegExp(escaped.join('(?:\\r\\n|(?<!\\r)\\n)'), 'g')
   const match = pattern.exec(original)
   if (!match) throw new Error('find substring not present')
   // Check overlapping matches too, just as the literal search did.

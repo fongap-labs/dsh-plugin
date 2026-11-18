@@ -76,3 +76,8 @@ describe('Multi-edit newline compatibility', () => {
     assert.throws(() => applyTextEdit('a\r\nb\na\nb', plan, true), /multiple locations/)
   })
 })
+
+it('does not mistake the LF inside a CRLF pair for a second match', () => {
+  const plan = planTextEdit({ find: '\n', replace: '!' }, true)
+  assert.equal(applyTextEdit('a\r\nb', plan, true), 'a!b')
+})

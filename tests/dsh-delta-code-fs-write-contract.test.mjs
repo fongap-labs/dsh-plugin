@@ -168,3 +168,66 @@ describe('Code Worker explicit DSH FS write contract', () => {
     )
   })
 })
+
+describe('Host-authoritative per-session filesystem sandbox policy', () => {
+  it('forwards current session policy to every write without widening permissions or passing legacy sentinel', async () => {
+    const f = host({ type: 'file', version: 'v1' })
+    const fs = f.ctx.get('fs')
+    fs.sandboxMode = 'workspace-write'
+    const session = { id: 'session-a' }
+    let mode = 'danger-full-access'
+    const policies = []
+    const requests = []
+    const writes = []
+    const resolver = { resolve(request) {
+      requests.push(request)
+      const policy = { mode, workspaceRoot: root, sessionId: request.session.id }
+      policies.push(policy)
+      return policy
+    } }
+    fs.writeText = async (...args) => { writes.push(args); return { version: 'next' } }
+    const ctx = { get: name => name === 'sandboxPolicy' ? resolver : f.ctx.get(name) }
+    const exec = { agent: { session }, signal }
+    const settings = normalizeConfig(undefined)
+    await writeTextSafe(ctx, exec, root, 'file.txt', 'first', settings)
+    mode = 'read-only'
+    await writeTextSafe(ctx, exec, root, 'file.txt', 'second', settings)
+    assert.deepEqual(requests, [{ session }, { session }])
+    assert.equal(writes[0][2], undefined)
+    assert.strictEqual(writes[0][3], signal)
+    assert.strictEqual(writes[0][4], policies[0])
+    assert.strictEqual(writes[1][4], policies[1])
+    assert.equal(writes[0][4].mode, 'danger-full-access')
+    assert.equal(writes[1][4].mode, 'read-only')
+  })
+
+  it('fails closed if a confining Host has no policy service', async () => {
+    const f = host({ type: 'file', version: 'v1' })
+    f.ctx.get('fs').sandboxMode = 'workspace-write'
+    await assert.rejects(writeTextSafe(f.ctx, execution(), root, 'file.txt', 'after', normalizeConfig(undefined)),
+      /sandbox policy unavailable/)
+    assert.equal(f.writes.length, 0)
+  })
+
+  it('retains guarded intent and never retries Host denial unguarded', async () => {
+    const f = host({ type: 'file', version: 'v1' })
+    const fs = f.ctx.get('fs')
+    fs.sandboxMode = 'workspace-write'
+    const session = { id: 's' }
+    const policy = { mode: 'read-only', workspaceRoot: root }
+    let count = 0
+    fs.writeText = async (_target, _content, intent, actualSignal, actualPolicy) => {
+      count++
+      assert.deepEqual(intent, { kind: 'replaceIfVersion', version: 'v1' })
+      assert.strictEqual(actualSignal, signal)
+      assert.strictEqual(actualPolicy, policy)
+      throw Error('FS_SANDBOX_DENIED')
+    }
+    const ctx = { get: name => name === 'sandboxPolicy'
+      ? { resolve(request) { assert.strictEqual(request.session, session); return policy } }
+      : f.ctx.get(name) }
+    await assert.rejects(writeTextSafe(ctx, { agent: { session }, signal }, root, 'file.txt', 'after', guarded()),
+      /FS_SANDBOX_DENIED/)
+    assert.equal(count, 1)
+  })
+})
