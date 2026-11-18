@@ -10,6 +10,7 @@ import {
   buildOtpAuthUri,
   generateTotpSecret,
   isSixDigitCode,
+  isSafeSessionMapKey,
   loadNodeModule,
   makeJsonResponse,
   readRequestJson,
@@ -667,6 +668,11 @@ export function installHostSessionOps(
 
     if (!sessionId || !targetWorkspaceId) {
       return makeJsonResponse(400, { ok: false, error: 'MISSING_MOVE_PARAMS' })
+    }
+    // A session ID becomes an own key in movedSessions, which is a JSON
+    // object. Never admit magic Object.prototype keys or path components.
+    if (!isSafeSessionMapKey(sessionId)) {
+      return makeJsonResponse(400, { ok: false, error: 'INVALID_SESSION_ID' })
     }
 
     const current = await store.read()

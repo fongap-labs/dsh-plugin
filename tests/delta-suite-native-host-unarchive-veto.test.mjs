@@ -915,3 +915,33 @@ test('project-cache cleanup removes in-profile aliases but never follows a linke
     rmSync(outside, { recursive: true, force: true })
   }
 })
+
+
+test('logical moves reject prototype-shaped session IDs without changing durable mappings', async () => {
+  const f = fixture({
+    registry: { list: () => [
+      { id: 'target', path: '/target', sessionIds: ['safe-session'] },
+    ] },
+    initial: { movedSessions: { existing: 'target' } },
+  })
+  try {
+    for (const invalid of [
+      '__proto__', 'prototype', 'constructor', 'toString',
+      'hasOwnProperty', '.', '..', '../escape', 'nested/id',
+      'nested\\id', 'zero\u0000byte',
+    ]) {
+      const response = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+        sessionId: invalid, targetWorkspaceId: 'target', targetPath: '/target',
+      })
+      assert.equal(response.status, 400, invalid)
+      assert.equal(response.data.error, 'INVALID_SESSION_ID', invalid)
+      assert.deepEqual(f.store.getCached().movedSessions, { existing: 'target' }, invalid)
+    }
+    const valid = await f.request(ops.DELTA_SESSION_MOVE_PATH, {
+      sessionId: 'safe-session', targetWorkspaceId: 'target', targetPath: '/target',
+    })
+    assert.equal(valid.status, 200)
+    assert.deepEqual(f.store.getCached().movedSessions,
+      { existing: 'target', 'safe-session': 'target' })
+  } finally { f.dispose() }
+})
