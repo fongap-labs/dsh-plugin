@@ -1543,7 +1543,7 @@ function readWorkspaceMutationPolicy(
 function installWorkspaceMutationGuards(
   workspaces: WorkspacesApi,
   readNative: () => WorkspaceSnapshot,
-  readState: () => WorkspaceProtectionState,
+  readState: () => WorkspaceProtectionState & Pick<ClientFeatureSnapshot, 'isSearchProtectionReady'>,
   isDeltaMode: () => boolean,
   onBlocked: (reason: WorkspaceMutationBlock, lockId?: string) => void,
 ): () => void {
@@ -1557,7 +1557,11 @@ function installWorkspaceMutationGuards(
   const guardedDelete = (id: string): Promise<unknown> => {
     if (isDisposed) return reject('workspace-guard-disposed')
     let reason: WorkspaceMutationBlock | undefined
-    try { reason = readWorkspaceMutationPolicy(readState(), readNative).deleteWorkspace(id, isDeltaMode()) }
+    try {
+      const confirmed = readState()
+      if (!confirmed.isSearchProtectionReady) return reject('workspace-state-unavailable')
+      reason = readWorkspaceMutationPolicy(confirmed, readNative).deleteWorkspace(id, isDeltaMode())
+    }
     catch { return reject('workspace-state-unavailable') }
     if (reason) return reject(reason)
     return originalDelete.call(workspaces, id)
@@ -1565,7 +1569,11 @@ function installWorkspaceMutationGuards(
   const guardedUnarchive = (id: string): Promise<unknown> => {
     if (isDisposed) return reject('workspace-guard-disposed')
     let blocked: ReturnType<ReturnType<typeof readWorkspaceMutationPolicy>['unarchive']>
-    try { blocked = readWorkspaceMutationPolicy(readState(), readNative).unarchive(id) }
+    try {
+      const confirmed = readState()
+      if (!confirmed.isSearchProtectionReady) return reject('workspace-state-unavailable')
+      blocked = readWorkspaceMutationPolicy(confirmed, readNative).unarchive(id)
+    }
     catch { return reject('workspace-state-unavailable') }
     if (blocked) return reject(blocked.reason, blocked.lockId)
     return originalUnarchive!.call(workspaces, id)
@@ -1773,7 +1781,13 @@ function createClientFeatureManager(): ClientFeatureManager {
     proxy?: ClientProxyConfig
     vision?: any
   }): void => {
-    const locked = Array.isArray(payload.lockedSessionIds) ? payload.lockedSessionIds : []
+    // A partial response is not evidence that previously durable locks vanished.
+    // Preserve the prior membership, but revoke mutation/search readiness.
+    if (!isConfirmedLockState(payload)) {
+      if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+      return
+    }
+    const locked = payload.lockedSessionIds!
     const lockedWorkspaces = Array.isArray(payload.lockedWorkspaceIds) ? payload.lockedWorkspaceIds : []
     const deleted = Array.isArray(payload.deletedSessionIds) ? payload.deletedSessionIds : []
     const moved = payload.movedSessions && typeof payload.movedSessions === 'object' ? payload.movedSessions : {}
@@ -1818,7 +1832,10 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const refreshState = async (): Promise<void> => {
-    if (!canCallHostHttp()) return
+    if (!canCallHostHttp()) {
+      if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+      return
+    }
     if (refreshInFlight) return refreshInFlight
     lastRefreshAttemptAt = Date.now()
     refreshInFlight = (async () => {
@@ -1830,10 +1847,13 @@ function createClientFeatureManager(): ClientFeatureManager {
         ])
         if (stRes.ok) {
           const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
-          if (stData?.state) {
+          if (isConfirmedLockState(stData?.state)) {
             hasSyncedStateFromHost = true
-            applyHostStatePayload(stData.state)
-          } else if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+            applyHostStatePayload(stData!.state)
+          } else {
+            hasSyncedStateFromHost = false
+            if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+          }
         } else if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
         if (pxRes.ok) {
           const pxData = (await pxRes.json().catch(() => null)) as { proxy?: ClientProxyConfig; effective?: ClientEffectiveProxy } | null
@@ -2223,7 +2243,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
     if (!res.ok || res.data?.ok !== true) return { ok: false, error: res.data?.error ?? 'MOVE_FAILED' }
     const confirmedState = res.data?.state
-    if (confirmedState?.movedSessions?.[sessionId] !== targetWorkspaceId) {
+    if (!isConfirmedLockState(confirmedState) || confirmedState.movedSessions[sessionId] !== targetWorkspaceId) {
       return { ok: false, error: 'MOVE_UNCONFIRMED' }
     }
     applyHostStatePayload(confirmedState)
@@ -2249,7 +2269,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
     if (!res.ok || res.data?.ok !== true) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
     const confirmedState = res.data?.state
-    if (!Array.isArray(confirmedState?.deletedSessionIds) || !confirmedState.deletedSessionIds.includes(sessionId)) {
+    if (!isConfirmedLockState(confirmedState) || !confirmedState.deletedSessionIds.includes(sessionId)) {
       return { ok: false, error: 'DELETE_UNCONFIRMED' }
     }
     // Apply only a Host-confirmed durable deletion, never a speculative local tombstone.
@@ -2300,7 +2320,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (!res.ok || res.data?.ok !== true) return { ok: false, error: res.data?.error ?? 'DELETE_FAILED' }
     const confirmedState = res.data?.state
     const reported = res.data?.deletedIds
-    if (!Array.isArray(reported) || !Array.isArray(confirmedState?.deletedSessionIds) ||
+    if (!Array.isArray(reported) || !isConfirmedLockState(confirmedState) ||
         reported.some(id => typeof id !== 'string' || !eligible.includes(id) || !confirmedState.deletedSessionIds.includes(id))) {
       return { ok: false, error: 'DELETE_UNCONFIRMED' }
     }

@@ -30,9 +30,15 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
     target: Object.freeze({ id: 'target' }), locked: Object.freeze({ id: 'locked' }),
     other: Object.freeze({ id: 'other' }),
   }) })
-  const state = deletedSessionIds => ({
-    lockedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {}, deletedSessionIds, ...initial,
-  })
+  const state = deletedSessionIds => {
+    const combined = {
+      lockedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {}, deletedSessionIds, ...initial,
+    }
+    const hasPin = initial.hasPin ?? (combined.lockedSessionIds.length > 0 || combined.lockedWorkspaceIds.length > 0)
+    return {
+      hasPin, lockMode: initial.lockMode ?? (hasPin ? 'totp' : 'none'), ...combined,
+    }
+  }
   const env = {
     console, window: unavailable ? {} : { location: { href: 'https://harness.test/' } },
     fetch: async (path, options) => {
@@ -76,6 +82,7 @@ test('unavailable, rejected or unacknowledged deletion never synthesizes a tombs
 
 test('confirmed deletion keeps Host snapshot untouched and invokes public refresh', async () => {
   const f = fixture({ response: { status: 200, data: { ok: true, state: {
+    hasPin: false, lockMode: 'none',
     lockedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {}, deletedSessionIds: ['target'],
   } } }, rejectRefresh: true })
   await f.manager.refreshState()
@@ -91,6 +98,7 @@ test('bulk deletion sends only unlocked IDs and accepts only explicitly confirme
   const f = fixture({
     initial: { lockedSessionIds: ['locked'] },
     response: { status: 200, data: { ok: true, deletedIds: ['target'], state: {
+      hasPin: true, lockMode: 'totp',
       lockedSessionIds: ['locked'], lockedWorkspaceIds: [], movedSessions: {}, deletedSessionIds: ['target'],
     } } },
   })
@@ -201,6 +209,7 @@ test('workspace move requires a known native target and explicit durable acknowl
     assert.equal(f.manager.getSnapshot().movedSessions.target, undefined)
   }
   const f = fixture({ response: { status: 200, data: { ok: true, state: {
+    hasPin: false, lockMode: 'none',
     lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: { target: 'b' },
   } } } })
   const raw = { items: [{ workspaceId: 'b', path: '/b', title: 'B', sessionIds: [] }] }
@@ -410,6 +419,7 @@ const mutationRows = [
   { workspaceId: 'default', path: 'C:\\deepseek-harness\\default-workspace', sessionIds: [] },
 ]
 const mutationState = {
+  isSearchProtectionReady: true,
   lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {},
   tempUnlockedIds: [], tempUnlockedWorkspaceIds: [],
 }
@@ -518,4 +528,79 @@ test('client search excludes durable protection independently of temporary viewi
   assert.equal(cold.allowsWorkspace('b'), false)
   assert.equal(cold.canUseNativeFallback, false)
   assert.equal(makeSearchProtection(empty, () => { throw new Error('not needed') }).canUseNativeFallback, true)
+})
+
+
+test('workspace mutation hooks never trust a cold or revoked Host protection snapshot', async () => {
+  const calls = []
+  let current = { ...mutationState, isSearchProtectionReady: false }
+  const list = { getSnapshot: () => ({ items: mutationRows }) }
+  const api = {
+    list,
+    async delete(id) { calls.push(['delete', id]); return 'deleted' },
+    async unarchiveSession(id) { calls.push(['unarchive', id]); return 'unarchived' },
+  }
+  const messages = []
+  const stop = installMutationGuards(api, list.getSnapshot, () => current, () => true,
+    reason => messages.push(reason))
+  try {
+    await assert.rejects(api.delete('b'), /workspace-state-unavailable/)
+    await assert.rejects(api.unarchiveSession('ordinary'), /workspace-state-unavailable/)
+    assert.equal(calls.length, 0)
+    current = { ...mutationState }
+    assert.equal(await api.delete('b'), 'deleted')
+    assert.equal(await api.unarchiveSession('ordinary'), 'unarchived')
+    current = { ...mutationState, isSearchProtectionReady: false }
+    await assert.rejects(api.delete('b'), /workspace-state-unavailable/)
+    await assert.rejects(api.unarchiveSession('ordinary'), /workspace-state-unavailable/)
+    assert.deepEqual(calls, [['delete', 'b'], ['unarchive', 'ordinary']])
+    assert.deepEqual(messages, Array(4).fill('workspace-state-unavailable'))
+  } finally { stop() }
+})
+
+test('incomplete Host refresh preserves previously confirmed durable locks and revokes mutation readiness', async () => {
+  const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
+  await f.manager.refreshState()
+  assert.equal(f.manager.isLocked('locked'), true)
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
+  f.env.fetch = async path => ({
+    ok: true, status: 200, json: async () => path === '/api/delta-desktop/state'
+      ? { state: { lockedSessionIds: [], deletedSessionIds: [] } } : {},
+  })
+  await f.manager.refreshState()
+  assert.equal(f.manager.isLocked('locked'), true)
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, false)
+  const api = { list: { getSnapshot: () => ({ items: mutationRows }) },
+    async delete() { assert.fail('native destructive mutation must not run') } }
+  const stop = installMutationGuards(api, api.list.getSnapshot, f.manager.getSnapshot, () => true, () => {})
+  try { await assert.rejects(api.delete('b'), /workspace-state-unavailable/) }
+  finally { stop() }
+})
+
+test('partial move and delete acknowledgements do not erase confirmed lock membership', async () => {
+  for (const operation of ['move', 'delete', 'bulk']) {
+    const f = fixture({
+      initial: { lockedSessionIds: ['locked'] },
+      response: { status: 200, data: { ok: true,
+        ...(operation === 'bulk' ? { deletedIds: ['target'] } : {}),
+        state: operation === 'move' ? { movedSessions: { target: 'b' } }
+          : { deletedSessionIds: ['target'] },
+      } },
+    })
+    const snapshot = { items: [
+      { workspaceId: 'a', title: 'A', path: '/a', sessionIds: ['locked', 'target'] },
+      { workspaceId: 'b', title: 'B', path: '/b', sessionIds: [] },
+    ] }
+    f.manager.setWorkspacesApi({ list: { getSnapshot: () => snapshot } }, () => snapshot)
+    await f.manager.refreshState()
+    const result = operation === 'move'
+      ? await f.manager.moveSession('target', 'b')
+      : operation === 'delete'
+        ? await f.manager.deleteSession('target')
+        : await f.manager.deleteUngroupedSessions(['target'])
+    assert.equal(result.ok, false)
+    assert.equal(f.manager.isLocked('locked'), true)
+    assert.equal(f.manager.isDeleted('target'), false)
+    assert.equal(f.manager.getSnapshot().movedSessions.target, undefined)
+  }
 })
