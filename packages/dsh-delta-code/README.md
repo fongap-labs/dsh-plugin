@@ -205,11 +205,13 @@ github:
 | `code_github_file` | 读取远程仓库文件或目录 |
 | `code_github_pulls` | 查询 PR |
 | `code_github_checks` | 查看 PR 检查结果、失败上下文及 Action Worker 检查链接 |
-| `code_github_jobs` | 查看指定 GitHub Actions 运行的作业和失败步骤 |
-| `code_github_job_logs` | 读取失败 Job 的原始日志诊断片段（限量、脱敏，不依赖 annotations/artifacts） |
+| `code_github_jobs` | 根据 `repository` + `runId` 或 GitHub Actions `runUrl` 查看运行作业和失败步骤；从 URL 自动识别实际 CI 仓库 |
+| `code_github_job_logs` | 根据 `repository` + `jobId` 或 GitHub Actions `jobUrl` 读取失败 Job 的限量、脱敏日志；不依赖 annotations/artifacts |
 | `code_github_branch` | 创建远程功能分支（写入需授权） |
 | `code_github_commit_file` | 更新功能分支文件（写入需授权） |
 | `code_github_create_pr` | 发起 PR（写入需授权） |
+
+从 PR 的 `code_github_checks` 获得失败状态链接后，可直接将 GitHub Actions URL 交给 `code_github_jobs.runUrl`；失败 Job 链接交给 `code_github_job_logs.jobUrl`。这两种调用会从 GitHub 官方链接验证 `owner/repo` 并选择**该归属**的 Delta Code Token，不再假设 CI 固定部署在某个组织或仓库。显式 `repository` 或 `runId`/`jobId` 与链接不一致、目标归属未配置凭据时直接拒绝；不会把一个账号的 Token 交给其他组织。
 
 写入默认关闭。设为 `github.allowWrites: true` 后才允许创建远程分支、提交文件或创建 PR，但不会直接修改 `main` 或自动合并 PR。正式 CI 和合并门禁继续由 Action Worker 管理。
 
