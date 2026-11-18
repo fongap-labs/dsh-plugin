@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 会话删除时的 session_projcache 清理现在验证真实 DSH_HOME 归属，阻止通过外部目录符号链接或 Windows junction 删除其他目录的同名缓存文件（Issue #333）。
+
 - 修复: 会话日志物理删除在词法路径检查之外，再校验根目录与候选路径解析后的真实位置，防止通过目录符号链接删除 Harness 会话根目录外的文件（Issue #333）。
 
 - 修复: Host state 查询和打开目录路由在插件卸载后与所有写操作一致地拒绝旧请求；迟到的 connection/webServer/workspaceRegistry 注入不再复活已释放接口（Issue #333）。
