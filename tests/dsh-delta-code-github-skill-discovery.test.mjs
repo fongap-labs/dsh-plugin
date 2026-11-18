@@ -140,14 +140,14 @@ describe('Delta Code GitHub Skill candidate discovery and review', () => {
     assert.equal(report.approvalRequired, true)
   })
 
-  it('enforces repository account scope before any external request and forwards cancellation', async () => {
+  it('rejects unknown explicit credentials before any external request and forwards cancellation', async () => {
     const h = harness()
     await assert.rejects(h.review.execute({
       repository: 'unbound/skills', path: 'skills/reviewed-skill/SKILL.md', commit: COMMIT,
-    }, h.exec), /no GitHub account/)
+    }, { ...h.exec, account: 'nonexistent' }), /unknown or ambiguous GitHub account/)
     await assert.rejects(h.search.execute({
       repository: 'unbound/skills', query: 'react',
-    }, h.exec), /no GitHub account/)
+    }, { ...h.exec, account: 'nonexistent' }), /unknown or ambiguous GitHub account/)
     assert.equal(h.seen.length, 0)
     const aborted = new AbortController()
     aborted.abort()
