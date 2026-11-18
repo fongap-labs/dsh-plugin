@@ -95,7 +95,7 @@ export function createGitHubToolSpecs(
       const response = await githubRequest(exec, args.repository, 'GET', (repo) => encodeRepo(repo) + '/pulls?per_page=30&state=' + state)
       return envelope(response, response.data.map((pr: any) => ({ number: pr.number, title: pr.title, state: pr.state, draft: pr.draft, html_url: pr.html_url })))
     }),
-    tool('checks', 'Inspect all check runs and commit statuses for a GitHub pull request, including central Action Worker check links.', {
+    tool('checks', 'Inspect all check runs and commit statuses for a GitHub pull request, including links to external CI workflows.', {
       repository: optional, prNumber: { type: 'integer', required: true },
     }, async (args, exec) => {
       if (!Number.isSafeInteger(args.prNumber) || args.prNumber <= 0) throw new Error('invalid pull request number')
