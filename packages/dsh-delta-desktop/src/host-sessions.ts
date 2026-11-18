@@ -872,14 +872,21 @@ export function installHostSessionOps(
   void serialize(async () => {
     if (isDisposed) return
     const initial = await store.read()
+    // Unmount can happen while durable state is being read or while cleanup
+    // is awaiting I/O; never initiate another native side effect afterwards.
+    if (isDisposed) return
     for (const delId of initial.deletedSessionIds) {
+      if (isDisposed) return
       await purgeSessionArtifacts(ctx, delId)
     }
     if (initial.deletedSessionIds.length > 0) {
+      if (isDisposed) return
       await purgeSessionsFromWorkspaceJson(ctx, initial.deletedSessionIds)
+      if (isDisposed) return
       await detachFromRegistry(initial.deletedSessionIds, true)
     }
     for (const lockedId of initial.lockedSessionIds) {
+      if (isDisposed) return
       await archiveSessionOnHost(lockedId)
     }
   }).catch(() => {})
@@ -892,6 +899,14 @@ export function installHostSessionOps(
         void serialize(async () => {
           if (isDisposed || !registry || getRegistry() !== registry) return
           const initial = await store.read()
+          // Startup cleanup may have run before the public Registry existed.
+          // Re-apply durable deletion tombstones when it becomes available or
+          // is remounted, without ever unarchiving a deleted native session.
+          if (isDisposed || getRegistry() !== registry) return
+          for (const deletedId of initial.deletedSessionIds) {
+            if (isDisposed || getRegistry() !== registry) return
+            await detachFromRegistry([deletedId], true)
+          }
           for (const lockedId of initial.lockedSessionIds) {
             if (isDisposed || getRegistry() !== registry) return
             await archiveSessionOnHost(lockedId)

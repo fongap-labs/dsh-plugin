@@ -543,3 +543,156 @@ test('single and bulk deletes make tombstones visible before native side effects
     } finally { f.dispose() }
   }
 })
+
+test('late workspaceRegistry injection replays durable tombstones without reviving native sessions', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-late-registry-'))
+  let liveRegistry
+  let mountRegistry
+  let current = state.normalizeDeltaState({
+    deletedSessionIds: ['session-gone'], lockedSessionIds: ['locked'],
+  })
+  const routes = new Map()
+  const calls = []
+  const makeRegistry = label => ({
+    archivedSessionIds: [],
+    list() {
+      return [{ id: 'workspace', path: '/workspace', sessionIds: ['gone', 'locked'],
+        detachSession(id) { calls.push([label, 'detach', id]) } }]
+    },
+    unpinSession(id) { calls.push([label, 'unpin', id]) },
+    unarchiveSession(id) { calls.push([label, 'unarchive', id]) },
+    archiveSession(id) {
+      calls.push([label, 'archive', id])
+      this.archivedSessionIds.push(id)
+    },
+  })
+  const ctx = {
+    get(name) {
+      if (name === 'workspaceRegistry') return liveRegistry
+      if (name === 'profileContext') return { home }
+      if (name === 'sessionPersistence') return { root: join(home, 'sessions') }
+      return undefined
+    },
+    inject(deps, callback) {
+      if (deps[0] === 'workspaceRegistry') {
+        mountRegistry = callback
+        return () => {}
+      }
+      if (deps[0] === 'connection') {
+        return callback({ connection: { fetch: { register(spec) {
+          routes.set(spec.path, spec.fetch)
+          return () => routes.delete(spec.path)
+        } } } })
+      }
+      return () => {}
+    },
+  }
+  const store = {
+    read: async () => current,
+    getCached: () => current,
+    update: async mutator => {
+      current = state.normalizeDeltaState(await mutator(current))
+      return current
+    },
+  }
+  const stop = ops.installHostSessionOps(ctx, store)
+  const flush = async () => {
+    const response = await routes.get(ops.DELTA_SESSION_LOCK_PATH)({
+      json: async () => ({ action: 'noop' }),
+    })
+    assert.equal(response.status, 400)
+  }
+  try {
+    await flush()
+    assert.deepEqual(calls, [], 'startup cannot detach before registry is injected')
+
+    const stale = makeRegistry('stale')
+    liveRegistry = stale
+    const disposeStale = mountRegistry({ workspaceRegistry: stale })
+    disposeStale()
+    liveRegistry = undefined
+
+    const active = makeRegistry('active')
+    liveRegistry = active
+    const disposeActive = mountRegistry({ workspaceRegistry: active })
+    await flush()
+    assert.equal(calls.some(([label]) => label === 'stale'), false,
+      'a detached registry callback must not mutate a replaced service')
+    assert.ok(calls.some(([label, action, id]) =>
+      label === 'active' && action === 'detach' && id === 'gone'))
+    assert.ok(calls.some(([label, action, id]) =>
+      label === 'active' && action === 'unpin' && id === 'session-gone'))
+    assert.ok(calls.some(([label, action, id]) =>
+      label === 'active' && action === 'archive' && id === 'locked'))
+    assert.equal(calls.some(([, action]) => action === 'unarchive'), false)
+    assert.deepEqual(current.deletedSessionIds, ['session-gone'],
+      'recovery retains the durable tombstone')
+
+    disposeActive()
+    liveRegistry = undefined
+    const remounted = makeRegistry('remounted')
+    liveRegistry = remounted
+    const disposeRemounted = mountRegistry({ workspaceRegistry: remounted })
+    await flush()
+    assert.ok(calls.some(([label, action, id]) =>
+      label === 'remounted' && action === 'detach' && id === 'gone'),
+    'a new native service instance receives the existing tombstone')
+    disposeRemounted()
+
+    stop()
+    const afterDispose = makeRegistry('disposed')
+    liveRegistry = afterDispose
+    mountRegistry({ workspaceRegistry: afterDispose })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(calls.some(([label]) => label === 'disposed'), false,
+      'disposed plugins must not replay against a late native registry')
+  } finally {
+    stop()
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('disposal during the startup state read prevents subsequent native reconciliation', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-disposed-recovery-'))
+  const observed = []
+  let notifyRead
+  let finishRead
+  const reading = new Promise(resolve => { notifyRead = resolve })
+  const pending = new Promise(resolve => { finishRead = resolve })
+  const store = {
+    async read() {
+      notifyRead()
+      await pending
+      return {
+        get deletedSessionIds() { observed.push('enumerate deleted'); return ['gone'] },
+        get lockedSessionIds() { observed.push('enumerate locked'); return ['locked'] },
+      }
+    },
+  }
+  const registry = {
+    unpinSession(id) { observed.push(['unpin', id]) },
+    archiveSession(id) { observed.push(['archive', id]) },
+  }
+  const ctx = {
+    get(name) {
+      if (name === 'workspaceRegistry') return registry
+      if (name === 'profileContext') return { home }
+      if (name === 'sessionPersistence') { observed.push('read persistence'); return { root: join(home, 'sessions') } }
+      return undefined
+    },
+    inject() { return () => {} },
+  }
+  const stop = ops.installHostSessionOps(ctx, store)
+  try {
+    await reading
+    stop()
+    finishRead()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.deepEqual(observed, [],
+      'a disposed plugin must not inspect tombstones or begin native cleanup after read finishes')
+  } finally {
+    stop()
+    finishRead()
+    rmSync(home, { recursive: true, force: true })
+  }
+})
