@@ -351,13 +351,23 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
         const fs = await loadNodeModule<any>('node:fs/promises')
         const filePath = await resolvePath()
         const text = await fs.readFile(filePath, 'utf8')
-        if (!isLoaded) cached = normalizeDeltaState(JSON.parse(text))
-      } catch {
+        const parsed: unknown = JSON.parse(text)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new Error('DELTA_STATE_INVALID')
+        }
+        if (!isLoaded) cached = normalizeDeltaState(parsed)
+        isLoaded = true
+        return cached
+      } catch (err) {
+        // Only a genuinely absent file is an empty profile. Corruption or
+        // unreadable storage must not silently authorize protected operations.
+        if ((err as { code?: unknown })?.code !== 'ENOENT') throw err
         if (!isLoaded) cached = normalizeDeltaState(undefined)
+        isLoaded = true
+        return cached
+      } finally {
+        readPromise = undefined
       }
-      isLoaded = true
-      readPromise = undefined
-      return cached
     })()
     return readPromise
   }
@@ -393,6 +403,8 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
         movedSessions: { ...cur.movedSessions },
         deletedSessionIds: [...cur.deletedSessionIds],
         proxy: { ...cur.proxy },
+        vision: { ...cur.vision },
+        ...(cur.pinHash ? { pinHash: { ...cur.pinHash } } : {}),
       }))
       await write(mutated)
       // Publish only a durable update; a rejected rename/write leaves the prior state visible.

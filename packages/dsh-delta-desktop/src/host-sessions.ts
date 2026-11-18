@@ -29,6 +29,7 @@ export const DELTA_OPEN_FOLDER_PATH = '/api/delta-desktop/open-folder'
 
 interface SessionOpsHostContext {
   get?(name: string): unknown
+  on?(event: string, listener: (...args: any[]) => unknown): () => void
   inject?(deps: string[], cb: (scope: any) => void | (() => void)): unknown
 }
 
@@ -375,28 +376,26 @@ export function installHostSessionOps(
   }
 
   const archiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
-    const reg = getRegistry()
-    if (isDisposed || !reg || typeof reg.archiveSession !== 'function') return false
-    if (Array.isArray(reg.archivedSessionIds) && reg.archivedSessionIds.includes(sessionId)) return true
     try {
+      const reg = getRegistry()
+      if (isDisposed || !reg || typeof reg.archiveSession !== 'function') return false
+      if (Array.isArray(reg.archivedSessionIds) && reg.archivedSessionIds.includes(sessionId)) return true
       await Promise.resolve(reg.archiveSession(sessionId, {}))
-      return getRegistry() === reg && (!Array.isArray(reg.archivedSessionIds) || reg.archivedSessionIds.includes(sessionId))
+      return getRegistry() === reg && Array.isArray(reg.archivedSessionIds) && reg.archivedSessionIds.includes(sessionId)
     } catch {
-      // An archive refusal is not authorization to terminate active work.
+      // An activity refusal or storage failure is not authorization to stop work.
       return false
     }
   }
 
   const unarchiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
-    const reg = getRegistry()
-    if (isDisposed || !reg || typeof reg.unarchiveSession !== 'function') return false
-    if (Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)) return true
     try {
+      const reg = getRegistry()
+      if (isDisposed || !reg || typeof reg.unarchiveSession !== 'function') return false
+      if (Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)) return true
       await Promise.resolve(reg.unarchiveSession(sessionId))
-      return getRegistry() === reg && (!Array.isArray(reg.archivedSessionIds) || !reg.archivedSessionIds.includes(sessionId))
-    } catch {
-      return false
-    }
+      return getRegistry() === reg && Array.isArray(reg.archivedSessionIds) && !reg.archivedSessionIds.includes(sessionId)
+    } catch { return false }
   }
 
   const notifySessionChanged = (sessionId: string): void => {
@@ -809,6 +808,23 @@ export function installHostSessionOps(
     } catch (err) {
       return makeJsonResponse(500, { ok: false, error: String(err) })
     }
+  }
+
+  // Public WorkspaceRegistry pre-unarchive event: rejection retains archival.
+  // Do not enter the Delta mutation queue here. The registry awaits this event
+  // while a verified Delta unlock may itself be awaiting the registry.
+  if (typeof ctx.on === 'function') {
+    try {
+      const off = ctx.on('workspace/session-unarchiving', async (request: { sessionId?: unknown }) => {
+        if (isDisposed) return
+        const sessionId = request?.sessionId
+        if (typeof sessionId !== 'string' || !sessionId) throw new Error('DELTA_SESSION_TARGET_INVALID')
+        const confirmed = await store.read()
+        if (isDisposed) return
+        if (confirmed.lockedSessionIds.includes(sessionId)) throw new Error('DELTA_SESSION_LOCKED')
+      })
+      if (typeof off === 'function') unregisterCallbacks.push(off)
+    } catch { /* Older Host: retain the existing client compatibility guard. */ }
   }
 
   // Prime state cache once at startup, sweep deleted session artifacts, and sync locked -> archived
