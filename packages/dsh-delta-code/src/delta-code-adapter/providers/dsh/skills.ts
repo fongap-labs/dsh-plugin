@@ -85,13 +85,13 @@ export function registerCodingSkills(ctx: Context): () => void {
       ctx.logger?.warn?.('dsh-delta-code: native Skill provider lifecycle unavailable; coding Skills disabled')
       return
     }
-    let enabled = true
+    let isEnabled = true
     let control: SkillProviderControl | undefined
     let dispose: (() => void) | void
     try {
       dispose = registry.registerProvider(lifecycle => {
         control = lifecycle
-        return codingProvider(lifecycle, () => isActive && enabled)
+        return codingProvider(lifecycle, () => isActive && isEnabled)
       })
     } catch (error) {
       ctx.logger?.warn?.('dsh-delta-code: coding Skill provider registration failed: ' +
@@ -101,18 +101,18 @@ export function registerCodingSkills(ctx: Context): () => void {
     if (typeof dispose !== 'function') {
       // An incompatible Host may have registered a provider with no disposer.
       // Invalidate the now-empty catalog; stale callers cannot load any body.
-      enabled = false
+      isEnabled = false
       unsupported.add(registry)
       try { control?.invalidate() } catch { /* legacy Host invalidation is optional */ }
       ctx.logger?.warn?.('dsh-delta-code: coding Skill provider has no disposer; coding Skills disabled')
       return
     }
     const unregister = dispose
-    let released = false
+    let isReleased = false
     const release = () => {
-      if (released) return
-      released = true
-      enabled = false
+      if (isReleased) return
+      isReleased = true
+      isEnabled = false
       registrations.delete(registry)
       try { unregister() } catch {
         ctx.logger?.warn?.('dsh-delta-code: coding Skill provider disposal failed')
