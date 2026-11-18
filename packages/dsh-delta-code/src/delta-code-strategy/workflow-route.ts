@@ -110,13 +110,13 @@ export function decideCodingWorkflow(
   const isPlanned = isHighImpact || input.scope === 'medium'
   const profile = rules.find(rule =>
     rule.taskKinds.includes(input.taskKind) &&
-    (rule.requiresPlan === undefined || rule.requiresPlan === isPlanned))
+    (rule.shouldPlan === undefined || rule.shouldPlan === isPlanned))
   if (!profile) throw new Error('no reviewed coding workflow policy matches the task')
 
-  // A catalog cannot permit unsafe parallel execution, even if mayParallelize
+  // A catalog cannot permit unsafe parallel execution, even if canParallelize
   // was mistakenly enabled for a diagnostic or read-only workflow.
   const isParallelPermitted = profile.mode === 'planned' &&
-    profile.mayParallelize === true && isPlanned &&
+    profile.canParallelize === true && isPlanned &&
     (input.taskKind === 'feature' || input.taskKind === 'refactor') &&
     independentTasks >= 2 && input.nativeSubagents === true
   const executionWaves = planCodingWaves(independentTasks,
