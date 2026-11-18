@@ -134,9 +134,9 @@ describe('Delta Code declarative coding workflow policy', () => {
     const tool = createWorkflowRouteTool(reviewed)
     assert.equal(tool.name, 'code_workflow_route')
     assert.deepEqual((await tool.execute(input, exec)).skills, customized.skills)
-    assert.deepEqual(tool.parameters.taskKind.enum, [...CODING_TASK_KINDS])
-    assert.deepEqual(tool.parameters.scope.enum, [...CODING_SCOPES])
-    assert.deepEqual(tool.parameters.risk.enum, [...CODING_RISKS])
+    assert.deepEqual(tool.parameters.properties.taskKind.enum, [...CODING_TASK_KINDS])
+    assert.deepEqual(tool.parameters.properties.scope.enum, [...CODING_SCOPES])
+    assert.deepEqual(tool.parameters.properties.risk.enum, [...CODING_RISKS])
 
     const feature = deltaCodeStrategy({
       workflowRules: reviewed,
