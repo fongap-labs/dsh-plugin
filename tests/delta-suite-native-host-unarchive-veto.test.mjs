@@ -945,3 +945,66 @@ test('logical moves reject prototype-shaped session IDs without changing durable
       { existing: 'target', 'safe-session': 'target' })
   } finally { f.dispose() }
 })
+
+test('single and mixed bulk deletes reject unsafe session IDs before any durable or native side effect', async () => {
+  const observed = []
+  const f = fixture({
+    writeFails: true,
+    initial: { movedSessions: { existing: 'ordinary' } },
+    registry: {
+      list: () => [{ id: 'ordinary', path: '/ordinary', sessionIds: ['ordinary'] }],
+      unpinSession(id) { observed.push(['unpin', id]) },
+    },
+    sessions: { cancel(id) { observed.push(['cancel', id]) } },
+    persistence: { listGenerations() { observed.push(['persistence']); return Promise.resolve([]) } },
+  })
+  try {
+    const original = f.store.getCached()
+    for (const invalid of ['..', '.', '../outside', 'nested/session', 'nested\\session', 'bad\u0000id']) {
+      const result = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: invalid })
+      assert.equal(result.status, 400, invalid)
+      assert.equal(result.data.error, 'INVALID_SESSION_ID', invalid)
+    }
+    const malformed = [
+      { sessionIds: ['ordinary', '../outside'] },
+      { sessionIds: ['ordinary', 'nested/session'] },
+      { sessionIds: ['ordinary', 'nested\\session'] },
+      { sessionIds: ['ordinary', 'bad\u0000id'] },
+      { sessionIds: ['ordinary', null] },
+      { sessionIds: ['ordinary', 42] },
+      { sessionIds: 'ordinary' },
+      {},
+    ]
+    for (const body of malformed) {
+      const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, body)
+      assert.equal(result.status, 400, JSON.stringify(body))
+      assert.equal(result.data.error, 'INVALID_SESSION_ID', JSON.stringify(body))
+    }
+    assert.deepEqual(f.store.getCached(), original,
+      'invalid input must not change persisted tombstones or logical mappings')
+    assert.deepEqual(observed, [],
+      'native cancellation, unpinning and persistence discovery must not execute')
+  } finally { f.dispose() }
+})
+
+test('an empty valid bulk delete is a successful no-op even when state writes are unavailable', async () => {
+  const observed = []
+  const f = fixture({
+    initial: { movedSessions: { existing: 'ordinary' } },
+    writeFails: true,
+    registry: {
+      unpinSession(id) { observed.push(['unpin', id]) },
+      list: () => [{ id: 'ordinary', path: '/ordinary', sessionIds: ['existing'] }],
+    },
+    sessions: { cancel(id) { observed.push(['cancel', id]) } },
+  })
+  try {
+    const original = f.store.getCached()
+    const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, { sessionIds: [] })
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data.deletedIds, [])
+    assert.deepEqual(result.data.skippedLockedIds, [])
+    assert.deepEqual(f.store.getCached(), original)
+    assert.deepEqual(observed, [])
+  } finally { f.dispose() }
+})
