@@ -1,6 +1,6 @@
 /** DSH-native remote Skill Provider registration. No eager/legacy Skill fallback. */
 import type { Context } from '@deepseek-ai/cordis'
-import { createApprovedGitHubSkillProvider, type RemoteSkillProvider } from '../github/approved-skills.js'
+import { createApprovedGitHubSkillProvider, type RemoteSkillProvider, type GitHubSkillFetcher } from '../github/approved-skills.js'
 import { createTaskSkillCancellation } from './task-skill-cancellation.js'
 
 interface SkillProviderControl {
@@ -11,7 +11,7 @@ interface SkillHost {
   registerProvider?(create: (control: SkillProviderControl) => RemoteSkillProvider): (() => void) | void
 }
 
-export function registerApprovedGitHubSkills(ctx: Context): () => void {
+export function registerApprovedGitHubSkills(ctx: Context, fetcher: GitHubSkillFetcher = fetch): () => void {
   let isActive = true
   const registrations = new Map<SkillHost, () => void>()
   const unsupported = new WeakSet<SkillHost>()
@@ -36,7 +36,7 @@ export function registerApprovedGitHubSkills(ctx: Context): () => void {
       dispose = registry.registerProvider(lifecycle => {
         control = lifecycle
         controls.add(lifecycle)
-        const provider = createApprovedGitHubSkillProvider(fetch, undefined, {
+        const provider = createApprovedGitHubSkillProvider(fetcher, undefined, {
           signal: AbortSignal.any([lifecycle.signal, cancelled.signal]),
         })
         return {
