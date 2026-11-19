@@ -113,13 +113,90 @@ test('unreadable state and invalid native event targets cannot authorize unarchi
   await f.event({ sessionId: 'locked' })
 })
 
+test('locking a running Session requests the official archive-and-stop activity path after durable lock', async () => {
+  const trace = []
+  let f
+  const registry = {
+    archivedSessionIds: [],
+    list: () => [{ id: 'workspace', path: '/workspace', sessionIds: ['running', 'ordinary'] }],
+    async archiveSession(id, options) {
+      trace.push(['archive', id, options?.stopActivity, [...f.store.getCached().lockedSessionIds]])
+      assert.deepEqual(options, { stopActivity: true },
+        'lock must use the published WorkspaceRegistry stopActivity option')
+      assert.deepEqual(f.store.getCached().lockedSessionIds, [id],
+        'durable lock must precede native archival and running-work shutdown')
+      assert.deepEqual(await f.step({ id }), { kind: 'reject' },
+        'model steps are already rejected before native stop providers execute')
+      this.archivedSessionIds.push(id)
+      trace.push(['native-archive-persisted'])
+      // Simulate the Host's workspace/session-stop providers after archival.
+      assert.deepEqual(await f.step({ id }), { kind: 'reject' })
+      trace.push(['Host-session-stop'])
+    },
+    async unarchiveSession(id) {
+      await f.event({ sessionId: id })
+      this.archivedSessionIds = this.archivedSessionIds.filter(entry => entry !== id)
+    },
+  }
+  f = fixture({ registry, initial: { totpSecret: secret } })
+  try {
+    const lock = await f.call({ action: 'lock', sessionId: 'running' })
+    assert.equal(lock.status, 200)
+    assert.equal(lock.data.archived, true,
+      'native archive is confirmed only after the Host reports membership')
+    assert.deepEqual(trace, [
+      ['archive', 'running', true, ['running']],
+      ['native-archive-persisted'],
+      ['Host-session-stop'],
+    ])
+    assert.deepEqual(registry.archivedSessionIds, ['running'])
+    assert.deepEqual(await f.step({ id: 'ordinary' }), { kind: 'host-next' },
+      'unrelated conversations remain available')
+    const unlock = await f.call({ action: 'unlock',
+      sessionId: 'running', code: await state.generateTotpCode(secret) })
+    assert.equal(unlock.status, 200)
+    assert.equal(unlock.data.unarchived, true)
+    assert.deepEqual(registry.archivedSessionIds, [])
+    assert.deepEqual(await f.step({ id: 'running' }), { kind: 'host-next' })
+  } finally { f.dispose() }
+})
+
+test('initial verified TOTP enrollment uses the same native stop activity contract', async () => {
+  const calls = []
+  let f
+  const registry = {
+    archivedSessionIds: [],
+    archiveSession(id, options) {
+      calls.push([id, options?.stopActivity, [...f.store.getCached().lockedSessionIds]])
+      this.archivedSessionIds.push(id)
+    },
+  }
+  f = fixture({ registry })
+  try {
+    const begin = await f.call({ action: 'setup-begin' })
+    assert.equal(begin.status, 200)
+    const confirm = await f.call({
+      action: 'setup-confirm', setupToken: begin.data.setupToken,
+      sessionId: 'enrolled', code: await state.generateTotpCode(begin.data.secret),
+    })
+    assert.equal(confirm.status, 200)
+    assert.equal(confirm.data.archived, true)
+    assert.deepEqual(calls, [['enrolled', true, ['enrolled']]],
+      'enrollment must not leave a running Session outside the Host stop path')
+    assert.deepEqual(await f.step({ id: 'enrolled' }), { kind: 'reject' })
+  } finally { f.dispose() }
+})
+
 test('native agent pre-step blocks work after lock even when Host refused to archive the running Session', async () => {
   const attempts = []
   const f = fixture({
     initial: { totpSecret: secret },
     registry: {
       archivedSessionIds: [],
-      async archiveSession(id) { attempts.push(id); throw new Error('session already active') },
+      async archiveSession(id, options) {
+        attempts.push([id, options?.stopActivity])
+        throw new Error('native archive storage refused')
+      },
       list: () => [{ id: 'workspace', path: '/workspace', sessionIds: ['running', 'other'] }],
     },
   })
@@ -131,7 +208,8 @@ test('native agent pre-step blocks work after lock even when Host refused to arc
     const locked = await f.call({ action: 'lock', sessionId: 'running' })
     assert.equal(locked.status, 200)
     assert.equal(locked.data.archived, false, 'native refusal never rolls back a durable lock')
-    assert.deepEqual(attempts, ['running'])
+    assert.deepEqual(attempts, [['running', true]],
+      'even a refusing Host receives the supported stopActivity request')
     assert.deepEqual(await f.step({ id: 'session-running' }, next), { kind: 'reject' },
       'a native model step must be refused regardless of the alias spelling')
     assert.equal(forwards, 1, 'blocked model requests must not invoke the Host step')
