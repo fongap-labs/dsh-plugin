@@ -19,7 +19,15 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '6cd4f5efa58af0ed570083c9ed6bf2b14515f864')
+    assert.equal(sha, '587e37e22d478ac7f4d5d9c9b82f173baecf0613')
+  })
+  it('does not style native Host inputs, hero, guide cards or global token scales', () => {
+    assert.doesNotMatch(css, /\\[class[*~^$|]?=/)
+    assert.doesNotMatch(css, /(?:^|[\\s;{])--dsw-[\\w-]+\\s*:/m)
+    assert.doesNotMatch(css, /\\[data-sidebar-right-guide-entry\\]/)
+    assert.doesNotMatch(css, /:root\\[data-delta-ui="delta"\\]\\s+(?:button|input|textarea|select|::selection)/)
+    for (const owned of ['.dtd-brand-mark', '.dtd-search-clear',
+      '.dtd-dialog-backdrop', '.dtd-lock-shield']) assert.ok(css.includes(owned))
   })
   it('keeps native popup, menu, tooltip and listbox CSS under Harness ownership', () => {
     for (const marker of ['[role="tooltip"]', '[role="menu"]',
