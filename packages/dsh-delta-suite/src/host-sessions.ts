@@ -604,6 +604,13 @@ export function installHostSessionOps(
     const code = codeRaw.trim()
     const setupToken = typeof body.setupToken === 'string' ? body.setupToken.trim() : ''
 
+    // Reject unsafe Session IDs at every lock/verification/enrollment entry,
+    // before a persistent state write or the native Host archive call. The
+    // model-step gate and logical move route already use this same contract.
+    if (sessionId && !isSafeSessionMapKey(sessionId)) {
+      return makeJsonResponse(400, { ok: false, error: 'INVALID_SESSION_ID' })
+    }
+
     const current = await store.read()
 
     if (action === 'setup-begin') {
@@ -855,7 +862,7 @@ export function installHostSessionOps(
     }
     // Never persist a tombstone or detach a native ID that cannot be a
     // literal, single-segment Host session identifier.
-    if (!isSafeSegment(sessionId)) {
+    if (!isSafeSessionMapKey(sessionId)) {
       return makeJsonResponse(400, { ok: false, error: 'INVALID_SESSION_ID' })
     }
 
@@ -897,7 +904,7 @@ export function installHostSessionOps(
     const body = await readRequestJson(request)
     const rawIds = body.sessionIds
     if (!Array.isArray(rawIds) ||
-        rawIds.some(id => typeof id !== 'string' || !isSafeSegment(id.trim()))) {
+        rawIds.some(id => typeof id !== 'string' || !isSafeSessionMapKey(id.trim()))) {
       // Filtering malformed rows would silently execute only the valid
       // subset of a destructive batch. Reject the entire request instead.
       return makeJsonResponse(400, { ok: false, error: 'INVALID_SESSION_ID' })
