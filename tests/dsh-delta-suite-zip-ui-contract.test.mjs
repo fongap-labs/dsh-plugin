@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '7e0a813e91d7b4932591afba392bd4880bac7cc5')
+    assert.equal(sha, 'b73fa5766e33f380c6586cde579567066b1ce686')
   })
   it('retains the seven-tab SearchPalette and its explicit keyboard invocation', () => {
     for (const term of ['SearchTabId', 'tabAll', 'tabSession', 'tabWorkspace',
@@ -32,12 +32,15 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.doesNotMatch(client, /dtd-search-dialog-backdrop/)
     assert.doesNotMatch(client, /openSearchDialog\(/)
   })
-  it('keeps ZIP TOTP, session menus, modal chrome and Host privacy', () => {
-    for (const term of ['encodeQrMatrix', 'syncModalChromeOverlay',
-      'data-delta-modal-open', 'setup-begin', 'session-delete-ungrouped',
+  it('preserves TOTP, session protection and Delta-owned modal backdrops without Host chrome takeover', () => {
+    for (const term of ['encodeQrMatrix', 'setup-begin', 'session-delete-ungrouped',
       'installClientPrivacyGuards']) {
       assert.ok(client.includes(term), 'ZIP behavior missing: ' + term)
     }
+    assert.doesNotMatch(client, /syncModalChromeOverlay|data-delta-modal-open/)
+    assert.doesNotMatch(css, /data-delta-modal-open|--dtd-chrome-overlay-mask/)
+    assert.match(css, /\.dtd-search-backdrop/)
+    assert.match(css, /\.dtd-dialog-backdrop/)
   })
   it('registers repository feature slots without a second sidebar/search adapter', () => {
     for (const id of ['dtd-advanced-features', 'delta.mcp.add-server',

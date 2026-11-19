@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 移除 Delta 弹窗对 Harness 侧栏颜色的动态改写与全局弹窗打开标记；保留 Delta 自有遮罩和弹窗，补充 ZIP3 审核指纹与回归防护（Issue #333）。
+
 - 修复: Delta Code 的远程 GitHub Skill 加载支持按 Agent 任务切换、明确拒绝和销毁取消未完成请求；按宿主 scope 隔离候选技能与缓存刷新，无 scope 时只使用官方取消信号，保持共享 Provider 与历史会话内容不变。
 
 - 维护: 使用真实 Cordis 插件生命周期集成验证 Delta Code 的技能元数据按需加载、自动路由的用户消息隔离、Provider 注销及不支持生命周期时的关闭行为；明确实机 Harness 子代理/技能验收边界。

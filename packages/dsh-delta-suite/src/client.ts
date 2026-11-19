@@ -359,38 +359,6 @@ function installClientPrivacyGuards(): () => void {
   }
 }
 
-function syncModalChromeOverlay(): void {
-  const doc = typeof document !== 'undefined' ? document : undefined
-  const body = doc?.body
-  const root = doc?.documentElement
-  if (!body || !root || !doc) return
-  const hasModal = root.getAttribute?.('data-delta-ui') === 'delta' &&
-    typeof doc.querySelectorAll === 'function' &&
-    (['.dtd-search-backdrop', '.dtd-dialog-backdrop'] as const).some(sel =>
-      Array.from(doc.querySelectorAll(sel)).some(el => !(el as { hidden?: boolean }).hidden),
-    )
-  if (!hasModal) {
-    root.removeAttribute?.('data-delta-modal-open')
-    if (body.style?.getPropertyValue?.('--dsw-specific-sidebar-fill')) {
-      body.style.removeProperty?.('--dsw-specific-sidebar-fill')
-    }
-    return
-  }
-  root.setAttribute?.('data-delta-modal-open', '1')
-  const isDark = Boolean(
-    body.hasAttribute?.('data-ds-dark-theme') || root.hasAttribute?.('data-ds-dark-theme'),
-  )
-  let dimmedColor = isDark ? '#0B0B0D' : '#B2B6BD'
-  try {
-    const win = typeof window !== 'undefined' ? window : undefined
-    const computed = win?.getComputedStyle?.(body)?.getPropertyValue?.('--dtd-chrome-overlay-mask')?.trim()
-    if (computed) dimmedColor = computed
-  } catch {}
-  if (body.style?.getPropertyValue?.('--dsw-specific-sidebar-fill') !== dimmedColor) {
-    body.style?.setProperty?.('--dsw-specific-sidebar-fill', dimmedColor, 'important')
-  }
-}
-
 function installClientVisionBridge(): () => void {
   if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return () => {}
 
@@ -2344,7 +2312,6 @@ function createClientFeatureManager(): ClientFeatureManager {
   const closeDialog = (): void => {
     dialogBackdrop?.remove()
     dialogBackdrop = undefined
-    syncModalChromeOverlay()
   }
 
   const mountModal = (buildCard: (card: HTMLElement) => void): void => {
@@ -2373,7 +2340,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     backdrop.appendChild(card)
     document.body.appendChild(backdrop)
     dialogBackdrop = backdrop
-    syncModalChromeOverlay()
   }
 
   const createCodeInputElement = (placeholder: string, isLegacyPin = false): HTMLInputElement => {
@@ -3068,7 +3034,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
 
   const syncPrivacyDom = (): void => {
     deltaFeatures.ensureLoaded()
-    syncModalChromeOverlay()
     for (const stale of hiddenSessionLogNodes) {
       if (!stale.isConnected) hiddenSessionLogNodes.delete(stale)
     }
@@ -4282,7 +4247,6 @@ function installHostSearch(
     modalClearBtn = undefined
     modalTabsEl = undefined
     modalListEl = undefined
-    syncModalChromeOverlay()
   }
 
   const executePaletteItem = (item: PaletteItem | undefined): void => {
@@ -4587,7 +4551,6 @@ function installHostSearch(
     currentFilteredItems = []
     activeTab = target ? 'skill' : 'all'
     activeIndex = 0
-    syncModalChromeOverlay()
     if (modalInputEl) {
       modalInputEl.value = seedQuery
       modalInputEl.focus?.()
@@ -6159,7 +6122,6 @@ window.__ModuleLoader__.load({
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
                   document.body?.removeAttribute('data-delta-ui')
-                  syncModalChromeOverlay()
                   tag.parentNode?.removeChild(tag)
                   controller.dispose()
                 }
