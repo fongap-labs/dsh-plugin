@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Suite 通过 Harness 官方 `sidebar.session.row.trailing` Slot 显示会话和继承工作区锁状态，不再恢复原生 DOM 徽章接管；支持官方模式与卸载自动回退（#333、#190）。
+
 - 修复: 移除 Delta Suite 对宿主原生搜索、输入框、预览标题、指南卡与全局样式令牌的私有 CSS 覆盖，保留正式 Theme API 和自有组件样式（#333）。
 
 - 修复: Delta Suite 批量删除会话时按别名集合去重并建立反向索引，避免反复全量比较，保留锁、墓碑及原始取消顺序（#333）。
