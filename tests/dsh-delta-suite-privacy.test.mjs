@@ -10,9 +10,100 @@ const built = relative => pathToFileURL(fixture(`packages/dsh-delta-suite/lib/${
 const { createSensitiveRedactor, redactModelRequest, restoreStream } = await import(built('privacy.js'))
 const { isValidCredentialRef, requestVisionDescription } = await import(built('vision-protocol.js'))
 const { registerPrivacyBridge } = await import(built('privacy-bridge.js'))
+const { shouldBlockPrivacyHttpRequest, installHostPrivacyGuards } = await import(built('host-privacy.js'))
 
 async function* iterable(values) { yield* values }
 const collect = async stream => { const out = []; for await (const chunk of stream) out.push(chunk); return out }
+
+test('Host privacy request classifier rejects encoded, traversed, and alternate path spellings', () => {
+  const blocked = [
+    ['/api/telemetry', 'GET'],
+    ['/api/telemetry/events?source=host', 'POST'],
+    ['/api/product-analytics/', 'GET'],
+    ['/api/sessionfeedback', 'POST'],
+    ['/api/messagefeedback', 'GET'],
+    ['/api/otel/v1/traces', 'POST'],
+    ['/api/productanalytics/report', 'GET'],
+    ['/api/productanalytics/track', 'post'],
+    ['/API/%74elemetry', 'GET'],
+    ['/api%2Ftelemetry', 'GET'],
+    ['/api/%2574elemetry', 'GET'],
+    ['/api%25252ftelemetry', 'GET'],
+    ['/api\\telemetry', 'GET'],
+    ['//api///telemetry', 'GET'],
+    ['/api/misc/../telemetry', 'GET'],
+    ['/api/%2e%2e/api/telemetry', 'GET'],
+    ['/api/telemetry/../health', 'GET'],
+    ['https://local.example/api/telemetry/../health?check=1', 'GET'],
+    ['https://local.example/api%2Ftelemetry?q=%252f', 'POST'],
+    ['/api/telemetry/%ZZ', 'GET'],
+    ['/api/telemetry?goto=/api/safe', 'GET'],
+  ]
+  for (const [url, method] of blocked) {
+    assert.equal(shouldBlockPrivacyHttpRequest(url, method), true,
+      'privacy path escaped the Host request guard: ' + url)
+  }
+  const allowed = [
+    [undefined, 'GET'], ['', 'POST'], ['api/telemetry', 'GET'],
+    ['/api/telemetry-v2', 'POST'], ['/api/otels', 'GET'],
+    ['/api/product-analytics-v2', 'POST'], ['/api/messagefeedback-other', 'POST'],
+    ['/api/productanalytics', 'POST'], ['/api/productanalytics/track', 'GET'],
+    ['/api/productanalytics/report2', 'GET'], ['/api/health', 'GET'],
+    ['/api/misc/../health', 'POST'], ['/api/misc/../health/ready', 'GET'],
+    ['https://local.example/', 'GET'], ['/api/%ZZ/other', 'GET'],
+  ]
+  for (const [url, method] of allowed) {
+    assert.equal(shouldBlockPrivacyHttpRequest(url, method), false,
+      'unrelated Host endpoint should retain native routing: ' + url)
+  }
+})
+
+test('Host privacy event intercepts encoded telemetry requests and disposes cleanly', () => {
+  const listeners = new Map()
+  let excluded = false
+  let disposedExclusion = false
+  const ctx = {
+    inject(deps, callback) {
+      assert.deepEqual(deps, ['sessionLogDeepSeek'])
+      return callback({ sessionLogDeepSeek: {
+        registerExclusion(predicate) {
+          excluded = predicate({ sessionId: 'sid-1' })
+          return () => { disposedExclusion = true }
+        },
+      } })
+    },
+    on(event, listener) {
+      listeners.set(event, listener)
+      return () => { listeners.delete(event) }
+    },
+  }
+  const stop = installHostPrivacyGuards(ctx)
+  assert.equal(excluded, true, 'Host session-log requests are excluded via public service')
+  const event = listeners.get('connection/request')
+  assert.equal(typeof event, 'function')
+  let forwarded = 0
+  const request = (url, method) => {
+    const response = {
+      status: null, headers: null, body: '',
+      writeHead(status, headers) { this.status = status; this.headers = headers },
+      end(body) { this.body = body },
+    }
+    event({ url, method }, response, () => { forwarded++; return 'next' })
+    return response
+  }
+  const blocked = request('/api/%2574elemetry/events', 'POST')
+  assert.equal(blocked.status, 403)
+  assert.equal(blocked.headers['content-type'], 'application/json; charset=utf-8')
+  assert.equal(JSON.parse(blocked.body).error, 'PRIVACY_POLICY_BLOCKED')
+  assert.equal(forwarded, 0, 'blocked request must not reach the native handler')
+  assert.equal(request('/api/telemetry-v2', 'GET').status, null)
+  assert.equal(forwarded, 1, 'an unrelated endpoint must preserve the native handler')
+  assert.throws(() => listeners.get('session-telemetry/record')(), /prohibited/)
+  stop()
+  stop()
+  assert.equal(disposedExclusion, true)
+  assert.equal(listeners.size, 0, 'Host hooks must be released on plugin unload')
+})
 
 test('redaction masks common secrets and private contact data with reversible request-local markers', () => {
   const redactor = createSensitiveRedactor()
