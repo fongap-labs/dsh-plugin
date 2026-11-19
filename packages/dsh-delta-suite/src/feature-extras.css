@@ -316,6 +316,12 @@
   font-size: 11px;
   line-height: 1.4;
 }
+.dtd-session-meta-updated {
+  flex: 1 0 100%;
+  min-width: 0;
+  color: var(--dtd-muted, inherit);
+  font-size: 11px;
+}
 .dtd-session-meta-label { flex-shrink: 0; }
 .dtd-session-meta-id {
   flex: 1 1 auto;
