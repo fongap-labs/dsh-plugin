@@ -271,3 +271,16 @@
   outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
 
 .dtd-context-controls *, .dtd-assistant-panel * { transition: none !important; }
+
+/* Public sidebar.session.row.trailing contribution; never restyle Host row DOM. */
+.dtd-session-protection-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  color: var(--dsw-alias-label-secondary, currentColor);
+  pointer-events: none;
+}
+
