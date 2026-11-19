@@ -1,5 +1,6 @@
 /** Staged Skill proposal contract. Proposal files are inert: never a trusted Skill catalog. */
 import { isFreeSkillLicense } from './free-skill-policy.js'
+import { createHash } from 'node:crypto'
 
 const SHA = /^[a-f0-9]{40}$/
 const REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
@@ -88,10 +89,17 @@ export function validatePendingSkillProposal(input: unknown): PendingSkillPropos
   return check
 }
 
+export function pendingSkillProposalIdentity(proposal: PendingSkillProposal): string {
+  const source = proposal.source
+  return createHash('sha256').update([
+    source.repository.toLowerCase(), source.path, source.commit,
+    source.sourceBlobSha, source.licenseBlobSha,
+  ].join('\0')).digest('hex').slice(0, 20)
+}
+
 export function pendingSkillProposalPath(proposal: PendingSkillProposal): string {
-  const { repository, path, commit } = proposal.source
-  const [owner, name] = repository.toLowerCase().split('/')
+  const { repository, path } = proposal.source
   const skill = path.match(SKILL_PATH)![1]!
   return 'packages/dsh-delta-code/skill-proposals/' +
-    [owner, name, skill, commit.slice(0, 12)].join('-') + '.json'
+    skill + '-' + pendingSkillProposalIdentity(proposal) + '.json'
 }
