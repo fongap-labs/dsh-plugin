@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 移除将 Harness 原生侧栏开关移出视口及隐藏品牌行的私有 CSS；保留 Delta 公开品牌 Slot 样式（#333）。
+
 - 新增: Delta Code 支持无 Token 的跨组织公开 GitHub Skill 静态审核，重新验证固定 Commit、Git Tree、Skill/许可证 Blob，检查免费使用依据和潜在风险；审核结果不自动提升信任或执行权限。
 
 - 修复: 删除 65 个无效的 `data-delta-compat` CSS 分支及 11 条死规则；保留 Delta 样式，强化 ZIP3 校验（#333）。

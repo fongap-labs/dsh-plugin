@@ -165,8 +165,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired native session/workspace lock-row badges and styling; Host owns native row decorations.
 // Reviewed 2026-11-19: retired active Host center/header/Composer/trajectory CSS geometry; native layouts restored.
 // Reviewed 2026-11-19: retired 65 inactive data-delta-compat selector branches (11 dead-only rules).
+// Reviewed 2026-11-19: retired active Host sidebar toggle/logo-row hiding and private Windows menu offset.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '5d40c791b3dfca1d18a5e337f1e11c9cfbd1d5a2'
+const ZIP3_THEME_BLOB = '073ebde11cc94fefd8015c203d1a3aed20a1bfef'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -192,6 +193,18 @@ const RETIRED_HOST_CENTER_THEME_MARKERS = [
   '--dsh-composer-card-max-width',
   '--dsh-composer-side-clearance',
   '--dtd-center-gutter',
+]
+const RETIRED_HOST_SIDEBAR_THEME_MARKERS = [
+  '[data-sidebar-toggle]',
+  '[data-sidebar-opener]',
+  '[data-sidebar-right-toggle]',
+  '[data-sidebar-right-expand]',
+  '[class*="wtg9ga_logoRow"]',
+  '[class*="SidebarRoot_logoRow"]',
+  '[class*="wtg9ga_brandIdentity"]',
+  '[class*="SidebarRoot_brand"]',
+  '[class*="FishLogo"]',
+  '--dsh-windows-menu-start',
 ]
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -236,6 +249,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     'retired Host center CSS in emitted theme')
   ensure(!/data-delta-compat/i.test(theme),
     'retired compat-gated Host CSS in emitted theme')
+  ensure(!RETIRED_HOST_SIDEBAR_THEME_MARKERS.some(marker => theme.includes(marker)),
+    'retired Host sidebar control CSS in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
