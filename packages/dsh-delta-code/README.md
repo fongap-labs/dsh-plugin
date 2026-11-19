@@ -75,6 +75,10 @@ Delta Code 默认只检索、推荐和加载具有免费使用依据的 GitHub S
 
 这属于可重复的**离线、静态安全与完整性门禁**，不能取代人工对自然语言提示词和复杂供应链的独立审查，也不保证任何外部服务永远免费。新目录必须保持只读文档范围，不能赋予终端执行、文件写入、读取凭据或外部网络调用权限；用户权限仍由 Harness 决定。
 
+### GitHub Skill PR 回执与凭据边界
+
+`code_github_skill_propose_pr` 与 `code_github_skill_promote_pr` 均在写入前核对目标仓库绑定的 GitHub 账号，并逐步核对分支 SHA、文件路径和提交回执。提交 PR 后仅认可属于同一目标仓库、具有对应 PR 编号的 `https://github.com/.../pull/...` 链接。候选 PR 在创建分支前先读取 CHANGELOG，分支创建后通过固定 SHA 重新核对；若基础文件变化，直接停止，不将不确定写入解释为成功。匿名来源审核不使用目标仓库 Token，绑定的不同账号或组织之间也不借用 Token。
+
 ### 可信目录升级 PR
 
 `code_github_skill_promote_pr` 为前一步**已经合并**的免费 Skill 候选清单生成独立的可信目录升级 PR。它先匿名重新核对原仓库不可变 Commit、Skill/许可证 Blob，确认目标仓库已有相同的 `skill-proposals/*.json`，之后只使用目标仓库绑定的 Token 提交 `skill-admissions/*.json`、`APPROVED_GITHUB_SKILLS` 新条目、目录版本递增和 CHANGELOG。生成的 Skill 名称、描述与关键词来自经过规范化的源目录标识，不直接嵌入未经信任的自然语言。
