@@ -82,6 +82,63 @@ function fixture({ initial = {}, registry, readFails = false, writeFails = false
   }
 }
 
+
+test('invalid Session identifiers never reach native lock, archive, deletion or enrollment paths', async () => {
+  const nativeCalls = []
+  const registry = {
+    archivedSessionIds: [],
+    list: () => [{ id: 'workspace', path: '/workspace', sessionIds: ['valid'] }],
+    archiveSession(id) { nativeCalls.push(['archive', id]) },
+    unpinSession(id) { nativeCalls.push(['unpin', id]) },
+  }
+  const f = fixture({ initial: { totpSecret: secret }, registry })
+  try {
+    for (const sessionId of ['__proto__', 'constructor', 'toString', 'prototype',
+      '../escape', 'nested/id', 'nested\\id']) {
+      for (const action of ['lock', 'verify', 'unlock']) {
+        const res = await f.call({ action, sessionId })
+        assert.equal(res.status, 400, action + ': ' + sessionId)
+        assert.equal(res.data.error, 'INVALID_SESSION_ID')
+      }
+      const single = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId })
+      assert.equal(single.status, 400, 'single delete: ' + sessionId)
+      assert.equal(single.data.error, 'INVALID_SESSION_ID')
+      // Reject the entire mixed batch before committing even the valid row.
+      const bulk = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
+        sessionIds: ['valid', sessionId],
+      })
+      assert.equal(bulk.status, 400, 'bulk delete: ' + sessionId)
+      assert.equal(bulk.data.error, 'INVALID_SESSION_ID')
+    }
+    assert.deepEqual(f.store.getCached().lockedSessionIds, [])
+    assert.deepEqual(f.store.getCached().deletedSessionIds, [])
+    assert.deepEqual(nativeCalls, [], 'invalid requests have no native side effects')
+  } finally { f.dispose() }
+
+  const enrollment = fixture({ registry })
+  try {
+    const begin = await enrollment.call({ action: 'setup-begin' })
+    assert.equal(begin.status, 200)
+    const code = await state.generateTotpCode(begin.data.secret)
+    const invalid = await enrollment.call({
+      action: 'setup-confirm', setupToken: begin.data.setupToken,
+      sessionId: '../escape', code,
+    })
+    assert.equal(invalid.status, 400)
+    assert.equal(invalid.data.error, 'INVALID_SESSION_ID')
+    assert.equal(enrollment.store.getCached().totpSecret, undefined,
+      'invalid ID must not persist authentication credentials or a lock')
+    assert.deepEqual(nativeCalls, [])
+    // A rejected target does not consume the valid pending TOTP enrollment.
+    const valid = await enrollment.call({
+      action: 'setup-confirm', setupToken: begin.data.setupToken,
+      sessionId: 'valid', code,
+    })
+    assert.equal(valid.status, 200)
+    assert.deepEqual(enrollment.store.getCached().lockedSessionIds, ['valid'])
+  } finally { enrollment.dispose() }
+})
+
 test('public Host event rejects native unarchive of a directly locked session but allows other sessions', async () => {
   const f = fixture({ initial: { totpSecret: secret, lockedSessionIds: ['locked'] } })
   try {
