@@ -1,5 +1,6 @@
 /** Public GitHub Skill bytes are read-only and pinned to a reviewed commit and Git blob. */
 import { createHash } from 'node:crypto'
+import { isFreeSkillLicense, inspectFreeSkillText } from '../../../delta-code-strategy/free-skill-policy.js'
 import {
   APPROVED_GITHUB_SKILLS,
   getActiveApprovedGitHubSkills,
@@ -87,6 +88,7 @@ export function createApprovedGitHubSkillProvider(
   options: ApprovedGitHubSkillProviderOptions = {},
 ): RemoteSkillProvider {
   const activeCatalog = getActiveApprovedGitHubSkills(catalog, options.revocations)
+    .filter(entry => isFreeSkillLicense(entry.license))
   const entries = new Map<string, ApprovedGitHubSkill>()
   for (const entry of activeCatalog) {
     if (entries.has(entry.name)) throw new Error('Duplicate approved GitHub Skill name: ' + entry.name)
@@ -144,6 +146,8 @@ export function createApprovedGitHubSkillProvider(
       }
       const body = markdown.slice(match[0].length).trim()
       if (!body) throw new Error('Pinned GitHub Skill instructions are empty')
+      const cost = inspectFreeSkillText(markdown, approved.license)
+      if (!cost.eligible) throw new Error('GitHub Skill excluded by free-only policy: ' + cost.reason)
       return {
         ...summaries.find(entry => entry.name === approved.name)!,
         content: [
