@@ -87,6 +87,71 @@ async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, hos
   return { repository, account, data: response.status === 204 ? null : await response.json() }
 }
 
+/**
+ * Explicitly public-only, bounded discovery channel. Unlike requestGitHubApi,
+ * this endpoint NEVER resolves, forwards, or falls back to any GitHub Token.
+ * GitHub's REST code search requires authentication; use public repository
+ * search, then verify SKILL.md paths in pinned public Git trees instead.
+ */
+async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<unknown> {
+  if (typeof path !== 'string' || !path.startsWith('/')) throw new Error('invalid public GitHub discovery path')
+  const endpoint = new URL(API + path)
+  if (endpoint.origin !== API || endpoint.username || endpoint.password || endpoint.hash) {
+    throw new Error('invalid public GitHub discovery URL')
+  }
+  const query = endpoint.searchParams
+  const isSearch = endpoint.pathname === '/search/repositories' &&
+    query.size === 2 && query.get('per_page') === '8' &&
+    typeof query.get('q') === 'string' &&
+    query.get('q')!.endsWith(' skills in:name,description,readme')
+  const isOwner = /^\/users\/[A-Za-z0-9-]{1,39}$/.test(endpoint.pathname) && !endpoint.search
+  const isCommit = /^\/repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}\/commits\/[A-Za-z0-9._%-]{1,200}$/.test(endpoint.pathname) && !endpoint.search
+  const isTree = /^\/repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}\/git\/trees\/[a-f0-9]{40}$/.test(endpoint.pathname) &&
+    query.size === 1 && query.get('recursive') === '1'
+  if (!isSearch && !isOwner && !isCommit && !isTree) {
+    throw new Error('public GitHub Skill discovery endpoint not permitted')
+  }
+  signal.throwIfAborted()
+  const response = await fetch(endpoint.toString(), {
+    method: 'GET', redirect: 'error', credentials: 'omit', referrerPolicy: 'no-referrer',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'dsh-delta-code-public-discovery',
+    },
+    signal,
+  })
+  if (!response.ok) throw new GitHubApiFailure(response.status, 'public-skill-discovery', 'GET')
+  const maxBytes = 1_000_000
+  const hintedLength = Number(response.headers.get('content-length'))
+  if (Number.isFinite(hintedLength) && hintedLength > maxBytes) {
+    throw new Error('public GitHub discovery response exceeds size budget')
+  }
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error('public GitHub discovery response has no body')
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    while (true) {
+      signal.throwIfAborted()
+      const part = await reader.read()
+      if (part.done) break
+      size += part.value.byteLength
+      if (size > maxBytes) {
+        await reader.cancel()
+        throw new Error('public GitHub discovery response exceeds size budget')
+      }
+      chunks.push(part.value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const bytes = new Uint8Array(size)
+  let cursor = 0
+  for (const chunk of chunks) { bytes.set(chunk, cursor); cursor += chunk.length }
+  return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+}
+
 /** GitHub Actions job logs are a signed, redirected text download, never JSON.
  * GitHub's credential is sent only to api.github.com, never to the signed URL. */
 const MAX_JOB_LOG_BYTES = 1024 * 1024
@@ -209,6 +274,7 @@ export function createGitHubTransport(accounts: readonly GitHubAccountConfig[], 
   // This does not import the separate gh CLI login store.
   if (!accounts.length) bindings.set('native', 'GITHUB_TOKEN')
   return {
+    publicRead: publicGitHubMetadata,
     request(input) {
       const credentialEnv = bindings.get(input.account.toLowerCase())
       if (!credentialEnv) throw new Error('GitHub account binding unavailable for ' + input.account)
