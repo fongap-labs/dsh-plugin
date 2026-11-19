@@ -50,5 +50,6 @@ test('review pins reject attempts to restore the unapproved account-menu interce
   const injectedCss = theme + '\n[class*="footArea"] { opacity: 0; }'
   const maliciousClient = emitted.split('\n').map(line => line.startsWith('const OWNED_CSS = ')
     ? 'const OWNED_CSS = ' + JSON.stringify(injectedCss) + ';' : line).join('\n')
-  assert.throws(() => verifyApprovedZip3Client(maliciousClient, source), /approved theme differs/)
+  assert.throws(() => verifyApprovedZip3Client(maliciousClient, source),
+    /retired Host-global CSS takeover in emitted theme/)
 })
