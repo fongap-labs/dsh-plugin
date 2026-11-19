@@ -149,7 +149,7 @@ export function createSkillCatalogPromotionSpecs(
           pinnedChangelog.sha !== originalChangelog.sha) {
         throw Error('Target base branch changed during Skill promotion; discard the feature branch')
       }
-      const entry = '- \\u65b0\\u589e: stage pinned free Skill catalog promotion ' +
+      const entry = '- \u65b0\u589e: stage pinned free Skill catalog promotion ' +
         source.repository + '/' + source.path + ' for independent CI review.\n'
       const changelogContent = pinnedChangelog.content.replace(
         CHANGELOG_HEADER, CHANGELOG_HEADER + entry + '\n')
