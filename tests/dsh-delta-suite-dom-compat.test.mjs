@@ -50,6 +50,20 @@ test('unverified host-only capabilities remain unclaimed until Windows validatio
   }
 })
 
+test('native sidebar rows, scrollbars and fades stay Host-owned; protected-state CSS remains', () => {
+  for (const marker of ['[data-sidebar-scrollport]', '[data-sidebar-list-area]',
+    '[data-row-key^="session:"]', '[class*="scrollFade"]',
+    '[class*="wtg9ga_scrollFade"]', '[class*="regionArea"]', '[class*="rowResting"]']) {
+    assert.equal(style.includes(marker), false, 'native sidebar layout CSS: ' + marker)
+  }
+  for (const marker of ['data-dtd-hidden-deleted', 'data-dtd-hidden-session-log',
+    'data-dtd-hidden-sole-workspace', 'data-dtd-hidden-privacy-cmd']) {
+    assert.ok(style.includes(marker), 'protected-state CSS missing: ' + marker)
+  }
+  assert.match(style, /\.dtd-lock-shield\s*\{/)
+  assert.match(style, /\.dtd-search-tabs::-webkit-scrollbar/)
+})
+
 test('native sidebar brand, logo rows, and openers remain Harness-owned in Delta mode', () => {
   for (const marker of ['[data-sidebar-toggle]', '[data-sidebar-opener]',
     '[data-sidebar-right-toggle]', '[data-sidebar-right-expand]',

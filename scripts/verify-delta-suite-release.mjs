@@ -166,8 +166,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired active Host center/header/Composer/trajectory CSS geometry; native layouts restored.
 // Reviewed 2026-11-19: retired 65 inactive data-delta-compat selector branches (11 dead-only rules).
 // Reviewed 2026-11-19: retired active Host sidebar toggle/logo-row hiding and private Windows menu offset.
+// Reviewed 2026-11-19: retired active native session/workspace list, scrollbars and scroll-fade CSS.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '073ebde11cc94fefd8015c203d1a3aed20a1bfef'
+const ZIP3_THEME_BLOB = '59e08f634fc81452166ed0ffe4e0d16f9e349218'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -205,6 +206,15 @@ const RETIRED_HOST_SIDEBAR_THEME_MARKERS = [
   '[class*="SidebarRoot_brand"]',
   '[class*="FishLogo"]',
   '--dsh-windows-menu-start',
+]
+const RETIRED_NATIVE_SIDEBAR_LIST_THEME_MARKERS = [
+  '[data-sidebar-scrollport]',
+  '[data-sidebar-list-area]',
+  '[data-row-key^="session:"]',
+  '[class*="scrollFade"]',
+  '[class*="wtg9ga_scrollFade"]',
+  '[class*="regionArea"]',
+  '[class*="rowResting"]',
 ]
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -251,6 +261,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     'retired compat-gated Host CSS in emitted theme')
   ensure(!RETIRED_HOST_SIDEBAR_THEME_MARKERS.some(marker => theme.includes(marker)),
     'retired Host sidebar control CSS in emitted theme')
+  ensure(!RETIRED_NATIVE_SIDEBAR_LIST_THEME_MARKERS.some(marker => theme.includes(marker)),
+    'retired native sidebar list CSS in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
