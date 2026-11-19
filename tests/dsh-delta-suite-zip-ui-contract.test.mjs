@@ -19,7 +19,17 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '727426d149667f64878713d45ad6e133d2a1c2ba')
+    assert.equal(sha, '8af2606bc803970576037364d1e08e7063f1d23f')
+  })
+  it('leaves native center, Header, Composer and trajectory layout to Harness', () => {
+    for (const marker of ['mP3x-q_centerCol', 'an3WzG_header',
+      'F07MqG_dock', 'eciBTa_root', 'Wd4N7W_searchIcon',
+      '--dsh-chat-content-width', '--dsh-composer-card-max-width',
+      '--dsh-composer-side-clearance', '--dtd-center-gutter']) {
+      assert.equal(css.includes(marker), false, marker)
+    }
+    assert.match(css, /\.dtd-lock-shield\s*\{/)
+    assert.match(css, /\[data-dtd-hidden-deleted="1"\]/)
   })
   it('retains the seven-tab SearchPalette and its explicit keyboard invocation', () => {
     for (const term of ['SearchTabId', 'tabAll', 'tabSession', 'tabWorkspace',

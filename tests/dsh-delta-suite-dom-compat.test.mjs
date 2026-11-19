@@ -98,6 +98,18 @@ test('service search uses only the public composer Slot, never inserts a Host si
   assert.doesNotMatch(search, /new MutationObserver\(scheduleSync\)/)
 })
 
+test('Host owns center/header/Composer/trajectory CSS geometry; Delta retains protected overlays', () => {
+  for (const marker of ['mP3x-q_centerCol', 'an3WzG_header',
+    'F07MqG_dock', 'eciBTa_root', 'Wd4N7W_searchIcon',
+    '--dsh-chat-content-width', '--dsh-composer-card-max-width',
+    '--dsh-composer-side-clearance', '--dtd-center-gutter']) {
+    assert.equal(style.includes(marker), false, 'unowned Host center CSS: ' + marker)
+  }
+  assert.match(style, /\.dtd-lock-shield\s*\{/)
+  assert.match(style, /\[data-dtd-hidden-deleted="1"\]/)
+  assert.equal(readiness.required.sidebar_spacing, false)
+})
+
 test('Host owns frame columns, splitters and expand/collapse behavior without Delta pointer hijacking', () => {
   const begin = source.indexOf('function installSidebarCompatibility(')
   const end = source.indexOf('\n' + 'type SearchTabId', begin)
