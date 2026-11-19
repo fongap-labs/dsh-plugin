@@ -35,6 +35,8 @@ export function createTaskSkillCancellation(ctx: Context, invalidate: () => void
   readonly dispose: () => void
 } {
   const states = new WeakMap<object, TaskState>()
+  // A disposed Agent must never be re-created by a late Host Skill request.
+  const disposedAgents = new WeakSet<object>()
   const activeControllers = new Set<AbortController>()
   const disposers: Array<() => void> = []
   let isActive = true
@@ -68,7 +70,7 @@ export function createTaskSkillCancellation(ctx: Context, invalidate: () => void
   subscribe('agent/inbox/claimed', payload => {
     if (!isActive || !payload || typeof payload !== 'object') return
     const { agent, message } = payload as ClaimedUserMessage
-    if (!agent || message?.source?.kind !== 'user') return
+    if (!agent || disposedAgents.has(agent) || message?.source?.kind !== 'user') return
     const text = Array.isArray(message.content)
       ? message.content.filter(part => part.type === 'text' && typeof part.text === 'string')
         .map(part => part.text).join('\n')
@@ -92,6 +94,7 @@ export function createTaskSkillCancellation(ctx: Context, invalidate: () => void
     if (!isActive || !payload || typeof payload !== 'object') return
     const { agent } = payload as AgentLifecycleEvent
     if (!agent) return
+    disposedAgents.add(agent)
     const wasDenied = states.get(agent)?.isExternalDisabled ?? false
     revoke(agent, 'skill agent disposed')
     if (wasDenied) invalidate()
@@ -103,6 +106,7 @@ export function createTaskSkillCancellation(ctx: Context, invalidate: () => void
       if (!isActive || !scope || typeof scope !== 'object') {
         return { isExternalDisabled: !isActive }
       }
+      if (disposedAgents.has(scope)) return { isExternalDisabled: true }
       const state = stateFor(scope)
       return { signal: state.controller.signal, isExternalDisabled: state.isExternalDisabled }
     },
