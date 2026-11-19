@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Fixed Host-side privacy request matching for URL-encoded path segments, repeated separators, and traversal aliases while retaining original-path blocking and native handling for unrelated endpoints (#333).
+- 修复: 加固 Host 隐私请求路径匹配，阻断 URL 编码、重复分隔符与路径回退造成的遥测接口绕过；保留原始路径保护与无关宿主路由的正常处理（#333）。
 
 - 新增: Delta Suite 通过 Harness 官方 `sidebar.session.row.trailing` Slot 显示会话和继承工作区锁状态，不再恢复原生 DOM 徽章接管；支持官方模式与卸载自动回退（#333、#190）。
 
