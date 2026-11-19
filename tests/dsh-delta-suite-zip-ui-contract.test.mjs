@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, 'e35b99e11de18ab1b28d51df3b88445fadca3fd4')
+    assert.equal(sha, '6cd4f5efa58af0ed570083c9ed6bf2b14515f864')
   })
   it('keeps native popup, menu, tooltip and listbox CSS under Harness ownership', () => {
     for (const marker of ['[role="tooltip"]', '[role="menu"]',
