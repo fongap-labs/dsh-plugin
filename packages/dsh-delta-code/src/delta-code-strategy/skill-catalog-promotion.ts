@@ -58,9 +58,12 @@ export function prepareReviewedSkillPromotion(
   // An owner prefix avoids collisions between otherwise identical Skill
   // folders in different repositories; all metadata is generated locally.
   const publicName = owner + '-' + name
+  const catalogBody = source.slice(catalogStart, arrayEnd)
+  const duplicateName = new RegExp(
+    '(?:^|[\\n,])\\s*(?:"name"|name)\\s*:\\s*["\\x27]' +
+    publicName + '["\\x27]', 'm')
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(publicName) ||
-      new RegExp('\\bname:\\s*[\\x27\\x22]' + publicName + '[\\x27\\x22]').test(
-        source.slice(catalogStart, arrayEnd))) {
+      duplicateName.test(catalogBody)) {
     throw Error('A trusted Skill with this name already exists')
   }
   const tokens = name.split('-').filter(token => token.length >= 2 && token.length <= 64)
