@@ -921,9 +921,10 @@ export function installHostSessionOps(
     // Build the reverse index once: deletion candidates can have several
     // overlapping raw/session-prefixed spellings, but cancellations must keep
     // the exact order in which the caller supplied each spelling.
-    const requestedOrder = new Map(requestedIds.map((id, index) => [id, index]))
+    const requestedOrder = new Map<string, number>()
     const requestedByAlias = new Map<string, string[]>()
-    for (const id of requestedIds) {
+    for (const [index, id] of requestedIds.entries()) {
+      requestedOrder.set(id, index)
       for (const alias of new Set(sessionAliases(id))) {
         const aliases = requestedByAlias.get(alias) ?? []
         aliases.push(id)
