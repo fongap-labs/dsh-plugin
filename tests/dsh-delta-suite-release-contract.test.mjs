@@ -27,6 +27,14 @@ test('release guard rejects the retired native sidebar search proxy', () => {
     /legacy native layout takeover retained/)
 })
 
+test('release guard rejects revived compatibility-gated CSS in the emitted theme', () => {
+  for (const selector of [':root[data-delta-compat="1"] .dtd-host-search {}',
+    ':root[DATA-DELTA-COMPAT="1"] [class*="wtg9ga_panelList"] {}']) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n' + selector), source),
+      /retired compat-gated Host CSS in emitted theme/)
+  }
+})
+
 test('release guard rejects activation of retired native sidebar layout compatibility', () => {
   for (const takeover of [
     "document.documentElement.setAttribute('data-delta-compat', '1')",

@@ -19,7 +19,15 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '8af2606bc803970576037364d1e08e7063f1d23f')
+    assert.equal(sha, '5d40c791b3dfca1d18a5e337f1e11c9cfbd1d5a2')
+  })
+  it('removes inactive data-delta-compat CSS but preserves live Delta feature styling', () => {
+    assert.doesNotMatch(css, /data-delta-compat/i)
+    assert.match(css, /:root\[data-delta-ui="delta"\] \.dtd-host-search\b/)
+    assert.match(css, /\.dtd-search-clear\b/)
+    assert.match(css, /\.dtd-lock-shield\b/)
+    assert.match(css, /\[data-dtd-hidden-deleted="1"\]/)
+    assert.doesNotMatch(css, /\[aria-label="Plugins"\]|\[aria-label="Tasks"\]/)
   })
   it('leaves native center, Header, Composer and trajectory layout to Harness', () => {
     for (const marker of ['mP3x-q_centerCol', 'an3WzG_header',
