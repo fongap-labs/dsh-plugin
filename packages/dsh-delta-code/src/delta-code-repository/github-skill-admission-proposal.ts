@@ -3,7 +3,7 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import type { DeltaGitHubExecution, DeltaGitHubToolSpec } from './github-operations.js'
 import { createPublicSkillAuditSpecs } from './github-skill-public-audit.js'
 import {
-  makePendingSkillProposal, pendingSkillProposalPath,
+  makePendingSkillProposal, pendingSkillProposalPath, pendingSkillProposalIdentity,
 } from '../delta-code-strategy/skill-proposal-policy.js'
 
 const REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
@@ -59,8 +59,7 @@ export function createSkillAdmissionProposalSpecs(
       const proposal = makePendingSkillProposal(auditResult)
       const source = proposal.source
       const path = pendingSkillProposalPath(proposal)
-      const branchName = 'chore/skill-proposal-' +
-        source.commit.slice(0, 10) + '-' + source.sourceBlobSha.slice(0, 10)
+      const branchName = 'chore/skill-proposal-' + pendingSkillProposalIdentity(proposal)
       const repository = args.targetRepository as string
 
       const branchedResponse = await actions.branch.execute({
