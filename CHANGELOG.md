@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code 支持不使用组织 GitHub Token 的全站公开仓库 Skill 有界发现：验证 Git Tree 中的 SKILL.md、固定 Commit/Blob SHA、按任务匹配与维护证据排序；保持只读、候选未审核、限流停止及用户权限门禁。
+
 - 新增: GitHub Skill 候选增加 Star/Fork、维护者账号资历与仓库维护活跃度的可解释评分；未知指标不会伪造信誉，结果仅用于排序与复核，不触发自动授权或安装。
 
 - 修复: 移除 Delta 弹窗对 Harness 侧栏颜色的动态改写与全局弹窗打开标记；保留 Delta 自有遮罩和弹窗，补充 ZIP3 审核指纹与回归防护（Issue #333）。
