@@ -50,6 +50,20 @@ test('unverified host-only capabilities remain unclaimed until Windows validatio
   }
 })
 
+test('native tooltip, popup, menu and listbox styling stays Harness-owned', () => {
+  for (const marker of ['[role="tooltip"]', '[role="menu"]', '[role="menuitem"]',
+    '[role="listbox"]', '[data-context-menu]', '[data-radix-menu-content]',
+    '[class*="_surface_"]', '[class*="_backing_"]', '[class*="_list_"]',
+    '[class*="AnXs9G_navCell"]', '[class*="wtg9ga_moreMenu"]',
+    '[class*="A6Bq1a_panel"]', '[class*="Spinner"]']) {
+    assert.equal(style.includes(marker), false, 'unowned Host popup CSS: ' + marker)
+  }
+  assert.match(style, /\.dtd-tooltip\s*\{/)
+  assert.match(style, /\.dtd-host-search-results\s*\{/)
+  assert.match(style, /\.dtd-spinner\s*\{/)
+  assert.match(style, /\.dtd-lock-shield\s*\{/)
+})
+
 test('native sidebar rows, scrollbars and fades stay Host-owned; protected-state CSS remains', () => {
   for (const marker of ['[data-sidebar-scrollport]', '[data-sidebar-list-area]',
     '[data-row-key^="session:"]', '[class*="scrollFade"]',

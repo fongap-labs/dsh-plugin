@@ -429,31 +429,10 @@
   }
 }
 
-/* ============================================================================
- * 3. Centralized Popup, Menu, Tooltip, HoverCard, Dropdown & Spinner System
- * ============================================================================ */
+/* Delta-owned popup, search and status surfaces only.
+ * Native Harness menus, tooltips, listboxes and third-party overlays retain their own CSS. */
 :root[data-delta-ui="delta"] :is(
-  [role="tooltip"],
-  [class*="_bubble_44yfq"],
   .dtd-tooltip,
-  [class*="A6Bq1a_panel"],
-  [class*="xXe6ja_panel"],
-  [role="menu"],
-  [role="listbox"],
-  [data-context-menu],
-  [data-radix-menu-content],
-  [class*="_surface_1w4el"],
-  [class*="_surface_"],
-  [class*="_list_1p5el"],
-  [class*="_list_"],
-  [class*="_submenu_1p5el"],
-  [class*="_submenu_"],
-  [class*="_9r0rkG_menu"],
-  [class*="GAkraW_viewOptionsMenu"],
-  [class*="wtg9ga_moreMenu"],
-  [class*="contextMenu" i],
-  [class*="moreMenu"],
-  [class*="viewsMoreMenu"],
   .dtd-host-search-results,
   .dtd-toast
 ) {
@@ -465,12 +444,7 @@
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-
-:root[data-delta-ui="delta"] :is(
-  [role="tooltip"],
-  [class*="_bubble_44yfq"],
-  .dtd-tooltip
-) {
+:root[data-delta-ui="delta"] .dtd-tooltip {
   z-index: 2147482900 !important;
   padding: 5px 10px !important;
   font-size: 12px !important;
@@ -478,76 +452,17 @@
   line-height: 18px !important;
   white-space: nowrap !important;
   pointer-events: none !important;
-}
-:root[data-delta-ui="delta"] :is([role="tooltip"], [class*="_bubble_44yfq"]) [class*="_tooltip_38b9q"] {
-  color: var(--dtd-fg-secondary) !important;
-}
-
-:root[data-delta-ui="delta"] :is(
-  [role="tooltip"],
-  [class*="_bubble_44yfq"],
-  .dtd-tooltip,
-  [class*="A6Bq1a_panel"],
-  [class*="xXe6ja_panel"],
-  [role="menu"],
-  [role="listbox"],
-  [class*="_surface_1w4el"],
-  [class*="_surface_"],
-  [class*="_list_1p5el"],
-  [class*="_list_"],
-  [class*="_submenu_1p5el"],
-  [class*="_submenu_"],
-  [class*="_9r0rkG_menu"],
-  [class*="GAkraW_viewOptionsMenu"],
-  [class*="wtg9ga_moreMenu"]
-) {
   border-radius: var(--dtd-popup-radius) !important;
 }
-
-:root[data-delta-ui="delta"] :is([class*="_backing_1w4el"], [class*="_backing_"]) {
-  background: transparent !important;
-  backdrop-filter: none !important;
+:root[data-delta-ui="delta"] .dtd-host-search-results {
+  border-radius: var(--dtd-popup-radius) !important;
 }
-:root[data-delta-ui="delta"] [class*="_material_1w4el"],
-:root[data-delta-ui="delta"] :is([class*="_surface_1w4el"], [class*="_surface_"]) > :is([class*="_list_1p5el"], [class*="_list_"], [role="menu"]) {
-  background: transparent !important;
-  background-color: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-/* Shared interactive hover state inside menus, dropdowns & settings nav */
-:root[data-delta-ui="delta"] :is(
-  [role="menuitem"],
-  [class*="_item_1p5el"],
-  [class*="_item_"],
-  [class*="_itemWrap_"],
-  [class*="_9r0rkG_option"],
-  [class*="_9r0rkG_cell"],
-  [class*="AnXs9G_navCell"],
-  .dtd-host-search-result
-):hover:not(:disabled):not([aria-disabled="true"]),
-:root[data-delta-ui="delta"] [class*="_9r0rkG_optionActive"]:not(:disabled) {
+:root[data-delta-ui="delta"] .dtd-host-search-result:hover:not(:disabled):not([aria-disabled="true"]) {
   background: var(--dtd-bg-hover) !important;
 }
-:root[data-delta-ui="delta"] [class*="AnXs9G_navCell"][class*="AnXs9G_active"] {
-  background: var(--dtd-brand-soft-strong) !important;
-}
-
-/* Centralized Spinner Color */
-:root[data-delta-ui="delta"] :is(
-  [class*="_spinner_1i3xo"],
-  [class*="sendingSpinner"],
-  [class*="Spinner"],
-  .dtd-spinner
-) {
+:root[data-delta-ui="delta"] .dtd-spinner {
   color: var(--dtd-spinner-color) !important;
 }
-
-/* Harness owns native menu layout, footer separation, and third-party items.
- * Delta does not force menu Flex layout or hide Host footer separators. */
 
 /* ============================================================================
  * 4. Settings Page and Host Navigation Tail Order

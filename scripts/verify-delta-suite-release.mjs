@@ -168,8 +168,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired active Host sidebar toggle/logo-row hiding and private Windows menu offset.
 // Reviewed 2026-11-19: retired active native session/workspace list, scrollbars and scroll-fade CSS.
 // Reviewed 2026-11-19: retired native Ungrouped context-menu capture, synthetic popup and its CSS; Host deletion protection preserved.
+// Reviewed 2026-11-19: retired active native menu/tooltip/listbox/hover CSS takeover; keep Delta-owned overlays.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = 'e35b99e11de18ab1b28d51df3b88445fadca3fd4'
+const ZIP3_THEME_BLOB = '6cd4f5efa58af0ed570083c9ed6bf2b14515f864'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -207,6 +208,21 @@ const RETIRED_HOST_SIDEBAR_THEME_MARKERS = [
   '[class*="SidebarRoot_brand"]',
   '[class*="FishLogo"]',
   '--dsh-windows-menu-start',
+]
+const RETIRED_HOST_POPUP_THEME_MARKERS = [
+  "[role=\"tooltip\"]",
+  "[role=\"menu\"]",
+  "[role=\"menuitem\"]",
+  "[role=\"listbox\"]",
+  "[data-context-menu]",
+  "[data-radix-menu-content]",
+  "[class*=\"_surface_\"]",
+  "[class*=\"_backing_\"]",
+  "[class*=\"_list_\"]",
+  "[class*=\"AnXs9G_navCell\"]",
+  "[class*=\"wtg9ga_moreMenu\"]",
+  "[class*=\"A6Bq1a_panel\"]",
+  "[class*=\"Spinner\"]"
 ]
 const RETIRED_NATIVE_SIDEBAR_LIST_THEME_MARKERS = [
   '[data-sidebar-scrollport]',
@@ -276,6 +292,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     'retired native sidebar list CSS in emitted theme')
   ensure(!theme.includes('dtd-context-menu'),
     'retired Ungrouped native context menu in emitted theme')
+  ensure(!RETIRED_HOST_POPUP_THEME_MARKERS.some(marker => theme.includes(marker)),
+    'retired native popup styling in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)

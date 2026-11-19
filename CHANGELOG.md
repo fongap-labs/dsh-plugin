@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 移除 Harness 原生菜单、Tooltip、Listbox 和私有浮层的 CSS 接管；保留 Delta 自有弹窗与锁屏样式（#333）。
+
 - 修复: Host 工作区清单遇到重复路径、无效成员或失效迁移目标时禁止会话恢复与危险操作，补充授权回归测试（#333）。
 
 - 修复: Delta Code 远程 Skill Provider 在 Agent 销毁后拒绝迟到的 list/get 和 inbox 消息，防止 Host 异步请求重建已结束的任务；保留其他 Agent 与原生 Provider 生命周期隔离，补充 Cordis 真实事件回归。

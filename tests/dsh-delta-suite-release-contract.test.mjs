@@ -93,6 +93,15 @@ test('release guard rejects reintroduced native lock-row markup and styling', ()
   }
 })
 
+test('release guard rejects reintroduced native popup and menu CSS', () => {
+  for (const marker of ['[role="menu"]', '[role="tooltip"]',
+    '[role="menuitem"]', '[data-radix-menu-content]',
+    '[class*="_surface_"]', '[class*="wtg9ga_moreMenu"]']) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n' + marker), source),
+      /retired native popup styling in emitted theme/)
+  }
+})
+
 test('release guard rejects restored native sidebar row and scrollbar overrides', () => {
   for (const marker of ['[data-sidebar-scrollport]', '[data-sidebar-list-area]',
     '[data-row-key^="session:"]', '[class*="scrollFade"]',

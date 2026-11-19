@@ -21,6 +21,20 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
     assert.equal(sha, 'e35b99e11de18ab1b28d51df3b88445fadca3fd4')
   })
+  it('keeps native popup, menu, tooltip and listbox CSS under Harness ownership', () => {
+    for (const marker of ['[role="tooltip"]', '[role="menu"]',
+      '[role="menuitem"]', '[role="listbox"]',
+      '[data-context-menu]', '[data-radix-menu-content]',
+      '[class*="_surface_"]', '[class*="_backing_"]',
+      '[class*="_list_"]', '[class*="AnXs9G_navCell"]',
+      '[class*="wtg9ga_moreMenu"]', '[class*="A6Bq1a_panel"]',
+      '[class*="Spinner"]']) {
+      assert.equal(css.includes(marker), false, marker)
+    }
+    for (const owned of ['.dtd-tooltip', '.dtd-host-search-results',
+      '.dtd-host-search-result', '.dtd-toast', '.dtd-spinner',
+      '.dtd-lock-shield']) assert.ok(css.includes(owned), owned)
+  })
   it('leaves native sidebar list rows, scrolling and fades to Harness', () => {
     for (const marker of ['[data-sidebar-scrollport]', '[data-sidebar-list-area]',
       '[data-row-key^="session:"]', '[class*="scrollFade"]',
