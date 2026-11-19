@@ -1,5 +1,7 @@
 # 更新日志
 
+- 新增: Delta Code 可信 GitHub Skill 目录增加独立 CI 准入门禁；新增条目必须有候选清单及完整固定源码/许可证证据，验证 Git Blob SHA、免费与静态风险、只读权限和目录版本，不满足条件直接阻止 CI 合并。
+
 ## [Unreleased]
 
 - 新增: Delta Code 可在匿名固定版本免费 Skill 审核后，通过已授权的目标仓库 GitHub Token 自动创建待 CI 审核的不可执行候选清单 PR；验证 GitHub 归属与写入门禁，不自动把候选注册为可信 Skill。
