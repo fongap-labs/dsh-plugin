@@ -1471,7 +1471,6 @@ function createClientFeatureManager(): ClientFeatureManager {
       return base ? projectDeltaWorkspace(base, state) : undefined
     } catch { return undefined }
   }
-  const pendingArchives = new Map<string, Promise<void>>()
   let sessionsApi: SearchSessionsApi | undefined
   let navigationApi: SearchNavigationApi | undefined
   let hasSyncedStateFromHost = false
@@ -1510,57 +1509,9 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
   }
 
-  const archiveSessionBestEffort = (sessionId: string): Promise<void> => {
-    const api = workspacesApi
-    const fn = api?.archiveSession
-    if (!api || typeof fn !== 'function') return Promise.resolve()
-    const previous = pendingArchives.get(sessionId)
-    if (previous) return previous
-    try {
-      if (readNativeWorkspaceSnapshot?.().archivedSessionIds?.includes(sessionId)) return Promise.resolve()
-    } catch { return Promise.resolve() }
-    const operation = Promise.resolve().then(async () => {
-      if (workspacesApi !== api || !state.lockedSessionIds.includes(sessionId)) return
-      try {
-        await Promise.resolve(fn.call(api, sessionId))
-      } catch {
-        // Reconciliation is not consent to stop running activity.
-      }
-    }).finally(() => {
-      if (pendingArchives.get(sessionId) === operation) pendingArchives.delete(sessionId)
-    })
-    pendingArchives.set(sessionId, operation)
-    return operation
-  }
-
-  const unarchiveSessionBestEffort = async (sessionId: string): Promise<void> => {
-    const api = workspacesApi
-    if (!api) return
-    // A previously scheduled archive must settle before restoring this row.
-    // Resolve the current public method, never retain a bypass around its guard.
-    await pendingArchives.get(sessionId)
-    if (workspacesApi !== api || state.lockedSessionIds.includes(sessionId) ||
-        state.deletedSessionIds.includes(sessionId)) return
-    try {
-      if (isSessionInLockedWorkspace(sessionId)) return
-      const archived = readNativeWorkspaceSnapshot?.().archivedSessionIds
-      if (!archived?.includes(sessionId) || typeof api.unarchiveSession !== 'function') return
-      await api.unarchiveSession(sessionId)
-    } catch {}
-  }
-
-  const syncLockedArchiveMembership = (lockedIds: readonly string[]): void => {
-    if (lockedIds.length === 0 || !workspacesApi || typeof workspacesApi.archiveSession !== 'function') return
-    // Projected archive membership is not evidence of a durable Host archive.
-    let archivedSet: Set<string>
-    try { archivedSet = new Set(readNativeWorkspaceSnapshot?.().archivedSessionIds ?? []) }
-    catch { return }
-    for (const sid of lockedIds) {
-      if (!archivedSet.has(sid)) {
-        void archiveSessionBestEffort(sid)
-      }
-    }
-  }
+  // Native archive ownership is exclusively enforced by Host Session Ops.
+  // The Client must not retry archive/unarchive via Workspace services: it
+  // lacks durable attribution and could undo a user's independent archive.
 
   const applyHostStatePayload = (payload: {
     hasPin?: boolean
@@ -1602,7 +1553,6 @@ function createClientFeatureManager(): ClientFeatureManager {
       ...(payload.proxy ? { proxy: Object.freeze({ ...payload.proxy }) } : {}),
       ...(payload.vision ? { vision: Object.freeze({ ...state.vision, ...payload.vision }) } : {}),
     })
-    syncLockedArchiveMembership(locked)
     notifyDataApis()
   }
 
@@ -1842,7 +1792,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     publish({
       tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
     })
-    await archiveSessionBestEffort(sessionId)
     notifyDataApis()
     return { ok: true }
   }
@@ -1893,7 +1842,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     publish({
       tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => id !== sessionId)),
     })
-    await archiveSessionBestEffort(sessionId)
     notifyDataApis()
     return { ok: true }
   }
@@ -1941,7 +1889,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     applyHostStatePayload(confirmedState)
     if (isPermanent) {
-      await unarchiveSessionBestEffort(sessionId)
       notifyDataApis()
     } else if (!state.tempUnlockedIds.includes(sessionId)) {
       publish({ tempUnlockedIds: Object.freeze([...state.tempUnlockedIds, sessionId]) })
@@ -1982,7 +1929,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
     }
-    const previouslyLocked = [...state.lockedSessionIds]
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
     const res = await postHostJson('/api/delta-suite/session-lock', {
@@ -2002,10 +1948,8 @@ function createClientFeatureManager(): ClientFeatureManager {
       return { ok: false, error: 'LOCK_UNCONFIRMED' }
     }
     applyHostStatePayload(confirmedState)
-    // Never restore rows outside the prior confirmed lock set.
-    for (const sid of previouslyLocked) {
-      if (reported.includes(sid) || pending.includes(sid)) await unarchiveSessionBestEffort(sid)
-    }
+    // Host has already handled each owned native archive and reports the
+    // restored/pending outcome. Never retry it through Client Workspace APIs.
     notifyDataApis()
     return { ok: true }
   }
@@ -2698,7 +2642,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     }),
     getWorkspaces: () => readDeltaWorkspaceSnapshot()?.items ?? [],
     setWorkspacesApi: (api, readNative) => {
-      if (workspacesApi !== api) pendingArchives.clear()
       try { stopNativeContentMembership?.() } catch {}
       stopNativeContentMembership = undefined
       workspacesApi = api
@@ -2713,7 +2656,6 @@ function createClientFeatureManager(): ClientFeatureManager {
       if (state.lockedWorkspaceIds.length > 0) invalidateContentProtection()
       if (api) {
         if (hasSyncedStateFromHost) {
-          syncLockedArchiveMembership(state.lockedSessionIds)
           notifyDataApis()
         } else {
           ensureLoaded()

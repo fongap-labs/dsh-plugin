@@ -168,29 +168,24 @@ test('workspace overlay retains native identities and ignores unrelated state re
   assert.equal(project(nativeArchived, { ...empty, lockedSessionIds: ['target'] }), nativeArchived)
 })
 
-test('native archive reconciliation ignores projected membership and coalesces in-flight requests', async () => {
+test('native archive reconciliation stays Host-owned across refresh and Workspace reinjection', async () => {
   const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
   await f.manager.refreshState()
-  let release
   let raw = { items: [], archivedSessionIds: [] }
   const api = {
     list: { getSnapshot: () => ({ items: [], archivedSessionIds: ['locked'] }) },
-    archiveSession(id) {
-      f.calls.push(['archive', id])
-      return new Promise(resolve => { release = resolve })
-    },
+    archiveSession: id => f.calls.push(['archive', id]),
+    unarchiveSession: id => f.calls.push(['unarchive', id]),
   }
   f.manager.setWorkspacesApi(api, () => raw)
   await Promise.resolve()
-  assert.deepEqual(f.calls, [['archive', 'locked']])
+  assert.deepEqual(f.calls, [], 'Client cannot authoritatively claim a new Host archive')
   await f.manager.refreshState()
-  assert.deepEqual(f.calls, [['archive', 'locked']], 'pending archive is not duplicated')
+  assert.deepEqual(f.calls, [], 'refresh never triggers a compensating native archive')
   raw = { items: [], archivedSessionIds: ['locked'] }
-  release()
-  await Promise.resolve()
-  await Promise.resolve()
+  f.manager.setWorkspacesApi(api, () => raw)
   await f.manager.refreshState()
-  assert.deepEqual(f.calls, [['archive', 'locked']], 'confirmed native archive needs no mutation')
+  assert.deepEqual(f.calls, [], 'even complete membership snapshots only inform presentation')
   f.manager.setWorkspacesApi(undefined)
 })
 
@@ -345,7 +340,7 @@ test('HTTP success or partial verification cannot release a protected view', asy
   }
 })
 
-test('confirmed temporary verification preserves the durable lock; permanent unlock needs removal', async () => {
+test('temporary verification retains the durable lock; permanent unlock never mutates native archives from Client', async () => {
   const temporary = fixture({ initial: lockedState, response: {
     status: 200, data: { ok: true, verified: true, state: lockedState },
   } })
@@ -359,18 +354,17 @@ test('confirmed temporary verification preserves the durable lock; permanent unl
   } })
   await durable.manager.refreshState()
   const raw = { items: [], archivedSessionIds: ['target'] }
-  const workspace = { list: { getSnapshot: () => raw }, unarchiveSession: () => assert.fail('stale method') }
-  durable.manager.setWorkspacesApi(workspace)
-  workspace.unarchiveSession = id => {
-    assert.equal(durable.manager.isLocked(id), false, 'must apply confirmed state first')
-    durable.calls.push(['unarchive', id])
-  }
+  durable.manager.setWorkspacesApi({
+    list: { getSnapshot: () => raw },
+    unarchiveSession: id => durable.calls.push(['unarchive', id]),
+  })
   assert.equal((await durable.manager.verifyOrUnlockSession('target', '123456', true)).ok, true)
   assert.equal(durable.manager.isLocked('target'), false)
-  assert.deepEqual(durable.calls.map(call => call[0]), ['post', 'unarchive'])
+  assert.deepEqual(durable.calls.map(call => call[0]), ['post'],
+    'permanent unlock relies exclusively on the Host-owned archive attribution')
 })
 
-test('unbind applies confirmed state before restoring only previously locked rows', async () => {
+test('unbind accepts confirmed Host state without restoring other owners archives in Client', async () => {
   const f = fixture({ initial: lockedState, response: {
     status: 200, data: { ok: true, state: clearedState, unarchivedIds: ['target', 'other'] },
   } })
@@ -378,18 +372,16 @@ test('unbind applies confirmed state before restoring only previously locked row
   const raw = { items: [], archivedSessionIds: ['target', 'other'] }
   f.manager.setWorkspacesApi({
     list: { getSnapshot: () => raw },
-    unarchiveSession(id) {
-      assert.equal(f.manager.isLocked(id), false)
-      f.calls.push(['unarchive', id])
-    },
+    unarchiveSession: id => f.calls.push(['unarchive', id]),
   })
   assert.equal((await f.manager.clearPin('123456')).ok, true)
   assert.equal(f.manager.getSnapshot().hasPin, false)
   assert.equal(f.manager.isWorkspaceLocked('b'), false)
-  assert.deepEqual(f.calls.filter(call => call[0] === 'unarchive'), [['unarchive', 'target']])
+  assert.deepEqual(f.calls.map(call => call[0]), ['post'],
+    'Host confirmation never gives Client direct unarchive permission')
 })
 
-test('archive reconciliation never turns a failure into a stop-activity request', async () => {
+test('Client never retries Host archive or stop-activity on reattached Workspace services', async () => {
   const f = fixture({ initial: lockedState })
   await f.manager.refreshState()
   const raw = { items: [], archivedSessionIds: [] }
@@ -397,13 +389,13 @@ test('archive reconciliation never turns a failure into a stop-activity request'
     list: { getSnapshot: () => raw },
     async archiveSession(id, options) {
       f.calls.push(['archive', id, options])
-      throw new Error('transport or active-session refusal')
+      throw new Error('native service unavailable')
     },
   })
   await Promise.resolve()
   await Promise.resolve()
-  await Promise.resolve()
-  assert.deepEqual(f.calls, [['archive', 'target', undefined]])
+  assert.deepEqual(f.calls, [],
+    'Host retries and active-work shutdown belong to Host Session Ops, never Client')
   assert.equal(f.manager.isLocked('target'), true)
 })
 
