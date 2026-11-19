@@ -12,6 +12,20 @@ export function isFreeSkillLicense(value: unknown): boolean {
   return typeof value === 'string' && FREE_SKILL_LICENSES.includes(value)
 }
 
+/** Infer only strongly identifiable free licenses from a pinned license body. */
+export function freeLicenseFromText(text: string): string | null {
+  const header = text.slice(0, 1024)
+  const identified = /^SPDX-License-Identifier:\s*([A-Za-z0-9-.]+)\s*$/m.exec(header)?.[1]
+  if (identified && isFreeSkillLicense(identified)) return identified
+  if (/\bMIT License\b/i.test(header) && /permission is hereby granted/i.test(text.slice(0, 8192))) return 'MIT'
+  if (/\bApache License\b/i.test(header) && /Version 2\.0/i.test(header)) return 'Apache-2.0'
+  if (/\bBSD 3-Clause License\b/i.test(header)) return 'BSD-3-Clause'
+  if (/\bBSD 2-Clause License\b/i.test(header)) return 'BSD-2-Clause'
+  if (/\bISC License\b/i.test(header)) return 'ISC'
+  if (/\bMozilla Public License\b/i.test(header) && /Version 2\.0/i.test(header)) return 'MPL-2.0'
+  return null
+}
+
 /** Only affirmative payment requirements. Generic mentions of "cost" are not evidence. */
 const PAID_REQUIREMENTS = [
   /\b(?:requires?|needs?|must\s+(?:use|have|purchase|buy)|only\s+available\s+(?:with|on))\b[^\n.!?]{0,90}\b(?:paid|premium|pro\s+plan|enterprise\s+plan|subscription|billing\s+account|payment|credit\s+card|purchased?\s+credits?)\b/i,
