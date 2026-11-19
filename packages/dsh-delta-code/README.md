@@ -53,6 +53,12 @@ Delta Code 默认只检索、推荐和加载具有免费使用依据的 GitHub S
 
 免费开源许可只证明使用这些文件有开放许可证依据，不保证外部 API、托管服务或未来收费政策。使用第三方 Skill 仍需独立安全审核、权限确认以及固定版本核验；本次不自动安装未经审核的候选，也不通过旧式 `skills.register()` 回退。
 
+### 匿名公开 Skill 审核
+
+新增 `code_github_skill_public_review`：不使用任何 GitHub Token，在 GitHub 公开 API 中根据候选 `repository`、`path`、固定 `commit`、`sourceBlobSha` 和 `licenseBlobSha` 重新核对 Git Commit、Git Tree、普通文件类型与文件内容。最多发出 4 次匿名只读请求，校验免费许可证和付费依赖，并报告命令执行、秘密凭据访问、提示词指令覆盖及外部网络依赖等静态风险信号。不会执行或回显未经审核的 Skill 正文。
+
+工具仅产生 `static-review-ready`、`manual-security-review-required` 或 `excluded-paid-or-unknown` 的**证据报告**。即使标记 `static-review-ready`，也**不自动授权、收录、注册 Provider 或执行脚本**；此前的免费筛选只代表部分可核实证据，不能证明外部服务永不收费。所有静态分析都有漏报可能，受审核的可信目录准入仍需独立 CI 与权限检查。
+
 ### GitHub Skill 候选评分（仅用于推荐）
 
 `code_github_skill_candidates` 对指定已授权仓库中的候选返回可解释的公开证据信号：Star 数量（对数封顶）、Fork 数量、维护者公开账号建立时间、仓库建立时间及最近推送时间。评分权重集中放在 `github-skill-ranking.ts`，默认合计上限为 50 分，支持由可信代码提供其他权重，不将热门度解释为 Skill 的正确性或安全性。元数据缺失时给出 `partial` 或 `unavailable`，不臆造评分。禁用或归档仓库的建议分归零；搜索结果中的候选始终为 `unreviewed`，不可凭评分自动注册或执行。
