@@ -16,7 +16,7 @@ const MAX_CALLS = 4
 const RISK_SIGNALS: ReadonlyArray<{ readonly id: string; readonly pattern: RegExp }> = [
   { id: 'external-command-or-installation', pattern: /\b(?:curl|wget|npx|npm\s+install|pip\s+install|bash|chmod|eval|Invoke-WebRequest)\b/i },
   { id: 'credential-or-secret-access', pattern: /(?:\.ssh\/|\.aws\/|GITHUB_TOKEN|API[_-]?KEY|process\.env|credential|secret\s+key)/i },
-  { id: 'instruction-override', pattern: /\b(?:ignore (?:previous|all|system) instructions|reveal (?:your )?system prompt|you are now)\b/i },
+  { id: 'instruction-override', pattern: /\b(?:ignore (?:all )?(?:(?:previous|system|developer|your) )?instructions|reveal (?:your )?system prompt|you are now)\b/i },
   { id: 'remote-network-dependency', pattern: /https?:\/\/[^\s)'"]+/i },
 ]
 /** Shared deterministic static warning signals for public review and CI admission. */
