@@ -49,6 +49,10 @@ Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，�
 
 Delta Code 不使用旧式 `skills.register()` 作为兼容降级。仅当 Harness 提供可注销的 `skills.registerProvider()` 接口时，才启用内置编程 Skills 与经过审查的 GitHub Skills。Provider 的 `list()` 只返回名称、描述等元数据；用户任务实际需要某项 Skill 时，Harness 原生 `skill` 工具通过 `get()` 按需获取正文。自动路由只提示选用技能，不再在系统提示词中预先展开完整内容。
 
+远程 GitHub Skill 的请求会同时遵守宿主调用与 Provider 生命周期取消信号。当前 Harness 官方 `SkillViewOptions` 还会把 Agent `scope` 传给 Provider；Delta Code 利用该能力在同一 Agent 开始新任务、显式拒绝外部 Skill、Agent 结束或插件卸载时取消**尚未完成**的网络读取，互不影响其他 Agent。明确拒绝外部 Skill 的任务会从该 Agent 的可用 Skill 目录中隐藏远程候选，并通过官方 `invalidate()` 更新宿主目录；续接同一任务不会无故中断读取。若宿主未提供 `scope`，只依赖官方调用 `signal` 与 Provider 生命周期，不推测 Agent 身份。
+
+这不是删除历史消息：已加载的 Skill 正文作为原生工具结果保留在会话历史中，Delta Code 不修改或删除它。完成任务时也不卸载共享 Provider，以免影响其他 Agent；新的任务切换会释放上一任务仍在进行的远程请求。Harness 没有公开的任务完成事件可用于清除会话历史，因此不能声称所有技能文本会在任务完成后被自动移除。
+
 ### Harness 集成验收
 
 中央 CI 现在使用真实 `@deepseek-ai/cordis` 的插件生命周期，挂载模拟的 `tools`、`skills` 和 `systemPrompt` 服务，验证：Skill Provider 只公开元数据、`get()` 按需加载、同一 Agent 的消息续接、其他 Agent 隔离、卸载注销，以及 Host 不提供可注销 Provider 时仅关闭技能。此项是**实际 Cordis 框架 + 模拟 Harness 服务**的集成测试，不等同于真实 DeepSeek Harness 客户端验收。
