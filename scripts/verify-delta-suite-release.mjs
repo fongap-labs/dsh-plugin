@@ -240,11 +240,12 @@ const RETIRED_UNGROUPED_CONTEXT_MARKERS = [
   'dtd-context-menu',
 ]
 const RETIRED_UNGROUPED_CONTEXT_CAPTURE = /\b(?:document|window)\.(?:addEventListener|removeEventListener)\s*\(\s*(['"`])contextmenu\1/
+// Reviewed 2026-11-19: avoid multi-workspace menu label scans and restore stale sole-workspace guards.
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '3fed19cb52784985b705f65cac79079a21f2a2ea',
+    sha1: '3a0f16ddd9fb3734165e746f63d207a3ab770d01',
   },
   {
     begin: 'function installHostSearch(',
