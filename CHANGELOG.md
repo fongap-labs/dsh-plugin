@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 修复: 退役 Vision Bridge 对 Harness 粘贴/拖放的全局 capture、私有 Composer 选择器、`execCommand('insertText')` 与输入 setter 接管；保留 Host Vision 工具、识别服务和历史配置，添加源码/发行防回退测试（Issue #333）。
+- 修复: 移除 Vision 全局粘贴/拖放及私有输入接管；保留 Host Vision 工具与配置，补充发布回归（#333）。
 
 - 修复: 移除 Delta 弹窗对 Harness 侧栏颜色的动态改写与全局弹窗打开标记；保留 Delta 自有遮罩和弹窗，补充 ZIP3 审核指纹与回归防护（Issue #333）。
 
