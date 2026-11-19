@@ -85,6 +85,15 @@ test('release guard rejects reintroduced native lock-row markup and styling', ()
   }
 })
 
+test('release guard refuses retired Host center geometry styling', () => {
+  for (const marker of ['[class*="mP3x-q_centerCol"]', '[class~="an3WzG_header"]',
+    '[class*="F07MqG_dock"]', '[class*="eciBTa_root"]',
+    '--dsh-chat-content-width', '--dtd-center-gutter']) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n' + marker), source),
+      /retired Host center CSS in emitted theme/)
+  }
+})
+
 test('release guard refuses changes to either approved compatibility implementation', () => {
   assert.throws(() => verifyApprovedZip3Client(emittedClient(), source.replace(
     'function installSidebarCompatibility(', 'function installSidebarCompatibility(/* changed */'

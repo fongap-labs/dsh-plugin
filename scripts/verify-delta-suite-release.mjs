@@ -163,8 +163,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired global modal-open marker and Host sidebar-fill mutation; Delta backdrops remain scoped.
 // Reviewed 2026-11-19: retired global Vision paste/drop capture and private Host composer writes; Host Vision ops preserved.
 // Reviewed 2026-11-19: retired native session/workspace lock-row badges and styling; Host owns native row decorations.
+// Reviewed 2026-11-19: retired active Host center/header/Composer/trajectory CSS geometry; native layouts restored.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '727426d149667f64878713d45ad6e133d2a1c2ba'
+const ZIP3_THEME_BLOB = '8af2606bc803970576037364d1e08e7063f1d23f'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -179,6 +180,17 @@ const LEGACY_VISION_COMPOSER_TAKEOVER = [
 const RETIRED_NATIVE_LOCK_ROW_BADGES = [
   'dtd-session-lock-badge', 'dtd-workspace-lock-badge',
   'data-dtd-session-locked', 'data-dtd-workspace-locked',
+]
+const RETIRED_HOST_CENTER_THEME_MARKERS = [
+  '[class*="mP3x-q_centerCol"]',
+  '[class~="an3WzG_header"]',
+  '[class*="F07MqG_dock"]',
+  '[class*="eciBTa_root"]',
+  '[class~="Wd4N7W_searchIcon"]',
+  '--dsh-chat-content-width',
+  '--dsh-composer-card-max-width',
+  '--dsh-composer-side-clearance',
+  '--dtd-center-gutter',
 ]
 const ZIP3_COMPAT_REGIONS = [
   {
@@ -219,6 +231,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   try { theme = JSON.parse(ownedMatch[1]) } catch { ensure(false, 'ZIP3 stylesheet encoding') }
   ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => theme.includes(marker)),
     'retired native lock row badge in emitted theme')
+  ensure(!RETIRED_HOST_CENTER_THEME_MARKERS.some(marker => theme.includes(marker)),
+    'retired Host center CSS in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
