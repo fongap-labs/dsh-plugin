@@ -135,7 +135,7 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.trailing', 'sidebar.session.row.hover')
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 扩展套件'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
@@ -237,7 +237,7 @@ test('public native Session trailing Slot renders only Host-confirmed protected 
   assert.equal(direct?.type, 'span')
   assert.equal(direct?.props?.role, 'img')
   assert.match(direct?.props?.className ?? '', /dtd-session-protection-mark/)
-  assert.match(direct?.props?.['aria-label'] ?? '', /Locked/)
+  assert.match(direct?.props?.['aria-label'] ?? '', /Locked|锁定/)
   assert.equal(direct.children[0].type, 'svg')
   assert.equal(indicator.component({ sessionId: 'other' }), null,
     'unprotected Host rows keep their native presentation')
@@ -251,7 +251,7 @@ test('public native Session trailing Slot renders only Host-confirmed protected 
   workspaces = ['default']
   await app.features.refreshState()
   const inherited = indicator.component({ sessionId: 'session-one' })
-  assert.match(inherited?.props?.['aria-label'] ?? '', /Workspace/,
+  assert.match(inherited?.props?.['aria-label'] ?? '', /Workspace|工作区/,
     'native Workspace membership triggers the inherited lock indicator')
 
   workspaces = []
