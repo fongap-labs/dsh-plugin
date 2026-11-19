@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
-import ts from 'typescript'
+import { stripTypeScriptTypes } from 'node:module'
 
 const source = readFileSync(fileURLToPath(
   new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url)), 'utf8')
@@ -11,8 +11,8 @@ const begin = source.indexOf('type WorkspaceMutationBlock =')
 const end = source.indexOf('// Keep this one compatibility adapter lifecycle-owned', begin)
 assert.ok(begin >= 0 && end > begin, 'workspace policy source must remain testable')
 const fragment = source.slice(begin, end)
-const compiled = ts.transpileModule(fragment + '\nthis.policy = readWorkspaceMutationPolicy',
-  { compilerOptions: {} }).outputText
+const compiled = stripTypeScriptTypes(fragment + '\nthis.policy = readWorkspaceMutationPolicy',
+  { mode: 'strip' })
 const context = {}
 runInNewContext(compiled, context, { timeout: 1000 })
 const readWorkspaceMutationPolicy = context.policy
