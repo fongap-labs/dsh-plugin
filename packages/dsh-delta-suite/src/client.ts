@@ -2810,24 +2810,47 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   let lastMenuSessionId: string | undefined
   let lastMenuWorkspaceId: string | undefined
   const LOCKED_WORKSPACE_MUTATION_LABELS = new Set(['\u91cd\u547d\u540d', 'Rename', '\u5220\u9664\u5de5\u4f5c\u533a', 'Delete workspace'])
+  // Capture the state before Delta first touches a Host node. Host/third-party
+  // visibility is not ours to reset when a workspace count or session changes.
+  const previousVisibility = new WeakMap<HTMLElement, { hidden: boolean; ariaHidden: string | null }>()
+  const restoreHiddenNode = (node: HTMLElement, attrName: string, store: Set<HTMLElement>): void => {
+    const previous = previousVisibility.get(node)
+    if (!store.has(node) || !previous) return
+    store.delete(node)
+    previousVisibility.delete(node)
+    // If another owner replaced our marker, it now owns visibility.
+    if (node.getAttribute?.(attrName) !== '1') return
+    node.removeAttribute?.(attrName)
+    // Do not overwrite changes another plugin made after our original write.
+    if (node.getAttribute?.('aria-hidden') === 'true') {
+      if (previous.ariaHidden === null) node.removeAttribute?.('aria-hidden')
+      else if (previous.ariaHidden !== 'true') node.setAttribute?.('aria-hidden', previous.ariaHidden)
+    }
+    if (!previous.hidden && node.hidden) node.hidden = false
+  }
   const restoreHiddenNodes = (attrName: string, store: Set<HTMLElement>): void => {
-    for (const node of store) {
-      try {
-        node.removeAttribute?.(attrName)
-        node.removeAttribute?.('aria-hidden')
-        node.hidden = false
-      } catch {}
+    for (const node of [...store]) {
+      try { restoreHiddenNode(node, attrName, store) } catch {}
     }
     store.clear()
   }
 
   const hidePrivacyNode = (node: HTMLElement, attrName: string, store: Set<HTMLElement>): void => {
+    if (!store.has(node)) {
+      // A pre-existing marker is not proof that this activation owns the node.
+      // Leave its visibility unchanged rather than removing another owner's guard.
+      if (node.getAttribute?.(attrName) === '1') return
+      previousVisibility.set(node, {
+        hidden: Boolean(node.hidden),
+        ariaHidden: node.getAttribute?.('aria-hidden') ?? null,
+      })
+      store.add(node)
+    }
     // A full safety pass may revisit the same hidden row. Avoid redundant
-    // attribute/property writes that would trigger new DOM mutation records.
+    // property writes that would trigger new DOM mutation records.
     if (node.getAttribute?.(attrName) !== '1') node.setAttribute?.(attrName, '1')
     if (node.getAttribute?.('aria-hidden') !== 'true') node.setAttribute?.('aria-hidden', 'true')
     if (!node.hidden) node.hidden = true
-    store.add(node)
   }
 
   const BLOCKED_COMMAND_RE = /^\/(?:export|feedback)(?:\s|$)/i
@@ -2875,11 +2898,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
       if (deltaFeatures.isDeleted(sid)) {
         hidePrivacyNode(row, 'data-dtd-hidden-deleted', hiddenDeletedRows)
         continue
-      } else if (row.getAttribute?.('data-dtd-hidden-deleted') === '1') {
-        row.removeAttribute?.('data-dtd-hidden-deleted')
-        row.removeAttribute?.('aria-hidden')
-        row.hidden = false
-        hiddenDeletedRows.delete(row)
+      } else if (hiddenDeletedRows.has(row)) {
+        restoreHiddenNode(row, 'data-dtd-hidden-deleted', hiddenDeletedRows)
       }
 
       const rowCls = typeof row.className === 'string' ? row.className : ''
