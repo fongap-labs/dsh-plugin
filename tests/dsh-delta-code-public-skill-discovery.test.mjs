@@ -149,7 +149,7 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
   })
 
   it('filters paid pinned Skills and unknown-license repositories before recommendation', async () => {
-    const paid = blob(['---', 'name: react-profiler', 'description: Code tool', '---', '', '# Guidance', 'Requires a paid API subscription.'].join('\\n'))
+    const paid = blob(['---', 'name: react-profiler', 'description: Code tool', '---', '', '# Guidance', 'Requires a paid API subscription.'].join('\n'))
     const h = mockTransport({ read(path) {
       if (path.startsWith('/search/repositories?')) return {
         total_count: 2, items: [
