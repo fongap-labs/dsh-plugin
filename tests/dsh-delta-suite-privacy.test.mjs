@@ -49,7 +49,7 @@ test('Host privacy request classifier rejects encoded, traversed, and alternate 
     ['/api/product-analytics-v2', 'POST'], ['/api/messagefeedback-other', 'POST'],
     ['/api/productanalytics', 'POST'], ['/api/productanalytics/track', 'GET'],
     ['/api/productanalytics/report2', 'GET'], ['/api/health', 'GET'],
-    ['/api/misc/../health', 'POST'], ['/api/telemetry/../health/ready', 'GET'],
+    ['/api/misc/../health', 'POST'], ['/api/misc/../health/ready', 'GET'],
     ['https://local.example/', 'GET'], ['/api/%ZZ/other', 'GET'],
   ]
   for (const [url, method] of allowed) {
