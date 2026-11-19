@@ -950,6 +950,106 @@ test('session artifact cleanup checks real paths and refuses linked directories 
   }
 })
 
+
+test('session cleanup rejects another session directory even when Host locate or generation hints claim ownership', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-session-provenance-'))
+  const root = join(home, 'sessions')
+  const owned = join(root, 'project', 'session-victim')
+  const unrelated = join(root, 'project', 'session-other')
+  const ownedFile = join(owned, 'session.jsonl')
+  const unrelatedFile = join(unrelated, 'session.jsonl')
+  mkdirSync(owned, { recursive: true })
+  mkdirSync(unrelated, { recursive: true })
+  writeFileSync(ownedFile, 'only victim data', 'utf8')
+  writeFileSync(unrelatedFile, 'must preserve another session', 'utf8')
+  try {
+    const f = fixture({
+      profileContext: { home },
+      persistence: {
+        root,
+        locate() { return { path: unrelatedFile } },
+        listGenerations() {
+          return Promise.resolve([
+            { sessionId: 'victim', sourcePath: unrelatedFile },
+            { sessionId: 'victim', sourcePath: ownedFile },
+          ])
+        },
+      },
+    })
+    try {
+      const result = await f.request(ops.DELTA_SESSION_DELETE_PATH, {
+        sessionId: 'victim', sourceCwd: '/untrusted/caller',
+      })
+      assert.equal(result.status, 200)
+      assert.deepEqual(f.store.getCached().deletedSessionIds, ['victim'])
+      assert.equal(existsSync(owned), false, 'the matching native session is deleted')
+      assert.equal(readFileSync(unrelatedFile, 'utf8'), 'must preserve another session',
+        'a forged hint cannot delete another session below the same trusted root')
+    } finally { f.dispose() }
+  } finally { rmSync(home, { recursive: true, force: true }) }
+})
+
+test('a caller-supplied cwd alone cannot turn a foreign native log into a deletion candidate', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-session-locate-'))
+  const root = join(home, 'sessions')
+  const foreign = join(root, 'project', 'session-other', 'session.jsonl')
+  mkdirSync(join(root, 'project', 'session-other'), { recursive: true })
+  writeFileSync(foreign, 'unrelated retained log', 'utf8')
+  try {
+    const f = fixture({
+      profileContext: { home },
+      persistence: { root, locate() { return { path: foreign } } },
+    })
+    try {
+      const result = await f.request(ops.DELTA_SESSION_DELETE_PATH, {
+        sessionId: 'victim', sourceCwd: '/foreign',
+      })
+      assert.equal(result.status, 200)
+      assert.equal(readFileSync(foreign, 'utf8'), 'unrelated retained log')
+      assert.deepEqual(f.store.getCached().deletedSessionIds, ['victim'],
+        'a skipped unsafe file never rolls back the durable deletion tombstone')
+    } finally { f.dispose() }
+  } finally { rmSync(home, { recursive: true, force: true }) }
+})
+
+test('folder opener is authorized only for unique stable public Host workspace paths', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-open-workspace-'))
+  const target = join(home, 'one')
+  const other = join(home, 'other')
+  mkdirSync(target, { recursive: true })
+  mkdirSync(other, { recursive: true })
+  const rows = [{ id: 'one', path: target, sessionIds: [] },
+    { id: 'two', path: other, sessionIds: ['live'] }]
+  try {
+    assert.equal(ops.isConfirmedHostWorkspaceFolder(() => ({ list: () => rows }), target), false,
+      'a changed registry identity cannot authorize an operation')
+    const stable = { list: () => rows }
+    assert.equal(ops.isConfirmedHostWorkspaceFolder(() => stable, target), true)
+    assert.equal(ops.isConfirmedHostWorkspaceFolder(() => stable, join(home, 'missing')), false)
+    assert.equal(ops.isConfirmedHostWorkspaceFolder(() => stable, target + '/extra'), false)
+    for (const invalidRows of [
+      [...rows, { id: 'duplicate', path: target, sessionIds: [] }],
+      [...rows, { id: 'one', path: join(home, 'third'), sessionIds: [] }],
+      [{ id: 'one', path: target }],
+      [{ id: 'one', path: target, sessionIds: [''] }],
+    ]) {
+      const reg = { list: () => invalidRows }
+      assert.equal(ops.isConfirmedHostWorkspaceFolder(() => reg, target), false,
+        'ambiguous or incomplete Host catalog is not authority')
+    }
+    const f = fixture({ registry: stable })
+    try {
+      for (const bad of [join(home, 'missing'), target + '/extra', '../outside']) {
+        const response = await f.request(ops.DELTA_OPEN_FOLDER_PATH, { path: bad })
+        assert.equal(response.status, 403)
+        assert.equal(response.data.error, 'WORKSPACE_PATH_UNAUTHORIZED')
+      }
+      assert.equal((await f.request(ops.DELTA_OPEN_FOLDER_PATH, { path: '' })).status, 400)
+      assert.equal(existsSync(target), true)
+    } finally { f.dispose() }
+  } finally { rmSync(home, { recursive: true, force: true }) }
+})
+
 test('project-cache cleanup removes in-profile aliases but never follows a linked cache directory outside DSH_HOME', async t => {
   const home = mkdtempSync(join(tmpdir(), 'delta-project-cache-root-'))
   const outside = mkdtempSync(join(tmpdir(), 'delta-project-cache-outside-'))

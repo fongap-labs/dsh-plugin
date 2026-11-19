@@ -41,6 +41,14 @@ Delta 自有个性设置页及 `plugins.bundle.config` 的同一设置视图现�
 
 上游 `deepseek-ai/deepseek-harness` 的 `packages/api/session-controller/src/catalog.ts` 已将模型精确路由的 `reasoning.efforts/defaultEffort` 投影给 ModelCatalog；`packages/client/ui-model-selection/src/client/ModelSelect.tsx` 使用原生 Effort 菜单并区分 `undefined`（提供方默认）与适配器声明的显式 `off`。因此 Delta 当前仅展示原生所有权说明，**不会**复制 Effort 菜单、自动探测 `/v1/models` 或向网关构造未经许可的请求。Gateway 元数据实际流入当前安装 Harness 适配器、默认/显式 Off 传输的端到端验证仍属于 #280，不能据此关闭该 Issue。
 
+## 2026-11-19 原生会话文件操作的所有权约束
+
+在临时宿主 DOM 保护完全退役之前，服务层先收紧高风险副作用：`host-sessions.ts` 接受用户传入的 `sourceCwd` 仅作为 SessionPersistence 定位提示，且只有符合当前会话 ID 别名目录、原生日志文件名模式、真实路径包含于受信任 Sessions 根目录内的文件才能进入物理删除候选。宿主 `listGenerations` 的结果亦必须满足相同归属检查，不能仅凭返回的 `sessionId` 字段删除其他 Session 目录。
+
+`/api/delta-suite/open-folder` 不再是任意路径启动入口：只有宿主公开 `workspaceRegistry.list()` 返回的完整、无重复、稳定清单里存在的精确工作区路径，且路径是规范化的本地绝对目录，才尝试调用系统文件管理器。缺失或不一致的 Host 目录视图保持拒绝，不通过私有 Store、浏览器 DOM 或客户端字符串作为授权依据。
+
+这些改动保障了文件操作的归属边界，但**不是**原生 `workspace/delete` 或 Session 改名等操作的统一业务前置拒绝接口；#333 的残余 DOM 捕获仍需官方权限接口替换和真实 Windows Harness 实机验收，不做纯 Harness A/B 对照。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
