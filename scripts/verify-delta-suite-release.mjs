@@ -162,8 +162,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired native turn error row scanning, collapse handlers and private CSS.
 // Reviewed 2026-11-19: retired global modal-open marker and Host sidebar-fill mutation; Delta backdrops remain scoped.
 // Reviewed 2026-11-19: retired global Vision paste/drop capture and private Host composer writes; Host Vision ops preserved.
+// Reviewed 2026-11-19: retired native session/workspace lock-row badges and styling; Host owns native row decorations.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = 'b73fa5766e33f380c6586cde579567066b1ce686'
+const ZIP3_THEME_BLOB = '727426d149667f64878713d45ad6e133d2a1c2ba'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -175,11 +176,15 @@ const LEGACY_VISION_COMPOSER_TAKEOVER = [
   /\bdocument\.execCommand\s*\(\s*(['"`])insertText\1/,
   /\bwindow\.HTML(?:Input|TextArea)Element\.prototype/,
 ]
+const RETIRED_NATIVE_LOCK_ROW_BADGES = [
+  'dtd-session-lock-badge', 'dtd-workspace-lock-badge',
+  'data-dtd-session-locked', 'data-dtd-workspace-locked',
+]
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: '8532247f509ef66659e20b6399a51d919b5c203b',
+    sha1: 'b0c811ca65f3d0d6739ce9bdfcfd645e441b768a',
   },
   {
     begin: 'function installHostSearch(',
@@ -205,11 +210,15 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
   ensure(!LEGACY_VISION_COMPOSER_TAKEOVER.some(pattern => pattern.test(source)),
     'retired Vision composer takeover in client source')
+  ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => source.includes(marker)),
+    'retired native lock row badge in client source')
 
   const ownedMatch = client.match(/\bconst OWNED_CSS = ("(?:\\.|[^"\\])*");/)
   ensure(Boolean(ownedMatch), 'ZIP3 stylesheet missing from emitted client')
   let theme
   try { theme = JSON.parse(ownedMatch[1]) } catch { ensure(false, 'ZIP3 stylesheet encoding') }
+  ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => theme.includes(marker)),
+    'retired native lock row badge in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
@@ -222,6 +231,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   }
   ensure(!LEGACY_VISION_COMPOSER_TAKEOVER.some(pattern => pattern.test(client)),
     'retired Vision composer takeover in emitted client')
+  ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => client.includes(marker)),
+    'retired native lock row badge in emitted client')
   // The exact reviewed adapter regions are pinned by ZIP3_COMPAT_REGIONS.
   // Keep emitted-fixture compatibility while rejecting legacy native layout takeover.
   ensure(client.includes('dtd-host-search') &&

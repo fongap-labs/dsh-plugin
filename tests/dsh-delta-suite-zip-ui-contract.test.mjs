@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, 'b73fa5766e33f380c6586cde579567066b1ce686')
+    assert.equal(sha, '727426d149667f64878713d45ad6e133d2a1c2ba')
   })
   it('retains the seven-tab SearchPalette and its explicit keyboard invocation', () => {
     for (const term of ['SearchTabId', 'tabAll', 'tabSession', 'tabWorkspace',
@@ -49,6 +49,17 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     const hostVision = file('src/host-vision.ts')
     assert.match(hostVision, /installHostVisionOps/)
     assert.match(hostVision, /registerVisionTools/)
+  })
+  it('does not inject private lock badges into Host session or workspace rows', () => {
+    for (const marker of ['dtd-session-lock-badge', 'dtd-workspace-lock-badge',
+      'data-dtd-session-locked', 'data-dtd-workspace-locked']) {
+      assert.equal(client.includes(marker), false, marker)
+      assert.equal(css.includes(marker), false, marker)
+    }
+    assert.match(client, /syncLockShieldOverlay/)
+    assert.match(client, /installWorkspaceMutationGuards/)
+    assert.match(client, /hiddenDeletedRows/)
+    assert.match(client, /onMenuClickCapture/)
   })
   it('registers repository feature slots without a second sidebar/search adapter', () => {
     for (const id of ['dtd-advanced-features', 'delta.mcp.add-server',

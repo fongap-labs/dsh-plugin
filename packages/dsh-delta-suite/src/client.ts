@@ -2857,7 +2857,7 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
     if (typeof document?.querySelectorAll !== 'function') return
 
-    // 2. Sync locked session badges, deleted rows, and active session lock shield
+    // 2. Preserve deleted-session filtering and selected-session lock shield; Host owns native row decorations
     const sessionRows = document.querySelectorAll<HTMLElement>('[data-row-key^="session:"]')
     let selectedSid: string | undefined
     for (const row of sessionRows) {
@@ -2886,42 +2886,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         selectedSid = sid
       }
 
-      const locked = deltaFeatures.isLocked(sid)
-      const existingBadge = row.querySelector?.<HTMLElement>('.dtd-session-lock-badge') ?? null
-      if (locked) {
-        if (row.getAttribute?.('data-dtd-session-locked') !== '1') row.setAttribute?.('data-dtd-session-locked', '1')
-        if (!existingBadge) {
-          const badge = document.createElement('span')
-          badge.className = 'dtd-session-lock-badge'
-          badge.setAttribute('aria-hidden', 'true')
-          badge.appendChild(createLockSvg(12, false))
-          row.appendChild?.(badge)
-        }
-      } else {
-        if (row.hasAttribute?.('data-dtd-session-locked')) row.removeAttribute?.('data-dtd-session-locked')
-        existingBadge?.remove?.()
-      }
-    }
-
-    const wsRows = document.querySelectorAll<HTMLElement>('[data-row-key^="workspace:"]')
-    for (const wsRow of wsRows) {
-      const k = wsRow.getAttribute('data-row-key')?.slice('workspace:'.length) ?? ''
-      if (!k) continue
-      const wsLocked = deltaFeatures.isWorkspaceLocked(k)
-      const existingWsBadge = wsRow.querySelector?.<HTMLElement>('.dtd-workspace-lock-badge') ?? null
-      if (wsLocked) {
-        if (wsRow.getAttribute('data-dtd-workspace-locked') !== '1') wsRow.setAttribute('data-dtd-workspace-locked', '1')
-        if (!existingWsBadge) {
-          const badge = document.createElement('span')
-          badge.className = 'dtd-workspace-lock-badge'
-          badge.setAttribute('aria-hidden', 'true')
-          badge.appendChild(createLockSvg(12, false))
-          wsRow.appendChild?.(badge)
-        }
-      } else {
-        if (wsRow.hasAttribute('data-dtd-workspace-locked')) wsRow.removeAttribute('data-dtd-workspace-locked')
-        existingWsBadge?.remove?.()
-      }
     }
     if (selectedSid) deltaFeatures.setActiveSessionId(selectedSid)
     if (typeof document.querySelector === 'function') {
