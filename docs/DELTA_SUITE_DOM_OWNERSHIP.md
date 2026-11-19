@@ -14,13 +14,14 @@
 | 模态窗口拖动与外观 | 未确认公开的 Harness 原生 Dialog Chrome / 拖动接管 API | **已退役** `syncModalPanel`、`onModalPointerDown`、双击复位、私有 `AnXs9G_*` 选择器和原生遮罩/面板覆写；Harness 保有原生窗口定位及拖动；**本轮同步退役** `syncModalChromeOverlay`、全局 `data-delta-modal-open` 与宿主 `--dsw-specific-sidebar-fill` 弹窗期改写，Delta 自有 `.dtd-dialog-*`/`.dtd-search-*` 遮罩和权限保护保留 | 不向宿主或第三方 Dialog 注册私有拖动监听，停用 Delta 不留下位置变量 | ZIP3 源码/样式回归；Windows 实机打开设置及第三方 Dialog，验证拖动、遮罩、关闭和停用恢复 |
 | 隐私与受保护会话显示 | 服务侧安全授权为权威；DOM 隐藏不是安全边界，且没有公开的原生设置行或未分组容器控制接口 | **本轮退役**原生 Settings 行的文本/私有类名隐藏，以及空“未分组”容器的 DOM 隐藏；原生 UI 由 Harness 管理。继续保留受保护会话、删除墓碑、受限命令和单工作区删除的兼容防护，待独立证明服务层控制后才能迁移 | 不再隐藏原生设置项和第三方设置行；不影响原生分组状态 | CI 防回退、锁定/删除/2FA 权限回归；Windows 设置页、分组、停用恢复和第三方插件实测 |
 | 原生失败回合错误行 | 未确认公开的错误详情布局扩展接口 | **本轮退役**私有类名扫描、折叠属性、点击/键盘切换和对应 CSS；错误内容与详情布局交还 Harness | 不拦截错误行事件，也不隐藏或截断原生错误详情 | 源码所有权回归；Windows 检查错误详情完整显示、点击与键盘交互保持原生 |
+| Vision 粘贴/拖放与识别 | 未确认公开的 Composer/File 插入或上传授权接口；原生输入框内部 DOM 和 React setter 不是协议 | **本轮退役** `installClientVisionBridge`、全局 capture `paste`/`drop`、`execCommand('insertText')`、私有输入选择器与 setter 写入；保留独立的 `installHostVisionOps`、Vision 工具和既有用户配置，不自动提交图片或接管原生输入 | 保持 Harness 及第三方插件的粘贴、拖放、输入法事件原样工作；缺少公开接口时客户端 Vision 仍标记未就绪 | 源码与发行 ZIP/TGZ 防回退测试；Windows 实机粘贴/拖放、启停、跨插件共存与 Host 工具验证 |
 | 品牌、主题、独立设置 | 已确认 `sidebar.brand.mark/name`、Theme API、`settings.section` | 保留官方 Slot/Service 与生命周期 disposer，停用恢复原生 | 按官方优先级共存 | Slot 卸载、主题释放、设置恢复及 Windows 实机验证 |
 
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
 - 无公开接口时保留 Harness 原生，不通过字符串选择器、私有 Store 或合成点击伪装功能实现。
-- 已退役“工作区首次折叠”“新会话按钮镜像”“原生搜索输入代理”“服务搜索私有 DOM 挂载”“私有弹性三栏/分隔条/边缘折叠接管”“原生悬浮卡 DOM/CSS 接管”“宿主原生模态窗口 DOM/拖动接管”及“原生失败回合错误行折叠”；Search Palette 使用 `conversation.input.left` 官方 Slot，但宿主布局、宽度、折叠与拖动仍由 Harness 控制。原生设置行及空“未分组”视觉隐藏也已退役，其余隐私 DOM 兼容路径尚待处理，**#333 和 Windows 实机验收仍未完成**。
+- 已退役“工作区首次折叠”“新会话按钮镜像”“原生搜索输入代理”“服务搜索私有 DOM 挂载”“私有弹性三栏/分隔条/边缘折叠接管”“原生悬浮卡 DOM/CSS 接管”“宿主原生模态窗口 DOM/拖动接管”及“原生失败回合错误行折叠”；Search Palette 使用 `conversation.input.left` 官方 Slot，但宿主布局、宽度、折叠与拖动仍由 Harness 控制。原生设置行及空“未分组”视觉隐藏、Vision 全局粘贴/拖放和私有输入 setter 接管也已退役，其余隐私 DOM 兼容路径尚待处理，**#333 和 Windows 实机验收仍未完成**。
 - 上游公开接口依据：`deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738` 的 `packages/client/ui-sidebar/src/client/contract/slots.ts` 及 `SidebarRoot.tsx`；仅作设计参考，不锁定运行版本。
 - 保留插件单体、官方 UI 所有权、停止/卸载回退与第三方插件兼容性；不添加独立客户端、Host Patch 或 A/B 对照测试。
 - 真实 Windows Harness 安装、升级、停用恢复、第三方插件共存、长会话稳定性需要独立验证；Central Windows CI 不能替代实机验收。
