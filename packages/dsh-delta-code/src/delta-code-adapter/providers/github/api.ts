@@ -111,7 +111,9 @@ async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<
   const isCommit = /^\/repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}\/commits\/[A-Za-z0-9._%-]{1,200}$/.test(endpoint.pathname) && !endpoint.search
   const isTree = /^\/repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}\/git\/trees\/[a-f0-9]{40}$/.test(endpoint.pathname) &&
     query.size === 1 && query.get('recursive') === '1'
-  if (!isSearch && !isOwner && !isCommit && !isTree) {
+  // Only immutable blob SHA reads, never moving branches or arbitrary paths.
+  const isBlob = /^\/repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}\/git\/blobs\/[a-f0-9]{40}$/.test(endpoint.pathname) && !endpoint.search
+  if (!isSearch && !isOwner && !isCommit && !isTree && !isBlob) {
     throw new Error('public GitHub Skill discovery endpoint not permitted')
   }
   signal.throwIfAborted()
