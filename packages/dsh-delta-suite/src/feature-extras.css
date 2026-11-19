@@ -284,3 +284,22 @@
   pointer-events: none;
 }
 
+/* Read-only Host public-contract report, owned entirely by Delta Settings. */
+.dtd-integration-status {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px 18px;
+  border: 1px solid var(--dtd-border, #d8dee1); border-radius: 14px;
+  background: var(--dtd-surface, transparent); color: var(--dtd-text, inherit);
+}
+.dtd-integration-status > strong { font-size: 14px; }
+.dtd-integration-status p { margin: 0; font-size: 12px; line-height: 1.55; }
+.dtd-integration-summary, .dtd-integration-guidance { color: var(--dtd-muted, inherit); }
+.dtd-integration-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.dtd-integration-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 6px 12px; padding: 9px 0;
+  border-bottom: 1px solid var(--dtd-border, #d8dee1); font-size: 12px;
+}
+.dtd-integration-native {
+  flex-shrink: 0; color: var(--dtd-muted, inherit); font-size: 11px;
+}
+.dtd-integration-reasoning { font-size: 12px; }

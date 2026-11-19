@@ -5676,6 +5676,15 @@ window.__ModuleLoader__.load({
         copy.privacy.geolocationOff,
         copy.privacy.redactionActive,
       ]
+      // These four feature contracts are not verified in the installed Host.
+      // Present a truthful native fallback, never a simulated success or
+      // a live capability claim inferred from the Host version or DOM.
+      const unsupportedNativeFeatures = [
+        copy.ui.integrationSidebar,
+        copy.ui.integrationCollapse,
+        copy.ui.integrationDeletion,
+        copy.ui.integrationRunning,
+      ]
       return el('section', { className: 'dtd-page', 'data-delta-personalization': '',
         'aria-label': copy.ui.personalization },
         el('div', { className: 'dtd-preference-row' },
@@ -5688,6 +5697,21 @@ window.__ModuleLoader__.load({
                 className: state.mode === mode ? 'dtd-active' : '',
                 onClick: () => controller.setMode(mode) },
                 mode === 'delta' ? copy.ui.delta : copy.ui.official)))),
+
+        // Host capability report stays visible in both themes and in the
+        // installed-bundle Settings entry. An unsupported native operation
+        // is never enabled merely because the user switched appearance.
+        el('section', { className: 'dtd-integration-status', 'data-delta-integration-status': '',
+          'aria-label': copy.ui.integrationTitle },
+          el('strong', null, copy.ui.integrationTitle),
+          el('p', { className: 'dtd-integration-summary' }, copy.ui.integrationSummary),
+          el('ul', { className: 'dtd-integration-list' },
+            unsupportedNativeFeatures.map((label, idx) =>
+              el('li', { key: idx },
+                el('span', null, label),
+                el('span', { className: 'dtd-integration-native' }, copy.ui.integrationNative)))),
+          el('p', { className: 'dtd-integration-reasoning' }, copy.ui.integrationReasoning),
+          el('p', { className: 'dtd-integration-guidance' }, copy.ui.integrationGuidance)),
 
         el('div', { className: 'dtd-form-stack', 'data-delta-proxy-card': '' },
           el('div', { className: 'dtd-preference-row', style: { padding: 0, border: 'none', background: 'transparent' } },

@@ -209,6 +209,56 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
 
+test('Settings identifies unsupported Host contracts without claiming native takeover', () => {
+  const app = harness()
+  const entry = app.components.get('settings.section')
+  const controller = entry.spec.inject().controller
+  const required = JSON.parse(readFileSync(fixture('projects/dsh-delta-suite/feature-readiness.json'), 'utf8')).required
+  const contracts = [
+    'sidebar_search_placement',
+    'sidebar_navigation_order',
+    'workspace_initial_collapse',
+    'default_workspace_delete_guard',
+    'conversation_status_presentation',
+  ]
+  for (const capability of contracts) {
+    assert.equal(required[capability], false, 'unsupported Host contract must remain not-ready: ' + capability)
+  }
+  const zh = JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/zh.json'), 'utf8')).ui
+  const en = JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/en.json'), 'utf8')).ui
+  const serialized = () => JSON.stringify(entry.component({ controller }))
+  let markup = serialized()
+  assert.match(markup, /data-delta-integration-status/)
+  assert.ok(markup.includes(zh.integrationTitle))
+  assert.ok(markup.includes(zh.integrationGuidance))
+  assert.ok(markup.includes(zh.integrationReasoning))
+  assert.equal((markup.match(/dtd-integration-native/g) ?? []).length, 4,
+    'all four unsupported native contracts must show a fallback, never fake success')
+  for (const label of [zh.integrationSidebar, zh.integrationCollapse,
+    zh.integrationDeletion, zh.integrationRunning]) assert.ok(markup.includes(label))
+  assert.doesNotMatch(markup, /Host capability ready|Host-side mutation enabled/)
+
+  controller.setMode('official')
+  markup = serialized()
+  assert.ok(markup.includes(zh.integrationTitle),
+    'native fallback explanations remain visible in official appearance')
+  assert.equal((markup.match(/dtd-integration-native/g) ?? []).length, 4)
+
+  app.documentElement.lang = 'en'
+  app.context.observers.forEach(notify => notify())
+  markup = serialized()
+  assert.ok(markup.includes(en.integrationTitle))
+  assert.ok(markup.includes(en.integrationReasoning))
+  assert.ok(markup.includes(en.integrationGuidance))
+  assert.equal((markup.match(/dtd-integration-native/g) ?? []).length, 4)
+  const pluginEntry = app.components.get('plugins.bundle.config')
+  const bundleView = pluginEntry.component({ view: 'page' })
+  assert.ok(JSON.stringify(bundleView.type(bundleView.props)).includes('data-delta-integration-status'),
+    'installed-bundle config and Settings share the same live Host report')
+  app.cleanup()
+  assert.equal(app.components.size, 0)
+})
+
 test('public native Session trailing Slot renders only Host-confirmed protected rows', async () => {
   const app = harness()
   const entry = app.components.get('settings.section')
