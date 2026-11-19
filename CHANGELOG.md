@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Host 工作区清单遇到重复路径、无效成员或失效迁移目标时禁止会话恢复与危险操作，补充授权回归测试（#333）。
+
 - 修复: Delta Code 远程 Skill Provider 在 Agent 销毁后拒绝迟到的 list/get 和 inbox 消息，防止 Host 异步请求重建已结束的任务；保留其他 Agent 与原生 Provider 生命周期隔离，补充 Cordis 真实事件回归。
 
 - 维护: Delta Code 增加基于真实 Cordis Context 装载插件的双 Agent Skill 生命周期集成验收，验证按需读取、任务切换、用户禁用、Agent 释放、Host Skills 服务撤销与重新挂载时的隔离及清理；不访问真实外部 Skill 或付费 API。
