@@ -66,9 +66,9 @@ test('release guard refuses revived global Vision capture and private composer w
     "document.execCommand('insertText', false, payload)",
     "window.HTMLTextAreaElement.prototype",
   ]) {
-    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\\n' + banned, source),
+    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\n' + banned, source),
       /retired Vision composer takeover in emitted client/)
-    assert.throws(() => verifyApprovedZip3Client(emittedClient(), source + '\\n' + banned),
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(), source + '\n' + banned),
       /retired Vision composer takeover in client source/)
   }
 })
