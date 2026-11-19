@@ -349,6 +349,7 @@ export function readHostSessionProtection(state: DeltaHostState, getRegistry: ()
   const protectedIds = new Set(state.lockedSessionIds.flatMap(sessionAliases))
   const lockedKeys = new Set(state.lockedWorkspaceIds)
   const nativeTargets = new Map<string, string>()
+  const nativePaths = new Set<string>()
   let isComplete = true
   if (lockedKeys.size > 0) {
     try {
@@ -359,10 +360,15 @@ export function readHostSessionProtection(state: DeltaHostState, getRegistry: ()
       // Validate the complete public snapshot, not private record.sessionIds.
       for (const row of rows) {
         const { id, path, sessionIds } = row
-        if (typeof id !== 'string' || !id || typeof path !== 'string' || !path ||
-            !Array.isArray(sessionIds) || sessionIds.some(sid => typeof sid !== 'string' || !sid) ||
-            nativeTargets.has(id)) throw new Error('WORKSPACE_MEMBERSHIP_INVALID')
+        if (typeof id !== 'string' || !id.trim() ||
+            typeof path !== 'string' || !path.trim() ||
+            !Array.isArray(sessionIds) ||
+            sessionIds.some(sid => typeof sid !== 'string' || !sid.trim()) ||
+            nativeTargets.has(id) || nativePaths.has(path)) {
+          throw new Error('WORKSPACE_MEMBERSHIP_INVALID')
+        }
         nativeTargets.set(id, path)
+        nativePaths.add(path)
         if (lockedKeys.has(id) || lockedKeys.has(path)) {
           if (lockedKeys.has(id)) matchedKeys.add(id)
           if (lockedKeys.has(path)) matchedKeys.add(path)
@@ -379,6 +385,13 @@ export function readHostSessionProtection(state: DeltaHostState, getRegistry: ()
     // relocation mappings, including a session moved away from a locked
     // native workspace. Neither source can weaken the other.
     for (const [sid, target] of Object.entries(state.movedSessions)) {
+      // A stale or malformed relocation cannot establish that this session
+      // is absent from any locked native workspace. Refuse an uncertain
+      // unarchive, search, delete or move instead of treating it as clear.
+      if (!sid.trim() || typeof target !== 'string' || !target.trim() ||
+          (!nativeTargets.has(target) && !nativePaths.has(target))) {
+        isComplete = false
+      }
       if (lockedKeys.has(target)) for (const alias of sessionAliases(sid)) protectedIds.add(alias)
     }
   }
@@ -414,14 +427,16 @@ const hasNativeMoveDestination = (
     const reg = getRegistry() as HostWorkspaceRegistryLike | undefined
     if (typeof reg?.list !== 'function') return false
     const seen = new Set<string>()
+    const seenPaths = new Set<string>()
     let nativePath: string | undefined
     for (const row of reg.list()) {
-      if (!row || typeof row.id !== 'string' || !row.id ||
-          typeof row.path !== 'string' || !row.path ||
+      if (!row || typeof row.id !== 'string' || !row.id.trim() ||
+          typeof row.path !== 'string' || !row.path.trim() ||
           !Array.isArray(row.sessionIds) ||
-          row.sessionIds.some(sid => typeof sid !== 'string' || !sid) ||
-          seen.has(row.id)) return false
+          row.sessionIds.some(sid => typeof sid !== 'string' || !sid.trim()) ||
+          seen.has(row.id) || seenPaths.has(row.path)) return false
       seen.add(row.id)
+      seenPaths.add(row.path)
       if (row.id === workspaceId) nativePath = row.path
     }
     return getRegistry() === reg &&

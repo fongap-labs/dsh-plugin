@@ -217,6 +217,82 @@ test('missing or incomplete public workspace membership blocks destructive opera
   }
 })
 
+test('ambiguous Host workspace catalogs fail closed for unarchive, session deletion and search', async () => {
+  const valid = [
+    { id: 'protected', path: '/protected', sessionIds: ['member'] },
+    { id: 'ordinary', path: '/ordinary', sessionIds: ['ordinary'] },
+  ]
+  const cases = [
+    ['duplicate physical workspace path', [...valid, { id: 'duplicate', path: '/ordinary', sessionIds: [] }]],
+    ['whitespace workspace id', [...valid, { id: ' ', path: '/extra', sessionIds: [] }]],
+    ['whitespace workspace path', [...valid, { id: 'extra', path: ' ', sessionIds: [] }]],
+    ['whitespace session member', [...valid, { id: 'extra', path: '/extra', sessionIds: [' '] }]],
+  ]
+  for (const [name, rows] of cases) {
+    const f = fixture({
+      initial: { totpSecret: secret, lockedWorkspaceIds: ['protected'] },
+      registry: { list: () => rows },
+    })
+    try {
+      const stateSnapshot = f.store.getCached()
+      const protection = ops.readHostSessionProtection(stateSnapshot, () => f.registry)
+      assert.equal(protection.session('ordinary'), 'unknown', name)
+      assert.equal(protection.destination('ordinary', '/ordinary'), 'unknown', name)
+      assert.equal(ops.readHostSearchExclusion(stateSnapshot, () => f.registry)('ordinary'), true, name)
+      await assert.rejects(f.event({ sessionId: 'ordinary' }),
+        /DELTA_WORKSPACE_PROTECTION_UNAVAILABLE/, name)
+      for (const [path, body] of [
+        [ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'ordinary' }],
+        [ops.DELTA_SESSION_MOVE_PATH, { sessionId: 'ordinary', targetWorkspaceId: 'ordinary' }],
+      ]) {
+        const response = await f.request(path, body)
+        assert.equal(response.status, 503, name)
+        assert.equal(response.data.error, 'WORKSPACE_PROTECTION_UNAVAILABLE', name)
+      }
+      assert.deepEqual(f.store.getCached().deletedSessionIds, [], name)
+      assert.deepEqual(f.store.getCached().movedSessions, {}, name)
+    } finally { f.dispose() }
+  }
+})
+
+test('orphaned Host relocation targets cannot authorize other native workspaces', async () => {
+  const rows = [
+    { id: 'protected', path: '/protected', sessionIds: ['member'] },
+    { id: 'ordinary', path: '/ordinary', sessionIds: ['ordinary'] },
+  ]
+  const f = fixture({
+    initial: { totpSecret: secret, lockedWorkspaceIds: ['protected'],
+      movedSessions: { orphan: 'missing-workspace' } },
+    registry: { list: () => rows },
+  })
+  try {
+    const current = f.store.getCached()
+    assert.equal(ops.readHostUnarchiveProtection(current, () => f.registry)('ordinary'), 'unknown')
+    assert.equal(ops.readHostSearchExclusion(current, () => f.registry)('ordinary'), true)
+    await assert.rejects(f.event({ sessionId: 'ordinary' }),
+      /DELTA_WORKSPACE_PROTECTION_UNAVAILABLE/)
+    const move = await f.request(ops.DELTA_SESSION_MOVE_PATH,
+      { sessionId: 'ordinary', targetWorkspaceId: 'ordinary' })
+    assert.equal(move.status, 503)
+    assert.equal(move.data.error, 'WORKSPACE_PROTECTION_UNAVAILABLE')
+    assert.deepEqual(f.store.getCached().movedSessions, { orphan: 'missing-workspace' })
+    // Existing locks retain their stronger, specific rejection.
+    await assert.rejects(f.event({ sessionId: 'member' }), /DELTA_SESSION_LOCKED/)
+  } finally { f.dispose() }
+
+  for (const target of ['ordinary', '/ordinary']) {
+    const repaired = fixture({
+      initial: { totpSecret: secret, lockedWorkspaceIds: ['protected'], movedSessions: { orphan: target } },
+      registry: { list: () => rows },
+    })
+    try {
+      assert.equal(ops.readHostUnarchiveProtection(repaired.store.getCached(),
+        () => repaired.registry)('ordinary'), 'clear', target)
+      await repaired.event({ sessionId: 'ordinary' })
+    } finally { repaired.dispose() }
+  }
+})
+
 test('direct session unlock does not unarchive a member of a still locked workspace', async () => {
   const calls = []
   const f = fixture({
@@ -440,6 +516,10 @@ test('logical moves reject missing, malformed or mismatched public Host destinat
     ['mismatched path hint', { list: () => valid }, 'target', '/wrong'],
     ['incomplete row', { list: () => [{ id: 'target', path: '/target' }] }, 'target', '/target'],
     ['duplicate workspace ID', { list: () => [...valid, valid[1]] }, 'target', '/target'],
+    ['duplicate workspace path', { list: () => [...valid, { id: 'other', path: '/target', sessionIds: [] }] }, 'target', '/target'],
+    ['blank workspace ID', { list: () => [...valid, { id: ' ', path: '/new', sessionIds: [] }] }, 'target', '/target'],
+    ['blank workspace path', { list: () => [...valid, { id: 'new', path: ' ', sessionIds: [] }] }, 'target', '/target'],
+    ['blank session member', { list: () => [...valid, { id: 'new', path: '/new', sessionIds: [' '] }] }, 'target', '/target'],
     ['unreadable catalog', { list: () => { throw new Error('offline') } }, 'target', '/target'],
   ]
   for (const [name, registry, targetWorkspaceId, targetPath] of invalidCases) {
