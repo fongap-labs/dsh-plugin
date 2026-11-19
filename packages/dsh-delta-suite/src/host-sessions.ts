@@ -326,9 +326,10 @@ const sameSessionId = (left: string, right: string): boolean => {
 const withoutMoveAliases = (
   moved: Record<string, string>, sessionIds: readonly string[],
 ): Record<string, string> => {
+  const removedAliases = new Set(sessionIds.flatMap(sessionAliases))
   const next = { ...moved }
   for (const key of Object.keys(next)) {
-    if (sessionIds.some(id => sameSessionId(key, id))) delete next[key]
+    if (sessionAliases(key).some(alias => removedAliases.has(alias))) delete next[key]
   }
   return next
 }
@@ -864,8 +865,13 @@ export function installHostSessionOps(
     // prefixed IDs may be listed together in legacy ungrouped catalogs.
     const requestedIds = [...new Set((rawIds as string[]).map(id => id.trim()))]
     const sessionIds: string[] = []
+    const seenAliases = new Set<string>()
     for (const id of requestedIds) {
-      if (!sessionIds.some(existing => sameSessionId(existing, id))) sessionIds.push(id)
+      const aliases = sessionAliases(id)
+      // Preserve first-spelling-wins semantics, including repeated "session-" prefixes.
+      if (aliases.some(alias => seenAliases.has(alias))) continue
+      sessionIds.push(id)
+      for (const alias of aliases) seenAliases.add(alias)
     }
 
     const current = await store.read()
@@ -879,7 +885,8 @@ export function installHostSessionOps(
     }
     // Reject the entire bulk request before any native side effect if one
     // alias already has a durable deletion tombstone.
-    if (sessionIds.some(sid => isSessionDeleted(current, sid))) {
+    const tombstoneAliases = new Set(current.deletedSessionIds.flatMap(sessionAliases))
+    if (sessionIds.some(sid => sessionAliases(sid).some(alias => tombstoneAliases.has(alias)))) {
       return makeJsonResponse(404, { ok: false, error: 'SESSION_DELETED' })
     }
     const protection = readProtection(current)
@@ -925,8 +932,9 @@ export function installHostSessionOps(
     await detachFromRegistry(toDeleteIds, true)
     await purgeSessionsFromWorkspaceJson(ctx, toDeleteIds)
 
+    const deletedAliases = new Set(toDeleteIds.flatMap(sessionAliases))
     for (const sid of requestedIds) {
-      if (toDeleteIds.some(deleted => sameSessionId(sid, deleted))) notifySessionChanged(sid)
+      if (sessionAliases(sid).some(alias => deletedAliases.has(alias))) notifySessionChanged(sid)
     }
     return makeJsonResponse(200, {
       ok: true,
