@@ -653,14 +653,14 @@
 }
 
 /* Remove "\009884\0089C8\007248" badge next to headline */
-:root[data-delta-ui="delta"] [class*="WOwLGG_previewBadge"],
-:root[data-delta-compat="1"] [class*="WOwLGG_previewBadge"] {
+
+:root[data-delta-ui="delta"] [class*="WOwLGG_previewBadge"] {
   display: none !important;
 }
 
 /* Headline: move whale brand mark to top-right of "\0063A2\007D22\00672A\0081F3\004E4B\005883", aligned with the 2nd horizontal stroke of "\007ACB" in "\005883" */
-:root[data-delta-ui="delta"] [class*="WOwLGG_headline"],
-:root[data-delta-compat="1"] [class*="WOwLGG_headline"] {
+
+:root[data-delta-ui="delta"] [class*="WOwLGG_headline"] {
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
@@ -670,15 +670,15 @@
   position: relative !important;
 }
 
-:root[data-delta-ui="delta"] [class*="WOwLGG_titleGroup"],
-:root[data-delta-compat="1"] [class*="WOwLGG_titleGroup"] {
+
+:root[data-delta-ui="delta"] [class*="WOwLGG_titleGroup"] {
   order: 1 !important;
   display: inline-flex !important;
   position: relative !important;
 }
 
-:root[data-delta-ui="delta"] [class*="WOwLGG_fishHitbox"],
-:root[data-delta-compat="1"] [class*="WOwLGG_fishHitbox"] {
+
+:root[data-delta-ui="delta"] [class*="WOwLGG_fishHitbox"] {
   order: 2 !important;
   display: inline-flex !important;
   position: relative !important;
@@ -687,8 +687,8 @@
   transform: translateY(-1.4px) !important;
 }
 
-:root[data-delta-ui="delta"] [class*="WOwLGG_fish"],
-:root[data-delta-compat="1"] [class*="WOwLGG_fish"] {
+
+:root[data-delta-ui="delta"] [class*="WOwLGG_fish"] {
   width: 20px !important;
   height: 15px !important;
   max-width: 20px !important;
@@ -696,33 +696,25 @@
 }
 
 /* Hide brand identity while preserving Windows sidebar collapse button */
+
 :root[data-delta-ui="delta"] [class*="wtg9ga_topStrip"],
-:root[data-delta-compat="1"] [class*="wtg9ga_topStrip"],
 :root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:root[data-delta-compat="1"] [class*="wtg9ga_logoRow"],
-:root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"],
-:root[data-delta-compat="1"] [class*="SidebarRoot_logoRow"] {
+:root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"] {
   order: 0 !important;
   overflow: visible !important;
   visibility: visible !important;
 }
+
 :is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-compat="1"] [class*="wtg9ga_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-compat="1"] [class*="SidebarRoot_logoRow"] {
+:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"] {
   height: 0 !important;
   min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
 }
+
 :root[data-delta-ui="delta"] :is(
-  [data-sidebar-toggle],
-  [data-sidebar-opener],
-  [data-sidebar-right-toggle],
-  [data-sidebar-right-expand]
-),
-:root[data-delta-compat="1"] :is(
   [data-sidebar-toggle],
   [data-sidebar-opener],
   [data-sidebar-right-toggle],
@@ -740,17 +732,8 @@
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
 :root[data-delta-ui="delta"] :is(
-  [class*="wtg9ga_brand"],
-  [class*="wtg9ga_brandIdentity"],
-  [class*="wtg9ga_brandMark"],
-  [class*="wtg9ga_brandName"],
-  [class*="SidebarRoot_brand"],
-  [class*="FishLogo"],
-  .dtd-brand-mark,
-  .dtd-brand-name
-),
-:root[data-delta-compat="1"] :is(
   [class*="wtg9ga_brand"],
   [class*="wtg9ga_brandIdentity"],
   [class*="wtg9ga_brandMark"],
@@ -769,41 +752,21 @@
   overflow: hidden !important;
 }
 
+
 /* Harness owns native session and workspace hover-card layout; the public
  * sidebar.session.row.hover Slot remains available to multiple providers. */
 
 /* ============================================================================
  * 6. Left Sidebar Layout, Search, Nav Items, Workspace List & Footer
  * ============================================================================ */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
-:root[data-delta-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0 !important;
-  height: 100% !important;
-  box-sizing: border-box !important;
-  padding: 0 8px 4px !important;
-}
-html[data-windows-titlebar]:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]),
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]),
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="SidebarRoot_root"]:not([class*="collapsed"]) {
-  padding: 0 8px 4px !important;
-}
-html[data-windows-titlebar]:root[data-delta-compat="1"] [class*="wtg9ga_topStrip"] {
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
+
 html[data-windows-titlebar]:root[data-delta-ui="delta"],
 html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collapsed="true"]) {
   --dsh-windows-menu-start: 8px !important;
 }
 
 /* 6.1 Top Search Box */
-:root[data-delta-compat="1"] .dtd-host-search,
+
 :root[data-delta-ui="delta"] .dtd-host-search {
   order: 1 !important;
   display: flex !important;
@@ -813,7 +776,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   position: relative !important;
   margin: 0 0 8px 0 !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-field,
+
 :root[data-delta-ui="delta"] .dtd-host-search-field {
   display: flex !important;
   flex-direction: row !important;
@@ -823,7 +786,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   padding: 0 10px !important;
   gap: 8px !important;
 }
-:root[data-delta-compat="1"] .dtd-search-icon,
+
 :root[data-delta-ui="delta"] .dtd-search-icon {
   display: inline-block !important;
   width: 15px !important;
@@ -832,7 +795,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   color: var(--dtd-fg-muted) !important;
   stroke: var(--dtd-fg-muted) !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-field input,
+
 :root[data-delta-ui="delta"] .dtd-host-search-field input {
   flex: 1 1 auto !important;
   width: 100% !important;
@@ -844,14 +807,14 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   padding: 0 !important;
   margin: 0 !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-field input::-webkit-search-cancel-button,
+
 :root[data-delta-ui="delta"] .dtd-host-search-field input::-webkit-search-cancel-button {
   -webkit-appearance: none !important;
   appearance: none !important;
   display: none !important;
 }
 
-:root[data-delta-compat="1"] .dtd-host-search-results,
+
 :root[data-delta-ui="delta"] .dtd-host-search-results {
   position: absolute !important;
   top: calc(100% + 4px) !important;
@@ -867,11 +830,11 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   padding: 6px !important;
   border-radius: var(--dtd-radius-lg) !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-results[hidden],
+
 :root[data-delta-ui="delta"] .dtd-host-search-results[hidden] {
   display: none !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-result,
+
 :root[data-delta-ui="delta"] .dtd-host-search-result {
   display: flex !important;
   flex-direction: column !important;
@@ -887,7 +850,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   cursor: pointer !important;
   transition: background-color 0.15s ease !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-result-title,
+
 :root[data-delta-ui="delta"] .dtd-host-search-result-title {
   overflow: hidden !important;
   white-space: nowrap !important;
@@ -895,9 +858,8 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   font-size: 13px !important;
   font-weight: 500 !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-result-snippet,
+
 :root[data-delta-ui="delta"] .dtd-host-search-result-snippet,
-:root[data-delta-compat="1"] .dtd-host-search-hint,
 :root[data-delta-ui="delta"] .dtd-host-search-hint {
   margin: 0 !important;
   overflow: hidden !important;
@@ -905,47 +867,22 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   font-size: 12px !important;
   text-overflow: ellipsis !important;
 }
-:root[data-delta-compat="1"] .dtd-host-search-hint,
+
 :root[data-delta-ui="delta"] .dtd-host-search-hint {
   padding: 8px 10px !important;
 }
+
 /* Harness owns its original workspace search control; Delta does not hide it. */
 
 /* 6.2 Navigation Rows: Harness retains the native More action. */
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav,
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav,
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] {
-  order: 2 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 2px !important;
-  margin: 0 0 2px 0 !important;
-  padding: 0 !important;
-}
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > nav button,
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > nav button,
-:root[data-delta-compat="1"] [class*="wtg9ga_panelList"] button {
-  min-height: var(--dtd-sidebar-row-height) !important;
-  height: var(--dtd-sidebar-row-height) !important;
-  border-radius: var(--dsw-radius-md, var(--dtd-radius-md)) !important;
-}
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="\0063D2\004EF6\007BA1\007406"], [aria-label="\0063D2\004EF6"], [aria-label="Plugins"])),
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="\0063D2\004EF6\007BA1\007406"], [aria-label="\0063D2\004EF6"], [aria-label="Plugins"])) {
-  order: 0 !important;
-}
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"], [class*="wtg9ga_panelList"]) > :is(nav > *, :not(nav)):has(button:is([aria-label="\005B9A\0065F6\004EFB\0052A1"], [aria-label="\0081EA\0052A8\005316\004EFB\0052A1"], [aria-label="Schedules"], [aria-label="Tasks"])),
-:root[data-delta-compat="1"] :is([data-sidebar-scrollport], [class*="wtg9ga_root"]) > nav > :has(button:is([aria-label="\005B9A\0065F6\004EFB\0052A1"], [aria-label="\0081EA\0052A8\005316\004EFB\0052A1"], [aria-label="Schedules"], [aria-label="Tasks"])) {
-  order: 1 !important;
-}
+
 /* 6.3 Harness owns the native New Session button; no mirrored controls or hiding. */
 
 /* 6.4 Workspace & Session List Region */
+
 :root[data-delta-ui="delta"] [data-sidebar-scrollport]:not([class*="collapsed"]) > div:has([data-sidebar-workspace-header]),
 :root[data-delta-ui="delta"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > [class*="wtg9ga_regionArea"],
-:root[data-delta-ui="delta"] [class*="regionArea"],
-:root[data-delta-compat="1"] [data-sidebar-scrollport]:not([class*="collapsed"]) > div:has([data-sidebar-workspace-header]),
-:root[data-delta-compat="1"] [class*="wtg9ga_root"]:not([class*="wtg9ga_collapsed"]) > [class*="wtg9ga_regionArea"],
-:root[data-delta-compat="1"] [class*="regionArea"] {
+:root[data-delta-ui="delta"] [class*="regionArea"] {
   order: 4 !important;
   flex: 1 1 0% !important;
   min-height: 0 !important;
@@ -955,35 +892,11 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   margin: 0 !important;
   padding-left: 0 !important;
 }
-:root[data-delta-ui="delta"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::-webkit-scrollbar,
-:root[data-delta-compat="1"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::-webkit-scrollbar {
+
+:root[data-delta-ui="delta"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
-}
-:root[data-delta-compat="1"] [class*="sectionHeader"],
-:root[data-delta-compat="1"] [class*="GAkraW_sectionHeader"],
-:root[data-delta-compat="1"] [data-sidebar-workspace-header] {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 0 4px 0 6px !important;
-  min-height: 28px !important;
-  margin-top: 4px !important;
-  margin-bottom: 4px !important;
-}
-:root[data-delta-compat="1"] [class*="sectionLabel"],
-:root[data-delta-compat="1"] [class*="GAkraW_sectionLabel"] {
-  left: 0 !important;
-  margin-right: auto !important;
-  max-width: none !important;
-  font-size: 12px !important;
-  font-weight: 600 !important;
-  color: var(--dtd-fg-muted) !important;
-}
-:root[data-delta-compat="1"] [data-sidebar-list-area] [data-row-key^="workspace:"],
-:root[data-delta-compat="1"] [data-sidebar-list-area] [class*="wnFoaW_projectRow"] {
-  padding-inline-start: calc(3px + var(--dsh-workspace-indent, 0px)) !important;
 }
 
 :root[data-delta-ui="delta"] [data-sidebar-list-area] [data-row-key^="session:"] {
@@ -1004,46 +917,32 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   opacity: 0.7;
 }
 
-:root[data-delta-ui="delta"] :is([class*="scrollFade"], [class*="wtg9ga_scrollFade"]),
-:root[data-delta-compat="1"] :is([class*="scrollFade"], [class*="wtg9ga_scrollFade"]) {
+
+:root[data-delta-ui="delta"] :is([class*="scrollFade"], [class*="wtg9ga_scrollFade"]) {
   display: none !important;
   background: none !important;
   height: 0 !important;
   opacity: 0 !important;
   pointer-events: none !important;
 }
-:root[data-delta-ui="delta"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"]),
-:root[data-delta-compat="1"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"]) {
+
+:root[data-delta-ui="delta"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"]) {
   border-bottom: none !important;
   border: none !important;
   box-shadow: none !important;
   overflow-x: hidden !important;
   scrollbar-width: none !important;
 }
+
 :root[data-delta-ui="delta"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::before,
-:root[data-delta-ui="delta"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::after,
-:root[data-delta-compat="1"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::before,
-:root[data-delta-compat="1"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::after {
+:root[data-delta-ui="delta"] :is([class*="regionArea"], [class*="wtg9ga_regionArea"], [class*="SidebarRoot_regionArea"], [class*="scrollRegion"], [class*="wtg9ga_scrollRegion"], [class*="scrollArea"], [class*="wtg9ga_scrollArea"])::after {
   display: none !important;
   border: none !important;
   box-shadow: none !important;
   content: none !important;
 }
+
 :root[data-delta-ui="delta"] :is(
-  [data-sidebar-scrollport],
-  [class*="wtg9ga_root"],
-  [class*="SidebarRoot_root"],
-  [class*="scrollRegion"],
-  [class*="wtg9ga_scrollRegion"],
-  [class*="scrollArea"],
-  [class*="wtg9ga_scrollArea"],
-  [class*="regionArea"],
-  [class*="wtg9ga_regionArea"],
-  [class*="SidebarRoot_regionArea"],
-  [data-sidebar-list-area],
-  div:has([data-sidebar-workspace-header])
-),
-:root[data-delta-compat="1"] :is(
   [data-sidebar-scrollport],
   [class*="wtg9ga_root"],
   [class*="SidebarRoot_root"],
@@ -1061,21 +960,8 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   scrollbar-width: none !important;
 }
 
+
 :root[data-delta-ui="delta"] :is(
-  [data-sidebar-scrollport],
-  [class*="wtg9ga_root"],
-  [class*="SidebarRoot_root"],
-  [class*="scrollRegion"],
-  [class*="wtg9ga_scrollRegion"],
-  [class*="scrollArea"],
-  [class*="wtg9ga_scrollArea"],
-  [class*="regionArea"],
-  [class*="wtg9ga_regionArea"],
-  [class*="SidebarRoot_regionArea"],
-  [data-sidebar-list-area],
-  div:has([data-sidebar-workspace-header])
-)::-webkit-scrollbar,
-:root[data-delta-compat="1"] :is(
   [data-sidebar-scrollport],
   [class*="wtg9ga_root"],
   [class*="SidebarRoot_root"],
@@ -1092,10 +978,6 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   display: none !important;
   width: 0 !important;
   height: 0 !important;
-}
-
-:root[data-delta-compat="1"] [class*="wtg9ga_collapsed"] .dtd-host-search {
-  display: none !important;
 }
 
 
@@ -1245,7 +1127,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
 }
 
 /* Sidebar search clear button + shortcut keycap */
-:root[data-delta-compat="1"] .dtd-search-clear,
+
 :root[data-delta-ui="delta"] .dtd-search-clear {
   flex: none !important;
   display: inline-flex !important;
@@ -1261,18 +1143,18 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   color: var(--dtd-clear-fg, var(--dtd-fg-muted)) !important;
   cursor: pointer !important;
 }
-:root[data-delta-compat="1"] .dtd-search-clear[hidden],
+
 :root[data-delta-ui="delta"] .dtd-search-clear[hidden] {
   display: none !important;
 }
 @media (hover: hover) {
-  :root[data-delta-compat="1"] .dtd-search-clear:hover,
-  :root[data-delta-ui="delta"] .dtd-search-clear:hover {
+  
+:root[data-delta-ui="delta"] .dtd-search-clear:hover {
     color: var(--dtd-clear-hover-fg, var(--dtd-fg-primary)) !important;
     background: var(--dtd-clear-hover-bg, var(--dtd-bg-hover)) !important;
   }
 }
-:root[data-delta-compat="1"] .dtd-search-kbd,
+
 :root[data-delta-ui="delta"] .dtd-search-kbd {
   flex: none !important;
   display: inline-flex !important;
@@ -1290,7 +1172,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
   cursor: pointer !important;
   user-select: none !important;
 }
-:root[data-delta-compat="1"] .dtd-search-kbd[hidden],
+
 :root[data-delta-ui="delta"] .dtd-search-kbd[hidden] {
   display: none !important;
 }
@@ -1358,7 +1240,7 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
 .dtd-search-modal-input::placeholder {
   color: var(--dtd-input-placeholder, var(--dtd-fg-muted));
 }
-:root[data-delta-compat="1"] .dtd-search-modal-input::-webkit-search-cancel-button,
+
 :root[data-delta-ui="delta"] .dtd-search-modal-input::-webkit-search-cancel-button,
 .dtd-search-modal-input::-webkit-search-cancel-button {
   -webkit-appearance: none !important;
