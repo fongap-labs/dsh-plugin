@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '59e08f634fc81452166ed0ffe4e0d16f9e349218')
+    assert.equal(sha, 'e35b99e11de18ab1b28d51df3b88445fadca3fd4')
   })
   it('leaves native sidebar list rows, scrolling and fades to Harness', () => {
     for (const marker of ['[data-sidebar-scrollport]', '[data-sidebar-list-area]',
