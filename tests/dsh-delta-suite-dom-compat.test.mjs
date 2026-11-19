@@ -244,7 +244,7 @@ test('native session and workspace hover cards remain Host-owned; public Slot ke
     'authorized Delta hover content must not be permanently hidden')
   assert.doesNotMatch(occupant, /workspace\.path|cwd|\.retain\(/,
     'the public hover occupant may not expose paths or acquire Session bindings')
-  const owned = read('packages/dsh-delta-suite/src/feature-extras.css')
+  const owned = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/feature-extras.css', import.meta.url)), 'utf8')
   assert.match(owned, /\.dtd-session-meta \{/)
   assert.doesNotMatch(owned, /\[class\*=|\[data-row-key|\[data-chat-flow/,
     'hover decoration may not restyle native Host rows or cards')
