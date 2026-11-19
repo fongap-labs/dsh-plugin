@@ -45,6 +45,12 @@ Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，�
 
 ## 宿主兼容与依赖
 
+### GitHub Skill 候选评分（仅用于推荐）
+
+`code_github_skill_candidates` 对指定已授权仓库中的候选返回可解释的公开证据信号：Star 数量（对数封顶）、Fork 数量、维护者公开账号建立时间、仓库建立时间及最近推送时间。评分权重集中放在 `github-skill-ranking.ts`，默认合计上限为 50 分，支持由可信代码提供其他权重，不将热门度解释为 Skill 的正确性或安全性。元数据缺失时给出 `partial` 或 `unavailable`，不臆造评分。禁用或归档仓库的建议分归零；搜索结果中的候选始终为 `unreviewed`，不可凭评分自动注册或执行。
+
+查询依旧限制到与 GitHub Token 绑定的仓库归属：搜索时最多额外请求一次该仓库的公开指标与一次对应 owner 的公开资料，失败可在限流/不可用时降级为无评分；绝不把该 Token 作为跨组织查询的通用授权。当前不支持全 GitHub 无绑定账户搜索；该能力需要独立的公开发现入口和严格的速率预算，再与此评分模块结合。
+
 ### Skills 能力检测与按需生命周期
 
 Delta Code 不使用旧式 `skills.register()` 作为兼容降级。仅当 Harness 提供可注销的 `skills.registerProvider()` 接口时，才启用内置编程 Skills 与经过审查的 GitHub Skills。Provider 的 `list()` 只返回名称、描述等元数据；用户任务实际需要某项 Skill 时，Harness 原生 `skill` 工具通过 `get()` 按需获取正文。自动路由只提示选用技能，不再在系统提示词中预先展开完整内容。
