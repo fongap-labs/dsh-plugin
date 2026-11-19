@@ -59,8 +59,7 @@ test('single-workspace guard skips multi-workspace menu scans and restores only 
     return normalizedSource.slice(from, to)
   }
   const fragment = [
-    extract('  const restoreHiddenNodes =', '\n\n  const hidePrivacyNode ='),
-    extract('  const hidePrivacyNode =', '\n  const BLOCKED_COMMAND_RE ='),
+    extract('  const previousVisibility =', '\n  const BLOCKED_COMMAND_RE ='),
     extract('  const syncPrivacyDom =', '\n  const sync = (): void => {'),
   ].join('\n')
   const node = text => {
@@ -141,4 +140,57 @@ test('single-workspace guard skips multi-workspace menu scans and restores only 
   assert.equal(menuScans, 2)
   assert.equal(deletion.hidden, true)
   assert.equal(guarded.has(deletion), true)
+})
+
+test('Delta restores only its own native-node visibility, including after third-party changes', () => {
+  const first = normalizedSource.indexOf('  const previousVisibility =')
+  const last = normalizedSource.indexOf('  const BLOCKED_COMMAND_RE =', first)
+  assert.ok(first >= 0 && last > first)
+  const ctx = {}
+  const code = normalizedSource.slice(first, last) +
+    '\nthis.hide = hidePrivacyNode; this.restore = restoreHiddenNodes;'
+  runInNewContext(stripTypeScriptTypes(code, { mode: 'strip' }), ctx, { timeout: 1000 })
+  const node = (isInitiallyHidden, previousAria, marker = null) => {
+    const attrs = new Map()
+    if (previousAria !== null) attrs.set('aria-hidden', previousAria)
+    if (marker !== null) attrs.set('data-dtd-hidden-sole-workspace', marker)
+    return {
+      hidden: isInitiallyHidden,
+      getAttribute(key) { return attrs.get(key) ?? null },
+      setAttribute(key, value) { attrs.set(key, value) },
+      removeAttribute(key) { attrs.delete(key) },
+    }
+  }
+  const attr = 'data-dtd-hidden-sole-workspace'
+  const hostHidden = node(true, 'true')
+  const hiddenSet = new Set()
+  ctx.hide(hostHidden, attr, hiddenSet)
+  ctx.restore(attr, hiddenSet)
+  assert.equal(hostHidden.hidden, true, 'Host pre-hidden nodes must remain hidden')
+  assert.equal(hostHidden.getAttribute('aria-hidden'), 'true')
+  assert.equal(hostHidden.getAttribute(attr), null)
+
+  const thirdPartyAria = node(false, 'false')
+  ctx.hide(thirdPartyAria, attr, hiddenSet)
+  assert.equal(thirdPartyAria.hidden, true)
+  ctx.restore(attr, hiddenSet)
+  assert.equal(thirdPartyAria.hidden, false)
+  assert.equal(thirdPartyAria.getAttribute('aria-hidden'), 'false')
+
+  const changedByHost = node(false, null)
+  ctx.hide(changedByHost, attr, hiddenSet)
+  changedByHost.setAttribute('aria-hidden', 'false')
+  ctx.restore(attr, hiddenSet)
+  assert.equal(changedByHost.getAttribute('aria-hidden'), 'false',
+    'new Host accessibility state is not Delta-owned')
+  assert.equal(changedByHost.getAttribute(attr), null)
+
+  const otherOwner = node(true, 'true', '1')
+  ctx.hide(otherOwner, attr, hiddenSet)
+  assert.equal(hiddenSet.has(otherOwner), false,
+    'an inherited marker is not proof of ownership by this activation')
+  ctx.restore(attr, hiddenSet)
+  assert.equal(otherOwner.hidden, true)
+  assert.equal(otherOwner.getAttribute('aria-hidden'), 'true')
+  assert.equal(otherOwner.getAttribute(attr), '1')
 })
