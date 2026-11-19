@@ -6,6 +6,7 @@ import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import { selectGitHubAccount, validatedCommitSha } from './github-policy.js'
 import { getActiveApprovedGitHubSkills } from '../delta-code-strategy/trusted-github-skills.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
+import { createPublicSkillDiscoverySpecs } from './github-skill-public-discovery.js'
 import type { DeltaGitHubExecution, DeltaGitHubRepositoryResolver, DeltaGitHubToolSpec } from './github-operations.js'
 
 const SKILL_PATH = /^skills\/[a-z0-9-]+\/SKILL\.md$/
@@ -177,5 +178,6 @@ export function createGitHubSkillDiscoverySpecs(
         })
       },
     },
+    ...createPublicSkillDiscoverySpecs(transport),
   ]
 }

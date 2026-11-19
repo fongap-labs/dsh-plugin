@@ -21,7 +21,7 @@ describe('Delta Code specialist Skill discovery', () => {
 
   it('uses only native discovery and keeps candidate instructions untrusted until pinned review', () => {
     assert.deepEqual(chooseTaskResources('Find and evaluate trusted GitHub Skills'), ['skill-discovery'])
-    assert.match(taskResourceGuidance(['skill-discovery']).join(' '), /native Host GitHub\/web search/)
+    assert.match(taskResourceGuidance(['skill-discovery']).join(' '), /code_github_skill_discover/)
     assert.match(taskResourceGuidance(['skill-discovery']).join(' '), /untrusted data/)
     const skill = WORKFLOW_SKILLS.find(item => item.name === 'code-find-skills')
     assert.ok(skill)
