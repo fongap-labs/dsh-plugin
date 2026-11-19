@@ -6,6 +6,7 @@
 | --- | --- | --- | --- | --- |
 | 工作区首次折叠 | 未确认公开的初始折叠/展开写入接口；私有 `dsh.workspace.view.v5` 不是协议 | **本次退役**私有读取和 `row.click()`；沿用原生展开状态 | 不主动变更其他插件共享的原生列表状态 | 静态回归与 ZIP3 完整性校验；Windows 新装、启停和升级后状态不被 Delta 强改 |
 | 已退役的兼容属性 CSS | `data-delta-compat` 的根节点属性写入已经退役，当前客户端无该属性写入；纯属性选择器无法激活 | **本轮清理**主题内 65 个 `data-delta-compat` 选择器分支，其中 11 条纯死规则；保留 `data-delta-ui="delta"` 生效分支与 Delta 自有样式，不重新引入历史布局标记 | 不依赖旧属性触发宿主菜单、侧栏或导航重排，现行 Delta 自有组件保持样式 | CI 校验源码无属性写入、主题无该属性及实际 ZIP3 样式指纹；Windows 实机启停、升级和第三方插件共存验证 |
+| 宿主原生输入框、预览标题、右栏指南和全局 CSS 令牌 | 公开 Theme API `overrideTokens` 支持经过注册的主题令牌；无公开的原生组件私有类、全局表单覆盖或右栏指南布局 Slot | **本轮移除** `theme.css` 对原生按钮、搜索输入、表单聚焦/悬浮、预览标题/徽章、右栏指南及全局选择/焦点样式的接管；不再注入 `--dsw-*` CSS 变量声明，保留官方 Theme API 令牌和 `.dtd-*` 自有样式 | 宿主原生控件和第三方插件输入、标题及指南恢复自己的 CSS 层叠；Delta 品牌与搜索组件仍由自身渲染 | 单测拒绝恢复任何宿主 `class` 私有选择器、全局 `button/input` 或 CSS 变量写入；中央 Linux/Windows、Security、ZIP/TGZ 产物主题哈希校验；真实 Windows Harness 启停、搜索输入、原生预览和第三方共存待验收 |
 | 侧栏搜索位置与导航顺序 | 已确认 `conversation.input.left` 公开 Slot；原生侧栏搜索定位没有可验证的公开 Slot | **本轮退役** `installHostSearch` 私有 DOM 定位、节点插入和观察；Search Palette 经 `conversation.input.left` 官方入口打开，检索仍使用 `sessions`/`navigation` 服务；原生搜索保持可用 | 保持 Harness 和第三方侧栏控件完整，公开 Slot 缺失时不伪造宿主入口 | 静态和 CI 权限、卸载及搜索回归；Windows 实机原生搜索和插件共存验证 |
 | 新会话按钮镜像 | 未确认公开的原生按钮挂载/触发接口 | **已退役**按钮克隆、合成点击及原生控件隐藏 CSS；沿用 Harness 原生入口 | 不再转发模拟点击，不隐藏原生控件 | 源码和 CSS 回归、ZIP3 完整性验证及 Windows 原生创建会话实测 |
 | 宿主侧栏展开控件和品牌行 | 公开 `sidebar.brand.mark/name` 允许 Delta 声明式贡献品牌内容；原生开关按钮、Logo 行及 Windows 菜单起点没有可证明的布局接管权限 | **本轮退役** Delta 模式下将 `[data-sidebar-*toggle/opener]` 等原生按钮移到屏幕外，以及 `wtg9ga_*` / `SidebarRoot_*` 品牌行的高度归零、隐藏和 `--dsh-windows-menu-start` 私有覆盖；仅保留 Delta 自有 `.dtd-brand-*` Slot 样式 | 原生开关与第三方插槽恢复原有显示、键盘与指针交互；Delta 不再阻断折叠/展开入口 | CI 源码/发行主题指纹及防回退检查；Windows Harness 左右侧栏展开/折叠、品牌展示、设置页和第三方插件共存实测 |
@@ -30,7 +31,7 @@
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
 - 无公开接口时保留 Harness 原生，不通过字符串选择器、私有 Store 或合成点击伪装功能实现。
-- 已退役“工作区首次折叠”“新会话按钮镜像”“原生搜索输入代理”“服务搜索私有 DOM 挂载”“私有弹性三栏/分隔条/边缘折叠接管”“原生悬浮卡 DOM/CSS 接管”“宿主原生模态窗口 DOM/拖动接管”及“原生失败回合错误行折叠”；Search Palette 使用 `conversation.input.left` 官方 Slot，但宿主布局、宽度、折叠与拖动仍由 Harness 控制。原生设置行及空“未分组”视觉隐藏、Vision 全局粘贴/拖放和私有输入 setter 接管也已退役，其余隐私 DOM 兼容路径尚待处理，**#333 和 Windows 实机验收仍未完成**。
+- 已退役“工作区首次折叠”“新会话按钮镜像”“原生搜索输入代理”“服务搜索私有 DOM 挂载”“私有弹性三栏/分隔条/边缘折叠接管”“原生悬浮卡 DOM/CSS 接管”“宿主原生模态窗口 DOM/拖动接管”及“原生失败回合错误行折叠”；Search Palette 使用 `conversation.input.left` 官方 Slot，但宿主布局、宽度、折叠与拖动仍由 Harness 控制。原生设置行及空“未分组”视觉隐藏、Vision 全局粘贴/拖放和私有输入 setter 接管也已退役，其余隐私 DOM 兼容路径尚待处理，主题中的原生样式覆盖已集中退役，**#333 和 Windows 实机验收仍未完成**。
 - 上游公开接口依据：`deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738` 的 `packages/client/ui-sidebar/src/client/contract/slots.ts` 及 `SidebarRoot.tsx`；仅作设计参考，不锁定运行版本。
 - 保留插件单体、官方 UI 所有权、停止/卸载回退与第三方插件兼容性；不添加独立客户端、Host Patch 或 A/B 对照测试。
 - 真实 Windows Harness 安装、升级、停用恢复、第三方插件共存、长会话稳定性需要独立验证；Central Windows CI 不能替代实机验收。
