@@ -109,15 +109,27 @@ async function resolveSessionFiles(
 
   const files = new Set<string>()
   const dirs = new Set<string>()
+  // Client-supplied cwd and even Host persistence generations are location
+  // hints, not authorization to erase an arbitrary file below sessions/.
+  // Only native session logs directly inside this session's alias directory
+  // may enter the physical deletion candidates.
+  const rawId = sessionId.replace(/^session-/, '')
+  const ownedDirs = new Set([sessionId, rawId, `session-${rawId}`])
+  const isOwnedLog = (file: string): boolean =>
+    ownedDirs.has(pathMod.basename(pathMod.dirname(file))) &&
+    /^session.*\.jsonl(\.zstd|\.zst)?$/i.test(pathMod.basename(file))
 
   if (sp && typeof sp.locate === 'function' && hintedCwd) {
     try {
       const located = sp.locate({ id: sessionId, cwd: hintedCwd })?.path
-      if (located) {
-        await fs.access(located).then(() => {
-          files.add(pathMod.resolve(located))
-          dirs.add(pathMod.dirname(pathMod.resolve(located)))
-        }).catch(() => {})
+      if (typeof located === 'string') {
+        const resolved = pathMod.resolve(located)
+        if (isOwnedLog(resolved)) {
+          await fs.access(resolved).then(() => {
+            files.add(resolved)
+            dirs.add(pathMod.dirname(resolved))
+          }).catch(() => {})
+        }
       }
     } catch {}
   }
@@ -130,7 +142,7 @@ async function resolveSessionFiles(
         const resolved = pathMod.resolve(g.sourcePath)
         const spDir = pathMod.dirname(resolved)
         const baseDirName = pathMod.basename(spDir)
-        if (g.sessionId === sessionId || baseDirName === sessionId) {
+        if (isOwnedLog(resolved) && (g.sessionId === sessionId || ownedDirs.has(baseDirName))) {
           files.add(resolved)
           dirs.add(spDir)
         }
@@ -443,6 +455,34 @@ const hasNativeMoveDestination = (
     return getRegistry() === reg &&
       nativePath !== undefined &&
       (!hintedPath || hintedPath === nativePath)
+  } catch { return false }
+}
+
+// An HTTP folder-open request is not a filesystem capability. Admit only
+// the exact path of one unique workspace in a complete, stable public Host
+// workspace snapshot; never use the request body as path authority.
+export function isConfirmedHostWorkspaceFolder(
+  getRegistry: () => unknown,
+  requestedPath: string,
+): boolean {
+  if (!requestedPath || requestedPath.includes('\0')) return false
+  try {
+    const reg = getRegistry() as HostWorkspaceRegistryLike | undefined
+    if (typeof reg?.list !== 'function') return false
+    const seenIds = new Set<string>()
+    const seenPaths = new Set<string>()
+    let isMatched = false
+    for (const row of reg.list()) {
+      if (!row || typeof row.id !== 'string' || !row.id.trim() ||
+          typeof row.path !== 'string' || !row.path.trim() ||
+          !Array.isArray(row.sessionIds) ||
+          row.sessionIds.some(sid => typeof sid !== 'string' || !sid.trim()) ||
+          seenIds.has(row.id) || seenPaths.has(row.path)) return false
+      seenIds.add(row.id)
+      seenPaths.add(row.path)
+      if (row.path === requestedPath) isMatched = true
+    }
+    return getRegistry() === reg && isMatched
   } catch { return false }
 }
 
@@ -962,7 +1002,20 @@ export function installHostSessionOps(
     const body = (await readRequestJson(request)) as { path?: string }
     const targetPath = typeof body?.path === 'string' ? body.path.trim() : ''
     if (!targetPath) return makeJsonResponse(400, { ok: false, error: 'path is required' })
+    // This route must never function as a generic shell/UNC-path opener.
+    if (!isConfirmedHostWorkspaceFolder(getRegistry, targetPath)) {
+      return makeJsonResponse(403, { ok: false, error: 'WORKSPACE_PATH_UNAUTHORIZED' })
+    }
     try {
+      const pathMod = await loadNodeModule<any>('node:path')
+      if (!pathMod.isAbsolute(targetPath) || pathMod.normalize(targetPath) !== targetPath) {
+        return makeJsonResponse(400, { ok: false, error: 'INVALID_WORKSPACE_PATH' })
+      }
+      const fs = await loadNodeModule<any>('node:fs/promises')
+      const stat = await fs.stat(targetPath).catch(() => null)
+      if (!stat?.isDirectory?.() || !isConfirmedHostWorkspaceFolder(getRegistry, targetPath)) {
+        return makeJsonResponse(403, { ok: false, error: 'WORKSPACE_PATH_UNAUTHORIZED' })
+      }
       const cp = await loadNodeModule<any>('node:child_process')
       const osMod = await loadNodeModule<any>('node:os')
       const plat = typeof osMod?.platform === 'function' ? osMod.platform() : ((globalThis as any).process?.platform ?? 'win32')
