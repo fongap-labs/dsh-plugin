@@ -208,6 +208,62 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.layers.size, 0)
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
+
+test('public native Session trailing Slot renders only Host-confirmed protected rows', async () => {
+  const app = harness()
+  const entry = app.components.get('settings.section')
+  const controller = entry.spec.inject().controller
+  const indicator = app.components.get('sidebar.session.row.trailing')
+  assert.ok(indicator, 'published Host Session row trailing Slot must be registered')
+  assert.equal(indicator.spec.id, 'delta.session.protection')
+  assert.equal(indicator.spec.order, 450)
+  assert.equal(indicator.component({ sessionId: 'session-one' }), null,
+    'an unconfirmed session must not display a claimed lock')
+  app.context.window.location = { href: 'https://harness.test/' }
+  let locks = ['session-one']
+  let workspaces = []
+  let deleted = []
+  app.context.fetch = async path => ({
+    ok: true, status: 200,
+    json: async () => path === '/api/delta-suite/state'
+      ? { state: {
+        hasPin: true, lockMode: 'pin',
+        lockedSessionIds: locks, lockedWorkspaceIds: workspaces,
+        deletedSessionIds: deleted, movedSessions: {},
+      } } : {},
+  })
+  await app.features.refreshState()
+  const direct = indicator.component({ sessionId: 'session-one' })
+  assert.equal(direct?.type, 'span')
+  assert.equal(direct?.props?.role, 'img')
+  assert.match(direct?.props?.className ?? '', /dtd-session-protection-mark/)
+  assert.match(direct?.props?.['aria-label'] ?? '', /Locked/)
+  assert.equal(direct.children[0].type, 'svg')
+  assert.equal(indicator.component({ sessionId: 'other' }), null,
+    'unprotected Host rows keep their native presentation')
+
+  controller.setMode('official')
+  assert.equal(indicator.component({ sessionId: 'session-one' }), null,
+    'official mode relinquishes the Delta Slot contribution')
+  controller.setMode('delta')
+
+  locks = []
+  workspaces = ['default']
+  await app.features.refreshState()
+  const inherited = indicator.component({ sessionId: 'session-one' })
+  assert.match(inherited?.props?.['aria-label'] ?? '', /Workspace/,
+    'native Workspace membership triggers the inherited lock indicator')
+
+  workspaces = []
+  deleted = ['session-one']
+  await app.features.refreshState()
+  assert.equal(indicator.component({ sessionId: 'session-one' }), null,
+    'a tombstoned session never receives a visual badge')
+  app.cleanup()
+  assert.equal(app.components.has('sidebar.session.row.trailing'), false,
+    'Slot unregisters on plugin disable without touching native DOM')
+})
+
 test('public model route label mounts without optional assistant sidebar services', () => {
   const app = harness()
   const modelSlot = app.components.get('conversation.input.model.label')
