@@ -37,8 +37,8 @@ export function freeLicenseFromText(text: string): string | null {
 const PAID_REQUIREMENTS = [
   /\b(?:requires?|needs?|must\s+(?:use|have|purchase|buy)|only\s+available\s+(?:with|on))\b[^\n.!?]{0,90}\b(?:paid|premium|pro\s+plan|enterprise\s+plan|subscription|billing\s+account|payment|credit\s+card|purchased?\s+credits?)\b/i,
   /\b(?:paid|premium|subscription(?:-based)?|pro-only|enterprise-only|pay-per-use|pay-as-you-go|usage-based\s+billing)\b[^\n.!?]{0,90}\b(?:api|tool|service|plan|account|access|key|token|credits?)\b/i,
-  /(?:必须|需要|要求|仅限|依赖)[^\n。！？]{0,40}(?:付费|收费|订阅|充值|购买额度|购买积分|付费接口|付费API|付费\s*API)/,
-  /(?:付费|收费|订阅|充值|购买额度)[^\n。！？]{0,30}(?:才能|方可|服务|接口|工具|API|api)/,
+  /(?:\u5fc5\u987b|\u9700\u8981|\u8981\u6c42|\u4ec5\u9650|\u4f9d\u8d56)[^\n\u3002\uff01\uff1f]{0,40}(?:\u4ed8\u8d39|\u6536\u8d39|\u8ba2\u9605|\u5145\u503c|\u8d2d\u4e70\u989d\u5ea6|\u8d2d\u4e70\u79ef\u5206|\u4ed8\u8d39\u63a5\u53e3|\u4ed8\u8d39API|\u4ed8\u8d39\s*API)/,
+  /(?:\u4ed8\u8d39|\u6536\u8d39|\u8ba2\u9605|\u5145\u503c|\u8d2d\u4e70\u989d\u5ea6)[^\n\u3002\uff01\uff1f]{0,30}(?:\u624d\u80fd|\u65b9\u53ef|\u670d\u52a1|\u63a5\u53e3|\u5de5\u5177|API|api)/,
 ]
 
 export function paidSkillRequirement(text: string): string | null {
