@@ -95,6 +95,14 @@ Harness 上游 `packages/workspace/workspace/src/index.ts` 的 `WorkspaceRegistr
 
 本修复仅限制非法输入，不改变旧用户本地持久记录、公开 Host 工作区数据或原生 UI。原生删除/重命名前置拦截缺口、未退役的 DOM 隐私兼容层和真实 Windows Harness 验收仍属于 #333，不能由 CI 绿灯推定已完成。
 
+## 2026-11-20 原生归档统一交还 Host
+
+客户端此前在加载锁定状态、Workspace Service 重新注入、锁定成功回调时通过公开 `workspaces.archiveSession()` 再次写入原生归档，在永久解锁和解绑 2FA 后又直接调用 `workspaces.unarchiveSession()`。这种客户端侧补偿无法读取服务端私有 `nativeArchiveOwnedSessionIds` 归属证明，即使 Host 路由已在 #454 收紧归属校验，也可能重复归档或撤销用户、宿主及第三方插件独立创建的归档。
+
+现在移除客户端归档重试、待执行归档映射、解锁/解绑二次撤销及重挂载补偿；由 `installHostSessionOps` 在正式 Host 边界统一处理持久化、原生 `archiveSession({ stopActivity: true })`、归属确认、授权解锁与补偿重放。客户端仅消费 Host 确认的锁定和恢复结果，保留原生 UI/锁定视觉与 `workspace/session-unarchiving` 正式拒绝事件；失败时不自行伪造本地权限成功。回归测试验证刷新、锁定、解锁、解绑和工作区重新注入均不产生客户端原生归档写入。
+
+这是 Session 操作所有权清理，不代表 Harness 已发布通用 `session/prompt` 或 `workspace.before-delete` 钩子；真实 Windows Harness 验收与第三方共存验证仍未完成。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
