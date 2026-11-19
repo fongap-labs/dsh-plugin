@@ -33,6 +33,14 @@
 
 这只缩小临时 DOM 兼容层的所有权边界，**不等于**官方 Host 授权、最终观察器退役或真实 Windows 实机验收完成。仍需上游操作拒绝接口及锁定/墓碑的正式投影能力。
 
+## 2026-11-19 设置页宿主兼容性报告
+
+Delta 自有个性设置页及 `plugins.bundle.config` 的同一设置视图现直接列出四类**未验证具备可用官方扩展接口**的原生功能：侧栏搜索和导航重排、工作区首次折叠、工作区删除业务前置守卫、原生聊天运行文案覆盖。每项显示“原生保留”，同时提供升级正式 Harness 接口和实机重新验证的操作说明。切换到官方主题、英文或中文界面时报告仍可访问，不修改宿主导航、会话、设置与模型控件。
+
+报告是**源码公开 API 审计而非已安装 Host 的运行时能力探测**；不会把 Cordis 已注册的 Delta Slot 误报为 Host 已支持整套原生布局；`projects/dsh-delta-suite/feature-readiness.json` 相应布尔值保持 `false`。既有 `DELTA_HOST_CONTRACT_VERSION = 1` 的显式声明协商协议保留，但当前未找到上游可核实的 Host 运行时能力 Manifest，因此不得虚构该服务、直接调用私有 Store 或自动宣布支持。
+
+上游 `deepseek-ai/deepseek-harness` 的 `packages/api/session-controller/src/catalog.ts` 已将模型精确路由的 `reasoning.efforts/defaultEffort` 投影给 ModelCatalog；`packages/client/ui-model-selection/src/client/ModelSelect.tsx` 使用原生 Effort 菜单并区分 `undefined`（提供方默认）与适配器声明的显式 `off`。因此 Delta 当前仅展示原生所有权说明，**不会**复制 Effort 菜单、自动探测 `/v1/models` 或向网关构造未经许可的请求。Gateway 元数据实际流入当前安装 Harness 适配器、默认/显式 Off 传输的端到端验证仍属于 #280，不能据此关闭该 Issue。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
