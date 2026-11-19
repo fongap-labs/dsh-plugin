@@ -120,6 +120,22 @@ test('release guard refuses retired Host center geometry styling', () => {
   }
 })
 
+test('release guard rejects synthetic Ungrouped context menu and global capture', () => {
+  for (const marker of [
+    'openUngroupedContextMenu',
+    'closeUngroupedMenu',
+    'ungroupedMenuEl',
+    "document.addEventListener('contextmenu', handler, { capture: true })",
+  ]) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\n' + marker, source),
+      /retired Ungrouped native context interception in emitted client/)
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(), source + '\n' + marker),
+      /retired Ungrouped native context interception in client source/)
+  }
+  assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n.dtd-context-menu {}'), source),
+    /retired Ungrouped native context menu in emitted theme/)
+})
+
 test('release guard refuses changes to either approved compatibility implementation', () => {
   assert.throws(() => verifyApprovedZip3Client(emittedClient(), source.replace(
     'function installSidebarCompatibility(', 'function installSidebarCompatibility(/* changed */'

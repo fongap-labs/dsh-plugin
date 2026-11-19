@@ -167,8 +167,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired 65 inactive data-delta-compat selector branches (11 dead-only rules).
 // Reviewed 2026-11-19: retired active Host sidebar toggle/logo-row hiding and private Windows menu offset.
 // Reviewed 2026-11-19: retired active native session/workspace list, scrollbars and scroll-fade CSS.
+// Reviewed 2026-11-19: retired native Ungrouped context-menu capture, synthetic popup and its CSS; Host deletion protection preserved.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '59e08f634fc81452166ed0ffe4e0d16f9e349218'
+const ZIP3_THEME_BLOB = 'e35b99e11de18ab1b28d51df3b88445fadca3fd4'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -216,11 +217,18 @@ const RETIRED_NATIVE_SIDEBAR_LIST_THEME_MARKERS = [
   '[class*="regionArea"]',
   '[class*="rowResting"]',
 ]
+const RETIRED_UNGROUPED_CONTEXT_MARKERS = [
+  'openUngroupedContextMenu',
+  'closeUngroupedMenu',
+  'ungroupedMenuEl',
+  'dtd-context-menu',
+]
+const RETIRED_UNGROUPED_CONTEXT_CAPTURE = /\b(?:document|window)\.(?:addEventListener|removeEventListener)\s*\(\s*(['"`])contextmenu\1/
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'b0c811ca65f3d0d6739ce9bdfcfd645e441b768a',
+    sha1: '98df5bd319f9f64ab75f4b732b3de06ecc6c1fd0',
   },
   {
     begin: 'function installHostSearch(',
@@ -244,6 +252,9 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
 )) {
   const source = sourceText.replace(/\r\n/g, '\n')
   for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
+  ensure(!RETIRED_UNGROUPED_CONTEXT_MARKERS.some(marker => source.includes(marker)) &&
+    !RETIRED_UNGROUPED_CONTEXT_CAPTURE.test(source),
+    'retired Ungrouped native context interception in client source')
   ensure(!LEGACY_VISION_COMPOSER_TAKEOVER.some(pattern => pattern.test(source)),
     'retired Vision composer takeover in client source')
   ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => source.includes(marker)),
@@ -263,6 +274,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     'retired Host sidebar control CSS in emitted theme')
   ensure(!RETIRED_NATIVE_SIDEBAR_LIST_THEME_MARKERS.some(marker => theme.includes(marker)),
     'retired native sidebar list CSS in emitted theme')
+  ensure(!theme.includes('dtd-context-menu'),
+    'retired Ungrouped native context menu in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
@@ -277,6 +290,9 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     'retired Vision composer takeover in emitted client')
   ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => client.includes(marker)),
     'retired native lock row badge in emitted client')
+  ensure(!RETIRED_UNGROUPED_CONTEXT_MARKERS.some(marker => client.includes(marker)) &&
+    !RETIRED_UNGROUPED_CONTEXT_CAPTURE.test(client),
+    'retired Ungrouped native context interception in emitted client')
   // The exact reviewed adapter regions are pinned by ZIP3_COMPAT_REGIONS.
   // Keep emitted-fixture compatibility while rejecting legacy native layout takeover.
   ensure(client.includes('dtd-host-search') &&

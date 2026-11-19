@@ -72,6 +72,14 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.doesNotMatch(client, /dtd-search-dialog-backdrop/)
     assert.doesNotMatch(client, /openSearchDialog\(/)
   })
+  it('leaves the native Ungrouped context menu untouched and retains Host delete guards', () => {
+    assert.doesNotMatch(client, /openUngroupedContextMenu|closeUngroupedMenu|ungroupedMenuEl/)
+    assert.doesNotMatch(client, /(?:addEventListener|removeEventListener)\(['"]contextmenu['"]/)
+    assert.doesNotMatch(css, /\.dtd-context-menu(?:-item)?\b/)
+    assert.match(client, /session-delete-ungrouped/)
+    assert.match(client, /installWorkspaceMutationGuards/)
+    assert.match(client, /onMenuClickCapture/)
+  })
   it('preserves TOTP, session protection and Delta-owned modal backdrops without Host chrome takeover', () => {
     for (const term of ['encodeQrMatrix', 'setup-begin', 'session-delete-ungrouped',
       'installClientPrivacyGuards']) {
