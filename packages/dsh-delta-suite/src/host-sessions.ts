@@ -918,8 +918,21 @@ export function installHostSessionOps(
       }
     })
 
+    // Build the reverse index once: deletion candidates can have several
+    // overlapping raw/session-prefixed spellings, but cancellations must keep
+    // the exact order in which the caller supplied each spelling.
+    const requestedOrder = new Map(requestedIds.map((id, index) => [id, index]))
+    const requestedByAlias = new Map<string, string[]>()
+    for (const id of requestedIds) {
+      for (const alias of new Set(sessionAliases(id))) {
+        const aliases = requestedByAlias.get(alias) ?? []
+        aliases.push(id)
+        requestedByAlias.set(alias, aliases)
+      }
+    }
     for (const sid of toDeleteIds) {
-      const aliases = requestedIds.filter(id => sameSessionId(id, sid))
+      const aliases = [...new Set(sessionAliases(sid).flatMap(alias => requestedByAlias.get(alias) ?? []))]
+        .sort((left, right) => requestedOrder.get(left)! - requestedOrder.get(right)!)
       // Cancellation uses the actual requested spellings. The public Sessions
       // service may register an active run under either alias; physical purge
       // and native workspace detachment still execute once per logical ID.
