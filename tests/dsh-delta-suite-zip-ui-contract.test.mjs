@@ -22,10 +22,10 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.equal(sha, '587e37e22d478ac7f4d5d9c9b82f173baecf0613')
   })
   it('does not style native Host inputs, hero, guide cards or global token scales', () => {
-    assert.doesNotMatch(css, /\\[class[*~^$|]?=/)
-    assert.doesNotMatch(css, /(?:^|[\\s;{])--dsw-[\\w-]+\\s*:/m)
-    assert.doesNotMatch(css, /\\[data-sidebar-right-guide-entry\\]/)
-    assert.doesNotMatch(css, /:root\\[data-delta-ui="delta"\\]\\s+(?:button|input|textarea|select|::selection)/)
+    assert.doesNotMatch(css, /\[class[*~^$|]?=/)
+    assert.doesNotMatch(css, /(?:^|[\s;{])--dsw-[\w-]+\s*:/m)
+    assert.doesNotMatch(css, /\[data-sidebar-right-guide-entry\]/)
+    assert.doesNotMatch(css, /:root\[data-delta-ui="delta"\]\s+(?:button|input|textarea|select|::selection)/)
     for (const owned of ['.dtd-brand-mark', '.dtd-search-clear',
       '.dtd-dialog-backdrop', '.dtd-lock-shield']) assert.ok(css.includes(owned))
   })
