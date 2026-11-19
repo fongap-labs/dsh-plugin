@@ -177,9 +177,9 @@ test('beta release manifest clearly declares Windows acceptance and unavailable 
     '../projects/dsh-delta-suite/release.manifest.json'), 'utf8'))
   assert.equal(manifest.release_key, 'dsh-delta-suite')
   assert.match(manifest.release_notes, /Windows Harness/)
-  assert.match(manifest.release_notes, /未完成/)
-  assert.ok(manifest.changelog_entries.some(line => line.includes('官方 Session trailing Slot')))
-  assert.ok(manifest.changelog_entries.some(line => line.includes('原生 Workspace\/Session')))
+  assert.match(manifest.release_notes, /Gateway Reasoning Effort/)
+  assert.ok(manifest.changelog_entries.some(line => line.includes('Session trailing Slot')))
+  assert.ok(manifest.changelog_entries.some(line => line.includes('Workspace/Session')))
 })
 
 test('release rejects an Installed plugins configuration bound to the wrong bundle', () => {
