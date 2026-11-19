@@ -5881,6 +5881,16 @@ window.__ModuleLoader__.load({
                 }, feature.content))
               }
 
+              // Harness' Installed plugins bundle detail is a separate public,
+              // keyed seat from Settings. Show the same live Suite configuration
+              // in the installed bundle rather than relying on Settings navigation.
+              // The key must be the npm package name, not the Cordis row ID.
+              scope.slots.inject('plugins.bundle.config', () => scope.slots.register({
+                name: 'plugins.bundle.config',
+                key: '@fongap-labs/dsh-delta-suite',
+              }, ({ view }: { view?: 'page' | 'summary' }) => view === 'summary'
+                ? null : el(PersonalizationSection, { controller })))
+
               // The input model label is a public, independent preference surface.
               // Do not gate it on optional sessions, resources or sidebarRight
               // services: the native model picker must still work without them.
