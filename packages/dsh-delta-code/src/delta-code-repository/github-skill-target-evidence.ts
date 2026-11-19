@@ -9,7 +9,7 @@ const TARGET = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
 const SHA = /^[a-f0-9]{40}$/
 
 export function assertSkillTargetEnvelope(
-  response: GitHubSkillToolResponse,
+  response: Pick<GitHubSkillToolResponse, 'repository' | 'account'>,
   targetRepository: string,
   selectedAccount?: string,
 ): void {
