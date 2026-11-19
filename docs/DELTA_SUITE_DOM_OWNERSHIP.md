@@ -81,6 +81,14 @@ Harness 上游 `packages/workspace/workspace/src/index.ts` 的 `WorkspaceRegistr
 
 现在每次父查询后校验 Header 的规范会话身份（允许同一 Session 的原始/`session-` 别名），拒绝不匹配的 Header、非法 ID 和别名形式的递归循环。未取得可信父 Header 或链长度超限时一律在本次模型步骤返回拒绝，不调用 Host `next()`；真实且未受保护的独立父链仍保持官方原始决策。该变更仅完善已经接入的服务层门禁，不能替代消息提交前授权事件，也不允许以此移除剩余原生 DOM 安全兼容保护。
 
+## 2026-11-20 宿主工作区数据写入回归正式 Service 所有权
+
+删除 Session 的旧代码曾直接读取并重写 `DSH_HOME/storages/workspace.json`，同时调用 `workspaceRegistry.headers/sessionPaths/missingSessionPaths/invalidSessionPaths` 等宿主**私有索引**的 `delete()`，以及回退访问私有 `entities` Map。直接文件替换不通过 Harness 的工作区写入队列，可能覆盖并发更新、第三方插件状态或未来宿主存储格式。
+
+现统一通过已验证的 **公开** `WorkspaceRegistry.unpinSession(sessionId)` 和 `WorkspaceEntity.detachSession(sessionId)` 处理每个原始/`session-` 会话别名。宿主负责持久化、序列化和修订索引；Delta 不再编写或覆盖 `workspace.json`，也不触碰私有成员 Map。删除墓碑仍由 Delta 先持久化，再尝试取消活跃会话、清理已验证的原生日志、取消原生置顶并解除可见工作区成员关联。清理时绝不调用 `unarchiveSession`，避免使墓碑中的会话重新显露。
+
+如果官方工作区列表服务尚未加载或失效，删除墓碑与模型执行/内容过滤保护保持生效，注册表解绑等公开服务重新就绪后会通过现有挂载与启动逻辑重放；没有任何向宿主私有存储或内部 Map 回退的隐藏路径。由于 Harness 目前没有经验证的原生工作区删除前置授权及会话完全移除接口，**原生残留归档元数据不能通过私有写入强行清除**；该限制及真实 Windows 客户端验收仍属 #333 未完成范围。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
