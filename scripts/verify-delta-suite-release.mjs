@@ -352,6 +352,18 @@ export function verifyEntries(entries, version, format) {
   const client = entries.get('lib/client.js').toString()
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
+  // A release must contain the real public settings registrations, not only
+  // an inert settings.section string. This prevents publishing an outdated
+  // beta that installs but has no Delta Suite Settings page.
+  for (const marker of [
+    "scope.slots.inject('settings.section'",
+    "scope.slots.inject('settings.plugins.tab'",
+    "id: 'delta.suite.configuration'",
+    "'data-delta-personalization'",
+    "scope.slots.inject('conversation.input.model.label'",
+  ]) {
+    ensure(client.includes(marker), format + ' installable Suite UI registration: ' + marker)
+  }
   ensure(client.includes('data-delta-ui'), format + ' appearance lifecycle')
   verifyApprovedZip3Client(client)
   ensure(!client.includes('__DELTA_SUITE_STYLE__') &&

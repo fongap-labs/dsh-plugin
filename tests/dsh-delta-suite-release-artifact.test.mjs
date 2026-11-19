@@ -23,6 +23,11 @@ function validEntries(version = '0.1.0-beta.2') {
     ].join('\n'),
     'lib/client.js': [
       'window.__ModuleLoader__.load({ settings.section sidebar.brand.mark data-delta-ui',
+      "scope.slots.inject('settings.section'",
+      "scope.slots.inject('settings.plugins.tab'",
+      "id: 'delta.suite.configuration'",
+      "'data-delta-personalization'",
+      "scope.slots.inject('conversation.input.model.label'",
       'function installSidebarCompatibility() {}',
       'function installHostSearch() {}',
       'data-delta-compat',
@@ -114,6 +119,25 @@ test('validates the concrete capability contract and compatibility link in ZIP a
       incomplete.set(implementation, Buffer.from(invalid))
       assert.throws(() => verifyEntries(incomplete, '0.1.0-beta.2', format),
         /capability module/)
+    }
+  }
+})
+
+test('release refuses stale ZIP and TGZ bundles missing public Settings or model label surfaces', () => {
+  const valid = validEntries()
+  const shipped = valid.get('lib/client.js').toString()
+  for (const marker of [
+    "scope.slots.inject('settings.section'",
+    "scope.slots.inject('settings.plugins.tab'",
+    "id: 'delta.suite.configuration'",
+    "'data-delta-personalization'",
+    "scope.slots.inject('conversation.input.model.label'",
+  ]) {
+    for (const format of ['ZIP', 'TGZ']) {
+      const broken = new Map(valid)
+      broken.set('lib/client.js', Buffer.from(shipped.replace(marker, '')))
+      assert.throws(() => verifyEntries(broken, '0.1.0-beta.2', format),
+        /installable Suite UI registration/, format + ': ' + marker)
     }
   }
 })

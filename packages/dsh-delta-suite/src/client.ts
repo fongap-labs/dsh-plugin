@@ -4991,9 +4991,6 @@ window.__ModuleLoader__.load({
         name: 'conversation.chat.assistant-actions', id: 'delta.context.compaction-activity', order: 80,
         label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.compacting,
       }, CompactionActivityAction))
-      scope.slots.inject('conversation.input.model.label', () => scope.slots.register({
-        name: 'conversation.input.model.label',
-      }, ModelLabelExtension))
       return () => {
         stopProtection()
         if (assistantServices !== scope) return
@@ -5883,6 +5880,14 @@ window.__ModuleLoader__.load({
                   inject: () => ({ controller }),
                 }, feature.content))
               }
+
+              // The input model label is a public, independent preference surface.
+              // Do not gate it on optional sessions, resources or sidebarRight
+              // services: the native model picker must still work without them.
+              scope.slots.inject('conversation.input.model.label', () => scope.slots.register({
+                name: 'conversation.input.model.label',
+                id: 'delta.model.route-label',
+              }, ModelLabelExtension))
 
               // ZIP-first: never replace the ZIP sidebar/search/theme. These
               // additional modules only register their own public Host slots.
