@@ -55,6 +55,12 @@ Delta 自有个性设置页及 `plugins.bundle.config` 的同一设置视图现�
 
 该门禁不依赖 DOM、原生文案、私有 Service 或额外轮询，也不与 Delta 写操作队列互相等待。即便原生 `workspaceRegistry.archiveSession` 因会话已经活动而拒绝，**新的后续模型步骤**仍被阻止；已经开始的模型请求不能被此门禁追回。它不是完整的原生 `session/prompt` 提交前授权，因此现有客户端隐私遮罩、原生删除操作兼容拦截仍保留至官方前置接口验证完成。不能据此声称已退役全部 DOM 防护，也不能以中央 Windows CI 代替真实 Windows Harness 验收。
 
+## 2026-11-19 活跃会话锁定的宿主原生归档与停止
+
+Harness 上游 `packages/workspace/workspace/src/index.ts` 的 `WorkspaceRegistry.archiveSession(sessionId, { stopActivity: true })` 是正式公开的操作：**先完成原生归档持久化**，再通过 `workspace/session-stop` 事件要求 Agent、子代理、任务及日程等各自的宿主所有者停止活动。此前 Delta 调用默认空选项，宿主可以因当前会话仍有运行工作而拒绝归档。Delta 现在对直接会话锁定和 TOTP 初次设置锁定共用 `stopActivity: true`；调用前已完成本地锁状态持久化，宿主归档确认才报告 `archived: true`，锁定流程不会自行改写原生记录。
+
+若宿主缺少归档接口、归档写入失败或返回的归档成员清单无法确认，响应仍保留 `archived: false`，锁状态不会回滚；已发布的 `agent/pre-step` 门禁继续拒绝后续受保护会话的模型步骤。已经发往模型的请求不能仅凭 pre-step 门禁回收，此时原生 `stopActivity` 路径能按宿主语义请求结束运行中的任务。该改动不会安装 Host patch、不接管 Composer DOM、也不替代消息提交前的正式授权检查和 Windows Harness 实机验收。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
