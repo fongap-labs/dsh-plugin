@@ -176,11 +176,11 @@ const ZIP3_THEME_BLOB = '587e37e22d478ac7f4d5d9c9b82f173baecf0613'
 // Reading an official Theme API token from a Delta-owned component is allowed;
 // declaring Host --dsw-* variables in injected global CSS is not.
 const UNOWNED_HOST_CSS_PATTERNS = [
-  /\\[\\s*class\\s*[*~^$|]?=/i,
-  /(?:^|[\\s;{])--dsw-[\\w-]+\\s*:/m,
-  /\\[data-sidebar-right-guide-entry\\]/,
-  /:root\\[data-delta-ui=["']delta["']\\]\\s+(?:input|textarea|select|button)\\b/i,
-  /:root\\[data-delta-ui=["']delta["']\\]\\s+::selection\\b/i,
+  /\[\s*class\s*[*~^$|]?=/i,
+  /(?:^|[\s;{])--dsw-[\w-]+\s*:/m,
+  /\[data-sidebar-right-guide-entry\]/,
+  /:root\[data-delta-ui=["']delta["']\]\s+(?:input|textarea|select|button)\b/i,
+  /:root\[data-delta-ui=["']delta["']\]\s+::selection\b/i,
 ]
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
