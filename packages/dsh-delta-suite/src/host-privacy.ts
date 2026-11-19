@@ -28,20 +28,55 @@ const BLOCKED_EXACT_OR_PREFIX_PATHS: readonly string[] = [
   '/api/otel',
 ]
 
-function normalizeRequestPathname(rawUrl: string | undefined): string {
-  if (typeof rawUrl !== 'string' || rawUrl.trim() === '') return ''
-  const qIndex = rawUrl.indexOf('?')
-  const clean = qIndex >= 0 ? rawUrl.slice(0, qIndex) : rawUrl
-  let pathname = clean
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(clean)) {
-    const schemeEnd = clean.indexOf('://')
-    const slashIdx = clean.indexOf('/', schemeEnd + 3)
-    pathname = slashIdx >= 0 ? clean.slice(slashIdx) : '/'
+/**
+ * Normalize the request-target before the Host routes it. Raw Node request
+ * targets can contain escaped ASCII, doubled separators and dot segments.
+ * Keep both spellings: one router may match the literal path while another
+ * resolves traversal, so neither spelling may evade a privacy block.
+ *
+ * Decode only ASCII escapes; UTF-8/non-ASCII path components are unrelated to
+ * the reserved API namespaces and malformed escapes must not throw.
+ */
+function normalizeRequestPathnames(rawUrl: string | undefined): readonly string[] {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) return []
+  let pathname = rawUrl.trim()
+  // Absolute-form HTTP targets occur in local bridge/proxy requests. Strip
+  // their authority without URL()'s eager dot-segment normalization.
+  const absolutePrefix = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\/[^/?#]*/.exec(pathname)?.[0]
+  if (absolutePrefix !== undefined) pathname = pathname.slice(absolutePrefix.length) || '/'
+  const separator = pathname.search(/[?#]/)
+  if (separator >= 0) pathname = pathname.slice(0, separator)
+  if (!pathname.startsWith('/') && !pathname.startsWith('\\')) return []
+
+  // HTTP routing stacks vary in how many levels of encoding they resolve.
+  // Bound the number of passes while covering ordinary double encoding.
+  for (let i = 0; i < 8; i++) {
+    const decoded = pathname.replace(/%([0-7][0-9a-f])/gi,
+      (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+    if (decoded === pathname) break
+    pathname = decoded
   }
-  if (pathname.length > 1 && pathname.endsWith('/')) {
-    pathname = pathname.slice(0, -1)
+  pathname = pathname.replace(/\\/g, '/').replace(/\/+/g, '/').toLowerCase()
+  if (pathname.length > 1) pathname = pathname.replace(/\/+$/, '')
+
+  const resolved: string[] = []
+  for (const part of pathname.split('/')) {
+    if (!part || part === '.') continue
+    if (part === '..') resolved.pop()
+    else resolved.push(part)
   }
-  return pathname.toLowerCase()
+  const canonical = '/' + resolved.join('/')
+  return pathname === canonical ? [pathname] : [pathname, canonical]
+}
+
+/** Match path-segment boundaries, never similarly prefixed unrelated routes. */
+function isPrivacyBlockedPath(pathname: string, method: string): boolean {
+  for (const blocked of BLOCKED_EXACT_OR_PREFIX_PATHS) {
+    if (pathname === blocked || pathname.startsWith(blocked + '/')) return true
+  }
+  if (pathname === '/api/productanalytics/report') return true
+  if (pathname.startsWith('/api/productanalytics/') && method.toUpperCase() !== 'GET') return true
+  return false
 }
 
 /**
@@ -49,14 +84,7 @@ function normalizeRequestPathname(rawUrl: string | undefined): string {
  * session logs, submit feedback logs, or emit product/session telemetry.
  */
 export function shouldBlockPrivacyHttpRequest(rawUrl: string | undefined, method = 'GET'): boolean {
-  const pathname = normalizeRequestPathname(rawUrl)
-  if (!pathname) return false
-  for (const blocked of BLOCKED_EXACT_OR_PREFIX_PATHS) {
-    if (pathname === blocked || pathname.startsWith(blocked + '/')) return true
-  }
-  if (pathname === '/api/productanalytics/report') return true
-  if (pathname.startsWith('/api/productanalytics/') && method.toUpperCase() !== 'GET') return true
-  return false
+  return normalizeRequestPathnames(rawUrl).some(pathname => isPrivacyBlockedPath(pathname, method))
 }
 
 function sendPrivacyBlockedResponse(res: PrivacyHttpResponse): void {
