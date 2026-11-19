@@ -26,10 +26,11 @@ const auditArgs = sourceBlob => ({
   sourceBlobSha: sourceBlob.sha, licenseBlobSha: LICENSE.sha,
   targetRepository: 'maintainer/dsh-plugin', submit: true,
 })
-function fixture(sourceBlob = CLEAN, enabled = true) {
+function fixture(sourceBlob = CLEAN, enabled = true, overrides = {}) {
   const calls = []
   let ownerRequests = 0
   let publicRequests = 0
+  let fileReads = 0
   const transport = {
     async request() { ownerRequests++; throw Error('source owner credential MUST NOT be used') },
     async publicRead(path, signal) {
@@ -47,25 +48,31 @@ function fixture(sourceBlob = CLEAN, enabled = true) {
       throw Error('Unexpected public endpoint ' + path)
     },
   }
-  const envelope = (result) => ({ repository: 'maintainer/dsh-plugin', account: 'maintainer',
-    result: JSON.stringify(result) })
+  const envelope = (result, step) => ({
+    repository: overrides.wrongRepositoryStep === step ? 'another-org/repo' : 'maintainer/dsh-plugin',
+    account: overrides.wrongAccountStep === step ? 'another-org' : 'maintainer',
+    result: JSON.stringify(result),
+  })
   const actions = {
     file: { async execute(args) {
       calls.push(['file', args])
       assert.equal(args.repository, 'maintainer/dsh-plugin')
-      return envelope({ path: 'CHANGELOG.md', content: '# Changelog\n\n## [Unreleased]\n\n- Existing change\n' })
+      fileReads++
+      const content = '# Changelog\n\n## [Unreleased]\n\n- Existing change\n'
+      const sha = overrides.staleBase && fileReads > 1 ? '0'.repeat(40) : blob(content).sha
+      return envelope({ path: 'CHANGELOG.md', content, sha, type: 'file' }, 'file')
     } },
     branch: { async execute(args) {
       calls.push(['branch', args])
       assert.match(args.branch, /^chore\/skill-proposal-[a-f0-9-]+$/)
-      return envelope({ branch: args.branch, sha: BRANCH_HEAD })
+      return envelope({ branch: args.branch, sha: BRANCH_HEAD }, 'branch')
     } },
     commitFile: { async execute(args) {
       calls.push(['commit', args])
       if (args.path === 'CHANGELOG.md') {
         assert.equal(args.expectedHead, FIRST_COMMIT)
         assert.match(args.content, /stage pinned free Skill proposal/)
-        return envelope({ path: args.path, commit: FINAL_COMMIT })
+        return envelope({ path: args.path, commit: FINAL_COMMIT }, 'commit')
       }
       assert.equal(args.expectedHead, BRANCH_HEAD)
       const proposal = validatePendingSkillProposal(JSON.parse(args.content))
@@ -73,13 +80,14 @@ function fixture(sourceBlob = CLEAN, enabled = true) {
       assert.equal(proposal.autoEnabled, false)
       assert.equal(proposal.executable, false)
       assert.equal(args.path, pendingSkillProposalPath(proposal))
-      return envelope({ path: args.path, commit: FIRST_COMMIT })
+      return envelope({ path: args.path, commit: FIRST_COMMIT }, 'commit')
     } },
     createPr: { async execute(args) {
       calls.push(['pr', args])
       assert.match(args.body, /Static review is not a security approval/)
       assert.equal(args.repository, 'maintainer/dsh-plugin')
-      return envelope({ number: 42, url: 'https://github.com/maintainer/dsh-plugin/pull/42', reused: false })
+      return envelope({ number: 42, url: overrides.invalidPrUrl ??
+        'https://github.com/maintainer/dsh-plugin/pull/42', reused: false }, 'pr')
     } },
   }
   return {
@@ -94,7 +102,7 @@ describe('Delta Code CI-only public Skill proposal admission', () => {
   it('re-audits immutable public evidence and prepares an inert manifest and PR', async () => {
     const h = fixture()
     const response = JSON.parse((await h.tool.execute(auditArgs(CLEAN), h.exec)).result)
-    assert.deepEqual(h.calls.map(x => x[0]), ['branch', 'file', 'commit', 'commit', 'pr'])
+    assert.deepEqual(h.calls.map(x => x[0]), ['file', 'branch', 'file', 'commit', 'commit', 'pr'])
     assert.equal(h.publicRequests, 4)
     assert.equal(h.ownerRequests, 0)
     assert.equal(response.pr.number, 42)
@@ -129,6 +137,32 @@ describe('Delta Code CI-only public Skill proposal admission', () => {
       assert.equal(h.ownerRequests, 0)
       assert.equal(h.publicRequests, 4)
     }
+  })
+
+  it('enforces target identity at each owner-bound GitHub write step', async () => {
+    for (const stage of ['file', 'branch', 'commit', 'pr']) {
+      const h = fixture(CLEAN, true, { wrongAccountStep: stage })
+      await assert.rejects(h.tool.execute(auditArgs(CLEAN), h.exec),
+        /target account\/repository binding mismatch/)
+      assert.equal(h.ownerRequests, 0)
+      assert.equal(h.calls.some(([name]) => name === 'pr'), stage === 'pr')
+    }
+    const wrongRepo = fixture(CLEAN, true, { wrongRepositoryStep: 'file' })
+    await assert.rejects(wrongRepo.tool.execute(auditArgs(CLEAN), wrongRepo.exec),
+      /target account\/repository binding mismatch/)
+    assert.deepEqual(wrongRepo.calls.map(x => x[0]), ['file'])
+  })
+
+  it('rejects cross-repository PR URLs and changed base files rather than claiming success', async () => {
+    const wrongPr = fixture(CLEAN, true, {
+      invalidPrUrl: 'https://github.com/another-org/repo/pull/42',
+    })
+    await assert.rejects(wrongPr.tool.execute(auditArgs(CLEAN), wrongPr.exec),
+      /PR URL does not match authorized target repository/)
+    const stale = fixture(CLEAN, true, { staleBase: true })
+    await assert.rejects(stale.tool.execute(auditArgs(CLEAN), stale.exec),
+      /CHANGELOG changed during Skill proposal/)
+    assert.deepEqual(stale.calls.map(x => x[0]), ['file', 'branch', 'file'])
   })
 
   it('rejects malformed or forged persisted proposals, and never promotes them to an active provider', () => {
