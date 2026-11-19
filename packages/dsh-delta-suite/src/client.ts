@@ -1243,6 +1243,7 @@ function readWorkspaceMutationPolicy(
   const deletedSessions = new Set(state.deletedSessionIds.flatMap(workspaceSessionAliases))
   const lockedKeys = new Set(state.lockedWorkspaceIds)
   const rowsById = new Map<string, WorkspaceSnapshot['items'][number]>()
+  const rowsByPath = new Map<string, WorkspaceSnapshot['items'][number]>()
   let isComplete = true
   try {
     const snapshot = readNative()
@@ -1250,19 +1251,31 @@ function readWorkspaceMutationPolicy(
     const matchedKeys = new Set<string>()
     for (const row of snapshot.items) {
       const { workspaceId, path, sessionIds } = row
-      if (typeof workspaceId !== 'string' || !workspaceId || typeof path !== 'string' || !path ||
-          rowsById.has(workspaceId)) throw new Error('invalid workspace row')
+      if (typeof workspaceId !== 'string' || !workspaceId.trim() ||
+          typeof path !== 'string' || !path.trim() ||
+          rowsById.has(workspaceId) || rowsByPath.has(path) ||
+          !Array.isArray(sessionIds) ||
+          sessionIds.some(id => typeof id !== 'string' || !id.trim())) {
+        throw new Error('invalid workspace row')
+      }
       rowsById.set(workspaceId, row)
+      rowsByPath.set(path, row)
       if (lockedKeys.has(workspaceId) || lockedKeys.has(path)) {
         if (lockedKeys.has(workspaceId)) matchedKeys.add(workspaceId)
         if (lockedKeys.has(path)) matchedKeys.add(path)
         lockedKeys.add(workspaceId)
         lockedKeys.add(path)
       }
-      if (lockedKeys.size > 0 && (!Array.isArray(sessionIds) ||
-          sessionIds.some(id => typeof id !== 'string' || !id))) isComplete = false
     }
     if (state.lockedWorkspaceIds.some(id => !matchedKeys.has(id))) isComplete = false
+    // A stale relocation cannot prove that a protected session is absent
+    // from a workspace being deleted. Never infer membership from a ghost target.
+    if (lockedSessions.size > 0 || lockedKeys.size > 0) {
+      for (const [sessionId, target] of Object.entries(state.movedSessions)) {
+        if (!sessionId.trim() || typeof target !== 'string' || !target.trim() ||
+            (!rowsById.has(target) && !rowsByPath.has(target))) isComplete = false
+      }
+    }
   } catch { isComplete = false }
 
   const isLockedRow = (row: WorkspaceSnapshot['items'][number]): boolean =>
@@ -1282,6 +1295,7 @@ function readWorkspaceMutationPolicy(
       if (aliases.some(alias => deletedSessions.has(alias))) return { reason: 'session-deleted' }
       const lockId = state.lockedSessionIds.find(key => workspaceSessionAliases(key).some(alias => aliases.includes(alias)))
       if (lockId !== undefined) return { reason: 'session-locked', lockId }
+      if (!isComplete) return { reason: 'workspace-state-unavailable' }
       if (lockedKeys.size === 0) return undefined
       for (const row of rowsById.values()) {
         if (!isLockedRow(row)) continue
