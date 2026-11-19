@@ -40,6 +40,7 @@ function harness(overrides = {}) {
       if (input.path === '/repos/acme/skills') return {
         repository: input.repository, account: input.account, data: {
           full_name: 'acme/skills', stargazers_count: 1200, forks_count: 95,
+          license: { spdx_id: 'MIT' },
           archived: false, disabled: false, created_at: '2021-01-01T00:00:00Z',
           pushed_at: '2026-11-10T00:00:00Z',
         },
@@ -89,15 +90,15 @@ describe('Delta Code GitHub Skill candidate discovery and review', () => {
     assert.match(decodeURIComponent(h.seen[0].path), /repo:acme\/skills filename:SKILL.md/)
     assert.ok(h.seen.every(c => c.method === 'GET' && c.account === 'acme'))
     assert.ok(h.seen.every(c => c.signal === h.exec.signal))
-    assert.equal(h.seen.length, 4)
+    assert.equal(h.seen.length, 6)
     const unicode = await h.search.execute({
       repository: 'acme/skills', query: '\u524d\u7aef \u6027\u80fd',
     }, h.exec)
     assert.equal(JSON.parse(unicode.result).candidates.length, 1)
-    assert.equal(h.seen.length, 8)
+    assert.equal(h.seen.length, 12)
     await assert.rejects(h.search.execute({ repository: 'acme/skills', query: 'x' }, h.exec), /bounded plain-text/)
     await assert.rejects(h.search.execute({ repository: 'acme/skills', query: 'foo&repo:other/secret' }, h.exec), /bounded plain-text/)
-    assert.equal(h.seen.length, 8)
+    assert.equal(h.seen.length, 12)
   })
 
   it('verifies pinned bytes and license evidence but never auto-approves a candidate', async () => {
