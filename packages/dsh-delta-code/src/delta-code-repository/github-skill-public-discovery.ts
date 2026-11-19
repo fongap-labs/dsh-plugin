@@ -139,7 +139,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
             .slice(0, PER_REPO)
           if (!skills.length) continue
           const freeSkills: Array<{ path: string; sha: string }> = []
-          for (const skill of freeSkills) {
+          for (const skill of skills) {
             const sourceBlob = await read(base + '/git/blobs/' + skill.sha)
             const markdown = decodePinnedSkillBlob(sourceBlob, skill.sha)
             const cost = inspectFreeSkillText(markdown, identifier)
@@ -172,7 +172,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
             repositoryCreatedAt: repo.created_at, lastPushAt: repo.pushed_at,
             archived: repo.archived, disabled: repo.disabled,
           })
-          for (const skill of skills) {
+          for (const skill of freeSkills) {
             const name: string = skill.path.match(SKILL_PATH)![1]!
             const fit = relevance(query, name, repository,
               typeof repo.description === 'string' ? repo.description.slice(0, 200) : '')
