@@ -19,7 +19,17 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '073ebde11cc94fefd8015c203d1a3aed20a1bfef')
+    assert.equal(sha, '59e08f634fc81452166ed0ffe4e0d16f9e349218')
+  })
+  it('leaves native sidebar list rows, scrolling and fades to Harness', () => {
+    for (const marker of ['[data-sidebar-scrollport]', '[data-sidebar-list-area]',
+      '[data-row-key^="session:"]', '[class*="scrollFade"]',
+      '[class*="wtg9ga_scrollFade"]', '[class*="regionArea"]', '[class*="rowResting"]']) {
+      assert.equal(css.includes(marker), false, marker)
+    }
+    assert.match(css, /\[data-dtd-hidden-deleted="1"\]/)
+    assert.match(css, /\.dtd-lock-shield\s*\{/)
+    assert.match(css, /\.dtd-search-tabs::-webkit-scrollbar/)
   })
   it('keeps native sidebar openers and logo rows under Harness ownership', () => {
     for (const marker of ['[data-sidebar-toggle]', '[data-sidebar-opener]',
