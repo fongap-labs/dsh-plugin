@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: GitHub Skill 候选增加 Star/Fork、维护者账号资历与仓库维护活跃度的可解释评分；未知指标不会伪造信誉，结果仅用于排序与复核，不触发自动授权或安装。
+
 - 修复: 移除 Delta 弹窗对 Harness 侧栏颜色的动态改写与全局弹窗打开标记；保留 Delta 自有遮罩和弹窗，补充 ZIP3 审核指纹与回归防护（Issue #333）。
 
 - 修复: Delta Code 的远程 GitHub Skill 加载支持按 Agent 任务切换、明确拒绝和销毁取消未完成请求；按宿主 scope 隔离候选技能与缓存刷新，无 scope 时只使用官方取消信号，保持共享 Provider 与历史会话内容不变。
