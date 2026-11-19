@@ -99,6 +99,13 @@ describe('Delta Code remote Skill task-scoped cancellation', () => {
       h.emit('agent/disposed', { agent: agentB })
       await assert.rejects(activeB, /skill agent disposed/)
       assert.equal(f.requests[2].aborted, false)
+      // A late Host get/list must not re-create state for a retired Agent.
+      assert.deepEqual(await h.provider.list({ scope: agentB }), [])
+      assert.equal(await h.provider.get(candidate, { scope: agentB }), undefined)
+      h.message(agentB, 'Implement a fresh UI task')
+      assert.deepEqual(await h.provider.list({ scope: agentB }), [])
+      assert.equal(f.requests.length, 3)
+      assert.ok((await h.provider.list({ scope: agentA })).length > 0)
 
       stop()
       await assert.rejects(currentA, /skill plugin disposed/)
