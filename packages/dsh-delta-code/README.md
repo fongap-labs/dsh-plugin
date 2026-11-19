@@ -59,13 +59,21 @@ Delta Code 默认只检索、推荐和加载具有免费使用依据的 GitHub S
 
 工具仅产生 `static-review-ready`、`manual-security-review-required` 或 `excluded-paid-or-unknown` 的**证据报告**。即使标记 `static-review-ready`，也**不自动授权、收录、注册 Provider 或执行脚本**；此前的免费筛选只代表部分可核实证据，不能证明外部服务永不收费。所有静态分析都有漏报可能，受审核的可信目录准入仍需独立 CI 与权限检查。
 
+### 免费 Skill 的 CI 准入 PR
+
+`code_github_skill_propose_pr` 用于将已发现的免费 Skill 候选提交为 **仅供 CI 复核的不可执行清单**。输入公开来源仓库、`skills/name/SKILL.md`、不可变 Commit、源码 Blob SHA、许可证 Blob SHA，以及准入清单目标仓库 `targetRepository`。工具会重新调用无 Token 的 `code_github_skill_public_review`；只有收费检查通过、静态风险信号为空且固定源证据一致时，才可提交 PR。
+
+提交需要显式 `submit: true` 和已开启的 `github.allowWrites`。工具仅通过目标仓库本身绑定的 Token 调用现有 `code_github_branch`、`code_github_commit_file`、`code_github_create_pr`，创建功能分支、写入 `packages/dsh-delta-code/skill-proposals/*.json`、更新 CHANGELOG，并请求中央 CI；不借用公开 Skill 开发者的 Token，也不向来源仓库写入。清单包含完整不可变来源证据、`pending-ci-review` 状态与强制的 `autoEnabled: false`、`executable: false`；CI 会拒绝格式错误、额外字段或擅自启用的清单。
+
+**CI 合并清单只意味着候选已被记录，不表示 Skill 已获安全认可。** 经独立审查完整依赖、提示词注入风险和工具权限后，仍需单独变更现有静态可信目录，才能让 Harness 按需加载。静态规则存在漏报，不会因 Star 或免费许可证而自动授权执行。
+
 ### GitHub Skill 候选评分（仅用于推荐）
 
 `code_github_skill_candidates` 对指定已授权仓库中的候选返回可解释的公开证据信号：Star 数量（对数封顶）、Fork 数量、维护者公开账号建立时间、仓库建立时间及最近推送时间。评分权重集中放在 `github-skill-ranking.ts`，默认合计上限为 50 分，支持由可信代码提供其他权重，不将热门度解释为 Skill 的正确性或安全性。元数据缺失时给出 `partial` 或 `unavailable`，不臆造评分。禁用或归档仓库的建议分归零；搜索结果中的候选始终为 `unreviewed`，不可凭评分自动注册或执行。
 
-查询依旧限制到与 GitHub Token 绑定的仓库归属：搜索时最多额外请求一次该仓库的公开指标与一次对应 owner 的公开资料，失败可在限流/不可用时降级为无评分；绝不把该 Token 作为跨组织查询的通用授权。新增 `code_github_skill_discover`：在确有必要且用户允许外部技能时，通过**独立、不带 Token 的公共 GitHub 仓库搜索**查找候选仓库，再检查最多 4 个仓库的固定 Git 树，输出 `skills/name/SKILL.md`、Commit 和 Blob SHA，并与 Star、维护活跃度和账号资历评分组合排序。每次调用不超过 13 次公开请求，响应体限制为 1 MB；被限流时停止，不借用其他账号的 Token。该方案是**全 GitHub 范围的有限仓库发现**，不是逐文件搜索整个 GitHub，也不会默认后台扫描。搜索索引、前 8 个仓库和所支持的 Skill 路径均限制覆盖范围；候选全部标记为 `unreviewed`。
+查询依旧限制到与 GitHub Token 绑定的仓库归属：搜索时最多额外请求一次该仓库的公开指标与一次对应 owner 的公开资料，失败可在限流/不可用时降级为无评分；绝不把该 Token 作为跨组织查询的通用授权。新增 `code_github_skill_discover`：在确有必要且用户允许外部技能时，通过**独立、不带 Token 的公共 GitHub 仓库搜索**查找候选仓库，再检查最多 3 个仓库的固定 Git 树，输出 `skills/name/SKILL.md`、Commit 和 Blob SHA，并与 Star、维护活跃度和账号资历评分组合排序。每次调用不超过 19 次公开请求，响应体限制为 1 MB；被限流时停止，不借用其他账号的 Token。该方案是**全 GitHub 范围的有限仓库发现**，不是逐文件搜索整个 GitHub，也不会默认后台扫描。搜索索引、前 8 个仓库和所支持的 Skill 路径均限制覆盖范围；候选全部标记为 `unreviewed`。
 
-`code_github_skill_review` 仍须使用目标仓库对应的授权绑定；对未绑定的其他组织，当前只能输出公开发现证据，不能自动完成完整源码及许可证复核，更不能自动收录或执行。后续须增加独立的匿名只读审核能力与中央 CI 准入机制，才可能完成自动收录。
+已提供匿名 `code_github_skill_public_review`，可以验证跨组织公开候选的不可变源码与许可证证据，但不能把静态审核当成可信批准。对于已绑定组织，`code_github_skill_review` 继续使用该组织独立 Token；新准入工具只自动提交不可执行清单，不能自动启用未经完整审核的 Skill。
 
 ### Skills 能力检测与按需生命周期
 
