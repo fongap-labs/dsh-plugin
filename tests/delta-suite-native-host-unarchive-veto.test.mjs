@@ -380,6 +380,20 @@ test('old snapshots without archive ownership fail conservatively and preserve t
   } finally { f.dispose() }
 })
 
+test('deleting a Session clears only its private native-archive attribution', async () => {
+  const f = fixture({
+    initial: { nativeArchiveOwnedSessionIds: ['session-victim', 'other'] },
+    registry: { archivedSessionIds: ['victim'], list: () => [] },
+  })
+  try {
+    const deleted = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'victim' })
+    assert.equal(deleted.status, 200)
+    assert.deepEqual(f.store.getCached().nativeArchiveOwnedSessionIds, ['other'])
+    assert.equal(Object.hasOwn(deleted.data.state, 'nativeArchiveOwnedSessionIds'), false)
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['victim'])
+  } finally { f.dispose() }
+})
+
 test('method resolution alone is not evidence of native archive membership', async () => {
   const f = fixture({
     initial: { totpSecret: secret },
