@@ -10,6 +10,7 @@ The repository contributes **only additive** features registered through public 
 - MCP manager under the official Plugins add-actions
 - extended feature preferences and Vision credentials through settings section
 - existing Host modules for redaction, perception, privacy, session search and proxy.
+- Host-public `sidebar.session.row.trailing` non-interactive lock status icon (only when Delta mode has a retained Host-confirmed lock); this is a Slot contribution, not native row mutation, and must coexist with other slot owners.
 
 Never reintroduce the legacy `installHostSearch` or `.dtd-search-dialog` UI.
 Existing ZIP search binding must not open the palette on focus/click.

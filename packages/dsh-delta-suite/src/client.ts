@@ -5567,6 +5567,30 @@ window.__ModuleLoader__.load({
     function DeltaBrandName(): unknown {
       return el('span', { className: 'dtd-brand-name' }, (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title)
     }
+    // Published ui-workspace inline list Slot. No native row children, classes,
+    // menus, or layout nodes are queried or changed by this indicator.
+    function SessionProtectionIndicator({ sessionId }: { sessionId: string }, controller: DeltaController): unknown {
+      useContentProtectionRevision()
+      const view = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
+      if (view.mode !== 'delta' || !sessionId) return null
+      const state = deltaFeatures.getSnapshot()
+      if (state.deletedSessionIds.includes(sessionId)) return null
+      const locked = state.lockedSessionIds.includes(sessionId)
+      let isInheritedWorkspaceLocked = false
+      try { isInheritedWorkspaceLocked = deltaFeatures.isSessionInLockedWorkspace(sessionId) } catch {}
+      if (!locked && !isInheritedWorkspaceLocked) return null
+      const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
+      const label = isInheritedWorkspaceLocked && !locked
+        ? copy.workspaceMenu.lockedShieldTitle : copy.sessionMenu.lockedShieldTitle
+      return el('span', { className: 'dtd-session-protection-mark', role: 'img',
+        title: label, 'aria-label': label },
+        el('svg', { width: 14, height: 14, viewBox: '0 0 24 24',
+          fill: 'none', stroke: 'currentColor', strokeWidth: 1.8,
+          strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
+          el('rect', { x: 5, y: 10, width: 14, height: 11, rx: 2 }),
+          el('path', { d: 'M8 10V7a4 4 0 0 1 8 0v3' })))
+    }
+
     function SessionHoverDetail({ sessionId }: SessionHoverProps, controller: DeltaController): unknown {
       const revision = useContentProtectionRevision()
       const mode = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot).mode
@@ -6028,6 +6052,14 @@ window.__ModuleLoader__.load({
               }
               registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
               registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
+
+              // The published inline trailing Slot renders status without owning
+              // native Session rows. If an older Host lacks it, retain native UI.
+              scope.slots.inject('sidebar.session.row.trailing', () => scope.slots.register<{ sessionId: string }>({
+                name: 'sidebar.session.row.trailing',
+                id: 'delta.session.protection',
+                order: 450,
+              }, props => SessionProtectionIndicator(props, controller)))
 
               scope.slots.inject('sidebar.session.row.hover', () => scope.slots.register<SessionHoverProps>({
                 name: 'sidebar.session.row.hover',
