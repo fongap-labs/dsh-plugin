@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 修复: 会话删除及墓碑恢复不再直接重写 Harness 私有 `workspace.json` 或清理注册表内部 Map，统一通过官方 `WorkspaceRegistry.unpinSession` 和 `WorkspaceEntity.detachSession` 执行，保留原生数据写入队列及第三方修改（#333）。
+- 修复: 删除会话改用官方 Workspace Service，停止直接改写宿主 `workspace.json` 和内部索引（#333）。
 
 - 修复: Harness 官方 `agent/pre-step` 子代理门禁验证每级父会话 Header 的身份与请求父 ID 一致，拒绝错误映射、别名循环及非法标识，防止沿错误祖先链放行模型步骤（#333）。
 
