@@ -49,6 +49,12 @@ Delta 自有个性设置页及 `plugins.bundle.config` 的同一设置视图现�
 
 这些改动保障了文件操作的归属边界，但**不是**原生 `workspace/delete` 或 Session 改名等操作的统一业务前置拒绝接口；#333 的残余 DOM 捕获仍需官方权限接口替换和真实 Windows Harness 实机验收，不做纯 Harness A/B 对照。
 
+## 2026-11-19 模型步骤授权由正式 Host 事件执行
+
+宿主上游 `deepseek-ai/deepseek-harness` 的 `packages/api/session-controller/src/archived-session-gate.ts` 已使用公开 Cordis `agent/pre-step` waterfall 阻止被归档会话的模型执行；该事件允许返回 `{ kind: 'reject' }`，并要求只有允许执行时才委托 `next()`。Delta Suite 在其 Host 服务层注册同一正式事件，读取**已持久化**的锁、工作区成员与会话删除墓碑，沿公开 Session header / parentSession 检查子代理来源。锁定或墓碑命中、公开成员清单不可确认、祖先缺失/循环及保护状态读取失败一律拒绝本次模型步骤，不调用下游处理器；明确允许时完整透传 `next()` 的原生决定。停用插件会释放事件注册。
+
+该门禁不依赖 DOM、原生文案、私有 Service 或额外轮询，也不与 Delta 写操作队列互相等待。即便原生 `workspaceRegistry.archiveSession` 因会话已经活动而拒绝，**新的后续模型步骤**仍被阻止；已经开始的模型请求不能被此门禁追回。它不是完整的原生 `session/prompt` 提交前授权，因此现有客户端隐私遮罩、原生删除操作兼容拦截仍保留至官方前置接口验证完成。不能据此声称已退役全部 DOM 防护，也不能以中央 Windows CI 代替真实 Windows Harness 验收。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
