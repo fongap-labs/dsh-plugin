@@ -25,6 +25,7 @@ const secret = 'JBSWY3DPEHPK3PXP'
 function fixture({ initial = {}, registry, readFails = false, writeFails = false, persistence, sessions, profileContext } = {}) {
   let current = state.normalizeDeltaState(initial)
   let listener
+  let preStepListener
   let releases = 0
   const routes = new Map()
   const store = {
@@ -54,8 +55,9 @@ function fixture({ initial = {}, registry, readFails = false, writeFails = false
         : name === 'sessions' ? sessions
           : name === 'profileContext' ? profileContext : undefined,
     on(event, cb) {
-      assert.equal(event, 'workspace/session-unarchiving')
-      listener = cb
+      if (event === 'workspace/session-unarchiving') listener = cb
+      else if (event === 'agent/pre-step') preStepListener = cb
+      else assert.fail('Unexpected Host event: ' + event)
       return () => { releases += 1 }
     },
     inject(deps, mount) {
@@ -71,7 +73,13 @@ function fixture({ initial = {}, registry, readFails = false, writeFails = false
     return { status: response.status, data: await response.json() }
   }
   const call = body => request(ops.DELTA_SESSION_LOCK_PATH, body)
-  return { store, dispose, call, request, registry: hostRegistry, event: value => listener(value), releases: () => releases }
+  return {
+    store, dispose, call, request, registry: hostRegistry,
+    event: value => listener(value),
+    step: (header, next = async () => ({ kind: 'host-next' })) =>
+      preStepListener({ agent: { session: { header } } }, next),
+    releases: () => releases,
+  }
 }
 
 test('public Host event rejects native unarchive of a directly locked session but allows other sessions', async () => {
@@ -101,8 +109,116 @@ test('unreadable state and invalid native event targets cannot authorize unarchi
     await assert.rejects(f.event({ sessionId: 'locked' }), /unreadable state/)
     await assert.rejects(f.event({}), /DELTA_SESSION_TARGET_INVALID/)
   } finally { f.dispose(); f.dispose() }
-  assert.equal(f.releases(), 1)
+  assert.equal(f.releases(), 2, 'both official Host hooks release on disposal')
   await f.event({ sessionId: 'locked' })
+})
+
+test('native agent pre-step blocks work after lock even when Host refused to archive the running Session', async () => {
+  const attempts = []
+  const f = fixture({
+    initial: { totpSecret: secret },
+    registry: {
+      archivedSessionIds: [],
+      async archiveSession(id) { attempts.push(id); throw new Error('session already active') },
+      list: () => [{ id: 'workspace', path: '/workspace', sessionIds: ['running', 'other'] }],
+    },
+  })
+  try {
+    const unlocked = { kind: 'native-decision', original: true }
+    let forwards = 0
+    const next = async () => { forwards++; return unlocked }
+    assert.equal(await f.step({ id: 'running' }, next), unlocked)
+    const locked = await f.call({ action: 'lock', sessionId: 'running' })
+    assert.equal(locked.status, 200)
+    assert.equal(locked.data.archived, false, 'native refusal never rolls back a durable lock')
+    assert.deepEqual(attempts, ['running'])
+    assert.deepEqual(await f.step({ id: 'session-running' }, next), { kind: 'reject' },
+      'a native model step must be refused regardless of the alias spelling')
+    assert.equal(forwards, 1, 'blocked model requests must not invoke the Host step')
+    assert.equal(await f.step({ id: 'other' }, next), unlocked,
+      'unrelated Sessions keep their Host model execution')
+    const unlock = await f.call({
+      action: 'unlock', sessionId: 'running',
+      code: await state.generateTotpCode(secret),
+    })
+    assert.equal(unlock.status, 200)
+    assert.equal(await f.step({ id: 'running' }, next), unlocked,
+      'a verified durable unlock immediately restores normal Host admission')
+    assert.equal(forwards, 3)
+  } finally { f.dispose() }
+})
+
+test('agent gate rejects tombstones, locked-workspace members and uncertain Host registry state', async () => {
+  const rows = [{ id: 'locked-workspace', path: '/locked', sessionIds: ['member'] },
+    { id: 'ordinary', path: '/ordinary', sessionIds: ['other'] }]
+  let readable = true
+  const registry = { list: () => {
+    if (!readable) throw new Error('Host workspace catalog offline')
+    return rows
+  } }
+  const f = fixture({
+    registry,
+    initial: {
+      lockedWorkspaceIds: ['locked-workspace'],
+      deletedSessionIds: ['deleted'],
+    },
+  })
+  try {
+    let entered = 0
+    const next = () => { entered++; return { kind: 'Host-unchanged' } }
+    for (const id of ['member', 'session-member', 'deleted', 'session-deleted']) {
+      assert.deepEqual(await f.step({ id }, next), { kind: 'reject' }, id)
+    }
+    assert.deepEqual(await f.step({ id: 'other' }, next), { kind: 'Host-unchanged' })
+    readable = false
+    assert.deepEqual(await f.step({ id: 'other' }, next), { kind: 'reject' },
+      'an incomplete native membership snapshot cannot authorize a model call')
+    assert.equal(entered, 1)
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['deleted'],
+      'gating must not rewrite durable tombstones')
+  } finally { f.dispose() }
+})
+
+test('subagent model steps inherit locked ancestors and reject missing/cyclic lineage', async () => {
+  const parents = new Map([
+    ['child-parent', { id: 'child-parent', origin: 'subagent', parentSession: 'ancestor' }],
+    ['ancestor', { id: 'ancestor', origin: 'user' }],
+    ['other-parent', { id: 'other-parent', origin: 'user' }],
+    ['cycle', { id: 'cycle', origin: 'subagent', parentSession: 'cycle' }],
+  ])
+  const f = fixture({
+    initial: { lockedSessionIds: ['ancestor'] },
+    sessions: { get(id) { const header = parents.get(id); return header ? { header } : undefined } },
+  })
+  try {
+    const child = { id: 'leaf', origin: 'subagent', parentSession: 'child-parent' }
+    assert.deepEqual(await f.step(child), { kind: 'reject' },
+      'an archived/locked grandparent protects descendant model requests')
+    assert.deepEqual(await f.step({ id: 'other-child', origin: 'subagent', parentSession: 'other-parent' }),
+      { kind: 'host-next' })
+    assert.deepEqual(await f.step({ id: 'orphan', origin: 'subagent', parentSession: 'unknown-parent' }),
+      { kind: 'reject' }, 'a missing parent cannot prove a safe ancestry')
+    assert.deepEqual(await f.step({ id: 'other-child', origin: 'subagent', parentSession: 'cycle' }),
+      { kind: 'reject' }, 'a malformed recursive ancestry must fail closed')
+    assert.deepEqual(await f.step({ origin: 'user' }), { kind: 'reject' },
+      'an invalid Host agent context never authorizes a request')
+  } finally { f.dispose() }
+})
+
+test('durable read failure rejects model admission, and cleanup releases the public gate', async () => {
+  const f = fixture({ readFails: true })
+  try {
+    let continued = 0
+    assert.deepEqual(await f.step({ id: 'ordinary' }, () => { continued++; return { kind: 'allow' } }),
+      { kind: 'reject' }, 'an unreadable protection store cannot silently authorize model execution')
+    assert.equal(continued, 0)
+    f.dispose()
+    f.dispose()
+    assert.deepEqual(await f.step({ id: 'ordinary' }, () => { continued++; return { kind: 'allow' } }),
+      { kind: 'allow' }, 'after unmount Delta stops owning the Host event')
+    assert.equal(continued, 1)
+    assert.equal(f.releases(), 2, 'each official Host hook is unregistered exactly once')
+  } finally { f.dispose() }
 })
 
 test('method resolution alone is not evidence of native archive membership', async () => {
