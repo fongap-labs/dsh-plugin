@@ -170,10 +170,10 @@ const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
 ]
 const LEGACY_COMPAT_DATASET_WRITE = /(?:\.\s*dataset|\[\s*['"`]dataset['"`]\s*\])(?:\s*\[\s*['"`]deltaCompat(?:Status)?['"`]\s*\]|\s*\.\s*deltaCompat(?:Status)?)\s*(?:\?\?=|&&=|\|\|=|>>>=|>>=|<<=|\*\*=|[+\-*\/%&|^]=|=(?!=|>))/
 const LEGACY_VISION_COMPOSER_TAKEOVER = [
-  /\\binstallClientVisionBridge\\s*\\(/,
-  /\\b(?:document|window)\\.addEventListener\\s*\\(\\s*(['"`])(?:paste|drop)\\1\\s*,[\\s\\S]{0,180}\\bcapture\\s*:\\s*true/,
-  /\\bdocument\\.execCommand\\s*\\(\\s*(['"`])insertText\\1/,
-  /\\bwindow\\.HTML(?:Input|TextArea)Element\\.prototype/,
+  /\binstallClientVisionBridge\s*\(/,
+  /\b(?:document|window)\.addEventListener\s*\(\s*(['"`])(?:paste|drop)\1\s*,[\s\S]{0,180}\bcapture\s*:\s*true/,
+  /\bdocument\.execCommand\s*\(\s*(['"`])insertText\1/,
+  /\bwindow\.HTML(?:Input|TextArea)Element\.prototype/,
 ]
 const ZIP3_COMPAT_REGIONS = [
   {
