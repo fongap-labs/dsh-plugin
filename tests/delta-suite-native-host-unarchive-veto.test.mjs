@@ -1145,6 +1145,86 @@ test('session artifact cleanup checks real paths and refuses linked directories 
 })
 
 
+test('session deletion removes native logs but preserves unrecognized sidecars and nested folders', async t => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-session-sidecar-'))
+  const root = join(home, 'sessions')
+  const owned = join(root, 'project', 'session-victim')
+  const foreign = join(root, 'project', 'session-other')
+  const nested = join(owned, 'attachments')
+  mkdirSync(nested, { recursive: true })
+  mkdirSync(foreign, { recursive: true })
+  const natives = ['session.jsonl', 'session-2.jsonl.zst', 'session-3.jsonl.zstd']
+  for (const name of natives) writeFileSync(join(owned, name), 'native log')
+  for (const name of ['README.md', 'session.jsonl.bak', 'other.jsonl']) {
+    writeFileSync(join(owned, name), 'preserve unknown session sidecar')
+  }
+  writeFileSync(join(nested, 'photo.bin'), 'keep attachment')
+  writeFileSync(join(foreign, 'session.jsonl'), 'different Session')
+  const linked = join(owned, 'session-linked.jsonl')
+  let hasLink = false
+  try {
+    try {
+      symlinkSync(join(foreign, 'session.jsonl'), linked, 'file')
+      hasLink = true
+    } catch (err) {
+      if (!['EPERM', 'EACCES', 'ENOTSUP', 'EOPNOTSUPP'].includes(err?.code)) throw err
+      t.diagnostic('Host platform does not allow file symlinks; mixed sidecars are still verified')
+    }
+    const f = fixture({
+      profileContext: { home },
+      persistence: {
+        root,
+        listGenerations: async () => [
+          ...natives.map(name => ({ sessionId: 'victim', sourcePath: join(owned, name) })),
+          ...(hasLink ? [{ sessionId: 'victim', sourcePath: linked }] : []),
+        ],
+      },
+    })
+    try {
+      const response = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'victim' })
+      assert.equal(response.status, 200)
+      assert.deepEqual(f.store.getCached().deletedSessionIds, ['victim'])
+      for (const name of natives) assert.equal(existsSync(join(owned, name)), false, name)
+      for (const name of ['README.md', 'session.jsonl.bak', 'other.jsonl']) {
+        assert.equal(readFileSync(join(owned, name), 'utf8'), 'preserve unknown session sidecar')
+      }
+      assert.equal(readFileSync(join(nested, 'photo.bin'), 'utf8'), 'keep attachment')
+      assert.equal(readFileSync(join(foreign, 'session.jsonl'), 'utf8'), 'different Session')
+      if (hasLink) assert.equal(existsSync(linked), true,
+        'a linked log is not a regular native file and must not be removed')
+      assert.equal(existsSync(owned), true,
+        'unknown sidecars keep the native session directory intact')
+    } finally { f.dispose() }
+  } finally { rmSync(home, { recursive: true, force: true }) }
+})
+
+test('bulk deletion removes each native log while preserving unknown files in the same directories', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-session-batch-sidecar-'))
+  const root = join(home, 'sessions')
+  const mixed = join(root, 'project', 'session-mixed')
+  const clean = join(root, 'project', 'session-clean')
+  mkdirSync(mixed, { recursive: true })
+  mkdirSync(clean, { recursive: true })
+  writeFileSync(join(mixed, 'session.jsonl'), 'mixed log')
+  writeFileSync(join(mixed, 'notes.txt'), 'preserve')
+  writeFileSync(join(clean, 'session.jsonl.zst'), 'compressed clean log')
+  try {
+    const f = fixture({ profileContext: { home }, persistence: { root } })
+    try {
+      const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH,
+        { sessionIds: ['mixed', 'clean'] })
+      assert.equal(result.status, 200)
+      assert.deepEqual(result.data.deletedIds, ['mixed', 'clean'])
+      assert.deepEqual(f.store.getCached().deletedSessionIds, ['mixed', 'clean'])
+      assert.equal(existsSync(join(mixed, 'session.jsonl')), false)
+      assert.equal(readFileSync(join(mixed, 'notes.txt'), 'utf8'), 'preserve')
+      assert.equal(existsSync(mixed), true, 'mixed directory cannot be recursively removed')
+      assert.equal(existsSync(clean), false,
+        'an empty native session directory can still be removed after its log')
+    } finally { f.dispose() }
+  } finally { rmSync(home, { recursive: true, force: true }) }
+})
+
 test('session cleanup rejects another session directory even when Host locate or generation hints claim ownership', async () => {
   const home = mkdtempSync(join(tmpdir(), 'delta-session-provenance-'))
   const root = join(home, 'sessions')
