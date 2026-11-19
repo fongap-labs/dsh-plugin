@@ -375,6 +375,8 @@ export function verifyEntries(entries, version, format) {
     "scope.slots.inject('plugins.bundle.config'",
     "id: 'delta.suite.configuration'",
     "'data-delta-personalization'",
+    "'data-delta-integration-status'",
+    "scope.slots.inject('sidebar.session.row.trailing'",
     "scope.slots.inject('conversation.input.model.label'",
   ]) {
     ensure(client.includes(marker), format + ' installable Suite UI registration: ' + marker)
@@ -390,6 +392,17 @@ export function verifyEntries(entries, version, format) {
   for (const lang of ['en', 'zh']) {
     const locale = JSON.parse(entries.get('locale/' + lang + '.json').toString())
     ensure(locale.meta?.title && locale.ui?.newConversation, format + ' locale ' + lang)
+    // The beta used for real-client acceptance must carry an actionable,
+    // localized fallback rather than implying unsupported Host ownership.
+    for (const key of [
+      'integrationTitle', 'integrationSummary',
+      'integrationSidebar', 'integrationCollapse',
+      'integrationDeletion', 'integrationRunning',
+      'integrationNative', 'integrationReasoning', 'integrationGuidance',
+    ]) {
+      ensure(typeof locale.ui?.[key] === 'string' && locale.ui[key].trim().length > 0,
+        format + ' Host fallback locale ' + lang + '.' + key)
+    }
   }
 }
 export function verifyRelease(zipPath, tgzPath, version) {

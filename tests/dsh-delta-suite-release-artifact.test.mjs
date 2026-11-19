@@ -6,6 +6,11 @@ import { join } from 'node:path'
 import { readZip, readTgz, verifyEntries, hasUnsafeHostPatch } from '../scripts/verify-delta-suite-release.mjs'
 
 const approvedTheme = readFileSync(join(import.meta.dirname, '../packages/dsh-delta-suite/src/theme.css'), 'utf8')
+const fallbackLabels = Object.fromEntries([
+  'integrationTitle', 'integrationSummary', 'integrationSidebar',
+  'integrationCollapse', 'integrationDeletion', 'integrationRunning',
+  'integrationNative', 'integrationReasoning', 'integrationGuidance',
+].map(key => [key, key]))
 
 function validEntries(version = '0.1.0-beta.2') {
   const files = {
@@ -30,6 +35,8 @@ function validEntries(version = '0.1.0-beta.2') {
       "key: '@fongap-labs/dsh-delta-suite'",
       "id: 'delta.suite.configuration'",
       "'data-delta-personalization'",
+      "'data-delta-integration-status'",
+      "scope.slots.inject('sidebar.session.row.trailing'",
       "scope.slots.inject('conversation.input.model.label'",
       'function installSidebarCompatibility() {}',
       'function installHostSearch() {}',
@@ -37,8 +44,8 @@ function validEntries(version = '0.1.0-beta.2') {
       'dtd-host-search',
       'const OWNED_CSS = ' + JSON.stringify(approvedTheme) + ';',
     ].join('\n'),
-    'locale/en.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'New conversation' } }),
-    'locale/zh.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'Start' } }),
+    'locale/en.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'New conversation', ...fallbackLabels } }),
+    'locale/zh.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'Start', ...fallbackLabels } }),
     'icon.svg': '<svg/>',
   }
   return new Map(Object.entries(files).map(([key, value]) => [key, Buffer.from(value)]))
@@ -135,6 +142,8 @@ test('release refuses stale ZIP and TGZ bundles missing public Settings or model
     "scope.slots.inject('plugins.bundle.config'",
     "id: 'delta.suite.configuration'",
     "'data-delta-personalization'",
+    "'data-delta-integration-status'",
+    "scope.slots.inject('sidebar.session.row.trailing'",
     "scope.slots.inject('conversation.input.model.label'",
   ]) {
     for (const format of ['ZIP', 'TGZ']) {
@@ -144,6 +153,36 @@ test('release refuses stale ZIP and TGZ bundles missing public Settings or model
         /installable Suite UI registration/, format + ': ' + marker)
     }
   }
+})
+
+test('release refuses incomplete Host fallback translations in either archive', () => {
+  const valid = validEntries()
+  for (const lang of ['en', 'zh']) {
+    for (const key of Object.keys(fallbackLabels)) {
+      for (const format of ['ZIP', 'TGZ']) {
+        for (const variant of ['missing', 'empty']) {
+          const invalid = new Map(valid)
+          const path = 'locale/' + lang + '.json'
+          const locale = JSON.parse(invalid.get(path).toString())
+          if (variant === 'missing') delete locale.ui[key]
+          else locale.ui[key] = ''
+          invalid.set(path, Buffer.from(JSON.stringify(locale)))
+          assert.throws(() => verifyEntries(invalid, '0.1.0-beta.2', format),
+            /Host fallback locale/, format + ': ' + lang + '.' + key + ' (' + variant + ')')
+        }
+      }
+    }
+  }
+})
+
+test('beta release manifest clearly declares Windows acceptance and unavailable native contracts', () => {
+  const manifest = JSON.parse(readFileSync(join(import.meta.dirname,
+    '../projects/dsh-delta-suite/release.manifest.json'), 'utf8'))
+  assert.equal(manifest.release_key, 'dsh-delta-suite')
+  assert.match(manifest.release_notes, /Windows Harness/)
+  assert.match(manifest.release_notes, /Gateway Reasoning Effort/)
+  assert.ok(manifest.changelog_entries.some(line => line.includes('Session trailing Slot')))
+  assert.ok(manifest.changelog_entries.some(line => line.includes('Workspace/Session')))
 })
 
 test('release rejects an Installed plugins configuration bound to the wrong bundle', () => {

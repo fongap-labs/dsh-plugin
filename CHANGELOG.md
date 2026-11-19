@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 为 `dsh-delta-suite` 首个新身份安装测试候选 Beta 更新发布说明和 ZIP/TGZ 内容门禁，拒绝缺少原生会话状态 Slot、兼容状态展示或中英文回退说明的过时安装包（#190、#280、#333）。
+
 - 新增: Delta Suite 设置页显示宿主公开 API 兼容性报告，明确侧栏重排、工作区默认折叠、原生删除守卫与运行文案的原生回退，并说明模型 Reasoning Effort 由 Harness 原生目录与选择器管理（#190、#280）。
 
 - 修复: Delta Suite 原生隐私兼容层在解除菜单/墓碑隐藏时恢复宿主原始 `hidden` 与 `aria-hidden` 状态，避免误显示原本由 Harness 或其他插件隐藏的节点（#333）。
