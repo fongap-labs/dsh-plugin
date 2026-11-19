@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 删除 65 个无效的 `data-delta-compat` CSS 分支及 11 条死规则；保留 Delta 样式，强化 ZIP3 校验（#333）。
+
 - 修复: Delta Code 仅输出有固定版本免费许可证及无付费前提证据的 GitHub Skill 候选；明确收费、订阅与成本未知的外部 Skill 不进入推荐，已审核 Skill 加载入口再次检查，原生工具路由默认排除收费服务。
 
 - 修复: 退役 Harness 中心列、标题、Composer 和轨迹的私有 CSS 布局覆盖；保留 Delta 锁屏与隐私防护（#333）。

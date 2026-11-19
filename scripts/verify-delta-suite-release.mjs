@@ -164,8 +164,9 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired global Vision paste/drop capture and private Host composer writes; Host Vision ops preserved.
 // Reviewed 2026-11-19: retired native session/workspace lock-row badges and styling; Host owns native row decorations.
 // Reviewed 2026-11-19: retired active Host center/header/Composer/trajectory CSS geometry; native layouts restored.
+// Reviewed 2026-11-19: retired 65 inactive data-delta-compat selector branches (11 dead-only rules).
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '8af2606bc803970576037364d1e08e7063f1d23f'
+const ZIP3_THEME_BLOB = '5d40c791b3dfca1d18a5e337f1e11c9cfbd1d5a2'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -233,6 +234,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     'retired native lock row badge in emitted theme')
   ensure(!RETIRED_HOST_CENTER_THEME_MARKERS.some(marker => theme.includes(marker)),
     'retired Host center CSS in emitted theme')
+  ensure(!/data-delta-compat/i.test(theme),
+    'retired compat-gated Host CSS in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
