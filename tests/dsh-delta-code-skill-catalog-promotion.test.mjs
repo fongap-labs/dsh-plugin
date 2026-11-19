@@ -132,7 +132,7 @@ describe('Delta Code verified Skill catalog upgrade PR', () => {
     const admission = admissionFor(GOOD)
     const prepared = prepareReviewedSkillPromotion(admission, CATALOG)
     assert.equal(prepared.nextVersion, 2)
-    const windows = prepareReviewedSkillPromotion(admission, CATALOG.replace(/\n/g, '\r\n'))
+    const windows = prepareReviewedSkillPromotion(admission, CATALOG.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n'))
     assert.equal(windows.catalogContent, prepared.catalogContent)
     assert.equal(windows.admissionJson, prepared.admissionJson)
     assert.equal(prepared.entry.name, 'free-safe-guide')
