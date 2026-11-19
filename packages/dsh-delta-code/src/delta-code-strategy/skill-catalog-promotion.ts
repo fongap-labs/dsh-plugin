@@ -34,18 +34,21 @@ export function prepareReviewedSkillPromotion(
   if (typeof source !== 'string' || Buffer.byteLength(source, 'utf8') > MAX_CATALOG_BYTES) {
     throw Error('Trusted Skill catalog is unavailable or exceeds size budget')
   }
-  const versionMatch = VERSION.exec(source)
-  const catalogStart = source.indexOf(CATALOG)
-  if (!versionMatch || source.match(new RegExp(VERSION.source, 'g'))?.length !== 1 ||
-      catalogStart === -1 || source.indexOf(CATALOG, catalogStart + 1) !== -1) {
+  // GitHub stores LF while Windows checkouts often use CRLF. Canonicalize
+  // before matching and emitting the reviewed TypeScript catalog.
+  const normalized = source.replace(/\r\n/g, '\n')
+  const versionMatch = VERSION.exec(normalized)
+  const catalogStart = normalized.indexOf(CATALOG)
+  if (!versionMatch || normalized.match(new RegExp(VERSION.source, 'g'))?.length !== 1 ||
+      catalogStart === -1 || normalized.indexOf(CATALOG, catalogStart + 1) !== -1) {
     throw Error('Trusted catalog source layout changed; manual review required')
   }
   const version = Number(versionMatch[1])
   if (!Number.isSafeInteger(version) || version >= Number.MAX_SAFE_INTEGER) {
     throw Error('Invalid trusted Skill catalog version')
   }
-  const arrayEnd = source.indexOf('\n]', catalogStart + CATALOG.length)
-  if (arrayEnd === -1 || !source.slice(arrayEnd).startsWith('\n]\n')) {
+  const arrayEnd = normalized.indexOf('\n]', catalogStart + CATALOG.length)
+  if (arrayEnd === -1 || !normalized.slice(arrayEnd).startsWith('\n]\n')) {
     throw Error('Trusted catalog array terminator is missing')
   }
   const proposal = admission.proposal
@@ -58,7 +61,7 @@ export function prepareReviewedSkillPromotion(
   // An owner prefix avoids collisions between otherwise identical Skill
   // folders in different repositories; all metadata is generated locally.
   const publicName = owner + '-' + name
-  const catalogBody = source.slice(catalogStart, arrayEnd)
+  const catalogBody = normalized.slice(catalogStart, arrayEnd)
   const duplicateName = new RegExp(
     '(?:^|[\\n,])\\s*(?:"name"|name)\\s*:\\s*["\\x27]' +
     publicName + '["\\x27]', 'm')
@@ -83,8 +86,8 @@ export function prepareReviewedSkillPromotion(
   assertReviewedSkillCatalog([entry], [admission], version + 1)
   const serialized = JSON.stringify(entry, null, 2).split('\n')
     .map(line => '  ' + line).join('\n')
-  const catalogContent = source.slice(0, arrayEnd) + '\n' + serialized + ',' +
-    source.slice(arrayEnd)
+  const catalogContent = normalized.slice(0, arrayEnd) + '\n' + serialized + ',' +
+    normalized.slice(arrayEnd)
   const versioned = catalogContent.replace(VERSION,
     'export const APPROVED_GITHUB_SKILLS_CATALOG_VERSION = ' + (version + 1))
   return {
