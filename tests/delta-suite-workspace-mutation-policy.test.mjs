@@ -12,7 +12,7 @@ const end = source.indexOf('// Keep this one compatibility adapter lifecycle-own
 assert.ok(begin >= 0 && end > begin, 'workspace policy source must remain testable')
 const fragment = source.slice(begin, end)
 const compiled = ts.transpileModule(fragment + '\nthis.policy = readWorkspaceMutationPolicy',
-  { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None } }).outputText
+  { compilerOptions: {} }).outputText
 const context = {}
 runInNewContext(compiled, context, { timeout: 1000 })
 const readWorkspaceMutationPolicy = context.policy
