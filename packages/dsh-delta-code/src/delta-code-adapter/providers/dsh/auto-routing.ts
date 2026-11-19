@@ -6,6 +6,7 @@ import type { CodingRoute, CodingRouteRule } from '../../../delta-code-strategy/
 import { isExternalSkillOptOut, matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
 import { chooseTaskResources, taskResourceGuidance, type TaskResource, type TaskResourceRule } from '../../../delta-code-strategy/task-resource-policy.js'
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
+import { FREE_ONLY_TOOL_GUIDANCE } from '../../../delta-code-strategy/free-skill-policy.js'
 
 /** Host-specific event subscription and system prompt integration. */
 interface UserClaim {
@@ -140,6 +141,7 @@ export function registerAutomaticCodingRouter(
             'Use native DSH editing and the smallest meaningful native test first. Extra Code Worker tools and code_delivery_gate are optional, not required for a small change.',
             'Load code-fast-change through the native skill tool only when needed and available; no Skill body is included in this prompt.',
             'Locate the actual file or running UI component first. Use narrow Host search; avoid unbounded **/* glob and generated build trees.',
+            FREE_ONLY_TOOL_GUIDANCE,
             ...optOutGuidance,
             ...(!skipExternalSkills && specialists.get(context.agent)?.length ? [
               'Load approved matching specialist Skill ' + specialists.get(context.agent)!.join(', ') +
@@ -154,6 +156,7 @@ export function registerAutomaticCodingRouter(
           'The current user message is a coding request. Follow the user and repository instructions first.',
           'Selected procedure: ' + route + '. If needed, load it through the native skill tool when the current available_skills catalog lists it. Otherwise use native tools and report the missing Skill capability.',
           'Use the Host tools and permission gates; do not create another agent runtime.',
+          FREE_ONLY_TOOL_GUIDANCE,
           ...optOutGuidance,
           ...(route === 'code-feature-delivery' ? [
             'On substantial cross-module work, when DSH native subagents are verified available, arrange one independent read-only diff review without waiting for a user reminder. Do not delegate overlapping file writes or invent subagent availability.',
