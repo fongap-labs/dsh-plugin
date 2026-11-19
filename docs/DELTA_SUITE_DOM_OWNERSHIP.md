@@ -27,6 +27,12 @@
 | Vision 粘贴/拖放与识别 | 未确认公开的 Composer/File 插入或上传授权接口；原生输入框内部 DOM 和 React setter 不是协议 | **本轮退役** `installClientVisionBridge`、全局 capture `paste`/`drop`、`execCommand('insertText')`、私有输入选择器与 setter 写入；保留独立的 `installHostVisionOps`、Vision 工具和既有用户配置，不自动提交图片或接管原生输入 | 保持 Harness 及第三方插件的粘贴、拖放、输入法事件原样工作；缺少公开接口时客户端 Vision 仍标记未就绪 | 源码与发行 ZIP/TGZ 防回退测试；Windows 实机粘贴/拖放、启停、跨插件共存与 Host 工具验证 |
 | 品牌、主题、独立设置 | 已确认 `sidebar.brand.mark/name`、Theme API、`settings.section` | 保留官方 Slot/Service 与生命周期 disposer，停用恢复原生 | 按官方优先级共存 | Slot 卸载、主题释放、设置恢复及 Windows 实机验证 |
 
+## 2026-11-19 保守恢复宿主原生隐藏状态
+
+兼容层仍包含原生 DOM 保护（待官方 Host 操作前置拒绝接口替代），但它不再假设自己拥有原生行的既有可见性。每次 Delta 首次隐藏节点时保存原先的 `hidden` 和 `aria-hidden`；工作区数量切换、墓碑恢复或插件卸载只撤销 Delta 本次持有的标记及受控写入。之前已隐藏的原生菜单与第三方节点保持隐藏；后续第三方改写的 ARIA 状态不会被无条件删除。带有旧标记却不属于本次激活追踪集合的节点，不由 Delta 解除隐藏。
+
+这只缩小临时 DOM 兼容层的所有权边界，**不等于**官方 Host 授权、最终观察器退役或真实 Windows 实机验收完成。仍需上游操作拒绝接口及锁定/墓碑的正式投影能力。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
