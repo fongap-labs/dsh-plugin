@@ -61,6 +61,14 @@ Harness 上游 `packages/workspace/workspace/src/index.ts` 的 `WorkspaceRegistr
 
 若宿主缺少归档接口、归档写入失败或返回的归档成员清单无法确认，响应仍保留 `archived: false`，锁状态不会回滚；已发布的 `agent/pre-step` 门禁继续拒绝后续受保护会话的模型步骤。已经发往模型的请求不能仅凭 pre-step 门禁回收，此时原生 `stopActivity` 路径能按宿主语义请求结束运行中的任务。该改动不会安装 Host patch、不接管 Composer DOM、也不替代消息提交前的正式授权检查和 Windows Harness 实机验收。
 
+## 2026-11-19 会话原生文件删除只处理已验证日志
+
+原有 `purgeSessionArtifacts` 虽在 #450 中检查了候选目录归属和真实路径边界，仍会通过递归 `rm` 删除会话目录中的**全部**内容。一个受信任的会话目录也可能包含其他插件的附件、备份、元数据或未来 Harness 新增的文件；这些文件不应因删除当前 Session 的原生日志而被无条件删除。
+
+现在对候选文件再次验证目标 Session 的原始/`session-` 别名目录、`session*.jsonl`（含 `.zst` / `.zstd`）文件名、真实路径根目录包含关系和常规文件类型；只有符合全部条件的日志才能移除。不再对整个 Session 目录进行递归删除，仅在目录已经为空时通过 `rmdir` 收尾。未知 sidecar、子目录、符号链接及其他 Session 日志保留。删除墓碑仍先于物理清理持久化，且启动恢复和批量删除共用这条路径。
+
+这属于数据安全修复，**不代表** Harness 的原生 Session/Workspace 删除授权接口已覆盖或 #333 已完成；真实 Windows Harness 插件启停、升级和第三方共存验收仍未完成。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。

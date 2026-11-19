@@ -85,6 +85,13 @@ async function removeSessionProjCache(ctx: SessionOpsHostContext, sessionId: str
   } catch {}
 }
 
+// A Session directory is not owned wholesale by the native log. Sidecars,
+// attachments and future Host records may share it, so only known native log
+ // basenames are eligible for physical deletion.
+function isNativeSessionLogName(name: string): boolean {
+  return /^session.*\.jsonl(\.zstd|\.zst)?$/i.test(name)
+}
+
 async function resolveSessionFiles(
   ctx: SessionOpsHostContext,
   sessionId: string,
@@ -117,7 +124,7 @@ async function resolveSessionFiles(
   const ownedDirs = new Set([sessionId, rawId, `session-${rawId}`])
   const isOwnedLog = (file: string): boolean =>
     ownedDirs.has(pathMod.basename(pathMod.dirname(file))) &&
-    /^session.*\.jsonl(\.zstd|\.zst)?$/i.test(pathMod.basename(file))
+    isNativeSessionLogName(pathMod.basename(file))
 
   if (sp && typeof sp.locate === 'function' && hintedCwd) {
     try {
@@ -165,7 +172,7 @@ async function resolveSessionFiles(
           if (!subEntries) continue
           dirs.add(candidateDir)
           for (const sub of subEntries) {
-            if (sub.isFile() && /^session.*\.jsonl(\.zstd|\.zst)?$/i.test(sub.name)) {
+            if (sub.isFile() && isNativeSessionLogName(sub.name)) {
               files.add(pathMod.join(candidateDir, sub.name))
             }
           }
@@ -175,26 +182,6 @@ async function resolveSessionFiles(
   }
 
   return { root, dirs: [...dirs], files: [...files] }
-}
-
-async function removeDirForcefully(fs: any, targetDir: string): Promise<void> {
-  try {
-    await fs.rm(targetDir, { recursive: true, force: true })
-  } catch {
-    try {
-      const entries = await fs.readdir(targetDir, { withFileTypes: true }).catch(() => [])
-      for (const entry of entries) {
-        const full = `${targetDir}/${entry.name}`
-        if (entry.isDirectory()) {
-          await removeDirForcefully(fs, full)
-        } else {
-          try { await fs.chmod(full, 0o666).catch(() => {}) } catch {}
-          await fs.unlink(full).catch(() => {})
-        }
-      }
-      await fs.rmdir(targetDir).catch(() => {})
-    } catch {}
-  }
 }
 
 async function purgeSessionsFromWorkspaceJson(
@@ -279,16 +266,26 @@ async function purgeSessionArtifacts(
     const info = await resolveSessionFiles(ctx, sid, hintedCwd)
 
     if (info.root) {
-      for (const dir of info.dirs) {
-        if (idVariants.has(pathMod.basename(dir)) &&
-            await isInsideRealRoot(fs, pathMod, info.root, dir)) {
-          await removeDirForcefully(fs, dir)
-        }
-      }
+      // Never recursively remove the entire session directory: an extension,
+      // attachment or future Host version can store unrelated files inside it.
+      // Physical cleanup is limited to regular native log files with an
+      // authenticated alias parent, real-path containment and no symlinks.
       for (const file of info.files) {
-        if (await isInsideRealRoot(fs, pathMod, info.root, file)) {
-          await fs.rm(file, { force: true }).catch(() => {})
-        }
+        if (!idVariants.has(pathMod.basename(pathMod.dirname(file))) ||
+            !isNativeSessionLogName(pathMod.basename(file)) ||
+            !await isInsideRealRoot(fs, pathMod, info.root, file)) continue
+        const entry = await fs.lstat(file).catch(() => null)
+        if (!entry?.isFile()) continue
+        await fs.rm(file, { force: true }).catch(() => {})
+      }
+      // Remove only an empty native alias directory. Unknown sidecars or
+      // nested folders must remain intact, even after the tombstone commits.
+      for (const dir of info.dirs) {
+        if (!idVariants.has(pathMod.basename(dir)) ||
+            !await isInsideRealRoot(fs, pathMod, info.root, dir)) continue
+        const entry = await fs.lstat(dir).catch(() => null)
+        if (!entry?.isDirectory()) continue
+        await fs.rmdir(dir).catch(() => {})
       }
     }
   } catch {}
