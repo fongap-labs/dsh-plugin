@@ -10,7 +10,7 @@ import {
   assertReviewedSkillCatalog, reviewedSkillAdmissionPath, validateReviewedSkillAdmission,
 } from '../packages/dsh-delta-code/lib/delta-code-strategy/skill-catalog-admission.js'
 import {
-  APPROVED_GITHUB_SKILLS,
+  APPROVED_GITHUB_SKILLS, APPROVED_GITHUB_SKILLS_CATALOG_VERSION,
 } from '../packages/dsh-delta-code/lib/delta-code-strategy/trusted-github-skills.js'
 
 const COMMIT = 'a'.repeat(40)
@@ -56,11 +56,12 @@ describe('Delta Code reviewed Skill catalog CI gate', () => {
     const record = example()
     const entry = catalogEntry(record)
     assert.throws(() => assertReviewedSkillCatalog([...APPROVED_GITHUB_SKILLS, entry], []), /Unreviewed/)
-    assert.doesNotThrow(() => assertReviewedSkillCatalog([...APPROVED_GITHUB_SKILLS, entry], [record]))
-    assert.throws(() => assertReviewedSkillCatalog([...APPROVED_GITHUB_SKILLS, entry, entry], [record]), /Duplicate/)
+    assert.doesNotThrow(() => assertReviewedSkillCatalog([...APPROVED_GITHUB_SKILLS, entry], [record], 2))
+    assert.throws(() => assertReviewedSkillCatalog([...APPROVED_GITHUB_SKILLS, entry], [record], 1), /version/)
+    assert.throws(() => assertReviewedSkillCatalog([...APPROVED_GITHUB_SKILLS, entry, entry], [record], 2), /Duplicate/)
     assert.throws(() => assertReviewedSkillCatalog([...APPROVED_GITHUB_SKILLS, {
       ...entry, blobSha: 'd'.repeat(40),
-    }], [record]), /Unreviewed/)
+    }], [record], 2), /Unreviewed/)
   })
 
   it('only accepts self-contained, immutable free source and bounded read-only permissions', () => {
@@ -100,13 +101,13 @@ describe('Delta Code reviewed Skill catalog CI gate', () => {
 
   it('rejects conflicting receipts, mismatched source, and poisoned catalog metadata', () => {
     const good = example()
-    assert.throws(() => assertReviewedSkillCatalog([catalogEntry(good)], [good, good]), /Duplicate/)
+    assert.throws(() => assertReviewedSkillCatalog([catalogEntry(good)], [good, good], 2), /Duplicate/)
     assert.throws(() => assertReviewedSkillCatalog([{
       ...catalogEntry(good), keywords: ['ok', 'new\nsecret'],
-    }], [good]), /metadata/)
+    }], [good], 2), /metadata/)
     assert.throws(() => assertReviewedSkillCatalog([{
       ...catalogEntry(good), sourceName: 'other-guide',
-    }], [good]), /sourceName/)
+    }], [good], 2), /sourceName/)
     const other = example(markdown('# Different instructions'))
     assert.throws(() => assertReviewedSkillCatalog([catalogEntry(other)], [good]), /Unreviewed/)
   })
@@ -134,6 +135,6 @@ describe('Delta Code reviewed Skill catalog CI gate', () => {
       assert.deepEqual(staged, record.proposal, 'Admission requires prior inert, pinned CI proposal')
       records.push(record)
     }
-    assertReviewedSkillCatalog(APPROVED_GITHUB_SKILLS, records)
+    assertReviewedSkillCatalog(APPROVED_GITHUB_SKILLS, records, APPROVED_GITHUB_SKILLS_CATALOG_VERSION)
   })
 })
