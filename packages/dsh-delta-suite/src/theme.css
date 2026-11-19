@@ -27,7 +27,6 @@
   --dtd-bg-bubble-border: #C2DFE2;
   --dtd-bg-danger-soft: rgba(185, 28, 28, 0.08);
   --dtd-bg-mask: rgba(15, 23, 42, 0.28);
-  --dtd-chrome-overlay-mask: #B2B6BD;
 
   --dtd-fg-primary: #18181B;
   --dtd-fg-secondary: #52525B;
@@ -160,17 +159,6 @@
   caret-color: var(--dtd-brand);
 }
 
-:root[data-delta-ui="delta"][data-delta-modal-open="1"],
-:root[data-delta-ui="delta"][data-delta-modal-open="1"] body {
-  --dsw-specific-sidebar-fill: var(--dtd-chrome-overlay-mask) !important;
-}
-:root[data-delta-ui="delta"][data-delta-modal-open="1"] body > :not(span):not(.dtd-search-backdrop):not(.dtd-dialog-backdrop),
-:root[data-delta-ui="delta"][data-delta-modal-open="1"] [class*="_frame"],
-:root[data-delta-ui="delta"][data-delta-modal-open="1"] [class*="_frame"]::before,
-:root[data-delta-ui="delta"][data-delta-modal-open="1"] [class*="_sidebarCol"] {
-  --dsw-specific-sidebar-fill: var(--dtd-bg-sidebar) !important;
-}
-
 :root[data-delta-ui="delta"] [data-ds-dark-theme],
 :root[data-delta-ui="delta"][data-ds-dark-theme],
 :root[data-delta-ui="delta"] body[data-ds-dark-theme] {
@@ -195,7 +183,6 @@
   --dtd-bg-bubble-border: #244E55;
   --dtd-bg-danger-soft: rgba(239, 68, 68, 0.14);
   --dtd-bg-mask: rgba(0, 0, 0, 0.56);
-  --dtd-chrome-overlay-mask: #0B0B0D;
 
   --dtd-fg-primary: #FAFAFA;
   --dtd-fg-secondary: #D4D4D8;

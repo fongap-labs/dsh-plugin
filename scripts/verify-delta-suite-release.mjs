@@ -160,8 +160,9 @@ export function hasUnsafeHostPatch(source) {
 // rely on private DOM/text hiding. Protected-session ACL and tombstone guards remain.
 // Reviewed 2026-11-19: disabled legacy sidebar layout activation and Settings-nav order writes.
 // Reviewed 2026-11-19: retired native turn error row scanning, collapse handlers and private CSS.
+// Reviewed 2026-11-19: retired global modal-open marker and Host sidebar-fill mutation; Delta backdrops remain scoped.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '7e0a813e91d7b4932591afba392bd4880bac7cc5'
+const ZIP3_THEME_BLOB = 'b73fa5766e33f380c6586cde579567066b1ce686'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -171,7 +172,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'e8336e4a3a11323da498a612134e39157c125fd6',
+    sha1: '8532247f509ef66659e20b6399a51d919b5c203b',
   },
   {
     begin: 'function installHostSearch(',
@@ -213,6 +214,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   // The exact reviewed adapter regions are pinned by ZIP3_COMPAT_REGIONS.
   // Keep emitted-fixture compatibility while rejecting legacy native layout takeover.
   ensure(client.includes('dtd-host-search') &&
+    !client.includes('syncModalChromeOverlay') &&
+    !client.includes('data-delta-modal-open') &&
     !client.includes('dtd-native-search') &&
     !LEGACY_COMPAT_ATTRIBUTE_WRITES.some(pattern => pattern.test(client)) &&
     !LEGACY_COMPAT_DATASET_WRITE.test(client) &&
