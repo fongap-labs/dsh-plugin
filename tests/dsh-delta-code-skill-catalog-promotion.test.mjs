@@ -55,7 +55,7 @@ function setup(source = GOOD, options = {}) {
   let credentialCalls = 0
   let commitIndex = 0
   const proposed = proposalFor(source)
-  const stagedText = JSON.stringify(proposed, null, 2) + '\n'
+  const stagedText = JSON.stringify(options.mismatchedStage ? proposalFor(GOOD) : proposed, null, 2) + '\n'
   const inputs = {
     [pendingSkillProposalPath(proposed)]: options.invalidStage ? '{}' : stagedText,
     [CATALOG_PATH]: options.modifiedCatalog ?? CATALOG,
@@ -192,7 +192,8 @@ describe('Delta Code verified Skill catalog upgrade PR', () => {
       assert.equal(h.events.length, 0)
       assert.equal(h.credentialCalls, 0)
     }
-    const h = setup(SKILL('Use other free guidance.'))
-    await assert.rejects(h.tool.execute(h.args, h.exec), /unchanged|already exists|differs|mismatch|Unreviewed|source layout/i)
+    const h = setup(SKILL('Use other free guidance.'), { mismatchedStage: true })
+    await assert.rejects(h.tool.execute(h.args, h.exec), /differs from immutable anonymous audit/)
+    assert.equal(h.events.filter(x => x[0] === 'branch' || x[0] === 'write').length, 0)
   })
 })
