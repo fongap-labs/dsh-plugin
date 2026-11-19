@@ -358,12 +358,17 @@ export function verifyEntries(entries, version, format) {
   for (const marker of [
     "scope.slots.inject('settings.section'",
     "scope.slots.inject('settings.plugins.tab'",
+    "scope.slots.inject('plugins.bundle.config'",
     "id: 'delta.suite.configuration'",
     "'data-delta-personalization'",
     "scope.slots.inject('conversation.input.model.label'",
   ]) {
     ensure(client.includes(marker), format + ' installable Suite UI registration: ' + marker)
   }
+  // The installed bundle's detail page dispatches keyed by package name.
+  // A stale build with the wrong key silently shows no configuration.
+  ensure(/scope\.slots\.inject\('plugins\.bundle\.config',\s*\(\)\s*=>\s*scope\.slots\.register\(\{\s*name:\s*'plugins\.bundle\.config',\s*key:\s*'@fongap-labs\/dsh-delta-suite'/.test(client),
+    format + ' installed bundle config package-key binding')
   ensure(client.includes('data-delta-ui'), format + ' appearance lifecycle')
   verifyApprovedZip3Client(client)
   ensure(!client.includes('__DELTA_SUITE_STYLE__') &&

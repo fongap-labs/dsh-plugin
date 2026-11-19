@@ -8,7 +8,8 @@
   "release_notes": "",
   "changelog_entries": [
     "修复: 会话搜索框左右间距与侧栏其他元素对齐。",
-    "修复: DeepSeek Account 模型路由标签使用公开 Slot 数据、独立开关并拒绝空白或无关提供方标签。"
+    "修复: DeepSeek Account 模型路由标签使用公开 Slot 数据、独立开关并拒绝空白或无关提供方标签。",
+    "修复: Delta Suite 在已安装插件详情页通过公开 plugins.bundle.config 显示配置页，与设置栏目共享控制器。"
   ],
   "license_expression": "MIT",
   "node_version_file": ".nvmrc",

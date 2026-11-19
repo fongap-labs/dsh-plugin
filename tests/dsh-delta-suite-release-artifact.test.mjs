@@ -25,6 +25,9 @@ function validEntries(version = '0.1.0-beta.2') {
       'window.__ModuleLoader__.load({ settings.section sidebar.brand.mark data-delta-ui',
       "scope.slots.inject('settings.section'",
       "scope.slots.inject('settings.plugins.tab'",
+      "scope.slots.inject('plugins.bundle.config', () => scope.slots.register({",
+      "name: 'plugins.bundle.config',",
+      "key: '@fongap-labs/dsh-delta-suite'",
       "id: 'delta.suite.configuration'",
       "'data-delta-personalization'",
       "scope.slots.inject('conversation.input.model.label'",
@@ -129,6 +132,7 @@ test('release refuses stale ZIP and TGZ bundles missing public Settings or model
   for (const marker of [
     "scope.slots.inject('settings.section'",
     "scope.slots.inject('settings.plugins.tab'",
+    "scope.slots.inject('plugins.bundle.config'",
     "id: 'delta.suite.configuration'",
     "'data-delta-personalization'",
     "scope.slots.inject('conversation.input.model.label'",
@@ -139,6 +143,18 @@ test('release refuses stale ZIP and TGZ bundles missing public Settings or model
       assert.throws(() => verifyEntries(broken, '0.1.0-beta.2', format),
         /installable Suite UI registration/, format + ': ' + marker)
     }
+  }
+})
+
+test('release rejects an Installed plugins configuration bound to the wrong bundle', () => {
+  const valid = validEntries()
+  for (const format of ['ZIP', 'TGZ']) {
+    const broken = new Map(valid)
+    broken.set('lib/client.js', Buffer.from(valid.get('lib/client.js').toString()
+      .replace("key: '@fongap-labs/dsh-delta-suite'",
+        "key: '@fongap-labs/another-plugin'")))
+    assert.throws(() => verifyEntries(broken, '0.1.0-beta.2', format),
+      /installed bundle config package-key binding/)
   }
 })
 

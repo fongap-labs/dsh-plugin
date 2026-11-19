@@ -447,6 +447,30 @@ test('the optional session projection registers a client-readable result and dis
   assert.equal(disposed, true)
 })
 
+test('Installed plugins bundle detail mounts the Suite configuration using the same controller', () => {
+  const app = makeHarness()
+  const section = app.components.get('settings.section:delta.personalization')
+  const bundle = app.components.get('plugins.bundle.config:@fongap-labs/dsh-delta-suite')
+  assert.ok(section, 'Settings still keeps its original Suite page')
+  assert.ok(bundle, 'Installed plugins must expose Suite configuration')
+  assert.equal(bundle.spec.name, 'plugins.bundle.config')
+  assert.equal(bundle.spec.key, '@fongap-labs/dsh-delta-suite')
+  assert.equal(bundle.component({ view: 'summary' }), null)
+  const mounted = app.render('bundle-slot', bundle.component, { view: 'page' })
+  assert.equal(mounted.type.name, 'PersonalizationSection')
+  const controller = section.spec.inject().controller
+  assert.equal(mounted.props.controller, controller,
+    'plugin detail and Settings must share state and save behavior')
+  const rendered = app.render('bundle-personalization', mounted.type, mounted.props)
+  assert.equal(rendered.props['data-delta-personalization'], '')
+  assert.match(JSON.stringify(rendered), /dtd-preference-row/)
+  assert.ok(rendered.props['aria-label'], 'installed bundle config has an accessible page label')
+  controller.setMode('official')
+  const official = app.render('bundle-official', mounted.type, mounted.props)
+  assert.match(JSON.stringify(official), /data-delta-personalization/,
+    'configuration must remain visible in native appearance mode')
+})
+
 test('DeepSeek Account and model display preferences persist independently', () => {
   const app = makeHarness()
   const setting = app.components.get('settings.section:delta.personalization')

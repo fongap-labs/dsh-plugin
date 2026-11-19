@@ -135,7 +135,7 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 扩展套件'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
@@ -155,8 +155,20 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(tab.spec.id, 'delta.suite.configuration')
   assert.equal(tab.spec.label(), 'Delta 扩展套件')
   assert.equal(tab.component, entry.component, 'both Host entries use the same Settings page')
+  const bundle = app.components.get('plugins.bundle.config')
+  assert.equal(bundle.spec.name, 'plugins.bundle.config')
+  assert.equal(bundle.spec.key, '@fongap-labs/dsh-delta-suite',
+    'installed-bundle configuration is keyed by package name, not the Cordis row id')
+  assert.equal(bundle.component({ view: 'summary' }), null, 'bundle configuration does not double-render a summary')
   const controller = entry.spec.inject().controller
   assert.equal(tab.spec.inject().controller, controller, 'both Host entries use the same controller')
+  const bundleView = bundle.component({ view: 'page' })
+  assert.equal(bundleView.type.name, 'PersonalizationSection',
+    'installed bundle uses the same real Settings React component')
+  assert.equal(bundleView.props.controller, controller, 'installed bundle shares the same live controller')
+  assert.match(JSON.stringify(bundleView.type(bundleView.props)), /data-delta-personalization/,
+    'installed bundle renders the actual configuration form')
+
   assert.equal(controller.getSnapshot().error, false, 'ZIP palette must be owned before reporting readiness')
   assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
     'ZIP settings own the UI and do not reintroduce the removed brand heading')
@@ -167,6 +179,8 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
   assert.equal(app.components.has('sidebar.brand.mark'), false, 'official theme restores the native mark fallback')
   assert.equal(app.components.has('sidebar.brand.name'), false, 'official theme restores the native name fallback')
+  assert.equal(app.components.has('plugins.bundle.config'), true,
+    'installed plugin configuration remains accessible in official theme mode')
   assert.equal(hover.component({ sessionId: 'abc' }), null, 'official theme hides Delta hover extras')
   controller.openConversation()
   controller.toggleSidebar()
