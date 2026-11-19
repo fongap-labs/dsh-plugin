@@ -69,6 +69,12 @@ Harness 上游 `packages/workspace/workspace/src/index.ts` 的 `WorkspaceRegistr
 
 这属于数据安全修复，**不代表** Harness 的原生 Session/Workspace 删除授权接口已覆盖或 #333 已完成；真实 Windows Harness 插件启停、升级和第三方共存验收仍未完成。
 
+## 2026-11-19 原生会话归档撤销按创建者归属
+
+原先锁定/解锁流程在看到原生 `archivedSessionIds` 时，无法区分用户此前主动归档与 Delta 锁定时创建的归档，导致“解锁会话”或“解绑二次验证”可能取消**并非 Delta 拥有的原生归档**。新的私有持久化字段 `nativeArchiveOwnedSessionIds` 仅在原生目录确认为未归档、Delta 调用官方 `archiveSession(..., {stopActivity:true})` 成功、且宿主归档成员状态可确认后写入；它不进入客户端公开状态与设置视图。正常解锁或解绑只有看到此持久化归属，才能调用原生 `unarchiveSession` 并在成功后清除归属。删除墓碑同步清理归属记录。
+
+旧状态文件缺少归属证明，采取保守恢复：**解除 Delta 锁，但不主动取消旧的原生归档**；不能由 `lockedSessionIds` 倒推创建权。遇到崩溃、归档状态不可确认或归属记录写入失败，也不会凭猜测解除其他所有者的归档。该修复不改变原生归档服务的创建、停止运行或 Host 工作区接口；它不是会话提交前权限拒绝接口的替代，仍须实机 Windows 验收。
+
 ## 迁移纪律
 
 - 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
