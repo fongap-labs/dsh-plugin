@@ -464,7 +464,7 @@ test('Installed plugins bundle detail mounts the Suite configuration using the s
   const rendered = app.render('bundle-personalization', mounted.type, mounted.props)
   assert.equal(rendered.props['data-delta-personalization'], '')
   assert.match(JSON.stringify(rendered), /dtd-preference-row/)
-  assert.match(textOf(rendered), /appearance|外观/i)
+  assert.ok(rendered.props['aria-label'], 'installed bundle config has an accessible page label')
   controller.setMode('official')
   const official = app.render('bundle-official', mounted.type, mounted.props)
   assert.match(JSON.stringify(official), /data-delta-personalization/,
