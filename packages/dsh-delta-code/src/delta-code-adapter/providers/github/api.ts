@@ -100,10 +100,13 @@ async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<
     throw new Error('invalid public GitHub discovery URL')
   }
   const query = endpoint.searchParams
+  const searchQuery = query.get('q')
+  const searchSuffix = ' skills in:name,description,readme'
+  const searchTerms = searchQuery?.endsWith(searchSuffix)
+    ? searchQuery.slice(0, -searchSuffix.length) : ''
   const isSearch = endpoint.pathname === '/search/repositories' &&
     query.size === 2 && query.get('per_page') === '8' &&
-    typeof query.get('q') === 'string' &&
-    query.get('q')!.endsWith(' skills in:name,description,readme')
+    /^[\\p{L}\\p{N}_ .+\\-]{2,80}$/u.test(searchTerms)
   const isOwner = /^\/users\/[A-Za-z0-9-]{1,39}$/.test(endpoint.pathname) && !endpoint.search
   const isCommit = /^\/repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}\/commits\/[A-Za-z0-9._%-]{1,200}$/.test(endpoint.pathname) && !endpoint.search
   const isTree = /^\/repos\/[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}\/git\/trees\/[a-f0-9]{40}$/.test(endpoint.pathname) &&
