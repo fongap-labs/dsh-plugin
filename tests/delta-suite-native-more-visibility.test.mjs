@@ -22,7 +22,7 @@ test('Harness More remains visible; Delta does not hide the native navigation ac
   assert.doesNotMatch(source, /(?:rawText|aria)\s*===\s*['"]More['"]/)
   assert.doesNotMatch(css, /nav\s*>\s*:has\(button:is\(\[aria-label="(?:More|\\0066F4\\00591A)"\]/)
   assert.match(css, /6\.2 Navigation Rows: Harness retains the native More action/)
-  assert.match(css, /\[class\*="wtg9ga_moreMenu"\]/, 'unrelated native menu cosmetics remain')
+  assert.doesNotMatch(css, /\[class\*="wtg9ga_moreMenu"\]/, 'Host More popup styling is native-owned')
   assert.match(source, /function installSidebarCompatibility\(/)
   assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
 })
