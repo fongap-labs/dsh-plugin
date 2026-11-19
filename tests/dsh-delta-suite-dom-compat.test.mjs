@@ -258,7 +258,7 @@ test('native menus keep Harness order while explicit safety guards remain', () =
   assert.ok(begin >= 0 && end > begin)
   const compatibility = source.slice(begin, end)
   assert.doesNotMatch(compatibility, /syncMenus|getMenuLabel\(.*items|appendChild\(.*separator/)
-  assert.ok(compatibility.includes('getWorkspaceCount() === 1'))
+  assert.match(compatibility, /else if \(workspaceCount === 1\)/)
   assert.ok(source.includes('onMenuClickCapture'))
   assert.ok(source.includes('LOCKED_WORKSPACE_MUTATION_LABELS'))
   assert.equal(style.includes('Context & View-Options Menu Dynamic Reordering'), false)
@@ -278,7 +278,7 @@ test('Delta safety prompts do not inject menu styling into Host rows', () => {
   assert.doesNotMatch(compatibility, /addEventListener\('contextmenu'|removeEventListener\('contextmenu'/)
   assert.match(compatibility, /onMenuClickCapture/)
   assert.match(compatibility, /LOCKED_WORKSPACE_MUTATION_LABELS|LOCKED_MUTATION_LABELS/)
-  assert.match(compatibility, /getWorkspaceCount\(\) === 1/)
+  assert.match(compatibility, /else if \(workspaceCount === 1\)/)
 })
 
 test('native Settings rows and Ungrouped bucket remain Host-owned without text-based hiding', () => {

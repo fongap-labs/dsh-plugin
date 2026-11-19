@@ -22,10 +22,11 @@ test('Delta leaves native view-options menu ordering intact', () => {
     assert.equal(source.includes(removed), false, 'view menu takeover remains: ' + removed)
   }
   assert.doesNotMatch(source, /syncMenus|isSessionMenu/)
-  assert.match(source, /const isWorkspaceMenu = soleWorkspace/, 'sole-workspace deletion guard remains')
+  assert.match(source, /const isWorkspaceMenu = labels\.some/, 'sole-workspace deletion guard remains')
   assert.match(source, /onMenuClickCapture/, 'protected menu actions remain guarded')
   assert.match(source, /LOCKED_MUTATION_LABELS/)
-  assert.match(source, /const soleWorkspace = deltaFeatures\.getWorkspaceCount\(\) === 1/)
+  assert.match(source, /const workspaceCount = deltaFeatures\.getWorkspaceCount\(\)/)
+  assert.match(source, /else if \(workspaceCount === 1\)/)
   assert.match(source, /function installSidebarCompatibility\(/)
 })
 

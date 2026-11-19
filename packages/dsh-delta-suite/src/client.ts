@@ -2914,23 +2914,30 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
         }
       }
     }
-    const soleWorkspace = deltaFeatures.getWorkspaceCount() === 1
-    const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_"], [class*="_footer_"], [role="menu"]')
-    for (const container of containers) {
-      if (container.getAttribute?.('role') === 'menu' && container.querySelector?.('[class*="_viewport_"], [class*="_footer_"]')) {
-        continue
-      }
-      const items = Array.from(container.children ?? []) as HTMLElement[]
-      const labels = items.map(getMenuLabel)
-      const isWorkspaceMenu = soleWorkspace
-        && labels.some(l => WORKSPACE_RENAME_LABELS.has(l))
-        && labels.some(l => WORKSPACE_DELETE_LABELS.has(l))
-      for (let i = 0; i < items.length; i++) {
-        const el = items[i]
-        const isMenuItemRow = el.getAttribute?.('role') === 'menuitem' || Boolean(el.querySelector?.('[role="menuitem"]'))
-        if (!isMenuItemRow) continue
-        if (isWorkspaceMenu && WORKSPACE_DELETE_LABELS.has(labels[i])) {
-          hidePrivacyNode(el, 'data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
+    // Only a confirmed single-workspace state requires native menu inspection.
+    // When the count is unknown, keep existing protection hidden (fail closed).
+    const workspaceCount = deltaFeatures.getWorkspaceCount()
+    if (workspaceCount > 1) {
+      // A second workspace makes the sole-workspace guard obsolete; release
+      // only our own previously hidden menu items, not native Host state.
+      restoreHiddenNodes('data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
+    } else if (workspaceCount === 1) {
+      const containers = document.querySelectorAll<HTMLElement>('[class*="_viewport_"], [class*="_footer_"], [role="menu"]')
+      for (const container of containers) {
+        if (container.getAttribute?.('role') === 'menu' && container.querySelector?.('[class*="_viewport_"], [class*="_footer_"]')) {
+          continue
+        }
+        const items = Array.from(container.children ?? []) as HTMLElement[]
+        const labels = items.map(getMenuLabel)
+        const isWorkspaceMenu = labels.some(l => WORKSPACE_RENAME_LABELS.has(l))
+          && labels.some(l => WORKSPACE_DELETE_LABELS.has(l))
+        if (!isWorkspaceMenu) continue
+        for (let i = 0; i < items.length; i++) {
+          const el = items[i]
+          const isMenuItemRow = el.getAttribute?.('role') === 'menuitem' || Boolean(el.querySelector?.('[role="menuitem"]'))
+          if (isMenuItemRow && WORKSPACE_DELETE_LABELS.has(labels[i])) {
+            hidePrivacyNode(el, 'data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
+          }
         }
       }
     }
