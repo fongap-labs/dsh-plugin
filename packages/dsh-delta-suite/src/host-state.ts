@@ -39,6 +39,9 @@ export interface DeltaHostState {
   lockedWorkspaceIds: string[]
   movedSessions: Record<string, string>
   deletedSessionIds: string[]
+  // Private durable ownership proof for a native archive Delta initiated.
+  // Legacy states omit this; never guess ownership from lockedSessionIds.
+  nativeArchiveOwnedSessionIds?: string[]
   proxy: ProxySettings
   vision: VisionBridgeSettings
 }
@@ -102,6 +105,10 @@ export function normalizeDeltaState(raw: unknown): DeltaHostState {
   const deleted = Array.isArray(obj.deletedSessionIds)
     ? [...new Set(obj.deletedSessionIds.filter((x): x is string => typeof x === 'string' && x.length > 0))]
     : []
+  const owned = Array.isArray(obj.nativeArchiveOwnedSessionIds)
+    ? [...new Set(obj.nativeArchiveOwnedSessionIds.filter((x): x is string =>
+        typeof x === 'string' && x.length > 0 && isSafeSessionMapKey(x)))]
+    : []
   const moved: Record<string, string> = {}
   if (obj.movedSessions && typeof obj.movedSessions === 'object') {
     for (const [k, v] of Object.entries(obj.movedSessions as Record<string, unknown>)) {
@@ -147,6 +154,7 @@ export function normalizeDeltaState(raw: unknown): DeltaHostState {
     lockedWorkspaceIds: lockedWorkspaces,
     movedSessions: moved,
     deletedSessionIds: deleted,
+    ...(owned.length > 0 ? { nativeArchiveOwnedSessionIds: owned } : {}),
     proxy,
     vision,
   }
@@ -448,6 +456,8 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
         lockedWorkspaceIds: [...cur.lockedWorkspaceIds],
         movedSessions: { ...cur.movedSessions },
         deletedSessionIds: [...cur.deletedSessionIds],
+        ...(cur.nativeArchiveOwnedSessionIds
+          ? { nativeArchiveOwnedSessionIds: [...cur.nativeArchiveOwnedSessionIds] } : {}),
         proxy: { ...cur.proxy },
         vision: { ...cur.vision },
         ...(cur.pinHash ? { pinHash: { ...cur.pinHash } } : {}),

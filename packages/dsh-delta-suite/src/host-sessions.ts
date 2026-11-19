@@ -575,7 +575,10 @@ export function installHostSessionOps(
     try {
       const reg = getRegistry()
       if (isDisposed || !reg || typeof reg.archiveSession !== 'function') return false
-      if (nativeArchivedAliases(reg, sessionId)?.length) return true
+      const existing = nativeArchivedAliases(reg, sessionId)
+      // A pre-existing Host archive is not Delta-owned, even if the user
+      // later applies a Delta lock. Do not record ownership for this path.
+      if (existing?.length) return true
       // The public WorkspaceRegistry archive contract supports stopActivity:
       // it persists the native archive before asking providers to stop an
       // already-running turn, subagents, schedules and jobs. A plain archive
@@ -583,7 +586,21 @@ export function installHostSessionOps(
       // though the Delta lock was durably committed. The official pre-step
       // gate remains a fallback if native archival is unavailable or fails.
       await Promise.resolve(reg.archiveSession(sessionId, { stopActivity: true }))
-      return !isDisposed && getRegistry() === reg && Boolean(nativeArchivedAliases(reg, sessionId)?.length)
+      const confirmed = !isDisposed && getRegistry() === reg &&
+        Boolean(nativeArchivedAliases(reg, sessionId)?.length)
+      if (!confirmed) return false
+      // Commit ownership only after a newly-created Host archive is confirmed.
+      // Crash/write failure conservatively leaves the Host archive intact; it
+      // never grants Delta permission to unarchive a pre-existing record.
+      if (existing?.length === 0) {
+        await store.update(cur => ({
+          ...cur,
+          nativeArchiveOwnedSessionIds: cur.nativeArchiveOwnedSessionIds?.some(id => sameSessionId(id, sessionId))
+            ? cur.nativeArchiveOwnedSessionIds
+            : [...(cur.nativeArchiveOwnedSessionIds ?? []), sessionId],
+        }))
+      }
+      return true
     } catch {
       // Missing/old Host or a persistence failure: do not report archival as
       // successful. Durable Delta lock + Host pre-step veto still apply.
@@ -593,19 +610,29 @@ export function installHostSessionOps(
 
   const unarchiveSessionOnHost = async (sessionId: string): Promise<boolean> => {
     try {
-      if (readUnarchiveProtection(await store.read())(sessionId) !== 'clear') return false
+      const confirmed = await store.read()
+      if (readUnarchiveProtection(confirmed)(sessionId) !== 'clear') return false
       const reg = getRegistry()
       if (isDisposed || !reg || typeof reg.unarchiveSession !== 'function') return false
       const archived = nativeArchivedAliases(reg, sessionId)
-      if (archived && archived.length === 0) return true
-      // One native session can appear under raw and session-prefixed IDs in
-      // legacy Host catalogs. Clear every observed alias, not just the
-      // requested spelling, and confirm none remain before reporting success.
-      for (const alias of archived ?? [sessionId]) {
+      // Do not "restore" a native archive created by the user, another
+      // extension, or a legacy Delta version without durable attribution.
+      // An absent/unknown archive catalog cannot establish safe ownership.
+      const ownsArchive = confirmed.nativeArchiveOwnedSessionIds?.some(id => sameSessionId(id, sessionId))
+      if (!ownsArchive) return archived?.length === 0
+      if (!archived) return false
+      // One native Session can appear under raw/session-prefixed aliases.
+      for (const alias of archived) {
         await Promise.resolve(reg.unarchiveSession(alias))
         if (isDisposed || getRegistry() !== reg) return false
       }
-      return nativeArchivedAliases(reg, sessionId)?.length === 0
+      if (nativeArchivedAliases(reg, sessionId)?.length !== 0) return false
+      await store.update(cur => ({
+        ...cur,
+        nativeArchiveOwnedSessionIds: (cur.nativeArchiveOwnedSessionIds ?? [])
+          .filter(id => !sameSessionId(id, sessionId)),
+      }))
+      return true
     } catch { return false }
   }
 
@@ -915,6 +942,8 @@ export function installHostSessionOps(
         deletedSessionIds: cur.deletedSessionIds.includes(sessionId)
           ? cur.deletedSessionIds
           : [...cur.deletedSessionIds, sessionId],
+        nativeArchiveOwnedSessionIds: (cur.nativeArchiveOwnedSessionIds ?? [])
+          .filter(id => !sameSessionId(id, sessionId)),
       }
     })
 
@@ -995,6 +1024,8 @@ export function installHostSessionOps(
         ...cur,
         movedSessions: withoutMoveAliases(cur.movedSessions, toDeleteIds),
         deletedSessionIds: [...delSet],
+        nativeArchiveOwnedSessionIds: (cur.nativeArchiveOwnedSessionIds ?? [])
+          .filter(id => !toDeleteIds.some(sid => sameSessionId(id, sid))),
       }
     })
 

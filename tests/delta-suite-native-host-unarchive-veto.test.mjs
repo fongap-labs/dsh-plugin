@@ -94,7 +94,9 @@ test('public Host event rejects native unarchive of a directly locked session bu
 })
 
 test('verified durable unlock can pass native event without acquiring its own mutation queue', async () => {
-  const f = fixture({ initial: { totpSecret: secret, lockedSessionIds: ['locked'] } })
+  const f = fixture({ initial: {
+    totpSecret: secret, lockedSessionIds: ['locked'], nativeArchiveOwnedSessionIds: ['locked'],
+  } })
   try {
     const result = await f.call({ action: 'unlock', sessionId: 'locked', code: await state.generateTotpCode(secret) })
     assert.equal(result.status, 200)
@@ -296,6 +298,99 @@ test('durable read failure rejects model admission, and cleanup releases the pub
       { kind: 'allow' }, 'after unmount Delta stops owning the Host event')
     assert.equal(continued, 1)
     assert.equal(f.releases(), 2, 'each official Host hook is unregistered exactly once')
+  } finally { f.dispose() }
+})
+
+
+test('pre-existing native archive remains intact after a Delta lock, verified unlock and unbind', async () => {
+  const calls = []
+  const registry = {
+    archivedSessionIds: ['previously-archived'],
+    archiveSession(id) { calls.push(['archive', id]) },
+    unarchiveSession(id) { calls.push(['unarchive', id]); this.archivedSessionIds = [] },
+  }
+  const f = fixture({ initial: { totpSecret: secret }, registry })
+  try {
+    const locked = await f.call({ action: 'lock', sessionId: 'previously-archived' })
+    assert.equal(locked.status, 200)
+    assert.equal(locked.data.archived, true, 'the pre-existing native archive stays confirmed')
+    assert.equal(f.store.getCached().nativeArchiveOwnedSessionIds, undefined,
+      'Delta must not claim a pre-existing Host archive')
+    const result = await f.call({ action: 'unlock', sessionId: 'previously-archived',
+      code: await state.generateTotpCode(secret) })
+    assert.equal(result.status, 200)
+    assert.equal(result.data.unarchived, false)
+    assert.deepEqual(registry.archivedSessionIds, ['previously-archived'])
+    assert.deepEqual(calls, [], 'neither lock nor unlock may mutate a user-created archive')
+    const unbind = await f.call({ action: 'unbind-2fa', code: await state.generateTotpCode(secret) })
+    assert.equal(unbind.status, 200)
+    assert.deepEqual(registry.archivedSessionIds, ['previously-archived'])
+  } finally { f.dispose() }
+})
+
+test('native archive ownership is durable across plugin restart, private, and consumed on unlock', async () => {
+  const registry = {
+    archivedSessionIds: [],
+    archiveSession(id, options) {
+      assert.equal(options.stopActivity, true)
+      this.archivedSessionIds.push(id)
+    },
+    unarchiveSession(id) {
+      this.archivedSessionIds = this.archivedSessionIds.filter(value => value !== id)
+    },
+  }
+  const initial = fixture({ initial: { totpSecret: secret }, registry })
+  let restored
+  try {
+    const locked = await initial.call({ action: 'lock', sessionId: 'session-owned' })
+    assert.equal(locked.data.archived, true)
+    assert.deepEqual(initial.store.getCached().nativeArchiveOwnedSessionIds, ['session-owned'])
+    assert.equal(Object.hasOwn(locked.data.state, 'nativeArchiveOwnedSessionIds'), false,
+      'private archive attribution never appears in a client response')
+    const persisted = JSON.parse(JSON.stringify(initial.store.getCached()))
+    initial.dispose()
+    restored = fixture({ initial: persisted, registry })
+    const unlocked = await restored.call({ action: 'unlock', sessionId: 'owned',
+      code: await state.generateTotpCode(secret) })
+    assert.equal(unlocked.data.unarchived, true)
+    assert.deepEqual(registry.archivedSessionIds, [])
+    assert.equal(restored.store.getCached().nativeArchiveOwnedSessionIds, undefined,
+      'successful restoration consumes the durable attribution')
+  } finally {
+    initial.dispose()
+    restored?.dispose()
+  }
+})
+
+test('old snapshots without archive ownership fail conservatively and preserve their native archives', async () => {
+  const calls = []
+  const registry = {
+    archivedSessionIds: ['legacy'],
+    unarchiveSession(id) { calls.push(id); this.archivedSessionIds = [] },
+  }
+  const f = fixture({ initial: { totpSecret: secret, lockedSessionIds: ['legacy'] }, registry })
+  try {
+    const unlocked = await f.call({ action: 'unlock', sessionId: 'legacy',
+      code: await state.generateTotpCode(secret) })
+    assert.equal(unlocked.status, 200)
+    assert.equal(unlocked.data.unarchived, false)
+    assert.deepEqual(registry.archivedSessionIds, ['legacy'])
+    assert.deepEqual(calls, [])
+    assert.deepEqual(f.store.getCached().lockedSessionIds, [])
+  } finally { f.dispose() }
+})
+
+test('deleting a Session clears only its private native-archive attribution', async () => {
+  const f = fixture({
+    initial: { nativeArchiveOwnedSessionIds: ['session-victim', 'other'] },
+    registry: { archivedSessionIds: ['victim'], list: () => [] },
+  })
+  try {
+    const deleted = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'victim' })
+    assert.equal(deleted.status, 200)
+    assert.deepEqual(f.store.getCached().nativeArchiveOwnedSessionIds, ['other'])
+    assert.equal(Object.hasOwn(deleted.data.state, 'nativeArchiveOwnedSessionIds'), false)
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['victim'])
   } finally { f.dispose() }
 })
 
@@ -1516,7 +1611,8 @@ test('legacy mixed-alias locks are fully cleared while unrelated direct locks re
     },
   }
   const f = fixture({
-    initial: { totpSecret: secret, lockedSessionIds: ['session-beta', 'beta', 'unrelated'] },
+    initial: { totpSecret: secret, lockedSessionIds: ['session-beta', 'beta', 'unrelated'],
+      nativeArchiveOwnedSessionIds: ['session-beta'] },
     registry,
   })
   try {
