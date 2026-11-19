@@ -1343,6 +1343,7 @@ test('bulk alias indexing preserves first-match grouping across repeated prefixe
         'session-alpha': 'ordinary',
         'session-session-alpha': 'ordinary',
         'session-session-session-alpha': 'ordinary',
+        'session-session-session-session-alpha': 'ordinary',
         unrelated: 'ordinary',
       },
     },
@@ -1352,14 +1353,14 @@ test('bulk alias indexing preserves first-match grouping across repeated prefixe
     // The first two IDs do not overlap directly; the third overlaps both.
     // Keep the legacy first-spelling-wins decision, not transitive normalization.
     const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
-      sessionIds: ['alpha', 'session-session-alpha', 'session-alpha'],
+      sessionIds: ['alpha', 'session-session-session-alpha', 'session-session-alpha'],
     })
     assert.equal(result.status, 200)
-    assert.deepEqual(result.data.deletedIds, ['alpha', 'session-session-alpha'])
+    assert.deepEqual(result.data.deletedIds, ['alpha', 'session-session-session-alpha'])
     assert.deepEqual(f.store.getCached().movedSessions, { unrelated: 'ordinary' })
     assert.deepEqual(cancelled, [
-      'alpha', 'session-alpha',
-      'session-session-alpha', 'session-alpha',
+      'alpha', 'session-session-alpha',
+      'session-session-session-alpha', 'session-session-alpha',
     ], 'each retained delete must keep its original requested alias ordering')
   } finally { f.dispose() }
 })
