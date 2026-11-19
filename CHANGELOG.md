@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Code 增加基于真实 Cordis Context 装载插件的双 Agent Skill 生命周期集成验收，验证按需读取、任务切换、用户禁用、Agent 释放、Host Skills 服务撤销与重新挂载时的隔离及清理；不访问真实外部 Skill 或付费 API。
+
 - 修复: 原生工作区快照缺失成员、重复路径或迁移目标异常时拒绝危险操作，补充执行测试（#333）。
 
 - 修复: Delta Code 的免费 Skill 候选与可信目录 PR 写入逐步核验目标仓库、Token 归属、Commit/分支回执及 GitHub PR 地址；提交前预读并在固定分支快照复验 CHANGELOG，检测到过期状态或跨账号回执立即中止。
