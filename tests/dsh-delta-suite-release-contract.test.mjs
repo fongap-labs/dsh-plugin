@@ -102,7 +102,7 @@ test('release guard rejects private Host CSS even with a new stylesheet fingerpr
     ':root[data-delta-ui="delta"] { --dsw-specific-sidebar-fill: red; }',
     ':root[data-delta-ui="delta"] [data-sidebar-right-guide-entry] { opacity: 0 }',
   ]) {
-    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\\n' + takeover), source),
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n' + takeover), source),
       /retired Host-global CSS takeover in emitted theme/)
   }
 })
