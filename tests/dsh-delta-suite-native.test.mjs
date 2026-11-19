@@ -355,7 +355,7 @@ test('published Session hover renders public catalog time and no record details'
     let rendered = JSON.stringify(hover.component({ sessionId: 'session-one' }))
     assert.match(rendered, /dtd-session-meta-updated/)
     assert.match(rendered, /2026-11-18T10:20:00.000Z/)
-    assert.match(rendered, /最近更新/)
+    assert.match(rendered, /\u6700\u8fd1\u66f4\u65b0/)
     assert.doesNotMatch(rendered, /hiddenField|private value/)
     app.documentElement.lang = 'en'
     app.context.observers.forEach(notify => notify())
