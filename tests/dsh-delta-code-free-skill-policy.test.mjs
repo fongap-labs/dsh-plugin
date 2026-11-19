@@ -25,7 +25,7 @@ describe('Delta Code free-only external Skill policy', () => {
       'Requires a paid API subscription.',
       'You must purchase credits to access this tool.',
       'Only available on a pro plan account.',
-      '调用该工具必须付费订阅服务。',
+      '\u8c03\u7528\u8be5\u5de5\u5177\u5fc5\u987b\u4ed8\u8d39\u8ba2\u9605\u670d\u52a1\u3002',
     ]) assert.equal(inspectFreeSkillText(skill(body), 'MIT').status, 'paid', body)
     assert.equal(inspectFreeSkillText(skill('Use the built-in file reader.'), 'MIT').eligible, true)
     assert.equal(inspectFreeSkillText(skill('See [script](./scripts/tool.sh)'), 'MIT').status, 'unknown')
