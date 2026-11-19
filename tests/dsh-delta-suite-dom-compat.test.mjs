@@ -25,8 +25,8 @@ test('remaining global CSS is limited to Delta tokens; Host-private selectors ar
   assert.doesNotMatch(style, /\[data-sidebar-right-guide-entry\]/)
   assert.doesNotMatch(style, /:root\[data-delta-ui="delta"\]\s+(?:input|textarea|select|button|::selection)/)
   assert.match(source, /activeTheme\.overrideTokens\(DELTA_SUITE_OWNER, TOKENS\)/)
-  assert.match(style, /\\.dtd-host-search-field\\s*\\{/)
-  assert.match(style, /\\.dtd-dialog-backdrop\\s*\\{/)
+  assert.match(style, /\.dtd-host-search-field\s*\{/)
+  assert.match(style, /\.dtd-dialog-backdrop\s*\{/)
 })
 
 test('retired compatibility root has neither source attribute writes nor theme selectors', () => {
