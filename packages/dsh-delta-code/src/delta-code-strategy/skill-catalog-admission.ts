@@ -204,12 +204,12 @@ export function assertReviewedSkillCatalog(
       Object.keys(root).every(key => (entry as unknown as Record<string, unknown>)[key] ===
         (root as unknown as Record<string, unknown>)[key]))
     if (legacy) continue
+    if (!admissions.some(record => sourceMatches(entry, record.proposal))) {
+      throw Error('Unreviewed GitHub Skill catalog entry: ' + entry.name)
+    }
     if (catalogVersion <= 1) throw Error('Approved Skill catalog version must increase for new admissions')
     if ((entry.sourceName ?? entry.name) !== entry.path.match(SOURCE_DIRECTORY)?.[1]) {
       throw Error('New catalog Skill must match the reviewed sourceName')
-    }
-    if (!admissions.some(record => sourceMatches(entry, record.proposal))) {
-      throw Error('Unreviewed GitHub Skill catalog entry: ' + entry.name)
     }
   }
 }
