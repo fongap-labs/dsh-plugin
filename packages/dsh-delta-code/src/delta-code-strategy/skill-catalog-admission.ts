@@ -112,7 +112,8 @@ function assertCatalogMetadata(entry: ApprovedGitHubSkill): void {
       !Array.isArray(entry.keywords) || !entry.keywords.length ||
       entry.keywords.length > 40 ||
       entry.keywords.some(word => typeof word !== 'string' || word.length < 2 ||
-        word.length > 64 || /[\r\n\x00-\x1f]/.test(word))) {
+        word.length > 64 || /[\r\n\x00-\x1f]/.test(word) ||
+        skillStaticRiskIndicators(word).length > 0)) {
     throw Error('Invalid reviewed Skill catalog metadata')
   }
   if (entry.sourceName !== undefined &&
@@ -182,7 +183,11 @@ function sourceMatches(entry: ApprovedGitHubSkill, proposal: PendingSkillProposa
 export function assertReviewedSkillCatalog(
   catalog: readonly ApprovedGitHubSkill[],
   admissions: readonly ReviewedSkillAdmission[],
+  catalogVersion = 1,
 ): void {
+  if (!Number.isSafeInteger(catalogVersion) || catalogVersion < 1) {
+    throw Error('Invalid approved Skill catalog version')
+  }
   const names = new Set<string>()
   const reviewed = new Set<string>()
   for (const record of admissions) {
@@ -199,6 +204,10 @@ export function assertReviewedSkillCatalog(
       Object.keys(root).every(key => (entry as unknown as Record<string, unknown>)[key] ===
         (root as unknown as Record<string, unknown>)[key]))
     if (legacy) continue
+    if (catalogVersion <= 1) throw Error('Approved Skill catalog version must increase for new admissions')
+    if ((entry.sourceName ?? entry.name) !== entry.path.match(SOURCE_DIRECTORY)?.[1]) {
+      throw Error('New catalog Skill must match the reviewed sourceName')
+    }
     if (!admissions.some(record => sourceMatches(entry, record.proposal))) {
       throw Error('Unreviewed GitHub Skill catalog entry: ' + entry.name)
     }
