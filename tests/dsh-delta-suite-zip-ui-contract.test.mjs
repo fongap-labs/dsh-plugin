@@ -120,6 +120,14 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.match(hostVision, /installHostVisionOps/)
     assert.match(hostVision, /registerVisionTools/)
   })
+  it('registers a non-interactive protection indicator through the published Session trailing Slot', () => {
+    assert.match(client, /scope\\.slots\\.inject\\('sidebar\\.session\\.row\\.trailing'/)
+    assert.match(client, /SessionProtectionIndicator/)
+    assert.match(client, /dtd-session-protection-mark/)
+    assert.match(file('src/feature-extras.css'), /\\.dtd-session-protection-mark\\s*\\{/)
+    assert.doesNotMatch(file('src/feature-extras.css'), /\\[data-row-key|\\[class\\*=/)
+    assert.doesNotMatch(client, /data-dtd-session-locked|dtd-session-lock-badge/)
+  })
   it('does not inject private lock badges into Host session or workspace rows', () => {
     for (const marker of ['dtd-session-lock-badge', 'dtd-workspace-lock-badge',
       'data-dtd-session-locked', 'data-dtd-workspace-locked']) {
