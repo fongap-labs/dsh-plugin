@@ -63,14 +63,16 @@ export function createSkillAdmissionProposalSpecs(
         source.commit.slice(0, 10) + '-' + source.sourceBlobSha.slice(0, 10)
       const repository = args.targetRepository as string
 
-      const branched = parseToolResult(await actions.branch.execute({
-        repository, branch: branchName,
-      }, exec))
-      if (!/^[a-f0-9]{40}$/.test(branched.sha) || branched.branch !== branchName) {
+      const branchedResponse = await actions.branch.execute({
+        repository, branch: branchName, account: exec.account,
+      }, exec)
+      const branched = parseToolResult(branchedResponse)
+      if (typeof branchedResponse.account !== 'string' || !branchedResponse.account ||
+          !/^[a-f0-9]{40}$/.test(branched.sha) || branched.branch !== branchName) {
         throw new Error('Cannot confirm proposed Skill branch creation')
       }
       const changelog = parseToolResult(await actions.file.execute({
-        repository, path: 'CHANGELOG.md', ref: branched.sha,
+        repository, path: 'CHANGELOG.md', ref: branched.sha, account: exec.account,
       }, exec))
       if (typeof changelog.content !== 'string' ||
           !changelog.content.startsWith('# ') ||
@@ -86,7 +88,7 @@ export function createSkillAdmissionProposalSpecs(
 
       // Normal protected branch/optimistic HEAD rules remain authoritative.
       const staged = parseToolResult(await actions.commitFile.execute({
-        repository, branch: branchName, path, content: manifest,
+        repository, branch: branchName, path, content: manifest, account: exec.account,
         expectedHead: branched.sha,
         message: 'chore(delta-code): stage inert free Skill proposal',
       }, exec))
@@ -95,7 +97,7 @@ export function createSkillAdmissionProposalSpecs(
       }
       const change = CHANGELOG_HEADER + entry + '\n'
       const updated = parseToolResult(await actions.commitFile.execute({
-        repository, branch: branchName, path: 'CHANGELOG.md',
+        repository, branch: branchName, path: 'CHANGELOG.md', account: exec.account,
         content: current.replace(CHANGELOG_HEADER, change),
         expectedHead: staged.commit,
         message: 'docs(delta-code): record free Skill proposal CI admission',
@@ -104,7 +106,7 @@ export function createSkillAdmissionProposalSpecs(
         throw new Error('Skill proposal CHANGELOG commit confirmation unavailable')
       }
       const pr = parseToolResult(await actions.createPr.execute({
-        repository, head: branchName,
+        repository, head: branchName, account: exec.account,
         title: 'chore(delta-code): stage verified free Skill proposal',
         body: 'Immutable source: ' + source.repository + '/' + source.path +
           ' at ' + source.commit + '\n\n' +
@@ -119,7 +121,7 @@ export function createSkillAdmissionProposalSpecs(
         throw new Error('Skill proposal PR confirmation unavailable')
       }
       return {
-        repository, account: repository.split('/')[0]!,
+        repository, account: branchedResponse.account,
         result: JSON.stringify({
           pr: { number: pr.number, url: pr.url, reused: pr.reused === true },
           source, path, branch: branchName, head: updated.commit,
