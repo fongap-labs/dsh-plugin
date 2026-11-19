@@ -35,6 +35,11 @@ export interface DeltaGitHubTransport {
   request(input: DeltaGitHubRequest): Promise<DeltaGitHubResponse>
   /** Optional for older providers: no GitHub permissions may be bypassed if unavailable. */
   jobLogs?(input: DeltaGitHubJobLogsRequest): Promise<DeltaGitHubJobLogsResponse>
+  /**
+   * Public metadata only, with no account identity or credential. Never
+   * use request() as a fallback: it is bound to a single GitHub owner.
+   */
+  publicRead?(path: string, signal: AbortSignal): Promise<unknown>
 }
 
 /** Error semantics are owned by Delta; transport providers only translate failures. */
