@@ -3,7 +3,7 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubToolSpec } from './github-operations.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
-import { isFreeSkillLicense, decodePinnedSkillBlob, inspectFreeSkillText } from '../delta-code-strategy/free-skill-policy.js'
+import { isFreeSkillLicense, decodePinnedSkillBlob, inspectFreeSkillText, freeLicenseFromText } from '../delta-code-strategy/free-skill-policy.js'
 
 const SEARCH_PAGE = 8
 const MAX_REPOSITORIES = 3
@@ -121,18 +121,10 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
           const licenseBlob = await read(base + '/git/blobs/' + licenseEntry.sha)
           const licenseText = decodePinnedSkillBlob(licenseBlob, licenseEntry.sha, 32 * 1024)
           const identifier = repo.license.spdx_id as string
-          const licenseMatches = licenseText.includes('SPDX-License-Identifier: ' + identifier) ||
-            (identifier === 'MIT' && /MIT License/i.test(licenseText)) ||
-            (identifier === 'Apache-2.0' && /Apache License/i.test(licenseText)) ||
-            (identifier.startsWith('BSD-') && /Redistribution and use/i.test(licenseText)) ||
-            (identifier === 'ISC' && /Permission to use, copy, modify/i.test(licenseText)) ||
-            (identifier === 'Unlicense' && /unlicense|public domain/i.test(licenseText)) ||
-            (identifier.startsWith('GPL-') && /GNU GENERAL PUBLIC LICENSE/i.test(licenseText)) ||
-            (identifier.startsWith('LGPL-') && /GNU LESSER GENERAL PUBLIC LICENSE/i.test(licenseText)) ||
-            (identifier.startsWith('AGPL-') && /GNU AFFERO GENERAL PUBLIC LICENSE/i.test(licenseText)) ||
-            (identifier.startsWith('CC-') && /Creative Commons/i.test(licenseText)) ||
-            (identifier === 'MPL-2.0' && /Mozilla Public License/i.test(licenseText))
-          if (!licenseMatches) { excludedByCost++; continue }
+          if (freeLicenseFromText(licenseText) !== identifier) {
+            excludedByCost++
+            continue
+          }
           const skills = tree.tree.filter((entry: any) =>
             entry && entry.type === 'blob' && typeof entry.path === 'string' &&
             SKILL_PATH.test(entry.path) && typeof entry.sha === 'string' && SHA.test(entry.sha))
