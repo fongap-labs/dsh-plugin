@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '59e08f634fc81452166ed0ffe4e0d16f9e349218')
+    assert.equal(sha, 'e35b99e11de18ab1b28d51df3b88445fadca3fd4')
   })
   it('leaves native sidebar list rows, scrolling and fades to Harness', () => {
     for (const marker of ['[data-sidebar-scrollport]', '[data-sidebar-list-area]',
@@ -71,6 +71,14 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.match(client, /kbdHint\.textContent = 'Enter'/)
     assert.doesNotMatch(client, /dtd-search-dialog-backdrop/)
     assert.doesNotMatch(client, /openSearchDialog\(/)
+  })
+  it('leaves the native Ungrouped context menu untouched and retains Host delete guards', () => {
+    assert.doesNotMatch(client, /openUngroupedContextMenu|closeUngroupedMenu|ungroupedMenuEl/)
+    assert.doesNotMatch(client, /(?:addEventListener|removeEventListener)\(['"]contextmenu['"]/)
+    assert.doesNotMatch(css, /\.dtd-context-menu(?:-item)?\b/)
+    assert.match(client, /session-delete-ungrouped/)
+    assert.match(client, /installWorkspaceMutationGuards/)
+    assert.match(client, /onMenuClickCapture/)
   })
   it('preserves TOTP, session protection and Delta-owned modal backdrops without Host chrome takeover', () => {
     for (const term of ['encodeQrMatrix', 'setup-begin', 'session-delete-ungrouped',

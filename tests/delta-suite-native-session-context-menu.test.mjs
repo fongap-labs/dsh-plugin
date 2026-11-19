@@ -30,6 +30,9 @@ test('native session context menus retain Harness order and appearance', () => {
   assert.match(compatibility, /onMenuClickCapture/)
   assert.match(compatibility, /LOCKED_MUTATION_LABELS/)
   assert.match(compatibility, /hiddenSoleWorkspaceNodes/)
+  assert.doesNotMatch(compatibility, /openUngroupedContextMenu|closeUngroupedMenu|ungroupedMenuEl/)
+  assert.doesNotMatch(compatibility, /addEventListener\('contextmenu'|removeEventListener\('contextmenu'/)
+  assert.doesNotMatch(theme, /\.dtd-context-menu(?:-item)?\b/)
   assert.equal(theme.includes('Context & View-Options Menu Dynamic Reordering'), false)
 })
 
@@ -44,10 +47,7 @@ test('release guard rejects unapproved session DOM mutation and CSS rule', () =>
       marker + '\n    document.querySelector("[role=menu]")?.appendChild(document.createElement("div"))')
   assert.notEqual(tampered, norm)
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
-  const alteredCss = theme.replace(
-    '.dtd-context-menu-item[data-danger="1"]',
-    '.dtd-context-menu-item[data-dtd-menu-order="10"]',
-  )
+  const alteredCss = theme + '\n.dtd-lock-shield { outline: 5px solid red; }'
   assert.notEqual(alteredCss, theme)
   assert.throws(() => verifyApprovedZip3Client(emitted.replace(JSON.stringify(theme), JSON.stringify(alteredCss)), source), /approved theme differs/)
 })

@@ -38,6 +38,8 @@
 - Profile 上下文压缩、结构化检查点、原生引用选择、助手侧栏协作。
 - 安全输入优化、DeepSeek Account 路由显示偏好、DeepSeek 模型路由切换、请求脱敏、Vision 和 MCP 管理。
 
+原生“未分组”行缺少已确认的批量删除菜单扩展接口，Suite 不再全局捕获右键来插入永久删除菜单。Host 批量删除接口及锁定保护仍保留，但相应客户端入口未交付。
+
 Vision 的 Host 侧识别服务和工具可以独立保留；由于没有稳定的公开 Composer/File API，客户端不再抢占 Harness 的全局图片粘贴、拖放事件，也不向原生编辑器私自插入路径或识别文字。原有 Vision 配置与状态不删除，`vision_bridge` 和 `vision_bridge_admission_adapter` 仍保持未交付，待正式 API 与 Windows 实机验证后再启用客户端集成。
 
 公开的 `sidebar.panellist.actions` 只提供 More 菜单入口；`sidebar.session.row.hover` 只提供悬浮卡装饰区域，均不能据此推断完整侧栏重排或悬浮卡替换已可实现。
