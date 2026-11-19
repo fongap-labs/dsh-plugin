@@ -2796,11 +2796,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   let lastMenuSessionId: string | undefined
   let lastMenuWorkspaceId: string | undefined
   const LOCKED_WORKSPACE_MUTATION_LABELS = new Set(['\u91cd\u547d\u540d', 'Rename', '\u5220\u9664\u5de5\u4f5c\u533a', 'Delete workspace'])
-  let ungroupedMenuEl: HTMLElement | undefined
-  const closeUngroupedMenu = (): void => {
-    ungroupedMenuEl?.remove?.()
-    ungroupedMenuEl = undefined
-  }
   const restoreHiddenNodes = (attrName: string, store: Set<HTMLElement>): void => {
     for (const node of store) {
       try {
@@ -2819,9 +2814,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     store.add(node)
   }
 
-  const reset = (): void => {
-    closeUngroupedMenu()
-  }
   const BLOCKED_COMMAND_RE = /^\/(?:export|feedback)(?:\s|$)/i
   const LOCKED_UNARCHIVE_LABELS = new Set(['\u53D6\u6D88\u5F52\u6863', 'Unarchive', 'Unarchive session'])
   const LOCKED_MUTATION_LABELS = new Set([
@@ -2935,7 +2927,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     try {
       syncPrivacyDom()
     } catch (error) {
-      reset()
       console.error('[dsh-delta-suite] Native privacy safeguards disabled:', error)
     } finally {
       observer?.takeRecords?.()
@@ -2954,65 +2945,8 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     attributeFilter: ['style'],
   })
 
-  const openUngroupedContextMenu = (x: number, y: number): void => {
-    closeUngroupedMenu()
-    if (isDisposed || controller.getSnapshot().mode !== 'delta' || typeof document?.body?.appendChild !== 'function') return
-    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-    const menu = document.createElement('div')
-    menu.className = 'dtd-context-menu'
-    menu.setAttribute('role', 'menu')
-    const btn = document.createElement('button')
-    btn.type = 'button'
-    btn.className = 'dtd-context-menu-item'
-    btn.setAttribute('role', 'menuitem')
-    btn.setAttribute('data-danger', '1')
-    const trash = createSvgEl('svg', {
-      viewBox: '0 0 24 24',
-      width: 15,
-      height: 15,
-      fill: 'none',
-      stroke: 'currentColor',
-      'stroke-width': 1.8,
-      'stroke-linecap': 'round',
-      'stroke-linejoin': 'round',
-      'aria-hidden': 'true',
-    })
-    trash.appendChild(createSvgEl('path', { d: 'M3 6h18' }))
-    trash.appendChild(createSvgEl('path', { d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }))
-    trash.appendChild(createSvgEl('path', { d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' }))
-    const labelSpan = document.createElement('span')
-    labelSpan.textContent = copy.sessionMenu.deleteUngrouped
-    btn.append(trash, labelSpan)
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation?.()
-      closeUngroupedMenu()
-      deltaFeatures.openDeleteUngroupedDialog()
-    })
-    menu.appendChild(btn)
-    const vw = typeof window !== 'undefined' && typeof window.innerWidth === 'number' ? window.innerWidth : 1024
-    const vh = typeof window !== 'undefined' && typeof window.innerHeight === 'number' ? window.innerHeight : 768
-    const left = Math.max(8, Math.min(vw - 210, Math.round(x)))
-    const top = Math.max(8, Math.min(vh - 60, Math.round(y)))
-    menu.style?.setProperty?.('left', `${left}px`)
-    menu.style?.setProperty?.('top', `${top}px`)
-    document.body.appendChild(menu)
-    ungroupedMenuEl = menu
-  }
-
   const onPointerDownCapture = (e: Event): void => {
     const rawTarget = e.target as HTMLElement | null
-    if (ungroupedMenuEl && (!rawTarget || !ungroupedMenuEl.contains?.(rawTarget))) {
-      closeUngroupedMenu()
-    }
-    const uRow = rawTarget?.closest?.<HTMLElement>('[data-row-key="workspace:"]')
-    if (e.type === 'contextmenu' && uRow && !isDisposed && controller.getSnapshot().mode === 'delta') {
-      e.preventDefault?.()
-      ;(e as Event & { stopImmediatePropagation?: () => void }).stopImmediatePropagation?.()
-      e.stopPropagation?.()
-      const me = e as MouseEvent
-      openUngroupedContextMenu(me.clientX ?? 24, me.clientY ?? 24)
-      return
-    }
     const rowEl = rawTarget?.closest?.<HTMLElement>('[data-row-key^="session:"]')
     if (rowEl) {
       const k = rowEl.getAttribute('data-row-key') ?? ''
@@ -3059,9 +2993,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
   const onComposerGuardKeyDown = (e: Event): void => {
     const ke = e as KeyboardEvent
-    if (ke.key === 'Escape' && ungroupedMenuEl) {
-      closeUngroupedMenu()
-    }
     const activeSid = deltaFeatures.getActiveSessionId()
     if (!activeSid || !deltaFeatures.isProtectedView(activeSid)) return
     const t = e.target as HTMLElement | null
@@ -3073,7 +3004,6 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
   if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
     document.addEventListener('pointerdown', onPointerDownCapture, { capture: true })
-    document.addEventListener('contextmenu', onPointerDownCapture, { capture: true })
     document.addEventListener('click', onMenuClickCapture, { capture: true })
     document.addEventListener('keydown', onComposerGuardKeyDown, { capture: true })
   }
@@ -3089,16 +3019,13 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     observer?.disconnect()
     if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
       document.removeEventListener('pointerdown', onPointerDownCapture, { capture: true })
-      document.removeEventListener('contextmenu', onPointerDownCapture, { capture: true })
       document.removeEventListener('click', onMenuClickCapture, { capture: true })
       document.removeEventListener('keydown', onComposerGuardKeyDown, { capture: true })
     }
-    reset()
     restoreHiddenNodes('data-dtd-hidden-session-log', hiddenSessionLogNodes)
     restoreHiddenNodes('data-dtd-hidden-privacy-cmd', hiddenPrivacyCmdNodes)
     restoreHiddenNodes('data-dtd-hidden-sole-workspace', hiddenSoleWorkspaceNodes)
     restoreHiddenNodes('data-dtd-hidden-deleted', hiddenDeletedRows)
-    closeUngroupedMenu()
     deltaFeatures.resetSessionOverlays()
   }
 }
