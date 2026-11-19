@@ -285,6 +285,48 @@ test('subagent model steps inherit locked ancestors and reject missing/cyclic li
   } finally { f.dispose() }
 })
 
+test('agent lineage requires each looked-up Host parent to match the requested Session identity', async () => {
+  const parents = new Map([
+    ['wrong', { id: 'different-unlocked', origin: 'user' }],
+    ['parent', { id: 'parent', origin: 'subagent', parentSession: 'grandparent' }],
+    ['grandparent', { id: 'different-unlocked', origin: 'user' }],
+    ['session-alias', { id: 'alias', origin: 'user' }],
+    ['session-cycle', { id: 'cycle', origin: 'subagent', parentSession: 'session-cycle' }],
+  ])
+  const f = fixture({
+    initial: { lockedSessionIds: ['grandparent'] },
+    sessions: { get(id) {
+      const header = parents.get(id)
+      return header === undefined ? undefined : { header }
+    } },
+  })
+  try {
+    let forwarded = 0
+    const next = () => { forwarded++; return { kind: 'original-host-decision' } }
+    assert.deepEqual(await f.step({ id: 'leaf', origin: 'subagent', parentSession: 'wrong' }, next),
+      { kind: 'reject' },
+      'a registry lookup returning a different unlocked Session cannot bypass protection')
+    assert.deepEqual(await f.step({ id: 'leaf', origin: 'subagent', parentSession: 'parent' }, next),
+      { kind: 'reject' },
+      'a mismatched grandparent must not hide its durable lock')
+    assert.deepEqual(await f.step({ id: 'another-leaf', origin: 'subagent', parentSession: 'session-cycle' }, next),
+      { kind: 'reject' },
+      'raw/session-prefixed aliases cannot evade ancestry cycle detection')
+    assert.deepEqual(await f.step({ id: 'another-leaf', origin: 'subagent', parentSession: '__proto__' }, next),
+      { kind: 'reject' },
+      'malformed Host parent identifiers are not a valid execution authority')
+    assert.equal(forwarded, 0, 'none of the invalid parent chains may call the Host model step')
+
+    assert.deepEqual(await f.step({ id: 'alias-leaf', origin: 'subagent', parentSession: 'session-alias' }, next),
+      { kind: 'original-host-decision' },
+      'a verified raw/session-prefixed parent is allowed without changing Host semantics')
+    parents.set('parent', { id: 'parent', origin: 'user' })
+    assert.deepEqual(await f.step({ id: 'leaf', origin: 'subagent', parentSession: 'parent' }, next),
+      { kind: 'original-host-decision' }, 'valid unrelated ancestry must still execute')
+    assert.equal(forwarded, 2)
+  } finally { f.dispose() }
+})
+
 test('durable read failure rejects model admission, and cleanup releases the public gate', async () => {
   const f = fixture({ readFails: true })
   try {
