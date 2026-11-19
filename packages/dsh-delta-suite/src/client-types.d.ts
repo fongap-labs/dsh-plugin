@@ -8,6 +8,10 @@ interface DeltaCopy {
     status: string; unavailable: string; recovery: string; shortcut: string;
     personalization: string; personalizationDescription: string; enabled: string;
     appearance: string; appearanceDescription: string; hostOwned: string;
+    integrationTitle: string; integrationSummary: string;
+    integrationSidebar: string; integrationCollapse: string;
+    integrationDeletion: string; integrationRunning: string;
+    integrationNative: string; integrationReasoning: string; integrationGuidance: string;
     sessionId: string; copySessionId: string; copy: string;
     searchSessions: string; newConversation: string; searching: string; noResults: string;
     copied: string; copyFailed: string; protectedDefaultWorkspace: string;
