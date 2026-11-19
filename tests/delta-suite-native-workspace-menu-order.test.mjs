@@ -53,10 +53,10 @@ test('ZIP3 review pin rejects an unapproved workspace DOM reorder', () => {
 
 test('single-workspace guard skips multi-workspace menu scans and restores only its own hidden nodes', () => {
   const extract = (start, end) => {
-    const from = source.indexOf(start)
-    const to = source.indexOf(end, from + start.length)
+    const from = normalizedSource.indexOf(start)
+    const to = normalizedSource.indexOf(end, from + start.length)
     assert.ok(from >= 0 && to > from)
-    return source.slice(from, to)
+    return normalizedSource.slice(from, to)
   }
   const fragment = [
     extract('  const restoreHiddenNodes =', '\n\n  const hidePrivacyNode ='),
