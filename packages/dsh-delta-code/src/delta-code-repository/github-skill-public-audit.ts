@@ -16,9 +16,13 @@ const MAX_CALLS = 4
 const RISK_SIGNALS: ReadonlyArray<{ readonly id: string; readonly pattern: RegExp }> = [
   { id: 'external-command-or-installation', pattern: /\b(?:curl|wget|npx|npm\s+install|pip\s+install|bash|chmod|eval|Invoke-WebRequest)\b/i },
   { id: 'credential-or-secret-access', pattern: /(?:\.ssh\/|\.aws\/|GITHUB_TOKEN|API[_-]?KEY|process\.env|credential|secret\s+key)/i },
-  { id: 'instruction-override', pattern: /\b(?:ignore (?:previous|all|system) instructions|reveal (?:your )?system prompt|you are now)\b/i },
+  { id: 'instruction-override', pattern: /\b(?:ignore (?:all )?(?:(?:previous|system|developer|your) )?instructions|reveal (?:your )?system prompt|you are now)\b/i },
   { id: 'remote-network-dependency', pattern: /https?:\/\/[^\s)'"]+/i },
 ]
+/** Shared deterministic static warning signals for public review and CI admission. */
+export function skillStaticRiskIndicators(markdown: string): string[] {
+  return RISK_SIGNALS.filter(rule => rule.pattern.test(markdown)).map(rule => rule.id)
+}
 const LOW_TRUST_NOTE =
   'Static evidence only. No Skill execution, installation, approval, persistent registration or trust elevation. External services may still charge.'
 
@@ -92,7 +96,7 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
       if (declaredName !== expectedName) throw Error('Pinned Skill name/frontmatter does not match requested path')
       const licenseId = freeLicenseFromText(licenseText)
       const cost = inspectFreeSkillText(markdown, licenseId)
-      const riskIndicators = RISK_SIGNALS.filter(rule => rule.pattern.test(markdown)).map(rule => rule.id)
+      const riskIndicators = skillStaticRiskIndicators(markdown)
       const reviewStatus = !cost.eligible ? 'excluded-paid-or-unknown' :
         riskIndicators.length ? 'manual-security-review-required' : 'static-review-ready'
       return {
