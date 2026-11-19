@@ -7,6 +7,7 @@ import { GitHubApiFailure, GitHubWriteUncertain } from '../delta-code-adapter/co
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
 import { createGitHubSkillDiscoverySpecs } from './github-skill-discovery.js'
 import { createSkillAdmissionProposalSpecs } from './github-skill-admission-proposal.js'
+import { createSkillCatalogPromotionSpecs } from './github-skill-catalog-promotion.js'
 
 export interface DeltaGitHubExecution {
   readonly signal: AbortSignal
@@ -335,12 +336,17 @@ export function createGitHubToolSpecs(
     if (!match) throw Error('GitHub tool dependency missing: ' + name)
     return match
   }
-  return [...specs, ...createSkillAdmissionProposalSpecs(transport, {
+  const writeActions = {
     file: byName('code_github_file'),
     branch: byName('code_github_branch'),
     commitFile: byName('code_github_commit_file'),
     createPr: byName('code_github_create_pr'),
-  }, () => settings.githubAllowWrites).map(spec => ({
+  }
+  const admissions = [
+    ...createSkillAdmissionProposalSpecs(transport, writeActions, () => settings.githubAllowWrites),
+    ...createSkillCatalogPromotionSpecs(transport, writeActions, () => settings.githubAllowWrites),
+  ]
+  return [...specs, ...admissions.map(spec => ({
     ...spec,
     parameters: { ...spec.parameters, account: optional },
     execute: (args: any, exec: DeltaGitHubExecution) =>
