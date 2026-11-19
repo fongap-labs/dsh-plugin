@@ -1364,6 +1364,22 @@ test('bulk alias indexing preserves first-match grouping across repeated prefixe
   } finally { f.dispose() }
 })
 
+
+test('bulk cancellation keeps submitted order when alias matches come from different index keys', async () => {
+  const cancelled = []
+  const f = fixture({ sessions: { cancel(id) { cancelled.push(id) } } })
+  try {
+    const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
+      sessionIds: ['session-alpha', 'alpha', 'session-session-alpha'],
+    })
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data.deletedIds, ['session-alpha'])
+    assert.deepEqual(cancelled, ['session-alpha', 'alpha', 'session-session-alpha'],
+      'reverse index must not reorder raw and prefixed cancellation requests')
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['session-alpha'])
+  } finally { f.dispose() }
+})
+
 test('exact and prefixed repeated input IDs still yield one logical deletion', async () => {
   const cancels = []
   const f = fixture({
