@@ -61,7 +61,7 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     assert.equal(out.repository, 'github.com/public')
     assert.equal(data.totalRepositoryMatches, 180)
     assert.equal(data.checkedRepositories, 2)
-    assert.equal(data.apiCalls, 6) // search + (commit + tree) per repo + shared owner profile per owner
+    assert.equal(data.apiCalls, 7) // search + (commit + tree + owner profile) for each repo
     assert.equal(data.candidates.length, 4)
     assert.equal(data.isRateLimited, false)
     assert.equal(data.truncated, true)
