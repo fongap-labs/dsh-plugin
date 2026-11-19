@@ -2822,9 +2822,11 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
   }
 
   const hidePrivacyNode = (node: HTMLElement, attrName: string, store: Set<HTMLElement>): void => {
+    // A full safety pass may revisit the same hidden row. Avoid redundant
+    // attribute/property writes that would trigger new DOM mutation records.
     if (node.getAttribute?.(attrName) !== '1') node.setAttribute?.(attrName, '1')
-    node.setAttribute?.('aria-hidden', 'true')
-    node.hidden = true
+    if (node.getAttribute?.('aria-hidden') !== 'true') node.setAttribute?.('aria-hidden', 'true')
+    if (!node.hidden) node.hidden = true
     store.add(node)
   }
 
@@ -2948,15 +2950,43 @@ function installSidebarCompatibility(controller: DeltaController): () => void {
     }
   }
 
+  // Streaming chat content is not a native session row, command menu, or
+  // workspace menu. Avoid rescanning the entire Host DOM for each token and
+  // React text-node replacement. Keep all mutations outside chat content,
+  // and preserve any security-relevant controls rendered inside the chat.
+  const CHAT_CONTENT_SELECTOR = '[data-chat-flow], [data-chat-turn]'
+  const GUARDED_CONTROL_SELECTOR = '[data-row-key], [role="menu"], [role="menuitem"], [role="listbox"], [role="option"], [class*="command"], [class*="_viewport_"], [class*="_footer_"], [data-dtd-hidden-deleted], [data-dtd-hidden-session-log], [data-dtd-hidden-sole-workspace], [data-dtd-hidden-privacy-cmd]'
+  const isIrrelevantChatMutation = (mutation: MutationRecord): boolean => {
+    const target = mutation.target
+    const context = (target.nodeType === 3 ? target.parentElement : target) as Element | null
+    if (!context?.closest?.(CHAT_CONTENT_SELECTOR) || context.closest(GUARDED_CONTROL_SELECTOR)) return false
+    if (mutation.type === 'childList') {
+      for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
+        if (node.nodeType !== 1) continue
+        const child = node as Element
+        if (child.matches?.(GUARDED_CONTROL_SELECTOR) || child.querySelector?.(GUARDED_CONTROL_SELECTOR)) {
+          return false
+        }
+      }
+    }
+    return true
+  }
+  const shouldSyncPrivacyMutations = (mutations: readonly MutationRecord[]): boolean =>
+    mutations.some(mutation => !isIrrelevantChatMutation(mutation))
+
   observer = typeof MutationObserver !== 'undefined'
-    ? new MutationObserver(() => scheduleSync())
+    ? new MutationObserver(mutations => {
+        if (shouldSyncPrivacyMutations(mutations)) scheduleSync()
+      })
     : undefined
   observer?.observe(document.body ?? root, {
     subtree: true,
     childList: true,
     characterData: true,
     attributes: true,
-    attributeFilter: ['style'],
+    // Selected-session changes also arrive as class/aria changes without
+    // any child insertion. Never skip those lock-shield updates.
+    attributeFilter: ['style', 'class', 'aria-current', 'aria-selected', 'data-selected', 'data-active'],
   })
 
   const onPointerDownCapture = (e: Event): void => {
@@ -3445,13 +3475,16 @@ function installHostSearch(
     const policy = readSearchProtection()
     const query = input.value.trim().toLocaleLowerCase()
     if (!query || !isActive()) { results.hidden = true; return }
+    // One consistent Host list snapshot per render, including remote hit
+    // title fallback; avoid repeated service reads while typing.
+    const sessionById = sessions.list.getSnapshot().byId
     results.hidden = false
     const copy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
     const pal = (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette
     const seen = new Set<string>()
     const matches: { id: string; title: string; snippet?: string; turn?: number; workspaceId?: string; isWorkspace?: boolean }[] = []
 
-    for (const item of Object.values(sessions.list.getSnapshot().byId)) {
+    for (const item of Object.values(sessionById)) {
       if (!policy.allowsSession(item.id, item.workspaceId)) continue
       const title = item.title?.trim() ?? ''
       if (!item.blank && title.toLocaleLowerCase().includes(query)) {
@@ -3462,7 +3495,7 @@ function installHostSearch(
     }
     for (const item of inlineRemoteItems) {
       if (!policy.allowsSession(item.sessionId, item.workspaceId) || seen.has(item.sessionId) || matches.length >= 20) continue
-      const title = item.title?.trim() || sessions.list.getSnapshot().byId[item.sessionId]?.title?.trim() || item.sessionId
+      const title = item.title?.trim() || sessionById[item.sessionId]?.title?.trim() || item.sessionId
       matches.push({
         id: item.sessionId,
         title: redactSensitiveText(title),
@@ -3814,13 +3847,15 @@ function installHostSearch(
     }
 
     // 1. Sessions (titles + host in-memory message content hits)
-    const allSessions = Object.values(sessions.list.getSnapshot().byId)
+    // Reuse one snapshot across title scoring and matching content hits.
+    const sessionById = sessions.list.getSnapshot().byId
+    const allSessions = Object.values(sessionById)
       .filter(s => !s.blank && policy.allowsSession(s.id, s.workspaceId))
       .sort((a, b) => normalizeSearchTime(b.updatedAt) - normalizeSearchTime(a.updatedAt))
 
     const contentHitsBySession = new Map<string, HostContentHit>()
     for (const hit of hostHits) {
-      const sess = sessions.list.getSnapshot().byId[hit.sessionId]
+      const sess = sessionById[hit.sessionId]
       if (!policy.allowsSession(hit.sessionId, hit.workspaceId) ||
           !policy.allowsSession(hit.sessionId, sess?.workspaceId)) continue
       if (!contentHitsBySession.has(hit.sessionId)) {
