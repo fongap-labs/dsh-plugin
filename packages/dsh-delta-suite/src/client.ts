@@ -1094,6 +1094,8 @@ interface ClientFeatureManager {
   setNavigationApi(api: SearchNavigationApi | undefined): void
   setActiveSessionId(id: string | undefined): void
   getActiveSessionId(): string | undefined
+  /** Sanitized public Host catalog timestamp; never returns paths or private records. */
+  readSessionUpdateTime(sessionId: string): number | undefined
   isLocked(sessionId: string | undefined): boolean
   isProtectedView(sessionId: string | undefined): boolean
   isDeleted(sessionId: string | undefined): boolean
@@ -2679,6 +2681,25 @@ function createClientFeatureManager(): ClientFeatureManager {
       publish({ activeSessionId: id })
     },
     getActiveSessionId: () => state.activeSessionId,
+    readSessionUpdateTime: id => {
+      // No Host catalog, no verified protection, or a mismatched catalog key:
+      // omit this optional decoration rather than trusting an unowned record.
+      if (!id || !state.isSearchProtectionReady || !sessionsApi) return undefined
+      try {
+        const record = sessionsApi.list.getSnapshot().byId[id]
+        if (!record || record.id !== id || record.blank) return undefined
+        const policy = createSearchContentProtection(state, () => {
+          if (!readNativeWorkspaceSnapshot) throw new Error('workspace membership unavailable')
+          return readNativeWorkspaceSnapshot()
+        })
+        if (!policy.allowsSession(id, record.workspaceId)) return undefined
+        // Numeric Host timestamps are milliseconds. An ambiguous seconds
+        // value must not display as a fabricated date in 1970.
+        const value = normalizeSearchTime(record.updatedAt)
+        if (value < Date.UTC(2000, 0, 1) || value > Date.UTC(2100, 0, 1)) return undefined
+        return value
+      } catch { return undefined }
+    },
     isLocked: (id) => Boolean(id && state.lockedSessionIds.includes(id)),
     isProtectedView: (id) => Boolean(id && state.lockedSessionIds.includes(id) && !state.tempUnlockedIds.includes(id)),
     isDeleted: (id) => Boolean(id && state.deletedSessionIds.includes(id)),
@@ -5562,6 +5583,11 @@ window.__ModuleLoader__.load({
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
+      const updatedAt = deltaFeatures.readSessionUpdateTime(sessionId)
+      const updatedText = updatedAt === undefined ? undefined : new Date(updatedAt).toLocaleString(
+        view.language === 'zh' ? 'zh-CN' : 'en-US',
+        { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
+      )
       return el('div', { className: 'dtd-session-meta', role: 'group', 'aria-label': label },
         el('span', { className: 'dtd-session-meta-label' }, label),
         el('span', { className: 'dtd-session-meta-id' }, shortId),
@@ -5581,7 +5607,10 @@ window.__ModuleLoader__.load({
             if (!request) { showDeltaToast(labels.copyFailed); return }
             void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
           },
-        }, copy.ui.copy))
+        }, copy.ui.copy),
+        updatedText ? el('span', { className: 'dtd-session-meta-updated' },
+          copy.ui.sessionLastUpdated + ': ',
+          el('time', { dateTime: new Date(updatedAt!).toISOString() }, updatedText)) : null)
     }
     function PersonalizationSection({ controller }: DeltaProps): unknown {
       deltaFeatures.ensureLoaded()
