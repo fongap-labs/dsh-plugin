@@ -121,7 +121,10 @@ test('unbind separates confirmed and pending restoration', async () => {
       this.archivedSessionIds = this.archivedSessionIds.filter(x => x !== id)
     },
   }
-  const f = fixture({ totpSecret: secret, lockedSessionIds: ['a', 'b'] }, registry)
+  const f = fixture({
+    totpSecret: secret, lockedSessionIds: ['a', 'b'],
+    nativeArchiveOwnedSessionIds: ['a', 'b'],
+  }, registry)
   try {
     const result = await f.call({ action: 'unbind-2fa', code: await state.generateTotpCode(secret) })
     assert.equal(result.data.ok, true)
