@@ -3,6 +3,7 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubToolSpec } from './github-operations.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
+import { createPublicSkillAuditSpecs } from './github-skill-public-audit.js'
 import { isFreeSkillLicense, decodePinnedSkillBlob, inspectFreeSkillText, freeLicenseFromText } from '../delta-code-strategy/free-skill-policy.js'
 
 const SEARCH_PAGE = 8
@@ -197,5 +198,5 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
         }),
       }
     },
-  }]
+  }, ...createPublicSkillAuditSpecs(transport)]
 }
