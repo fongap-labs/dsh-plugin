@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite Host 会话锁定、验证、解锁、二次验证初始化和单项/批量删除统一拒绝路径型、原型属性型 Session ID，防止非法目标进入持久化和宿主归档/删除操作（#333）。
+
 - 修复: 删除会话改用官方 Workspace Service，停止直接改写宿主 `workspace.json` 和内部索引（#333）。
 
 - 修复: Harness 官方 `agent/pre-step` 子代理门禁验证每级父会话 Header 的身份与请求父 ID 一致，拒绝错误映射、别名循环及非法标识，防止沿错误祖先链放行模型步骤（#333）。
