@@ -237,7 +237,7 @@ test('public native Session trailing Slot renders only Host-confirmed protected 
   assert.equal(direct?.type, 'span')
   assert.equal(direct?.props?.role, 'img')
   assert.match(direct?.props?.className ?? '', /dtd-session-protection-mark/)
-  assert.match(direct?.props?.['aria-label'] ?? '', /Locked|锁定/)
+  assert.match(direct?.props?.['aria-label'] ?? '', /Locked|\u9501\u5b9a/)
   assert.equal(direct.children[0].type, 'svg')
   assert.equal(indicator.component({ sessionId: 'other' }), null,
     'unprotected Host rows keep their native presentation')
@@ -251,7 +251,7 @@ test('public native Session trailing Slot renders only Host-confirmed protected 
   workspaces = ['default']
   await app.features.refreshState()
   const inherited = indicator.component({ sessionId: 'session-one' })
-  assert.match(inherited?.props?.['aria-label'] ?? '', /Workspace|工作区/,
+  assert.match(inherited?.props?.['aria-label'] ?? '', /Workspace|\u5de5\u4f5c\u533a/,
     'native Workspace membership triggers the inherited lock indicator')
 
   workspaces = []
