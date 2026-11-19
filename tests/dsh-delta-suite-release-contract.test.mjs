@@ -53,7 +53,7 @@ test('release guard rejects activation of retired native sidebar layout compatib
 
 test('release guard rejects retired Host modal chrome takeover', () => {
   for (const banned of ['syncModalChromeOverlay()', 'data-delta-modal-open']) {
-    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\\n' + banned, source),
+    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\n' + banned, source),
       /legacy native layout takeover retained/)
   }
 })
