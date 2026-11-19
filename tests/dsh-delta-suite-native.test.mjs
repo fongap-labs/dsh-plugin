@@ -296,7 +296,7 @@ test('published Session hover Slot shows only an authorized, path-free identity 
   assert.equal(visible.children[1]?.children[0], '0123456789ab…')
   assert.equal(visible.children[1]?.props?.title, undefined,
     'a hover tooltip must not reveal a full raw identifier')
-  assert.doesNotMatch(JSON.stringify(visible), /C:\\\\Users|Documents|default-workspace/,
+  assert.doesNotMatch(JSON.stringify(visible), /Documents|default-workspace|Users/,
     'Host filesystem paths never enter the Delta-owned hover fragment')
   const copy = visible.children[2]
   assert.equal(copy.type, 'button')
