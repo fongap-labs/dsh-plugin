@@ -16,7 +16,7 @@ const extract = (begin, end) => {
 }
 
 const mutationSource = extract('  const CHAT_CONTENT_SELECTOR =', '\n  observer = typeof MutationObserver')
-const hideSource = extract('  const hidePrivacyNode =', '\n  const BLOCKED_COMMAND_RE =')
+const hideSource = extract('  const previousVisibility =', '\n  const BLOCKED_COMMAND_RE =')
 
 function load(sourceText, binding) {
   const ctx = {}

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 原生隐私兼容层在解除菜单/墓碑隐藏时恢复宿主原始 `hidden` 与 `aria-hidden` 状态，避免误显示原本由 Harness 或其他插件隐藏的节点（#333）。
+
 - 修复: 加固 Host 隐私请求路径匹配，阻断 URL 编码、重复分隔符与路径回退造成的遥测接口绕过；保留原始路径保护与无关宿主路由的正常处理（#333）。
 
 - 新增: Delta Suite 通过 Harness 官方 `sidebar.session.row.trailing` Slot 显示会话和继承工作区锁状态，不再恢复原生 DOM 徽章接管；支持官方模式与卸载自动回退（#333、#190）。
