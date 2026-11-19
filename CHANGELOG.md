@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 会话删除及墓碑恢复不再直接重写 Harness 私有 `workspace.json` 或清理注册表内部 Map，统一通过官方 `WorkspaceRegistry.unpinSession` 和 `WorkspaceEntity.detachSession` 执行，保留原生数据写入队列及第三方修改（#333）。
+
 - 修复: Harness 官方 `agent/pre-step` 子代理门禁验证每级父会话 Header 的身份与请求父 ID 一致，拒绝错误映射、别名循环及非法标识，防止沿错误祖先链放行模型步骤（#333）。
 
 - 修复: Delta Suite 仅取消自身实际创建并持久化归属的原生会话归档；用户原有归档和缺少归属证据的旧状态在解锁/解绑时保持不变，避免误恢复宿主会话（#333）。
