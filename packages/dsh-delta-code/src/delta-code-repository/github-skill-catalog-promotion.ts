@@ -17,6 +17,10 @@ import {
 } from '../delta-code-strategy/skill-catalog-promotion.js'
 import type { ReviewedSkillAdmission } from '../delta-code-strategy/skill-catalog-admission.js'
 import type { SkillProposalActions } from './github-skill-admission-proposal.js'
+import {
+  assertSkillTargetEnvelope, confirmSkillTargetFile,
+  confirmSkillTargetPullRequest,
+} from './github-skill-target-evidence.js'
 
 const REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
 const SHA = /^[a-f0-9]{40}$/
@@ -36,23 +40,12 @@ function assertOwnerBound(
   repository: string,
   account?: string,
 ): void {
-  const owner = repository.split('/')[0]!
-  if (response.repository.toLowerCase() !== repository.toLowerCase() ||
-      response.account.toLowerCase() !== owner.toLowerCase() ||
-      (account && response.account.toLowerCase() !== account.toLowerCase())) {
-    throw Error('GitHub Skill catalog target account/repository binding mismatch')
-  }
+  assertSkillTargetEnvelope(response, repository, account)
 }
 
 function matchFile(response: { result: string; repository: string; account: string },
   target: string, path: string, account?: string): { content: string; sha: string } {
-  assertOwnerBound(response, target, account)
-  const file = parseToolResult(response)
-  if (file.path !== path || typeof file.content !== 'string' ||
-      typeof file.sha !== 'string' || !SHA.test(file.sha)) {
-    throw Error('Pinned catalog promotion target file is unavailable')
-  }
-  return { content: file.content, sha: file.sha }
+  return confirmSkillTargetFile(response, target, path, account)
 }
 
 /**
@@ -187,12 +180,7 @@ export function createSkillCatalogPromotionSpecs(
           'Do not bypass central CI or Host permission controls. Static validation ' +
           'does not guarantee arbitrary Skill instructions are safe.',
       }, exec)
-      assertOwnerBound(response, target, account)
-      const pr = parseToolResult(response)
-      if (!Number.isSafeInteger(pr.number) || pr.number < 1 ||
-          typeof pr.url !== 'string' || !pr.url.startsWith('https://github.com/')) {
-        throw Error('Skill promotion pull request not confirmed')
-      }
+      const pr = confirmSkillTargetPullRequest(response, target, account)
       return {
         repository: target, account: response.account,
         result: JSON.stringify({
