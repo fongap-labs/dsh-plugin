@@ -635,7 +635,7 @@
 
 /* Harness owns native modal masks, panels, positioning, drag behavior, and Settings order. */
 /* ============================================================================
- * 5. Brand Suppression, Hero Preview Badge Removal & Hover Cards
+ * 5. Public Brand Slot & Legacy Hero Preview Styling
  * ============================================================================ */
 .dtd-brand-mark {
   display: inline-flex;
@@ -695,63 +695,8 @@
   max-height: 20px !important;
 }
 
-/* Hide brand identity while preserving Windows sidebar collapse button */
-
-:root[data-delta-ui="delta"] [class*="wtg9ga_topStrip"],
-:root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"] {
-  order: 0 !important;
-  overflow: visible !important;
-  visibility: visible !important;
-}
-
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="wtg9ga_logoRow"],
-:is(html[data-windows-titlebar], html[data-platform="darwin"]):root[data-delta-ui="delta"] [class*="SidebarRoot_logoRow"] {
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-}
-
-:root[data-delta-ui="delta"] :is(
-  [data-sidebar-toggle],
-  [data-sidebar-opener],
-  [data-sidebar-right-toggle],
-  [data-sidebar-right-expand]
-) {
-  position: fixed !important;
-  left: -9999px !important;
-  top: -9999px !important;
-  width: 1px !important;
-  height: 1px !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: 0 !important;
-  overflow: hidden !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-:root[data-delta-ui="delta"] :is(
-  [class*="wtg9ga_brand"],
-  [class*="wtg9ga_brandIdentity"],
-  [class*="wtg9ga_brandMark"],
-  [class*="wtg9ga_brandName"],
-  [class*="SidebarRoot_brand"],
-  [class*="FishLogo"],
-  .dtd-brand-mark,
-  .dtd-brand-name
-) {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: hidden !important;
-}
-
+/* Native sidebar brand rows and expand/collapse controls remain Harness-owned;
+ * Delta branding uses public sidebar.brand Slot contributions instead. */
 
 /* Harness owns native session and workspace hover-card layout; the public
  * sidebar.session.row.hover Slot remains available to multiple providers. */
@@ -759,11 +704,6 @@
 /* ============================================================================
  * 6. Left Sidebar Layout, Search, Nav Items, Workspace List & Footer
  * ============================================================================ */
-
-html[data-windows-titlebar]:root[data-delta-ui="delta"],
-html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collapsed="true"]) {
-  --dsh-windows-menu-start: 8px !important;
-}
 
 /* 6.1 Top Search Box */
 

@@ -19,7 +19,19 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '5d40c791b3dfca1d18a5e337f1e11c9cfbd1d5a2')
+    assert.equal(sha, '073ebde11cc94fefd8015c203d1a3aed20a1bfef')
+  })
+  it('keeps native sidebar openers and logo rows under Harness ownership', () => {
+    for (const marker of ['[data-sidebar-toggle]', '[data-sidebar-opener]',
+      '[data-sidebar-right-toggle]', '[data-sidebar-right-expand]',
+      '[class*="wtg9ga_logoRow"]', '[class*="SidebarRoot_logoRow"]',
+      '[class*="wtg9ga_brandIdentity"]', '[class*="SidebarRoot_brand"]',
+      '[class*="FishLogo"]', '--dsh-windows-menu-start']) {
+      assert.equal(css.includes(marker), false, marker)
+    }
+    assert.match(css, /\.dtd-brand-mark\s*\{/)
+    assert.match(css, /\.dtd-brand-name\s*\{/)
+    assert.match(css, /\.dtd-lock-shield\s*\{/)
   })
   it('removes inactive data-delta-compat CSS but preserves live Delta feature styling', () => {
     assert.doesNotMatch(css, /data-delta-compat/i)
