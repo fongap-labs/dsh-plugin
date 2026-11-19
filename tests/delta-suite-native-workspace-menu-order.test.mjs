@@ -90,7 +90,7 @@ test('single-workspace guard skips multi-workspace menu scans and restores only 
     hiddenPrivacyCmdNodes: new Set(),
     hiddenSoleWorkspaceNodes: guarded,
     hiddenDeletedRows: new Set(),
-    BLOCKED_COMMAND_RE: /^\\/(?:export|feedback)(?:\\s|$)/i,
+    BLOCKED_COMMAND_RE: /feedback|export/i,
     WORKSPACE_RENAME_LABELS: new Set(['Rename']),
     WORKSPACE_DELETE_LABELS: new Set(['Delete workspace']),
     getMenuLabel: el => el.textContent,
