@@ -80,7 +80,7 @@ export function createSkillAdmissionProposalSpecs(
         throw new Error('Target repository lacks a bounded Unreleased CHANGELOG')
       }
       const current = changelog.content
-      const entry = '- Added: stage pinned free Skill proposal ' +
+      const entry = '- \u7ef4\u62a4: stage pinned free Skill proposal ' +
         source.repository + '/' + source.path + ' for CI review only; no runtime activation.\n'
       if (current.includes(entry)) throw new Error('Skill revision is already staged')
       const manifest = JSON.stringify(proposal, null, 2) + '\n'
