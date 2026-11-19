@@ -5576,11 +5576,11 @@ window.__ModuleLoader__.load({
       const state = deltaFeatures.getSnapshot()
       if (state.deletedSessionIds.includes(sessionId)) return null
       const locked = state.lockedSessionIds.includes(sessionId)
-      let workspaceLocked = false
-      try { workspaceLocked = deltaFeatures.isSessionInLockedWorkspace(sessionId) } catch {}
-      if (!locked && !workspaceLocked) return null
+      let isInheritedWorkspaceLocked = false
+      try { isInheritedWorkspaceLocked = deltaFeatures.isSessionInLockedWorkspace(sessionId) } catch {}
+      if (!locked && !isInheritedWorkspaceLocked) return null
       const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
-      const label = workspaceLocked && !locked
+      const label = isInheritedWorkspaceLocked && !locked
         ? copy.workspaceMenu.lockedShieldTitle : copy.sessionMenu.lockedShieldTitle
       return el('span', { className: 'dtd-session-protection-mark', role: 'img',
         title: label, 'aria-label': label },
