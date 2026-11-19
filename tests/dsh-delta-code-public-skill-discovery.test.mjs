@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { createPublicSkillDiscoverySpecs } from '../packages/dsh-delta-code/lib/delta-code-repository/github-skill-public-discovery.js'
 import { createGitHubTransport } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/api.js'
 import { GitHubApiFailure } from '../packages/dsh-delta-code/lib/delta-code-adapter/contracts/github.js'
@@ -7,9 +8,19 @@ import { GitHubApiFailure } from '../packages/dsh-delta-code/lib/delta-code-adap
 const SHA = 'a'.repeat(40)
 const TREE = 'b'.repeat(40)
 const NOW = '2026-11-18T00:00:00Z'
+function blob(text) {
+  const bytes = Buffer.from(text, 'utf8')
+  return {
+    sha: createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex'),
+    encoding: 'base64', content: bytes.toString('base64'), size: bytes.length,
+  }
+}
+const LICENSE = blob('MIT License\nPermission is hereby granted, free of charge.\n')
+const skillBlob = name => blob('---\nname: ' + name +
+  '\ndescription: Public free Skill\n---\n\n# Instructions\nUse built-in tools only.\n')
 const repo = (name, description) => ({
   full_name: name, private: false, archived: false, disabled: false,
-  default_branch: 'main', created_at: '2021-01-01T00:00:00Z',
+  default_branch: 'main', license: { spdx_id: 'MIT' }, created_at: '2021-01-01T00:00:00Z',
   pushed_at: NOW, stargazers_count: 300, forks_count: 25, description,
 })
 function mockTransport(overrides = {}) {
@@ -33,13 +44,17 @@ function mockTransport(overrides = {}) {
       if (path.endsWith('/commits/main')) return { sha: SHA, commit: { tree: { sha: TREE } } }
       if (path.endsWith('/git/trees/' + TREE + '?recursive=1')) {
         return { sha: TREE, truncated: false, tree: [
-          { path: 'skills/react-profiler/SKILL.md', type: 'blob', sha: SHA },
+          { path: 'LICENSE', type: 'blob', sha: LICENSE.sha },
+          { path: 'skills/react-profiler/SKILL.md', type: 'blob', sha: skillBlob('react-profiler').sha },
           { path: 'skills/unsafe/../../private/SKILL.md', type: 'blob', sha: SHA },
           { path: 'skills/ignore/INSTALL.sh', type: 'blob', sha: SHA },
-          { path: 'skills/javascript/SKILL.md', type: 'blob', sha: SHA },
+          { path: 'skills/javascript/SKILL.md', type: 'blob', sha: skillBlob('javascript').sha },
           { path: 'skills/not-blob/SKILL.md', type: 'tree', sha: SHA },
         ] }
       }
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      if (path.endsWith('/git/blobs/' + skillBlob('react-profiler').sha)) return skillBlob('react-profiler')
+      if (path.endsWith('/git/blobs/' + skillBlob('javascript').sha)) return skillBlob('javascript')
       if (path.startsWith('/users/')) return {
         login: path.slice('/users/'.length), created_at: '2014-01-01T00:00:00Z',
       }
@@ -61,14 +76,16 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     assert.equal(out.repository, 'github.com/public')
     assert.equal(data.totalRepositoryMatches, 180)
     assert.equal(data.checkedRepositories, 2)
-    assert.equal(data.apiCalls, 7) // search + (commit + tree + owner profile) for each repo
+    assert.equal(data.apiCalls, 13) // search + (commit, tree, license, two Skills, owner) for each repo
     assert.equal(data.candidates.length, 4)
     assert.equal(data.isRateLimited, false)
     assert.equal(data.truncated, true)
     assert.equal(h.privilegedCalls, 0)
     for (const candidate of data.candidates) {
       assert.match(candidate.path, /^skills\/[a-z0-9-]+\/SKILL\.md$/)
-      assert.equal(candidate.sourceBlobSha, SHA)
+      assert.equal(candidate.sourceBlobSha, skillBlob(candidate.name).sha)
+      assert.equal(candidate.freeEvidence.license, 'MIT')
+      assert.equal(candidate.freeEvidence.licenseBlobSha, LICENSE.sha)
       assert.equal(candidate.suggestedCommit, SHA)
       assert.equal(candidate.status, 'unreviewed')
       assert.equal(candidate.requiresReview, true)
@@ -77,6 +94,7 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
       assert.equal(Object.hasOwn(candidate, 'isApproved'), false)
     }
     assert.ok(data.candidates[0].recommendationScore >= data.candidates.at(-1).recommendationScore)
+    assert.equal(data.excludedByCost, 0)
     assert.equal(data.candidates.filter(x => x.repository === 'alpha/skills').length, 2)
     assert.ok(h.calls.every(path => path.startsWith('/search/repositories?') ||
       path.startsWith('/repos/alpha/') || path.startsWith('/repos/beta/') ||
@@ -128,6 +146,34 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     assert.equal(result.apiCalls, 2)
     assert.deepEqual(result.candidates, [])
     assert.equal(h.privilegedCalls, 0)
+  })
+
+  it('filters paid pinned Skills and unknown-license repositories before recommendation', async () => {
+    const paid = blob(['---', 'name: react-profiler', 'description: Code tool', '---', '', '# Guidance', 'Requires a paid API subscription.'].join('\n'))
+    const h = mockTransport({ read(path) {
+      if (path.startsWith('/search/repositories?')) return {
+        total_count: 2, items: [
+          repo('alpha/skills', 'React skills'),
+          { ...repo('paid/locked', 'Requires premium access'), license: null },
+        ],
+      }
+      if (path.endsWith('/commits/main')) return { sha: SHA, commit: { tree: { sha: TREE } } }
+      if (path.includes('/git/trees/')) return {
+        sha: TREE, truncated: false,
+        tree: [
+          { path: 'LICENSE', type: 'blob', sha: LICENSE.sha },
+          { path: 'skills/react-profiler/SKILL.md', type: 'blob', sha: paid.sha },
+        ],
+      }
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      if (path.endsWith('/git/blobs/' + paid.sha)) return paid
+      throw Error('Unexpected paid test path ' + path)
+    } })
+    const result = parse(await h.tool.execute({ query: 'react' }, h.exec))
+    assert.deepEqual(result.candidates, [])
+    assert.equal(result.excludedByCost, 1)
+    assert.equal(h.privilegedCalls, 0)
+    assert.ok(h.calls.every(path => !path.includes('/repos/paid/')))
   })
 
   it('never sends a credential through the real public transport and blocks unwanted paths', async () => {

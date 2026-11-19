@@ -6,6 +6,7 @@ import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import { selectGitHubAccount, validatedCommitSha } from './github-policy.js'
 import { getActiveApprovedGitHubSkills } from '../delta-code-strategy/trusted-github-skills.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
+import { freeLicenseFromText, isFreeSkillLicense, inspectFreeSkillText } from '../delta-code-strategy/free-skill-policy.js'
 import { createPublicSkillDiscoverySpecs } from './github-skill-public-discovery.js'
 import type { DeltaGitHubExecution, DeltaGitHubRepositoryResolver, DeltaGitHubToolSpec } from './github-operations.js'
 
@@ -67,7 +68,7 @@ export function createGitHubSkillDiscoverySpecs(
   return [
     {
       name: 'code_github_skill_candidates',
-      description: 'Search GitHub SKILL.md candidates in the requested repository using the selected credential; results are untrusted and not invocable.',
+      description: 'Search only free-license and no-paid-prerequisite GitHub SKILL.md candidates in the authorized repository; unknown-cost and paid results are excluded, and none is invocable before review.',
       parameters: { repository: { type: 'string', required: true }, query: { type: 'string', required: true } },
       async execute(args, exec) {
         if (typeof args.query !== 'string' || !/^[\p{L}\p{N}_ .+\-]{2,100}$/u.test(args.query.trim())) {
@@ -115,15 +116,54 @@ export function createGitHubSkillDiscoverySpecs(
           lastPushAt: repoMeta?.pushed_at,
           archived: repoMeta?.archived, disabled: repoMeta?.disabled,
         })
-        const candidates = matched.map((item: any) => ({
-          repository, path: item.path, name: item.path.split('/')[1],
-          suggestedCommit, status: 'unreviewed', requiresReview: true,
-          ranking,
-        }))
+        const candidates: any[] = []
+        let excludedByCost = 0
+        const licenseName = repoMeta?.license?.spdx_id
+        // Metadata alone is insufficient. Verify the license and exact Skill
+        // content at the same immutable commit before showing recommendations.
+        if (isFreeSkillLicense(licenseName) && suggestedCommit && matched.length) {
+          try {
+            const license = await get(repository, exec, prefix(repository) +
+              '/contents/LICENSE?ref=' + suggestedCommit)
+            const licenseText = decodeFile(license.data, MAX_LICENSE_BYTES).text
+            if (freeLicenseFromText(licenseText) === licenseName) {
+              for (const item of matched.slice(0, 4)) {
+                try {
+                  const source = await get(repository, exec, prefix(repository) +
+                    '/contents/' + item.path + '?ref=' + suggestedCommit)
+                  const markdown = decodeFile(source.data, MAX_SKILL_BYTES).text
+                  const cost = inspectFreeSkillText(markdown, licenseName)
+                  const metadata = candidateMetadata(markdown)
+                  if (!cost.eligible || metadata.name !== item.path.split('/')[1]) {
+                    excludedByCost++
+                    continue
+                  }
+                  candidates.push({
+                    repository, path: item.path, name: metadata.name,
+                    suggestedCommit, status: 'unreviewed', requiresReview: true,
+                    freeEvidence: { license: licenseName, checkedAtCommit: suggestedCommit },
+                    ranking,
+                  })
+                } catch (error) {
+                  if (error instanceof GitHubApiFailure && [403, 404, 429].includes(error.status)) {
+                    excludedByCost++
+                    if (error.status !== 404) break
+                    continue
+                  }
+                  throw error
+                }
+              }
+            } else excludedByCost += matched.length
+          } catch (error) {
+            if (!(error instanceof GitHubApiFailure && [403, 404, 429].includes(error.status))) throw error
+            excludedByCost += matched.length
+          }
+        } else excludedByCost += matched.length
         return output(repository, result.account, {
-          totalMatches: result.data.total_count, candidates, truncated: result.data.total_count > 20,
+          totalMatches: result.data.total_count, candidates, truncated: result.data.total_count > 4,
+          excludedByCost,
           rankingStatus: ranking.completeness,
-          note: 'Ranking is advisory only: stars and public maintainer age cannot prove trust. Candidates come from the search index; suggestedCommit is a separate default-branch snapshot, not proof the result exists at that commit. Verify pinned source, license and all dependent files before any approval.',
+          note: 'Free-only: paid or unknown-use-cost candidates are excluded. Pinned free-license evidence and a basic paid-prerequisite check are not proof external services will never charge. Results remain unreviewed and cannot be invoked without approval.',
         })
       },
     },
@@ -152,19 +192,24 @@ export function createGitHubSkillDiscoverySpecs(
           throw Error('Skill candidate name does not match its source path')
         }
         let licenseEvidence: { path: string; blobSha: string } | null = null
+        let freeLicense: string | null = null
         try {
           const license = await get(repository, exec, prefix(repository) +
             '/contents/' + licensePath + '?ref=' + commit)
           const verified = decodeFile(license.data, MAX_LICENSE_BYTES)
           licenseEvidence = { path: licensePath, blobSha: verified.sha }
+          freeLicense = freeLicenseFromText(verified.text)
         } catch (error) {
           if (!(error instanceof GitHubApiFailure && error.status === 404)) throw error
         }
-        const approved = getActiveApprovedGitHubSkills().some(entry =>
+        const cost = inspectFreeSkillText(source.text, freeLicense)
+        const approved = cost.eligible && getActiveApprovedGitHubSkills().some(entry =>
           (entry.owner + '/' + entry.repository).toLowerCase() === repository.toLowerCase() &&
           entry.commit === commit && entry.path === args.path && entry.blobSha === source.sha)
         return output(repository, skill.account, {
-          reviewState: approved ? 'already-approved' : 'requires-human-review',
+          reviewState: !cost.eligible ? 'excluded-paid-or-unknown' :
+            approved ? 'already-approved' : 'requires-human-review',
+          freeEligibility: cost,
           metadata, source: { repository, path: args.path, commit, blobSha: source.sha },
           licenseEvidence, licenseVerified: false,
           hasRequiredBundleReview: metadata.hasRelativeReferences,
@@ -172,6 +217,7 @@ export function createGitHubSkillDiscoverySpecs(
             ...(licenseEvidence ? [] : ['No pinned license file found']),
             ...(metadata.hasRelativeReferences ? ['Relative resources require individually pinned bundle review'] : []),
             ...(metadata.hasCommandInstructions ? ['Command instructions require explicit security review'] : []),
+            ...(!cost.eligible ? ['Free-only policy excludes paid or unverified-use-cost Skills'] : []),
           ],
           approvalRequired: !approved,
           note: 'Read-only evidence, not installation, trust approval or a model-invocable Skill. Update the reviewed catalog by PR only.',

@@ -40,6 +40,7 @@ function harness(overrides = {}) {
       if (input.path === '/repos/acme/skills') return {
         repository: input.repository, account: input.account, data: {
           full_name: 'acme/skills', stargazers_count: 1200, forks_count: 95,
+          license: overrides.repoLicense === undefined ? { spdx_id: 'MIT' } : overrides.repoLicense,
           archived: false, disabled: false, created_at: '2021-01-01T00:00:00Z',
           pushed_at: '2026-11-10T00:00:00Z',
         },
@@ -89,15 +90,38 @@ describe('Delta Code GitHub Skill candidate discovery and review', () => {
     assert.match(decodeURIComponent(h.seen[0].path), /repo:acme\/skills filename:SKILL.md/)
     assert.ok(h.seen.every(c => c.method === 'GET' && c.account === 'acme'))
     assert.ok(h.seen.every(c => c.signal === h.exec.signal))
-    assert.equal(h.seen.length, 4)
+    assert.equal(h.seen.length, 6)
     const unicode = await h.search.execute({
       repository: 'acme/skills', query: '\u524d\u7aef \u6027\u80fd',
     }, h.exec)
     assert.equal(JSON.parse(unicode.result).candidates.length, 1)
-    assert.equal(h.seen.length, 8)
+    assert.equal(h.seen.length, 12)
     await assert.rejects(h.search.execute({ repository: 'acme/skills', query: 'x' }, h.exec), /bounded plain-text/)
     await assert.rejects(h.search.execute({ repository: 'acme/skills', query: 'foo&repo:other/secret' }, h.exec), /bounded plain-text/)
-    assert.equal(h.seen.length, 8)
+    assert.equal(h.seen.length, 12)
+  })
+
+  it('excludes paid and unknown-cost owner-bound Skills even from discovery', async () => {
+    const paid = harness({ skill: blob(fixture + '\nRequires a paid API subscription to use this tool.\n') })
+    const output = JSON.parse((await paid.search.execute({
+      repository: 'acme/skills', query: 'react performance',
+    }, paid.exec)).result)
+    assert.deepEqual(output.candidates, [])
+    assert.equal(output.excludedByCost, 1)
+    const review = JSON.parse((await paid.review.execute({
+      repository: 'acme/skills', path: 'skills/reviewed-skill/SKILL.md', commit: COMMIT,
+    }, paid.exec)).result)
+    assert.equal(review.freeEligibility.status, 'paid')
+    assert.equal(review.reviewState, 'excluded-paid-or-unknown')
+    assert.equal(review.approvalRequired, true)
+    assert.ok(paid.seen.every(request => request.account === 'acme'))
+
+    const unknown = harness({ repoLicense: null })
+    const unknownResult = JSON.parse((await unknown.search.execute({
+      repository: 'acme/skills', query: 'react',
+    }, unknown.exec)).result)
+    assert.deepEqual(unknownResult.candidates, [])
+    assert.equal(unknownResult.excludedByCost, 1)
   })
 
   it('verifies pinned bytes and license evidence but never auto-approves a candidate', async () => {
