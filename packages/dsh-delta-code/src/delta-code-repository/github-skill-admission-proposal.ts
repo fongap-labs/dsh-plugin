@@ -3,6 +3,10 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import type { DeltaGitHubExecution, DeltaGitHubToolSpec } from './github-operations.js'
 import { createPublicSkillAuditSpecs } from './github-skill-public-audit.js'
 import {
+  confirmSkillTargetFile, confirmSkillTargetBranch,
+  confirmSkillTargetCommit, confirmSkillTargetPullRequest,
+} from './github-skill-target-evidence.js'
+import {
   makePendingSkillProposal, pendingSkillProposalPath, pendingSkillProposalIdentity,
 } from '../delta-code-strategy/skill-proposal-policy.js'
 
@@ -62,22 +66,27 @@ export function createSkillAdmissionProposalSpecs(
       const branchName = 'chore/skill-proposal-' + pendingSkillProposalIdentity(proposal)
       const repository = args.targetRepository as string
 
+      // Verify the target's owner-bound read access *before* creating a branch.
+      // Recheck the exact file blob at the feature branch snapshot so a
+      // concurrently changed base cannot silently alter the user's proposal.
+      const original = confirmSkillTargetFile(await actions.file.execute({
+        repository, path: 'CHANGELOG.md', account: exec.account,
+      }, exec), repository, 'CHANGELOG.md', exec.account)
+      if (!original.content.startsWith('# ') ||
+          !original.content.includes(CHANGELOG_HEADER) ||
+          Buffer.byteLength(original.content, 'utf8') > 128 * 1024) {
+        throw new Error('Target repository lacks a bounded Unreleased CHANGELOG')
+      }
       const branchedResponse = await actions.branch.execute({
         repository, branch: branchName, account: exec.account,
       }, exec)
-      const branched = parseToolResult(branchedResponse)
-      if (typeof branchedResponse.account !== 'string' || !branchedResponse.account ||
-          !/^[a-f0-9]{40}$/.test(branched.sha) || branched.branch !== branchName) {
-        throw new Error('Cannot confirm proposed Skill branch creation')
-      }
-      const changelog = parseToolResult(await actions.file.execute({
-        repository, path: 'CHANGELOG.md', ref: branched.sha, account: exec.account,
-      }, exec))
-      if (typeof changelog.content !== 'string' ||
-          !changelog.content.startsWith('# ') ||
-          !changelog.content.includes(CHANGELOG_HEADER) ||
-          changelog.content.length > 128 * 1024) {
-        throw new Error('Target repository lacks a bounded Unreleased CHANGELOG')
+      const baseSha = confirmSkillTargetBranch(
+        branchedResponse, repository, branchName, exec.account)
+      const changelog = confirmSkillTargetFile(await actions.file.execute({
+        repository, path: 'CHANGELOG.md', ref: baseSha, account: exec.account,
+      }, exec), repository, 'CHANGELOG.md', exec.account)
+      if (changelog.sha !== original.sha) {
+        throw new Error('Target CHANGELOG changed during Skill proposal; discard the branch')
       }
       const current = changelog.content
       const entry = '- \u7ef4\u62a4: stage pinned free Skill proposal ' +
@@ -86,25 +95,19 @@ export function createSkillAdmissionProposalSpecs(
       const manifest = JSON.stringify(proposal, null, 2) + '\n'
 
       // Normal protected branch/optimistic HEAD rules remain authoritative.
-      const staged = parseToolResult(await actions.commitFile.execute({
+      const stagedSha = confirmSkillTargetCommit(await actions.commitFile.execute({
         repository, branch: branchName, path, content: manifest, account: exec.account,
-        expectedHead: branched.sha,
+        expectedHead: baseSha,
         message: 'chore(delta-code): stage inert free Skill proposal',
-      }, exec))
-      if (staged.path !== path || !/^[a-f0-9]{40}$/.test(staged.commit)) {
-        throw new Error('Skill proposal commit confirmation unavailable')
-      }
+      }, exec), repository, path, exec.account)
       const change = CHANGELOG_HEADER + entry + '\n'
-      const updated = parseToolResult(await actions.commitFile.execute({
+      const updatedSha = confirmSkillTargetCommit(await actions.commitFile.execute({
         repository, branch: branchName, path: 'CHANGELOG.md', account: exec.account,
         content: current.replace(CHANGELOG_HEADER, change),
-        expectedHead: staged.commit,
+        expectedHead: stagedSha,
         message: 'docs(delta-code): record free Skill proposal CI admission',
-      }, exec))
-      if (updated.path !== 'CHANGELOG.md' || !/^[a-f0-9]{40}$/.test(updated.commit)) {
-        throw new Error('Skill proposal CHANGELOG commit confirmation unavailable')
-      }
-      const pr = parseToolResult(await actions.createPr.execute({
+      }, exec), repository, 'CHANGELOG.md', exec.account)
+      const prResponse = await actions.createPr.execute({
         repository, head: branchName, account: exec.account,
         title: 'chore(delta-code): stage verified free Skill proposal',
         body: 'Immutable source: ' + source.repository + '/' + source.path +
@@ -114,16 +117,14 @@ export function createSkillAdmissionProposalSpecs(
           'Anonymous audit found no known static risk indicators and identified a free license. ' +
           'Static review is not a security approval. The manifest remains inert after CI merge; ' +
           'runtime activation requires a separate reviewed catalog change. Do not bypass central CI.',
-      }, exec))
-      if (!Number.isSafeInteger(pr.number) || pr.number <= 0 ||
-          typeof pr.url !== 'string' || !pr.url.startsWith('https://github.com/')) {
-        throw new Error('Skill proposal PR confirmation unavailable')
-      }
+      }, exec)
+      const pr = confirmSkillTargetPullRequest(
+        prResponse, repository, exec.account)
       return {
         repository, account: branchedResponse.account,
         result: JSON.stringify({
           pr: { number: pr.number, url: pr.url, reused: pr.reused === true },
-          source, path, branch: branchName, head: updated.commit,
+          source, path, branch: branchName, head: updatedSha,
           state: 'pending-ci-review', approvalRequired: true,
           autoEnabled: false, executable: false,
           note: 'PR only; central CI approval never grants runtime Skill execution. Activation remains a separate, pinned reviewed catalog change.',

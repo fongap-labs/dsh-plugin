@@ -61,7 +61,8 @@ function setup(source = GOOD, options = {}) {
     [CATALOG_PATH]: options.modifiedCatalog ?? CATALOG,
     'CHANGELOG.md': CHANGELOG,
   }
-  const json = result => ({ result: JSON.stringify(result), account: options.badAccount ? 'other' : 'maintainer',
+  const json = result => ({ result: JSON.stringify(result),
+    account: options.badAccount ? 'other' : options.nativeAccount ? 'native' : 'maintainer',
     repository: TARGET })
   const actions = {
     file: { async execute(input) {
@@ -99,7 +100,8 @@ function setup(source = GOOD, options = {}) {
       events.push(['pr', input])
       assert.equal(input.repository, TARGET)
       assert.match(input.body, /Static validation/)
-      return json({ number: 72, url: 'https://github.com/maintainer/dsh-plugin/pull/72' })
+      return json({ number: 72, url: options.invalidPrUrl ??
+        'https://github.com/maintainer/dsh-plugin/pull/72' })
     } },
   }
   const transport = {
@@ -180,6 +182,28 @@ describe('Delta Code verified Skill catalog upgrade PR', () => {
     const h = setup()
     await assert.rejects(h.tool.execute({ ...h.args, submit: false }, h.exec), /submit=true/)
     assert.equal(h.publicCalls, 0)
+  })
+
+  it('rejects Skill promotion PR receipts pointing to another repository', async () => {
+    for (const url of [
+      'https://github.com/another-owner/dsh-plugin/pull/72',
+      'https://github.com/maintainer/dsh-plugin/pull/73',
+      'https://github.com/maintainer/dsh-plugin/pull/72?redirect=evil',
+      'https://github.com.evil.example/maintainer/dsh-plugin/pull/72',
+    ]) {
+      const h = setup(GOOD, { invalidPrUrl: url })
+      await assert.rejects(h.tool.execute(h.args, h.exec),
+        /PR URL does not match authorized target repository/)
+      assert.equal(h.credentialCalls, 0)
+    }
+  })
+
+  it('accepts an owner-verified native GitHub connection when no Delta owner binding was configured', async () => {
+    const h = setup(GOOD, { nativeAccount: true })
+    const response = await h.tool.execute(h.args, h.exec)
+    assert.equal(response.account, 'native')
+    assert.equal(JSON.parse(response.result).pr.number, 72)
+    assert.equal(h.credentialCalls, 0)
   })
 
   it('cannot promote paid, unsafe, modified or unreviewed public Skill bytes', async () => {
