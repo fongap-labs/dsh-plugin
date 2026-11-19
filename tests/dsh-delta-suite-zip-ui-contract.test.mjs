@@ -44,8 +44,8 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
   })
   it('leaves native image paste and drop to Harness while retaining Host Vision modules', () => {
     assert.doesNotMatch(client, /installClientVisionBridge|stopVisionBridge|data-composer-input/)
-    assert.doesNotMatch(client, /document\\.execCommand\\(['"`]insertText/)
-    assert.doesNotMatch(client, /(?:document|window)\\.addEventListener\\(['"`](?:paste|drop)['"`]/)
+    assert.doesNotMatch(client, /document\.execCommand\(['"`]insertText/)
+    assert.doesNotMatch(client, /(?:document|window)\.addEventListener\(['"`](?:paste|drop)['"`]/)
     const hostVision = file('src/host-vision.ts')
     assert.match(hostVision, /installHostVisionOps/)
     assert.match(hostVision, /registerVisionTools/)
