@@ -579,10 +579,17 @@ export function installHostSessionOps(
       const reg = getRegistry()
       if (isDisposed || !reg || typeof reg.archiveSession !== 'function') return false
       if (nativeArchivedAliases(reg, sessionId)?.length) return true
-      await Promise.resolve(reg.archiveSession(sessionId, {}))
+      // The public WorkspaceRegistry archive contract supports stopActivity:
+      // it persists the native archive before asking providers to stop an
+      // already-running turn, subagents, schedules and jobs. A plain archive
+      // can refuse a busy Session and leave its current request alive even
+      // though the Delta lock was durably committed. The official pre-step
+      // gate remains a fallback if native archival is unavailable or fails.
+      await Promise.resolve(reg.archiveSession(sessionId, { stopActivity: true }))
       return !isDisposed && getRegistry() === reg && Boolean(nativeArchivedAliases(reg, sessionId)?.length)
     } catch {
-      // An activity refusal or storage failure is not authorization to stop work.
+      // Missing/old Host or a persistence failure: do not report archival as
+      // successful. Durable Delta lock + Host pre-step veto still apply.
       return false
     }
   }

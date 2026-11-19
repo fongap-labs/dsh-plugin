@@ -72,7 +72,7 @@ test('configured legacy PIN prevents unauthenticated enrollment; missing credent
   } finally { legacy.dispose(); empty.dispose() }
 })
 
-test('archive refusal preserves durable lock and never forces activity to stop', async () => {
+test('archive refusal preserves durable lock after requesting public activity stop', async () => {
   const calls = []
   const f = fixture({ totpSecret: secret }, {
     archivedSessionIds: [],
@@ -83,7 +83,8 @@ test('archive refusal preserves durable lock and never forces activity to stop',
     assert.equal(locked.data.ok, true)
     assert.equal(locked.data.archived, false)
     assert.deepEqual(locked.data.state.lockedSessionIds, ['a'])
-    assert.deepEqual(calls, [['a', {}]])
+    assert.deepEqual(calls, [['a', { stopActivity: true }]],
+      'failure to stop via native Host must not roll back a durable lock')
   } finally { f.dispose() }
 })
 
