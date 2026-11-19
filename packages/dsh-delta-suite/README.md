@@ -22,7 +22,7 @@
 
 ## 首次 Suite 身份的 Beta 安装候选
 
-旧的 `dsh-delta-desktop-v0.1.0-beta.1` Release 和 `dsh-delta-suite-v0.1.0-beta.1` 历史标签不能代表当前 `main`；配置页新增的 `plugins.bundle.config` 和宿主能力提示不会自动出现在已安装旧版中。
+2026-11-12 的历史发行包与 `dsh-delta-suite-v0.1.0-beta.1` 标签不能代表当前 `main`；配置页新增的 `plugins.bundle.config` 和宿主能力提示不会自动出现在已安装旧版中。
 
 当前源码的**下一安装测试候选版本为 `0.1.0-beta.2`**。只在全部代码和中央 CI 门禁通过后，由操作者打开 [Action Worker · 手动发布应用](https://github.com/fongap-labs/action-worker/actions/workflows/release-app.yml)，选择 **Run workflow**，填入：
 
@@ -30,7 +30,7 @@
 - `requested_version`：`0.1.0-beta.2`
 - `product`：`dsh-delta-suite`
 
-发布流程从当前已合并并经过审计的 `main` 构建并校验 `fongap-labs-dsh-delta-suite.zip` 和 `.tgz`，发布至相同 GitHub 仓库的 `dsh-delta-suite-v0.1.0-beta.2` 预发布版本。正式 Release/附件须等流水线验证成功后才能使用；输入参数本身不代表已发布。无须使用旧版 Delta Desktop ZIP，也不应将 `dsh-delta-suite` 当作独立桌面程序启动。
+发布流程从当前已合并并经过审计的 `main` 构建并校验 `fongap-labs-dsh-delta-suite.zip` 和 `.tgz`，发布至相同 GitHub 仓库的 `dsh-delta-suite-v0.1.0-beta.2` 预发布版本。正式 Release/附件须等流水线验证成功后才能使用；输入参数本身不代表已发布。无须使用历史旧版 ZIP，也不应将 `dsh-delta-suite` 当作独立桌面程序启动。
 
 Windows 实机验收应使用隔离 Profile：先备份并停用旧插件，安装并启用新 Suite；确认三个官方配置入口、Delta/官方主题来回切换、会话锁图标和必要的安全回退，之后停用/卸载、重启 Harness 并核对原生会话与第三方插件未受影响。**这些测试尚未完成**。宿主私有操作拒绝 API、Gateway Reasoning Effort 自动传递和完整侧栏重排不能因发布 Beta 自动标记完成；不做与纯原生 Harness 的 A/B 测试。
 
