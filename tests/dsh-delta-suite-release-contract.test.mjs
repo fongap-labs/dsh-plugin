@@ -58,6 +58,21 @@ test('release guard rejects retired Host modal chrome takeover', () => {
   }
 })
 
+test('release guard refuses revived global Vision capture and private composer writes', () => {
+  for (const banned of [
+    "installClientVisionBridge()",
+    "document.addEventListener('paste', onPaste, { capture: true })",
+    "document.addEventListener('drop', onDrop, { capture: true })",
+    "document.execCommand('insertText', false, payload)",
+    "window.HTMLTextAreaElement.prototype",
+  ]) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\n' + banned, source),
+      /retired Vision composer takeover in emitted client/)
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(), source + '\n' + banned),
+      /retired Vision composer takeover in client source/)
+  }
+})
+
 test('release guard refuses changes to either approved compatibility implementation', () => {
   assert.throws(() => verifyApprovedZip3Client(emittedClient(), source.replace(
     'function installSidebarCompatibility(', 'function installSidebarCompatibility(/* changed */'
