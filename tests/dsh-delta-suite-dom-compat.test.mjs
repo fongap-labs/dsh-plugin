@@ -19,6 +19,15 @@ test('ZIP3 leaves unsupported native sidebar layout under Harness ownership', ()
   assert.doesNotMatch(source, /dtd-search-dialog-backdrop|openSearchDialog\(/)
   assert.match(style, /dtd-search-/)
 })
+test('retired compatibility root has neither source attribute writes nor theme selectors', () => {
+  assert.doesNotMatch(source, /data-delta-compat/i)
+  assert.doesNotMatch(style, /data-delta-compat/i)
+  assert.match(style, /:root\[data-delta-ui="delta"\] \.dtd-host-search\b/)
+  assert.match(style, /\.dtd-search-kbd\b/)
+  assert.match(style, /\.dtd-lock-shield\b/)
+  assert.match(style, /\[data-dtd-hidden-deleted="1"\]/)
+})
+
 test('Delta-owned modal backdrops are scoped to Delta, not Harness chrome', () => {
   assert.match(style, /\.dtd-search-backdrop\s*\{[^}]*background: var\(--dtd-bg-mask/s)
   assert.match(style, /\.dtd-dialog-backdrop\s*\{[^}]*background: var\(--dtd-bg-mask/s)
