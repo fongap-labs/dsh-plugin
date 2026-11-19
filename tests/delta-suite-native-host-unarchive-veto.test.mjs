@@ -669,6 +669,116 @@ test('native unarchive veto rejects tombstoned sessions and both public ID alias
   }
 })
 
+test('single and bulk tombstones only mutate public WorkspaceRegistry services, never Host-private storage or indices', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-workspace-native-owner-'))
+  const storage = join(home, 'storages')
+  mkdirSync(storage, { recursive: true })
+  const workspacePath = join(storage, 'workspace.json')
+  const nativeRecord = {
+    tables: { workspaces: {
+      primary: { id: 'primary', sessionIds: ['alpha', 'beta', 'protected', 'unrelated'], updatedAt: 'native' },
+    } },
+    global: { archivedSessionIds: ['alpha'], pinnedSessionIds: ['alpha', 'beta', 'unrelated'] },
+    extra: { thirdParty: { preferences: [1, 2, 3] } },
+  }
+  const originalBytes = JSON.stringify(nativeRecord, null, 2) + '\n'
+  writeFileSync(workspacePath, originalBytes, 'utf8')
+  const calls = []
+  const privateWrites = []
+  const nativeRow = {
+    id: 'primary', path: '/primary',
+    sessionIds: ['alpha', 'beta', 'protected', 'unrelated'],
+    detachSession(id) {
+      calls.push(['detach', id])
+      this.sessionIds = this.sessionIds.filter(value => value !== id)
+    },
+  }
+  const privateIndex = name => ({
+    delete(id) { privateWrites.push([name, id]) },
+  })
+  const registry = {
+    archivedSessionIds: ['alpha'],
+    pinnedSessionIds: ['alpha', 'beta', 'unrelated'],
+    list() { return [nativeRow] },
+    unarchiveSession(id) { calls.push(['unexpected-unarchive', id]) },
+    unpinSession(id) {
+      calls.push(['unpin', id])
+      this.pinnedSessionIds = this.pinnedSessionIds.filter(value => value !== id)
+    },
+    headers: privateIndex('headers'),
+    sessionPaths: privateIndex('sessionPaths'),
+    missingSessionPaths: privateIndex('missingSessionPaths'),
+    invalidSessionPaths: privateIndex('invalidSessionPaths'),
+  }
+  const f = fixture({
+    profileContext: { home }, registry,
+    initial: { lockedSessionIds: ['protected'] },
+  })
+  try {
+    const single = await f.request(ops.DELTA_SESSION_DELETE_PATH, { sessionId: 'alpha' })
+    assert.equal(single.status, 200)
+    const bulk = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH,
+      { sessionIds: ['beta', 'protected'] })
+    assert.equal(bulk.status, 200)
+    assert.deepEqual(bulk.data.deletedIds, ['beta'])
+    assert.deepEqual(bulk.data.skippedLockedIds, ['protected'])
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['alpha', 'beta'])
+    assert.deepEqual(nativeRow.sessionIds, ['protected', 'unrelated'],
+      'native WorkspaceEntity.detachSession owns membership updates')
+    assert.deepEqual(registry.pinnedSessionIds, ['unrelated'],
+      'native WorkspaceRegistry.unpinSession owns pinned state updates')
+    assert.deepEqual(registry.archivedSessionIds, ['alpha'],
+      'a tombstone cannot trigger native unarchive')
+    assert.deepEqual(privateWrites, [],
+      'Host header and path indices are private; Delta must never clear them')
+    assert.deepEqual(readFileSync(workspacePath, 'utf8'), originalBytes,
+      'Host workspace persistence is exclusively owned by WorkspaceRegistry')
+    assert.equal(calls.some(([method]) => method === 'unexpected-unarchive'), false)
+    assert.equal(calls.some(([method, id]) => method === 'detach' && id === 'protected'), false)
+  } finally {
+    f.dispose()
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('tombstone replay leaves Host workspace backing file untouched when native API is incomplete', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'delta-workspace-native-replay-'))
+  const storage = join(home, 'storages')
+  mkdirSync(storage, { recursive: true })
+  const workspacePath = join(storage, 'workspace.json')
+  const initialText = JSON.stringify({
+    tables: { workspaces: { only: { sessionIds: ['session-gone'] } } },
+    global: { archivedSessionIds: ['session-gone'], pinnedSessionIds: ['session-gone'] },
+  })
+  writeFileSync(workspacePath, initialText)
+  const privateEvents = []
+  const registry = {
+    entities: new Map([['only', {
+      detachSession(id) { privateEvents.push(['private-entity', id]) },
+    }]]),
+    headers: { delete(id) { privateEvents.push(['private-header', id]) } },
+    unpinSession(id) { privateEvents.push(['public-unpin', id]) },
+    unarchiveSession(id) { privateEvents.push(['unarchive', id]) },
+    // No public list: the tombstone must remain protected for later replay.
+  }
+  const f = fixture({
+    initial: { deletedSessionIds: ['session-gone'] },
+    profileContext: { home }, registry,
+  })
+  try {
+    assert.equal((await f.call({ action: 'unknown' })).status, 400)
+    assert.deepEqual(f.store.getCached().deletedSessionIds, ['session-gone'])
+    assert.equal(privateEvents.some(([kind]) => kind.startsWith('private-')), false)
+    assert.equal(privateEvents.some(([kind]) => kind === 'unarchive'), false)
+    assert.equal(privateEvents.some(([kind]) => kind === 'public-unpin'), true)
+    assert.equal(readFileSync(workspacePath, 'utf8'), initialText,
+      'a missing public registry projection cannot authorize private storage writes')
+  } finally {
+    f.dispose()
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
 test('startup tombstone reconciliation detaches native membership without any unarchive call', async () => {
   const calls = []
   const registry = {
