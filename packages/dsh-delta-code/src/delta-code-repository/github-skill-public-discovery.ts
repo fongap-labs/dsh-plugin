@@ -3,12 +3,15 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubToolSpec } from './github-operations.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
+import { isFreeSkillLicense, decodePinnedSkillBlob, inspectFreeSkillText } from '../delta-code-strategy/free-skill-policy.js'
 
 const SEARCH_PAGE = 8
-const MAX_REPOSITORIES = 4
-const MAX_RESULTS = 12
-const MAX_CALLS = 13 // one repository search, then at most four commits, trees and owner records
+const MAX_REPOSITORIES = 3
+const MAX_RESULTS = 6
+const MAX_CALLS = 19 // search + at most three (commit, tree, license blob, two Skill blobs, owner)
 const SKILL_PATH = /^skills\/([a-z0-9-]+)\/SKILL\.md$/
+const LICENSE_PATH = /^LICENSE(?:\.md|\.txt)?$/i
+const PER_REPO = 2
 const FULL_NAME = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
 const SHA = /^[a-f0-9]{40}$/
 const BRANCH = /^[A-Za-z0-9_][A-Za-z0-9._/-]{0,99}$/
@@ -67,6 +70,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
       const results: Array<{
         repository: string; path: string; name: string; suggestedCommit: string;
         sourceBlobSha: string; status: 'unreviewed'; requiresReview: true;
+        freeEvidence: { readonly license: string; readonly licenseBlobSha: string; readonly checkedAtCommit: string };
         relevance: ReturnType<typeof relevance>;
         ranking: ReturnType<typeof rankSkillEvidence>; recommendationScore: number
       }> = []
@@ -75,10 +79,12 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
       const skipped: string[] = []
       let isRateLimited = false
       let checkedRepositories = 0
+      let excludedByCost = 0
       const repositories = search.items.slice(0, SEARCH_PAGE).filter((item: any) => {
         const full = item?.full_name
         if (typeof full !== 'string' || !FULL_NAME.test(full) ||
             item.private !== false || item.archived === true || item.disabled === true ||
+            !isFreeSkillLicense(item.license?.spdx_id) ||
             typeof item.default_branch !== 'string' || !BRANCH.test(item.default_branch) ||
             item.default_branch.includes('..')) return false
         const key = full.toLowerCase()
@@ -108,11 +114,46 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
             skipped.push(repository + ': unverified or truncated Git tree')
             continue
           }
+          const licenseEntry = tree.tree.find((entry: any) =>
+            entry?.type === 'blob' && typeof entry.path === 'string' &&
+            LICENSE_PATH.test(entry.path) && typeof entry.sha === 'string' && SHA.test(entry.sha))
+          if (!licenseEntry) { excludedByCost++; continue }
+          const licenseBlob = await read(base + '/git/blobs/' + licenseEntry.sha)
+          const licenseText = decodePinnedSkillBlob(licenseBlob, licenseEntry.sha, 32 * 1024)
+          const identifier = repo.license.spdx_id as string
+          const licenseMatches = licenseText.includes('SPDX-License-Identifier: ' + identifier) ||
+            (identifier === 'MIT' && /MIT License/i.test(licenseText)) ||
+            (identifier === 'Apache-2.0' && /Apache License/i.test(licenseText)) ||
+            (identifier.startsWith('BSD-') && /Redistribution and use/i.test(licenseText)) ||
+            (identifier === 'ISC' && /Permission to use, copy, modify/i.test(licenseText)) ||
+            (identifier === 'Unlicense' && /unlicense|public domain/i.test(licenseText)) ||
+            (identifier.startsWith('GPL-') && /GNU GENERAL PUBLIC LICENSE/i.test(licenseText)) ||
+            (identifier.startsWith('LGPL-') && /GNU LESSER GENERAL PUBLIC LICENSE/i.test(licenseText)) ||
+            (identifier.startsWith('AGPL-') && /GNU AFFERO GENERAL PUBLIC LICENSE/i.test(licenseText)) ||
+            (identifier.startsWith('CC-') && /Creative Commons/i.test(licenseText)) ||
+            (identifier === 'MPL-2.0' && /Mozilla Public License/i.test(licenseText))
+          if (!licenseMatches) { excludedByCost++; continue }
           const skills = tree.tree.filter((entry: any) =>
             entry && entry.type === 'blob' && typeof entry.path === 'string' &&
             SKILL_PATH.test(entry.path) && typeof entry.sha === 'string' && SHA.test(entry.sha))
-            .slice(0, MAX_RESULTS)
+            .slice(0, PER_REPO)
           if (!skills.length) continue
+          const freeSkills: Array<{ path: string; sha: string }> = []
+          for (const skill of freeSkills) {
+            const sourceBlob = await read(base + '/git/blobs/' + skill.sha)
+            const markdown = decodePinnedSkillBlob(sourceBlob, skill.sha)
+            const cost = inspectFreeSkillText(markdown, identifier)
+            const skillName = skill.path.match(SKILL_PATH)?.[1]
+            const frontmatter = /^---\r?\n([\s\S]{1,4096}?)\r?\n---\r?\n/.exec(markdown)
+            const declaredName = frontmatter && /^name:\s*['"]?([a-z0-9-]+)['"]?\s*$/m.exec(frontmatter[1])?.[1]
+            if (!cost.eligible || !skillName || declaredName !== skillName ||
+                !markdown.slice(frontmatter?.[0].length ?? 0).trim()) {
+              excludedByCost++
+              continue
+            }
+            freeSkills.push({ path: skill.path, sha: skill.sha })
+          }
+          if (!freeSkills.length) continue
           const ownerKey = owner.toLowerCase()
           if (!owners.has(ownerKey)) {
             try {
@@ -138,6 +179,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
             results.push({
               repository, path: skill.path, name, suggestedCommit: commit,
               sourceBlobSha: skill.sha, status: 'unreviewed', requiresReview: true,
+              freeEvidence: { license: identifier, licenseBlobSha: licenseEntry.sha, checkedAtCommit: commit },
               relevance: fit, ranking, recommendationScore: ranking.score + fit.score,
             })
           }
@@ -156,10 +198,10 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
         result: JSON.stringify({
           totalRepositoryMatches: search.total_count,
           checkedRepositories, apiCalls: calls, maxApiCalls: MAX_CALLS,
-          isRateLimited, skipped, candidates: results.slice(0, MAX_RESULTS),
+          isRateLimited, excludedByCost, skipped, candidates: results.slice(0, MAX_RESULTS),
           truncated: search.total_count > repositories.length || results.length > MAX_RESULTS ||
             isRateLimited,
-          note: 'First-page public repository discovery, NOT exhaustive code search. Candidate paths and Git blobs are pinned to a suggested commit but source, license, dependencies, safety and relevance still require code_github_skill_review with an authorized owner binding. No public candidate is trusted or invocable.',
+          note: 'Free-only: repositories lacking recognized public free licenses and Skill bodies with paid prerequisites or unresolved relative dependencies are excluded. License/blob evidence is pinned but does not guarantee external services will never charge. This is bounded repository discovery, NOT exhaustive code search. Every candidate remains unreviewed and cannot be invoked without separate approval.',
         }),
       }
     },
