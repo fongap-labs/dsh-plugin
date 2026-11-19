@@ -73,6 +73,18 @@ test('release guard refuses revived global Vision capture and private composer w
   }
 })
 
+test('release guard rejects reintroduced native lock-row markup and styling', () => {
+  for (const marker of ['dtd-session-lock-badge', 'dtd-workspace-lock-badge',
+    'data-dtd-session-locked', 'data-dtd-workspace-locked']) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\n' + marker, source),
+      /retired native lock row badge in emitted client/)
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(), source + '\n' + marker),
+      /retired native lock row badge in client source/)
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n.' + marker + ' {}'), source),
+      /retired native lock row badge in emitted theme/)
+  }
+})
+
 test('release guard refuses changes to either approved compatibility implementation', () => {
   assert.throws(() => verifyApprovedZip3Client(emittedClient(), source.replace(
     'function installSidebarCompatibility(', 'function installSidebarCompatibility(/* changed */'

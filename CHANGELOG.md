@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 退役原生会话/工作区行锁徽章注入与私有 CSS；保留服务侧锁定、墓碑和兼容防护（#333）。
+
 - 新增: Delta Code 支持不使用组织 GitHub Token 的全站公开仓库 Skill 有界发现：验证 Git Tree 中的 SKILL.md、固定 Commit/Blob SHA、按任务匹配与维护证据排序；保持只读、候选未审核、限流停止及用户权限门禁。
 
 - 修复: 移除 Vision 全局粘贴/拖放及私有输入接管；保留 Host Vision 工具与配置，补充发布回归（#333）。

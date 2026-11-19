@@ -1750,21 +1750,8 @@ html[data-windows-titlebar]:root[data-delta-ui="delta"]:has([data-sidebar-collap
 }
 
 /* ============================================================================
- * 11. Session Lock Badge/Shield, Move/Delete Modals, Network Proxy & 1-Line Errors
+ * 11. Session Lock Shield, Move/Delete Modals, Network Proxy & 1-Line Errors
  * ============================================================================ */
-.dtd-session-lock-badge,
-.dtd-workspace-lock-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 15px;
-  height: 15px;
-  margin-left: 4px;
-  color: var(--dtd-brand, var(--dsw-alias-brand-primary, currentColor));
-  opacity: 0.9;
-}
-
 .dtd-lock-shield {
   position: absolute;
   inset: 0;

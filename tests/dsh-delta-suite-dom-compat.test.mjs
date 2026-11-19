@@ -125,6 +125,23 @@ test('Host owns frame columns, splitters and expand/collapse behavior without De
   assert.equal(readiness.required.sidebar_spacing, false, 'unverified layout capability must stay disabled')
 })
 
+test('Host owns native session/workspace lock badges; Delta keeps the tested authorization and shield paths', () => {
+  const begin = source.indexOf('function installSidebarCompatibility(')
+  const end = source.indexOf('\ntype SearchTabId', begin)
+  const compat = source.slice(begin, end)
+  assert.ok(begin >= 0 && end > begin)
+  for (const marker of ['dtd-session-lock-badge', 'dtd-workspace-lock-badge',
+    'data-dtd-session-locked', 'data-dtd-workspace-locked']) {
+    assert.equal(compat.includes(marker), false, marker)
+    assert.equal(style.includes(marker), false, marker)
+  }
+  assert.doesNotMatch(compat, /querySelectorAll<HTMLElement>\('\[data-row-key\^="workspace:"\]'\)/)
+  assert.match(compat, /hiddenDeletedRows/)
+  assert.match(compat, /syncLockShieldOverlay/)
+  assert.match(source, /installWorkspaceMutationGuards/)
+  assert.match(source, /readWorkspaceMutationPolicy/)
+})
+
 test('native session and workspace hover cards remain Host-owned; public Slot keeps privacy protection', () => {
   const start = source.indexOf('function installSidebarCompatibility(')
   const end = source.indexOf('type SearchTabId', start)
