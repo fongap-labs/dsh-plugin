@@ -217,13 +217,13 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   ensure(Boolean(ownedMatch), 'ZIP3 stylesheet missing from emitted client')
   let theme
   try { theme = JSON.parse(ownedMatch[1]) } catch { ensure(false, 'ZIP3 stylesheet encoding') }
+  ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => theme.includes(marker)),
+    'retired native lock row badge in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
   const blob = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
   ensure(blob === ZIP3_THEME_BLOB, 'ZIP3 approved theme differs')
-  ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => theme.includes(marker)),
-    'retired native lock row badge in emitted theme')
 
   for (const name of ['installSidebarCompatibility', 'installHostSearch']) {
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
