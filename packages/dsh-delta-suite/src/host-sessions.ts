@@ -515,18 +515,27 @@ export function readHostAgentStepProtection(
   for (let depth = 0; depth < 64; depth++) {
     if (!current || typeof current !== 'object') return 'unknown'
     const h = current as { id?: unknown; origin?: unknown; parentSession?: unknown }
-    if (typeof h.id !== 'string' || !h.id.trim() || visited.has(h.id)) return 'unknown'
+    if (typeof h.id !== 'string' || !isSafeSessionMapKey(h.id) ||
+        [...visited].some(ancestorId => sameSessionId(ancestorId, h.id as string))) return 'unknown'
     visited.add(h.id)
     const verdict = decide(h.id)
     if (verdict !== 'clear') return verdict
     if (h.origin !== 'subagent') return 'clear'
-    if (typeof h.parentSession !== 'string' || !h.parentSession.trim()) return 'unknown'
+    if (typeof h.parentSession !== 'string' || !isSafeSessionMapKey(h.parentSession)) return 'unknown'
     // A missing parent handle must not conceal its durable lock/tombstone.
     const parentVerdict = decide(h.parentSession)
     if (parentVerdict !== 'clear') return parentVerdict
-    try { current = getParentHeader(h.parentSession) }
+    let parent: unknown
+    try { parent = getParentHeader(h.parentSession) }
     catch { return 'unknown' }
-    if (!current) return 'unknown'
+    // The public Sessions registry can be replaced or return stale records.
+    // A looked-up header is proof of ancestry only when it belongs to the
+    // requested parent (including the Host's raw/session-prefixed aliases).
+    // Never follow a different Session's unlocked header to bypass a lock.
+    if (!parent || typeof parent !== 'object' ||
+        typeof (parent as { id?: unknown }).id !== 'string' ||
+        !sameSessionId((parent as { id: string }).id, h.parentSession)) return 'unknown'
+    current = parent
   }
   return 'unknown'
 }
