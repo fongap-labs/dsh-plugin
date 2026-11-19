@@ -337,6 +337,80 @@ test('published Session hover Slot shows only an authorized, path-free identity 
     'disposing the Suite unregisters the public hover contribution')
 })
 
+
+test('Client never archives or unarchives Host sessions after state refresh, lock, unlock or unbind', async () => {
+  const app = harness()
+  const sessionId = 'session-one'
+  const nativeMutations = []
+  const nativeArchived = []
+  app.workspaces.archiveSession = async (id, opts) => { nativeMutations.push(['archive', id, opts]) }
+  app.workspaces.unarchiveSession = async id => { nativeMutations.push(['unarchive', id]) }
+  app.features.setWorkspacesApi(app.workspaces, () => ({
+    items: [{
+      workspaceId: 'default', path: '/workspace', title: 'workspace',
+      sessionIds: [sessionId],
+    }],
+    archivedSessionIds: nativeArchived,
+  }))
+  let isLocked = true
+  let hasPin = true
+  const state = () => ({
+    hasPin, lockMode: hasPin ? 'totp' : 'none',
+    lockedSessionIds: isLocked ? [sessionId] : [],
+    lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {},
+  })
+  app.context.window.location = { href: 'https://harness.test/' }
+  app.context.fetch = async (path, options = {}) => {
+    if (path === '/api/delta-suite/state') {
+      return { ok: true, status: 200, json: async () => ({ state: state() }) }
+    }
+    if (path === '/api/delta-suite/session-lock') {
+      const body = JSON.parse(options.body)
+      if (body.action === 'unlock') isLocked = false
+      if (body.action === 'lock' || body.action === 'setup-confirm') isLocked = true
+      if (body.action === 'unbind-2fa') { isLocked = false; hasPin = false }
+      return { ok: true, status: 200, json: async () => ({
+        ok: true, verified: true, state: state(),
+        unarchivedIds: [sessionId], pendingUnarchiveIds: [],
+      }) }
+    }
+    return { ok: false, status: 404, json: async () => ({}) }
+  }
+  try {
+    await app.features.refreshState()
+    assert.deepEqual(nativeMutations, [],
+      'refreshing a locked Session does not retry native archive writes from the Client')
+    await app.features.lockSession(sessionId)
+    assert.deepEqual(nativeMutations, [],
+      'Host lock response already owns native archive mutation')
+
+    // The native archive may predate Delta entirely, or have been made by
+    // another plugin. Unlock must honor Host ownership, not infer from UI state.
+    nativeArchived.push(sessionId)
+    const unlock = await app.features.verifyOrUnlockSession(sessionId, '123456', true)
+    assert.equal(unlock.ok, true)
+    assert.deepEqual(nativeMutations, [],
+      'Client must never unarchive a pre-existing Host record')
+
+    await app.features.lockSession(sessionId)
+    const unbind = await app.features.clearPin('123456')
+    assert.equal(unbind.ok, true)
+    assert.deepEqual(nativeMutations, [],
+      'the Host unbind result does not authorize a second Client unarchive')
+
+    isLocked = true
+    hasPin = true
+    nativeArchived.length = 0
+    await app.features.refreshState()
+    app.features.setWorkspacesApi(app.workspaces, () => ({
+      items: [{ workspaceId: 'default', path: '/workspace', title: 'workspace', sessionIds: [sessionId] }],
+      archivedSessionIds: [],
+    }))
+    assert.deepEqual(nativeMutations, [],
+      'Workspace service re-injection does not recreate an archive with no ownership attribution')
+  } finally { app.cleanup() }
+})
+
 test('public native Session trailing Slot renders only Host-confirmed protected rows', async () => {
   const app = harness()
   const entry = app.components.get('settings.section')
