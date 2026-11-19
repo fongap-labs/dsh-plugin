@@ -50,6 +50,21 @@ test('unverified host-only capabilities remain unclaimed until Windows validatio
   }
 })
 
+test('native sidebar brand, logo rows, and openers remain Harness-owned in Delta mode', () => {
+  for (const marker of ['[data-sidebar-toggle]', '[data-sidebar-opener]',
+    '[data-sidebar-right-toggle]', '[data-sidebar-right-expand]',
+    '[class*="wtg9ga_logoRow"]', '[class*="SidebarRoot_logoRow"]',
+    '[class*="wtg9ga_brandIdentity"]', '[class*="SidebarRoot_brand"]',
+    '[class*="FishLogo"]', '--dsh-windows-menu-start']) {
+    assert.equal(style.includes(marker), false, 'private native sidebar control styling: ' + marker)
+  }
+  assert.match(style, /\.dtd-brand-mark\s*\{/)
+  assert.match(style, /\.dtd-brand-name\s*\{/)
+  assert.match(source, /sidebar\.brand\.mark/)
+  assert.match(source, /sidebar\.brand\.name/)
+  assert.match(style, /\.dtd-lock-shield\s*\{/)
+})
+
 test('native workspace expansion stays Host-owned until an official capability exists', () => {
   const begin = source.indexOf('function installSidebarCompatibility(')
   const end = source.indexOf('\ntype SearchTabId', begin)

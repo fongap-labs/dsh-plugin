@@ -93,6 +93,15 @@ test('release guard rejects reintroduced native lock-row markup and styling', ()
   }
 })
 
+test('release guard rejects private native sidebar opener and logo suppression styling', () => {
+  for (const marker of ['[data-sidebar-toggle]', '[data-sidebar-right-toggle]',
+    '[class*="wtg9ga_logoRow"]', '[class*="SidebarRoot_brand"]',
+    '--dsh-windows-menu-start']) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n' + marker), source),
+      /retired Host sidebar control CSS in emitted theme/)
+  }
+})
+
 test('release guard refuses retired Host center geometry styling', () => {
   for (const marker of ['[class*="mP3x-q_centerCol"]', '[class~="an3WzG_header"]',
     '[class*="F07MqG_dock"]', '[class*="eciBTa_root"]',
