@@ -104,7 +104,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
           const tree = await read(base + '/git/trees/' + treeSha + '?recursive=1')
           checkedRepositories++
           if (!Array.isArray(tree?.tree) || tree.truncated !== false ||
-              tree.tree.length > 5000) {
+              tree.sha !== treeSha || tree.tree.length > 5000) {
             skipped.push(repository + ': unverified or truncated Git tree')
             continue
           }
