@@ -148,6 +148,34 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     assert.equal(h.privilegedCalls, 0)
   })
 
+  it('filters paid pinned Skills and unknown-license repositories before recommendation', async () => {
+    const paid = blob(['---', 'name: react-profiler', 'description: Code tool', '---', '', '# Guidance', 'Requires a paid API subscription.'].join('\\n'))
+    const h = mockTransport({ read(path) {
+      if (path.startsWith('/search/repositories?')) return {
+        total_count: 2, items: [
+          repo('alpha/skills', 'React skills'),
+          { ...repo('paid/locked', 'Requires premium access'), license: null },
+        ],
+      }
+      if (path.endsWith('/commits/main')) return { sha: SHA, commit: { tree: { sha: TREE } } }
+      if (path.includes('/git/trees/')) return {
+        sha: TREE, truncated: false,
+        tree: [
+          { path: 'LICENSE', type: 'blob', sha: LICENSE.sha },
+          { path: 'skills/react-profiler/SKILL.md', type: 'blob', sha: paid.sha },
+        ],
+      }
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      if (path.endsWith('/git/blobs/' + paid.sha)) return paid
+      throw Error('Unexpected paid test path ' + path)
+    } })
+    const result = parse(await h.tool.execute({ query: 'react' }, h.exec))
+    assert.deepEqual(result.candidates, [])
+    assert.equal(result.excludedByCost, 1)
+    assert.equal(h.privilegedCalls, 0)
+    assert.ok(h.calls.every(path => !path.includes('/repos/paid/')))
+  })
+
   it('never sends a credential through the real public transport and blocks unwanted paths', async () => {
     const transport = createGitHubTransport([{ owner: 'alpha', tokenEnv: 'TEST_TOKEN' }], {
       get() { throw Error('credential resolver MUST NOT be contacted') },
