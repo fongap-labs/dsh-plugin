@@ -498,6 +498,42 @@ export function readHostUnarchiveProtection(
     ? 'deleted' : protection.session(sessionId)
 }
 
+/**
+ * Reuse the durable Session/Workspace lock and tombstone verdict at the
+ * official Host agent/pre-step admission seam. The Host can reject a model
+ * step even if a running Session could not be archived at lock time.
+ *
+ * A subagent inherits its parent's protection. Missing ancestry or a cycle
+ * is uncertain and may not authorize a new model request.
+ */
+export function readHostAgentStepProtection(
+  state: DeltaHostState,
+  getRegistry: () => unknown,
+  header: unknown,
+  getParentHeader: (sessionId: string) => unknown,
+): 'deleted' | 'locked' | 'unknown' | 'clear' {
+  const decide = readHostUnarchiveProtection(state, getRegistry)
+  const visited = new Set<string>()
+  let current = header
+  for (let depth = 0; depth < 64; depth++) {
+    if (!current || typeof current !== 'object') return 'unknown'
+    const h = current as { id?: unknown; origin?: unknown; parentSession?: unknown }
+    if (typeof h.id !== 'string' || !h.id.trim() || visited.has(h.id)) return 'unknown'
+    visited.add(h.id)
+    const verdict = decide(h.id)
+    if (verdict !== 'clear') return verdict
+    if (h.origin !== 'subagent') return 'clear'
+    if (typeof h.parentSession !== 'string' || !h.parentSession.trim()) return 'unknown'
+    // A missing parent handle must not conceal its durable lock/tombstone.
+    const parentVerdict = decide(h.parentSession)
+    if (parentVerdict !== 'clear') return parentVerdict
+    try { current = getParentHeader(h.parentSession) }
+    catch { return 'unknown' }
+    if (!current) return 'unknown'
+  }
+  return 'unknown'
+}
+
 export function readHostSearchExclusion(state: DeltaHostState, getRegistry: () => unknown): (sessionId: string) => boolean {
   const verdict = readHostUnarchiveProtection(state, getRegistry)
   return sessionId => verdict(sessionId) !== 'clear'
@@ -1052,6 +1088,43 @@ export function installHostSessionOps(
       })
       if (typeof off === 'function') unregisterCallbacks.push(off)
     } catch { /* Older Host: retain the existing client compatibility guard. */ }
+  }
+
+  // This is a published Host waterfall seam (see the native
+  // ArchivedSessionGate). It blocks new model steps for protected Sessions,
+  // including those whose archive was refused because work was already
+  // active. Never acquire the Delta mutation queue here: an archive request
+  // may be waiting on Host Agent activity providers.
+  if (typeof ctx.on === 'function') {
+    try {
+      const off = ctx.on('agent/pre-step', async (
+        payload: { agent?: { session?: { header?: unknown } } },
+        next: () => unknown,
+      ) => {
+        if (isDisposed) return next()
+        let verdict: ReturnType<typeof readHostAgentStepProtection>
+        try {
+          const confirmed = await store.read()
+          if (isDisposed) return next()
+          verdict = readHostAgentStepProtection(
+            confirmed, getRegistry, payload?.agent?.session?.header,
+            parentId => {
+              const sessions = ctx.get?.('sessions') as {
+                get?: (sessionId: string) => { header?: unknown } | undefined
+              } | undefined
+              return sessions?.get?.(parentId)?.header
+            },
+          )
+        } catch {
+          // Unreadable durable locks, missing public ancestry or Registry
+          // failure cannot authorize a model request.
+          return { kind: 'reject' as const }
+        }
+        if (isDisposed) return next()
+        return verdict === 'clear' ? next() : { kind: 'reject' as const }
+      })
+      if (typeof off === 'function') unregisterCallbacks.push(off)
+    } catch { /* Older Host: retain existing archive and native UI guards. */ }
   }
 
   // Prime state cache once at startup, sweep deleted session artifacts, and sync locked -> archived
