@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 修复: 原生 Session 归档与撤销只由 Delta Suite Host 服务层执行并持久化归属；客户端不再在锁定、解锁、解绑、刷新和 Workspace 重挂载时重复调用原生 `archiveSession` / `unarchiveSession`，避免取消用户或第三方原有归档（#190）。
+- 修复: 原生 Session 归档统一由 Host 负责；客户端不再重复归档或解除用户、第三方已有归档（#190）。
 
 - 修复: Delta Suite Host 会话锁定、验证、解锁、二次验证初始化和单项/批量删除统一拒绝路径型、原型属性型 Session ID，防止非法目标进入持久化和宿主归档/删除操作（#333）。
 
