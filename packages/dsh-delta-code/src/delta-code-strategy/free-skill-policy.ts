@@ -1,4 +1,11 @@
 /** Free-only Skill discovery and loading policy. Deliberately fail closed on missing evidence. */
+export const FREE_ONLY_TOOL_GUIDANCE =
+  'Free-only user policy: use only Skills and external tools with verifiably no-cost access. ' +
+  'Exclude subscriptions, premium features, paid APIs, metered bills and unknown prices; ' +
+  'free quotas are allowed only with confirmed hard no-overage limits. ' +
+  'Availability in the Host tool list is not proof that use is free. ' +
+  'Do not trigger a billable native Host tool when cost cannot be confirmed.'
+
 import { createHash } from 'node:crypto'
 
 /** Reviewed open licenses. Licensing is necessary but does not prove a tool/API is free. */
