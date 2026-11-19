@@ -1333,6 +1333,37 @@ test('bulk delete deduplicates raw and prefixed IDs without losing live aliases 
   } finally { f.dispose() }
 })
 
+
+test('bulk alias indexing preserves first-match grouping across repeated prefixes', async () => {
+  const cancelled = []
+  const f = fixture({
+    initial: {
+      movedSessions: {
+        alpha: 'ordinary',
+        'session-alpha': 'ordinary',
+        'session-session-alpha': 'ordinary',
+        'session-session-session-alpha': 'ordinary',
+        unrelated: 'ordinary',
+      },
+    },
+    sessions: { cancel(id) { cancelled.push(id) } },
+  })
+  try {
+    // The first two IDs do not overlap directly; the third overlaps both.
+    // Keep the legacy first-spelling-wins decision, not transitive normalization.
+    const result = await f.request(ops.DELTA_SESSION_DELETE_UNGROUPED_PATH, {
+      sessionIds: ['alpha', 'session-session-alpha', 'session-alpha'],
+    })
+    assert.equal(result.status, 200)
+    assert.deepEqual(result.data.deletedIds, ['alpha', 'session-session-alpha'])
+    assert.deepEqual(f.store.getCached().movedSessions, { unrelated: 'ordinary' })
+    assert.deepEqual(cancelled, [
+      'alpha', 'session-alpha',
+      'session-session-alpha', 'session-alpha',
+    ], 'each retained delete must keep its original requested alias ordering')
+  } finally { f.dispose() }
+})
+
 test('exact and prefixed repeated input IDs still yield one logical deletion', async () => {
   const cancels = []
   const f = fixture({
