@@ -42,6 +42,7 @@ export function makePendingSkillProposal(report: unknown): PendingSkillProposal 
   const source = data.candidate
   if (!source || typeof source.repository !== 'string' || !REPOSITORY.test(source.repository) ||
       typeof source.path !== 'string' || !SKILL_PATH.test(source.path) ||
+      source.repository.includes('..') || ['.', '..'].includes(source.repository.split('/')[1]!) ||
       !['commit', 'sourceBlobSha', 'licenseBlobSha'].every(key =>
         typeof source[key] === 'string' && SHA.test(source[key]))) {
     throw new Error('Unverified immutable Skill proposal source')
