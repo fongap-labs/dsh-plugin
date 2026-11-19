@@ -515,18 +515,20 @@ export function readHostAgentStepProtection(
   for (let depth = 0; depth < 64; depth++) {
     if (!current || typeof current !== 'object') return 'unknown'
     const h = current as { id?: unknown; origin?: unknown; parentSession?: unknown }
-    if (typeof h.id !== 'string' || !isSafeSessionMapKey(h.id) ||
-        [...visited].some(ancestorId => sameSessionId(ancestorId, h.id as string))) return 'unknown'
-    visited.add(h.id)
-    const verdict = decide(h.id)
+    const currentId = h.id
+    if (typeof currentId !== 'string' || !currentId.trim() || !isSafeSessionMapKey(currentId) ||
+        [...visited].some(ancestorId => sameSessionId(ancestorId, currentId))) return 'unknown'
+    visited.add(currentId)
+    const verdict = decide(currentId)
     if (verdict !== 'clear') return verdict
     if (h.origin !== 'subagent') return 'clear'
-    if (typeof h.parentSession !== 'string' || !isSafeSessionMapKey(h.parentSession)) return 'unknown'
+    const parentId = h.parentSession
+    if (typeof parentId !== 'string' || !parentId.trim() || !isSafeSessionMapKey(parentId)) return 'unknown'
     // A missing parent handle must not conceal its durable lock/tombstone.
-    const parentVerdict = decide(h.parentSession)
+    const parentVerdict = decide(parentId)
     if (parentVerdict !== 'clear') return parentVerdict
     let parent: unknown
-    try { parent = getParentHeader(h.parentSession) }
+    try { parent = getParentHeader(parentId) }
     catch { return 'unknown' }
     // The public Sessions registry can be replaced or return stale records.
     // A looked-up header is proof of ancestry only when it belongs to the
@@ -534,7 +536,7 @@ export function readHostAgentStepProtection(
     // Never follow a different Session's unlocked header to bypass a lock.
     if (!parent || typeof parent !== 'object' ||
         typeof (parent as { id?: unknown }).id !== 'string' ||
-        !sameSessionId((parent as { id: string }).id, h.parentSession)) return 'unknown'
+        !sameSessionId((parent as { id: string }).id, parentId)) return 'unknown'
     current = parent
   }
   return 'unknown'
