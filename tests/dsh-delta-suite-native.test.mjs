@@ -162,8 +162,12 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(bundle.component({ view: 'summary' }), null, 'bundle configuration does not double-render a summary')
   const controller = entry.spec.inject().controller
   assert.equal(tab.spec.inject().controller, controller, 'both Host entries use the same controller')
-  assert.match(JSON.stringify(bundle.component({ view: 'page' })), /data-delta-personalization|PersonalizationSection/,
-    'installed bundle contributes the same live configuration page')
+  const bundleView = bundle.component({ view: 'page' })
+  assert.equal(bundleView.type.name, 'PersonalizationSection',
+    'installed bundle uses the same real Settings React component')
+  assert.equal(bundleView.props.controller, controller, 'installed bundle shares the same live controller')
+  assert.match(JSON.stringify(bundleView.type(bundleView.props)), /data-delta-personalization/,
+    'installed bundle renders the actual configuration form')
 
   assert.equal(controller.getSnapshot().error, false, 'ZIP palette must be owned before reporting readiness')
   assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
