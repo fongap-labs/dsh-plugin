@@ -184,74 +184,6 @@ async function resolveSessionFiles(
   return { root, dirs: [...dirs], files: [...files] }
 }
 
-async function purgeSessionsFromWorkspaceJson(
-  ctx: SessionOpsHostContext,
-  sessionIds: string[],
-): Promise<void> {
-  if (!Array.isArray(sessionIds) || sessionIds.length === 0) return
-  try {
-    const fs = await loadNodeModule<any>('node:fs/promises')
-    const pathMod = await loadNodeModule<any>('node:path')
-    const dshHome = await resolveDshHome(ctx)
-    const wsPath = pathMod.join(dshHome, 'storages', 'workspace.json')
-
-    const raw = await fs.readFile(wsPath, 'utf8').catch(() => null)
-    if (!raw) return
-    const data = JSON.parse(raw)
-    if (!data || typeof data !== 'object') return
-
-    const idSet = new Set<string>()
-    for (const sid of sessionIds) {
-      if (!sid || typeof sid !== 'string') continue
-      const trimmed = sid.trim()
-      const rawId = trimmed.replace(/^session-/, '')
-      idSet.add(trimmed)
-      idSet.add(rawId)
-      idSet.add(`session-${rawId}`)
-    }
-
-    let isModified = false
-
-    if (data.tables && typeof data.tables.workspaces === 'object') {
-      for (const [, ws] of Object.entries(data.tables.workspaces as Record<string, any>)) {
-        if (ws && Array.isArray(ws.sessionIds)) {
-          const originalLen = ws.sessionIds.length
-          ws.sessionIds = ws.sessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
-          if (ws.sessionIds.length !== originalLen) {
-            isModified = true
-            ws.updatedAt = new Date().toISOString()
-          }
-        }
-      }
-    }
-
-    if (data.global && typeof data.global === 'object') {
-      if (Array.isArray(data.global.archivedSessionIds)) {
-        const orig = data.global.archivedSessionIds.length
-        data.global.archivedSessionIds = data.global.archivedSessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
-        if (data.global.archivedSessionIds.length !== orig) isModified = true
-      }
-      if (Array.isArray(data.global.pinnedSessionIds)) {
-        const orig = data.global.pinnedSessionIds.length
-        data.global.pinnedSessionIds = data.global.pinnedSessionIds.filter((id: any) => typeof id === 'string' && !idSet.has(id.trim()))
-        if (data.global.pinnedSessionIds.length !== orig) isModified = true
-      }
-    }
-
-    if (isModified) {
-      const serialized = JSON.stringify(data, null, 2)
-      const tmpPath = `${wsPath}.tmp.${Date.now()}`
-      await fs.writeFile(tmpPath, serialized, 'utf8')
-      try {
-        await fs.rename(tmpPath, wsPath)
-      } catch {
-        await fs.copyFile(tmpPath, wsPath)
-        await fs.rm(tmpPath, { force: true }).catch(() => {})
-      }
-    }
-  } catch {}
-}
-
 async function purgeSessionArtifacts(
   ctx: SessionOpsHostContext,
   sid: string,
@@ -307,12 +239,7 @@ interface HostWorkspaceRegistryLike {
   unarchiveSession?: (sessionId: string) => Promise<void> | void
   unpinSession?: (sessionId: string) => Promise<void> | void
   list?(): Iterable<HostWorkspaceEntityLike> | HostWorkspaceEntityLike[]
-  entities?: Map<string, HostWorkspaceEntityLike>
   get?(id: string): HostWorkspaceEntityLike | undefined
-  headers?: Map<string, unknown>
-  sessionPaths?: Map<string, string>
-  missingSessionPaths?: Set<string>
-  invalidSessionPaths?: Map<string, string>
 }
 
 // Deletion and relocation already address both raw and session-prefixed IDs.
@@ -867,40 +794,37 @@ export function installHostSessionOps(
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
 
-  const detachFromRegistry = async (sessionIds: string[], shouldSkipUnarchive = false): Promise<void> => {
-    const reg: any = getRegistry()
+  const detachFromRegistry = async (sessionIds: string[]): Promise<void> => {
+    const reg = getRegistry()
     if (!reg) return
+    // Native WorkspaceRegistry owns its durable workspace table, header index,
+    // session-path index and pin order. Mutating its private Maps or rewriting
+    // workspace.json outside its write queue races Host and other plugins.
+    // Use only its published unpinSession and WorkspaceEntity.detachSession.
     for (const sid of sessionIds) {
+      if (isDisposed || getRegistry() !== reg) return
       if (!sid) continue
-      const idVariants = [...new Set(sessionAliases(sid))]
-      for (const v of idVariants) {
-        // Startup tombstone replay must never trigger native unarchive: older
-        // Hosts may lack the public pre-unarchive veto entirely.
-        if (!shouldSkipUnarchive) {
-          try { await Promise.resolve(reg.unarchiveSession?.(v)).catch(() => {}) } catch {}
-        }
-        try { await Promise.resolve(reg.unpinSession?.(v)).catch(() => {}) } catch {}
+      const aliases = [...new Set(sessionAliases(sid))]
+      for (const alias of aliases) {
+        if (isDisposed || getRegistry() !== reg) return
+        try { await Promise.resolve(reg.unpinSession?.(alias)) } catch {}
       }
+      // No private "entities" fallback. A missing or unready public list
+      // means deletion stays protected by the durable Delta tombstone and
+      // is replayed when the official registry becomes available.
+      let entities: HostWorkspaceEntityLike[]
       try {
-        let entities: any[] = []
-        if (typeof reg.list === 'function') {
-          entities = Array.from(reg.list())
-        } else if (reg.entities && typeof reg.entities.values === 'function') {
-          entities = Array.from(reg.entities.values())
+        if (typeof reg.list !== 'function') continue
+        entities = Array.from(reg.list())
+        if (getRegistry() !== reg || isDisposed) return
+      } catch { continue }
+      for (const ent of entities) {
+        if (isDisposed || getRegistry() !== reg) return
+        if (typeof ent?.detachSession !== 'function') continue
+        for (const alias of aliases) {
+          if (isDisposed || getRegistry() !== reg) return
+          try { await Promise.resolve(ent.detachSession(alias)) } catch {}
         }
-        for (const ent of entities) {
-          if (typeof ent?.detachSession === 'function') {
-            for (const v of idVariants) {
-              await Promise.resolve(ent.detachSession(v)).catch(() => {})
-            }
-          }
-        }
-      } catch {}
-      for (const v of idVariants) {
-        try { reg.headers?.delete?.(v) } catch {}
-        try { reg.sessionPaths?.delete?.(v) } catch {}
-        try { reg.missingSessionPaths?.delete?.(v) } catch {}
-        try { reg.invalidSessionPaths?.delete?.(v) } catch {}
       }
     }
   }
@@ -964,8 +888,7 @@ export function installHostSessionOps(
     await purgeSessionArtifacts(ctx, sessionId, sourceCwd)
     // Never unarchive a tombstoned session, including on older native Hosts
     // that do not provide a public pre-unarchive veto.
-    await detachFromRegistry([sessionId], true)
-    await purgeSessionsFromWorkspaceJson(ctx, [sessionId])
+    await detachFromRegistry([sessionId])
     notifySessionChanged(sessionId)
     return makeJsonResponse(200, { ok: true, state: toPublicHostState(next) })
   }
@@ -1065,8 +988,7 @@ export function installHostSessionOps(
         .find((cwd): cwd is string => Boolean(cwd))
       await purgeSessionArtifacts(ctx, sid, hintedCwd)
     }
-    await detachFromRegistry(toDeleteIds, true)
-    await purgeSessionsFromWorkspaceJson(ctx, toDeleteIds)
+    await detachFromRegistry(toDeleteIds)
 
     const deletedAliases = new Set(toDeleteIds.flatMap(sessionAliases))
     for (const sid of requestedIds) {
@@ -1186,9 +1108,8 @@ export function installHostSessionOps(
     }
     if (initial.deletedSessionIds.length > 0) {
       if (isDisposed) return
-      await purgeSessionsFromWorkspaceJson(ctx, initial.deletedSessionIds)
       if (isDisposed) return
-      await detachFromRegistry(initial.deletedSessionIds, true)
+      await detachFromRegistry(initial.deletedSessionIds)
     }
     for (const lockedId of initial.lockedSessionIds) {
       if (isDisposed) return
@@ -1211,7 +1132,7 @@ export function installHostSessionOps(
           if (isDisposed || getRegistry() !== registry) return
           for (const deletedId of initial.deletedSessionIds) {
             if (isDisposed || getRegistry() !== registry) return
-            await detachFromRegistry([deletedId], true)
+            await detachFromRegistry([deletedId])
           }
           for (const lockedId of initial.lockedSessionIds) {
             if (isDisposed || getRegistry() !== registry) return
