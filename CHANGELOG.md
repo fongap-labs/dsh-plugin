@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 退役 Vision Bridge 对 Harness 粘贴/拖放的全局 capture、私有 Composer 选择器、`execCommand('insertText')` 与输入 setter 接管；保留 Host Vision 工具、识别服务和历史配置，添加源码/发行防回退测试（Issue #333）。
+
 - 修复: 移除 Delta 弹窗对 Harness 侧栏颜色的动态改写与全局弹窗打开标记；保留 Delta 自有遮罩和弹窗，补充 ZIP3 审核指纹与回归防护（Issue #333）。
 
 - 修复: Delta Code 的远程 GitHub Skill 加载支持按 Agent 任务切换、明确拒绝和销毁取消未完成请求；按宿主 scope 隔离候选技能与缓存刷新，无 scope 时只使用官方取消信号，保持共享 Provider 与历史会话内容不变。

@@ -161,6 +161,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: disabled legacy sidebar layout activation and Settings-nav order writes.
 // Reviewed 2026-11-19: retired native turn error row scanning, collapse handlers and private CSS.
 // Reviewed 2026-11-19: retired global modal-open marker and Host sidebar-fill mutation; Delta backdrops remain scoped.
+// Reviewed 2026-11-19: retired global Vision paste/drop capture and private Host composer writes; Host Vision ops preserved.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
 const ZIP3_THEME_BLOB = 'b73fa5766e33f380c6586cde579567066b1ce686'
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
@@ -168,6 +169,12 @@ const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
 ]
 const LEGACY_COMPAT_DATASET_WRITE = /(?:\.\s*dataset|\[\s*['"`]dataset['"`]\s*\])(?:\s*\[\s*['"`]deltaCompat(?:Status)?['"`]\s*\]|\s*\.\s*deltaCompat(?:Status)?)\s*(?:\?\?=|&&=|\|\|=|>>>=|>>=|<<=|\*\*=|[+\-*\/%&|^]=|=(?!=|>))/
+const LEGACY_VISION_COMPOSER_TAKEOVER = [
+  /\\binstallClientVisionBridge\\s*\\(/,
+  /\\b(?:document|window)\\.addEventListener\\s*\\(\\s*(['"`])(?:paste|drop)\\1\\s*,[\\s\\S]{0,180}\\bcapture\\s*:\\s*true/,
+  /\\bdocument\\.execCommand\\s*\\(\\s*(['"`])insertText\\1/,
+  /\\bwindow\\.HTML(?:Input|TextArea)Element\\.prototype/,
+]
 const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
@@ -196,6 +203,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
 )) {
   const source = sourceText.replace(/\r\n/g, '\n')
   for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
+  ensure(!LEGACY_VISION_COMPOSER_TAKEOVER.some(pattern => pattern.test(source)),
+    'retired Vision composer takeover in client source')
 
   const ownedMatch = client.match(/\bconst OWNED_CSS = ("(?:\\.|[^"\\])*");/)
   ensure(Boolean(ownedMatch), 'ZIP3 stylesheet missing from emitted client')
@@ -211,6 +220,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
+  ensure(!LEGACY_VISION_COMPOSER_TAKEOVER.some(pattern => pattern.test(client)),
+    'retired Vision composer takeover in emitted client')
   // The exact reviewed adapter regions are pinned by ZIP3_COMPAT_REGIONS.
   // Keep emitted-fixture compatibility while rejecting legacy native layout takeover.
   ensure(client.includes('dtd-host-search') &&

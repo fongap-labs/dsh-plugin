@@ -42,6 +42,14 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.match(css, /\.dtd-search-backdrop/)
     assert.match(css, /\.dtd-dialog-backdrop/)
   })
+  it('leaves native image paste and drop to Harness while retaining Host Vision modules', () => {
+    assert.doesNotMatch(client, /installClientVisionBridge|stopVisionBridge|data-composer-input/)
+    assert.doesNotMatch(client, /document\\.execCommand\\(['"`]insertText/)
+    assert.doesNotMatch(client, /(?:document|window)\\.addEventListener\\(['"`](?:paste|drop)['"`]/)
+    const hostVision = file('src/host-vision.ts')
+    assert.match(hostVision, /installHostVisionOps/)
+    assert.match(hostVision, /registerVisionTools/)
+  })
   it('registers repository feature slots without a second sidebar/search adapter', () => {
     for (const id of ['dtd-advanced-features', 'delta.mcp.add-server',
       'delta.context.assistant-actions', 'delta.context.compaction-activity',

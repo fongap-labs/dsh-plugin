@@ -359,197 +359,6 @@ function installClientPrivacyGuards(): () => void {
   }
 }
 
-function installClientVisionBridge(): () => void {
-  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return () => {}
-
-  function imageFilesOf(event: ClipboardEvent | DragEvent): File[] {
-    const items = (event as ClipboardEvent).clipboardData?.items || (event as DragEvent).dataTransfer?.items
-    if (items && items.length > 0) {
-      const files: File[] = []
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i]
-        if (item.kind !== 'file') continue
-        const file = item.getAsFile()
-        if (file && /^image\//i.test(file.type)) files.push(file)
-      }
-      if (files.length > 0) return files
-    }
-    const transferFiles = (event as DragEvent).dataTransfer?.files || (event as ClipboardEvent).clipboardData?.files
-    if (transferFiles && transferFiles.length > 0) {
-      const files: File[] = []
-      for (let i = 0; i < transferFiles.length; i++) {
-        const f = transferFiles[i]
-        if (f && /^image\//i.test(f.type)) files.push(f)
-      }
-      return files
-    }
-    return []
-  }
-
-  function isTextField(el: Element | null): el is HTMLTextAreaElement | HTMLInputElement {
-    return el != null && (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT')
-  }
-
-  function isComposerEditable(el: Element | null): boolean {
-    if (!el || typeof el.getAttribute !== 'function') return false
-    if (el.getAttribute('data-composer-input') != null) return true
-    if (el.classList.contains('dsh-composer-input') || el.classList.contains('ProseMirror')) return true
-    return (el as HTMLElement).isContentEditable === true || el.getAttribute('contenteditable') === 'true'
-  }
-
-  function isWritable(el: Element | null): boolean {
-    return isTextField(el) || isComposerEditable(el)
-  }
-
-  function resolveWriteTarget(event: Event): HTMLElement | null {
-    const fromEvent = event.target as Element | null
-    if (fromEvent && typeof fromEvent.closest === 'function') {
-      const found = fromEvent.closest<HTMLElement>(
-        'textarea, input, [data-composer-input], [contenteditable="true"], .ProseMirror, .dsh-composer'
-      )
-      if (found) {
-        if (isWritable(found)) return found
-        const nested = found.querySelector<HTMLElement>('textarea, input, [contenteditable="true"]')
-        if (nested && isWritable(nested)) return nested
-      }
-    }
-    const active = document.activeElement as HTMLElement | null
-    if (isWritable(active)) return active
-    const fallback = document.querySelector<HTMLElement>(
-      'textarea[data-composer-input], [data-composer-input][contenteditable="true"], .dsh-composer textarea, .dsh-composer [contenteditable="true"]'
-    )
-    return isWritable(fallback) ? fallback : null
-  }
-
-  function insertComposerText(target: HTMLElement, text: string): boolean {
-    if (!isWritable(target)) return false
-    target.focus()
-    let isInserted = false
-    try {
-      isInserted = document.execCommand('insertText', false, text)
-    } catch {
-      isInserted = false
-    }
-    if (isInserted) return true
-    if (isTextField(target)) {
-      try {
-        const proto = target.tagName === 'TEXTAREA'
-          ? window.HTMLTextAreaElement.prototype
-          : window.HTMLInputElement.prototype
-        const descriptor = Object.getOwnPropertyDescriptor(proto, 'value')
-        if (descriptor?.set) {
-          descriptor.set.call(target, target.value + text)
-          target.dispatchEvent(new Event('input', { bubbles: true }))
-          return true
-        }
-      } catch {}
-    }
-    return false
-  }
-
-  async function handleVisionFiles(files: File[], target: HTMLElement) {
-    const snap = deltaFeatures.getSnapshot()
-    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-
-    try {
-      const outcomes = await Promise.allSettled(files.map(async (file) => {
-        const ab = await file.arrayBuffer()
-        const res = await fetch('/api/delta-suite/vision/paste', {
-          method: 'POST',
-          headers: {
-            'content-type': file.type || 'image/png',
-            'x-file-name': encodeURIComponent(file.name || 'paste.png'),
-          },
-          body: ab,
-        })
-        if (!res.ok) {
-          const json = await res.json().catch(() => ({}))
-          throw new Error(json.error || `Upload failed (${res.status})`)
-        }
-        return (await res.json()) as { ok: boolean; path: string; name: string }
-      }))
-
-      const paths: string[] = []
-      for (const o of outcomes) {
-        if (o.status === 'fulfilled' && o.value.path) {
-          paths.push(o.value.path)
-        }
-      }
-
-      if (paths.length === 0) {
-        showDeltaToast(copy.visionBridge.toastFailed.replace('{error}', 'Upload failed'))
-        return
-      }
-
-      const shouldTranscribe = snap.vision.mode === 'instant-transcribe' || (snap.vision.mode === 'auto' && snap.visionEngineReady)
-      if (shouldTranscribe) {
-        showDeltaToast(copy.visionBridge.toastTranscribing)
-        for (const p of paths) {
-          try {
-            const recRes = await fetch('/api/delta-suite/vision/recognize', {
-              method: 'POST',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ path: p }),
-            })
-            const recJson = await recRes.json()
-            if (recJson.ok && recJson.renderedText) {
-              insertComposerText(target, `\n${recJson.renderedText}\n`)
-            } else {
-              insertComposerText(target, `${p} `)
-            }
-          } catch {
-            insertComposerText(target, `${p} `)
-          }
-        }
-        showDeltaToast(copy.visionBridge.toastTranscribed)
-      } else {
-        insertComposerText(target, `${paths.join(' ')} `)
-        showDeltaToast(copy.visionBridge.toastPastedPath)
-      }
-    } catch (err: any) {
-      showDeltaToast(copy.visionBridge.toastFailed.replace('{error}', err?.message || String(err)))
-    }
-  }
-
-  function onPaste(event: ClipboardEvent) {
-    const snap = deltaFeatures.getSnapshot()
-    if (!snap.vision.enabled) return
-    const files = imageFilesOf(event)
-    if (files.length === 0) return
-    const target = resolveWriteTarget(event)
-    if (!target) return
-
-    event.preventDefault()
-    event.stopImmediatePropagation()
-    void handleVisionFiles(files, target)
-  }
-
-  function onDrop(event: DragEvent) {
-    const snap = deltaFeatures.getSnapshot()
-    if (!snap.vision.enabled) return
-    const files = imageFilesOf(event)
-    if (files.length === 0) return
-    const target = resolveWriteTarget(event)
-    if (!target) return
-
-    event.preventDefault()
-    event.stopImmediatePropagation()
-    void handleVisionFiles(files, target)
-  }
-
-  document.addEventListener('paste', onPaste, { capture: true })
-  document.addEventListener('drop', onDrop, { capture: true })
-
-  return () => {
-    try {
-      if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
-        document.removeEventListener('paste', onPaste, { capture: true })
-        document.removeEventListener('drop', onDrop, { capture: true })
-      }
-    } catch {}
-  }
-}
-
 // The release builder replaces both markers with data from locale/*.json and src/theme.css.
 const DICTIONARIES = '__DELTA_SUITE_LOCALES__' as unknown as Record<Language, DeltaCopy>
 const OWNED_CSS = '__DELTA_SUITE_STYLE__'
@@ -6106,7 +5915,7 @@ window.__ModuleLoader__.load({
                 const stopCompat = typeof document.querySelectorAll === 'function' &&
                   typeof document.addEventListener === 'function'
                   ? installSidebarCompatibility(controller) : () => {}
-                const stopVisionBridge = installClientVisionBridge()
+                // Host Vision tools remain available; native paste/drop belongs to Harness.
 
                 // Harness owns built-in Slots and Locale services.
                 // Delta contributes only through declared public slots and its own copy.
@@ -6118,7 +5927,6 @@ window.__ModuleLoader__.load({
                   stopAppearance()
                   stopCompat()
                   stopPrivacyGuards()
-                  stopVisionBridge()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
                   document.body?.removeAttribute('data-delta-ui')
