@@ -160,13 +160,16 @@ test('release refuses incomplete Host fallback translations in either archive', 
   for (const lang of ['en', 'zh']) {
     for (const key of Object.keys(fallbackLabels)) {
       for (const format of ['ZIP', 'TGZ']) {
-        const invalid = new Map(valid)
-        const path = 'locale/' + lang + '.json'
-        const locale = JSON.parse(invalid.get(path).toString())
-        locale.ui[key] = ''
-        invalid.set(path, Buffer.from(JSON.stringify(locale)))
-        assert.throws(() => verifyEntries(invalid, '0.1.0-beta.2', format),
-          /Host fallback locale/, format + ': ' + lang + '.' + key)
+        for (const variant of ['missing', 'empty']) {
+          const invalid = new Map(valid)
+          const path = 'locale/' + lang + '.json'
+          const locale = JSON.parse(invalid.get(path).toString())
+          if (variant === 'missing') delete locale.ui[key]
+          else locale.ui[key] = ''
+          invalid.set(path, Buffer.from(JSON.stringify(locale)))
+          assert.throws(() => verifyEntries(invalid, '0.1.0-beta.2', format),
+            /Host fallback locale/, format + ': ' + lang + '.' + key + ' (' + variant + ')')
+        }
       }
     }
   }
