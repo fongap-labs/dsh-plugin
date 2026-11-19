@@ -487,7 +487,7 @@ test('DeepSeek Account and model display preferences persist independently', () 
 test('model label shows only the DeepSeek Account route name under its separate preference', () => {
   assert.equal(readiness.required.generic_model_label_preference, true)
   const app = makeHarness()
-  const label = app.components.get('conversation.input.model.label:').component
+  const label = app.components.get('conversation.input.model.label:delta.model.route-label').component
   const renderLabel = props => app.render('model-label', label, props)
   const account = renderLabel({ provider: { id: 'deepseek-account', name: 'DeepSeek Account' },
     model: { name: 'DeepSeek Flash' }, placement: 'trigger' })
