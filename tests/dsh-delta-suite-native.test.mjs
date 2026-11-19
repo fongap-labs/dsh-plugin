@@ -135,7 +135,7 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.hover'])
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 扩展套件'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
@@ -194,6 +194,33 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.layers.size, 0)
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
+test('public model route label mounts without optional assistant sidebar services', () => {
+  const app = harness()
+  const modelSlot = app.components.get('conversation.input.model.label')
+  assert.ok(modelSlot, 'model route label must not depend on optional sidebarRight services')
+  assert.equal(modelSlot.spec.id, 'delta.model.route-label')
+  const account = modelSlot.component({
+    provider: { id: 'deepseek-account', name: 'DeepSeek Account' },
+    model: { name: 'DeepSeek-V3' }, placement: 'selected',
+  })
+  assert.match(JSON.stringify(account), /DeepSeek Account/)
+  assert.match(JSON.stringify(account), /DeepSeek-V3/)
+  const unrelated = modelSlot.component({
+    provider: { id: 'openai', name: 'OpenAI' },
+    model: { name: 'gpt-4o' }, placement: 'selected',
+  })
+  assert.doesNotMatch(JSON.stringify(unrelated), /dtd-model-account/)
+  assert.match(JSON.stringify(unrelated), /gpt-4o/)
+  const option = modelSlot.component({
+    provider: { id: 'deepseek-account', name: 'DeepSeek Account' },
+    model: { name: 'DeepSeek-V3' }, placement: 'option',
+  })
+  assert.doesNotMatch(JSON.stringify(option), /dtd-model-account/)
+  app.cleanup()
+  assert.equal(app.components.has('conversation.input.model.label'), false,
+    'disabling the plugin unregisters its model label without changing the native model picker')
+})
+
 test('missing native layout does not report successful no-op actions', () => {
   const app = harness({ failLayout: true })
   const controller = app.components.get('settings.section').spec.inject().controller
