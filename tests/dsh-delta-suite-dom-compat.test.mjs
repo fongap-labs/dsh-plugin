@@ -234,6 +234,20 @@ test('native session and workspace hover cards remain Host-owned; public Slot ke
   assert.ok(source.includes("scope.slots.inject('sidebar.session.row.hover'"))
   assert.ok(source.includes('SessionHoverDetail(props, controller)'))
   assert.ok(source.includes('deltaFeatures.readSearchProtection().allowsSession(sessionId)'))
+  const hoverStart = source.indexOf('function SessionHoverDetail(')
+  const hoverEnd = source.indexOf('function PersonalizationSection(', hoverStart)
+  assert.ok(hoverStart >= 0 && hoverEnd > hoverStart)
+  const occupant = source.slice(hoverStart, hoverEnd)
+  assert.match(occupant, /role: 'group'/)
+  assert.match(occupant, /onPointerDown/)
+  assert.doesNotMatch(occupant, /'aria-hidden': true|hidden: true|display: 'none'/,
+    'authorized Delta hover content must not be permanently hidden')
+  assert.doesNotMatch(occupant, /workspace\.path|cwd|\.retain\(/,
+    'the public hover occupant may not expose paths or acquire Session bindings')
+  const owned = readFileSync(fileURLToPath(new URL('../packages/dsh-delta-suite/src/feature-extras.css', import.meta.url)), 'utf8')
+  assert.match(owned, /\.dtd-session-meta \{/)
+  assert.doesNotMatch(owned, /\[class\*=|\[data-row-key|\[data-chat-flow/,
+    'hover decoration may not restyle native Host rows or cards')
   assert.equal(readiness.required.session_hover_card_layout, false)
 })
 test('native modal panels and masks stay Host-owned without Delta pointer interception', () => {

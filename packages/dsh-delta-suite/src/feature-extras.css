@@ -303,3 +303,34 @@
   flex-shrink: 0; color: var(--dtd-muted, inherit); font-size: 11px;
 }
 .dtd-integration-reasoning { font-size: 12px; }
+
+/* Published sidebar.session.row.hover content; native hover layout is Host-owned. */
+.dtd-session-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  min-width: 0;
+  padding: 4px 0;
+  color: var(--dtd-muted, inherit);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.dtd-session-meta-label { flex-shrink: 0; }
+.dtd-session-meta-id {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+.dtd-session-meta-copy {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--dtd-border, currentColor);
+  border-radius: 6px;
+  background: var(--dtd-surface, transparent);
+  color: var(--dtd-text, inherit);
+  font-size: 11px;
+  cursor: pointer;
+}
+.dtd-session-meta-copy:focus-visible { outline: 2px solid var(--dtd-brand, currentColor); outline-offset: 2px; }

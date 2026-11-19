@@ -259,6 +259,84 @@ test('Settings identifies unsupported Host contracts without claiming native tak
   assert.equal(app.components.size, 0)
 })
 
+
+test('published Session hover Slot shows only an authorized, path-free identity and safely copies it', async () => {
+  const app = harness()
+  const entry = app.components.get('settings.section')
+  const controller = entry.spec.inject().controller
+  const hover = app.components.get('sidebar.session.row.hover')
+  assert.equal(hover.component({ sessionId: '0123456789abcdef' }), null,
+    'unconfirmed protection state must not expose a Session identity')
+
+  let locks = []
+  let workspaces = []
+  let deleted = []
+  const copied = []
+  app.context.window.location = { href: 'https://harness.test/' }
+  app.context.navigator.clipboard = {
+    writeText(id) {
+      copied.push(id)
+      return new Promise(() => {})
+    },
+  }
+  app.context.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => ({ state: {
+      hasPin: true, lockMode: 'pin', lockedSessionIds: locks,
+      lockedWorkspaceIds: workspaces, deletedSessionIds: deleted,
+      movedSessions: {},
+    } }),
+  })
+  await app.features.refreshState()
+  const visible = hover.component({ sessionId: '0123456789abcdef' })
+  assert.equal(visible?.type, 'div')
+  assert.equal(visible?.props?.role, 'group')
+  assert.equal(visible?.props?.hidden, undefined, 'hover content must no longer be permanently hidden')
+  assert.equal(visible?.props?.['aria-hidden'], undefined)
+  assert.equal(visible.children[1]?.children[0], '0123456789ab…')
+  assert.equal(visible.children[1]?.props?.title, undefined,
+    'a hover tooltip must not reveal a full raw identifier')
+  assert.doesNotMatch(JSON.stringify(visible), /Documents|default-workspace|Users/,
+    'Host filesystem paths never enter the Delta-owned hover fragment')
+  const copy = visible.children[2]
+  assert.equal(copy.type, 'button')
+  let stopped = 0
+  copy.props.onPointerDown({ stopPropagation() { stopped++ } })
+  copy.props.onClick({ stopPropagation() { stopped++ } })
+  assert.equal(stopped, 2, 'copy never selects or opens the native Session row')
+  assert.deepEqual(copied, ['0123456789abcdef'])
+
+  locks = ['0123456789abcdef']
+  await app.features.refreshState()
+  assert.equal(hover.component({ sessionId: '0123456789abcdef' }), null,
+    'a locked Session loses its hover identity immediately')
+  copy.props.onClick({ stopPropagation() { stopped++ } })
+  assert.deepEqual(copied, ['0123456789abcdef'],
+    'an old button cannot copy after protection revision invalidates it')
+
+  locks = []
+  workspaces = ['default']
+  await app.features.refreshState()
+  assert.equal(hover.component({ sessionId: 'session-one' }), null,
+    'the Host workspace membership snapshot excludes inherited locks')
+  workspaces = []
+  deleted = ['session-one']
+  await app.features.refreshState()
+  assert.equal(hover.component({ sessionId: 'session-one' }), null,
+    'tombstoned Sessions never show identity')
+
+  deleted = []
+  await app.features.refreshState()
+  controller.setMode('official')
+  assert.equal(hover.component({ sessionId: 'session-one' }), null,
+    'official appearance retains the native hover card unchanged')
+  controller.setMode('delta')
+  assert.equal(hover.component({ sessionId: 'session-one' })?.type, 'div')
+  app.cleanup()
+  assert.equal(app.components.has('sidebar.session.row.hover'), false,
+    'disposing the Suite unregisters the public hover contribution')
+})
+
 test('public native Session trailing Slot renders only Host-confirmed protected rows', async () => {
   const app = harness()
   const entry = app.components.get('settings.section')

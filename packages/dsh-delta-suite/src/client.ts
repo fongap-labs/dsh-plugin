@@ -5613,22 +5613,29 @@ window.__ModuleLoader__.load({
 
     function SessionHoverDetail({ sessionId }: SessionHoverProps, controller: DeltaController): unknown {
       const revision = useContentProtectionRevision()
-      const mode = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot).mode
-      if (mode !== 'delta' || !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return null
+      const view = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
+      // The published hover Slot is decoration only: no Session binding, raw
+      // workspace path or native hover-card layout changes are permitted here.
+      if (view.mode !== 'delta' || !sessionId || !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return null
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
-      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
-      return el('div', { className: 'dtd-session-meta', 'aria-hidden': true, hidden: true, style: { display: 'none' } },
+      return el('div', { className: 'dtd-session-meta', role: 'group', 'aria-label': label },
         el('span', { className: 'dtd-session-meta-label' }, label),
-        el('span', { className: 'dtd-session-meta-id', title: sessionId }, shortId),
+        el('span', { className: 'dtd-session-meta-id' }, shortId),
         el('button', {
           type: 'button', className: 'dtd-session-meta-copy',
           'aria-label': copy.ui.copySessionId,
-          onClick: () => {
+          // Do not trigger the Host row's open/select action when copying.
+          onPointerDown: (event?: { stopPropagation?: () => void }) => event?.stopPropagation?.(),
+          onClick: (event?: { stopPropagation?: () => void }) => {
+            event?.stopPropagation?.()
             const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
             if (controller.getSnapshot().mode !== 'delta' || revision !== deltaFeatures.getContentProtectionRevision() ||
                 !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return
-            const request = navigator.clipboard?.writeText(sessionId)
+            let request: Promise<void> | undefined
+            try { request = typeof navigator !== 'undefined' ? navigator.clipboard?.writeText(sessionId) : undefined }
+            catch { /* clipboard security errors are shown as a safe toast */ }
             if (!request) { showDeltaToast(labels.copyFailed); return }
             void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
           },
