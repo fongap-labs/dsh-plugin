@@ -35,6 +35,7 @@ export function freeLicenseFromText(text: string): string | null {
 
 /** Only affirmative payment requirements. Generic mentions of "cost" are not evidence. */
 const PAID_REQUIREMENTS = [
+  /\b(?:must|need(?:s)?\s+to|requires?)\s+(?:purchase|buy)\s+(?:api\s+)?(?:credits?|tokens?|subscription|access|licenses?)\b/i,
   /\b(?:requires?|needs?|must\s+(?:use|have|purchase|buy)|only\s+available\s+(?:with|on))\b[^\n.!?]{0,90}\b(?:paid|premium|pro\s+plan|enterprise\s+plan|subscription|billing\s+account|payment|credit\s+card|purchased?\s+credits?)\b/i,
   /\b(?:paid|premium|subscription(?:-based)?|pro-only|enterprise-only|pay-per-use|pay-as-you-go|usage-based\s+billing)\b[^\n.!?]{0,90}\b(?:api|tool|service|plan|account|access|key|token|credits?)\b/i,
   /(?:\u5fc5\u987b|\u9700\u8981|\u8981\u6c42|\u4ec5\u9650|\u4f9d\u8d56)[^\n\u3002\uff01\uff1f]{0,40}(?:\u4ed8\u8d39|\u6536\u8d39|\u8ba2\u9605|\u5145\u503c|\u8d2d\u4e70\u989d\u5ea6|\u8d2d\u4e70\u79ef\u5206|\u4ed8\u8d39\u63a5\u53e3|\u4ed8\u8d39API|\u4ed8\u8d39\s*API)/,
