@@ -5,6 +5,7 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import { selectGitHubAccount, validatedCommitSha } from './github-policy.js'
 import { getActiveApprovedGitHubSkills } from '../delta-code-strategy/trusted-github-skills.js'
+import { rankSkillEvidence } from './github-skill-ranking.js'
 import type { DeltaGitHubExecution, DeltaGitHubRepositoryResolver, DeltaGitHubToolSpec } from './github-operations.js'
 
 const SKILL_PATH = /^skills\/[a-z0-9-]+\/SKILL\.md$/
@@ -80,13 +81,48 @@ export function createGitHubSkillDiscoverySpecs(
         const latest = await get(repository, exec, prefix(repository) + '/commits?per_page=1')
         const suggestedCommit = Array.isArray(latest.data) &&
           /^[a-f0-9]{40}$/.test(latest.data[0]?.sha) ? latest.data[0].sha : null
-        const candidates = result.data.items.slice(0, 20)
+        const matched = result.data.items.slice(0, 20)
           .filter((item: any) => item && typeof item.path === 'string' && SKILL_PATH.test(item.path))
-          .map((item: any) => ({ repository, path: item.path, name: item.path.split('/')[1],
-            suggestedCommit, status: 'unreviewed', requiresReview: true }))
+        // One repository and one public maintainer-profile lookup per search,
+        // never per candidate. Both use the token already bound to this owner;
+        // no cross-owner token reuse or secondary HTTP client is introduced.
+        const advisoryMetadata = async (path: string): Promise<any | null> => {
+          try {
+            return (await get(repository, exec, path)).data
+          } catch (error) {
+            if (error instanceof GitHubApiFailure && [403, 404, 429].includes(error.status)) return null
+            throw error
+          }
+        }
+        const owner = repository.split('/')[0]!
+        const repoMeta = matched.length ? await advisoryMetadata(prefix(repository)) : null
+        const ownerMeta = matched.length ? await advisoryMetadata('/users/' + encodeURIComponent(owner)) : null
+        if (repoMeta?.full_name !== undefined &&
+            (typeof repoMeta.full_name !== 'string' ||
+            repoMeta.full_name.toLowerCase() !== repository.toLowerCase())) {
+          throw Error('GitHub repository evidence does not match requested owner/repository')
+        }
+        if (ownerMeta?.login !== undefined &&
+            (typeof ownerMeta.login !== 'string' ||
+            ownerMeta.login.toLowerCase() !== owner.toLowerCase())) {
+          throw Error('GitHub maintainer evidence does not match requested owner')
+        }
+        const ranking = rankSkillEvidence({
+          stars: repoMeta?.stargazers_count, forks: repoMeta?.forks_count,
+          ownerCreatedAt: ownerMeta?.created_at,
+          repositoryCreatedAt: repoMeta?.created_at,
+          lastPushAt: repoMeta?.pushed_at,
+          archived: repoMeta?.archived, disabled: repoMeta?.disabled,
+        })
+        const candidates = matched.map((item: any) => ({
+          repository, path: item.path, name: item.path.split('/')[1],
+          suggestedCommit, status: 'unreviewed', requiresReview: true,
+          ranking,
+        }))
         return output(repository, result.account, {
           totalMatches: result.data.total_count, candidates, truncated: result.data.total_count > 20,
-          note: 'Candidates come from the search index; suggestedCommit is a separate default-branch snapshot, not proof the result exists at that commit. Verify the pinned file before proposing approval.',
+          rankingStatus: ranking.completeness,
+          note: 'Ranking is advisory only: stars and public maintainer age cannot prove trust. Candidates come from the search index; suggestedCommit is a separate default-branch snapshot, not proof the result exists at that commit. Verify pinned source, license and all dependent files before any approval.',
         })
       },
     },
