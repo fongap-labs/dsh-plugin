@@ -93,6 +93,20 @@ test('release guard rejects reintroduced native lock-row markup and styling', ()
   }
 })
 
+test('release guard rejects private Host CSS even with a new stylesheet fingerprint', () => {
+  for (const takeover of [
+    ':root[data-delta-ui="delta"] [class*="WOwLGG_headline"] { display: none }',
+    ':root[data-delta-ui="delta"] [class*="p2k40q_guide"] { display: grid }',
+    ':root[data-delta-ui="delta"] button { background: red }',
+    ':root[data-delta-ui="delta"] input[type="search"] { color: red }',
+    ':root[data-delta-ui="delta"] { --dsw-specific-sidebar-fill: red; }',
+    ':root[data-delta-ui="delta"] [data-sidebar-right-guide-entry] { opacity: 0 }',
+  ]) {
+    assert.throws(() => verifyApprovedZip3Client(emittedClient(theme + '\n' + takeover), source),
+      /retired Host-global CSS takeover in emitted theme/)
+  }
+})
+
 test('release guard rejects reintroduced native popup and menu CSS', () => {
   for (const marker of ['[role="menu"]', '[role="tooltip"]',
     '[role="menuitem"]', '[data-radix-menu-content]',

@@ -80,82 +80,7 @@
   --dtd-avatar-size: 24px;
   --dtd-sidebar-row-height: 36px;
 
-  /* Map Host --dsw-* Tokens to Semantic --dtd-* Tokens */
-  --dsw-alias-brand-primary: var(--dtd-brand) !important;
-  --dsw-alias-brand-primary-invert: #70B1BA !important;
-  --dsw-alias-brand-primary-new-colorprimary-new-color: var(--dtd-brand) !important;
-  --dsw-alias-brand-text: var(--dtd-brand) !important;
-  --dsw-alias-state-business-primary: var(--dtd-brand) !important;
-  --dsw-alias-state-business-tertiary: var(--dtd-brand-soft) !important;
-  --dsw-alias-button-primary-fill: var(--dtd-brand) !important;
-  --dsw-alias-button-primary-hover: var(--dtd-brand-hover) !important;
-  --dsw-alias-button-info-fill: var(--dtd-brand) !important;
-  --dsw-alias-button-info-hover: var(--dtd-brand-hover) !important;
-  --dsw-alias-button-ghost-active-fill: var(--dtd-brand-soft) !important;
-  --dsw-alias-button-ghost-active-border: var(--dtd-brand-border) !important;
-  --dsw-alias-label-primary-inverted: var(--dtd-brand-ink-on-solid) !important;
-  --dsw-alias-label-primary-foreground: var(--dtd-brand-ink-on-solid) !important;
-  --dsw-alias-label-primary-bluish: var(--dtd-brand-ink-on-soft) !important;
-  --dsw-alias-label-deep-diving: var(--dtd-brand) !important;
-  --dsw-alias-label-deep-diving-shimmer: #5CA1AA !important;
-  --dsw-alias-link: var(--dtd-brand) !important;
-  --dsw-alias-bg-base: var(--dtd-bg-canvas) !important;
-  --dsw-alias-bg-layer-1: var(--dtd-bg-surface) !important;
-  --dsw-alias-bg-layer-2: var(--dtd-bg-surface) !important;
-  --dsw-alias-bg-document-selection: var(--dtd-selection-bg) !important;
-  --dsw-alias-border-l1: var(--dtd-border) !important;
-  --dsw-alias-border-l2: var(--dtd-border-subtle) !important;
-  --dsw-alias-interactive-bg-hover: var(--dtd-bg-hover) !important;
-  --dsw-alias-label-primary: var(--dtd-fg-primary) !important;
-  --dsw-alias-label-secondary: var(--dtd-fg-secondary) !important;
-  --dsw-alias-label-tertiary: var(--dtd-fg-muted) !important;
-  --dsw-specific-sidebar-fill: var(--dtd-bg-sidebar) !important;
-  --dsw-specific-sidebar-nav-item-active-accent: var(--dtd-brand-soft-strong) !important;
-  --dsw-specific-bubble: var(--dtd-bg-bubble) !important;
-  --dsw-specific-bubble-highlight: var(--dtd-bg-bubble-border) !important;
-  --dsw-alias-bg-module-platform: var(--dtd-brand-soft) !important;
 
-  /* Complete DeepSeek & Blue static scales mapped cleanly */
-  --dsw-static-deepseek-50: var(--dtd-bg-bubble) !important;
-  --dsw-static-deepseek-100: var(--dtd-brand-soft) !important;
-  --dsw-static-deepseek-200: var(--dtd-bg-bubble-border) !important;
-  --dsw-static-deepseek-300: var(--dtd-brand-border) !important;
-  --dsw-static-deepseek-400: var(--dtd-brand-bright) !important;
-  --dsw-static-deepseek-450: #337F89 !important;
-  --dsw-static-deepseek-500: var(--dtd-brand) !important;
-  --dsw-static-deepseek-600: var(--dtd-brand-hover) !important;
-  --dsw-static-deepseek-800: #16484E !important;
-  --dsw-static-deepseek-900: var(--dtd-brand-ink-on-soft) !important;
-  --dsw-static-blue-50: var(--dtd-bg-bubble) !important;
-  --dsw-static-blue-50p: var(--dtd-bg-bubble) !important;
-  --dsw-static-blue-75: var(--dtd-brand-soft) !important;
-  --dsw-static-blue-100: var(--dtd-brand-soft-strong) !important;
-  --dsw-static-blue-300: var(--dtd-brand-border) !important;
-  --dsw-static-blue-400: #5CA1AA !important;
-  --dsw-static-blue-450: #337F89 !important;
-  --dsw-static-blue-500: var(--dtd-brand) !important;
-  --dsw-static-blue-600: var(--dtd-brand-hover) !important;
-  --dsw-static-blue-800: #16484E !important;
-  --dsw-static-blue-900: var(--dtd-brand-ink-on-soft) !important;
-  --dsw-static-blue-950: #0A2528 !important;
-
-  /* Centralized Focus & Surface Mapping */
-  --dsw-focus-ring-width: 1px !important;
-  --dsw-focus-ring-color: var(--dtd-border-focus) !important;
-  --dsw-alias-focus-stroke: var(--dtd-border-focus) !important;
-  --dsw-alias-border-focus: var(--dtd-border-focus) !important;
-  --dsw-alias-bg-overlay: var(--dtd-popup-bg) !important;
-  --dsw-menu-surface-fill: var(--dtd-popup-bg) !important;
-  --dsw-specific-menu: var(--dtd-popup-bg) !important;
-  --dsw-hovercard-bg: var(--dtd-popup-bg) !important;
-  --dsw-alias-tooltip-bg: var(--dtd-popup-bg) !important;
-  --dsw-alias-tooltip-key-bg: var(--dtd-bg-hover) !important;
-  --dsw-alias-toast-bg: var(--dtd-popup-bg) !important;
-  --dsw-alias-toast-label: var(--dtd-popup-fg) !important;
-  --dsw-alias-menu-group-header-fill: var(--dtd-bg-subtle) !important;
-
-  accent-color: var(--dtd-brand);
-  caret-color: var(--dtd-brand);
 }
 
 :root[data-delta-ui="delta"] [data-ds-dark-theme],
@@ -203,231 +128,9 @@
   --dtd-modal-bg: #1B1C20;
   --dtd-modal-shadow: 0 24px 54px -14px rgba(0, 0, 0, 0.65);
 
-  --dsw-alias-brand-primary-invert: #286F78 !important;
-  --dsw-alias-label-deep-diving-shimmer: #8EE0EA !important;
-  --dsw-alias-bg-module-platform: #1C2A2D !important;
 
-  --dsw-static-deepseek-50: #132225 !important;
-  --dsw-static-deepseek-100: #1C3B40 !important;
-  --dsw-static-deepseek-200: #244E55 !important;
-  --dsw-static-deepseek-300: #357079 !important;
-  --dsw-static-deepseek-400: var(--dtd-brand) !important;
-  --dsw-static-deepseek-450: var(--dtd-brand-hover) !important;
-  --dsw-static-deepseek-500: var(--dtd-brand) !important;
-  --dsw-static-deepseek-600: #4A98A3 !important;
-  --dsw-static-deepseek-800: var(--dtd-brand-bright) !important;
-  --dsw-static-deepseek-900: #B2ECF3 !important;
-  --dsw-static-blue-50: #132225 !important;
-  --dsw-static-blue-50p: #132225 !important;
-  --dsw-static-blue-75: #172B2E !important;
-  --dsw-static-blue-100: #1C3B40 !important;
-  --dsw-static-blue-300: #357079 !important;
-  --dsw-static-blue-400: var(--dtd-brand) !important;
-  --dsw-static-blue-450: var(--dtd-brand-hover) !important;
-  --dsw-static-blue-500: var(--dtd-brand) !important;
-  --dsw-static-blue-600: var(--dtd-brand-hover) !important;
-  --dsw-static-blue-800: var(--dtd-brand-bright) !important;
-  --dsw-static-blue-900: #B2ECF3 !important;
-  --dsw-static-blue-950: #D8F6F9 !important;
-
-  --dsw-alias-tooltip-key-bg: var(--dtd-bg-hover) !important;
-  --dsw-alias-menu-group-header-fill: var(--dtd-bg-subtle) !important;
 }
 
-:root[data-delta-ui="delta"] ::selection {
-  background: var(--dtd-selection-bg);
-}
-
-/* ============================================================================
- * 1. Reusable Button & Primary Action Components
- * ============================================================================ */
-:root[data-delta-ui="delta"] button[class*="primary"][class*="GRgSLq"],
-:root[data-delta-ui="delta"] .GRgSLq_primary {
-  background: var(--dtd-brand) !important;
-  color: var(--dtd-fg-inverted) !important;
-}
-@media (hover: hover) {
-  :root[data-delta-ui="delta"] button[class*="primary"][class*="GRgSLq"]:hover:not(:disabled),
-  :root[data-delta-ui="delta"] .GRgSLq_primary:hover:not(:disabled) {
-    background: var(--dtd-brand-hover) !important;
-  }
-}
-
-/* Reusable clear/icon buttons across search bars and pickers */
-:root[data-delta-ui="delta"] :is(
-  [class*="GAkraW_clearButton"],
-  [class*="_9r0rkG_searchClear"]
-) {
-  color: var(--dtd-clear-fg) !important;
-  border-radius: var(--dtd-clear-radius) !important;
-  transition: background-color 0.15s ease, color 0.15s ease !important;
-}
-@media (hover: hover) {
-  :root[data-delta-ui="delta"] :is(
-    [class*="GAkraW_clearButton"],
-    [class*="_9r0rkG_searchClear"]
-  ):hover {
-    background: var(--dtd-clear-hover-bg) !important;
-    color: var(--dtd-clear-hover-fg) !important;
-  }
-}
-:root[data-delta-ui="delta"] :is(
-  [class*="GAkraW_clearButton"],
-  [class*="_9r0rkG_searchClear"]
-):focus-visible {
-  outline: 1px solid var(--dtd-border-focus) !important;
-  outline-offset: -1px !important;
-}
-
-/* ============================================================================
- * 2. Reusable Search Box & Form Input Component (Hover == Focus)
- * ============================================================================ */
-:root[data-delta-ui="delta"] :is(
-  .dtd-host-search-field,
-  [class~="GAkraW_searchExpanded"],
-  [class~="Wd4N7W_search"],
-  [class~="olCj9W_searchField"],
-  [class~="St8tea_searchField"]
-) {
-  box-sizing: border-box !important;
-  border: 1px solid var(--dtd-input-border) !important;
-  border-radius: var(--dtd-input-radius) !important;
-  background: var(--dtd-input-bg) !important;
-  color: var(--dtd-input-fg) !important;
-  outline: none !important;
-  box-shadow: none !important;
-  transition: border-color 0.15s ease, background-color 0.15s ease !important;
-}
-@media (hover: hover) {
-  :root[data-delta-ui="delta"] :is(
-      .dtd-host-search-field,
-    [class~="GAkraW_searchExpanded"],
-    [class~="Wd4N7W_search"],
-    [class~="olCj9W_searchField"],
-    [class~="St8tea_searchField"]
-  ):hover {
-    border-color: var(--dtd-input-border-focus) !important;
-    background: var(--dtd-input-bg-focus) !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-}
-:root[data-delta-ui="delta"] :is(
-  .dtd-host-search-field,
-  [class~="GAkraW_searchExpanded"],
-  [class~="Wd4N7W_search"],
-  [class~="olCj9W_searchField"],
-  [class~="St8tea_searchField"]
-):focus-within {
-  border-color: var(--dtd-input-border-focus) !important;
-  background: var(--dtd-input-bg-focus) !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-:root[data-delta-ui="delta"] :is(
-  [class~="olCj9W_searchField"] > :first-child,
-  .dtd-host-search-field input,
-  [class~="Wd4N7W_searchInput"],
-  [class~="GAkraW_searchInput"],
-  [class~="St8tea_search"],
-  [class*="_9r0rkG_search"] input,
-  [class*="j99sVW_search"],
-  [class*="_3zXc5G_pathInput"]
-) {
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  color: var(--dtd-input-fg) !important;
-}
-:root[data-delta-ui="delta"] :is(
-  .dtd-host-search-field input,
-  [class~="Wd4N7W_searchInput"],
-  [class~="GAkraW_searchInput"],
-  [class~="St8tea_search"],
-  [class*="_9r0rkG_search"] input
-)::placeholder {
-  color: var(--dtd-input-placeholder) !important;
-}
-:root[data-delta-ui="delta"] :is(
-  [class~="olCj9W_searchField"] > :first-child,
-  .dtd-host-search-field input,
-  [class~="Wd4N7W_searchInput"],
-  [class~="GAkraW_searchInput"],
-  [class~="St8tea_search"],
-  [class*="_9r0rkG_search"] input,
-  [class*="j99sVW_search"],
-  [class*="_3zXc5G_pathInput"]
-):is(:hover, :focus, :focus-visible, :focus-within) {
-  border: none !important;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-/* Unified monochrome clear cross across ALL native/trajectory/sidebar search inputs */
-:root[data-delta-ui="delta"] input[type="search"]::-webkit-search-cancel-button {
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  width: 14px !important;
-  height: 14px !important;
-  margin-left: 4px !important;
-  flex-shrink: 0 !important;
-  cursor: pointer !important;
-  border-radius: var(--dtd-clear-radius) !important;
-  background-color: var(--dtd-clear-fg) !important;
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath stroke='%23000' stroke-width='1.75' stroke-linecap='round' d='M4.5 4.5l7 7M11.5 4.5l-7 7'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath stroke='%23000' stroke-width='1.75' stroke-linecap='round' d='M4.5 4.5l7 7M11.5 4.5l-7 7'/%3E%3C/svg%3E");
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-  -webkit-mask-size: 12px 12px;
-  mask-size: 12px 12px;
-  transition: background-color 0.15s ease !important;
-}
-:root[data-delta-ui="delta"] input[type="search"]::-webkit-search-cancel-button:hover {
-  background-color: var(--dtd-clear-hover-fg) !important;
-}
-
-/* Unified hover == focus ring across all standalone form inputs, textareas, editors, selects & wrappers */
-:root[data-delta-ui="delta"] :is(
-  [class*="_input_181ew"]:not([aria-invalid="true"]),
-  [class*="_wrap_14sgc"]:not([class~="olCj9W_searchField"] > *),
-  [class*="_editor_61ozo"],
-  [class~="WOwLGG_modalInput"],
-  [class~="_3zXc5G_createInput"],
-  [class*="qgYWUG_search"] input,
-  [class*="rQbmCW_customLocation"] textarea,
-  [class*="cS6V_W_detail"],
-  input:not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
-  textarea:not([aria-invalid="true"]),
-  select:not([aria-invalid="true"])
-):is(:focus, :focus-visible, :focus-within):not(:disabled) {
-  outline: none !important;
-  box-shadow: none !important;
-  border-color: var(--dtd-input-border-focus) !important;
-}
-@media (hover: hover) {
-  :root[data-delta-ui="delta"] :is(
-    [class*="_input_181ew"]:not([aria-invalid="true"]),
-    [class*="_wrap_14sgc"]:not([class~="olCj9W_searchField"] > *),
-    [class*="_editor_61ozo"],
-    [class~="WOwLGG_modalInput"],
-    [class~="_3zXc5G_createInput"],
-    [class*="qgYWUG_search"] input,
-    [class*="rQbmCW_customLocation"] textarea,
-    [class*="cS6V_W_detail"],
-    input:not(.dtd-host-search-input):not([class*="searchInput"]):not([class~="St8tea_search"]):not([class*="j99sVW_search"]):not([class*="_3zXc5G_pathInput"]):not([class*="_input_14sgc"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="hidden"]):not([aria-invalid="true"]),
-    textarea:not([aria-invalid="true"]),
-    select:not([aria-invalid="true"])
-  ):hover:not(:disabled) {
-    outline: none !important;
-    box-shadow: none !important;
-    border-color: var(--dtd-input-border-focus) !important;
-  }
-}
 
 /* Delta-owned popup, search and status surfaces only.
  * Native Harness menus, tooltips, listboxes and third-party overlays retain their own CSS. */
@@ -468,10 +171,10 @@
  * 4. Settings Page and Host Navigation Tail Order
  * ============================================================================ */
 .dtd-page {
-  --dtd-surface: var(--dtd-bg-surface, var(--dsw-alias-bg-layer-2, transparent));
-  --dtd-border-local: var(--dtd-border, var(--dsw-alias-border-primary, var(--dsw-alias-divider-primary, currentColor)));
-  --dtd-text: var(--dtd-fg-primary, var(--dsw-alias-label-primary, inherit));
-  --dtd-muted: var(--dtd-fg-muted, var(--dsw-alias-label-tertiary, inherit));
+  --dtd-surface: var(--dtd-bg-surface, transparent);
+  --dtd-border-local: var(--dtd-border, currentColor);
+  --dtd-text: var(--dtd-fg-primary, inherit);
+  --dtd-muted: var(--dtd-fg-muted, inherit);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -565,49 +268,6 @@
 .dtd-brand-name {
   font-weight: 650;
   letter-spacing: -0.015em;
-}
-
-/* Remove "\009884\0089C8\007248" badge next to headline */
-
-:root[data-delta-ui="delta"] [class*="WOwLGG_previewBadge"] {
-  display: none !important;
-}
-
-/* Headline: move whale brand mark to top-right of "\0063A2\007D22\00672A\0081F3\004E4B\005883", aligned with the 2nd horizontal stroke of "\007ACB" in "\005883" */
-
-:root[data-delta-ui="delta"] [class*="WOwLGG_headline"] {
-  display: flex !important;
-  flex-direction: row !important;
-  flex-wrap: nowrap !important;
-  align-items: flex-start !important;
-  justify-content: center !important;
-  gap: 0 !important;
-  position: relative !important;
-}
-
-
-:root[data-delta-ui="delta"] [class*="WOwLGG_titleGroup"] {
-  order: 1 !important;
-  display: inline-flex !important;
-  position: relative !important;
-}
-
-
-:root[data-delta-ui="delta"] [class*="WOwLGG_fishHitbox"] {
-  order: 2 !important;
-  display: inline-flex !important;
-  position: relative !important;
-  align-self: flex-start !important;
-  margin-left: 5px !important;
-  transform: translateY(-1.4px) !important;
-}
-
-
-:root[data-delta-ui="delta"] [class*="WOwLGG_fish"] {
-  width: 20px !important;
-  height: 15px !important;
-  max-width: 20px !important;
-  max-height: 20px !important;
 }
 
 /* Native sidebar brand rows and expand/collapse controls remain Harness-owned;
@@ -766,65 +426,6 @@
 }
 
 /* ============================================================================
- * 9. Right Sidebar Start Launcher Cards (Shortcuts Positioned Under Left Icon)
- * ============================================================================ */
-:root[data-delta-ui="delta"] [class*="p2k40q_guide"] {
-  container-type: inline-size;
-  padding-left: clamp(10px, 5cqi, 24px) !important;
-  padding-right: clamp(10px, 5cqi, 24px) !important;
-}
-:root[data-delta-ui="delta"] [class*="p2k40q_guide"] [data-sidebar-right-guide-entry] {
-  width: 100% !important;
-  max-width: 380px !important;
-  display: grid !important;
-  grid-template-columns: 52px minmax(0, 1fr) !important;
-  grid-template-rows: auto !important;
-  align-items: center !important;
-  column-gap: 12px !important;
-  row-gap: 4px !important;
-  padding: 12px 14px !important;
-  background: var(--dtd-bg-surface) !important;
-  border: 1px solid var(--dtd-border) !important;
-  border-radius: var(--dtd-radius-lg) !important;
-  transition: background-color 0.15s ease !important;
-}
-:root[data-delta-ui="delta"] [class*="p2k40q_guide"] [data-sidebar-right-guide-entry]:hover {
-  background: var(--dtd-bg-hover) !important;
-}
-:root[data-delta-ui="delta"] [class*="p2k40q_guide"] [data-sidebar-right-guide-entry]:has([class*="_keys_"]) {
-  grid-template-rows: auto auto !important;
-}
-:root[data-delta-ui="delta"] [class*="p2k40q_guide"] [data-sidebar-right-guide-entry] :is([class*="p2k40q_entryIcon"], [class*="4GESq_icon"]) {
-  grid-column: 1 !important;
-  grid-row: 1 !important;
-  justify-self: center !important;
-  align-self: center !important;
-}
-:root[data-delta-ui="delta"] [class*="p2k40q_guide"] [data-sidebar-right-guide-entry] :is([class*="_keys_"], [class*="4GESq_shortcut"]) {
-  grid-column: 1 !important;
-  grid-row: 2 !important;
-  justify-self: center !important;
-  align-self: start !important;
-  font-size: 10px !important;
-  line-height: 14px !important;
-  gap: 2px !important;
-  color: var(--dtd-fg-muted) !important;
-}
-:root[data-delta-ui="delta"] [class*="p2k40q_guide"] [data-sidebar-right-guide-entry] :is([class*="p2k40q_entryText"], [class*="4GESq_text"]) {
-  grid-column: 2 !important;
-  grid-row: 1 / -1 !important;
-  align-self: center !important;
-  min-width: 0 !important;
-}
-@container (width <= 200px) {
-  :root[data-delta-ui="delta"] [class*="p2k40q_guide"] [data-sidebar-right-guide-entry] {
-    grid-template-columns: 32px minmax(0, 1fr) !important;
-    column-gap: 8px !important;
-    padding: 10px !important;
-  }
-}
-
-/* ============================================================================
  * 10. Privacy Card & Multi-Dimension Centered Search Palette (dsh-claude-style)
  * ============================================================================ */
 .dtd-privacy-card {
@@ -851,8 +452,8 @@
   align-items: center;
   padding: 3px 10px;
   border-radius: var(--dtd-radius-pill);
-  background: var(--dtd-brand-soft, var(--dsw-alias-state-business-tertiary, transparent));
-  color: var(--dtd-brand-ink-on-soft, var(--dtd-brand, var(--dsw-alias-brand-primary, currentColor)));
+  background: var(--dtd-brand-soft, transparent);
+  color: var(--dtd-brand-ink-on-soft, var(--dtd-brand, currentColor));
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -876,7 +477,7 @@
   width: 7px;
   height: 7px;
   border-radius: var(--dtd-radius-pill);
-  background: var(--dtd-brand, var(--dsw-alias-brand-primary, currentColor));
+  background: var(--dtd-brand, currentColor);
   flex: none;
 }
 
@@ -1214,7 +815,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--dtd-bg-surface, var(--dsw-alias-bg-layer-1));
+  background: var(--dtd-bg-surface);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -1240,7 +841,7 @@
   width: 44px;
   height: 44px;
   border-radius: var(--dtd-radius-pill);
-  background: var(--dtd-brand-soft, var(--dsw-alias-state-business-tertiary));
+  background: var(--dtd-brand-soft);
   color: var(--dtd-brand-ink-on-soft, var(--dtd-brand));
   display: flex;
   align-items: center;

@@ -170,7 +170,18 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired native Ungrouped context-menu capture, synthetic popup and its CSS; Host deletion protection preserved.
 // Reviewed 2026-11-19: retired active native menu/tooltip/listbox/hover CSS takeover; keep Delta-owned overlays.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
-const ZIP3_THEME_BLOB = '6cd4f5efa58af0ed570083c9ed6bf2b14515f864'
+// Reviewed 2026-11-19: keep only Delta-owned CSS and published Theme API tokens.
+const ZIP3_THEME_BLOB = '587e37e22d478ac7f4d5d9c9b82f173baecf0613'
+// Reject renewed private Host styling even if an emitted asset digest is edited.
+// Reading an official Theme API token from a Delta-owned component is allowed;
+// declaring Host --dsw-* variables in injected global CSS is not.
+const UNOWNED_HOST_CSS_PATTERNS = [
+  /\[\s*class\s*[*~^$|]?=/i,
+  /(?:^|[\s;{])--dsw-[\w-]+\s*:/m,
+  /\[data-sidebar-right-guide-entry\]/,
+  /:root\[data-delta-ui=["']delta["']\]\s+(?:input|textarea|select|button)\b/i,
+  /:root\[data-delta-ui=["']delta["']\]\s+::selection\b/i,
+]
 const LEGACY_COMPAT_ATTRIBUTE_WRITES = [
   /\.\s*setAttribute\s*\(\s*(['"`])data-delta-compat(?:-status)?\1/i,
   /\[\s*(['"`])setAttribute\1\s*\]\s*\(\s*(['"`])data-delta-compat(?:-status)?\2/i,
@@ -295,6 +306,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
     'retired Ungrouped native context menu in emitted theme')
   ensure(!RETIRED_HOST_POPUP_THEME_MARKERS.some(marker => theme.includes(marker)),
     'retired native popup styling in emitted theme')
+  ensure(!UNOWNED_HOST_CSS_PATTERNS.some(pattern => pattern.test(theme)),
+    'retired Host-global CSS takeover in emitted theme')
   const canonical = theme.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g,
     (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
   const bytes = Buffer.from(canonical)
