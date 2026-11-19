@@ -338,6 +338,74 @@ test('published Session hover Slot shows only an authorized, path-free identity 
 })
 
 
+test('published Session hover renders public catalog time and no record details', async () => {
+  const app = harness()
+  const hover = app.components.get('sidebar.session.row.hover')
+  let records = { 'session-one': { id: 'session-one', workspaceId: 'default',
+    updatedAt: '2026-11-18T10:20:00.000Z', hiddenField: 'private value' } }
+  app.features.setSessionsApi({ list: { getSnapshot: () => ({ byId: records }) } })
+  app.context.window.location = { href: 'https://harness.test/' }
+  app.context.fetch = async () => ({ ok: true, status: 200, json: async () => ({ state: {
+    hasPin: false, lockMode: 'none', lockedSessionIds: [], lockedWorkspaceIds: [],
+    deletedSessionIds: [], movedSessions: {},
+  } }) })
+  try {
+    assert.equal(hover.component({ sessionId: 'session-one' }), null)
+    await app.features.refreshState()
+    let rendered = JSON.stringify(hover.component({ sessionId: 'session-one' }))
+    assert.match(rendered, /dtd-session-meta-updated/)
+    assert.match(rendered, /2026-11-18T10:20:00.000Z/)
+    assert.match(rendered, /\u6700\u8fd1\u66f4\u65b0/)
+    assert.doesNotMatch(rendered, /hiddenField|private value/)
+    app.documentElement.lang = 'en'
+    app.context.observers.forEach(notify => notify())
+    rendered = JSON.stringify(hover.component({ sessionId: 'session-one' }))
+    assert.match(rendered, /Last updated/)
+    records = { 'session-one': { id: 'wrong', updatedAt: '2026-11-18T10:20:00.000Z' } }
+    assert.doesNotMatch(JSON.stringify(hover.component({ sessionId: 'session-one' })), /dtd-session-meta-updated/)
+    for (const updatedAt of [0, 1730000000, 'invalid']) {
+      records = { 'session-one': { id: 'session-one', updatedAt } }
+      assert.doesNotMatch(JSON.stringify(hover.component({ sessionId: 'session-one' })), /dtd-session-meta-updated/)
+    }
+    app.features.setSessionsApi(undefined)
+    assert.doesNotMatch(JSON.stringify(hover.component({ sessionId: 'session-one' })), /dtd-session-meta-updated/)
+  } finally { app.cleanup() }
+})
+
+test('public hover timestamp obeys Session locks, Workspace locks and deletion tombstones', async () => {
+  const app = harness()
+  const hover = app.components.get('sidebar.session.row.hover')
+  app.features.setSessionsApi({ list: { getSnapshot: () => ({ byId: {
+    'session-one': { id: 'session-one', workspaceId: 'default', updatedAt: '2026-11-18T10:20:00Z' },
+  } }) } })
+  let lockedSessionIds = []
+  let lockedWorkspaceIds = []
+  let deletedSessionIds = []
+  app.context.window.location = { href: 'https://harness.test/' }
+  app.context.fetch = async () => ({ ok: true, status: 200, json: async () => ({ state: {
+    hasPin: true, lockMode: 'pin', lockedSessionIds, lockedWorkspaceIds,
+    deletedSessionIds, movedSessions: {},
+  } }) })
+  try {
+    await app.features.refreshState()
+    assert.match(JSON.stringify(hover.component({ sessionId: 'session-one' })), /dtd-session-meta-updated/)
+    lockedSessionIds = ['session-one']
+    await app.features.refreshState()
+    assert.equal(hover.component({ sessionId: 'session-one' }), null)
+    lockedSessionIds = []
+    lockedWorkspaceIds = ['default']
+    await app.features.refreshState()
+    assert.equal(hover.component({ sessionId: 'session-one' }), null)
+    lockedWorkspaceIds = []
+    deletedSessionIds = ['session-one']
+    await app.features.refreshState()
+    assert.equal(hover.component({ sessionId: 'session-one' }), null)
+    deletedSessionIds = []
+    await app.features.refreshState()
+    assert.match(JSON.stringify(hover.component({ sessionId: 'session-one' })), /dtd-session-meta-updated/)
+  } finally { app.cleanup() }
+})
+
 test('Client never archives or unarchives Host sessions after state refresh, lock, unlock or unbind', async () => {
   const app = harness()
   const sessionId = 'session-one'

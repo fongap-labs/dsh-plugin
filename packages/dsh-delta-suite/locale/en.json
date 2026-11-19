@@ -23,6 +23,7 @@
     "appearanceDescription": "Switch between Delta theme and official theme without changing sessions, models or plugins.",
     "hostOwned": "Session search and workspace operations are proxied to native Harness services and revert completely when disabled.",
     "sessionId": "Session ID",
+    "sessionLastUpdated": "Last updated",
     "copySessionId": "Copy session ID",
     "copy": "Copy",
     "searchSessions": "Search sessions",
