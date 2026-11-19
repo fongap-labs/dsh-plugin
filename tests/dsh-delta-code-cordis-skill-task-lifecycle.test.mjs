@@ -131,6 +131,17 @@ describe('Delta Code real Cordis task-scoped Skill lifecycle', () => {
       await ctx.emit('agent/disposed', { agent: second })
       await assert.rejects(secondLoad, /skill agent disposed/)
       assert.equal(fetcher.requests[1].signal.aborted, true)
+      assert.deepEqual(await provider.list({ scope: second }), [],
+        'Native Host must not rediscover remote Skills for disposed Agent')
+      assert.equal(await provider.get(candidate, { scope: second }), undefined)
+      await userMessage(ctx, second, 'Start a fresh task after disposal')
+      assert.deepEqual(await provider.list({ scope: second }), [],
+        'Late claimed message cannot resurrect the terminated Agent')
+      assert.equal(fetcher.requests.length, 3,
+        'A disposed Agent must not launch additional remote requests')
+      const freshAgent = {}
+      assert.ok((await provider.list({ scope: freshAgent })).length > 0,
+        'A separate, new Agent remains independent')
       assert.equal(skills.providers.size, 2)
       await fiber.dispose()
       fiber = undefined
