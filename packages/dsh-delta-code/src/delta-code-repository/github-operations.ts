@@ -6,6 +6,7 @@ import {
 import { GitHubApiFailure, GitHubWriteUncertain } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
 import { createGitHubSkillDiscoverySpecs } from './github-skill-discovery.js'
+import { createSkillAdmissionProposalSpecs } from './github-skill-admission-proposal.js'
 
 export interface DeltaGitHubExecution {
   readonly signal: AbortSignal
@@ -75,7 +76,7 @@ export function createGitHubToolSpecs(
     if (typeof name !== 'string' || !name.trim()) throw new Error('GitHub default branch unavailable')
     return { repository: info.repository, defaultBranch: validBranch(name) }
   }
-  return [
+  const specs: DeltaGitHubToolSpec[] = [
     tool('connection', 'Verify the selected GitHub account for a repository. Automatically use the local origin when omitted.', { repository: optional }, async (args, exec) => {
       const response = await githubRequest(exec, args.repository, 'GET', encodeRepo)
       return envelope(response, { repository: response.repository, account: response.account, private: response.data.private, permissions: response.data.permissions ?? {} })
@@ -329,4 +330,20 @@ export function createGitHubToolSpecs(
         spec.execute(args, { ...exec, account: args.account }),
     })),
   ]
+  const byName = (name: string): DeltaGitHubToolSpec => {
+    const match = specs.find(spec => spec.name === name)
+    if (!match) throw Error('GitHub tool dependency missing: ' + name)
+    return match
+  }
+  return [...specs, ...createSkillAdmissionProposalSpecs(transport, {
+    file: byName('code_github_file'),
+    branch: byName('code_github_branch'),
+    commitFile: byName('code_github_commit_file'),
+    createPr: byName('code_github_create_pr'),
+  }, () => settings.githubAllowWrites).map(spec => ({
+    ...spec,
+    parameters: { ...spec.parameters, account: optional },
+    execute: (args: any, exec: DeltaGitHubExecution) =>
+      spec.execute(args, { ...exec, account: args.account }),
+  }))]
 }
