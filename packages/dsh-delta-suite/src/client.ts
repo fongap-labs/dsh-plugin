@@ -5248,13 +5248,18 @@ window.__ModuleLoader__.load({
       provider?: { id?: string; name?: string }; model?: { name?: string }; placement?: string
     }): unknown {
       const prefs = useFeaturePreferences(React)
-      const showModel = prefs.showModelInfo && typeof props.model?.name === 'string'
-      const showAccount = prefs.showDeepSeekAccountInfo && props.provider?.id === 'deepseek-account' &&
-        typeof props.provider.name === 'string' && props.placement !== 'option'
+      // Only public Slot owner props can contribute a route label. A selector
+      // option remains model-only, and empty or unrelated provider metadata
+      // must never create a misleading account badge.
+      const modelName = typeof props.model?.name === 'string' ? props.model.name.trim() : ''
+      const accountName = props.provider?.id === 'deepseek-account' && props.placement !== 'option' &&
+        typeof props.provider.name === 'string' ? props.provider.name.trim() : ''
+      const showModel = prefs.showModelInfo && !!modelName
+      const showAccount = prefs.showDeepSeekAccountInfo && !!accountName
       if (!showModel && !showAccount) return null
       return el('span', { className: 'dtd-model-label', 'data-placement': props.placement || '' },
-        showAccount ? el('span', { className: 'dtd-model-account' }, props.provider?.name) : null,
-        showModel ? el('span', { className: 'dtd-model-name' }, props.model?.name) : null)
+        showAccount ? el('span', { className: 'dtd-model-account' }, accountName) : null,
+        showModel ? el('span', { className: 'dtd-model-name' }, modelName) : null)
     }
     function AssistantInputControls(props: AssistantSlotProps): unknown {
       const revision = useContentProtectionRevision()

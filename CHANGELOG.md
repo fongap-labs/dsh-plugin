@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Suite 通过公开模型标签 Slot 提供 DeepSeek Account 路由名称独立显示偏好，过滤空白与非目标提供方，增加运行时回归测试（#190）。
+
 - 修复: 移除 Harness 原生菜单、Tooltip、Listbox 和私有浮层的 CSS 接管；保留 Delta 自有弹窗与锁屏样式（#333）。
 
 - 修复: Host 工作区清单遇到重复路径、无效成员或失效迁移目标时禁止会话恢复与危险操作，补充授权回归测试（#333）。
