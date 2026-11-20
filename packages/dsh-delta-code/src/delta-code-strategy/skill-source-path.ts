@@ -12,9 +12,16 @@ export function skillNameFromPath(path: unknown): string | null {
  * cannot be validated, fail closed; do not silently fall back to a root MIT.
  * Blob type, mode and SHA are checked separately by the review boundary.
  */
-export function nearestSkillLicense<T extends { readonly path?: string }>(
-  tree: readonly T[], skillPath: string,
-): T | undefined {
+export interface SkillTreeFile {
+  readonly path: string
+  readonly type?: string
+  readonly mode?: string
+  readonly sha?: string
+}
+
+export function nearestSkillLicense(
+  tree: readonly SkillTreeFile[], skillPath: string,
+): SkillTreeFile | undefined {
   if (!skillNameFromPath(skillPath)) return undefined
   const parent = skillPath.slice(0, skillPath.lastIndexOf('/') + 1)
   const at = (prefix: string) => tree.filter(entry =>
