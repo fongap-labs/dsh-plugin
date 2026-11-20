@@ -76,12 +76,12 @@ export function planDeclaredCapabilities(
   const busy = new Set(active)
   const remaining = new Set([...closure].filter(id => !proven.has(id) && !busy.has(id)))
   const ready = [...remaining].filter(id =>
-    (byId.get(id)!.requires ?? []).every(dep => proven.has(dep)))
+    (byId.get(id)!.requires ?? []).every((dep: string) => proven.has(dep)))
   const waves: string[][] = []
   const scheduled = new Set(proven)
   while (remaining.size) {
     const wave = [...remaining].filter(id =>
-      (byId.get(id)!.requires ?? []).every(dep => scheduled.has(dep)))
+      (byId.get(id)!.requires ?? []).every((dep: string) => scheduled.has(dep)))
     if (!wave.length) break // Host-in-progress dependencies block, rather than simulating completion
     waves.push(wave)
     for (const id of wave) {
