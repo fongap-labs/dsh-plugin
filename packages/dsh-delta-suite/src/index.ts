@@ -14,6 +14,7 @@ export type { DeltaCapabilityManifest, DeltaCapabilityReport, DeltaHostCapabilit
 export {
   decodeGatewayReasoningCatalog,
   mapGatewayReasoningChoice,
+  previewGatewayReasoningSync,
   toHarnessReasoningEfforts,
 } from './delta-suite-adapter/gateway-reasoning.js'
 export type {
@@ -21,6 +22,7 @@ export type {
   GatewayReasoningChoice,
   GatewayReasoningProtocol,
   GatewayReasoningCapability,
+  GatewayReasoningSyncPreview,
 } from './delta-suite-adapter/gateway-reasoning.js'
 export { redactPathForUi, redactSensitiveText } from './redact.js'
 export {
