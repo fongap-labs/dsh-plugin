@@ -97,7 +97,7 @@ export function validateCodingCapabilities(
   }
   const validText = (value: unknown): value is string =>
     typeof value === 'string' && value.trim().length > 0 &&
-    value.length <= 512 && !/[\\u0000-\\u001f\\u007f]/.test(value)
+    value.length <= 512 && !/[\u0000-\u001f\u007f]/.test(value)
   const validList = (value: unknown, allowEmpty = false): value is readonly string[] =>
     Array.isArray(value) && value.length >= (allowEmpty ? 0 : 1) &&
     value.length <= 16 && value.every(validText)
