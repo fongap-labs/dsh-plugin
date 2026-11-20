@@ -1096,6 +1096,8 @@ interface ClientFeatureManager {
   setNavigationApi(api: SearchNavigationApi | undefined): void
   setActiveSessionId(id: string | undefined): void
   getActiveSessionId(): string | undefined
+  /** Selected public hover visibility and UTC time: null denies identity, 0 omits time. */
+  readSessionHoverSelection(sessionId: string): number | null
   /** Sanitized public Host catalog timestamp; never returns paths or private records. */
   readSessionUpdateTime(sessionId: string): number | undefined
   isLocked(sessionId: string | undefined): boolean
@@ -2636,6 +2638,32 @@ function createClientFeatureManager(): ClientFeatureManager {
     shieldEl = overlay
   }
 
+  // Use one primitive snapshot for both hover visibility and its optional
+  // timestamp: null = denied, 0 = visible with no valid time, >0 = UTC ms.
+  // The public catalog may update a Session's Workspace without changing its
+  // timestamp; React must still revoke the exposed identity and copy action.
+  const readSessionHoverSelection = (id: string): number | null => {
+    if (!id) return null
+    try {
+      const policy = createSearchContentProtection(state, () => {
+        if (!readNativeWorkspaceSnapshot) throw new Error('workspace membership unavailable')
+        return readNativeWorkspaceSnapshot()
+      })
+      if (!policy.allowsSession(id)) return null
+      if (!sessionsApi) return 0 // Published row remains usable on older Hosts.
+      const byId = sessionsApi.list.getSnapshot()?.byId
+      if (!byId || typeof byId !== 'object') return null
+      if (!Object.prototype.hasOwnProperty.call(byId, id)) return 0
+      const record = byId[id]
+      if (!record || record.id !== id || record.blank ||
+          !policy.allowsSession(id, record.workspaceId)) return null
+      // Numeric Host timestamps are milliseconds. Unknown or seconds-sized
+      // values omit the time without inventing a date in 1970.
+      const value = normalizeSearchTime(record.updatedAt)
+      return value >= Date.UTC(2000, 0, 1) && value <= Date.UTC(2100, 0, 1) ? value : 0
+    } catch { return null }
+  }
+
   return {
     getSnapshot: () => state,
     subscribe: (listener) => {
@@ -2711,24 +2739,10 @@ function createClientFeatureManager(): ClientFeatureManager {
       publish({ activeSessionId: id })
     },
     getActiveSessionId: () => state.activeSessionId,
+    readSessionHoverSelection,
     readSessionUpdateTime: id => {
-      // No Host catalog, no verified protection, or a mismatched catalog key:
-      // omit this optional decoration rather than trusting an unowned record.
-      if (!id || !state.isSearchProtectionReady || !sessionsApi) return undefined
-      try {
-        const record = sessionsApi.list.getSnapshot().byId[id]
-        if (!record || record.id !== id || record.blank) return undefined
-        const policy = createSearchContentProtection(state, () => {
-          if (!readNativeWorkspaceSnapshot) throw new Error('workspace membership unavailable')
-          return readNativeWorkspaceSnapshot()
-        })
-        if (!policy.allowsSession(id, record.workspaceId)) return undefined
-        // Numeric Host timestamps are milliseconds. An ambiguous seconds
-        // value must not display as a fabricated date in 1970.
-        const value = normalizeSearchTime(record.updatedAt)
-        if (value < Date.UTC(2000, 0, 1) || value > Date.UTC(2100, 0, 1)) return undefined
-        return value
-      } catch { return undefined }
+      const selected = readSessionHoverSelection(id)
+      return selected !== null && selected > 0 ? selected : undefined
     },
     isLocked: (id) => Boolean(id && state.lockedSessionIds.includes(id)),
     isProtectedView: (id) => Boolean(id && state.lockedSessionIds.includes(id) && !state.tempUnlockedIds.includes(id)),
@@ -5607,16 +5621,17 @@ window.__ModuleLoader__.load({
     function SessionHoverDetail({ sessionId }: SessionHoverProps, controller: DeltaController): unknown {
       const revision = useContentProtectionRevision()
       const view = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-      const updatedAt = React.useSyncExternalStore<number | undefined>(
+      const hoverSelection = React.useSyncExternalStore<number | null>(
         deltaFeatures.subscribeSessionCatalog,
-        () => deltaFeatures.readSessionUpdateTime(sessionId),
+        () => deltaFeatures.readSessionHoverSelection(sessionId),
       )
       // The published hover Slot is decoration only: no Session binding, raw
       // workspace path or native hover-card layout changes are permitted here.
-      if (view.mode !== 'delta' || !sessionId || !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return null
+      if (view.mode !== 'delta' || hoverSelection === null) return null
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
+      const updatedAt = hoverSelection > 0 ? hoverSelection : undefined
       const updatedText = updatedAt === undefined ? undefined : new Date(updatedAt).toLocaleString(
         view.language === 'zh' ? 'zh-CN' : 'en-US',
         { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
@@ -5633,7 +5648,7 @@ window.__ModuleLoader__.load({
             event?.stopPropagation?.()
             const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
             if (controller.getSnapshot().mode !== 'delta' || revision !== deltaFeatures.getContentProtectionRevision() ||
-                !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return
+                deltaFeatures.readSessionHoverSelection(sessionId) === null) return
             let request: Promise<void> | undefined
             try { request = typeof navigator !== 'undefined' ? navigator.clipboard?.writeText(sessionId) : undefined }
             catch { /* clipboard security errors are shown as a safe toast */ }
