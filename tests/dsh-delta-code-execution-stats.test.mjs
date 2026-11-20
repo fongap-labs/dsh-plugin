@@ -94,6 +94,29 @@ describe('Code Worker native session execution metrics', () => {
     assert.equal(result.calls, 3)
   })
 
+  it('reports incomplete or contradictory verification claims as unconfirmed', async () => {
+    const stats = new ExecutionStats()
+    const session = {}
+    const inconsistent = [
+      { ...verifiedStep(true), exitCode: 1 },
+      { ...verifiedStep(true), signal: 'SIGTERM' },
+      { ...verifiedStep(true), truncated: true },
+      { ...verifiedStep(true), timedOut: true },
+      { passed: true },
+      { ...verifiedSuite(true), skipped: ['test'] },
+      { ...verifiedSuite(true), results: [{ passed: true }] },
+    ]
+    for (const [index, value] of inconsistent.entries()) {
+      const name = index >= 5 ? 'code_verify_suite' : 'code_verify'
+      await stats.wrap({ name, execute: async () => value }).execute({}, execution(session))
+    }
+    const current = stats.read(execution(session))
+    assert.equal(current.verificationPassed, 0)
+    assert.equal(current.verificationFailed, 0)
+    assert.equal(current.verificationUnconfirmed, inconsistent.length)
+    assert.equal(current.focusedPassed, 0)
+  })
+
   it('never mixes sessions and never tracks the stats reader itself', async () => {
     const stats = new ExecutionStats()
     const left = {}, right = {}
