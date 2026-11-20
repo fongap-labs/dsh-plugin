@@ -6,7 +6,7 @@
 
 - DeepSeek Harness 的 `@deepseek-ai/dsh-client-ui-model-selection` 经 `ctx.modelDirectories` 维护每个会话的可选模型目录、持久选择、`reasoning.efforts/defaultEffort`，并通过 `session.selectModel` 写入。UI 提供原生 Effort 菜单；无能力声明时不显示选项。
   [官方包文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-model-selection/README.md)。
-- 官方模型配置使用 `llm-pi-ai` 的 `providers.*.models[].reasoningEfforts`；键名为 Off/Low/Medium/High/Max 等级，值是发送到线路的具体参数值。官方 “Settings → Models” 是管理这些声明的合法设置入口。
+- 官方模型配置使用 `llm-pi-ai` 的 `providers.*.models[].reasoningEfforts`；官方 “Settings → Models” 管理这些声明。但 **`off` 是特例**：当前 `llm-pi-ai/src/adapter.ts` 的 `profileOptions` 把 `off` 转成省略 `reasoning` 选项。对默认 High 的 Gateway，这仍可能触发思考，不能把 `off: none` 当作已实现的 Host 关闭语义。[官方适配器源码](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-pi-ai/src/adapter.ts)。
   [官方提供商文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/providers.md)。
 - AI Gateway #493 在**已认证且按访问 Key 过滤的** `GET /v1/models` 模型项中声明
   `reasoningEfforts`、`reasoning_efforts`、`reasoning_policy`。
