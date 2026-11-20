@@ -105,7 +105,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
             script: step.script, project: step.plan.project,
             failureKind: classifyFailure(error),
             command: [step.plan.command, ...step.plan.args].join(' '),
-            exitCode: -1, signal: '', outcome: 'uncertain', passed: false, timedOut: false, truncated: false,
+            exitCode: -1, signal: '', outcome: 'uncertain' as const, passed: false, timedOut: false, truncated: false,
             output: 'Host subprocess refused or failed; inspect Host logs.',
           })
           break
