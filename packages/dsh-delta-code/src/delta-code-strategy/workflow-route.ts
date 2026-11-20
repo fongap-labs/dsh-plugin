@@ -31,6 +31,7 @@ function safeTaskPath(raw: string): string {
   if (typeof raw !== 'string' || raw.length < 1 || raw.length > 240 ||
       raw.startsWith('/') || /^[a-zA-Z]:/.test(raw) || raw.includes('\\') ||
       raw.includes('*') || raw.includes('?') || raw.includes('[') ||
+      /[\u0000-\u001f\u007f]/.test(raw) ||
       raw.split('/').some(part => !part || part === '.' || part === '..')) {
     throw new Error('taskPaths must contain safe, explicit repository-relative paths')
   }
@@ -53,10 +54,15 @@ export function planCodingWaves(
        paths.some(list => !Array.isArray(list) || list.length < 1 || list.length > 32))) {
     throw new Error('taskPaths must provide 1..32 explicit write paths for every task')
   }
+  // Declared paths are advisory, not Host filesystem identities. Conservative
+  // NFC + case folding prevents false-safe parallel writes on case-insensitive
+  // worktrees and canonically equivalent Unicode paths across platforms.
   const writeSets = paths?.map(list => {
-    const paths = list.map(safeTaskPath)
-    if (new Set(paths).size !== paths.length) throw new Error('duplicate task write path')
-    return paths
+    const normalized = list.map(raw => safeTaskPath(raw).normalize('NFC').toLowerCase())
+    if (new Set(normalized).size !== normalized.length) {
+      throw new Error('duplicate task write path')
+    }
+    return normalized
   })
   if (dependencies !== undefined &&
       (!Array.isArray(dependencies) || dependencies.length !== count ||
