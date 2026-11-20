@@ -6,6 +6,7 @@ import type { CodingRoute, CodingRouteRule } from '../../../delta-code-strategy/
 import { isExternalSkillOptOut, matchApprovedGitHubSkills } from '../../../delta-code-strategy/trusted-github-skills.js'
 import { chooseTaskResources, taskResourceGuidance, type TaskResource, type TaskResourceRule } from '../../../delta-code-strategy/task-resource-policy.js'
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
+import { verificationEvidenceStatus } from '../../../delta-code-quality/failure-policy.js'
 import { FREE_ONLY_TOOL_GUIDANCE } from '../../../delta-code-strategy/free-skill-policy.js'
 import { hasNativeTodoGateCandidate, type NativeResumeReader } from '../../../delta-code-quality/resume-policy.js'
 
@@ -126,8 +127,8 @@ export function registerAutomaticCodingRouter(
       }
       if ((exec.name === 'code_verify' || exec.name === 'code_verify_suite') &&
         outcome.isError === false && value && typeof value === 'object') {
-        const passed = (value as { passed?: unknown }).passed
-        if (typeof passed === 'boolean') tracker.observeVerification(passed)
+        const status = verificationEvidenceStatus(exec.name, value)
+        if (status !== 'unconfirmed') tracker.observeVerification(status === 'passed')
       }
     })
     if (typeof toolsResult === 'function') disposers.push(toolsResult)
