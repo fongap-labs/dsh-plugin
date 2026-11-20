@@ -22,6 +22,7 @@
 - `decodeGatewayReasoningCatalog(value)`：仅解析调用方已经获取的 `/v1/models` 完整 JSON 结果。拒绝非列表、无等级、矛盾的驼峰/下划线能力声明、非法线路值与重复模型项。不会自行发送请求、读取 Key 或跨账户缓存。
 - `toHarnessReasoningEfforts(model)`：生成可在当前官方 `llm-pi-ai` 模型配置中**明确审核后**采用的安全等级声明。仅输出 Gateway 已声明的 Low/Medium/High/Max；**始终省略 `off`**，因为当前 Host 适配器无法把这个选择转成 Gateway 可区分的显式关闭请求。它不凭空生成 High/Max，也不修改配置。
 - `mapGatewayReasoningChoice(model, choice, protocol)`：验证 Default 与 Off 的不同线路语义，仅作为适配器的纯契约测试（不是请求拦截钩子）。
+- `previewGatewayReasoningSync(authenticatedCatalog, hostProviderModels, modelId, selectedEffort)`：**只读、单模型** Effort 同步预览；从调用方已认证、当前访问 Key 范围内的完整 `/v1/models` 响应与官方 Host 当前模型列表计算 `added/removed/remapped`，不读取凭证、不联网、不写入设置。用户已选等级在新目录不支持时拒绝预览，选中 Off 时拒绝通过现有 Host 适配器保存；遇到重复 Host 模型、非法当前配置或不存在的模型同样拒绝，绝不自动回退为 Default。只返回推理等级字段，其他提供商配置及敏感字段不会进入结果。
 
 `conversation.input.model.label` 继续由 Harness 声明和提供 Slot owner props。Delta 的模型标签仅以 tooltip 展示官方 catalog 中已公开的等级名称；未声明时不显示，不读取模型服务外的数据，模型选项、键盘事件和持久选择归 Harness。
 
@@ -55,6 +56,12 @@
 ```
 
 示例仅说明等级字段，需保留现有提供商的实际凭证、URL、协议以及其他模型设置；不要用该片段覆盖整个配置。只配置该访问 Key 返回的等级，未知真实节点并不保证执行效果。
+
+## 同步预览的使用边界
+
+同步预览仅接受官方配置已存在的 `providers.<route>.models` 数组中的**准确模型 ID**，不会添加路由、创建模型或触碰其他模型。其结果为 `blocked`、`unchanged` 或 `review`；`review` 只生成候选 `reasoningEfforts` 与增删、线路值变化清单，**并非一次已保存的变更**。调用者需要在正式的 Host 设置 API 授权、确认当前访问 Key 一致、重新读取原生配置并检查期间没有发生版本变化后，才能由用户明确确认应用；这一提交没有提供自动提交入口。
+
+当会话当前选择是 Off、当前模型不在 Key 范围中，或原生已选 Low/Medium/High/Max 在更新后的目录被撤销时，返回拒绝而不是猜测备用等级，避免静默转成 Gateway 的默认 High。该预览也不代替 Host 官方的配置格式验证。若缺少 Host 目录则只返回阻塞状态，不影响原生聊天。
 
 ## 尚未完成的 #280 条件
 
