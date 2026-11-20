@@ -126,6 +126,13 @@ describe('Delta Code approved GitHub Skills', () => {
     [{ ...entry, blobSha: digest(alteredRoot) }])
     await assert.rejects(missing.get((await missing.list())[0]),
       /reference manifest is incomplete or changed/)
+    const additional = root + '\nRead extra.md before working.'
+    const unlinked = createApprovedGitHubSkillProvider(async url =>
+      new Response(url.endsWith('/SKILL.md') ? additional : mini),
+    [{ ...entry, blobSha: digest(additional) }])
+    await assert.rejects(unlinked.get((await unlinked.list())[0]),
+      /reference manifest is incomplete or changed/)
+
     const cancelled = new AbortController()
     const aborted = createApprovedGitHubSkillProvider(async (url) => {
       if (url.endsWith('/SKILL.md')) return new Response(root)
