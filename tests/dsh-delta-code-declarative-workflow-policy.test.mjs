@@ -22,7 +22,7 @@ function expectedLegacy(taskKind, scope, risk) {
     verification: STANDARD_WORKFLOW_VERIFICATION,
   }
   if (taskKind === 'review') return {
-    mode: 'review', skills: ['code-review-readiness', 'code-verification-gate'],
+    mode: 'review', skills: ['code-review-readiness', ...(isHighImpact ? ['code-quality-strength'] : []), 'code-verification-gate'],
     verification: STANDARD_WORKFLOW_VERIFICATION,
   }
   if (taskKind === 'research') return {
@@ -35,7 +35,7 @@ function expectedLegacy(taskKind, scope, risk) {
       'code-root-cause-debugging',
       ...(isPlanned ? ['code-writing-plans', 'code-executing-plans'] : []),
       'code-test-driven-development',
-      ...(isHighImpact ? ['code-request-review'] : []),
+      ...(isHighImpact ? ['code-quality-strength', 'code-diagnostic-readiness', 'code-request-review'] : []),
       'code-verification-gate', 'code-finish-branch',
     ],
     verification: STANDARD_WORKFLOW_VERIFICATION,
@@ -49,7 +49,7 @@ function expectedLegacy(taskKind, scope, risk) {
     skills: [
       ...(isHighImpact ? ['code-brainstorming'] : []),
       'code-writing-plans', 'code-executing-plans', 'code-test-driven-development',
-      ...(isHighImpact ? ['code-request-review', 'code-review-readiness'] : []),
+      ...(isHighImpact ? ['code-quality-strength', 'code-diagnostic-readiness', 'code-request-review', 'code-review-readiness'] : []),
       'code-verification-gate', 'code-finish-branch',
     ],
     verification: STANDARD_WORKFLOW_VERIFICATION,
@@ -57,7 +57,7 @@ function expectedLegacy(taskKind, scope, risk) {
 }
 
 describe('Delta Code declarative coding workflow policy', () => {
-  it('preserves the complete pre-refactor task/scope/risk behavior matrix', () => {
+  it('preserves the complete task/scope/risk matrix with scoped high-impact quality checks', () => {
     const ids = new Set(ALL_CODING_SKILLS.map(skill => skill.name))
     assert.equal(DEFAULT_CODING_WORKFLOW_RULES.length, 6)
     assert.deepEqual(DEFAULT_CODING_WORKFLOW_RULES.map(rule => rule.id), [

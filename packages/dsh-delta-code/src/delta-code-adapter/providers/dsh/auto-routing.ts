@@ -154,7 +154,7 @@ export function registerAutomaticCodingRouter(
         return [
           '# Code Worker: automatically selected coding workflow',
           'The current user message is a coding request. Follow the user and repository instructions first.',
-          'Selected procedure: ' + route + '. If needed, load it through the native skill tool when the current available_skills catalog lists it. Otherwise use native tools and report the missing Skill capability.',
+          'Suggested procedure (keyword-based hint, not authority): ' + route + '. The native Agent must determine actual intent from the user task and repository evidence. For mixed or ambiguous coding work, use read-only code_capabilities list/get/compose and load only applicable Skills through the native catalog; never let a hint override user intent or Host permissions.',
           'Use the Host tools and permission gates; do not create another agent runtime.',
           FREE_ONLY_TOOL_GUIDANCE,
           ...optOutGuidance,

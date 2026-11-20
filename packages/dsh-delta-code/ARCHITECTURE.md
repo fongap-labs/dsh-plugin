@@ -17,6 +17,10 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 ## Boundaries
 
+- The semantic capability directory (`delta-code-strategy/capability-catalog.ts`) is reviewed, read-only metadata exposed via `code_capabilities` (list/get/compose). It validates all Skill targets, unique IDs, links and cycles before registration. Native Agent intent selects scenarios; regex auto-routing is an advisory compatibility hint. `uses` is a non-executing reference and does not load dependencies, create tools or grant permissions.
+
+- Quality-strength, diagnostic-readiness and verified-experience procedures are optional disposable native Skills. Mutations require existing authorized project scripts and actual test evidence; experience candidates cannot auto-promote to trusted GitHub Skills or bypass central CI. No second runtime, tracking database, implicit SDK installation or paid tool is created.
+
 - Project rule discovery inspects only bounded ancestor directories inside the authorized workspace through DSH Host FS; it reports existing AGENTS.md/CLAUDE.md paths but does not interpret or inject file contents. Native Host instruction precedence remains authoritative.
 
 - Approved Skill selection can be re-ordered using session-local, verified native tool outcome co-occurrence after at least three observations per candidate. `tools/result` only observes approved Skill load successes and definite `code_verify` results. Tool arguments, transcripts and sources are never stored; this feedback is not causal evidence and never authorizes external commands.
