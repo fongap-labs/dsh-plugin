@@ -292,7 +292,7 @@ export function installHostGatewayEffortSync(
       }
       return () => { drafts.clear(); offPreview?.(); offApply?.() }
     })
-    if (typeof off === 'function') stops.push(off)
+    if (typeof off === 'function') stops.push(() => { off() })
   } catch { /* Missing public Host contracts keep native Settings untouched. */ }
   return stop
 }
