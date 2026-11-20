@@ -5408,9 +5408,11 @@ window.__ModuleLoader__.load({
             level.id.length > 0 && level.name.trim().length > 0)
           .slice(0, 8).map(level => level.name.trim().slice(0, 48))
         : []
-      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      // The public label can also be rendered in narrow Host fixtures without
+      // the optional Delta locale provider. No effort metadata needs no copy.
       const title = efforts.length > 0
-        ? copy.ui.modelReasoningLevels + ': ' + efforts.join(', ')
+        ? (typeof DICTIONARIES === 'undefined' ? 'Model reasoning levels'
+          : (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.modelReasoningLevels) + ': ' + efforts.join(', ')
         : undefined
       return el('span', { className: 'dtd-model-label', 'data-placement': props.placement || '',
         ...(title ? { title } : {}) },
