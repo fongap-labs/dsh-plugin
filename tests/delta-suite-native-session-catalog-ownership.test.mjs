@@ -197,6 +197,143 @@ test('Vision status outage clears previously confirmed green readiness', async (
     'a Vision status failure must not revoke independent Host Session protection')
 })
 
+
+test('rapid proxy saves reach Host in click order and expose only the final confirmed mode', async () => {
+  const f = fixture()
+  await f.manager.refreshState()
+  const writes = []
+  f.env.fetch = (path, options) => {
+    if (options?.method === 'POST') return new Promise(resolve => {
+      writes.push({ path, body: JSON.parse(options.body), resolve })
+    })
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({}) })
+  }
+  const next = { ...proxyDraft, mode: 'direct' }
+  const first = f.manager.saveProxy(proxyDraft)
+  const second = f.manager.saveProxy(next)
+  await Promise.resolve()
+  assert.equal(writes.length, 1, 'a later POST must not race an earlier pending Host mutation')
+  assert.equal(writes[0].body.mode, 'manual')
+  assert.equal(f.manager.getSnapshot().proxyBusy, true)
+  writes[0].resolve({ ok: true, status: 200, json: async () => ({
+    ok: true, proxy: proxyDraft, effective: effectiveDraft,
+  }) })
+  assert.equal(await first, true)
+  await Promise.resolve()
+  assert.equal(writes.length, 2)
+  assert.equal(writes[1].body.mode, 'direct')
+  assert.equal(f.manager.getSnapshot().proxyBusy, true)
+  const directEffective = { mode: 'direct', source: 'direct', noProxy: '' }
+  writes[1].resolve({ ok: true, status: 200, json: async () => ({
+    ok: true, proxy: next, effective: directEffective,
+  }) })
+  assert.equal(await second, true)
+  assert.equal(f.manager.getSnapshot().proxy.mode, 'direct')
+  assert.equal(f.manager.getSnapshot().effectiveProxy.source, 'direct')
+  assert.equal(f.manager.getSnapshot().proxyBusy, false)
+  assert.equal(f.manager.getSnapshot().proxyError, undefined)
+
+  // The last failure must leave the last genuinely persisted Host value,
+  // not a speculative value from the failed request.
+  const again = f.manager.saveProxy(proxyDraft)
+  await Promise.resolve()
+  assert.equal(writes.length, 3)
+  writes[2].resolve({ ok: false, status: 503, json: async () => ({ ok: false }) })
+  assert.equal(await again, false)
+  assert.equal(f.manager.getSnapshot().proxy.mode, 'direct')
+  assert.equal(f.manager.getSnapshot().proxyError, 'Host proxy unavailable')
+})
+
+test('Vision writes are serialized and stale status probes cannot override the final choice', async () => {
+  const f = fixture()
+  await f.manager.refreshState()
+  const writes = []
+  const staleStatus = []
+  f.env.fetch = (path, options) => {
+    if (options?.method === 'POST') return new Promise(resolve => {
+      writes.push({ path, body: JSON.parse(options.body), resolve })
+    })
+    if (path === '/api/delta-suite/vision/status') return new Promise(resolve => staleStatus.push(resolve))
+    return Promise.resolve({ ok: true, status: 200, json: async () => ({}) })
+  }
+  const a = f.manager.saveVision({ enabled: false })
+  const b = f.manager.saveVision({ enabled: true })
+  await Promise.resolve()
+  assert.equal(writes.length, 1)
+  assert.equal(writes[0].body.enabled, false)
+  writes[0].resolve({ ok: true, status: 200, json: async () => ({
+    ok: true, vision: visionConfirmed,
+  }) })
+  assert.equal(await a, true)
+  await Promise.resolve()
+  assert.equal(writes.length, 2)
+  assert.equal(writes[1].body.enabled, true)
+  writes[1].resolve({ ok: true, status: 200, json: async () => ({
+    ok: true, vision: { ...visionConfirmed, enabled: true },
+  }) })
+  assert.equal(await b, true)
+  assert.equal(f.manager.getSnapshot().vision.enabled, true)
+  assert.equal(staleStatus.length, 1,
+    'intermediate save does not launch a stale Vision readiness probe')
+  staleStatus[0]({ ok: true, status: 200,
+    json: async () => ({ ok: true, engineReady: true, account: { model: 'latest' } }) })
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(f.manager.getSnapshot().visionError, undefined)
+})
+
+test('Host configuration GETs started before POSTs cannot restore stale settings or Vision readiness', async () => {
+  const f = fixture()
+  await f.manager.refreshState()
+  const slow = []
+  f.env.fetch = (path, options) => {
+    if (options?.method === 'POST') {
+      if (path === '/api/delta-suite/proxy') return Promise.resolve({
+        ok: true, status: 200, json: async () => ({
+          ok: true, proxy: proxyDraft, effective: effectiveDraft,
+        }),
+      })
+      if (path === '/api/delta-suite/vision/config') return Promise.resolve({
+        ok: true, status: 200, json: async () => ({
+          ok: true, vision: visionConfirmed,
+        }),
+      })
+    }
+    return new Promise(resolve => slow.push({ path, resolve }))
+  }
+  const refresh = f.manager.refreshState()
+  assert.equal(slow.length, 3)
+  const proxy = f.manager.saveProxy(proxyDraft)
+  const vision = f.manager.saveVision({ enabled: false })
+  assert.equal(await proxy, true)
+  assert.equal(await vision, true)
+  assert.equal(f.manager.getSnapshot().proxy.mode, 'manual')
+  assert.equal(f.manager.getSnapshot().vision.enabled, false)
+  for (const entry of slow.slice(0, 3)) {
+    const data = entry.path === '/api/delta-suite/state' ? { state: {
+      ...f.state([]),
+      proxy: { mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' },
+      vision: { ...visionConfirmed, enabled: true },
+    } } : entry.path === '/api/delta-suite/proxy' ? {
+      proxy: { mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' },
+      effective: { mode: 'system', source: 'system-env' },
+    } : { ok: true, engineReady: true, account: { model: 'old' } }
+    entry.resolve({ ok: true, status: 200, json: async () => data })
+  }
+  await refresh
+  assert.equal(f.manager.getSnapshot().proxy.mode, 'manual')
+  assert.equal(f.manager.getSnapshot().vision.enabled, false)
+  assert.equal(f.manager.getSnapshot().visionEngineAccount?.model, undefined,
+    'stale readiness GET must not overwrite a newer Vision configuration')
+  // Release the fresh status probe triggered by the successful write.
+  for (const entry of slow.slice(3)) entry.resolve({
+    ok: true, status: 200, json: async () => ({
+      ok: true, engineReady: false, account: null,
+    }),
+  })
+  await Promise.resolve()
+})
+
 test('public Session catalog notifications update selected hover time and respect service lifetime', async () => {
   const f = fixture()
   await f.manager.refreshState()

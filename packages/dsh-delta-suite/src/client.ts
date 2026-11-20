@@ -1483,6 +1483,14 @@ function createClientFeatureManager(): ClientFeatureManager {
   let hasSyncedStateFromHost = false
   let refreshInFlight: Promise<void> | undefined
   let lastRefreshAttemptAt = 0
+  // Serialize configuration writes: the Host must observe the user's chosen
+  // order, and older refreshes must not overwrite a newer confirmed write.
+  let proxyMutationRevision = 0
+  let visionMutationRevision = 0
+  let pendingProxyWrites = 0
+  let pendingVisionWrites = 0
+  let proxyWriteTail: Promise<void> = Promise.resolve()
+  let visionWriteTail: Promise<void> = Promise.resolve()
   let dialogBackdrop: HTMLElement | undefined
   let shieldEl: HTMLElement | undefined
   let shieldSessionId: string | undefined
@@ -1602,6 +1610,14 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     if (refreshInFlight) return refreshInFlight
     lastRefreshAttemptAt = Date.now()
+    const proxyReadRevision = proxyMutationRevision
+    const visionReadRevision = visionMutationRevision
+    const proxyReadDuringWrite = pendingProxyWrites > 0
+    const visionReadDuringWrite = pendingVisionWrites > 0
+    const canUseProxyRead = (): boolean => !proxyReadDuringWrite &&
+      proxyReadRevision === proxyMutationRevision && pendingProxyWrites === 0
+    const canUseVisionRead = (): boolean => !visionReadDuringWrite &&
+      visionReadRevision === visionMutationRevision && pendingVisionWrites === 0
     refreshInFlight = (async () => {
       try {
         const [stRes, pxRes, vsRes] = await Promise.all([
@@ -1613,12 +1629,17 @@ function createClientFeatureManager(): ClientFeatureManager {
           const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
           if (isConfirmedLockState(stData?.state)) {
             hasSyncedStateFromHost = true
-            applyHostStatePayload(stData!.state)
+            const payload = { ...stData!.state }
+            // GET may have started before the user's POST and returned stale
+            // Proxy/Vision settings. Durable Session protection is independent.
+            if (!canUseProxyRead()) delete payload.proxy
+            if (!canUseVisionRead()) delete payload.vision
+            applyHostStatePayload(payload)
           } else revokeHostConfirmation()
         } else revokeHostConfirmation()
-        if (pxRes?.ok) {
+        if (pxRes?.ok && canUseProxyRead()) {
           const pxData = (await pxRes.json().catch(() => null)) as { proxy?: ClientProxyConfig; effective?: ClientEffectiveProxy } | null
-          if (pxData?.proxy) {
+          if (pxData?.proxy && canUseProxyRead()) {
             publish({
               proxy: Object.freeze({ ...pxData.proxy }),
               ...(pxData.effective ? { effectiveProxy: Object.freeze({ ...pxData.effective }) } : {}),
@@ -1626,19 +1647,21 @@ function createClientFeatureManager(): ClientFeatureManager {
             })
           }
         }
-        if (vsRes && vsRes.ok) {
+        if (!canUseVisionRead()) {
+          // An in-flight write owns this field; discard older GET status.
+        } else if (vsRes && vsRes.ok) {
           const vsData = (await vsRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
-          publish({
+          if (canUseVisionRead()) publish({
             visionEngineReady: vsData?.ok === true && vsData?.engineReady === true,
             visionEngineAccount: vsData?.ok === true ? (vsData.account ?? null) : null,
           })
         } else {
           // A previously healthy vision channel is not proof of current availability.
-          publish({ visionEngineReady: false, visionEngineAccount: null })
+          if (canUseVisionRead()) publish({ visionEngineReady: false, visionEngineAccount: null })
         }
       } catch {
         revokeHostConfirmation()
-        publish({ visionEngineReady: false, visionEngineAccount: null })
+        if (canUseVisionRead()) publish({ visionEngineReady: false, visionEngineAccount: null })
       }
       finally {
         refreshInFlight = undefined
@@ -1653,76 +1676,111 @@ function createClientFeatureManager(): ClientFeatureManager {
     void refreshState()
   }
 
-  const saveProxy = async (next: ClientProxyConfig): Promise<boolean> => {
-    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+  const saveProxy = (next: ClientProxyConfig): Promise<boolean> => {
+    const request: ClientProxyConfig = { ...next }
+    const revision = ++proxyMutationRevision
+    pendingProxyWrites += 1
     publish({ proxyBusy: true, proxyError: undefined })
-    if (!canCallHostHttp()) {
-      publish({ proxyBusy: false, proxyError: copy.networkProxy.hostUnavailable })
+    const result = proxyWriteTail.then(async (): Promise<boolean> => {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      if (!canCallHostHttp()) {
+        if (revision === proxyMutationRevision) publish({ proxyError: copy.networkProxy.hostUnavailable })
+        return false
+      }
+      const res = await postHostJson('/api/delta-suite/proxy', { ...request })
+      const proxy = res.data?.proxy
+      const effective = res.data?.effective
+      if (!res.ok || res.data?.ok !== true ||
+          !proxy || proxy.mode !== request.mode || typeof proxy.httpProxy !== 'string' ||
+          typeof proxy.httpsProxy !== 'string' || typeof proxy.noProxy !== 'string' ||
+          !effective || effective.mode !== request.mode ||
+          !['system-env', 'system-registry', 'direct', 'manual'].includes(effective.source)) {
+        const reason = res.data?.reason
+        const errMsg = reason === 'socks' ? copy.networkProxy.socksUnsupported
+          : res.status === 400 && res.data?.error === 'INVALID_PROXY_URL'
+            ? copy.networkProxy.invalidUrl : copy.networkProxy.hostUnavailable
+        if (revision === proxyMutationRevision) publish({ proxyError: errMsg })
+        return false
+      }
+      // Each acknowledgement is durable, even if a later queued write fails.
+      // Newer requests execute only after this POST finishes on the Host.
+      publish({
+        proxy: Object.freeze({ ...proxy }),
+        effectiveProxy: Object.freeze({ ...effective }),
+        ...(revision === proxyMutationRevision ? { proxyError: undefined } : {}),
+      })
+      if (revision === proxyMutationRevision) showDeltaToast(copy.networkProxy.savedToast)
+      return true
+    }).catch(() => {
+      if (revision === proxyMutationRevision) {
+        const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+        publish({ proxyError: copy.networkProxy.hostUnavailable })
+      }
       return false
-    }
-    const res = await postHostJson('/api/delta-suite/proxy', { ...next })
-    const proxy = res.data?.proxy
-    const effective = res.data?.effective
-    if (!res.ok || res.data?.ok !== true ||
-        !proxy || proxy.mode !== next.mode || typeof proxy.httpProxy !== 'string' ||
-        typeof proxy.httpsProxy !== 'string' || typeof proxy.noProxy !== 'string' ||
-        !effective || effective.mode !== next.mode ||
-        !['system-env', 'system-registry', 'direct', 'manual'].includes(effective.source)) {
-      const reason = res.data?.reason
-      const errMsg = reason === 'socks' ? copy.networkProxy.socksUnsupported
-        : res.status === 400 && res.data?.error === 'INVALID_PROXY_URL'
-          ? copy.networkProxy.invalidUrl : copy.networkProxy.hostUnavailable
-      publish({ proxyBusy: false, proxyError: errMsg })
-      return false
-    }
-    publish({
-      proxy: Object.freeze({ ...proxy }),
-      effectiveProxy: Object.freeze({ ...effective }),
-      proxyBusy: false,
-      proxyError: undefined,
+    }).finally(() => {
+      pendingProxyWrites -= 1
+      if (pendingProxyWrites === 0) publish({ proxyBusy: false })
     })
-    showDeltaToast(copy.networkProxy.savedToast)
-    return true
+    proxyWriteTail = result.then(() => undefined)
+    return result
   }
 
-  const saveVision = async (next: Partial<ClientFeatureSnapshot['vision']>): Promise<boolean> => {
-    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-    if (!canCallHostHttp()) {
-      publish({ visionError: copy.visionBridge.hostUnavailable })
-      return false
-    }
-    const res = await postHostJson('/api/delta-suite/vision/config', { ...next })
-    const confirmed = res.data?.vision
-    if (res.ok && res.data?.ok === true &&
-        confirmed && typeof confirmed.enabled === 'boolean' &&
-        ['auto', 'paste-to-path', 'instant-transcribe'].includes(confirmed.mode) &&
-        typeof confirmed.provider === 'string' &&
-        typeof confirmed.customEndpoint === 'string' &&
-        typeof confirmed.customModel === 'string' &&
-        Object.entries(next).every(([key, value]) =>
-          key === 'customApiKey' || (confirmed as Record<string, unknown>)[key] === value)) {
-      publish({
-        vision: Object.freeze({ ...state.vision, ...confirmed }),
-        visionError: undefined,
-      })
-      void (async () => {
-        try {
-          const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
-          const vData = (await vRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
-          if (vRes.ok && vData?.ok === true) {
-            publish({
-              visionEngineReady: vData.engineReady === true,
-              visionEngineAccount: vData.account ?? null,
-            })
-          } else publish({ visionEngineReady: false, visionEngineAccount: null })
-        } catch {
-          publish({ visionEngineReady: false, visionEngineAccount: null })
+  const saveVision = (next: Partial<ClientFeatureSnapshot['vision']>): Promise<boolean> => {
+    const request = { ...next }
+    const revision = ++visionMutationRevision
+    pendingVisionWrites += 1
+    const result = visionWriteTail.then(async (): Promise<boolean> => {
+      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+      if (!canCallHostHttp()) {
+        if (revision === visionMutationRevision) publish({ visionError: copy.visionBridge.hostUnavailable })
+        return false
+      }
+      const res = await postHostJson('/api/delta-suite/vision/config', request)
+      const confirmed = res.data?.vision
+      if (res.ok && res.data?.ok === true &&
+          confirmed && typeof confirmed.enabled === 'boolean' &&
+          ['auto', 'paste-to-path', 'instant-transcribe'].includes(confirmed.mode) &&
+          typeof confirmed.provider === 'string' &&
+          typeof confirmed.customEndpoint === 'string' &&
+          typeof confirmed.customModel === 'string' &&
+          Object.entries(request).every(([key, value]) =>
+            key === 'customApiKey' || (confirmed as Record<string, unknown>)[key] === value)) {
+        publish({
+          vision: Object.freeze({ ...state.vision, ...confirmed }),
+          ...(revision === visionMutationRevision ? { visionError: undefined } : {}),
+        })
+        if (revision === visionMutationRevision) {
+          void (async () => {
+            try {
+              const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
+              const vData = (await vRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
+              if (revision !== visionMutationRevision) return
+              if (vRes.ok && vData?.ok === true) {
+                publish({
+                  visionEngineReady: vData.engineReady === true,
+                  visionEngineAccount: vData.account ?? null,
+                })
+              } else publish({ visionEngineReady: false, visionEngineAccount: null })
+            } catch {
+              if (revision === visionMutationRevision && pendingVisionWrites === 0) {
+                publish({ visionEngineReady: false, visionEngineAccount: null })
+              }
+            }
+          })()
         }
-      })()
-      return true
-    }
-    publish({ visionError: copy.visionBridge.hostUnavailable })
-    return false
+        return true
+      }
+      if (revision === visionMutationRevision) publish({ visionError: copy.visionBridge.hostUnavailable })
+      return false
+    }).catch(() => {
+      if (revision === visionMutationRevision) {
+        const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+        publish({ visionError: copy.visionBridge.hostUnavailable })
+      }
+      return false
+    }).finally(() => { pendingVisionWrites -= 1 })
+    visionWriteTail = result.then(() => undefined)
+    return result
   }
 
   const testVisionEngine = async (): Promise<{ ok: boolean; message: string }> => {
