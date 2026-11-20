@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 原生会话投影在 Harness 服务撤销、重挂载或异步注册晚到时立即失效旧句柄，防止用已注销的 Host Session Projection 继续恢复任务；卸载时同步停止读取并释放注册资源。
+
 - 修复: Delta Code 原生会话恢复保留 Host Git 明确的不可重试状态，只对退出码已知且可重试的瞬时失败进行有界只读重试；超时、退出状态未知与权限拒绝不再被伪装为 HTTP 503。
 
 - 修复: Delta Code 根据真实原生 Todo 检查点按需提示最终交付验证，防止自报完成和重复门禁调用；MultiEdit 拒绝 NUL 二进制文本操作，并对 Host guarded-intent 写入回读确认，内容不一致时停止后续写入。

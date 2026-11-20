@@ -28,6 +28,20 @@ type ProjectionRegistry = { register(definition: unknown): Promise<ProjectionHan
 export function registerNativeResume(ctx: Context): NativeResumeReader {
   let isActive = true
   let handle: ProjectionHandle | undefined
+  // An unregistered DSH handle remains readable; revoke its use immediately
+  // when the Host service is withdrawn or a replacement registration starts.
+  let registrationEpoch = 0
+  const disposeHandle = (old: ProjectionHandle | undefined): void => {
+    if (!old) return
+    void Promise.resolve().then(() => old.dispose()).catch(() => {
+      ctx.logger?.warn?.('dsh-delta-code: native resume projection disposal failed')
+    })
+  }
+  const clearHandle = (): void => {
+    const old = handle
+    handle = undefined
+    disposeHandle(old)
+  }
   const definition = {
     key: 'deltaCodeNativeResume',
     stateVersion: 1,
@@ -35,30 +49,53 @@ export function registerNativeResume(ctx: Context): NativeResumeReader {
     init: () => ({ ...EMPTY }),
     apply: foldNativeResume,
   }
-  ctx.inject(['sessionProjections'], (child) => {
+  const injected = ctx.inject(['sessionProjections'], (child) => {
+    if (!isActive) return
     const registry = (child as unknown as { sessionProjections?: ProjectionRegistry }).sessionProjections
-    if (!isActive || typeof registry?.register !== 'function') return
-    void Promise.resolve(registry.register(definition)).then(async registered => {
-      if (!isActive) { await registered.dispose(); return }
-      handle = registered
-    }).catch(() => {
+    if (typeof registry?.register !== 'function') return
+    const epoch = ++registrationEpoch
+    clearHandle()
+    let isScopeActive = true
+    try {
+      // The Host's registration is awaitable and may complete after a service
+      // withdrawal. Only the currently mounted epoch may publish a reader.
+      void Promise.resolve(registry.register(definition)).then(registered => {
+        if (!isActive || !isScopeActive || epoch !== registrationEpoch) {
+          disposeHandle(registered)
+          return
+        }
+        handle = registered
+      }).catch(() => {
+        ctx.logger?.warn?.('dsh-delta-code: native resume projection registration failed')
+      })
+    } catch {
       ctx.logger?.warn?.('dsh-delta-code: native resume projection registration failed')
-    })
+    }
+    return () => {
+      isScopeActive = false
+      if (epoch !== registrationEpoch) return
+      registrationEpoch++
+      clearHandle()
+    }
   })
   return {
     read(agent) {
-      if (!handle || !agent || typeof agent !== 'object') return undefined
+      if (!isActive || !handle || !agent || typeof agent !== 'object') return undefined
       const session = (agent as { session?: unknown }).session
       if (!session) return undefined
       return parseResumeState(handle.stateOf(session))
     },
     dispose() {
+      if (!isActive) return
       isActive = false
-      const old = handle
-      handle = undefined
-      if (old) void old.dispose().catch(() => {
-        ctx.logger?.warn?.('dsh-delta-code: native resume projection disposal failed')
-      })
+      registrationEpoch++
+      clearHandle()
+      const disposeInjection = (injected as { dispose?: () => Promise<void> } | null)?.dispose
+      if (typeof disposeInjection === 'function') {
+        void Promise.resolve().then(() => disposeInjection.call(injected)).catch(() => {
+          ctx.logger?.warn?.('dsh-delta-code: native resume injection disposal failed')
+        })
+      }
     },
   }
 }

@@ -119,6 +119,100 @@ describe('Delta Code Worker native session resume', () => {
     } finally { await f.cleanup() }
   })
 
+  it('revokes registered native projection readers on service withdrawal and remount', async () => {
+    let attach
+    let injectionDisposals = 0
+    let firstDisposals = 0
+    let secondDisposals = 0
+    const agent = { session: {} }
+    const makeHandle = (writeSeq, onDispose) => ({
+      stateOf(session) {
+        assert.strictEqual(session, agent.session)
+        return { tasks: TASKS, writeSeq, invalid: false }
+      },
+      async dispose() { onDispose() },
+    })
+    const first = makeHandle(7, () => firstDisposals++)
+    const second = makeHandle(9, () => secondDisposals++)
+    let releaseCurrent
+    const reader = registerNativeResume({
+      inject(services, callback) {
+        assert.deepEqual(services, ['sessionProjections'])
+        attach = callback
+        return { async dispose() {
+          injectionDisposals++
+          releaseCurrent?.()
+        } }
+      },
+    })
+    try {
+      releaseCurrent = attach({ sessionProjections: { register: async () => first } })
+      await Promise.resolve()
+      assert.equal(reader.read(agent)?.writeSeq, 7)
+      releaseCurrent()
+      assert.equal(reader.read(agent), undefined, 'an unmounted Host handle must not be read')
+      await Promise.resolve()
+      await Promise.resolve()
+      assert.equal(firstDisposals, 1)
+      releaseCurrent = attach({ sessionProjections: { register: async () => second } })
+      await Promise.resolve()
+      assert.equal(reader.read(agent)?.writeSeq, 9)
+      reader.dispose()
+      assert.equal(reader.read(agent), undefined)
+      await Promise.resolve()
+      await Promise.resolve()
+      assert.equal(secondDisposals, 1)
+      assert.equal(injectionDisposals, 1)
+      reader.dispose()
+      assert.equal(injectionDisposals, 1)
+    } finally {
+      reader.dispose()
+    }
+  })
+
+  it('does not resurrect a withdrawn projection when its async registration resolves late', async () => {
+    let attach
+    let resolveOld
+    let oldDisposals = 0
+    let currentDisposals = 0
+    const agent = { session: {} }
+    const previous = {
+      stateOf() { return { tasks: TASKS, writeSeq: 7, invalid: false } },
+      async dispose() { oldDisposals++ },
+    }
+    const current = {
+      stateOf() { return { tasks: TASKS, writeSeq: 11, invalid: false } },
+      async dispose() { currentDisposals++ },
+    }
+    const pending = new Promise(resolve => { resolveOld = resolve })
+    const reader = registerNativeResume({
+      inject(_services, callback) { attach = callback },
+    })
+    try {
+      const releaseOld = attach({ sessionProjections: { register: () => pending } })
+      assert.equal(reader.read(agent), undefined)
+      releaseOld()
+      const releaseNew = attach({ sessionProjections: { register: async () => current } })
+      await Promise.resolve()
+      assert.equal(reader.read(agent)?.writeSeq, 11)
+      resolveOld(previous)
+      await Promise.resolve()
+      await Promise.resolve()
+      await Promise.resolve()
+      assert.equal(oldDisposals, 1)
+      assert.equal(reader.read(agent)?.writeSeq, 11, 'old async handle cannot replace current')
+      releaseOld()
+      assert.equal(reader.read(agent)?.writeSeq, 11, 'stale cleanup cannot unmount newer reader')
+      releaseNew()
+      assert.equal(reader.read(agent), undefined)
+      await Promise.resolve()
+      await Promise.resolve()
+      assert.equal(currentDisposals, 1)
+    } finally {
+      reader.dispose()
+    }
+  })
+
   it('rejects stale native Todo sequences without executing Git', async () => {
     const f = await fixture()
     try {
