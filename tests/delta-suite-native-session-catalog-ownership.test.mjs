@@ -61,6 +61,96 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
   return { manager, calls, state, list, snapshot, env }
 }
 
+
+test('public Session catalog notifications update selected hover time and respect service lifetime', async () => {
+  const f = fixture()
+  await f.manager.refreshState()
+  const first = makeCatalog({
+    target: { id: 'target', updatedAt: '2026-11-18T10:20:00.000Z' },
+    other: { id: 'other', updatedAt: '2026-11-18T10:20:00.000Z' },
+  })
+  function makeCatalog(initial) {
+    let records = initial
+    const callbacks = []
+    const released = []
+    return {
+      callbacks, released,
+      api: { list: {
+        getSnapshot: () => ({ byId: records }),
+        subscribe(listener) {
+          callbacks.push(listener)
+          const index = callbacks.length - 1
+          return () => { released.push(index) }
+        },
+      } },
+      setRecords(next) { records = next },
+    }
+  }
+  const observed = []
+  const stop = f.manager.subscribeSessionCatalog(() => {
+    observed.push(f.manager.readSessionUpdateTime('target'))
+  })
+  try {
+    f.manager.setSessionsApi(first.api)
+    const original = Date.parse('2026-11-18T10:20:00.000Z')
+    assert.equal(f.manager.readSessionUpdateTime('target'), original)
+    assert.deepEqual(observed, [original], 'replacing a Host catalog publishes its selected snapshot')
+
+    first.setRecords({
+      target: { id: 'target', updatedAt: '2026-11-18T10:20:00.000Z' },
+      other: { id: 'other', updatedAt: '2026-11-19T12:00:00.000Z' },
+    })
+    first.callbacks[0]()
+    assert.equal(observed.at(-1), original,
+      'unrelated catalog churn leaves the selected primitive snapshot unchanged')
+
+    const updated = Date.parse('2026-11-19T12:30:00.000Z')
+    first.setRecords({
+      target: { id: 'target', updatedAt: '2026-11-19T12:30:00.000Z' },
+    })
+    first.callbacks[0]()
+    assert.equal(observed.at(-1), updated, 'Host catalog updates refresh selected hover metadata')
+
+    f.manager.setSessionsApi(first.api)
+    assert.deepEqual(first.released, [0], 'reinjecting the same Host API releases the old subscription')
+    const countAfterRebind = observed.length
+    first.callbacks[0]()
+    assert.equal(observed.length, countAfterRebind, 'stale callback cannot publish after reinjection')
+    first.callbacks[1]()
+    assert.equal(observed.length, countAfterRebind + 1)
+
+    const next = makeCatalog({
+      target: { id: 'target', updatedAt: '2026-11-20T12:45:00.000Z' },
+    })
+    f.manager.setSessionsApi(next.api)
+    assert.deepEqual(first.released, [0, 1], 'replacing Host API releases the previous subscription')
+    const beforeStale = observed.length
+    first.callbacks[1]()
+    assert.equal(observed.length, beforeStale, 'replaced Host cannot publish late events')
+    next.callbacks[0]()
+    assert.equal(observed.at(-1), Date.parse('2026-11-20T12:45:00.000Z'))
+
+    f.manager.setSessionsApi(undefined)
+    assert.deepEqual(next.released, [0], 'disable releases the final Host subscriber')
+    assert.equal(observed.at(-1), undefined, 'removed catalog invalidates prior displayed time')
+    const beforeDisable = observed.length
+    next.callbacks[0]()
+    assert.equal(observed.length, beforeDisable)
+
+    // Some older hosts expose only getSnapshot; subscription failure is optional.
+    f.manager.setSessionsApi({ list: {
+      getSnapshot: () => ({ byId: { target: {
+        id: 'target', updatedAt: '2026-11-20T12:45:00.000Z',
+      } } }),
+      subscribe() { throw new Error('catalog unavailable') },
+    } })
+    assert.equal(f.manager.readSessionUpdateTime('target'), Date.parse('2026-11-20T12:45:00.000Z'))
+  } finally {
+    stop()
+    f.manager.setSessionsApi(undefined)
+  }
+})
+
 test('unavailable, rejected or unacknowledged deletion never synthesizes a tombstone', async () => {
   for (const options of [
     { unavailable: true },
