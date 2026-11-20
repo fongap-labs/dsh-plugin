@@ -48,6 +48,33 @@ describe('Delta Code native Todo resume SDK isolation', () => {
     assert.equal(invalid.invalid, true)
   })
 
+  it('fails closed on stale, duplicate or malformed native Todo event sequences', () => {
+    const initial = { tasks: null, writeSeq: -1, invalid: false }
+    const current = pureFold(initial, { type: 'todo/write', seq: 7, data: { todos: [
+      { content: 'Inspect code', status: 'in_progress' },
+    ] } })
+    assert.equal(current.writeSeq, 7)
+    assert.equal(current.invalid, false)
+    for (const seq of [7, 6, -1, NaN, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      const stale = pureFold(current, { type: 'todo/write', seq, data: { todos: [
+        { content: 'Inspect code', status: 'completed' },
+      ] } })
+      assert.equal(stale.writeSeq, 7, 'stale sequence must not overwrite last checkpoint')
+      assert.equal(stale.invalid, true)
+      assert.equal(stale.tasks, null)
+      assert.equal(parseResumeState(stale).invalid, true)
+      const recovered = pureFold(stale, { type: 'todo/write', seq: 8, data: { todos: [
+        { content: 'Inspect code', status: 'in_progress' },
+      ] } })
+      assert.deepEqual(recovered, {
+        tasks: [{ content: 'Inspect code', status: 'in_progress' }],
+        writeSeq: 8, invalid: false,
+      })
+    }
+    assert.strictEqual(pureFold(current, { type: 'turn/start', seq: 6 }), current,
+      'non-Todo events never reset the task projection')
+  })
+
   it('ensures every Quality source file remains free of DSH SDK imports and raw Host calls', () => {
     const quality = new URL('../packages/dsh-delta-code/src/delta-code-quality/', import.meta.url)
     for (const name of readdirSync(quality).filter(file => file.endsWith('.ts'))) {
