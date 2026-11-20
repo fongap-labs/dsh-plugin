@@ -47,7 +47,7 @@
         models:
           - id: Max
             reasoningEfforts:
-              off: none
+              # 暂不声明 off: 当前 llm-pi-ai 会把 Off 序列化为省略字段
               low: low
               medium: medium
               high: high
