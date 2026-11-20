@@ -24,6 +24,7 @@
     "hostOwned": "会话搜索和工作区由 Delta 适配层代理至 Harness 原生服务，停用即可完全恢复官方界面。",
     "sessionId": "会话编号",
     "sessionLastUpdated": "最近更新",
+    "modelReasoningLevels": "模型思考等级", 
     "copySessionId": "复制会话编号",
     "copy": "复制",
     "searchSessions": "搜索会话",
