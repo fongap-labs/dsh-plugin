@@ -100,6 +100,18 @@ test('no manifest and contradictory or malformed values fail without modifying n
   ]) assert.deepEqual(decodeGatewayReasoningCatalog({ object: 'list', data: [item] }), [])
 })
 
+test('duplicate model identities fail closed rather than choosing an arbitrary key-scoped record', () => {
+  const valid = gateway.data[0]
+  const duplicate = { ...valid, reasoningEfforts: { high: 'high' },
+    reasoning_efforts: ['high'] }
+  assert.deepEqual(decodeGatewayReasoningCatalog({
+    object: 'list', data: [valid, duplicate],
+  }), [], 'conflicting metadata cannot grant levels to an ambiguous model id')
+  assert.deepEqual(decodeGatewayReasoningCatalog({
+    object: 'list', data: [valid, { id: 'Max', reasoningEfforts: null }],
+  }), [], 'a malformed duplicate must also revoke the first seemingly valid record')
+})
+
 test('snake-case-only catalogs preserve offered levels but never invent an Off guarantee', () => {
   const parsed = decodeGatewayReasoningCatalog({
     object: 'list', data: [{ id: 'Legacy', reasoning_efforts: ['low', 'high'] }],
