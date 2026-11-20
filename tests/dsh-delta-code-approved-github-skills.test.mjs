@@ -133,6 +133,15 @@ describe('Delta Code approved GitHub Skills', () => {
     await assert.rejects(unlinked.get((await unlinked.list())[0]),
       /reference manifest is incomplete or changed/)
 
+    const nested = mini + '\nRead extra.md before working.'
+    const nestedEntry = {
+      ...entry, references: [{ ...entry.references[0], blobSha: digest(nested) }],
+    }
+    const nestedUnlinked = createApprovedGitHubSkillProvider(async url =>
+      new Response(url.endsWith('/SKILL.md') ? root : nested), [nestedEntry])
+    await assert.rejects(nestedUnlinked.get((await nestedUnlinked.list())[0]),
+      /reference excluded by free-only policy/)
+
     const cancelled = new AbortController()
     const aborted = createApprovedGitHubSkillProvider(async (url) => {
       if (url.endsWith('/SKILL.md')) return new Response(root)
