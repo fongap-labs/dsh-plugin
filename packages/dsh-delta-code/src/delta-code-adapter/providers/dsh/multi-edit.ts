@@ -7,7 +7,7 @@ import { TOOL_PREFIX, resolveRoot, readTextSafe, writeTextSafe, validateWriteTar
 import { lookupDshHostFs } from './host-adapter.js'
 import type { HostFsCapabilities } from './host-fs.js'
 import type { GuardedWriteIntent } from '../../../runtime.js'
-import { planTextEdit, applyTextEdit } from '../../../delta-code-coding/edit-transform.js'
+import { planTextEdit, applyTextEdit, assertEditableText } from '../../../delta-code-coding/edit-transform.js'
 import { shouldPreflightMultiEdit, canCompensateMultiEdit } from '../../../delta-code-coding/multi-edit-policy.js'
 
 export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefinition {
@@ -165,6 +165,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
               let original: string | undefined
               if (shouldRollback) {
                 original = await readTextSafe(ctx, exec, root, path)
+                assertEditableText(original)
                 if (Buffer.byteLength(original, 'utf8') > 2 * 1024 * 1024) {
                   throw new Error('rollbackOnFailure snapshot exceeds 2 MiB')
                 }
@@ -175,6 +176,7 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
                   throw new Error('expectedSha256 must be a 64-character lowercase SHA-256 digest')
                 }
                 original ??= await readTextSafe(ctx, exec, root, path)
+                assertEditableText(original)
                 const actualSha256 = createHash('sha256').update(original, 'utf8').digest('hex')
                 if (actualSha256 !== edit.expectedSha256) throw new Error('expectedSha256 mismatch; file changed')
               }
@@ -265,6 +267,14 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
             }
             isWriteAttempted = true
             const outcome = await writeTextSafe(ctx, exec, root, item.path, item.content, settings, item.pinnedIntent)
+            // A guarded Host acknowledgment is not sufficient when the final
+            // bytes disagree. Stop the batch and mark this write unconfirmed.
+            if (settings.fsWriteContract === 'guarded-intent') {
+              const observed = await readTextSafe(ctx, exec, root, item.path)
+              if (observed !== item.content) {
+                throw new Error('guarded Host write readback mismatch; outcome unconfirmed')
+              }
+            }
             applied += 1
             written.push({ path: item.path, action: item.action, ok: true, note: item.note })
             if (shouldRollback) {
