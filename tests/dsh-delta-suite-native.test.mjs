@@ -239,8 +239,10 @@ test('Gateway Effort footer derives model and effort exclusively from the public
   const rendered = render()
   const text = JSON.stringify(rendered)
   assert.match(text, /my-gateway \/ Max \/ medium/)
-  assert.doesNotMatch(text, /Gateway 路由 ID|Model ID|Current selected effort/,
-    'users cannot forge provider, model or Effort through manual inputs')
+  assert.equal(text.includes('Gateway 路由 ID'), false,
+    'the former editable route field must be absent')
+  assert.doesNotMatch(text, /Model ID|Current selected effort/,
+    'users cannot forge model identity or effort through manual inputs')
   const findNodes = (node, filter) => {
     if (!node || typeof node !== 'object') return []
     return [ ...(filter(node) ? [node] : []),
