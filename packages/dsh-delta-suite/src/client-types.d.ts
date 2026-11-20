@@ -13,6 +13,7 @@ interface DeltaCopy {
     integrationDeletion: string; integrationRunning: string;
     integrationNative: string; integrationReasoning: string; integrationGuidance: string;
     sessionId: string; copySessionId: string; copy: string; sessionLastUpdated: string;
+    modelReasoningLevels: string;
     searchSessions: string; newConversation: string; searching: string; noResults: string;
     copied: string; copyFailed: string; protectedDefaultWorkspace: string;
     updateNotification: string; settings: string; signIn: string; signOut: string;
