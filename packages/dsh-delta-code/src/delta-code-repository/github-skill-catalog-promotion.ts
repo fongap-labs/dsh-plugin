@@ -93,9 +93,20 @@ export function createSkillCatalogPromotionSpecs(
       ])
       const skillMarkdown = decodePinnedSkillBlob(skillData, source.sourceBlobSha)
       const licenseText = decodePinnedSkillBlob(licenseData, source.licenseBlobSha, 32 * 1024)
+      const refs = await Promise.all((source.references ?? []).map(async reference => {
+        exec.signal.throwIfAborted()
+        const blob = await transport.publicRead!(
+          base + '/git/blobs/' + reference.blobSha, exec.signal,
+        )
+        return {
+          path: reference.path, blobSha: reference.blobSha,
+          markdown: decodePinnedSkillBlob(blob, reference.blobSha, 32 * 1024),
+        }
+      }))
       const admission: ReviewedSkillAdmission = {
-        schemaVersion: 1, proposal: staged,
-        evidence: { skillMarkdown, licenseText },
+        schemaVersion: staged.schemaVersion, proposal: staged,
+        evidence: { skillMarkdown, licenseText,
+          ...(staged.schemaVersion === 2 ? { references: refs } : {}) },
         permissions: {
           scope: 'documentation-only', runCommands: false,
           externalNetwork: false, readSecrets: false, writeFiles: false,
