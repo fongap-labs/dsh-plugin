@@ -406,6 +406,49 @@ test('public hover timestamp obeys Session locks, Workspace locks and deletion t
   } finally { app.cleanup() }
 })
 
+
+test('native hover revokes ID and stale copy when public catalog changes Workspace ownership', async () => {
+  const app = harness()
+  const hover = app.components.get('sidebar.session.row.hover')
+  const copies = []
+  let catalogNotify
+  let record = { id: 'unlisted', workspaceId: 'default', updatedAt: '2026-11-18T10:20:00Z' }
+  app.features.setSessionsApi({ list: {
+    getSnapshot: () => ({ byId: { unlisted: record } }),
+    subscribe(fn) { catalogNotify = fn; return () => {} },
+  } })
+  app.context.window.location = { href: 'https://harness.test/' }
+  app.context.navigator.clipboard = { writeText(id) { copies.push(id); return Promise.resolve() } }
+  app.context.fetch = async () => ({ ok: true, status: 200, json: async () => ({ state: {
+    hasPin: true, lockMode: 'pin', lockedSessionIds: [],
+    lockedWorkspaceIds: ['other'], deletedSessionIds: [], movedSessions: {},
+  } }) })
+  try {
+    await app.features.refreshState()
+    const visible = hover.component({ sessionId: 'unlisted' })
+    assert.equal(visible?.type, 'div')
+    assert.match(JSON.stringify(visible), /dtd-session-meta-updated/)
+    const oldCopy = visible.children[2]
+    assert.equal(oldCopy?.type, 'button')
+
+    // The Host catalog can be newer than the native Workspace member array.
+    // A live reparenting event must deny this row even if its time is unchanged.
+    record = { ...record, workspaceId: 'other' }
+    catalogNotify()
+    assert.equal(hover.component({ sessionId: 'unlisted' }), null)
+    oldCopy.props.onClick({ stopPropagation() {} })
+    assert.deepEqual(copies, [], 'old copy callback rechecks current Host ownership')
+
+    record = { ...record, workspaceId: 'default' }
+    catalogNotify()
+    assert.equal(hover.component({ sessionId: 'unlisted' })?.type, 'div')
+
+    app.features.setSessionsApi({ list: { getSnapshot() { throw Error('offline') } } })
+    assert.equal(hover.component({ sessionId: 'unlisted' }), null,
+      'a broken public catalog cannot authorize the previous hover identity')
+  } finally { app.cleanup() }
+})
+
 test('Client never archives or unarchives Host sessions after state refresh, lock, unlock or unbind', async () => {
   const app = harness()
   const sessionId = 'session-one'
