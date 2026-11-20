@@ -7,7 +7,8 @@
  */
 import { createHash } from 'node:crypto'
 import {
-  freeLicenseFromText, inspectFreeSkillText,
+  freeLicenseFromText, inspectFreeSkillText, paidSkillRequirement,
+  hasUnverifiedSkillDependencies,
 } from './free-skill-policy.js'
 import {
   validatePendingSkillProposal,
@@ -17,14 +18,18 @@ import {
 import type { ApprovedGitHubSkill } from './trusted-github-skills.js'
 import { skillStaticRiskIndicators } from '../delta-code-repository/github-skill-public-audit.js'
 import { SKILL_SOURCE_PATH, skillNameFromPath } from './skill-source-path.js'
+import { resolveSkillReferences } from './skill-reference-policy.js'
 
 export interface ReviewedSkillAdmission {
-  readonly schemaVersion: 1
+  readonly schemaVersion: 1 | 2
   readonly proposal: PendingSkillProposal
   /** Immutable bytes carried in the PR, not fetched or run by CI. */
   readonly evidence: {
     readonly skillMarkdown: string
     readonly licenseText: string
+    readonly references?: readonly {
+      readonly path: string; readonly blobSha: string; readonly markdown: string
+    }[]
   }
   /** New Skills cannot grant subprocess, network, secrets or write permissions. */
   readonly permissions: {
@@ -120,6 +125,22 @@ function assertCatalogMetadata(entry: ApprovedGitHubSkill): void {
       (!NAME.test(entry.sourceName) || entry.sourceName !== skillNameFromPath(entry.path))) {
     throw Error('Catalog sourceName does not match pinned Skill path')
   }
+  if (entry.references !== undefined) {
+    if (!Array.isArray(entry.references) || entry.references.length < 1 ||
+        entry.references.length > 4) throw Error('Invalid reviewed Skill reference list')
+    const folder = entry.path.slice(0, entry.path.lastIndexOf('/') + 1)
+    const markdown = entry.references.map(ref => {
+      if (!ref || typeof ref.path !== 'string' ||
+          !ref.path.startsWith(folder) || !REV.test(ref.blobSha)) {
+        throw Error('Invalid pinned Skill reference metadata')
+      }
+      return '[reference](' + ref.path.slice(folder.length) + ')'
+    }).join(' ')
+    const resolved = resolveSkillReferences(entry.path, markdown)
+    if (resolved.some((ref, index) => ref.path !== entry.references![index]!.path)) {
+      throw Error('Unsafe approved Skill reference path')
+    }
+  }
 }
 
 /**
@@ -128,9 +149,10 @@ function assertCatalogMetadata(entry: ApprovedGitHubSkill): void {
  */
 export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdmission {
   ensureKeys(value, ['schemaVersion', 'proposal', 'evidence', 'permissions'], 'Skill admission')
-  if (value.schemaVersion !== 1) throw Error('Unsupported Skill admission version')
+  if (value.schemaVersion !== 1 && value.schemaVersion !== 2) throw Error('Unsupported Skill admission version')
   const proposal = validatePendingSkillProposal(value.proposal)
-  ensureKeys(value.evidence, ['skillMarkdown', 'licenseText'], 'Skill admission evidence')
+  ensureKeys(value.evidence, value.schemaVersion === 2
+    ? ['skillMarkdown', 'licenseText', 'references'] : ['skillMarkdown', 'licenseText'], 'Skill admission evidence')
   ensureKeys(value.permissions, [
     'scope', 'runCommands', 'externalNetwork', 'readSecrets', 'writeFiles',
   ], 'Skill permission evidence')
@@ -155,9 +177,43 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
     throw Error('Skill admission immutable source, frontmatter or license mismatch')
   }
   const cost = inspectFreeSkillText(e.skillMarkdown, source.license)
-  if (!cost.eligible || skillStaticRiskIndicators(e.skillMarkdown).length > 0 ||
-      /(?:\.{1,2}\/|\]\(https?:\/\/|\b(?:sudo|rm\s+-rf|git\s+push|powershell|sh\s+-c)\b)/i.test(e.skillMarkdown)) {
+  const isBundle = value.schemaVersion === 2
+  if ((!isBundle && !cost.eligible) ||
+      (isBundle && paidSkillRequirement(e.skillMarkdown) !== null) ||
+      skillStaticRiskIndicators(e.skillMarkdown).length > 0 ||
+      /(?:\]\(https?:\/\/|\b(?:sudo|rm\s+-rf|git\s+push|powershell|sh\s+-c)\b)/i.test(e.skillMarkdown) ||
+      (!isBundle && /\.{1,2}\//.test(e.skillMarkdown))) {
     throw Error('Skill admission requires a self-contained, low-risk, free reference')
+  }
+  if (isBundle) {
+    if (proposal.schemaVersion !== 2 || !Array.isArray(e.references) ||
+        !Array.isArray(source.references) ||
+        e.references.length === 0 || e.references.length > 4 ||
+        e.references.length !== source.references.length) {
+      throw Error('Incomplete reviewed Skill reference bundle')
+    }
+    const declared = resolveSkillReferences(source.path, e.skillMarkdown)
+    if (declared.length !== e.references.length) {
+      throw Error('Reviewed bundle source reference count differs')
+    }
+    for (let index = 0; index < declared.length; index++) {
+      const ref = e.references[index]!
+      const pinned = source.references[index]!
+      ensureKeys(ref, ['path', 'blobSha', 'markdown'], 'reviewed Skill reference')
+      if (ref.path !== declared[index]!.path || ref.path !== pinned.path ||
+          ref.blobSha !== pinned.blobSha ||
+          typeof ref.markdown !== 'string' ||
+          Buffer.byteLength(ref.markdown, 'utf8') > 32 * 1024 ||
+          !ref.markdown.trim() || blobSha(ref.markdown) !== pinned.blobSha ||
+          paidSkillRequirement(ref.markdown) !== null ||
+          hasUnverifiedSkillDependencies(ref.markdown) ||
+          skillStaticRiskIndicators(ref.markdown).length > 0 ||
+          /\b(?:sudo|rm\s+-rf|git\s+push|powershell|sh\s+-c)\b/i.test(ref.markdown)) {
+        throw Error('Reviewed secondary Skill content, license or immutable hash mismatch')
+      }
+    }
+  } else if (proposal.schemaVersion !== 1) {
+    throw Error('Unsupported versioned Skill review evidence')
   }
   return value as unknown as ReviewedSkillAdmission
 }
@@ -173,7 +229,8 @@ function sourceMatches(entry: ApprovedGitHubSkill, proposal: PendingSkillProposa
   return entry.owner === src.repository.split('/')[0] &&
     entry.repository === src.repository.split('/')[1] &&
     entry.path === src.path && entry.commit === src.commit &&
-    entry.blobSha === src.sourceBlobSha && entry.license === src.license
+    entry.blobSha === src.sourceBlobSha && entry.license === src.license &&
+    JSON.stringify(entry.references ?? []) === JSON.stringify(src.references ?? [])
 }
 
 /**
