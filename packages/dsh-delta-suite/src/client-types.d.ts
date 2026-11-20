@@ -70,7 +70,7 @@ interface DeltaCopy {
     httpProxyLabel: string; httpProxyPlaceholder: string;
     httpsProxyLabel: string; httpsProxyPlaceholder: string;
     noProxyLabel: string; noProxyPlaceholder: string;
-    save: string; savedToast: string; invalidUrl: string; socksUnsupported: string;
+    save: string; savedToast: string; invalidUrl: string; socksUnsupported: string; hostUnavailable: string;
     statusLabel: string; statusSystemEnv: string; statusSystemReg: string;
     statusDirect: string; statusManual: string; note: string;
   }
