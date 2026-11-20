@@ -8,7 +8,7 @@
 
 ## Gateway Reasoning Effort（公开模型目录兼容）
 
-本套件提供无网络请求、无配置副作用的 Gateway `/v1/models` 元数据解码器 `decodeGatewayReasoningCatalog`、`toHarnessReasoningEfforts` 和 `mapGatewayReasoningChoice`。Gateway 模型的可选等级属于当前访问 Key 的请求范围，`native_confirmed` 不等于所有物理节点承诺。`Default` 不发送思考字段，显式 `Off` 的 Gateway 协议意图是 `none`（OpenAI 兼容）或 `thinking.type=disabled`（Anthropic）；但当前 Harness `llm-pi-ai` 把 Off 序列化为省略字段，因此 `toHarnessReasoningEfforts` **不向原生模型菜单声明 Off**。这两种语义不可混同。详见 [Gateway Effort 契约](../../docs/DELTA_SUITE_GATEWAY_REASONING.md)。
+本套件提供无网络请求、无配置副作用的 Gateway `/v1/models` 元数据解码器 `decodeGatewayReasoningCatalog`、`toHarnessReasoningEfforts`、`mapGatewayReasoningChoice` 和单模型只读同步预览 `previewGatewayReasoningSync`。Gateway 模型的可选等级属于当前访问 Key 的请求范围，`native_confirmed` 不等于所有物理节点承诺。`Default` 不发送思考字段，显式 `Off` 的 Gateway 协议意图是 `none`（OpenAI 兼容）或 `thinking.type=disabled`（Anthropic）；但当前 Harness `llm-pi-ai` 把 Off 序列化为省略字段，因此 `toHarnessReasoningEfforts` **不向原生模型菜单声明 Off**。这两种语义不可混同。详见 [Gateway Effort 契约](../../docs/DELTA_SUITE_GATEWAY_REASONING.md)。
 
 只有 Harness 已经公开的原生模型目录与 Effort 选择器负责真实用户选择和持久化；Delta 的模型标签仅提示 Host 已声明的等级，没有模型网络探测、凭据读取、菜单替换或自动配置写入。**目前不意味着模型目录自动从 Gateway 同步至 Harness，也不表示 #280 完成。**
 
