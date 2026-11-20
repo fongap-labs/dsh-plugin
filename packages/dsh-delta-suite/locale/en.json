@@ -24,6 +24,7 @@
     "hostOwned": "Session search and workspace operations are proxied to native Harness services and revert completely when disabled.",
     "sessionId": "Session ID",
     "sessionLastUpdated": "Last updated",
+    "modelReasoningLevels": "Model reasoning levels", 
     "copySessionId": "Copy session ID",
     "copy": "Copy",
     "searchSessions": "Search sessions",
