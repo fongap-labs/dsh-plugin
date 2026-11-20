@@ -18,6 +18,11 @@ describe('Delta Code Worker bounded recovery policy', () => {
     assert.equal(classifyVerificationEvidence({ passed: false, timedOut: false, exitCode: -1, truncated: false, output: '' }), 'uncertain')
     assert.equal(classifyVerificationEvidence({ passed: false, timedOut: false, exitCode: 2, truncated: false, output: 'HTTP 403 failing test' }), 'verification')
     assert.equal(classifyVerificationEvidence({ passed: false, timedOut: false, exitCode: 2, truncated: false, output: 'HTTP 503 dependency' }), 'transient')
+    // A model or tool wrapper cannot assert success over contradictory Host evidence.
+    assert.equal(classifyVerificationEvidence({ passed: true, timedOut: false, exitCode: 2, truncated: false, output: 'ok' }), 'verification')
+    assert.equal(classifyVerificationEvidence({ passed: true, timedOut: false, exitCode: 0, signal: 'SIGTERM', truncated: false, output: 'ok' }), 'uncertain')
+    assert.equal(classifyVerificationEvidence({ passed: true, timedOut: false, exitCode: 0, truncated: true, output: 'ok' }), 'unknown')
+    assert.equal(classifyVerificationEvidence({ passed: false, timedOut: false, exitCode: 0, truncated: false, output: 'ok' }), 'unknown')
     assert.match(verificationNextAction('uncertain'), /Do not retry automatically/)
   })
 

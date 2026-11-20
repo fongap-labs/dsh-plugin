@@ -24,10 +24,14 @@ export function classifyFailure(value: unknown): FailureKind {
 export function classifyVerificationEvidence(evidence: {
   passed: boolean; timedOut: boolean; exitCode: number; signal?: string; truncated: boolean; output: string
 }): FailureKind | 'none' {
-  if (evidence.passed) return 'none'
-  if (evidence.timedOut || evidence.exitCode < 0 || evidence.signal) return 'uncertain'
+  // Raw Host facts outrank a result's self-reported passed flag.
+  if (evidence.timedOut || evidence.signal || !Number.isSafeInteger(evidence.exitCode) ||
+      evidence.exitCode < 0) return 'uncertain'
   if (evidence.truncated) return 'unknown'
-  return classifyFailure(evidence.output) === 'transient' ? 'transient' : 'verification'
+  if (evidence.exitCode !== 0) {
+    return classifyFailure(evidence.output) === 'transient' ? 'transient' : 'verification'
+  }
+  return evidence.passed ? 'none' : 'unknown'
 }
 
 /** Human-only follow-up; failed verification commands are never retried automatically. */

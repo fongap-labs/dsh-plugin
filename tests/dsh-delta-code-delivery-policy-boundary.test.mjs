@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   remainingDeliveryTasks, validateTaskAcceptance, isTerminalGateTodo, gate,
+  hasCompleteDeliveryEvidence,
 } from '../packages/dsh-delta-code/lib/delta-code-quality/delivery-policy.js'
 import {
   remainingDeliveryTasks as oldRemaining, validateTaskAcceptance as oldAcceptance,
@@ -55,6 +56,21 @@ describe('Delta Code Host-neutral delivery policy', () => {
     const blocked = gate('blocked', 'Collect fresh Host evidence', ['Verify tests'])
     assert.equal(blocked.ready, false)
     assert.deepEqual(blocked.remaining, ['Verify tests'])
-    assert.equal(gate('verified', 'Inspect diff').ready, true)
+    const unproved = gate('verified', 'Inspect diff')
+    assert.equal(unproved.stage, 'blocked')
+    assert.equal(unproved.ready, false)
+    assert.match(unproved.blockers.join(' '), /evidence incomplete/)
+    const checks = [{ script: 'test', exitCode: 0, passed: true }]
+    const evidence = ['Fresh Host test and immutable Git state inspected']
+    const taskEvidence = [{ task: 'Implement change', criterion: 'Test passes', checks }]
+    assert.equal(hasCompleteDeliveryEvidence([], [], checks, evidence, taskEvidence), true)
+    const completed = gate('verified', 'Inspect diff', [], 'a'.repeat(40), [],
+      ['src/main.ts'], checks, evidence, taskEvidence)
+    assert.equal(completed.stage, 'verified')
+    assert.equal(completed.ready, true)
+    assert.equal(hasCompleteDeliveryEvidence([], [], checks, [], taskEvidence), false)
+    assert.equal(hasCompleteDeliveryEvidence([], [], [{ ...checks[0], exitCode: 1 }], evidence, taskEvidence), false)
+    assert.equal(hasCompleteDeliveryEvidence([], [], checks, evidence,
+      [{ ...taskEvidence[0], checks: [{ script: 'build', exitCode: 0, passed: true }] }]), false)
   })
 })

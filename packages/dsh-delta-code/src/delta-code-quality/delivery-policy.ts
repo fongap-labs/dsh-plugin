@@ -92,10 +92,37 @@ export interface GateResult {
   taskEvidence: TaskEvidence[]
 }
 
+/** Delivery claims cannot be constructed from completed Todos alone. */
+export function hasCompleteDeliveryEvidence(
+  remaining: readonly string[], blockers: readonly string[],
+  checks: readonly GateCheck[], evidence: readonly string[],
+  taskEvidence: readonly TaskEvidence[],
+): boolean {
+  if (remaining.length || blockers.length || !checks.length || !taskEvidence.length || !evidence.length) return false
+  if (checks.some(check => !check.passed || check.exitCode !== 0)) return false
+  if (new Set(checks.map(check => check.script)).size !== checks.length) return false
+  return taskEvidence.every(item =>
+    Boolean(item.task.trim() && item.criterion.trim()) && item.checks.length > 0 &&
+    item.checks.every(check => check.passed && check.exitCode === 0 &&
+      checks.some(actual => actual.script === check.script && actual.passed && actual.exitCode === check.exitCode)))
+}
+
+/** A missing certificate must be blocked, never modeled as a verified delivery. */
 export function gate(
   stage: GateResult['stage'], nextAction: string, remaining: string[] = [],
   head = '', blockers: string[] = [], changes: string[] = [],
   checks: GateCheck[] = [], evidence: string[] = [], taskEvidence: TaskEvidence[] = [],
 ): GateResult {
-  return { stage, ready: stage === 'verified', head, nextAction, remaining, blockers, changes, checks, evidence, taskEvidence }
+  const verified = stage === 'verified' && hasCompleteDeliveryEvidence(
+    remaining, blockers, checks, evidence, taskEvidence,
+  )
+  if (stage === 'verified' && !verified) {
+    return {
+      stage: 'blocked', ready: false, head,
+      nextAction: 'Final delivery requires fresh, complete checks and mapped task acceptance evidence.',
+      remaining, blockers: [...blockers, 'final delivery evidence incomplete'],
+      changes, checks, evidence, taskEvidence,
+    }
+  }
+  return { stage, ready: verified, head, nextAction, remaining, blockers, changes, checks, evidence, taskEvidence }
 }
