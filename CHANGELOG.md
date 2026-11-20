@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 当前 Harness 的 Off 会省略思考参数，不能关闭 Gateway 默认 High；Delta 元数据映射不再向原生选择器提供无法保证的 Off，保留显式协议映射与安全等级（#280）。
+
 - 新增: 基于 Gateway 已认证模型目录的 Reasoning Effort 元数据适配与 Default/Off 协议映射，原生模型标签仅展示宿主公开的等级；不绕过原生选择器（#280）。
 
 - 修复: Delta Suite 代理与视觉配置写入按顺序提交，忽略与保存重叠的过期刷新结果，避免设置被旧状态覆盖。

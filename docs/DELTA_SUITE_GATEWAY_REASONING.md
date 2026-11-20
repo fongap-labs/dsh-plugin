@@ -6,7 +6,7 @@
 
 - DeepSeek Harness 的 `@deepseek-ai/dsh-client-ui-model-selection` 经 `ctx.modelDirectories` 维护每个会话的可选模型目录、持久选择、`reasoning.efforts/defaultEffort`，并通过 `session.selectModel` 写入。UI 提供原生 Effort 菜单；无能力声明时不显示选项。
   [官方包文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/ui-model-selection/README.md)。
-- 官方模型配置使用 `llm-pi-ai` 的 `providers.*.models[].reasoningEfforts`；键名为 Off/Low/Medium/High/Max 等级，值是发送到线路的具体参数值。官方 “Settings → Models” 是管理这些声明的合法设置入口。
+- 官方模型配置使用 `llm-pi-ai` 的 `providers.*.models[].reasoningEfforts`；官方 “Settings → Models” 管理这些声明。但 **`off` 是特例**：当前 `llm-pi-ai/src/adapter.ts` 的 `profileOptions` 把 `off` 转成省略 `reasoning` 选项。对默认 High 的 Gateway，这仍可能触发思考，不能把 `off: none` 当作已实现的 Host 关闭语义。[官方适配器源码](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-pi-ai/src/adapter.ts)。
   [官方提供商文档](https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/guide/providers.md)。
 - AI Gateway #493 在**已认证且按访问 Key 过滤的** `GET /v1/models` 模型项中声明
   `reasoningEfforts`、`reasoning_efforts`、`reasoning_policy`。
@@ -20,7 +20,7 @@
 `packages/dsh-delta-suite/src/delta-suite-adapter/gateway-reasoning.ts` 提供三项纯函数：
 
 - `decodeGatewayReasoningCatalog(value)`：仅解析调用方已经获取的 `/v1/models` 完整 JSON 结果。拒绝非列表、无等级、矛盾的驼峰/下划线能力声明、非法线路值与重复模型项。不会自行发送请求、读取 Key 或跨账户缓存。
-- `toHarnessReasoningEfforts(model)`：生成可在官方模型配置中**明确审核后**采用的等级声明。仅输出 Gateway 已声明的 Low/Medium/High/Max。经过明确的 Gateway `best_effort` High 策略认证时，附加 `off: none`；不凭空生成 High 或 Max。
+- `toHarnessReasoningEfforts(model)`：生成可在当前官方 `llm-pi-ai` 模型配置中**明确审核后**采用的安全等级声明。仅输出 Gateway 已声明的 Low/Medium/High/Max；**始终省略 `off`**，因为当前 Host 适配器无法把这个选择转成 Gateway 可区分的显式关闭请求。它不凭空生成 High/Max，也不修改配置。
 - `mapGatewayReasoningChoice(model, choice, protocol)`：验证 Default 与 Off 的不同线路语义，仅作为适配器的纯契约测试（不是请求拦截钩子）。
 
 `conversation.input.model.label` 继续由 Harness 声明和提供 Slot owner props。Delta 的模型标签仅以 tooltip 展示官方 catalog 中已公开的等级名称；未声明时不显示，不读取模型服务外的数据，模型选项、键盘事件和持久选择归 Harness。
@@ -33,7 +33,7 @@
 | Off（仅明确支持） | `reasoning_effort: none` | `thinking: {type: disabled}` |
 | Low/Medium/High/Max | 仅使用当前模型目录真实声明的 `reasoningEfforts` 线路值 | 不从列表猜测 Adaptive/Budget，保留原生适配器 |
 
-这些只是**协议映射说明**；Delta 此阶段不劫持会话请求，也不会从浏览器向 Gateway 主动读取目录。尤其不能把 Off 写成空值，否则对于默认思考的模型会被 Gateway 解释成 Default。
+这些只是**协议映射说明**；Delta 此阶段不劫持会话请求，也不会从浏览器向 Gateway 主动读取目录。尤其不能把 Off 写成空值，否则对于默认思考的模型会被 Gateway 解释成 Default。当前 Harness 的 `llm-pi-ai` **正好省略 Off 的底层字段**：因此这些表格中的显式 Off 只适用于真正支持显式写出该参数的未来 Host / 协议适配器，**不能通过现有 `reasoningEfforts.off` 配置获得**。缺少已验证的公开 Host 发送契约时必须隐藏/不提供该等级；保留 Default 和其他已验证等级。
 
 ## 通过已发布的 Harness 官方设置进行人工验证
 
@@ -47,7 +47,7 @@
         models:
           - id: Max
             reasoningEfforts:
-              off: none
+              # 暂不声明 off: 当前 llm-pi-ai 会把 Off 序列化为省略字段
               low: low
               medium: medium
               high: high
