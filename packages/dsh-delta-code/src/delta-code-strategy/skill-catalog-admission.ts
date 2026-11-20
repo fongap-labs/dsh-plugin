@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto'
 import {
   freeLicenseFromText, inspectFreeSkillText, paidSkillRequirement,
-  hasUnverifiedSkillDependencies,
+  hasUnverifiedSkillDependencies, hasUnlinkedSkillDependencies,
 } from './free-skill-policy.js'
 import {
   validatePendingSkillProposal,
@@ -179,7 +179,8 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
   const cost = inspectFreeSkillText(e.skillMarkdown, source.license)
   const isBundle = value.schemaVersion === 2
   if ((!isBundle && !cost.eligible) ||
-      (isBundle && paidSkillRequirement(e.skillMarkdown) !== null) ||
+      (isBundle && (paidSkillRequirement(e.skillMarkdown) !== null ||
+        hasUnlinkedSkillDependencies(e.skillMarkdown))) ||
       skillStaticRiskIndicators(e.skillMarkdown).length > 0 ||
       /(?:\]\(https?:\/\/|\b(?:sudo|rm\s+-rf|git\s+push|powershell|sh\s+-c)\b)/i.test(e.skillMarkdown) ||
       (!isBundle && /\.{1,2}\//.test(e.skillMarkdown))) {
