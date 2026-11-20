@@ -1687,7 +1687,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         if (revision === proxyMutationRevision) publish({ proxyError: copy.networkProxy.hostUnavailable })
         return false
       }
-      const res = await postHostJson('/api/delta-suite/proxy', request)
+      const res = await postHostJson('/api/delta-suite/proxy', { ...request })
       const proxy = res.data?.proxy
       const effective = res.data?.effective
       if (!res.ok || res.data?.ok !== true ||
