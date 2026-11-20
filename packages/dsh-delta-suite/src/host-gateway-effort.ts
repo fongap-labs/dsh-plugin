@@ -110,10 +110,10 @@ export function installHostGatewayEffortSync(
   const drafts = new Map<string, Draft>()
   const aborts = new Set<AbortController>()
   const stops: (() => void)[] = []
-  let disposed = false
+  let isDisposed = false
   const now = options.now ?? Date.now
   const stop = (): void => {
-    disposed = true
+    isDisposed = true
     drafts.clear()
     for (const abort of aborts) abort.abort()
     aborts.clear()
@@ -122,7 +122,7 @@ export function installHostGatewayEffortSync(
   if (typeof ctx?.inject !== 'function') return stop
   try {
     const off = ctx.inject(['settings', 'credentials', 'llm', 'connection'], scope => {
-      if (disposed) return () => {}
+      if (isDisposed) return () => {}
       const settings = scope.settings, credentials = scope.credentials, llm = scope.llm
       const registry = scope.connection?.fetch
       if (!settings || !credentials || !llm || !registry ||
@@ -169,7 +169,7 @@ export function installHostGatewayEffortSync(
             !['default', 'off', 'low', 'medium', 'high', 'max'].includes(input.selectedEffort)) {
           return deny('invalid-request', 400)
         }
-        if (disposed) return deny('host-unavailable', 503)
+        if (isDisposed) return deny('host-unavailable', 503)
         try {
           if (!settings.writable) return deny('host-readonly', 403)
           const target = lookup(input.namespace, input.providerId, input.modelId)
@@ -193,7 +193,7 @@ export function installHostGatewayEffortSync(
             if (!response.ok) return deny('gateway-discovery-refused', 502)
             catalog = await readCatalog(response)
           } finally { clearTimeout(timeout); aborts.delete(controller) }
-          if (disposed) return deny('host-unavailable', 503)
+          if (isDisposed) return deny('host-unavailable', 503)
           const currentCredential = await key(target.credentialRef)
           if (!currentCredential || await hash(currentCredential) !== initialHash) {
             return deny('credential-changed')
@@ -221,7 +221,7 @@ export function installHostGatewayEffortSync(
           for (const [id, draft] of drafts) if (now() - draft.at > TTL_MS) drafts.delete(id)
           while (drafts.size >= 8) drafts.delete(drafts.keys().next().value!)
           const id = await token()
-          if (disposed) return deny('host-unavailable', 503)
+          if (isDisposed) return deny('host-unavailable', 503)
           drafts.set(id, { at: now(), namespace: input.namespace,
             providerId: input.providerId, modelId: input.modelId, credentialRef: target.credentialRef,
             keyHash: initialHash, revision: target.descriptor.revision,
@@ -238,7 +238,7 @@ export function installHostGatewayEffortSync(
         }
         const draft = drafts.get(input.previewId)
         drafts.delete(input.previewId) // one-use even on failure
-        if (!draft || now() - draft.at > TTL_MS || disposed) return deny('expired-preview')
+        if (!draft || now() - draft.at > TTL_MS || isDisposed) return deny('expired-preview')
         try {
           const currentKey = await key(draft.credentialRef)
           if (!currentKey || await hash(currentKey) !== draft.keyHash) {
