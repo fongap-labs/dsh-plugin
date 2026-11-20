@@ -122,10 +122,14 @@ export async function applyApprovedGatewayReasoningSync(
 
   // Only one path is sent: no provider credentials or sibling model fields.
   const path = ['providers', request.providerId, 'models', String(provider.index), 'reasoningEfforts']
+  const proposedValues: Record<string, string> = {}
+  for (const [level, wire] of Object.entries(refreshed.proposed)) {
+    if (typeof wire === 'string') proposedValues[level] = wire
+  }
   let written: Result<SettingsNamespace>
   try {
     written = await request.settings.mutate(request.namespace,
-      [{ op: 'set', path, value: { ...refreshed.proposed } }], view.revision)
+      [{ op: 'set', path, value: proposedValues }], view.revision)
   } catch { return blocked('host-unavailable') }
   if (!written.ok) {
     return blocked(written.error?.code === 'settings/conflict' ? 'host-conflict' : 'host-refused')
@@ -143,7 +147,13 @@ export async function applyApprovedGatewayReasoningSync(
   const current = record(profile) && Array.isArray(profile.models) && stored
     ? profile.models[stored.index] : undefined
   if (!record(current) || !record(current.reasoningEfforts) ||
-      JSON.stringify(current.reasoningEfforts) !== JSON.stringify(refreshed.proposed) ||
       stored?.credentialRef !== request.credentialRef) return blocked('unverified-write')
+  const received = current.reasoningEfforts
+  const actualLevels = Object.keys(received).sort()
+  const expectedLevels = Object.keys(proposedValues).sort()
+  if (JSON.stringify(actualLevels) !== JSON.stringify(expectedLevels) ||
+      expectedLevels.some(key => received[key] !== proposedValues[key])) {
+    return blocked('unverified-write')
+  }
   return Object.freeze({ status: 'applied' as const, revision: confirmed.revision })
 }
