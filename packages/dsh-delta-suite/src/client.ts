@@ -4640,6 +4640,17 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    let gatewayDirectories: GatewayModelDirectoriesApi | undefined
+    const gatewayDirectoryListeners = new Set<() => void>()
+    const subscribeGatewayDirectories = (listener: () => void): (() => void) => {
+      gatewayDirectoryListeners.add(listener)
+      return () => { gatewayDirectoryListeners.delete(listener) }
+    }
+    const bindGatewayDirectories = (service: GatewayModelDirectoriesApi | undefined): void => {
+      if (gatewayDirectories === service) return
+      gatewayDirectories = service
+      for (const listener of gatewayDirectoryListeners) listener()
+    }
     let MenuItemButton: MenuItemButtonApi['MenuItemButton'] | undefined
     let ReactRoot: ReactRootApi | undefined
     try {
@@ -5671,16 +5682,48 @@ window.__ModuleLoader__.load({
       return { state, copy: DICTIONARIES[state.language] ?? DICTIONARIES.en }
     }
     /** Official Models footer Slot: nothing is fetched until the user presses Preview. */
+    /** The same per-session directory the native /model popup and composer use. */
+    const emptyGatewayDirectoryState: GatewayModelDirectoryState = Object.freeze({
+      current: null, pending: null, status: 'idle', routable: null,
+    })
+    type BoundGatewaySelection = {
+      sessionId: string
+      providerId: string
+      modelId: string
+      selectedEffort: 'default' | 'low' | 'medium' | 'high' | 'max'
+    }
+    function nativeGatewaySelection(
+      sessionId: string | undefined, resolver = gatewayDirectories,
+    ): BoundGatewaySelection | undefined {
+      if (!sessionId || !resolver) return undefined
+      try {
+        const native = resolver.directoryFor(sessionId).store.getSnapshot()
+        if (native.status !== 'ready' || native.routable !== true || native.pending !== null ||
+            !native.current || !native.current.provider || !native.current.model) return undefined
+        const effort = native.current.reasoningEffort ?? 'default'
+        if (!['default', 'low', 'medium', 'high', 'max'].includes(effort)) return undefined
+        return {
+          sessionId, providerId: native.current.provider, modelId: native.current.model,
+          selectedEffort: effort as BoundGatewaySelection['selectedEffort'],
+        }
+      } catch { return undefined }
+    }
+    function sameNativeSelection(a: BoundGatewaySelection | undefined,
+      b: BoundGatewaySelection | undefined): boolean {
+      return Boolean(a && b && a.sessionId === b.sessionId &&
+        a.providerId === b.providerId && a.modelId === b.modelId &&
+        a.selectedEffort === b.selectedEffort)
+    }
+    /** Official Models footer Slot: all identity and Effort come from native Session. */
     function GatewayEffortFooter(): unknown {
       const chinese = language() === 'zh'
       const [namespace, setNamespace] = React.useState('llm-pi-ai')
-      const [providerId, setProviderId] = React.useState('')
-      const [modelId, setModelId] = React.useState('')
-      const [effort, setEffort] = React.useState('default')
       const [busy, setBusy] = React.useState(false)
       const [approved, setApproved] = React.useState(false)
       const [review, setReview] = React.useState<{
         id: string
+        namespace: string
+        selection: BoundGatewaySelection
         added: readonly string[]
         removed: readonly string[]
         remapped: readonly string[]
@@ -5691,13 +5734,27 @@ window.__ModuleLoader__.load({
         mounted.current = true
         return () => { mounted.current = false }
       }, [])
-      const revise = (change: () => void): void => {
-        change()
+      const resolver = React.useSyncExternalStore(
+        subscribeGatewayDirectories, () => gatewayDirectories)
+      const activeSessionId = React.useSyncExternalStore(
+        deltaFeatures.subscribe, () => deltaFeatures.getSnapshot().activeSessionId)
+      let nativeDirectory: GatewayModelDirectory | undefined
+      try {
+        if (resolver && activeSessionId) nativeDirectory = resolver.directoryFor(activeSessionId)
+      } catch { /* missing/retired Session retains the native UI */ }
+      React.useSyncExternalStore(
+        listener => nativeDirectory?.store.subscribe(listener) ?? (() => {}),
+        () => nativeDirectory?.store.getSnapshot() ?? emptyGatewayDirectoryState,
+      )
+      const current = nativeGatewaySelection(activeSessionId, resolver)
+      const isReviewCurrent = Boolean(review && review.namespace === namespace &&
+        sameNativeSelection(current, review.selection))
+      const say = (zh: string, en: string): string => chinese ? zh : en
+      const reset = (): void => {
         setReview(null)
         setApproved(false)
         setFeedback('')
       }
-      const say = (zh: string, en: string): string => chinese ? zh : en
       const send = async (path: string, payload: Record<string, unknown>) => {
         const response = await fetch(path, {
           method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
@@ -5715,108 +5772,146 @@ window.__ModuleLoader__.load({
       }
       const preview = async (): Promise<void> => {
         if (busy) return
-        setReview(null)
-        setApproved(false)
-        setFeedback('')
+        reset()
         setBusy(true)
         try {
+          const startedSession = deltaFeatures.getSnapshot().activeSessionId
+          const directories = gatewayDirectories
+          if (!startedSession || !directories) {
+            setFeedback(say('宿主没有提供当前会话的公开模型选择接口。',
+              'Native session model-selection service is unavailable.'))
+            return
+          }
+          // Only a user click loads the authoritative native catalog. No
+          // background Gateway probing, arbitrary Effort input or Host bypass.
+          await directories.directoryFor(startedSession).load()
+          const bound = nativeGatewaySelection(startedSession, directories)
+          if (!bound || directories !== gatewayDirectories ||
+              deltaFeatures.getSnapshot().activeSessionId !== startedSession) {
+            setFeedback(say('当前会话模型不可用、选择正在变化或 Off 无法安全映射。',
+              'Native selection is unavailable, changing or Off is unsupported.'))
+            return
+          }
           const result = await send('/api/delta-suite/gateway-effort/preview', {
-            namespace, providerId, modelId, selectedEffort: effort,
+            namespace, providerId: bound.providerId, modelId: bound.modelId,
+            selectedEffort: bound.selectedEffort,
           })
           if (!mounted.current) return
+          if (!sameNativeSelection(bound, nativeGatewaySelection(
+            deltaFeatures.getSnapshot().activeSessionId, directories)) ||
+            directories !== gatewayDirectories) {
+            setFeedback(say('预览期间原生会话选择发生变化，请重新获取。',
+              'Native session selection changed during preview. Discover again.'))
+            return
+          }
           if (!result.ok) {
             setFeedback(say('无法生成预览：', 'Preview blocked: ') + result.reason)
           } else if (result.data.status === 'unchanged') {
-            setFeedback(say('当前等级已经与 Gateway 一致，无需写入。',
-              'This model already matches the Gateway; no write is required.'))
+            setFeedback(say('当前等级与 Gateway 一致，无需写入。',
+              'Current levels match Gateway; no write is required.'))
           } else if (result.data.status === 'review' &&
               typeof result.data.previewId === 'string') {
             setReview({
-              id: result.data.previewId,
+              id: result.data.previewId, namespace, selection: bound,
               added: result.data.preview?.added ?? [],
               removed: result.data.preview?.removed ?? [],
               remapped: result.data.preview?.remapped ?? [],
             })
-            setFeedback(say('请核对以下变更后明确确认。预览两分钟后失效。',
-              'Review these changes and explicitly approve. The preview expires in two minutes.'))
+            setFeedback(say('请核对变更后明确批准；预览两分钟失效。',
+              'Review and explicitly approve. Preview expires in two minutes.'))
           } else {
-            setFeedback(say('宿主没有返回可验证的预览。', 'Host returned no verifiable preview.'))
+            setFeedback(say('宿主没有返回有效预览。', 'Host returned no valid preview.'))
           }
         } catch {
-          if (mounted.current) setFeedback(say('当前宿主不支持此功能或连接失败。',
-            'This Host does not support the feature, or the request failed.'))
+          if (mounted.current) setFeedback(say('当前宿主无法获取模型信息。',
+            'Host could not load the selected model.'))
         } finally { if (mounted.current) setBusy(false) }
       }
       const apply = async (): Promise<void> => {
         if (busy || !review || !approved) return
-        const id = review.id
-        setReview(null) // preview is one use, including failed attempts
+        const draft = review
+        const confirmed = nativeGatewaySelection(
+          deltaFeatures.getSnapshot().activeSessionId, gatewayDirectories)
+        if (!sameNativeSelection(confirmed, draft.selection) ||
+            namespace !== draft.namespace) {
+          reset()
+          setFeedback(say('原生会话的模型或 Effort 已变化，需重新预览。',
+            'Native model or effort changed. Preview again.'))
+          return
+        }
+        setReview(null) // approval tokens are one-use, even when Host refuses
         setApproved(false)
         setBusy(true)
         try {
           const result = await send('/api/delta-suite/gateway-effort/apply',
-            { previewId: id, approved: true })
+            { previewId: draft.id, approved: true })
           if (!mounted.current) return
           setFeedback(result.ok && result.data.status === 'applied'
-            ? say('已由 Harness 保存配置，修订号：', 'Harness saved revision: ') +
+            ? say('Harness 已保存模型能力配置，修订号：', 'Harness saved revision: ') +
               String(result.data.revision)
-            : say('宿主拒绝变更，请重新获取预览：', 'Change refused; preview again: ') +
+            : say('宿主拒绝写入，请核查原生设置并重新预览：',
+              'Host rejected the write; inspect native settings and preview again: ') +
               (result.ok ? 'unverified-write' : result.reason))
         } catch {
-          if (mounted.current) setFeedback(say('写入确认失败，请先核查原生模型设置，不要直接重试。',
-            'Unconfirmed write: inspect native Models settings before retrying.'))
+          if (mounted.current) setFeedback(say('保存结果未知，先核查原生设置，不要直接重试。',
+            'Unknown write result. Inspect native settings before retrying.'))
         } finally { if (mounted.current) setBusy(false) }
       }
-      const field = (title: string, value: string, update: (next: string) => void,
-        placeholder = ''): unknown =>
-        el('label', { className: 'dtd-form-field', style: { display: 'block', flex: '1 1 180px' } },
-          el('span', null, title),
-          el('input', { type: 'text', className: 'dtd-form-input', value,
-            placeholder, maxLength: 160, disabled: busy,
-            onChange: (event: any) => revise(() => update(String(event?.target?.value ?? ''))) }))
       const list = (title: string, levels: readonly string[]): unknown =>
         el('p', { className: 'dtd-current' }, title + ': ' +
           (levels.length ? levels.join(', ') : say('无', 'none')))
-      return el('details', {
-        className: 'dtd-advanced-features', 'data-delta-gateway-effort': '',
-      },
-      el('summary', null, say('Gateway 推理等级同步（需要明确批准）',
+      const label = current
+        ? current.providerId + ' / ' + current.modelId + ' / ' + current.selectedEffort
+        : activeSessionId ? say('尚未加载当前会话模型；点击下方按钮从 Harness 读取。',
+          'Current session model not loaded. Use the button below to load it from Harness.')
+          : say('没有当前会话；请先打开一个原生会话。',
+            'No active native session. Open a session first.')
+      return el('details', { className: 'dtd-advanced-features',
+        'data-delta-gateway-effort': '' },
+      el('summary', null, say('Gateway 推理等级同步（需要批准）',
         'Gateway reasoning levels (approval required)')),
       el('div', { className: 'dtd-form-stack', style: { marginTop: '12px' } },
         el('p', null, say(
-          '从 Harness 已配置的 Gateway 地址和凭据按需获取模型等级。密钥不会传给浏览器；不自动修改会话或模型菜单。',
-          'Discover levels on demand using the configured Host gateway and credential. Keys never reach the browser; native model selection is unchanged.')),
-        el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '10px' } },
-          field(say('配置命名空间', 'Settings namespace'), namespace, setNamespace, 'llm-pi-ai'),
-          field(say('Gateway 路由 ID', 'Gateway provider route ID'), providerId, setProviderId),
-          field(say('模型 ID', 'Model ID'), modelId, setModelId)),
+          '只读取当前 Harness 会话的模型和 Effort；密钥始终留在 Host，不接管原生选择器。',
+          'Uses the actual native session model and effort. Keys stay in the Host; its picker remains authoritative.')),
         el('label', { className: 'dtd-form-field' },
-          el('span', null, say('当前已选 Effort', 'Current selected effort')),
-          el('select', { className: 'dtd-form-input', value: effort, disabled: busy,
-            onChange: (event: any) => revise(() =>
-              setEffort(String(event?.target?.value ?? 'default'))) },
-            ['default', 'low', 'medium', 'high', 'max'].map(level =>
-              el('option', { key: level, value: level },
-                level === 'default' ? say('默认 / Auto', 'Default / Auto') : level)))),
+          el('span', null, say('Provider 设置命名空间', 'Provider settings namespace')),
+          el('input', { type: 'text', className: 'dtd-form-input', value: namespace,
+            maxLength: 160, disabled: busy,
+            onChange: (event: any) => {
+              setNamespace(String(event?.target?.value ?? ''))
+              reset()
+            } })),
+        el('p', { className: 'dtd-current', role: 'status' },
+          say('原生会话模型 / Effort：', 'Native session model / effort: ') + label),
         el('p', { className: 'dtd-current' }, say(
-          '请与当前原生会话的 Effort 选择保持一致；Off 不支持此原生适配器。仅显示已认证 Gateway 返回的能力。',
-          'Match the effort currently selected in the native session. Off is not supported by this Host adapter. Only authenticated Gateway capabilities are shown.')),
+          '原生 Off 当前不能保证 Gateway 显式关闭；若会话正在切换模型，则无法预览和写入。',
+          'Native Off cannot reliably disable Gateway reasoning; model changes in progress block sync.')),
         el('button', { type: 'button', className: 'dtd-btn-secondary',
-          disabled: busy || !namespace.trim() || !providerId.trim() || !modelId.trim(),
+          disabled: busy || !activeSessionId || !resolver || !namespace.trim(),
           onClick: () => { void preview() } },
-          busy ? say('处理中…', 'Working…') : say('从 Host 获取并预览', 'Discover and preview')),
+          busy ? say('处理中…', 'Working…') :
+            say('读取当前会话并预览 Gateway', 'Discover selected model and preview Gateway')),
         review ? el('div', { className: 'dtd-privacy-card', role: 'group',
-          'aria-label': say('变更确认', 'Change confirmation') },
-          list(say('新增等级', 'Add'), review.added),
-          list(say('移除等级', 'Remove'), review.removed),
+          'aria-label': say('等级变更确认', 'Level change confirmation') },
+          el('p', { className: 'dtd-current' },
+            review.selection.providerId + ' / ' + review.selection.modelId +
+            ' / ' + review.selection.selectedEffort),
+          list(say('新增', 'Add'), review.added),
+          list(say('移除', 'Remove'), review.removed),
           list(say('变更线路值', 'Remap'), review.remapped),
+          !isReviewCurrent ? el('p', { role: 'alert', className: 'dtd-error' },
+            say('原生会话选择已变化；必须重新获取预览。',
+              'Native selection changed; preview again.')) : null,
           el('label', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
-            el('input', { type: 'checkbox', checked: approved, disabled: busy,
+            el('input', { type: 'checkbox', checked: approved,
+              disabled: busy || !isReviewCurrent,
               onChange: (event: any) => setApproved(Boolean(event?.target?.checked)) }),
-            say('我已核对变更并批准仅修改该模型的推理等级。',
-              'I reviewed the changes and approve editing only this model’s levels.')),
+            say('我已核对并批准修改该模型的推理等级。',
+              'I reviewed and approve editing only this model’s levels.')),
           el('button', { type: 'button', className: 'dtd-btn-primary',
-            disabled: busy || !approved, onClick: () => { void apply() } },
+            disabled: busy || !approved || !isReviewCurrent,
+            onClick: () => { void apply() } },
             say('确认应用到 Harness', 'Apply to Harness'))) : null,
         feedback ? el('p', { role: 'status', className: 'dtd-current' }, feedback) : null))
     }
@@ -6279,6 +6374,21 @@ window.__ModuleLoader__.load({
                 id: 'delta.gateway.effort-sync',
                 order: 120,
               }, GatewayEffortFooter))
+
+              // Current session provider/model/Effort is public, Host-authoritative.
+              // Older Hosts lacking modelDirectories keep all native surfaces.
+              try {
+                scope.inject(['modelDirectories'], modelScope => {
+                  const directories = modelScope.modelDirectories
+                  if (!directories || typeof directories.directoryFor !== 'function') return
+                  modelScope.effect(() => {
+                    bindGatewayDirectories(directories)
+                    return () => {
+                      if (gatewayDirectories === directories) bindGatewayDirectories(undefined)
+                    }
+                  }, 'dsh-delta-suite: native model directory binding')
+                })
+              } catch { /* optional per-session service; no forged model choices */ }
 
               // The input model label is a public, independent preference surface.
               // Do not gate it on optional sessions, resources or sidebarRight
