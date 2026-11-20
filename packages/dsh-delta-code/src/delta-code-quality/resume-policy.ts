@@ -19,9 +19,14 @@ function parseTasks(raw: unknown): DeliveryTask[] | null {
   } catch { return null }
 }
 
-/** Native event fold; never clears on turn/start and never trusts malformed events. */
+/** Native event fold; never clears on turn/start and never trusts stale events. */
 export function foldNativeResume(state: ResumeState, event: SessionEvent): ResumeState {
   if (event.type !== 'todo/write') return state
+  // A reordered, duplicated or malformed Todo event must not replace a newer
+  // checkpoint with old task assertions. Fail closed until a newer valid event.
+  if (!Number.isSafeInteger(event.seq) || event.seq < 0 || event.seq <= state.writeSeq) {
+    return { tasks: null, writeSeq: state.writeSeq, invalid: true }
+  }
   const payload = event.data as { todos?: unknown } | null | undefined
   const tasks = parseTasks(payload?.todos)
   return { tasks, writeSeq: event.seq, invalid: tasks === null }
