@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Code 使用说明链接 Action Worker 现有的集中语义能力合同测试，明确 PR 源码变更须通过实际下游 CI 验收，不在插件仓库复制测试。
+
 - 新增: Delta Code 增加 Host 原生 Agent 可按语义选择的声明式能力目录 `code_capabilities`，校验能力引用/循环与受审核 Skill 名称；自动关键词路由降为兼容提示，不增加第二套 Agent 或权限入口。
 
 - 新增: 按需提供测试强度、诊断充分性与已验证经验候选三项专项 Skill；只使用已有项目测试与授权工具，长期经验仍需可信 Skill PR 和中央 CI 审核。
