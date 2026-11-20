@@ -1,10 +1,10 @@
 /** Staged Skill proposal contract. Proposal files are inert: never a trusted Skill catalog. */
 import { isFreeSkillLicense } from './free-skill-policy.js'
 import { createHash } from 'node:crypto'
+import { SKILL_SOURCE_PATH, skillNameFromPath } from './skill-source-path.js'
 
 const SHA = /^[a-f0-9]{40}$/
 const REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
-const SKILL_PATH = /^skills\/([a-z0-9-]+)\/SKILL\.md$/
 
 export interface PendingSkillProposal {
   readonly schemaVersion: 1
@@ -42,7 +42,7 @@ export function makePendingSkillProposal(report: unknown): PendingSkillProposal 
   }
   const source = data.candidate
   if (!source || typeof source.repository !== 'string' || !REPOSITORY.test(source.repository) ||
-      typeof source.path !== 'string' || !SKILL_PATH.test(source.path) ||
+      typeof source.path !== 'string' || !SKILL_SOURCE_PATH.test(source.path) ||
       source.repository.includes('..') || ['.', '..'].includes(source.repository.split('/')[1]!) ||
       !['commit', 'sourceBlobSha', 'licenseBlobSha'].every(key =>
         typeof source[key] === 'string' && SHA.test(source[key]))) {
@@ -99,7 +99,7 @@ export function pendingSkillProposalIdentity(proposal: PendingSkillProposal): st
 
 export function pendingSkillProposalPath(proposal: PendingSkillProposal): string {
   const { repository, path } = proposal.source
-  const skill = path.match(SKILL_PATH)![1]!
+  const skill = skillNameFromPath(path)!
   return 'packages/dsh-delta-code/skill-proposals/' +
     skill + '-' + pendingSkillProposalIdentity(proposal) + '.json'
 }

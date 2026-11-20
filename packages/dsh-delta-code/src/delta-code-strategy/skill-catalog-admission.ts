@@ -16,6 +16,7 @@ import {
 } from './skill-proposal-policy.js'
 import type { ApprovedGitHubSkill } from './trusted-github-skills.js'
 import { skillStaticRiskIndicators } from '../delta-code-repository/github-skill-public-audit.js'
+import { SKILL_SOURCE_PATH, skillNameFromPath } from './skill-source-path.js'
 
 export interface ReviewedSkillAdmission {
   readonly schemaVersion: 1
@@ -80,7 +81,6 @@ const LEGACY_REVIEWED_ROOTS: readonly LegacySkillRoot[] = Object.freeze([
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const REV = /^[a-f0-9]{40}$/
 const REVIEW_DIR = 'packages/dsh-delta-code/skill-admissions/'
-const SOURCE_DIRECTORY = /^skills\/([a-z0-9-]+)\/SKILL\.md$/
 
 function ensureKeys(value: unknown, keys: readonly string[], label: string): asserts value is Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value) ||
@@ -104,7 +104,7 @@ function assertCatalogMetadata(entry: ApprovedGitHubSkill): void {
   if (!entry || !NAME.test(entry.name) ||
       !/^[a-z0-9-]{1,39}$/.test(entry.owner) ||
       !/^[a-z0-9_.-]{1,100}$/.test(entry.repository) ||
-      entry.repository.includes('..') || !SOURCE_DIRECTORY.test(entry.path) ||
+      entry.repository.includes('..') || !SKILL_SOURCE_PATH.test(entry.path) ||
       !REV.test(entry.commit) || !REV.test(entry.blobSha) ||
       typeof entry.description !== 'string' ||
       entry.description.length < 8 || entry.description.length > 300 ||
@@ -117,7 +117,7 @@ function assertCatalogMetadata(entry: ApprovedGitHubSkill): void {
     throw Error('Invalid reviewed Skill catalog metadata')
   }
   if (entry.sourceName !== undefined &&
-      (!NAME.test(entry.sourceName) || entry.sourceName !== entry.path.match(SOURCE_DIRECTORY)?.[1])) {
+      (!NAME.test(entry.sourceName) || entry.sourceName !== skillNameFromPath(entry.path))) {
     throw Error('Catalog sourceName does not match pinned Skill path')
   }
 }
@@ -151,7 +151,7 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
   if (blobSha(e.skillMarkdown) !== source.sourceBlobSha ||
       blobSha(e.licenseText) !== source.licenseBlobSha ||
       freeLicenseFromText(e.licenseText) !== source.license ||
-      sourceName(e.skillMarkdown) !== source.path.match(SOURCE_DIRECTORY)?.[1]) {
+      sourceName(e.skillMarkdown) !== skillNameFromPath(source.path)) {
     throw Error('Skill admission immutable source, frontmatter or license mismatch')
   }
   const cost = inspectFreeSkillText(e.skillMarkdown, source.license)
@@ -164,7 +164,7 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
 
 export function reviewedSkillAdmissionPath(admission: ReviewedSkillAdmission): string {
   const verified = validateReviewedSkillAdmission(admission)
-  const name = verified.proposal.source.path.match(SOURCE_DIRECTORY)![1]!
+  const name = skillNameFromPath(verified.proposal.source.path)!
   return REVIEW_DIR + name + '-' + pendingSkillProposalIdentity(verified.proposal) + '.json'
 }
 
@@ -208,7 +208,7 @@ export function assertReviewedSkillCatalog(
       throw Error('Unreviewed GitHub Skill catalog entry: ' + entry.name)
     }
     if (catalogVersion <= 1) throw Error('Approved Skill catalog version must increase for new admissions')
-    if ((entry.sourceName ?? entry.name) !== entry.path.match(SOURCE_DIRECTORY)?.[1]) {
+    if ((entry.sourceName ?? entry.name) !== skillNameFromPath(entry.path)) {
       throw Error('New catalog Skill must match the reviewed sourceName')
     }
   }

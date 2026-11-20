@@ -1,14 +1,13 @@
 /** Anonymous, immutable, evidence-only audit. Never evaluates untrusted Skill Markdown. */
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubToolSpec } from './github-operations.js'
+import { SKILL_SOURCE_PATH, skillNameFromPath, nearestSkillLicense } from '../delta-code-strategy/skill-source-path.js'
 import {
   decodePinnedSkillBlob, freeLicenseFromText, inspectFreeSkillText,
 } from '../delta-code-strategy/free-skill-policy.js'
 
 const SHA = /^[a-f0-9]{40}$/
 const REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
-const SKILL_PATH = /^skills\/([a-z0-9-]+)\/SKILL\.md$/
-const LICENSE_PATH = /^LICENSE(?:\.md|\.txt)?$/i
 const MAX_TREE_ENTRIES = 5000
 const MAX_CALLS = 4
 
@@ -53,7 +52,7 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
     },
     async execute(args, exec) {
       const repository = audited(args.repository, 'repository', REPOSITORY)
-      const path = audited(args.path, 'path', SKILL_PATH)
+      const path = audited(args.path, 'path', SKILL_SOURCE_PATH)
       const commit = audited(args.commit, 'commit', SHA)
       const sourceBlobSha = audited(args.sourceBlobSha, 'source SHA', SHA)
       const licenseBlobSha = audited(args.licenseBlobSha, 'license SHA', SHA)
@@ -79,12 +78,11 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
         throw Error('Skill Git tree is incomplete or differs from pinned commit')
       }
       const source = tree.tree.find((entry: any) => entry?.path === path)
-      const license = tree.tree.find((entry: any) =>
-        typeof entry?.path === 'string' && LICENSE_PATH.test(entry.path) &&
-        entry.sha === licenseBlobSha)
+      const license = nearestSkillLicense(tree.tree, path)
       // Symlinks/submodules and executable files are not regular documentation.
       if (source?.type !== 'blob' || source?.sha !== sourceBlobSha ||
-          source.mode !== '100644' || license?.type !== 'blob' || license.mode !== '100644') {
+          source.mode !== '100644' || license?.type !== 'blob' ||
+          license.sha !== licenseBlobSha || license.mode !== '100644') {
         throw Error('Skill/license path, Git mode, or immutable blob SHA mismatch')
       }
       const sourceData = await read('/git/blobs/' + sourceBlobSha)
@@ -92,7 +90,7 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
       const markdown = decodePinnedSkillBlob(sourceData, sourceBlobSha)
       const licenseText = decodePinnedSkillBlob(licenseData, licenseBlobSha, 32 * 1024)
       const declaredName = frontmatterName(markdown)
-      const expectedName = path.match(SKILL_PATH)![1]!
+      const expectedName = skillNameFromPath(path)!
       if (declaredName !== expectedName) throw Error('Pinned Skill name/frontmatter does not match requested path')
       const licenseId = freeLicenseFromText(licenseText)
       const cost = inspectFreeSkillText(markdown, licenseId)
