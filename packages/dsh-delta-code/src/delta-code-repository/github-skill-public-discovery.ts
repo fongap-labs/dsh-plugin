@@ -162,7 +162,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
               continue
             }
             freeSkills.push({
-              path: skill.path, sha: skill.sha, license,
+              path: skill.path, sha: skill.sha, license: license!,
               licenseBlobSha: licenseEntry.sha, licensePath: licenseEntry.path,
             })
           }
