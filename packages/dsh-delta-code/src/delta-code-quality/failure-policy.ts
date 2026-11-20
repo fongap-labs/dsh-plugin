@@ -34,6 +34,36 @@ export function classifyVerificationEvidence(evidence: {
   return evidence.passed ? 'none' : 'unknown'
 }
 
+/** Only complete Host evidence can influence verified delivery/Skill feedback counters. */
+export type VerificationEvidenceStatus = 'passed' | 'failed' | 'unconfirmed'
+
+function confirmedStep(input: unknown): VerificationEvidenceStatus {
+  if (!input || typeof input !== 'object') return 'unconfirmed'
+  const step = input as Record<string, unknown>
+  if (step.timedOut !== false || step.truncated !== false ||
+      step.signal !== '' || !Number.isSafeInteger(step.exitCode)) return 'unconfirmed'
+  if (step.passed === true && step.exitCode === 0 &&
+      step.outcome === 'succeeded') return 'passed'
+  if (step.passed === false && typeof step.exitCode === 'number' &&
+      step.exitCode > 0 && step.outcome === 'failed') return 'failed'
+  return 'unconfirmed'
+}
+
+/** Returns unconfirmed on contradictory, partial or underspecified verification. */
+export function verificationEvidenceStatus(toolName: string, result: unknown): VerificationEvidenceStatus {
+  if (toolName === 'code_verify') return confirmedStep(result)
+  if (toolName !== 'code_verify_suite' || !result || typeof result !== 'object') return 'unconfirmed'
+  const suite = result as Record<string, unknown>
+  if (!Array.isArray(suite.results) || suite.results.length === 0 ||
+      !Array.isArray(suite.skipped)) return 'unconfirmed'
+  const steps = suite.results.map(confirmedStep)
+  if (steps.includes('unconfirmed')) return 'unconfirmed'
+  if (suite.passed === true && suite.skipped.length === 0 &&
+      steps.every(step => step === 'passed')) return 'passed'
+  if (suite.passed === false && steps.includes('failed')) return 'failed'
+  return 'unconfirmed'
+}
+
 /** Human-only follow-up; failed verification commands are never retried automatically. */
 export function verificationNextAction(kind: FailureKind | 'none'): string {
   switch (kind) {
