@@ -88,7 +88,7 @@ test('public Session catalog notifications update selected hover time and respec
   }
   const observed = []
   const stop = f.manager.subscribeSessionCatalog(() => {
-    observed.push(f.manager.readSessionUpdateTime('target'))
+    observed.push(f.manager.readSessionHoverSelection('target'))
   })
   try {
     f.manager.setSessionsApi(first.api)
@@ -132,7 +132,8 @@ test('public Session catalog notifications update selected hover time and respec
 
     f.manager.setSessionsApi(undefined)
     assert.deepEqual(next.released, [0], 'disable releases the final Host subscriber')
-    assert.equal(observed.at(-1), undefined, 'removed catalog invalidates prior displayed time')
+    assert.equal(observed.at(-1), 0, 'missing catalog retains only the authorized ID fallback')
+    assert.equal(f.manager.readSessionUpdateTime('target'), undefined)
     const beforeDisable = observed.length
     next.callbacks[0]()
     assert.equal(observed.length, beforeDisable)
@@ -148,6 +149,54 @@ test('public Session catalog notifications update selected hover time and respec
   } finally {
     stop()
     f.manager.setSessionsApi(undefined)
+  }
+})
+
+
+test('native hover revokes a stale identity when Host catalog moves it into a locked Workspace', async () => {
+  const f = fixture({ initial: { lockedWorkspaceIds: ['restricted'] } })
+  const workspaceSnapshot = {
+    items: [
+      { workspaceId: 'open', path: '/open', sessionIds: ['target'] },
+      { workspaceId: 'restricted', path: '/restricted', sessionIds: [] },
+    ],
+  }
+  f.manager.setWorkspacesApi({ list: { getSnapshot: () => workspaceSnapshot } })
+  await f.manager.refreshState()
+  const initialTime = Date.parse('2026-11-18T10:20:00.000Z')
+  let record = { id: 'target', workspaceId: 'open', updatedAt: initialTime }
+  let onCatalogChange
+  const api = { list: {
+    getSnapshot: () => ({ byId: { target: record } }),
+    subscribe(listener) { onCatalogChange = listener; return () => {} },
+  } }
+  f.manager.setSessionsApi(api)
+  const selections = []
+  const stop = f.manager.subscribeSessionCatalog(() => {
+    selections.push(f.manager.readSessionHoverSelection('target'))
+  })
+  try {
+    assert.equal(f.manager.readSessionHoverSelection('target'), initialTime)
+    // This Host catalog event does not mutate the timestamp or the native
+    // Workspace list yet; its public workspaceId alone must revoke identity.
+    record = { ...record, workspaceId: 'restricted' }
+    onCatalogChange()
+    assert.deepEqual(selections, [null],
+      'selected React snapshot changes even if the timestamp does not')
+    assert.equal(f.manager.readSessionUpdateTime('target'), undefined)
+    record = { ...record, workspaceId: 'open' }
+    onCatalogChange()
+    assert.equal(selections.at(-1), initialTime)
+
+    // Broken catalogs are not permission to publish a stale identity.
+    f.manager.setSessionsApi({ list: {
+      getSnapshot() { throw new Error('catalog transient failure') },
+    } })
+    assert.equal(f.manager.readSessionHoverSelection('target'), null)
+  } finally {
+    stop()
+    f.manager.setSessionsApi(undefined)
+    f.manager.setWorkspacesApi(undefined)
   }
 })
 
