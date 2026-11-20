@@ -19,7 +19,12 @@ try {
 const start = compiled.indexOf('function canCallHostHttp(')
 const end = compiled.indexOf('const deltaFeatures = createClientFeatureManager()', start)
 assert.ok(start >= 0 && end > start)
-const managerSource = compiled.slice(start, end) + '\ncreateClientFeatureManager()'
+// Include the existing public timestamp normalizer in this isolated manager VM.
+const timeStart = compiled.indexOf('function normalizeSearchTime(', end)
+const timeEnd = compiled.indexOf('function revealSessionTurnInChat(', timeStart)
+assert.ok(timeStart > end && timeEnd > timeStart)
+const managerSource = compiled.slice(start, end) + '\n' +
+  compiled.slice(timeStart, timeEnd) + '\ncreateClientFeatureManager()'
 const createProjection = () => vm.runInNewContext(
   compiled.slice(start, end) + '\ncreateWorkspaceCompatibilityProjection()',
 )
