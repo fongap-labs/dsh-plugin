@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code `code_capabilities(plan)` 以声明式 `requires` 计算依赖波次、就绪和阻塞状态；`uses` 继续仅作可选参考，依据原生 Host 检查点去重，不添加第二套 Agent 或运行时。
+
 - 维护: Delta Code 统一插件显示名称、设置入口与发布名称，保留现有包标识和工具接口。
 
 - 新增: Delta Code `code_github_skill_auto_advance` 在核验候选 PR 已合并且当前 HEAD 中央 CI 门禁全部成功后，自动重审固定版本并提交独立目录升级 PR，保留二次 CI 和宿主权限。
