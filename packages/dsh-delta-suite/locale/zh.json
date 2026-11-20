@@ -283,6 +283,7 @@
     "noProxyPlaceholder": "逗号分隔，如 localhost,127.0.0.1,.internal",
     "save": "应用并保存",
     "savedToast": "网络代理设置已生效",
+    "hostUnavailable": "Harness 代理服务不可用或未确认配置变更。",
     "invalidUrl": "代理地址格式无效，请使用 http:// 或 https:// 地址",
     "socksUnsupported": "主服务 fetch 代理暂仅支持 http:// 或 https:// 协议",
     "statusLabel": "当前生效状态",
