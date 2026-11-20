@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code 增加 Host 原生 Agent 可按语义选择的声明式能力目录 `code_capabilities`，校验能力引用/循环与受审核 Skill 名称；自动关键词路由降为兼容提示，不增加第二套 Agent 或权限入口。
+
+- 新增: 按需提供测试强度、诊断充分性与已验证经验候选三项专项 Skill；只使用已有项目测试与授权工具，长期经验仍需可信 Skill PR 和中央 CI 审核。
+
 - 新增: 通过 Harness 官方 revisioned `remote.settings.mutate` 执行用户明确批准的单模型 Gateway Effort 配置变更，严格校验 Host 修订号、模型/凭据引用及写入结果，不自动发现密钥或接管菜单（#280）。
 
 - 新增: Gateway 模型 Effort 的安全同步预览；仅针对指定 Host 模型检查已选等级、差异与冲突，不自动修改任何原生配置（#280）。
