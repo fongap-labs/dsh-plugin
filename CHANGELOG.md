@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 改进: Delta Code 公共 GitHub Skill 检索、固定版本审核及准入目录统一支持受限的根目录/分类目录 Skill 路径，并优先核验技能最近目录的独立许可证；缺失许可证、付费依赖、未审查引用仍不得自动启用。
+
 - 修复: Delta Code 并行任务路由在采用原生子代理前，通过 Harness 公开 subagents 服务验证准确的当前 Agent、已注册 Provider 与实际可用接口；模型自行声明 nativeSubagents=true 不再视为权限或能力证据，无法确认时保持串行执行。
 
 - 修复: Delta Code 原生 Todo 恢复投影拒绝重复、倒退或非法事件序列号，失序时将检查点标为无效而不采用过期的完成状态，仅在后续有效新事件到达后恢复。
