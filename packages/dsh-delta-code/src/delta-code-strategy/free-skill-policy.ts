@@ -62,7 +62,7 @@ export function referencedLocalSkillFiles(markdown: string): string[] {
   const bounded = markdown.slice(0, 64 * 1024)
   for (const match of bounded.matchAll(/!?\[[^\]\r\n]{0,160}\]\(\s*<?([^)\s>]+)>?(?:\s+["'][^"'\r\n]{0,120}["'])?\s*\)/g)) {
     const ref = match[1]!
-    if (ref.startsWith('#') || /^(?:https?:|mailto:|data:)/i.test(ref)) continue
+    if (ref.startsWith('#') || /^(?:https?:\/\/|mailto:|data:)/i.test(ref)) continue
     names.add(ref)
   }
   return [...names]

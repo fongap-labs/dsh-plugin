@@ -2,14 +2,16 @@
 import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubToolSpec } from './github-operations.js'
 import { SKILL_SOURCE_PATH, skillNameFromPath, nearestSkillLicense } from '../delta-code-strategy/skill-source-path.js'
+import { resolveSkillReferences } from '../delta-code-strategy/skill-reference-policy.js'
 import {
   decodePinnedSkillBlob, freeLicenseFromText, inspectFreeSkillText,
+  paidSkillRequirement, hasUnverifiedSkillDependencies,
 } from '../delta-code-strategy/free-skill-policy.js'
 
 const SHA = /^[a-f0-9]{40}$/
 const REPOSITORY = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
 const MAX_TREE_ENTRIES = 5000
-const MAX_CALLS = 4
+const MAX_CALLS = 8 // four immutable source/license requests plus at most four referenced documents
 
 /** These are static warning signals, never proof that a Skill is safe. */
 const RISK_SIGNALS: ReadonlyArray<{ readonly id: string; readonly pattern: RegExp }> = [
@@ -23,7 +25,7 @@ export function skillStaticRiskIndicators(markdown: string): string[] {
   return RISK_SIGNALS.filter(rule => rule.pattern.test(markdown)).map(rule => rule.id)
 }
 const LOW_TRUST_NOTE =
-  'Static evidence only. No Skill execution, installation, approval, persistent registration or trust elevation. External services may still charge.'
+  'Static evidence only. Referenced documents are not approved or loaded by this review. No execution, installation, persistent registration or trust elevation. External services may still charge.'
 
 function audited(value: unknown, label: string, pattern: RegExp): string {
   if (typeof value !== 'string' || !pattern.test(value)) {
@@ -42,7 +44,7 @@ function frontmatterName(source: string): string | null {
 export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): DeltaGitHubToolSpec[] {
   return [{
     name: 'code_github_skill_public_review',
-    description: 'Read-only, anonymous safety/free-use audit of one pinned public GitHub Skill candidate. Checks immutable Commit, Git Tree, source/license blobs, command and secret-access indicators. Never enables or invokes a Skill.',
+    description: 'Read-only, anonymous safety/free-use audit of a pinned GitHub Skill, plus up to four bounded Markdown reference blobs. Secondary documents remain pending CI bundle admission. Never enables or invokes a Skill.',
     parameters: {
       repository: { type: 'string', required: true },
       path: { type: 'string', required: true },
@@ -95,7 +97,34 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
       const licenseId = freeLicenseFromText(licenseText)
       const cost = inspectFreeSkillText(markdown, licenseId)
       const riskIndicators = skillStaticRiskIndicators(markdown)
-      const reviewStatus = !cost.eligible ? 'excluded-paid-or-unknown' :
+      // These are evidence references only, never additional trusted instructions.
+      // The final admission gate still requires a separately reviewed bundle.
+      const references = resolveSkillReferences(path, markdown)
+      const referenceEvidence: Array<{
+        path: string; blobSha: string; byteLength: number; riskIndicators: string[];
+        hasUnreviewedDependencies: boolean; hasPaidRequirement: boolean
+      }> = []
+      for (const reference of references) {
+        const row = tree.tree.find((entry: any) => entry?.path === reference.path)
+        const refLicense = nearestSkillLicense(tree.tree, reference.path)
+        if (row?.type !== 'blob' || row.mode !== '100644' ||
+            typeof row.sha !== 'string' || !SHA.test(row.sha) ||
+            refLicense?.type !== 'blob' || refLicense.mode !== '100644' ||
+            refLicense.sha !== licenseBlobSha) {
+          throw Error('Secondary Skill reference lacks immutable regular-file or matching license evidence')
+        }
+        const evidence = await read('/git/blobs/' + row.sha)
+        const content = decodePinnedSkillBlob(evidence, row.sha, 32 * 1024)
+        referenceEvidence.push({
+          path: reference.path, blobSha: row.sha,
+          byteLength: Buffer.byteLength(content, 'utf8'),
+          riskIndicators: skillStaticRiskIndicators(content),
+          hasUnreviewedDependencies: hasUnverifiedSkillDependencies(content),
+          hasPaidRequirement: paidSkillRequirement(content) !== null,
+        })
+      }
+      const reviewStatus = references.length > 0 ? 'pending-reference-bundle-review' :
+        !cost.eligible ? 'excluded-paid-or-unknown' :
         riskIndicators.length ? 'manual-security-review-required' : 'static-review-ready'
       return {
         repository: 'github.com/public',
@@ -103,7 +132,8 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
         result: JSON.stringify({
           candidate: { repository, path, commit, sourceBlobSha, licenseBlobSha },
           freeEligibility: cost, license: licenseId,
-          riskIndicators, reviewStatus,
+          riskIndicators, reviewStatus, referenceEvidence,
+          bundleApprovalRequired: referenceEvidence.length > 0,
           apiCalls, maxApiCalls: MAX_CALLS,
           approvalRequired: true,
           autoEnabled: false, executable: false,
