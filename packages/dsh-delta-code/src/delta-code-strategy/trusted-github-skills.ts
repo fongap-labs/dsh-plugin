@@ -14,6 +14,8 @@ export interface ApprovedGitHubSkill {
   /** Git's SHA-1 of the exact "blob <byte-length>\0<content>" object. */
   readonly blobSha: string
   readonly keywords: readonly string[]
+  /** Individually CI-reviewed secondary Markdown blobs, pinned to this commit. */
+  readonly references?: readonly { readonly path: string; readonly blobSha: string }[]
   /** Declarative context guard; never a hard-coded name-specific routing rule. */
   readonly requiresAnyOf?: readonly string[]
 }
