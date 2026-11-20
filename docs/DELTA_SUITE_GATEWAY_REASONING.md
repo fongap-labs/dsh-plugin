@@ -33,7 +33,7 @@
 | Off（仅明确支持） | `reasoning_effort: none` | `thinking: {type: disabled}` |
 | Low/Medium/High/Max | 仅使用当前模型目录真实声明的 `reasoningEfforts` 线路值 | 不从列表猜测 Adaptive/Budget，保留原生适配器 |
 
-这些只是**协议映射说明**；Delta 此阶段不劫持会话请求，也不会从浏览器向 Gateway 主动读取目录。尤其不能把 Off 写成空值，否则对于默认思考的模型会被 Gateway 解释成 Default。
+这些只是**协议映射说明**；Delta 此阶段不劫持会话请求，也不会从浏览器向 Gateway 主动读取目录。尤其不能把 Off 写成空值，否则对于默认思考的模型会被 Gateway 解释成 Default。当前 Harness 的 `llm-pi-ai` **正好省略 Off 的底层字段**：因此这些表格中的显式 Off 只适用于真正支持显式写出该参数的未来 Host / 协议适配器，**不能通过现有 `reasoningEfforts.off` 配置获得**。缺少已验证的公开 Host 发送契约时必须隐藏/不提供该等级；保留 Default 和其他已验证等级。
 
 ## 通过已发布的 Harness 官方设置进行人工验证
 
