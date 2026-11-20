@@ -81,6 +81,7 @@ export function prepareReviewedSkillPromotion(
     commit: proposal.source.commit,
     blobSha: proposal.source.sourceBlobSha,
     license: proposal.source.license,
+    ...(proposal.schemaVersion === 2 ? { references: proposal.source.references } : {}),
     keywords,
   }
   assertReviewedSkillCatalog([entry], [admission], version + 1)
