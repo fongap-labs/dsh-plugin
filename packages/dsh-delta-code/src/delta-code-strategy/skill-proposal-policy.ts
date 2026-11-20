@@ -40,6 +40,8 @@ export function makePendingSkillProposal(report: unknown): PendingSkillProposal 
   if (!data || (!isBundle && data.reviewStatus !== 'static-review-ready') ||
       (!isBundle && (data.freeEligibility?.eligible !== true ||
         data.freeEligibility.status !== 'free-evidence')) ||
+      (isBundle && (data.freeEligibility?.status !== 'unknown' ||
+        data.freeEligibility.eligible !== false)) ||
       !isFreeSkillLicense(data.license) || !Array.isArray(data.riskIndicators) ||
       data.riskIndicators.length !== 0 || data.approvalRequired !== true ||
       data.autoEnabled !== false || data.executable !== false) {
@@ -69,7 +71,7 @@ export function makePendingSkillProposal(report: unknown): PendingSkillProposal 
       const row = ref as Record<string, unknown>
       const path = row.path
       if (typeof path !== 'string' || !path.startsWith(folder) ||
-          !/^[A-Za-z0-9][A-Za-z0-9._/-]*\\.(?:md|txt)$/i.test(path) ||
+          !/^[A-Za-z0-9][A-Za-z0-9._/-]*\.(?:md|txt)$/i.test(path) ||
           path.split('/').some(segment => !segment || segment === '.' || segment === '..') ||
           path === source.path || seen.has(path.toLowerCase()) ||
           typeof row.blobSha !== 'string' || !SHA.test(row.blobSha) ||
