@@ -120,9 +120,12 @@ describe('Delta Code approved GitHub Skills', () => {
     const tampered = createApprovedGitHubSkillProvider(async url =>
       new Response(url.endsWith('/SKILL.md') ? root : '# Different text'), [entry])
     await assert.rejects(tampered.get(candidate), /hash mismatch/)
+    const alteredRoot = root.replace('guide.mini.md', 'other.md')
     const missing = createApprovedGitHubSkillProvider(async url =>
-      new Response(url.endsWith('/SKILL.md') ? root.replace('guide.mini.md', 'other.md') : mini), [entry])
-    await assert.rejects(missing.get(candidate), /reference manifest is incomplete or changed/)
+      new Response(url.endsWith('/SKILL.md') ? alteredRoot : mini),
+    [{ ...entry, blobSha: digest(alteredRoot) }])
+    await assert.rejects(missing.get((await missing.list())[0]),
+      /reference manifest is incomplete or changed/)
     const cancelled = new AbortController()
     const aborted = createApprovedGitHubSkillProvider(async (url) => {
       if (url.endsWith('/SKILL.md')) return new Response(root)
