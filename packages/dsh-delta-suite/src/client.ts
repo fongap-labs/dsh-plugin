@@ -5670,6 +5670,157 @@ window.__ModuleLoader__.load({
         callback => controller.subscribe(callback), () => controller.getSnapshot())
       return { state, copy: DICTIONARIES[state.language] ?? DICTIONARIES.en }
     }
+    /** Official Models footer Slot: nothing is fetched until the user presses Preview. */
+    function GatewayEffortFooter(): unknown {
+      const chinese = language() === 'zh'
+      const [namespace, setNamespace] = React.useState('llm-pi-ai')
+      const [providerId, setProviderId] = React.useState('')
+      const [modelId, setModelId] = React.useState('')
+      const [effort, setEffort] = React.useState('default')
+      const [busy, setBusy] = React.useState(false)
+      const [approved, setApproved] = React.useState(false)
+      const [review, setReview] = React.useState<{
+        id: string
+        added: readonly string[]
+        removed: readonly string[]
+        remapped: readonly string[]
+      } | null>(null)
+      const [feedback, setFeedback] = React.useState('')
+      const mounted = React.useRef(true)
+      React.useEffect(() => {
+        mounted.current = true
+        return () => { mounted.current = false }
+      }, [])
+      const revise = (change: () => void): void => {
+        change()
+        setReview(null)
+        setApproved(false)
+        setFeedback('')
+      }
+      const say = (zh: string, en: string): string => chinese ? zh : en
+      const send = async (path: string, payload: Record<string, unknown>) => {
+        const response = await fetch(path, {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store', redirect: 'error',
+          headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+        })
+        const data = await response.json() as {
+          ok?: boolean; status?: string; reason?: string; revision?: number
+          previewId?: string
+          preview?: { added?: string[]; removed?: string[]; remapped?: string[] }
+        }
+        if (!response.ok || data.ok !== true) {
+          return { ok: false, reason: data.reason ?? 'host-unavailable' } as const
+        }
+        return { ok: true, data } as const
+      }
+      const preview = async (): Promise<void> => {
+        if (busy) return
+        setReview(null)
+        setApproved(false)
+        setFeedback('')
+        setBusy(true)
+        try {
+          const result = await send('/api/delta-suite/gateway-effort/preview', {
+            namespace, providerId, modelId, selectedEffort: effort,
+          })
+          if (!mounted.current) return
+          if (!result.ok) {
+            setFeedback(say('无法生成预览：', 'Preview blocked: ') + result.reason)
+          } else if (result.data.status === 'unchanged') {
+            setFeedback(say('当前等级已经与 Gateway 一致，无需写入。',
+              'This model already matches the Gateway; no write is required.'))
+          } else if (result.data.status === 'review' &&
+              typeof result.data.previewId === 'string') {
+            setReview({
+              id: result.data.previewId,
+              added: result.data.preview?.added ?? [],
+              removed: result.data.preview?.removed ?? [],
+              remapped: result.data.preview?.remapped ?? [],
+            })
+            setFeedback(say('请核对以下变更后明确确认。预览两分钟后失效。',
+              'Review these changes and explicitly approve. The preview expires in two minutes.'))
+          } else {
+            setFeedback(say('宿主没有返回可验证的预览。', 'Host returned no verifiable preview.'))
+          }
+        } catch {
+          if (mounted.current) setFeedback(say('当前宿主不支持此功能或连接失败。',
+            'This Host does not support the feature, or the request failed.'))
+        } finally { if (mounted.current) setBusy(false) }
+      }
+      const apply = async (): Promise<void> => {
+        if (busy || !review || !approved) return
+        const id = review.id
+        setReview(null) // preview is one use, including failed attempts
+        setApproved(false)
+        setBusy(true)
+        try {
+          const result = await send('/api/delta-suite/gateway-effort/apply',
+            { previewId: id, approved: true })
+          if (!mounted.current) return
+          setFeedback(result.ok && result.data.status === 'applied'
+            ? say('已由 Harness 保存配置，修订号：', 'Harness saved revision: ') +
+              String(result.data.revision)
+            : say('宿主拒绝变更，请重新获取预览：', 'Change refused; preview again: ') +
+              (result.ok ? 'unverified-write' : result.reason))
+        } catch {
+          if (mounted.current) setFeedback(say('写入确认失败，请先核查原生模型设置，不要直接重试。',
+            'Unconfirmed write: inspect native Models settings before retrying.'))
+        } finally { if (mounted.current) setBusy(false) }
+      }
+      const field = (title: string, value: string, update: (next: string) => void,
+        placeholder = ''): unknown =>
+        el('label', { className: 'dtd-form-field', style: { display: 'block', flex: '1 1 180px' } },
+          el('span', null, title),
+          el('input', { type: 'text', className: 'dtd-form-input', value,
+            placeholder, maxLength: 160, disabled: busy,
+            onChange: (event: any) => revise(() => update(String(event?.target?.value ?? ''))) }))
+      const list = (title: string, levels: readonly string[]): unknown =>
+        el('p', { className: 'dtd-current' }, title + ': ' +
+          (levels.length ? levels.join(', ') : say('无', 'none')))
+      return el('details', {
+        className: 'dtd-advanced-features', 'data-delta-gateway-effort': '',
+      },
+      el('summary', null, say('Gateway 推理等级同步（需要明确批准）',
+        'Gateway reasoning levels (approval required)')),
+      el('div', { className: 'dtd-form-stack', style: { marginTop: '12px' } },
+        el('p', null, say(
+          '从 Harness 已配置的 Gateway 地址和凭据按需获取模型等级。密钥不会传给浏览器；不自动修改会话或模型菜单。',
+          'Discover levels on demand using the configured Host gateway and credential. Keys never reach the browser; native model selection is unchanged.')),
+        el('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '10px' } },
+          field(say('配置命名空间', 'Settings namespace'), namespace, setNamespace, 'llm-pi-ai'),
+          field(say('Gateway 路由 ID', 'Gateway provider route ID'), providerId, setProviderId),
+          field(say('模型 ID', 'Model ID'), modelId, setModelId)),
+        el('label', { className: 'dtd-form-field' },
+          el('span', null, say('当前已选 Effort', 'Current selected effort')),
+          el('select', { className: 'dtd-form-input', value: effort, disabled: busy,
+            onChange: (event: any) => revise(() =>
+              setEffort(String(event?.target?.value ?? 'default'))) },
+            ['default', 'low', 'medium', 'high', 'max'].map(level =>
+              el('option', { key: level, value: level },
+                level === 'default' ? say('默认 / Auto', 'Default / Auto') : level)))),
+        el('p', { className: 'dtd-current' }, say(
+          '请与当前原生会话的 Effort 选择保持一致；Off 不支持此原生适配器。仅显示已认证 Gateway 返回的能力。',
+          'Match the effort currently selected in the native session. Off is not supported by this Host adapter. Only authenticated Gateway capabilities are shown.')),
+        el('button', { type: 'button', className: 'dtd-btn-secondary',
+          disabled: busy || !namespace.trim() || !providerId.trim() || !modelId.trim(),
+          onClick: () => { void preview() } },
+          busy ? say('处理中…', 'Working…') : say('从 Host 获取并预览', 'Discover and preview')),
+        review ? el('div', { className: 'dtd-privacy-card', role: 'group',
+          'aria-label': say('变更确认', 'Change confirmation') },
+          list(say('新增等级', 'Add'), review.added),
+          list(say('移除等级', 'Remove'), review.removed),
+          list(say('变更线路值', 'Remap'), review.remapped),
+          el('label', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+            el('input', { type: 'checkbox', checked: approved, disabled: busy,
+              onChange: (event: any) => setApproved(Boolean(event?.target?.checked)) }),
+            say('我已核对变更并批准仅修改该模型的推理等级。',
+              'I reviewed the changes and approve editing only this model’s levels.')),
+          el('button', { type: 'button', className: 'dtd-btn-primary',
+            disabled: busy || !approved, onClick: () => { void apply() } },
+            say('确认应用到 Harness', 'Apply to Harness'))) : null,
+        feedback ? el('p', { role: 'status', className: 'dtd-current' }, feedback) : null))
+    }
+
     function SettingsSectionIcon(): unknown {
       return el('svg', { viewBox: '0 0 24 24', width: 17, height: 17,
         fill: 'none', stroke: 'currentColor', strokeWidth: 1.75,
