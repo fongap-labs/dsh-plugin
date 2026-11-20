@@ -119,7 +119,8 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
           path: reference.path, blobSha: row.sha,
           byteLength: Buffer.byteLength(content, 'utf8'),
           riskIndicators: skillStaticRiskIndicators(content),
-          hasUnreviewedDependencies: hasUnverifiedSkillDependencies(content),
+          hasUnreviewedDependencies: hasUnverifiedSkillDependencies(content) ||
+            hasUnlinkedSkillDependencies(content),
           hasPaidRequirement: paidSkillRequirement(content) !== null,
         })
       }
