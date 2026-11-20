@@ -631,6 +631,22 @@ test('public model route label mounts without optional assistant sidebar service
   })
   assert.doesNotMatch(JSON.stringify(unrelated), /dtd-model-account/)
   assert.match(JSON.stringify(unrelated), /gpt-4o/)
+  assert.equal(unrelated?.props?.title, undefined, 'no Host effort metadata means no inferred levels')
+  const advertised = modelSlot.component({
+    provider: { id: 'openai', name: 'OpenAI' },
+    model: { name: 'Gateway Max', reasoning: { efforts: [
+      { id: 'off', name: 'Off' }, { id: 'high', name: 'High' },
+    ] } }, placement: 'trigger',
+  })
+  assert.match(advertised.props.title, /Off, High/,
+    'Delta only describes the exact reasoning levels in the public Host model catalog')
+  assert.match(advertised.props.title, /\u6a21\u578b\u601d\u8003\u7b49\u7ea7/)
+  const unsupported = modelSlot.component({
+    provider: { id: 'openai', name: 'OpenAI' },
+    model: { name: 'Gateway Max', reasoningEfforts: { high: 'high' } }, placement: 'option',
+  })
+  assert.equal(unsupported.props.title, undefined,
+    'unrecognized owner fields cannot promote a Gateway model to supported Effort')
   const option = modelSlot.component({
     provider: { id: 'deepseek-account', name: 'DeepSeek Account' },
     model: { name: 'DeepSeek-V3' }, placement: 'option',
