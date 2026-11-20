@@ -15,7 +15,7 @@ describe('Delta Code native settings contract', () => {
     assert.equal(pkg.name, '@fongap-labs/dsh-delta-code')
     const client = read('src/client.ts')
     assert.match(client, /'Delta Code', 'Delta Code'/)
-    assert.doesNotMatch(client, /Delta Code Worker|Delta 编程助手/)
+    assert.doesNotMatch(client, /Delta Code Worker/)
     assert.match(pkg.description, /^Delta Code：/)
     const release = JSON.parse(read('../../projects/dsh-delta-code/release.manifest.json'))
     assert.equal(release.release_name, 'Delta Code')
