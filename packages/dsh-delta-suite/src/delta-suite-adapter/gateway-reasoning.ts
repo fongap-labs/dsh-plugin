@@ -78,13 +78,20 @@ export function decodeGatewayReasoningCatalog(value: unknown): readonly GatewayR
   if (!isObject(value) || value.object !== 'list' || !Array.isArray(value.data)) return []
   const out: GatewayReasoningCapability[] = []
   const seen = new Set<string>()
+  const ambiguous = new Set<string>()
   for (const candidate of value.data) {
+    if (!isObject(candidate) || typeof candidate.id !== 'string' || !candidate.id.trim()) continue
+    // Duplicated IDs in one key-scoped response are ambiguous, even when one
+    // entry is malformed. Never select the first and silently trust it.
+    if (seen.has(candidate.id)) {
+      ambiguous.add(candidate.id)
+      continue
+    }
+    seen.add(candidate.id)
     const model = decodeModel(candidate)
-    if (!model || seen.has(model.modelId)) continue
-    seen.add(model.modelId)
-    out.push(model)
+    if (model) out.push(model)
   }
-  return Object.freeze(out)
+  return Object.freeze(out.filter(model => !ambiguous.has(model.modelId)))
 }
 
 /**
