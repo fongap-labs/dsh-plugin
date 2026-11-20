@@ -1,6 +1,7 @@
 import type { DeltaCodeFeature } from '../delta-code-kernel/feature.js'
 import { createWorkflowRouteTool } from './workflow-route.js'
 import { createCodingCapabilitiesTool } from './capability-catalog.js'
+import { createExperienceCandidateTool } from './experience-candidate.js'
 import type { CodingWorkflowRule } from './workflow-policy.js'
 
 export interface DeltaCodeStrategyBindings {
@@ -16,7 +17,7 @@ export function deltaCodeStrategy(
 ): DeltaCodeFeature<ReturnType<typeof createWorkflowRouteTool>> {
   return {
     id: 'delta-code-strategy',
-    tools: [createWorkflowRouteTool(bindings.workflowRules), createCodingCapabilitiesTool()],
+    tools: [createWorkflowRouteTool(bindings.workflowRules), createCodingCapabilitiesTool(), createExperienceCandidateTool()],
     activate() {
       const releases: Array<() => void> = []
       try {
