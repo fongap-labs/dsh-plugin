@@ -23,10 +23,18 @@ export function nearestSkillLicense(
   tree: readonly SkillTreeFile[], skillPath: string,
 ): SkillTreeFile | undefined {
   if (!skillNameFromPath(skillPath)) return undefined
-  const parent = skillPath.slice(0, skillPath.lastIndexOf('/') + 1)
-  const at = (prefix: string) => tree.filter(entry =>
-    typeof entry?.path === 'string' && entry.path.startsWith(prefix) &&
-      LICENSE_FILE.test(entry.path.slice(prefix.length)))
-    .sort((a, b) => a.path!.localeCompare(b.path!))[0]
-  return at(parent) ?? at('')
+  const directories = skillPath.split('/').slice(0, -1)
+  // A category-level license governs descendants unless a nearer file
+  // overrides it. Multiple competing LICENSE files at one level are
+  // ambiguous: never silently pick the first one.
+  while (true) {
+    const prefix = directories.length ? directories.join('/') + '/' : ''
+    const matches = tree.filter(entry =>
+      typeof entry?.path === 'string' && entry.path.startsWith(prefix) &&
+        LICENSE_FILE.test(entry.path.slice(prefix.length)))
+    if (matches.length === 1) return matches[0]
+    if (matches.length > 1) return undefined
+    if (directories.length === 0) return undefined
+    directories.pop()
+  }
 }
