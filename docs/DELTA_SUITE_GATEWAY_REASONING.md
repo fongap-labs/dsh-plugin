@@ -75,10 +75,10 @@
 
 Host 侧通过 Cordis 正式注入的 `settings`、`credentials`、`llm` 和 `connection.fetch` 注册两个插件自有端点（旧 Host 缺少服务时不注册，原生模型界面保持正常）：
 
-- `POST /api/delta-suite/gateway-effort/preview`：由 Harness 官方 Models 页的公开 `settings.models.footer` 扩展区域中的按钮**主动触发**；指定当前模型配置条目、Provider ID、模型 ID 和原生选定等级。只接受 LLM 公开配置目录声明、且与已保存 Host 配置完全一致的 OpenAI-compatible Provider；只对用户已有的 HTTPS Gateway 地址请求 `{baseURL}/models`，不允许跳转、Loopback/IP、带凭据 URL 或超大响应（256 KiB）。只在 Host 内用 `credentials.resolve` 读取当前引用，`Authorization` 不进入浏览器、UI、日志或持久化文件。确认当前模型配置修订号、凭据摘要及地址在网络返回后未变化，返回对应的单模型 Effort 增删改预览。
+- `POST /api/delta-suite/gateway-effort/preview`：由 Harness 官方 Models 页的公开 `settings.models.footer` 扩展区域中的按钮**主动触发**；用户只需指定已安装 Provider 设置命名空间；Provider ID、模型 ID 和 Effort 从 Harness 公开的 `modelDirectories.directoryFor(activeSessionId)` 当前 Session 读取。目录仅在用户点击预览时加载，禁止用户手工伪造当前 Session 选择；模型不可路由、正在选择、缺失或 Off 无法安全映射均拒绝预览。用户预览及应用前还需再次核对会话选择以防误改。只接受 LLM 公开配置目录声明、且与已保存 Host 配置完全一致的 OpenAI-compatible Provider；只对用户已有的 HTTPS Gateway 地址请求 `{baseURL}/models`，不允许跳转、Loopback/IP、带凭据 URL 或超大响应（256 KiB）。只在 Host 内用 `credentials.resolve` 读取当前引用，`Authorization` 不进入浏览器、UI、日志或持久化文件。确认当前模型配置修订号、凭据摘要及地址在网络返回后未变化，返回对应的单模型 Effort 增删改预览。
 - `POST /api/delta-suite/gateway-effort/apply`：只接受 UI 第二步勾选并点击确认后的一次性 48 位随机预览令牌，令牌保留在 Host 内存两分钟，消费后不可重放或失败重试。再次通过 Host Credential 解析和密钥摘要校验当前 Key 未被轮换，检查设置 revision，并通过此前已验证的 `applyApprovedGatewayReasoningSync` 执行单模型、单字段的正式 Host CAS 写入。任何失败保持原生 Settings 继续可用，不调用私有状态存储。插件卸载时清空所有预览并中断进行中的请求。
 
-**当前访问 Key 的边界**：Gateway 的模型响应仅供创建该 Key 的预览，完整响应不缓存；Host 只在内存保留该模型的已验证等级、带盐密钥摘要与短期预览。若同一 Credential 引用的秘密值在预览至应用期间变更，摘要不一致会拒绝应用。它并非 Host 的通用 Credential 版本 API，也无法消除真正并发的 Credential 源在最终重验之后、CAS 写入之前的极短窗口。原生模型选择器仍由 Harness 自己负责，UI 当前要求用户选择与会话一致的 Effort；插件不擅自修改会话选择。
+**当前访问 Key 的边界**：Gateway 的模型响应仅供创建该 Key 的预览，完整响应不缓存；Host 只在内存保留该模型的已验证等级、带盐密钥摘要与短期预览。若同一 Credential 引用的秘密值在预览至应用期间变更，摘要不一致会拒绝应用。它并非 Host 的通用 Credential 版本 API，也无法消除真正并发的 Credential 源在最终重验之后、CAS 写入之前的极短窗口。原生模型选择器仍由 Harness 自己负责，UI 现在使用 Harness 的 Session 模型目录自动读取当前 Effort，保留原生选择和持久化权；若其状态变化，拒绝旧预览的应用。插件不擅自修改会话选择。
 
 **边界和回退**：此流程不在启动时发网络请求，不轮询，不主动探测未知节点，不自动刷新或自动应用。仅面向已经显式配置了 HTTPS `baseURL`、Bearer 凭据引用及 OpenAI 兼容协议的 Provider；不提供自动初始化 Provider、离线 Local Gateway HTTP 支持或对私有 Host DOM 的接管。未经用户确认不存在配置写入。中央可信测试测试凭据轮换、过期/重复提交、SSRF 防护、Host CAS 及请求失败，不能替代 Windows Harness 实机验收。
 

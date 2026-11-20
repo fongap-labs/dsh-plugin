@@ -170,6 +170,29 @@ interface SearchNavigationApi {
   startSession(workspaceId?: string): void
 }
 
+/** Public Harness modelDirectories service; per-Session durable selection is Host-owned. */
+interface GatewayModelSelection {
+  provider: string
+  model: string
+  reasoningEffort?: string
+}
+interface GatewayModelDirectoryState {
+  current: GatewayModelSelection | null
+  status: 'idle' | 'loading' | 'ready' | 'selecting' | 'error'
+  pending: GatewayModelSelection | null
+  routable: boolean | null
+}
+interface GatewayModelDirectory {
+  store: {
+    getSnapshot(): GatewayModelDirectoryState
+    subscribe(listener: () => void): () => void
+  }
+  load(): Promise<GatewayModelDirectoryState>
+}
+interface GatewayModelDirectoriesApi {
+  directoryFor(sessionId: string): GatewayModelDirectory
+}
+
 interface ClientContext {
   get?(name: string): unknown
   theme?: ThemeApi
@@ -181,6 +204,7 @@ interface ClientContext {
   resources?: ResourceProviderApi
   sidebarRightTabs?: SidebarRightTabsApi
   configForms?: ConfigFormsApi
+  modelDirectories?: GatewayModelDirectoriesApi
   remote?: { mcpManager?: McpManagerApi; credentials?: CredentialRemoteApi }
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
