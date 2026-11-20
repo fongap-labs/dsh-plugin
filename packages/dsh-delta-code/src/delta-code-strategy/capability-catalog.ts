@@ -125,6 +125,17 @@ export function validateCodingCapabilities(
   for (const id of byId.keys()) visit(id)
 }
 
+/** JSON-safe snapshot. Readonly catalog arrays are copied before returning a tool value. */
+export interface CodingCapabilitySnapshot {
+  id: string
+  title: string
+  intent: string
+  accepts: string[]
+  produces: string[]
+  uses: string[]
+  skills: string[]
+}
+
 export type CapabilityQuery =
   | { action: 'list' }
   | { action: 'get'; id: string }
@@ -137,7 +148,7 @@ export type CapabilityQuery =
 export function queryCodingCapabilities(
   query: CapabilityQuery,
   catalog: readonly CodingCapability[] = CODING_CAPABILITIES,
-): { action: string; capabilities: CodingCapability[]; skills: string[] } {
+): { action: string; capabilities: CodingCapabilitySnapshot[]; skills: string[] } {
   validateCodingCapabilities(catalog)
   if (query.action === 'list') {
     return {
@@ -178,7 +189,17 @@ export function createCodingCapabilitiesTool(): ToolDefinition {
     output: {
       schema: { type: 'object', additionalProperties: false, properties: {
         action: { type: 'string', required: true },
-        capabilities: { type: 'array', required: true, items: { type: 'object' } },
+        capabilities: { type: 'array', required: true, items: {
+          type: 'object', additionalProperties: false, properties: {
+            id: { type: 'string', required: true },
+            title: { type: 'string', required: true },
+            intent: { type: 'string', required: true },
+            accepts: { type: 'array', required: true, items: { type: 'string' } },
+            produces: { type: 'array', required: true, items: { type: 'string' } },
+            uses: { type: 'array', required: true, items: { type: 'string' } },
+            skills: { type: 'array', required: true, items: { type: 'string' } },
+          },
+        } },
         skills: { type: 'array', required: true, items: { type: 'string' } },
       } },
       render(_args, value) {
