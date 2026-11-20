@@ -1629,7 +1629,7 @@ function createClientFeatureManager(): ClientFeatureManager {
           const vsData = (await vsRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
           publish({
             visionEngineReady: vsData?.ok === true && vsData?.engineReady === true,
-            visionEngineAccount: vsData?.account ?? null,
+            visionEngineAccount: vsData?.ok === true ? (vsData.account ?? null) : null,
           })
         } else {
           // A previously healthy vision channel is not proof of current availability.
@@ -1706,7 +1706,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       void (async () => {
         try {
           const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
-          const vData = (await vRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
+          const vData = (await vRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
           if (vRes.ok && vData?.ok === true) {
             publish({
               visionEngineReady: vData.engineReady === true,
