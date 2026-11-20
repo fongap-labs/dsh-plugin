@@ -8,6 +8,7 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import { createGitHubSkillDiscoverySpecs } from './github-skill-discovery.js'
 import { createSkillAdmissionProposalSpecs } from './github-skill-admission-proposal.js'
 import { createSkillCatalogPromotionSpecs } from './github-skill-catalog-promotion.js'
+import { createAutoSkillStageSpecs } from './github-skill-auto-stage.js'
 
 export interface DeltaGitHubExecution {
   readonly signal: AbortSignal
@@ -345,6 +346,7 @@ export function createGitHubToolSpecs(
   const admissions = [
     ...createSkillAdmissionProposalSpecs(transport, writeActions, () => settings.githubAllowWrites),
     ...createSkillCatalogPromotionSpecs(transport, writeActions, () => settings.githubAllowWrites),
+    ...createAutoSkillStageSpecs(transport, writeActions, () => settings.githubAllowWrites),
   ]
   return [...specs, ...admissions.map(spec => ({
     ...spec,

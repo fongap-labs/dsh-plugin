@@ -340,6 +340,12 @@ execution:
 - GitHub 多账号只通过 `tokenEnv` 环境变量名引用凭据；Token 永不写入配置，页面也不会回显。
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
 
+### 免费 Skill 自动准入（分阶段）
+
+`code_github_skill_auto_stage` 在用户请求专业 Skill 且原生 `github.allowWrites` 获授权时，一次完成免费公共 GitHub 候选搜索、最多三份固定版本公开审核、并为符合低风险条件的一项 Skill 自动建立候选 PR。它不需要每次额外人工签字；不可用、费用不明、含命令/密钥/外链或完整性不足时拒绝收录。候选 PR 仍为惰性记录，不能加载执行。
+
+候选 PR 经中央 CI 合并后，独立的 `code_github_skill_promote_pr` 才能重新审核固定 SHA 和完整证据、提出可信目录版本升级 PR；此 PR 再次通过中央 CI 并合并后，Host 原生 Provider 才允许在新插件版本中按需加载。当前一次性自动 Stage 不会在后台等待 CI，也不代表两次 PR 已自动连贯完成，后续将补状态驱动的安全续接。
+
 ## 语义能力目录与专项质量检查
 
 Delta Code 提供只读 `code_capabilities` 能力目录：`action: list` 浏览场景；`get` 查询单项的目标、输入、产物及关联能力；`compose` 按 Agent 已判断的用户意图组合现有能力。关联 `uses` 仅表示可选复用，**不会**自动安装 Skill、运行命令、启动新 Agent 或授予权限。能力 ID、Skill 名称和依赖环均在注册前校验。
