@@ -198,8 +198,10 @@ export function installHostGatewayEffortSync(
           }
           if (!target.url) return deny('unsafe-endpoint', 400)
           const currentKey = await key(target.credentialRef)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           if (!currentKey) return deny('missing-credential')
           const initialHash = await hash(currentKey)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           const controller = new AbortController()
           aborts.add(controller)
           const timeout = setTimeout(() => controller.abort(), 8000)
@@ -215,9 +217,11 @@ export function installHostGatewayEffortSync(
           } finally { clearTimeout(timeout); aborts.delete(controller) }
           if (!isCurrent()) return deny('host-unavailable', 503)
           const currentCredential = await key(target.credentialRef)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           if (!currentCredential || await hash(currentCredential) !== initialHash) {
             return deny('credential-changed')
           }
+          if (!isCurrent()) return deny('host-unavailable', 503)
           const latest = lookup(input.namespace, input.providerId, input.modelId)
           if (!latest || latest.descriptor.revision !== target.descriptor.revision ||
               latest.credentialRef !== target.credentialRef ||
@@ -270,6 +274,7 @@ export function installHostGatewayEffortSync(
           if (!currentKey || await hash(currentKey) !== draft.keyHash) {
             return deny('credential-changed')
           }
+          if (!isCurrent()) return deny('host-unavailable', 503)
           const live = lookup(draft.namespace, draft.providerId, draft.modelId)
           if (!live || live.descriptor.revision !== draft.revision ||
               live.credentialRef !== draft.credentialRef) return deny('settings-changed')
@@ -285,6 +290,9 @@ export function installHostGatewayEffortSync(
               }
               if (!fresh || await hash(fresh) !== draft.keyHash) {
                 return { ok: false, error: { code: 'credential-changed' } }
+              }
+              if (!isCurrent()) {
+                return { ok: false, error: { code: 'host-service-replaced' } }
               }
               try {
                 await settings.mutate(ns, ops, rev)
