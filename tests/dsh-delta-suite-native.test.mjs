@@ -11,7 +11,7 @@ const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/dsh-delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -64,7 +64,10 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
     inject(services, callback) {
       const names = Array.from(services)
       assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess',
-        'sessions,resources,sidebarRightTabs,sidebarRight', 'configForms,remote'].includes(names.join(',')))
+        'sessions,resources,sidebarRightTabs,sidebarRight', 'configForms,remote',
+        'modelDirectories'].includes(names.join(',')))
+      // Optional model directories may be absent on older Hosts.
+      if (names.join(',') === 'modelDirectories' && !modelDirectories) return
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'locale') throw new Error('cannot get property "locale" without inject')
@@ -73,6 +76,7 @@ function harness({ stored = null, failTheme = false, failLayout = false } = {}) 
     },
     effect(create) { effects.push(create()) },
     workspaces,
+    modelDirectories,
     theme: { overrideTokens(id, values) {
       if (failTheme) throw new Error('theme unavailable')
       layers.set(id, values)
@@ -211,6 +215,48 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
 
+
+test('Gateway Effort footer derives model and effort exclusively from the public active Session', () => {
+  const directorySnapshot = {
+    current: { provider: 'my-gateway', model: 'Max', reasoningEffort: 'medium' },
+    status: 'ready', pending: null, routable: true,
+  }
+  const directory = {
+    store: { getSnapshot: () => directorySnapshot, subscribe: () => () => {} },
+    load: async () => directorySnapshot,
+  }
+  const app = harness({
+    modelDirectories: { directoryFor(id) {
+      assert.equal(id, 'session-one')
+      return directory
+    } },
+  })
+  app.features.setActiveSessionId('session-one')
+  const footer = app.components.get('settings.models.footer')
+  assert.equal(footer.spec.id, 'delta.gateway.effort-sync')
+  const render = () => footer.component({})
+  const rendered = render()
+  const text = JSON.stringify(rendered)
+  assert.match(text, /my-gateway \/ Max \/ medium/)
+  assert.doesNotMatch(text, /Gateway 路由 ID|Model ID|Current selected effort/,
+    'users cannot forge provider, model or Effort through manual inputs')
+  const findNodes = (node, filter) => {
+    if (!node || typeof node !== 'object') return []
+    return [ ...(filter(node) ? [node] : []),
+      ...(Array.isArray(node.children)
+        ? node.children.flatMap(child => findNodes(child, filter)) : []) ]
+  }
+  const preview = findNodes(rendered, node => node.type === 'button' &&
+    String(node.children?.[0]).includes('预览'))
+  assert.equal(preview.length, 1)
+  assert.equal(preview[0].props.disabled, false,
+    'active session and official directory authorize user-initiated discovery')
+  directorySnapshot.current = { provider: 'my-gateway', model: 'Max', reasoningEffort: 'off' }
+  const unsupported = render()
+  assert.doesNotMatch(JSON.stringify(unsupported), /my-gateway \/ Max \/ off/,
+    'native Off cannot masquerade as supported Gateway Off')
+  app.cleanup()
+})
 
 test('native Settings shows localized Host-unavailable errors without committing fake settings', async () => {
   const app = harness()
