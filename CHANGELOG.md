@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 的 Host 能力探测新增 subprocess 与工具注册状态诊断；Git/验证执行统一按退出码、终止信号、超时及输出完整性认定结果，阻止非成功或证据不足的命令被误判为通过。
+
 - 新增: Delta Code `code_capabilities(plan)` 以声明式 `requires` 计算依赖波次、就绪和阻塞状态；`uses` 继续仅作可选参考，依据原生 Host 检查点去重，不添加第二套 Agent 或运行时。
 
 - 维护: Delta Suite 统一中文插件名称、原生设置入口和发布说明中的展示名称，保留现有安装标识与配置。

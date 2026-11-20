@@ -9,10 +9,17 @@ export function inspectHostCapabilities(ctx: Context) {
   const workspaceProbe = probeDshService(() => lookupDshWorkingDirectory(ctx))
   const fs = fsProbe.value
   const workingDirectory = workspaceProbe.value
-  const has = (value: unknown, method: string): boolean =>
-    value !== null && typeof value === 'object'
-    && typeof (value as Record<string, unknown>)[method] === 'function'
-  const host = ctx as Context & { subprocess?: { spawn?: unknown } | null }
+  const host = ctx as Context & { subprocess?: unknown }
+  const subprocessProbe = probeDshService(() => host.subprocess)
+  const toolsProbe = probeDshService(() => ctx.tools)
+  const has = (value: unknown, method: string): boolean => {
+    try {
+      return value !== null && (typeof value === 'object' || typeof value === 'function')
+        && typeof (value as Record<string, unknown>)[method] === 'function'
+    } catch {
+      return false // Method getters are not proof of permission or a working capability.
+    }
+  }
   return {
     adapterVersion: DSH_HOST_ADAPTER_VERSION,
     fsState: fsProbe.state,
@@ -21,11 +28,15 @@ export function inspectHostCapabilities(ctx: Context) {
     fsResolve: has(fs, 'resolve'),
     fsReadText: has(fs, 'readText'),
     fsWriteText: has(fs, 'writeText'),
-    subprocessMounted: host.subprocess !== null && host.subprocess !== undefined,
-    subprocessSpawn: has(host.subprocess, 'spawn'),
+    subprocessState: subprocessProbe.state,
+    subprocessMounted: subprocessProbe.state === 'mounted',
+    subprocessSpawn: has(subprocessProbe.value, 'spawn'),
+    subprocessResolveExecutable: has(subprocessProbe.value, 'resolveExecutable'),
+    processOutcomeContract: 'unverified' as const,
     workspaceAccessible: Boolean(workingDirectory),
     workspaceEnsure: has(workingDirectory, 'ensure'),
-    toolRegistry: has(ctx.tools, 'register'),
+    toolRegistryState: toolsProbe.state,
+    toolRegistry: has(toolsProbe.value, 'register'),
     writeContract: 'unverified' as const,
   }
 }
@@ -51,10 +62,14 @@ export function createHostProbeTool(ctx: Context): ToolDefinition {
           fsResolve: { type: 'boolean', required: true },
           fsReadText: { type: 'boolean', required: true },
           fsWriteText: { type: 'boolean', required: true },
+          subprocessState: { type: 'string', required: true, enum: ['absent', 'mounted', 'inaccessible'] },
           subprocessMounted: { type: 'boolean', required: true },
           subprocessSpawn: { type: 'boolean', required: true },
+          subprocessResolveExecutable: { type: 'boolean', required: true },
+          processOutcomeContract: { type: 'string', required: true, enum: ['unverified'] },
           workspaceAccessible: { type: 'boolean', required: true },
           workspaceEnsure: { type: 'boolean', required: true },
+          toolRegistryState: { type: 'string', required: true, enum: ['absent', 'mounted', 'inaccessible'] },
           toolRegistry: { type: 'boolean', required: true },
           writeContract: { type: 'string', required: true, enum: ['unverified'] },
         },
@@ -67,6 +82,7 @@ export function createHostProbeTool(ctx: Context): ToolDefinition {
           ['FS writeText', value.fsWriteText],
           ['Subprocess mounted', value.subprocessMounted],
           ['Subprocess spawn', value.subprocessSpawn],
+          ['Subprocess resolveExecutable', value.subprocessResolveExecutable],
           ['Workspace service', value.workspaceAccessible],
           ['Workspace ensure', value.workspaceEnsure],
           ['Tool registry', value.toolRegistry],
@@ -76,8 +92,11 @@ export function createHostProbeTool(ctx: Context): ToolDefinition {
           'Adapter: ' + value.adapterVersion,
           'FS service state: ' + value.fsState,
           'Workspace service state: ' + value.workspaceState,
+          'Subprocess service state: ' + value.subprocessState,
+          'Tool registry state: ' + value.toolRegistryState,
           ...flags.map(([name, available]) => name + ': ' + (available ? 'available' : 'unavailable')),
           'FS writeText contract: unverified (requires actual Host smoke test)',
+          'Subprocess exit/permission contract: unverified (method presence is not execution evidence)',
         ].join('\n') }]
       },
     },

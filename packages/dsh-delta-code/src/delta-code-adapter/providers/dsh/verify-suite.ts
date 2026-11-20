@@ -14,6 +14,8 @@ const STEP_SCHEMA = {
     project: { type: 'string' as const, required: true },
     command: { type: 'string' as const, required: true },
     exitCode: { type: 'integer' as const, required: true },
+    signal: { type: 'string' as const, required: true },
+    outcome: { type: 'string' as const, required: true, enum: ['succeeded', 'failed', 'uncertain'] },
     passed: { type: 'boolean' as const, required: true },
     timedOut: { type: 'boolean' as const, required: true },
     output: { type: 'string' as const, required: true },
@@ -54,7 +56,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
         return [{ type: 'text', text: [
           'Verify suite (' + value.scope + '): ' + (value.passed ? 'PASS' : 'FAIL') + ', ' + value.completed + ' run, ' + value.skipped.length + ' skipped.',
           ...(value.deferred.length ? ['Deferred until complete verification: ' + value.deferred.join(', ')] : []),
-          ...value.results.map(step => step.command + ': ' + (step.passed ? 'PASS' : 'FAIL') + ' (' + step.exitCode + ')\n' + step.output),
+          ...value.results.map(step => step.command + ': ' + (step.passed ? 'PASS' : 'FAIL') + ' (' + step.exitCode + ', ' + step.outcome + (step.signal ? ', signal ' + step.signal : '') + ')\n' + step.output),
           ...(value.skipped.length ? ['Skipped: ' + value.skipped.join(', ')] : []),
           'Next: ' + value.nextAction,
         ].join('\n') }]
@@ -103,7 +105,7 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
             script: step.script, project: step.plan.project,
             failureKind: classifyFailure(error),
             command: [step.plan.command, ...step.plan.args].join(' '),
-            exitCode: -1, passed: false, timedOut: false, truncated: false,
+            exitCode: -1, signal: '', outcome: 'uncertain' as const, passed: false, timedOut: false, truncated: false,
             output: 'Host subprocess refused or failed; inspect Host logs.',
           })
           break

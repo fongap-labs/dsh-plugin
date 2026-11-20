@@ -9,6 +9,7 @@ import { chooseVerificationCommand, type VerificationProject, type VerificationC
 import { verificationMetadataFiles, detectVerificationProjects, parseDeclaredNodeVerificationScripts, selectVerificationPackageManager } from '../../../delta-code-quality/verification-project-policy.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { classifyVerificationEvidence, verificationNextAction } from '../../../delta-code-quality/failure-policy.js'
+import { assessProcessOutcome } from '../../contracts/process-outcome.js'
 import { requireHostFs } from './host-fs.js'
 
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
@@ -38,6 +39,8 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       project: { type: 'string', required: true },
       command: { type: 'string', required: true },
       exitCode: { type: 'integer', required: true },
+      signal: { type: 'string', required: true },
+      outcome: { type: 'string', required: true, enum: ['succeeded', 'failed', 'uncertain'] },
       passed: { type: 'boolean', required: true },
       timedOut: { type: 'boolean', required: true },
       output: { type: 'string', required: true },
@@ -45,7 +48,7 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
       failureKind: { type: 'string', required: true },
       nextAction: { type: 'string', required: true },
     } }, render(_args, value) {
-      return [{ type: 'text', text: value.command + ': ' + (value.passed ? 'PASS' : 'FAIL') + ' (exit ' + value.exitCode + ')\n' + value.output + '\nNext: ' + value.nextAction }]
+      return [{ type: 'text', text: value.command + ': ' + (value.passed ? 'PASS' : 'FAIL') + ' (exit ' + value.exitCode + ', outcome ' + value.outcome + (value.signal ? ', signal ' + value.signal : '') + ')\n' + value.output + '\nNext: ' + value.nextAction }]
     } },
     async execute(args, exec) {
       if (!isAllowedVerificationScript(args.script)) throw new Error('script is not allowlisted')
@@ -215,17 +218,21 @@ export async function runPreparedVerify(
         if (exec.signal.aborted) onCancel()
       }),
     ])
+    const assessment = assessProcessOutcome(result)
     const exitCode = result.exitCode ?? -1
     const combined = result.stdout + '\n' + result.stderr
+    const truncated = result.lossy || combined.length > MAX_OUTPUT
     return {
       script: prepared.script,
       project: plan.project,
       command: [plan.command, ...plan.args].join(' '),
       exitCode,
-      passed: exitCode === 0 && !result.timedOut && !result.lossy,
+      signal: result.signal ?? '',
+      outcome: assessment.status,
+      passed: assessment.status === 'succeeded' && assessment.complete && !truncated,
       timedOut: result.timedOut,
       output: redactKnownTokens(combined.slice(0, MAX_OUTPUT), settings),
-      truncated: result.lossy || combined.length > MAX_OUTPUT,
+      truncated,
     }
   } finally {
     if (timer !== undefined) clearTimeout(timer)
