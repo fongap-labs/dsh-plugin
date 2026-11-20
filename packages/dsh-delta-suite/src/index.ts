@@ -24,6 +24,11 @@ export type {
   GatewayReasoningCapability,
   GatewayReasoningSyncPreview,
 } from './delta-suite-adapter/gateway-reasoning.js'
+export {
+  DELTA_GATEWAY_EFFORT_PREVIEW_PATH,
+  DELTA_GATEWAY_EFFORT_APPLY_PATH,
+  installHostGatewayEffortSync,
+} from './host-gateway-effort.js'
 export { applyApprovedGatewayReasoningSync } from './delta-suite-adapter/gateway-reasoning-apply.js'
 export type {
   GatewaySettingsRemote,
