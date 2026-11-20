@@ -71,8 +71,19 @@
 
 **目前这仍是一个供可信调用方接线的操作能力，而不是已上线的端到端自动同步界面。** Delta 不会自行获取密钥、请求 Gateway、从浏览器探测接口或未经用户确认触发写入。Host 脱敏视图中的 `apiKeyEnv` 仅是凭据引用，不能证明该引用的密钥是否在模型目录读取后被替换；因此真正的自动化路径仍需上游公开的、按 Credential 版本绑定的授权模型目录读取契约，并在用户批准前确认来源一致。未满足时不应暴露一键自动同步。不存在自动接管原生模型菜单、写入原生 Off 或修改请求参数的行为。
 
+## 公开 Models 页面交互与 Credential 绑定（本次实现）
+
+Host 侧通过 Cordis 正式注入的 `settings`、`credentials`、`llm` 和 `connection.fetch` 注册两个插件自有端点（旧 Host 缺少服务时不注册，原生模型界面保持正常）：
+
+- `POST /api/delta-suite/gateway-effort/preview`：由 Harness 官方 Models 页的公开 `settings.models.footer` 扩展区域中的按钮**主动触发**；指定当前模型配置条目、Provider ID、模型 ID 和原生选定等级。只接受 LLM 公开配置目录声明、且与已保存 Host 配置完全一致的 OpenAI-compatible Provider；只对用户已有的 HTTPS Gateway 地址请求 `{baseURL}/models`，不允许跳转、Loopback/IP、带凭据 URL 或超大响应（256 KiB）。只在 Host 内用 `credentials.resolve` 读取当前引用，`Authorization` 不进入浏览器、UI、日志或持久化文件。确认当前模型配置修订号、凭据摘要及地址在网络返回后未变化，返回对应的单模型 Effort 增删改预览。
+- `POST /api/delta-suite/gateway-effort/apply`：只接受 UI 第二步勾选并点击确认后的一次性 48 位随机预览令牌，令牌保留在 Host 内存两分钟，消费后不可重放或失败重试。再次通过 Host Credential 解析和密钥摘要校验当前 Key 未被轮换，检查设置 revision，并通过此前已验证的 `applyApprovedGatewayReasoningSync` 执行单模型、单字段的正式 Host CAS 写入。任何失败保持原生 Settings 继续可用，不调用私有状态存储。插件卸载时清空所有预览并中断进行中的请求。
+
+**当前访问 Key 的边界**：Gateway 的模型响应仅供创建该 Key 的预览，完整响应不缓存；Host 只在内存保留该模型的已验证等级、带盐密钥摘要与短期预览。若同一 Credential 引用的秘密值在预览至应用期间变更，摘要不一致会拒绝应用。它并非 Host 的通用 Credential 版本 API，也无法消除真正并发的 Credential 源在最终重验之后、CAS 写入之前的极短窗口。原生模型选择器仍由 Harness 自己负责，UI 当前要求用户选择与会话一致的 Effort；插件不擅自修改会话选择。
+
+**边界和回退**：此流程不在启动时发网络请求，不轮询，不主动探测未知节点，不自动刷新或自动应用。仅面向已经显式配置了 HTTPS `baseURL`、Bearer 凭据引用及 OpenAI 兼容协议的 Provider；不提供自动初始化 Provider、离线 Local Gateway HTTP 支持或对私有 Host DOM 的接管。未经用户确认不存在配置写入。中央可信测试测试凭据轮换、过期/重复提交、SSRF 防护、Host CAS 及请求失败，不能替代 Windows Harness 实机验收。
+
 ## 尚未完成的 #280 条件
 
-当前代码**不**自动把 Gateway 发现的目录同步到 Harness 提供商配置，**不**实现自己的模型下拉菜单，**不**自动更改 Session 的 `reasoningEffort`，**不**调用未声明的 Host 扩展 API。真正的自动同步需要上游公开的、授权的 Gateway 模型读取 / 官方提供商元数据更新契约及正式版本兼容检查；支持后才可增加确定性的重放和迁移测试。
+当前已支持用户主动触发的 Host Credential 范围内 Gateway 目录读取、二次预览以及明确确认后的官方 Settings 写入；**尚未**实现无需用户干预的自动目录同步、自动 Provider/模型创建、自动会话 Effort 修改或请求层显式 Off，也没有自己的模型选择下拉菜单。现有原生 `llm-pi-ai` Off 与 Gateway 默认 High 的语义不一致，必须等待正式 Host 线路能力后再启用。自动同步还需可供官方 Credential 修订号原子核查和当前 Session 已选等级核查的契约。
 
 正式验收还需：授权 Key 范围隔离、模型目录变更、旧版本 Host 缺少服务、显式 Off 与 Default 实际发包差异、升级回退，以及 Windows Harness 实机启停与第三方插件共存。不可用时保留原生 UI 和 Gateway 的默认策略，不发探测请求。
