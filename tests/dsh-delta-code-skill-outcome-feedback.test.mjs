@@ -8,6 +8,11 @@ const react = 'vercel-react-best-practices'
 const compose = 'vercel-composition-patterns'
 const names = [react, compose]
 const provider = 'delta-code-approved-github'
+const verified = passed => ({
+  passed, exitCode: passed ? 0 : 2, signal: '',
+  outcome: passed ? 'succeeded' : 'failed',
+  timedOut: false, truncated: false,
+})
 
 describe('Delta Code bounded Skill outcome feedback', () => {
   it('counts approved, actually loaded skills and definite checks only', () => {
@@ -85,11 +90,11 @@ describe('Delta Code native result wiring', () => {
       claim('Implement React compound components')
       result('skill', { name: compose, provider })
       claim('继续推进任务链')
-      result('code_verify', { passed: true })
+      result('code_verify', verified(true))
       claim('Implement React compound components')
       result('skill', { name: react, provider })
       claim('继续')
-      result('code_verify', { passed: false })
+      result('code_verify', verified(false))
     }
     claim('Implement React compound components')
     const guidance = prompt.text({ agent })
@@ -97,7 +102,7 @@ describe('Delta Code native result wiring', () => {
     assert.ok(guidance.indexOf(compose) < guidance.indexOf(react))
     result('skill', { name: react, provider })
     claim('Refactor a Rust API implementation') // same route but unrelated task
-    result('code_verify', { passed: true }) // must not be credited to React
+    result('code_verify', verified(true)) // must not be credited to React
     claim('Implement React compound components')
     const later = prompt.text({ agent })
     assert.ok(later.indexOf(compose) < later.indexOf(react))
