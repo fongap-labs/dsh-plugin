@@ -54,4 +54,41 @@ export const SPECIALIST_WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Keep the change only when it improves target behavior without material safety or quality regressions. Bound runs, context and cost; never expose private transcripts or use hidden evaluation metadata in candidate prompts.',
     ],
   },
+  {
+    name: 'code-quality-strength',
+    title: 'Assess meaningful test strength and maintainability',
+    description: 'For higher-risk code changes, find untested behavior, misleading assertions, risky complexity and duplicated business rules.',
+    instructions: [
+      'Start from the changed behavior and reachable call sites. Identify concrete failure cases that existing tests should reject, not just aggregate coverage.',
+      'Inspect current tests for assertions that would still pass if important behavior changed. Add or propose focused regression cases for confirmed gaps, within the authorized task scope.',
+      'Use existing project-supported mutation testing or focused fault injection only when the runner and an approved project script are actually available. Never install a new tool, run arbitrary commands or create billable requests to satisfy a metric.',
+      'If testing a mutation, confirm a clean passing baseline, apply a safe isolated mutation, verify the correct test fails, and restore the original source before concluding. Do not treat compilation errors or test harness failures as a meaningful killed mutation.',
+      'Examine complex functions and candidate duplication only in the affected area. Confirm behavior and ownership before recommending an abstraction; do not refactor solely to manipulate scores.',
+      'Read back actual test exit codes and relevant assertions. Distinguish measured results, source-only observations and checks that were not run. The mandatory CI and Host permissions always remain authoritative.',
+    ],
+  },
+  {
+    name: 'code-diagnostic-readiness',
+    title: 'Preserve enough safe evidence for the next recurrence',
+    description: 'After a bug or performance repair, check whether future failures can be diagnosed from existing logs and traces.',
+    instructions: [
+      'For this confirmed failure, ask whether a recurrence can be linked to the affected version, operation and stage using existing evidence. Reuse current logging and diagnostics before adding anything.',
+      'Where the evidence is insufficient and edits are authorized, add the smallest safe stage/elapsed-time or error-category observation needed to distinguish competing causes. Do not add a logging platform, permanent debug mode or speculative metrics.',
+      'Never log credentials, request bodies, private transcripts, tokens or unbounded context. Preserve user-facing concise errors and separate internal diagnostics.',
+      'Run the representative path with existing permitted tools and read the produced evidence back. A log statement in source without an observed entry is not verified instrumentation.',
+      'Do not simulate production incidents or background monitoring without authorization. Report missing Host access or a safely untestable failure path instead of claiming coverage.',
+    ],
+  },
+  {
+    name: 'code-experience-review',
+    title: 'Propose reuse of proven engineering experience',
+    description: 'Convert a repeatedly useful, verified lesson into a review candidate without automatically changing trusted Skills.',
+    instructions: [
+      'Consider a reusable lesson only after the target behavior was reproduced or explained, a real fix was verified and relevant commit/test evidence is available.',
+      'Record a concise candidate with problem conditions, root cause, fix pattern, source revision, observed verification, applicability and explicit failure boundaries. Redact sensitive paths, payloads and identities.',
+      'Compare with existing project rules and approved Skills before proposing a new entry; avoid duplicate or one-off guidance. A historical result is a reference, not authority over the current code.',
+      'Do not persist a new global database, inject a session transcript or modify a trusted Skill catalog automatically. If the user authorizes a reusable project Skill, use the existing governed PR/admission process and central CI.',
+      'Review or reject the candidate independently of the last task outcome; never treat a model summary or unrun check as verified evidence.',
+    ],
+  },
 ]
