@@ -11,6 +11,17 @@ export {
   negotiateHostCapabilities,
 } from './delta-suite-adapter/host-capability-contract.js'
 export type { DeltaCapabilityManifest, DeltaCapabilityReport, DeltaHostCapability } from './delta-suite-adapter/host-capability-contract.js'
+export {
+  decodeGatewayReasoningCatalog,
+  mapGatewayReasoningChoice,
+  toHarnessReasoningEfforts,
+} from './delta-suite-adapter/gateway-reasoning.js'
+export type {
+  GatewayEffort,
+  GatewayReasoningChoice,
+  GatewayReasoningProtocol,
+  GatewayReasoningCapability,
+} from './delta-suite-adapter/gateway-reasoning.js'
 export { redactPathForUi, redactSensitiveText } from './redact.js'
 export {
   installHostAuthCookiePruner,
