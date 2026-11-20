@@ -76,6 +76,125 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
 }
 
 
+
+const proxyDraft = Object.freeze({
+  mode: 'manual', httpProxy: 'http://127.0.0.1:7890',
+  httpsProxy: '', noProxy: 'localhost',
+})
+const effectiveDraft = Object.freeze({
+  mode: 'manual', source: 'manual', httpProxy: 'http://127.0.0.1:7890',
+  noProxy: 'localhost',
+})
+const visionConfirmed = Object.freeze({
+  enabled: false, mode: 'auto', provider: 'auto',
+  customEndpoint: '', customApiKey: '', customModel: '', autoWrapModels: true,
+})
+
+test('Host absence never simulates saving proxy or Vision settings or a successful Vision test', async () => {
+  const f = fixture({ unavailable: true })
+  const before = f.manager.getSnapshot()
+  const previousProxy = before.proxy
+  const previousVision = before.vision
+  assert.equal(await f.manager.saveProxy(proxyDraft), false)
+  assert.equal(f.manager.getSnapshot().proxy, previousProxy)
+  assert.equal(f.manager.getSnapshot().effectiveProxy, undefined)
+  assert.equal(f.manager.getSnapshot().proxyBusy, false)
+  assert.equal(f.manager.getSnapshot().proxyError, 'Host proxy unavailable')
+  assert.equal(await f.manager.saveVision({ enabled: false, customApiKey: 'private-key' }), false)
+  assert.equal(f.manager.getSnapshot().vision, previousVision)
+  assert.equal(f.manager.getSnapshot().visionError, 'Host vision unavailable')
+  assert.equal(JSON.stringify(f.manager.getSnapshot()).includes('private-key'), false,
+    'unsaved credentials must never enter the shared settings snapshot')
+  const tested = await f.manager.testVisionEngine()
+  assert.equal(tested.ok, false)
+  assert.match(tested.message, /Host vision unavailable/)
+  assert.equal(f.manager.getSnapshot().visionEngineReady, false)
+  assert.equal(f.manager.getSnapshot().visionEngineAccount, null)
+  assert.deepEqual(f.calls, [], 'unavailable Host must not issue synthetic HTTP writes')
+})
+
+test('proxy configuration only commits a complete acknowledged Host proxy and effective mode', async () => {
+  for (const response of [
+    { status: 200, data: {} },
+    { status: 200, data: { ok: true } },
+    { status: 200, data: { ok: false, proxy: proxyDraft, effective: effectiveDraft } },
+    { status: 200, data: { ok: true, proxy: proxyDraft } },
+    { status: 200, data: { ok: true, proxy: { ...proxyDraft, mode: 'direct' }, effective: effectiveDraft } },
+    { status: 500, data: { ok: false, error: 'NOT_AVAILABLE' } },
+  ]) {
+    const f = fixture({ response })
+    const before = f.manager.getSnapshot()
+    assert.equal(await f.manager.saveProxy(proxyDraft), false)
+    assert.equal(f.manager.getSnapshot().proxy, before.proxy)
+    assert.equal(f.manager.getSnapshot().effectiveProxy, before.effectiveProxy)
+    assert.equal(f.manager.getSnapshot().proxyBusy, false)
+    assert.equal(f.manager.getSnapshot().proxyError, 'Host proxy unavailable')
+    assert.deepEqual(f.calls.map(x => x[0]), ['post'])
+  }
+  const ok = fixture({ response: { status: 200, data: {
+    ok: true, proxy: proxyDraft, effective: effectiveDraft,
+  } } })
+  assert.equal(await ok.manager.saveProxy(proxyDraft), true)
+  assert.equal(ok.manager.getSnapshot().proxy.mode, 'manual')
+  assert.equal(ok.manager.getSnapshot().effectiveProxy.source, 'manual')
+  assert.equal(ok.manager.getSnapshot().proxyError, undefined)
+})
+
+test('Vision settings only commit an acknowledged Host revision, preserving secrets on rejection', async () => {
+  for (const response of [
+    { status: 200, data: {} },
+    { status: 200, data: { ok: true } },
+    { status: 200, data: { ok: false, vision: visionConfirmed } },
+    { status: 200, data: { ok: true, vision: { enabled: false } } },
+    { status: 200, data: { ok: true, vision: { ...visionConfirmed, enabled: true } } },
+    { status: 503, data: { ok: false, error: 'OFFLINE' } },
+  ]) {
+    const f = fixture({ response })
+    const before = f.manager.getSnapshot().vision
+    assert.equal(await f.manager.saveVision({ enabled: false }), false)
+    assert.equal(f.manager.getSnapshot().vision, before)
+    assert.equal(f.manager.getSnapshot().visionError, 'Host vision unavailable')
+    assert.deepEqual(f.calls.map(x => x[0]), ['post'])
+  }
+  const ok = fixture({ response: { status: 200, data: { ok: true, vision: visionConfirmed } } })
+  assert.equal(await ok.manager.saveVision({ enabled: false }), true)
+  assert.equal(ok.manager.getSnapshot().vision.enabled, false)
+  assert.equal(ok.manager.getSnapshot().visionError, undefined)
+  await new Promise(resolve => setImmediate(resolve))
+
+  const badTest = fixture()
+  badTest.env.fetch = async () => ({
+    ok: true, status: 200, json: async () => ({ ok: false, engineReady: true,
+      account: { model: 'invented-ready-model' } }),
+  })
+  const result = await badTest.manager.testVisionEngine()
+  assert.equal(result.ok, false)
+  assert.equal(badTest.manager.getSnapshot().visionEngineReady, false)
+})
+
+test('Vision status outage clears previously confirmed green readiness', async () => {
+  const f = fixture()
+  f.env.fetch = async path => ({
+    ok: true, status: 200, json: async () => path === '/api/delta-suite/state'
+      ? { state: f.state([]) }
+      : path === '/api/delta-suite/vision/status'
+        ? { ok: true, engineReady: true, account: { provider: 'test', model: 'real', source: 'host' } }
+        : {},
+  })
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().visionEngineReady, true)
+  f.env.fetch = async path => {
+    if (path === '/api/delta-suite/vision/status') throw new Error('vision service down')
+    return { ok: true, status: 200, json: async () => path === '/api/delta-suite/state'
+      ? { state: f.state([]) } : {} }
+  }
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().visionEngineReady, false)
+  assert.equal(f.manager.getSnapshot().visionEngineAccount, null)
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true,
+    'a Vision status failure must not revoke independent Host Session protection')
+})
+
 test('public Session catalog notifications update selected hover time and respect service lifetime', async () => {
   const f = fixture()
   await f.manager.refreshState()
