@@ -62,7 +62,7 @@ describe('Delta Code native Todo resume SDK isolation', () => {
       assert.equal(stale.writeSeq, 7, 'stale sequence must not overwrite last checkpoint')
       assert.equal(stale.invalid, true)
       assert.equal(stale.tasks, null)
-      assert.throws(() => parseResumeState(stale), /invalid native Todo checkpoint/)
+      assert.equal(parseResumeState(stale).invalid, true)
       const recovered = pureFold(stale, { type: 'todo/write', seq: 8, data: { todos: [
         { content: 'Inspect code', status: 'in_progress' },
       ] } })
