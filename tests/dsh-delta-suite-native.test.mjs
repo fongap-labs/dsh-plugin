@@ -5,7 +5,6 @@ import { readFileSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
-import * as ts from 'typescript'
 
 // Central CI invokes node --test directly, so build the actual client artifact here.
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
@@ -774,14 +773,13 @@ test('ZIP personalization keeps its layout and includes only a collapsed feature
 // Gateway reasoning-contract cases share this existing Delta native test entrypoint.
 const file = fileURLToPath(new URL('../packages/dsh-delta-suite/src/delta-suite-adapter/gateway-reasoning.ts', import.meta.url))
 const gatewayCodecSource = readFileSync(file, 'utf8')
-const js = ts.transpileModule(gatewayCodecSource, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
-}).outputText
+// Use the real Host compilation produced by the fixture's tsc invocation,
+// rather than a second in-process TypeScript transpilation dependency.
 const {
   decodeGatewayReasoningCatalog,
   toHarnessReasoningEfforts,
   mapGatewayReasoningChoice,
-} = await import('data:text/javascript;charset=utf-8,' + encodeURIComponent(js))
+} = await import('../packages/dsh-delta-suite/lib/delta-suite-adapter/gateway-reasoning.js')
 
 const highBestEffort = {
   default: 'high', mode: 'best_effort',
