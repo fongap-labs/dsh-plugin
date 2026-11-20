@@ -24,6 +24,12 @@ export type {
   GatewayReasoningCapability,
   GatewayReasoningSyncPreview,
 } from './delta-suite-adapter/gateway-reasoning.js'
+export { applyApprovedGatewayReasoningSync } from './delta-suite-adapter/gateway-reasoning-apply.js'
+export type {
+  GatewaySettingsRemote,
+  GatewaySyncWriteRequest,
+  GatewaySyncWriteResult,
+} from './delta-suite-adapter/gateway-reasoning-apply.js'
 export { redactPathForUi, redactSensitiveText } from './redact.js'
 export {
   installHostAuthCookiePruner,

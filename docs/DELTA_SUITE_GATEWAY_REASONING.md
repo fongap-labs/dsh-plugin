@@ -63,6 +63,14 @@
 
 当会话当前选择是 Off、当前模型不在 Key 范围中，或原生已选 Low/Medium/High/Max 在更新后的目录被撤销时，返回拒绝而不是猜测备用等级，避免静默转成 Gateway 的默认 High。该预览也不代替 Host 官方的配置格式验证。若缺少 Host 目录则只返回阻塞状态，不影响原生聊天。
 
+## 官方 Host 配置写入（需明确批准）
+
+经上游源码确认：Harness 官方 Models 页面调用 `remote.settings.describe()` 读取已脱敏配置视图及 `revision`，并调用 `remote.settings.mutate(ns, ops, expectedRevision)` 执行路径级写入。Host 自身处理 Schema、持久化、并发冲突（`settings/conflict`）与成功后的配置回读。[源码](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/api/settings-controller/src/index.ts)。
+
+新增 `applyApprovedGatewayReasoningSync` 公共集成接口，**只有显式 `approved: true` 才能执行**：需要调用者先通过可信 Host 授权渠道取得当前 Key 的模型目录、已读的原生配置 revision 与用户审阅的 preview；再由官方 `remote.settings.describe()` 二次读取，拒绝 revision 变更、读写权限不足、原生模型不唯一、credential *引用* 与审阅时不匹配、Effort 差异变化，以及不能原生可靠关闭的 Off。最终仅提交 `['providers', providerId, 'models', index, 'reasoningEfforts']` 一条 `set` 路径操作，同时携带 `expectedRevision`；验证 Host 回执中确认后的精确等级、模型与凭据引用，不因远端返回 HTTP 成功就直接报告已生效。遇到冲突或未知提交结果不会重试写入。
+
+**目前这仍是一个供可信调用方接线的操作能力，而不是已上线的端到端自动同步界面。** Delta 不会自行获取密钥、请求 Gateway、从浏览器探测接口或未经用户确认触发写入。Host 脱敏视图中的 `apiKeyEnv` 仅是凭据引用，不能证明该引用的密钥是否在模型目录读取后被替换；因此真正的自动化路径仍需上游公开的、按 Credential 版本绑定的授权模型目录读取契约，并在用户批准前确认来源一致。未满足时不应暴露一键自动同步。不存在自动接管原生模型菜单、写入原生 Off 或修改请求参数的行为。
+
 ## 尚未完成的 #280 条件
 
 当前代码**不**自动把 Gateway 发现的目录同步到 Harness 提供商配置，**不**实现自己的模型下拉菜单，**不**自动更改 Session 的 `reasoningEffort`，**不**调用未声明的 Host 扩展 API。真正的自动同步需要上游公开的、授权的 Gateway 模型读取 / 官方提供商元数据更新契约及正式版本兼容检查；支持后才可增加确定性的重放和迁移测试。

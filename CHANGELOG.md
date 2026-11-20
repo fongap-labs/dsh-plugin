@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: 通过 Harness 官方 revisioned `remote.settings.mutate` 执行用户明确批准的单模型 Gateway Effort 配置变更，严格校验 Host 修订号、模型/凭据引用及写入结果，不自动发现密钥或接管菜单（#280）。
+
 - 新增: Gateway 模型 Effort 的安全同步预览；仅针对指定 Host 模型检查已选等级、差异与冲突，不自动修改任何原生配置（#280）。
 
 - 修复: 当前 Harness 的 Off 会省略思考参数，不能关闭 Gateway 默认 High；Delta 元数据映射不再向原生选择器提供无法保证的 Off，保留显式协议映射与安全等级（#280）。
