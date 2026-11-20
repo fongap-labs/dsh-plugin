@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code `code_capabilities(plan)` 以声明式 `requires` 计算依赖波次、就绪和阻塞状态；`uses` 继续仅作可选参考，依据原生 Host 检查点去重，不添加第二套 Agent 或运行时。
+
 - 维护: Delta Suite 统一中文插件名称、原生设置入口和发布说明中的展示名称，保留现有安装标识与配置。
 
 - 维护: Delta Code 统一插件显示名称、设置入口与发布名称，保留现有包标识和工具接口。

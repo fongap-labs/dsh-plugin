@@ -1,6 +1,7 @@
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
 import { ALL_CODING_SKILLS } from './skills.js'
+import { planDeclaredCapabilities, type DeclaredCapabilityPlan } from './capability-plan.js'
 
 /**
  * Reviewed, host-neutral scenarios. The native Agent decides which scenario
@@ -15,6 +16,8 @@ export interface CodingCapability {
   readonly produces: readonly string[]
   /** Optional related capabilities, not implicit tool or Skill invocations. */
   readonly uses: readonly string[]
+  /** Mandatory capability dependencies, unlike optional related `uses`. */
+  readonly requires?: readonly string[]
   readonly skills: readonly string[]
 }
 
@@ -109,14 +112,16 @@ export function validateCodingCapabilities(
     }
     if (!validText(item.title) || !validText(item.intent) ||
       !validList(item.accepts) || !validList(item.produces) ||
-      !validList(item.skills) || !validList(item.uses, true)) {
+      !validList(item.skills) || !validList(item.uses, true) ||
+      (item.requires !== undefined && !validList(item.requires, true))) {
       throw new Error('incomplete capability: ' + item.id)
     }
     if (new Set(item.skills).size !== item.skills.length ||
       item.skills.some((skill: string) => !knownSkills.has(skill))) {
       throw new Error('unknown or duplicate capability Skill: ' + item.id)
     }
-    if (new Set(item.uses).size !== item.uses.length) {
+    if (new Set(item.uses).size !== item.uses.length ||
+        (item.requires !== undefined && new Set(item.requires).size !== item.requires.length)) {
       throw new Error('duplicate capability reference: ' + item.id)
     }
     byId.set(item.id, item)
@@ -129,7 +134,10 @@ export function validateCodingCapabilities(
     const item = byId.get(id)
     if (!item) throw new Error('unknown capability reference: ' + id)
     visiting.add(id)
+    // Catalog reference cycles remain invalid for stable guidance; only the
+    // explicitly declared requires edges participate in execution planning.
     for (const dependency of item.uses) visit(dependency)
+    for (const dependency of item.requires ?? []) visit(dependency)
     visiting.delete(id)
     visited.add(id)
   }
@@ -151,6 +159,7 @@ export type CapabilityQuery =
   | { action: 'list' }
   | { action: 'get'; id: string }
   | { action: 'compose'; ids: readonly string[] }
+  | { action: 'plan'; ids: readonly string[]; completed?: readonly string[]; active?: readonly string[] }
 
 /**
  * Lists and composes existing guidance only. Related "uses" are suggestions,
@@ -159,7 +168,7 @@ export type CapabilityQuery =
 export function queryCodingCapabilities(
   query: CapabilityQuery,
   catalog: readonly CodingCapability[] = CODING_CAPABILITIES,
-): { action: string; capabilities: CodingCapabilitySnapshot[]; skills: string[] } {
+): { action: string; capabilities: CodingCapabilitySnapshot[]; skills: string[]; plan?: DeclaredCapabilityPlan } {
   validateCodingCapabilities(catalog)
   if (query.action === 'list') {
     return {
@@ -180,6 +189,9 @@ export function queryCodingCapabilities(
     if (!found) throw new Error('unknown capability: ' + id)
     return found
   })
+  const plan = query.action === 'plan'
+    ? planDeclaredCapabilities(catalog, ids, query.completed, query.active)
+    : undefined
   return {
     action: query.action,
     capabilities: selected.map(item => ({
@@ -187,7 +199,8 @@ export function queryCodingCapabilities(
       accepts: [...item.accepts], produces: [...item.produces],
       uses: [...item.uses], skills: [...item.skills],
     })),
-    skills: [...new Set(selected.flatMap(item => item.skills))],
+    skills: plan ? [...plan.skills] : [...new Set(selected.flatMap(item => item.skills))],
+    ...(plan ? { plan } : {}),
   }
 }
 
@@ -195,11 +208,13 @@ export function createCodingCapabilitiesTool(): ToolDefinition {
   validateCodingCapabilities()
   return defineTool({
     name: 'code_capabilities',
-    description: 'Read-only reviewed Code Worker capability directory. Let the native Agent choose the task scenario by meaning, not fixed keywords. list shows intents; get inspects one; compose combines selected guidance. Does not load Skills, run tools or grant permission.',
+    description: 'Read-only reviewed Code Worker capability directory. Let the native Agent select task scenarios by meaning. list/get/compose inspect guidance; plan topologically orders only declared required dependencies using Host-verified checkpoints. Optional uses never trigger tools. No Skill loads, dispatch, writes or permission grants.',
     parameters: {
-      action: { type: 'string', required: true, enum: ['list', 'get', 'compose'] },
+      action: { type: 'string', required: true, enum: ['list', 'get', 'compose', 'plan'] },
       id: { type: 'string', description: 'Capability id for get.' },
-      ids: { type: 'array', items: { type: 'string' }, description: '1..8 unique capability ids for compose.' },
+      ids: { type: 'array', items: { type: 'string' }, description: '1..8 unique capability ids for compose or plan.' },
+      completed: { type: 'array', items: { type: 'string' }, description: 'Only verified Host-completed capability ids; never infer completion.' },
+      active: { type: 'array', items: { type: 'string' }, description: 'Host-reported active capability ids, excluded from duplicate dispatch.' },
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: {
@@ -216,16 +231,26 @@ export function createCodingCapabilitiesTool(): ToolDefinition {
           },
         } },
         skills: { type: 'array', required: true, items: { type: 'string' } },
+        plan: { type: 'object', additionalProperties: false, properties: {
+          waves: { type: 'array', required: true, items: { type: 'array', items: { type: 'string' } } },
+          ready: { type: 'array', required: true, items: { type: 'string' } },
+          active: { type: 'array', required: true, items: { type: 'string' } },
+          blocked: { type: 'array', required: true, items: { type: 'string' } },
+          required: { type: 'array', required: true, items: { type: 'string' } },
+          suggested: { type: 'array', required: true, items: { type: 'string' } },
+          skills: { type: 'array', required: true, items: { type: 'string' } },
+        } },
       } },
       render(_args, value) {
         return [{ type: 'text', text: JSON.stringify(value) }]
       },
     },
     execute: async args => {
-      const input = args as { action: string; id?: string; ids?: string[] }
+      const input = args as { action: string; id?: string; ids?: string[]; completed?: string[]; active?: string[] }
       if (input.action === 'list') return queryCodingCapabilities({ action: 'list' })
       if (input.action === 'get') return queryCodingCapabilities({ action: 'get', id: input.id ?? '' })
       if (input.action === 'compose') return queryCodingCapabilities({ action: 'compose', ids: input.ids ?? [] })
+      if (input.action === 'plan') return queryCodingCapabilities({ action: 'plan', ids: input.ids ?? [], completed: input.completed, active: input.active })
       throw new Error('unsupported capability action')
     },
   })
