@@ -161,6 +161,33 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     assert.equal(h.privilegedCalls, 0)
   })
 
+  it('discovers unapproved multi-file Skills for subsequent immutable bundle review', async () => {
+    const bundled = blob([
+      '---', 'name: refactoring', 'description: Free guidance', '---', '',
+      '# Refactoring', 'Read [mini](refactoring.mini.md) before editing.',
+    ].join('\n'))
+    const h = mockTransport({ read(path) {
+      if (path.startsWith('/search/repositories?')) return {
+        total_count: 1, items: [repo('public/books', 'refactoring guide')],
+      }
+      if (path.endsWith('/commits/main')) return { sha: SHA, commit: { tree: { sha: TREE } } }
+      if (path.includes('/git/trees/')) return { sha: TREE, truncated: false, tree: [
+        { path: 'LICENSE', sha: LICENSE.sha, type: 'blob', mode: '100644' },
+        { path: 'refactoring/SKILL.md', sha: bundled.sha, type: 'blob', mode: '100644' },
+      ] }
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      if (path.endsWith('/git/blobs/' + bundled.sha)) return bundled
+      if (path.startsWith('/users/')) return { login: 'public', created_at: '2020-01-01T00:00:00Z' }
+      throw Error('Unexpected read ' + path)
+    } })
+    const data = parse(await h.tool.execute({ query: 'refactoring' }, h.exec))
+    assert.equal(data.candidates.length, 1)
+    assert.equal(data.candidates[0].path, 'refactoring/SKILL.md')
+    assert.equal(data.candidates[0].status, 'unreviewed')
+    assert.equal(data.candidates[0].requiresReview, true)
+    assert.equal(h.privilegedCalls, 0)
+  })
+
   it('requires the closest license even if a repository root has a free license', async () => {
     const restrictive = blob('Copyright reserved. No permission to reuse.')
     const current = skillBlob('refactoring')
