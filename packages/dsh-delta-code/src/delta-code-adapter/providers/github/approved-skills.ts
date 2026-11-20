@@ -172,7 +172,7 @@ export function createApprovedGitHubSkillProvider(
           total += Buffer.byteLength(text, 'utf8')
           if (total > MAX_BUNDLE_BYTES) throw new Error('Reviewed Skill bundle exceeds bounded context budget')
           const referenceCost = inspectFreeSkillText(text, approved.license)
-          if (!referenceCost.eligible) {
+          if (!referenceCost.eligible || hasUnlinkedSkillDependencies(text)) {
             throw new Error('GitHub Skill reference excluded by free-only policy: ' + referenceCost.reason)
           }
           supplementary.push('### ' + ref.path + '\n\n' + text)
