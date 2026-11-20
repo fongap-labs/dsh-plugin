@@ -1748,7 +1748,7 @@ function createClientFeatureManager(): ClientFeatureManager {
             try {
               const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
               const vData = (await vRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
-              if (revision !== visionMutationRevision || pendingVisionWrites > 0) return
+              if (revision !== visionMutationRevision) return
               if (vRes.ok && vData?.ok === true) {
                 publish({
                   visionEngineReady: vData.engineReady === true,
