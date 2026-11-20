@@ -3,15 +3,14 @@ import type { DeltaGitHubTransport } from '../delta-code-adapter/contracts/githu
 import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import type { DeltaGitHubToolSpec } from './github-operations.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
+import { skillNameFromPath, nearestSkillLicense } from '../delta-code-strategy/skill-source-path.js'
 import { createPublicSkillAuditSpecs } from './github-skill-public-audit.js'
 import { isFreeSkillLicense, decodePinnedSkillBlob, inspectFreeSkillText, freeLicenseFromText } from '../delta-code-strategy/free-skill-policy.js'
 
 const SEARCH_PAGE = 8
 const MAX_REPOSITORIES = 3
 const MAX_RESULTS = 6
-const MAX_CALLS = 19 // search + at most three (commit, tree, license blob, two Skill blobs, owner)
-const SKILL_PATH = /^skills\/([a-z0-9-]+)\/SKILL\.md$/
-const LICENSE_PATH = /^LICENSE(?:\.md|\.txt)?$/i
+const MAX_CALLS = 25 // bounded source/license pairs plus immutable tree and owner metadata
 const PER_REPO = 2
 const FULL_NAME = /^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/
 const SHA = /^[a-f0-9]{40}$/
@@ -71,7 +70,8 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
       const results: Array<{
         repository: string; path: string; name: string; suggestedCommit: string;
         sourceBlobSha: string; status: 'unreviewed'; requiresReview: true;
-        freeEvidence: { readonly license: string; readonly licenseBlobSha: string; readonly checkedAtCommit: string };
+        freeEvidence: { readonly license: string; readonly licenseBlobSha: string;
+          readonly licensePath: string; readonly checkedAtCommit: string };
         relevance: ReturnType<typeof relevance>;
         ranking: ReturnType<typeof rankSkillEvidence>; recommendationScore: number
       }> = []
@@ -85,7 +85,6 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
         const full = item?.full_name
         if (typeof full !== 'string' || !FULL_NAME.test(full) ||
             item.private !== false || item.archived === true || item.disabled === true ||
-            !isFreeSkillLicense(item.license?.spdx_id) ||
             typeof item.default_branch !== 'string' || !BRANCH.test(item.default_branch) ||
             item.default_branch.includes('..')) return false
         const key = full.toLowerCase()
@@ -115,28 +114,46 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
             skipped.push(repository + ': unverified or truncated Git tree')
             continue
           }
-          const licenseEntry = tree.tree.find((entry: any) =>
-            entry?.type === 'blob' && typeof entry.path === 'string' &&
-            LICENSE_PATH.test(entry.path) && typeof entry.sha === 'string' && SHA.test(entry.sha))
-          if (!licenseEntry) { excludedByCost++; continue }
-          const licenseBlob = await read(base + '/git/blobs/' + licenseEntry.sha)
-          const licenseText = decodePinnedSkillBlob(licenseBlob, licenseEntry.sha, 32 * 1024)
-          const identifier = repo.license.spdx_id as string
-          if (freeLicenseFromText(licenseText) !== identifier) {
-            excludedByCost++
-            continue
-          }
+          // Rank candidate folders before immutable blob fetches; never spend
+          // the limited anonymous budget scanning arbitrary first tree entries.
           const skills = tree.tree.filter((entry: any) =>
             entry && entry.type === 'blob' && typeof entry.path === 'string' &&
-            SKILL_PATH.test(entry.path) && typeof entry.sha === 'string' && SHA.test(entry.sha))
+            skillNameFromPath(entry.path) && typeof entry.sha === 'string' &&
+            SHA.test(entry.sha) && (entry.mode === undefined || entry.mode === '100644'))
+            .sort((left: any, right: any) =>
+              relevance(query, skillNameFromPath(right.path)!, repository, '').score -
+              relevance(query, skillNameFromPath(left.path)!, repository, '').score ||
+              left.path.localeCompare(right.path))
             .slice(0, PER_REPO)
           if (!skills.length) continue
-          const freeSkills: Array<{ path: string; sha: string }> = []
+          const licenses = new Map<string, string | null>()
+          const freeSkills: Array<{
+            path: string; sha: string; license: string; licenseBlobSha: string; licensePath: string
+          }> = []
           for (const skill of skills) {
+            const licenseEntry = nearestSkillLicense(tree.tree, skill.path)
+            if (licenseEntry?.type !== 'blob' ||
+                (licenseEntry.mode !== undefined && licenseEntry.mode !== '100644') ||
+                typeof licenseEntry.sha !== 'string' || !SHA.test(licenseEntry.sha)) {
+              excludedByCost++
+              continue
+            }
+            if (!licenses.has(licenseEntry.sha)) {
+              const evidence = await read(base + '/git/blobs/' + licenseEntry.sha)
+              licenses.set(licenseEntry.sha,
+                freeLicenseFromText(decodePinnedSkillBlob(evidence, licenseEntry.sha, 32 * 1024)))
+            }
+            const license = licenses.get(licenseEntry.sha)
+            if (!isFreeSkillLicense(license) ||
+                (licenseEntry.path.indexOf('/') === -1 &&
+                 isFreeSkillLicense(repo.license?.spdx_id) && repo.license.spdx_id !== license)) {
+              excludedByCost++
+              continue
+            }
             const sourceBlob = await read(base + '/git/blobs/' + skill.sha)
             const markdown = decodePinnedSkillBlob(sourceBlob, skill.sha)
-            const cost = inspectFreeSkillText(markdown, identifier)
-            const skillName = skill.path.match(SKILL_PATH)?.[1]
+            const cost = inspectFreeSkillText(markdown, license)
+            const skillName = skillNameFromPath(skill.path)
             const frontmatter = /^---\r?\n([\s\S]{1,4096}?)\r?\n---\r?\n/.exec(markdown)
             const declaredName = frontmatter && /^name:\s*['"]?([a-z0-9-]+)['"]?\s*$/m.exec(frontmatter[1])?.[1]
             if (!cost.eligible || !skillName || declaredName !== skillName ||
@@ -144,7 +161,10 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
               excludedByCost++
               continue
             }
-            freeSkills.push({ path: skill.path, sha: skill.sha })
+            freeSkills.push({
+              path: skill.path, sha: skill.sha, license,
+              licenseBlobSha: licenseEntry.sha, licensePath: licenseEntry.path,
+            })
           }
           if (!freeSkills.length) continue
           const ownerKey = owner.toLowerCase()
@@ -166,13 +186,14 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
             archived: repo.archived, disabled: repo.disabled,
           })
           for (const skill of freeSkills) {
-            const name: string = skill.path.match(SKILL_PATH)![1]!
+            const name = skillNameFromPath(skill.path)!
             const fit = relevance(query, name, repository,
               typeof repo.description === 'string' ? repo.description.slice(0, 200) : '')
             results.push({
               repository, path: skill.path, name, suggestedCommit: commit,
               sourceBlobSha: skill.sha, status: 'unreviewed', requiresReview: true,
-              freeEvidence: { license: identifier, licenseBlobSha: licenseEntry.sha, checkedAtCommit: commit },
+              freeEvidence: { license: skill.license, licenseBlobSha: skill.licenseBlobSha,
+                licensePath: skill.licensePath, checkedAtCommit: commit },
               relevance: fit, ranking, recommendationScore: ranking.score + fit.score,
             })
           }
@@ -194,7 +215,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
           isRateLimited, excludedByCost, skipped, candidates: results.slice(0, MAX_RESULTS),
           truncated: search.total_count > repositories.length || results.length > MAX_RESULTS ||
             isRateLimited,
-          note: 'Free-only: repositories lacking recognized public free licenses and Skill bodies with paid prerequisites or unresolved relative dependencies are excluded. License/blob evidence is pinned but does not guarantee external services will never charge. This is bounded repository discovery, NOT exhaustive code search. Every candidate remains unreviewed and cannot be invoked without separate approval.',
+          note: 'Free-only: recognized pinned root or nearest Skill licenses are required. Missing or restrictive nearest licenses fail closed; paid and unresolved dependencies are excluded. External services may still charge. This is bounded discovery, NOT exhaustive. Candidates remain unreviewed and cannot be invoked before separate central-CI approval.',
         }),
       }
     },
