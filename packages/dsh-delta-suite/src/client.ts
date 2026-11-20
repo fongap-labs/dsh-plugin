@@ -1626,9 +1626,9 @@ function createClientFeatureManager(): ClientFeatureManager {
           }
         }
         if (vsRes && vsRes.ok) {
-          const vsData = (await vsRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
+          const vsData = (await vsRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
           publish({
-            visionEngineReady: Boolean(vsData?.engineReady),
+            visionEngineReady: vsData?.ok === true && vsData?.engineReady === true,
             visionEngineAccount: vsData?.account ?? null,
           })
         } else {
@@ -1707,13 +1707,15 @@ function createClientFeatureManager(): ClientFeatureManager {
         try {
           const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
           const vData = (await vRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
-          if (vRes.ok) {
+          if (vRes.ok && vData?.ok === true) {
             publish({
-              visionEngineReady: Boolean(vData?.engineReady),
-              visionEngineAccount: vData?.account ?? null,
+              visionEngineReady: vData.engineReady === true,
+              visionEngineAccount: vData.account ?? null,
             })
-          }
-        } catch {}
+          } else publish({ visionEngineReady: false, visionEngineAccount: null })
+        } catch {
+          publish({ visionEngineReady: false, visionEngineAccount: null })
+        }
       })()
       return true
     }
@@ -1730,7 +1732,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     try {
       const res = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
       const data = await res.json().catch(() => null)
-      if (res.ok && data?.engineReady) {
+      if (res.ok && data?.ok === true && data?.engineReady === true) {
         const modelName = data.account?.model || 'Omni'
         publish({
           visionEngineReady: true,
