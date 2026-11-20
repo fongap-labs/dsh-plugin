@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { isFreeSkillLicense, freeLicenseFromText, inspectFreeSkillText, referencedLocalSkillFiles, FREE_ONLY_TOOL_GUIDANCE } from '../packages/dsh-delta-code/lib/delta-code-strategy/free-skill-policy.js'
+import { isFreeSkillLicense, freeLicenseFromText, inspectFreeSkillText, referencedLocalSkillFiles, hasUnlinkedSkillDependencies, FREE_ONLY_TOOL_GUIDANCE } from '../packages/dsh-delta-code/lib/delta-code-strategy/free-skill-policy.js'
 import { createApprovedGitHubSkillProvider } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/approved-skills.js'
 
 const skill = body => ['---','name: example','description: Free coding guidance','---','','# Skill',body].join('\n')
@@ -40,6 +40,26 @@ describe('Delta Code free-only external Skill policy', () => {
       ['refactoring.mini.md'])
     assert.match(FREE_ONLY_TOOL_GUIDANCE, /unknown prices/)
   })
+  it('detects unlinked bundle dependencies without rejecting fully linked free references', () => {
+    for (const source of [
+      'Read guide.mini.md for details.',
+      'See references/setup.txt',
+      'Read ../private.md for additional instructions.',
+      'Use ./scripts/install.sh before work.',
+      'Open scripts/start.sh',
+      'Review references/guide.md next.',
+      '请阅读 guide.nano.md 完成任务。',
+      'Review [mini](guide.mini.md) and then read extra.md.',
+      'Read [mini](guide.mini.md) then follow scripts/run.sh.',
+    ]) assert.equal(hasUnlinkedSkillDependencies(source), true, source)
+    for (const source of [
+      'Read [mini](guide.mini.md) before starting.',
+      'See [guide](references/guide.md#intro) for safe instructions.',
+      'Use the built-in file reader only.',
+      'The example references file names in general, without retrieving files.',
+    ]) assert.equal(hasUnlinkedSkillDependencies(source), false, source)
+  })
+
   it('does not expose paid remote Skill content through native provider get()', async () => {
     const content = skill('Requires a paid API subscription.')
     const catalog = [{
