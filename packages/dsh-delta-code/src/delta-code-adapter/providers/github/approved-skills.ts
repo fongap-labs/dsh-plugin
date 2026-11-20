@@ -1,6 +1,7 @@
 /** Public GitHub Skill bytes are read-only and pinned to a reviewed commit and Git blob. */
 import { createHash } from 'node:crypto'
-import { isFreeSkillLicense, inspectFreeSkillText } from '../../../delta-code-strategy/free-skill-policy.js'
+import { isFreeSkillLicense, inspectFreeSkillText, paidSkillRequirement } from '../../../delta-code-strategy/free-skill-policy.js'
+import { resolveSkillReferences } from '../../../delta-code-strategy/skill-reference-policy.js'
 import { skillNameFromPath } from '../../../delta-code-strategy/skill-source-path.js'
 import {
   APPROVED_GITHUB_SKILLS,
@@ -35,9 +36,14 @@ export interface ApprovedGitHubSkillProviderOptions {
 
 const PROVIDER = 'delta-code-approved-github'
 const MAX_BYTES = 64 * 1024
+const MAX_REFERENCE_BYTES = 32 * 1024
+const MAX_BUNDLE_BYTES = 96 * 1024
 
 function revisionLocator(entry: ApprovedGitHubSkill): string {
-  return entry.commit + ':' + entry.blobSha
+  if (!entry.references?.length) return entry.commit + ':' + entry.blobSha
+  const refs = entry.references.map(ref => ref.path + ':' + ref.blobSha).join('|')
+  return entry.commit + ':' + entry.blobSha + ':' +
+    createHash('sha256').update(refs).digest('hex').slice(0, 16)
 }
 
 function combineSignals(...signals: Array<AbortSignal | undefined>): AbortSignal | undefined {
@@ -48,7 +54,7 @@ function combineSignals(...signals: Array<AbortSignal | undefined>): AbortSignal
 }
 
 /** Apply the cap while reading; a misleading/missing Content-Length never permits unbounded buffering. */
-async function readSkillBytes(response: Response, signal?: AbortSignal): Promise<Uint8Array> {
+async function readSkillBytes(response: Response, signal?: AbortSignal, maximum = MAX_BYTES): Promise<Uint8Array> {
   const reader = response.body?.getReader()
   if (!reader) throw new Error('Pinned GitHub Skill response body unavailable')
   const chunks: Uint8Array[] = []
@@ -62,7 +68,7 @@ async function readSkillBytes(response: Response, signal?: AbortSignal): Promise
       signal?.throwIfAborted()
       if (done) break
       size += value.byteLength
-      if (size > MAX_BYTES) {
+      if (size > maximum) {
         void reader.cancel().catch(() => {})
         throw new Error('Pinned GitHub Skill exceeds maximum allowed size')
       }
@@ -128,27 +134,53 @@ export function createApprovedGitHubSkillProvider(
         !skillNameFromPath(approved.path)) {
         throw new Error('GitHub Skill source is not approved')
       }
-      const url = 'https://raw.githubusercontent.com/' + approved.owner + '/' + approved.repository +
-        '/' + approved.commit + '/' + approved.path
-      const response = await fetcher(url, { signal, redirect: 'error' })
-      signal?.throwIfAborted()
-      if (!response.ok) throw new Error('Pinned GitHub Skill could not be loaded: HTTP ' + response.status)
-      if (Number(response.headers.get('content-length') ?? '0') > MAX_BYTES) {
-        throw new Error('Pinned GitHub Skill exceeds maximum allowed size')
+      const readPinned = async (path: string, sha: string, maximum: number): Promise<string> => {
+        const url = 'https://raw.githubusercontent.com/' + approved.owner + '/' + approved.repository +
+          '/' + approved.commit + '/' + path
+        const response = await fetcher(url, { signal, redirect: 'error' })
+        signal?.throwIfAborted()
+        if (!response.ok) throw new Error('Pinned GitHub Skill could not be loaded: HTTP ' + response.status)
+        if (Number(response.headers.get('content-length') ?? '0') > maximum) {
+          throw new Error('Pinned GitHub Skill exceeds maximum allowed size')
+        }
+        const bytes = await readSkillBytes(response, signal, maximum)
+        signal?.throwIfAborted()
+        const actual = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
+        if (actual !== sha) throw new Error('Pinned GitHub Skill content hash mismatch')
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
       }
-      const bytes = await readSkillBytes(response, signal)
-      signal?.throwIfAborted()
-      const actual = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
-      if (actual !== approved.blobSha) throw new Error('Pinned GitHub Skill content hash mismatch')
-      const markdown = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      const markdown = await readPinned(approved.path, approved.blobSha, MAX_BYTES)
       const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/.exec(markdown)
       if (!match || !new RegExp('^name:\\s*' + sourceName + '\\s*$', 'm').test(match[1])) {
         throw new Error('Pinned GitHub Skill metadata mismatch')
       }
       const body = markdown.slice(match[0].length).trim()
       if (!body) throw new Error('Pinned GitHub Skill instructions are empty')
-      const cost = inspectFreeSkillText(markdown, approved.license)
-      if (!cost.eligible) throw new Error('GitHub Skill excluded by free-only policy: ' + cost.reason)
+      const references = approved.references ?? []
+      const supplementary: string[] = []
+      if (references.length) {
+        const declared = resolveSkillReferences(approved.path, markdown)
+        if (declared.length !== references.length || references.length > 4 ||
+            declared.some((ref, i) => ref.path !== references[i]?.path ||
+              !/^[a-f0-9]{40}$/.test(references[i]?.blobSha ?? '')) ||
+            paidSkillRequirement(markdown)) {
+          throw new Error('Reviewed Skill reference manifest is incomplete or changed')
+        }
+        let total = Buffer.byteLength(markdown, 'utf8')
+        for (const ref of references) {
+          const text = await readPinned(ref.path, ref.blobSha, MAX_REFERENCE_BYTES)
+          total += Buffer.byteLength(text, 'utf8')
+          if (total > MAX_BUNDLE_BYTES) throw new Error('Reviewed Skill bundle exceeds bounded context budget')
+          const referenceCost = inspectFreeSkillText(text, approved.license)
+          if (!referenceCost.eligible) {
+            throw new Error('GitHub Skill reference excluded by free-only policy: ' + referenceCost.reason)
+          }
+          supplementary.push('### ' + ref.path + '\n\n' + text)
+        }
+      } else {
+        const cost = inspectFreeSkillText(markdown, approved.license)
+        if (!cost.eligible) throw new Error('GitHub Skill excluded by free-only policy: ' + cost.reason)
+      }
       return {
         ...summaries.find(entry => entry.name === approved.name)!,
         content: [
@@ -156,6 +188,10 @@ export function createApprovedGitHubSkillProvider(
           'Do not install packages, execute scripts, fetch unpinned secondary instructions, or elevate privileges without explicit approval.',
           '',
           body,
+          ...(supplementary.length ? [
+            '', '## CI-reviewed immutable supplementary references', '',
+            ...supplementary,
+          ] : []),
         ].join('\n'),
       }
     },
