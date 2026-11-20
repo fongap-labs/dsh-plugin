@@ -12,6 +12,7 @@ export const DELTA_GATEWAY_EFFORT_PREVIEW_PATH = '/api/delta-suite/gateway-effor
 export const DELTA_GATEWAY_EFFORT_APPLY_PATH = '/api/delta-suite/gateway-effort/apply'
 const MAX_CATALOG_BYTES = 256 * 1024
 const TTL_MS = 120_000
+const MAX_ACTIVE_DISCOVERIES = 2
 
 type HostSettings = {
   writable: boolean
@@ -131,6 +132,10 @@ export function installHostGatewayEffortSync(
           typeof credentials.resolve !== 'function' ||
           typeof llm.listConfigurableProviders !== 'function') return () => {}
       drafts.clear()
+      let isMountActive = true
+      const discoveries = new Set<string>()
+      const localAborts = new Set<AbortController>()
+      const isAlive = () => !isDisposed && isMountActive
       const read = () => settings.describe({ redactSecrets: true })
       const lookup = (namespace: string, providerId: string, modelId: string) => {
         if (!llm.listConfigurableProviders().some(entry =>
@@ -169,7 +174,8 @@ export function installHostGatewayEffortSync(
             !['default', 'off', 'low', 'medium', 'high', 'max'].includes(input.selectedEffort)) {
           return deny('invalid-request', 400)
         }
-        if (isDisposed) return deny('host-unavailable', 503)
+        if (!isAlive()) return deny('host-unavailable', 503)
+        let reservedDiscovery: string | undefined
         try {
           if (!settings.writable) return deny('host-readonly', 403)
           const target = lookup(input.namespace, input.providerId, input.modelId)
@@ -177,11 +183,23 @@ export function installHostGatewayEffortSync(
             return deny('missing-host-model')
           }
           if (!target.url) return deny('unsafe-endpoint', 400)
+          // Reserve before resolving a credential so concurrent requests can
+          // never bypass the model-specific and global discovery limits.
+          const discoveryId = JSON.stringify([
+            input.namespace, input.providerId, input.modelId,
+          ])
+          if (discoveries.has(discoveryId)) return deny('discovery-in-progress', 429)
+          if (discoveries.size >= MAX_ACTIVE_DISCOVERIES) return deny('discovery-busy', 429)
+          discoveries.add(discoveryId)
+          reservedDiscovery = discoveryId
           const currentKey = await key(target.credentialRef)
+          if (!isAlive()) return deny('host-unavailable', 503)
           if (!currentKey) return deny('missing-credential')
           const initialHash = await hash(currentKey)
+          if (!isAlive()) return deny('host-unavailable', 503)
           const controller = new AbortController()
           aborts.add(controller)
+          localAborts.add(controller)
           const timeout = setTimeout(() => controller.abort(), 8000)
           let catalog: unknown
           try {
@@ -192,12 +210,18 @@ export function installHostGatewayEffortSync(
             })
             if (!response.ok) return deny('gateway-discovery-refused', 502)
             catalog = await readCatalog(response)
-          } finally { clearTimeout(timeout); aborts.delete(controller) }
-          if (isDisposed) return deny('host-unavailable', 503)
+          } finally {
+            clearTimeout(timeout)
+            aborts.delete(controller)
+            localAborts.delete(controller)
+          }
+          if (!isAlive()) return deny('host-unavailable', 503)
           const currentCredential = await key(target.credentialRef)
+          if (!isAlive()) return deny('host-unavailable', 503)
           if (!currentCredential || await hash(currentCredential) !== initialHash) {
             return deny('credential-changed')
           }
+          if (!isAlive()) return deny('host-unavailable', 503)
           const latest = lookup(input.namespace, input.providerId, input.modelId)
           if (!latest || latest.descriptor.revision !== target.descriptor.revision ||
               latest.credentialRef !== target.credentialRef ||
@@ -221,7 +245,7 @@ export function installHostGatewayEffortSync(
           for (const [id, draft] of drafts) if (now() - draft.at > TTL_MS) drafts.delete(id)
           while (drafts.size >= 8) drafts.delete(drafts.keys().next().value!)
           const id = await token()
-          if (isDisposed) return deny('host-unavailable', 503)
+          if (!isAlive()) return deny('host-unavailable', 503)
           drafts.set(id, { at: now(), namespace: input.namespace,
             providerId: input.providerId, modelId: input.modelId, credentialRef: target.credentialRef,
             keyHash: initialHash, revision: target.descriptor.revision,
@@ -229,6 +253,7 @@ export function installHostGatewayEffortSync(
           return makeJsonResponse(200, { ok: true, status: 'review',
             previewId: id, preview: reviewed })
         } catch { return deny('discovery-unavailable', 503) }
+        finally { if (reservedDiscovery) discoveries.delete(reservedDiscovery) }
       }
       const apply = async (req: unknown): Promise<unknown> => {
         const input = await parseBody(req)
@@ -236,27 +261,33 @@ export function installHostGatewayEffortSync(
             typeof input.previewId !== 'string' || !/^[a-f0-9]{48}$/.test(input.previewId)) {
           return deny('invalid-approval', 400)
         }
+        if (!isAlive()) return deny('host-unavailable', 503)
         const draft = drafts.get(input.previewId)
         drafts.delete(input.previewId) // one-use even on failure
-        if (!draft || now() - draft.at > TTL_MS || isDisposed) return deny('expired-preview')
+        if (!draft || now() - draft.at > TTL_MS) return deny('expired-preview')
         try {
           const currentKey = await key(draft.credentialRef)
+          if (!isAlive()) return deny('host-unavailable', 503)
           if (!currentKey || await hash(currentKey) !== draft.keyHash) {
             return deny('credential-changed')
           }
+          if (!isAlive()) return deny('host-unavailable', 503)
           const live = lookup(draft.namespace, draft.providerId, draft.modelId)
           if (!live || live.descriptor.revision !== draft.revision ||
               live.credentialRef !== draft.credentialRef) return deny('settings-changed')
           const remote: GatewaySettingsRemote = {
-            describe: async () => ({ ok: true, value: {
-              writable: settings.writable, namespaces: read(),
-            } }),
+            describe: async () => isAlive()
+              ? { ok: true, value: { writable: settings.writable, namespaces: read() } }
+              : { ok: false, error: { code: 'host-unavailable' } },
             mutate: async (ns, ops, rev) => {
-              // Validate the specific credential again immediately before CAS.
+              // Never start a native CAS write after this Host mount was released.
+              if (!isAlive()) return { ok: false, error: { code: 'host-unavailable' } }
               const fresh = await key(draft.credentialRef)
+              if (!isAlive()) return { ok: false, error: { code: 'host-unavailable' } }
               if (!fresh || await hash(fresh) !== draft.keyHash) {
                 return { ok: false, error: { code: 'credential-changed' } }
               }
+              if (!isAlive()) return { ok: false, error: { code: 'host-unavailable' } }
               try {
                 await settings.mutate(ns, ops, rev)
                 const committed = read().find(item => item.ns === ns)
@@ -276,6 +307,7 @@ export function installHostGatewayEffortSync(
             authenticatedCatalog: draft.catalog, modelId: draft.modelId,
             selectedEffort: draft.selection, approvedPreview: draft.preview, settings: remote,
           })
+          if (!isAlive()) return deny('host-unavailable', 503)
           return makeJsonResponse(result.status === 'applied' ? 200 : 409,
             { ok: result.status === 'applied', ...result })
         } catch { return deny('host-unavailable', 503) }
@@ -290,7 +322,18 @@ export function installHostGatewayEffortSync(
         offPreview?.()
         throw error
       }
-      return () => { drafts.clear(); offPreview?.(); offApply?.() }
+      return () => {
+        isMountActive = false
+        drafts.clear()
+        for (const controller of localAborts) {
+          controller.abort()
+          aborts.delete(controller)
+        }
+        localAborts.clear()
+        discoveries.clear()
+        offPreview?.()
+        offApply?.()
+      }
     })
     if (typeof off === 'function') stops.push(() => { off() })
   } catch { /* Missing public Host contracts keep native Settings untouched. */ }
