@@ -117,6 +117,35 @@ describe('Delta Code declarative coding workflow policy', () => {
     }
   })
 
+  it('serializes case-insensitive and Unicode-equivalent native write aliases', () => {
+    const plan = taskPaths => decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium',
+      independentTasks: 2, nativeSubagents: true, taskPaths,
+    })
+    for (const writeSets of [
+      [['src/App.ts'], ['SRC/app.ts']],
+      [['src/Feature'], ['src/feature/sub.ts']],
+      [['src/café.ts'], ['src/cafe\u0301.ts']],
+    ]) {
+      const result = plan(writeSets)
+      assert.equal(result.parallelCandidate, false)
+      assert.deepEqual(result.executionWaves, [[0], [1]])
+      assert.ok(result.skills.includes('code-executing-plans'))
+      assert.ok(!result.skills.includes('code-subagent-delivery'))
+    }
+    const disjoint = plan([['src/App.ts'], ['src/Other.ts']])
+    assert.equal(disjoint.parallelCandidate, true)
+    assert.deepEqual(disjoint.executionWaves, [[0, 1]])
+    assert.throws(() => decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium',
+      independentTasks: 1, nativeSubagents: true,
+      taskPaths: [['src/App.ts', 'SRC/app.ts']],
+    }), /duplicate task write path/)
+    for (const path of ['src/a\0.ts', 'src/a\n.ts']) {
+      assert.throws(() => plan([['src/ok.ts'], [path]]), /taskPaths/)
+    }
+  })
+
   it('uses reviewed catalog extensions without editing the selection engine', async () => {
     const reviewed = [{
       id: 'reviewed-feature',
