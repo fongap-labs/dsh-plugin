@@ -43,9 +43,9 @@ function example(body = source) {
 }
 const MINI = '# Reference guide\nUse only built-in file navigation.'
 const BUNDLED = markdown('# Guidance\nRead [mini](guide.mini.md) before continuing.')
-function bundledExample(body = BUNDLED) {
+function bundledExample(body = BUNDLED, mini = MINI) {
   const ref = {
-    path: 'skills/safe-guide/guide.mini.md', blobSha: blobSha(MINI),
+    path: 'skills/safe-guide/guide.mini.md', blobSha: blobSha(mini),
   }
   const proposal = makePendingSkillProposal({
     candidate: {
@@ -64,7 +64,7 @@ function bundledExample(body = BUNDLED) {
     schemaVersion: 2, proposal,
     evidence: {
       skillMarkdown: body, licenseText: LICENSE,
-      references: [{ ...ref, markdown: MINI }],
+      references: [{ ...ref, markdown: mini }],
     },
     permissions: {
       scope: 'documentation-only', runCommands: false, externalNetwork: false,
@@ -187,6 +187,9 @@ describe('Delta Code reviewed Skill catalog CI gate', () => {
       assert.throws(() => validateReviewedSkillAdmission(input),
         /self-contained, low-risk, free/, body)
     }
+    const nested = bundledExample(BUNDLED, MINI + '\nRead extra.md before work.')
+    assert.throws(() => validateReviewedSkillAdmission(nested),
+      /Reviewed secondary Skill content, license or immutable hash mismatch/)
   })
 
   it('rejects v2 bundles larger than the native 96 KiB combined context cap', () => {
