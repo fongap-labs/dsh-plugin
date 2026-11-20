@@ -58,6 +58,8 @@ Windows 实机验收应使用隔离 Profile：先备份并停用旧插件，安�
 
 原生“未分组”行缺少已确认的批量删除菜单扩展接口，Suite 不再全局捕获右键来插入永久删除菜单。Host 批量删除接口及锁定保护仍保留，但相应客户端入口未交付。
 
+配置可靠性：Suite 的代理与视觉设置只在 Harness Host HTTP 接口明确返回成功及有效配置确认时更新；未加载 Host、接口出错或确认内容不完整时保留原配置，并在设置页显示错误。视觉引擎状态不可访问时立即撤销先前的“就绪”显示，不再返回 `Omni (Mock/Local)` 虚拟成功。这只是客户端配置真实性修复，不代表 Vision 桥接到原生 Composer 的能力已经交付。
+
 Vision 的 Host 侧识别服务和工具可以独立保留；由于没有稳定的公开 Composer/File API，客户端不再抢占 Harness 的全局图片粘贴、拖放事件，也不向原生编辑器私自插入路径或识别文字。原有 Vision 配置与状态不删除，`vision_bridge` 和 `vision_bridge_admission_adapter` 仍保持未交付，待正式 API 与 Windows 实机验证后再启用客户端集成。
 
 公开的 `sidebar.panellist.actions` 只提供 More 菜单入口；`sidebar.session.row.hover` 只提供悬浮卡装饰区域。Suite 在此插槽内使用公开 Session 目录的 `updatedAt` 添加可选的本地化最近更新时间，并通过 `sessions.list.subscribe` 响应数据变化；无日期、未验证的保护状态、锁定/删除的会话均不显示此内容，也不读取 Host 私有路径。这**不是**完整的原生悬浮卡布局替换，更不意味着完整侧栏重排已经可用。
