@@ -20,7 +20,7 @@
 `packages/dsh-delta-suite/src/delta-suite-adapter/gateway-reasoning.ts` 提供三项纯函数：
 
 - `decodeGatewayReasoningCatalog(value)`：仅解析调用方已经获取的 `/v1/models` 完整 JSON 结果。拒绝非列表、无等级、矛盾的驼峰/下划线能力声明、非法线路值与重复模型项。不会自行发送请求、读取 Key 或跨账户缓存。
-- `toHarnessReasoningEfforts(model)`：生成可在官方模型配置中**明确审核后**采用的等级声明。仅输出 Gateway 已声明的 Low/Medium/High/Max。经过明确的 Gateway `best_effort` High 策略认证时，附加 `off: none`；不凭空生成 High 或 Max。
+- `toHarnessReasoningEfforts(model)`：生成可在当前官方 `llm-pi-ai` 模型配置中**明确审核后**采用的安全等级声明。仅输出 Gateway 已声明的 Low/Medium/High/Max；**始终省略 `off`**，因为当前 Host 适配器无法把这个选择转成 Gateway 可区分的显式关闭请求。它不凭空生成 High/Max，也不修改配置。
 - `mapGatewayReasoningChoice(model, choice, protocol)`：验证 Default 与 Off 的不同线路语义，仅作为适配器的纯契约测试（不是请求拦截钩子）。
 
 `conversation.input.model.label` 继续由 Harness 声明和提供 Slot owner props。Delta 的模型标签仅以 tooltip 展示官方 catalog 中已公开的等级名称；未声明时不显示，不读取模型服务外的数据，模型选项、键盘事件和持久选择归 Harness。
