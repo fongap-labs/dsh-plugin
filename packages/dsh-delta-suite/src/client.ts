@@ -6272,6 +6272,14 @@ window.__ModuleLoader__.load({
               }, ({ view }: { view?: 'page' | 'summary' }) => view === 'summary'
                 ? null : el(PersonalizationSection, { controller })))
 
+              // Contribute only to Harness' published Models-footer Slot.
+              // Without the official Models plugin/Slot the native page stays intact.
+              scope.slots.inject('settings.models.footer', () => scope.slots.register({
+                name: 'settings.models.footer',
+                id: 'delta.gateway.effort-sync',
+                order: 120,
+              }, GatewayEffortFooter))
+
               // The input model label is a public, independent preference surface.
               // Do not gate it on optional sessions, resources or sidebarRight
               // services: the native model picker must still work without them.
