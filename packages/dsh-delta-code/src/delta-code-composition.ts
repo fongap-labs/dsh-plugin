@@ -43,7 +43,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
             throw error
           }
         },
-        registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings),
+        registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings, undefined, resume),
         registerPrompt: () => registerDeltaCodePrompt(ctx, settings),
       }),
       deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),

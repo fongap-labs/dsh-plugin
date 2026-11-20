@@ -43,7 +43,7 @@ function host(initial, options = {}) {
         throw new Error('Host connection lost after second write')
       }
       const updated = { content, version: 'v' + ++version }
-      files.set(target.key, updated)
+      if (!options.ackWithoutWrite) files.set(target.key, updated)
       return { operation: 'update', version: updated.version }
     },
   }
@@ -79,6 +79,18 @@ describe('Code Worker Host multi-edit identity and uncertain write evidence', ()
     assert.equal(result.applied, 0)
     assert.match(result.results[1].note, /duplicate Host FS target identity/)
     assert.deepEqual(f.writes, [])
+  })
+
+  it('refuses guarded writes when Host acknowledges but readback disagrees', async () => {
+    const f = host({ 'first.txt': 'original' }, { ackWithoutWrite: true })
+    const result = await f.tool.execute({
+      preflight: true, edits: [{ path: 'first.txt', content: 'new-content' }],
+    }, execution())
+    assert.equal(result.applied, 0)
+    assert.equal(result.results.length, 1)
+    assert.equal(result.results[0].ok, false)
+    assert.match(result.results[0].note, /readback mismatch; outcome unconfirmed/)
+    assert.equal(f.files.get(resolve(ROOT, 'first.txt')).content, 'original')
   })
 
   it('marks a failed Host write as unconfirmed while compensating only earlier confirmed writes', async () => {

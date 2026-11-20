@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { routeCodingTask, registerAutomaticCodingRouter } from '../packages/dsh-delta-code/lib/auto-routing.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 
-function fixture() {
+function fixture(nativeResume) {
   const listeners = new Map()
   let dynamic
   let settings = normalizeConfig({})
@@ -22,13 +22,14 @@ function fixture() {
       } })
     },
   }
-  const dispose = registerAutomaticCodingRouter(host, () => settings)
+  const dispose = registerAutomaticCodingRouter(host, () => settings, undefined, nativeResume)
   const claim = (agent, text, source = 'user') => listeners.get('agent/inbox/claimed')?.({
     agent, message: { source: { kind: source }, content: [{ type: 'text', text }] },
   })
   const render = agent => dynamic?.text({ agent }) ?? ''
   return {
     claim, render, dispose, listeners,
+    emit: (name, ...args) => listeners.get(name)?.(...args),
     update: config => { settings = normalizeConfig(config) },
   }
 }
@@ -113,6 +114,46 @@ describe('Code Worker automatic user-task routing', () => {
       f.claim(agent, 'Implement a React UI with official API documentation')
       assert.match(f.render(agent), /vercel-react-best-practices/)
       assert.doesNotMatch(f.render(agent), /External GitHub Skills are disabled by the user/)
+    } finally { f.dispose() }
+  })
+
+  it('offers a final-gate advisory only for completed native Todo checkpoints', () => {
+    const states = new Map()
+    const reader = { read: agent => states.get(agent), dispose() {} }
+    const f = fixture(reader)
+    try {
+      const agent = {}
+      f.update({ execution: { allowCommands: true } })
+      f.claim(agent, 'Implement a React feature')
+      states.set(agent, { writeSeq: 12, invalid: false, tasks: [
+        { content: 'Implement React feature', status: 'completed' },
+      ] })
+      assert.match(f.render(agent), /native Todo checkpoint reports implementation tasks complete/)
+      f.emit('tools/result', { agent, name: 'code_delivery_gate' },
+        { isError: false, value: { stage: 'blocked', ready: false } })
+      assert.doesNotMatch(f.render(agent), /native Todo checkpoint reports implementation tasks complete/)
+      states.set(agent, { writeSeq: 13, invalid: false, tasks: [
+        { content: 'Implement React feature', status: 'completed' },
+      ] })
+      assert.match(f.render(agent), /native Todo checkpoint reports implementation tasks complete/)
+      states.set(agent, { writeSeq: 14, invalid: false, tasks: [
+        { content: 'Implement React feature', status: 'pending' },
+      ] })
+      assert.doesNotMatch(f.render(agent), /native Todo checkpoint reports implementation tasks complete/)
+      f.update({ autoRouting: false })
+      assert.equal(f.render(agent), '')
+    } finally { f.dispose() }
+  })
+
+  it('does not infer readiness from invalid or missing native Todo history', () => {
+    const f = fixture({ read() { return { writeSeq: 6, invalid: true, tasks: [
+      { content: 'Implement feature', status: 'completed' },
+    ] } }, dispose() {} })
+    try {
+      const agent = {}
+      f.update({ execution: { allowCommands: true } })
+      f.claim(agent, 'Implement a React feature')
+      assert.doesNotMatch(f.render(agent), /native Todo checkpoint reports implementation tasks complete/)
     } finally { f.dispose() }
   })
 

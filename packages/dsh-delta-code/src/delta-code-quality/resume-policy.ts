@@ -63,3 +63,14 @@ export function result(stage: ResumeStage, nextAction: string, state?: ResumeSta
     tasks: state?.tasks ?? [], remaining: state?.tasks?.length ? remainingDeliveryTasks(state.tasks) : [],
     changed, blockers }
 }
+
+/** Advisory only: completed native Todos are candidates for final verification, not proof. */
+export function hasNativeTodoGateCandidate(state: ResumeState | undefined): boolean {
+  if (!state || state.invalid || !Number.isSafeInteger(state.writeSeq) ||
+      state.writeSeq < 0 || !Array.isArray(state.tasks) || state.tasks.length === 0) return false
+  try {
+    return remainingDeliveryTasks(state.tasks).length === 0
+  } catch {
+    return false
+  }
+}
