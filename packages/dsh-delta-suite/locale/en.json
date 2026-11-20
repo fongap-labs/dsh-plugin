@@ -367,6 +367,7 @@
     "engineStatus": "Engine Readiness",
     "ready": "Ready",
     "notReady": "No vision engine detected. Configure a multimodal model or custom endpoint.",
+    "hostUnavailable": "Harness vision service is unavailable or did not confirm the change.",
     "testBtn": "Test Vision Channel",
     "testing": "Testing…",
     "testSuccess": "Vision engine test succeeded! Model: {model}",
