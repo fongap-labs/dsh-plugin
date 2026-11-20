@@ -211,6 +211,7 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
           !ref.markdown.trim() || blobSha(ref.markdown) !== pinned.blobSha ||
           paidSkillRequirement(ref.markdown) !== null ||
           hasUnverifiedSkillDependencies(ref.markdown) ||
+          hasUnlinkedSkillDependencies(ref.markdown) ||
           skillStaticRiskIndicators(ref.markdown).length > 0 ||
           /\b(?:sudo|rm\s+-rf|git\s+push|powershell|sh\s+-c)\b/i.test(ref.markdown)) {
         throw Error('Reviewed secondary Skill content, license or immutable hash mismatch')
