@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 改进: Gateway Effort 预览自动读取当前 Harness Session 的原生模型和等级，拒绝切换中、不可路由和旧预览应用（#280）。
+
 - 新增: Delta Suite 在 Harness 官方 Models 页扩展区域提供按需 Gateway Reasoning Effort 发现与明确确认应用；Host 侧读取当前凭据、验证修订号和一次性预览令牌，浏览器不接触 API Key（#280）。
 
 - 新增: 通过 Harness 官方 revisioned `remote.settings.mutate` 执行用户明确批准的单模型 Gateway Effort 配置变更，严格校验 Host 修订号、模型/凭据引用及写入结果，不自动发现密钥或接管菜单（#280）。
