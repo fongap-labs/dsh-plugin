@@ -340,6 +340,14 @@ execution:
 - GitHub 多账号只通过 `tokenEnv` 环境变量名引用凭据；Token 永不写入配置，页面也不会回显。
 - 插件热更新接收 `loader/volatile-update` 并重新注册工具。启用后请重新安装/重载新版插件（旧 release 包不包含本页面）。
 
+## 语义能力目录与专项质量检查
+
+Delta Code 提供只读 `code_capabilities` 能力目录：`action: list` 浏览场景；`get` 查询单项的目标、输入、产物及关联能力；`compose` 按 Agent 已判断的用户意图组合现有能力。关联 `uses` 仅表示可选复用，**不会**自动安装 Skill、运行命令、启动新 Agent 或授予权限。能力 ID、Skill 名称和依赖环均在注册前校验。
+
+Harness Agent 根据任务实际语义作选择；既有中英文关键词自动路由只提供兼容提示，不覆盖用户要求。复杂任务可继续调用 `code_workflow_route` 规划执行波次和风险检查。Skill 正文仍由原生 Provider 按需获取、在宿主释放时注销。
+
+新增三个可选专项 Skill：`code-quality-strength` 针对已修改代码核对测试断言、复杂度和有条件的变异测试；`code-diagnostic-readiness` 核对故障复发时可取得的安全诊断证据；`code-experience-review` 从真正验证的修复形成待审查经验候选。变异测试只允许使用仓库已经声明且获 Host 授权的执行入口；没有实际运行不能宣称通过。经验候选不会自动写入可信 Skill 目录，必须经过既有 GitHub PR 准入与中央 CI。
+
 ## 原生规划与执行闭环
 
 Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不绑定任何特定模型，也不新建 Agent Runtime：
