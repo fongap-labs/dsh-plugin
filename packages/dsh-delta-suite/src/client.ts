@@ -1086,6 +1086,8 @@ interface ClientFeatureManager {
   readSearchProtection(): SearchContentProtection
   getContentProtectionRevision(): number
   subscribeContentProtection(listener: () => void): () => void
+  /** Public Session catalog change notifications for selected hover metadata. */
+  subscribeSessionCatalog(listener: () => void): () => void
   subscribe(listener: () => void): () => void
   ensureLoaded(): void
   getWorkspaces(): readonly { workspaceId: string; path: string; title: string; sessionIds?: readonly string[] }[]
@@ -1483,6 +1485,13 @@ function createClientFeatureManager(): ClientFeatureManager {
   let shieldSessionId: string | undefined
   const workspaceNotifyListeners = new Set<() => void>()
   const contentProtectionListeners = new Set<() => void>()
+  const sessionCatalogListeners = new Set<() => void>()
+  let stopNativeSessionCatalog: (() => void) | undefined
+  const publishSessionCatalog = (): void => {
+    for (const listener of [...sessionCatalogListeners]) {
+      try { listener() } catch { /* another consumer must not block catalog updates */ }
+    }
+  }
   let contentProtectionRevision = 0
   let stopNativeContentMembership: (() => void) | undefined
   const invalidateContentProtection = (): void => {
@@ -2638,6 +2647,10 @@ function createClientFeatureManager(): ClientFeatureManager {
       contentProtectionListeners.add(listener)
       return () => { contentProtectionListeners.delete(listener) }
     },
+    subscribeSessionCatalog: listener => {
+      sessionCatalogListeners.add(listener)
+      return () => { sessionCatalogListeners.delete(listener) }
+    },
     readSearchProtection: () => createSearchContentProtection(state, () => {
       if (!readNativeWorkspaceSnapshot) throw new Error('workspace membership unavailable')
       return readNativeWorkspaceSnapshot()
@@ -2665,7 +2678,22 @@ function createClientFeatureManager(): ClientFeatureManager {
       }
     },
     setSessionsApi: (api) => {
+      try { stopNativeSessionCatalog?.() } catch {}
+      stopNativeSessionCatalog = undefined
       sessionsApi = api
+      if (api) {
+        try {
+          // Only the published Host catalog subscribe contract is observed.
+          // React's useSyncExternalStore compares each hovered Session's
+          // primitive timestamp, so unrelated catalog updates don't rerender it.
+          const stop = api.list.subscribe?.(() => {
+            if (sessionsApi === api) publishSessionCatalog()
+          })
+          if (typeof stop === 'function') stopNativeSessionCatalog = stop
+        } catch { /* older Host without a working subscribe keeps static fallback */ }
+      }
+      // A replaced or removed Host service invalidates the selected snapshot.
+      publishSessionCatalog()
       if (api) {
         const mainSessionId = readConfirmedMainSessionId(api.list)
         if (mainSessionId !== undefined && state.activeSessionId !== mainSessionId) {
@@ -5577,13 +5605,16 @@ window.__ModuleLoader__.load({
     function SessionHoverDetail({ sessionId }: SessionHoverProps, controller: DeltaController): unknown {
       const revision = useContentProtectionRevision()
       const view = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
+      const updatedAt = React.useSyncExternalStore<number | undefined>(
+        deltaFeatures.subscribeSessionCatalog,
+        () => deltaFeatures.readSessionUpdateTime(sessionId),
+      )
       // The published hover Slot is decoration only: no Session binding, raw
       // workspace path or native hover-card layout changes are permitted here.
       if (view.mode !== 'delta' || !sessionId || !deltaFeatures.readSearchProtection().allowsSession(sessionId)) return null
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
-      const updatedAt = deltaFeatures.readSessionUpdateTime(sessionId)
       const updatedText = updatedAt === undefined ? undefined : new Date(updatedAt).toLocaleString(
         view.language === 'zh' ? 'zh-CN' : 'en-US',
         { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' },
