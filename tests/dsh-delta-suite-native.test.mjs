@@ -144,7 +144,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.components.get('settings.models.footer').spec.id, 'delta.gateway.effort-sync',
     'Host Models footer owns the opt-in Gateway Effort UI without replacing native Settings')
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
-  assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta 扩展套件'))
+  assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta Suite'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
   const hover = app.components.get('sidebar.session.row.hover')
   assert.equal(hover.spec.id, 'delta.session.identity')
@@ -157,10 +157,10 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
   const entry = app.components.get('settings.section')
   assert.equal(entry.spec.id, 'delta.personalization')
-  assert.equal(entry.spec.label(), 'Delta 扩展套件')
+  assert.equal(entry.spec.label(), 'Delta Suite')
   const tab = app.components.get('settings.plugins.tab')
   assert.equal(tab.spec.id, 'delta.suite.configuration')
-  assert.equal(tab.spec.label(), 'Delta 扩展套件')
+  assert.equal(tab.spec.label(), 'Delta Suite')
   assert.equal(tab.component, entry.component, 'both Host entries use the same Settings page')
   const bundle = app.components.get('plugins.bundle.config')
   assert.equal(bundle.spec.name, 'plugins.bundle.config')
@@ -775,8 +775,8 @@ test('missing native layout does not report successful no-op actions', () => {
 test('missing theme keeps the independent Settings entry usable', () => {
   const app = harness({ failTheme: true })
   const entry = app.components.get('settings.section')
-  assert.equal(entry.spec.label(), 'Delta 扩展套件')
-  assert.equal(app.components.get('settings.plugins.tab').spec.label(), 'Delta 扩展套件')
+  assert.equal(entry.spec.label(), 'Delta Suite')
+  assert.equal(app.components.get('settings.plugins.tab').spec.label(), 'Delta Suite')
   const controller = entry.spec.inject().controller
   assert.equal(controller.getSnapshot().error, true)
   assert.equal(app.layers.size, 0, 'missing theme must not install a broken palette')
@@ -811,10 +811,12 @@ test('package identity, localization and assets are independent', () => {
   assert.equal(pkg.dsh.client.platform, 'web')
   assert.deepEqual(pkg.dsh.client.inject, [], 'optional UI dependencies must never block web boot')
   assert.equal(pkg.description, json('locale/en.json').meta.description)
-  assert.equal(json('locale/zh.json').meta.title, 'Delta 扩展套件')
+  assert.equal(json('locale/en.json').meta.title, 'Delta Suite')
+  assert.equal(json('locale/zh.json').meta.title, 'Delta Suite')
   assert.equal(pkg.dependencies?.['@deepseek-ai/cordis'], undefined)
   const rel = json('../../projects/dsh-delta-suite/release.manifest.json')
   assert.equal(rel.release_key, 'dsh-delta-suite')
+  assert.equal(rel.release_name, 'Delta Suite')
 })
 
 test('obsolete standalone routes and UI packages are excluded from Desktop', () => {

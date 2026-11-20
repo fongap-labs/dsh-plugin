@@ -1,6 +1,6 @@
-# Delta Suite（Delta 扩展套件）
+# Delta Suite
 
-基于 DeepSeek Harness **原生插件机制**的 Delta 扩展套件，不是独立桌面客户端。只有一个 Delta Suite 插件包，保留 Harness 原生模型、会话、工具、审批和其他插件。
+基于 DeepSeek Harness **原生插件机制**的 Delta Suite，不是独立桌面客户端。只有一个 Delta Suite 插件包，保留 Harness 原生模型、会话、工具、审批和其他插件。
 
 ## 仓库结构
 
