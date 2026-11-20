@@ -1,4 +1,4 @@
-# Delta Suite · Delta 扩展套件
+# Delta Suite
 
 嵌入 DeepSeek Harness 的原生扩展套件插件，不是独立桌面客户端。
 
@@ -16,8 +16,8 @@
 
 加载并启用 `dsh-delta-suite` 后，可以通过 Harness 的官方设置界面找到同一配置页：
 
-- **设置 → Delta 扩展套件**（英文 Delta Suite）：独立的 `settings.section`。
-- **设置 → 插件 → Delta 扩展套件**（英文 Settings → Plugins → Delta Suite）：`settings.plugins.tab` 中的插件配置标签。
+- **设置 → Delta Suite**：独立的 `settings.section`。
+- **设置 → 插件 → Delta Suite**（英文 Settings → Plugins → Delta Suite）：`settings.plugins.tab` 中的插件配置标签。
 - **插件 → 已安装插件 → Delta Suite**（英文 Plugins → Installed plugins → Delta Suite）：官方 `plugins.bundle.config` keyed 插槽，直接在安装包详情页显示同一配置页。
 
 三个入口共享原有设置控制器，可以调整 Delta/官方主题及其他 Suite 选项。停用插件会撤销注册；不修改原生设置按钮、菜单或导航 DOM。
