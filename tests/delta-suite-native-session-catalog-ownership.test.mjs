@@ -45,6 +45,15 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
     }
   }
   const env = {
+    DICTIONARIES: { en: {
+      networkProxy: { hostUnavailable: 'Host proxy unavailable',
+        socksUnsupported: 'SOCKS unsupported', invalidUrl: 'Invalid URL', savedToast: 'Saved' },
+      visionBridge: { hostUnavailable: 'Host vision unavailable',
+        testSuccess: 'Vision ready: {model}', testFailed: 'Vision failed: {error}',
+        notReady: 'Vision unavailable' },
+    } },
+    language: () => 'en',
+    showDeltaToast: () => {},
     console, window: unavailable ? {} : { location: { href: 'https://harness.test/' } },
     fetch: async (path, options) => {
       if (options?.method === 'POST') {
