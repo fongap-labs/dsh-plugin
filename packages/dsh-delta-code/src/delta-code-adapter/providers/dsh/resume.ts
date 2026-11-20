@@ -71,12 +71,18 @@ async function hostGit(ctx: Context, settings: Settings, cwd: string,
       timeoutMs: 30_000, maxOutputBytes: 64 * 1024, hostOnly: true,
     })
     if (output.exitCode !== 0 || output.signal || output.timedOut || output.lossy) {
-      // Only an explicit transient response can be retried; never retry
-      // truncated output, permission refusals, or unknown command outcomes.
-      const transient = !output.timedOut && !output.signal && !output.lossy &&
+      // Only a KNOWN failed process exit with a transient response is safe to
+      // retry. Never turn an unknown exit into a synthetic HTTP 503.
+      const transient = Number.isSafeInteger(output.exitCode) &&
+        output.exitCode !== null && output.exitCode > 0 &&
+        !output.timedOut && !output.signal && !output.lossy &&
         classifyFailure(output.stderr) === 'transient'
-      throw new Error(transient ? 'HTTP 503 transient Host Git response' :
-        'DSH Host Git inspection failed or returned incomplete data')
+      // Preserve the upstream explicit no-retry decision without including raw
+      // stderr, which could contain Host paths or secrets.
+      const nonRetryable = /(?:(?:["']?retryable["']?\\s*[:=]\\s*false)\\b|\\bnon[- ]retryable\\b)/i.test(output.stderr)
+      throw new Error(transient
+        ? 'Host Git temporarily unavailable' + (nonRetryable ? '; retryable=false' : '')
+        : 'DSH Host Git inspection failed or returned incomplete data')
     }
     return output.stdout
   }, exec.signal)
