@@ -5,16 +5,20 @@ import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 import { DEFAULT_LSP_SERVERS } from '../packages/dsh-delta-code/lib/lsp-defaults.js'
 const root = new URL('../packages/dsh-delta-code/', import.meta.url)
 const read = (p) => readFileSync(new URL(p,root),'utf8')
-describe('code worker native settings contract', () => {
-  it('uses localized Delta Code Worker labels without changing the bundle identity', () => {
+describe('Delta Code native settings contract', () => {
+  it('uses unified Delta Code branding without changing the bundle identity', () => {
     const en = JSON.parse(read('locale/en.json'))
     const zh = JSON.parse(read('locale/zh.json'))
     const pkg = JSON.parse(read('package.json'))
-    assert.equal(en.meta.title, 'Delta Code Worker')
-    assert.equal(zh.meta.title, 'Delta 编程助手')
+    assert.equal(en.meta.title, 'Delta Code')
+    assert.equal(zh.meta.title, 'Delta Code')
     assert.equal(pkg.name, '@fongap-labs/dsh-delta-code')
     const client = read('src/client.ts')
-    assert.match(client, /Delta Code Worker/)
+    assert.match(client, /'Delta Code', 'Delta Code'/)
+    assert.doesNotMatch(client, /Delta Code Worker/)
+    assert.match(pkg.description, /^Delta Code：/)
+    const release = JSON.parse(read('../../projects/dsh-delta-code/release.manifest.json'))
+    assert.equal(release.release_name, 'Delta Code')
   })
 
   it('ships Host Config with volatile paths and tokenEnv-only credentials', () => {
@@ -66,7 +70,7 @@ describe('code worker native settings contract', () => {
   })
 })
 
-describe('code worker cyclic config protection', () => {
+describe('Delta Code cyclic config protection', () => {
   it('rejects cyclic objects, arrays, and volatile get() wrappers', () => {
     const config = { enabled: true }
     config.git = config

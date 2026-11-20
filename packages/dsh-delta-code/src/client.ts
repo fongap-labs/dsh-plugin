@@ -227,7 +227,7 @@ function installClient(require: (id: string) => unknown) {
       }).catch(() => { if (isActive) setCredentialNotice(t('凭据状态读取失败，请检查 Host 连接。', 'Could not read credential status.')) })
       return () => { isActive = false }
     }, [refsKey, props.credentials])
-    if (props.view === 'summary') return t('Delta 编程助手 · 原生 GitHub 凭据与多账号', 'Delta Code Worker · Native GitHub credentials and accounts')
+    if (props.view === 'summary') return t('Delta Code · 原生 GitHub 凭据与多账号', 'Delta Code · Native GitHub credentials and accounts')
     if (!props.form || state?.status !== 'ready') return hint(t('当前配置尚未由 Host 加载。', 'Host configuration is not available.'))
     const disabled = !state.writable || saving
     const field = (label: string, value: string, change: (v: string) => void, isSecret = false, placeholder = '') =>
@@ -418,7 +418,7 @@ function installClient(require: (id: string) => unknown) {
       // in the plugin manager and create two competing configuration surfaces.
       ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: 'delta-code', order: 65,
-        label: () => t('Delta 编程助手', 'Delta Code Worker'),
+        label: () => t('Delta Code', 'Delta Code'),
       }, NativePage)), 'dsh-delta-code: native settings section')
     },
   }

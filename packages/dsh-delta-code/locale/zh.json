@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Delta 编程助手",
-    "description": "Delta 编程助手：基于 DeepSeek Harness 的 AI 编程工作流、代码编辑、Git、LSP 与工程验证。"
+    "title": "Delta Code",
+    "description": "Delta Code：基于 DeepSeek Harness 的 AI 编程工作流、代码编辑、Git、LSP 与工程验证。"
   }
 }

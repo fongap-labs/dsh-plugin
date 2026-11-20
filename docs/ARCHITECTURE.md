@@ -18,7 +18,7 @@
 | 位置 | 职责 |
 | --- | --- |
 | `packages/dsh-delta-suite/` | Delta 扩展套件唯一插件入口，原生体验层及未来 Host Adapter |
-| `packages/dsh-delta-code/` | 独立的 Delta 编程助手 |
+| `packages/dsh-delta-code/` | 独立的 Delta Code |
 | `packages/shared/` | 中立的工具注册及安全执行能力 |
 | `projects/<plugin>/release.manifest.json` | Action Worker 单产品发行契约 |
 | `tests/` | 与当前代码对应的真实契约及回归测试 |

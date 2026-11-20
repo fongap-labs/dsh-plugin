@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": false,
   "type": "module",
-  "description": "Delta 编程助手（Delta Code Worker）：自动编程工作流、源码分析、文件编辑、Git、PR/CI 诊断与工程验证",
+  "description": "Delta Code：自动编程工作流、源码分析、文件编辑、Git、PR/CI 诊断与工程验证",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {

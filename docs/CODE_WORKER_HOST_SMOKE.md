@@ -1,4 +1,4 @@
-# Delta Code Worker · 真实 DSH 宿主验收
+# Delta Code · 真实 DSH 宿主验收
 
 > 适用对象：`packages/dsh-delta-code` 当前 `main`。每次验收必须记录实际插件 HEAD SHA 与 DSH 发行版本；本清单是**待执行的真实宿主验收步骤**，不是已通过的测试报告。
 

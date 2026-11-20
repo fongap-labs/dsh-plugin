@@ -1,4 +1,4 @@
-# Delta Code Worker bundle patch
+# Delta Code bundle patch
 #
 # 该文件是 dsh.bundle.patch 层：通过 `dsh plugin --profile <name> add` 安装后，
 # The plugin manager adds dsh-delta-code to dsh.profile.bundles at profile startup.
