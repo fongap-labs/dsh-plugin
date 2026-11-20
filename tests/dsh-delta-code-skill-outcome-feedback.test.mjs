@@ -65,6 +65,42 @@ describe('Delta Code bounded Skill outcome feedback', () => {
 })
 
 describe('Delta Code native result wiring', () => {
+  it('does not reward an approved Skill for unconfirmed verification output', () => {
+    const listeners = new Map()
+    let prompt
+    const host = {
+      on(name, fn) { listeners.set(name, fn); return () => listeners.delete(name) },
+      inject(_services, callback) {
+        callback({ systemPrompt: { context(entry) {
+          prompt = entry
+          return () => { prompt = undefined }
+        } } })
+      },
+    }
+    const dispose = registerAutomaticCodingRouter(host, () => normalizeConfig({}))
+    const agent = {}
+    try {
+      for (let i = 0; i < 5; i++) {
+        listeners.get('agent/inbox/claimed')({
+          agent, message: {
+            source: { kind: 'user' },
+            content: [{ type: 'text', text: 'Implement React compound components' }],
+          },
+        })
+        listeners.get('tools/result')({ agent, name: 'skill' }, {
+          isError: false, value: { name: compose, provider },
+        })
+        listeners.get('tools/result')({ agent, name: 'code_verify' }, {
+          isError: false, value: { ...verified(true), truncated: true },
+        })
+      }
+      assert.ok(prompt)
+      const rendered = prompt.text({ agent })
+      assert.ok(rendered.indexOf(react) < rendered.indexOf(compose),
+        'unconfirmed verification must not improve Skill ranking')
+    } finally { dispose() }
+  })
+
   it('preserves native Skill feedback across continuations and resets it for new tasks', () => {
     const listeners = new Map()
     let prompt
