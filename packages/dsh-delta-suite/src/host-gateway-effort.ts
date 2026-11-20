@@ -122,6 +122,7 @@ export function installHostGatewayEffortSync(
   if (typeof ctx?.inject !== 'function') return stop
   try {
     const off = ctx.inject(['settings', 'credentials', 'llm', 'connection'], scope => {
+      if (disposed) return () => {}
       const settings = scope.settings, credentials = scope.credentials, llm = scope.llm
       const registry = scope.connection?.fetch
       if (!settings || !credentials || !llm || !registry ||
@@ -192,8 +193,11 @@ export function installHostGatewayEffortSync(
             if (!response.ok) return deny('gateway-discovery-refused', 502)
             catalog = await readCatalog(response)
           } finally { clearTimeout(timeout); aborts.delete(controller) }
-          if (disposed || !await key(target.credentialRef).then(async k =>
-            k && await hash(k) === initialHash)) return deny('credential-changed')
+          if (disposed) return deny('host-unavailable', 503)
+          const currentCredential = await key(target.credentialRef)
+          if (!currentCredential || await hash(currentCredential) !== initialHash) {
+            return deny('credential-changed')
+          }
           const latest = lookup(input.namespace, input.providerId, input.modelId)
           if (!latest || latest.descriptor.revision !== target.descriptor.revision ||
               latest.credentialRef !== target.credentialRef ||
@@ -217,6 +221,7 @@ export function installHostGatewayEffortSync(
           for (const [id, draft] of drafts) if (now() - draft.at > TTL_MS) drafts.delete(id)
           while (drafts.size >= 8) drafts.delete(drafts.keys().next().value!)
           const id = await token()
+          if (disposed) return deny('host-unavailable', 503)
           drafts.set(id, { at: now(), namespace: input.namespace,
             providerId: input.providerId, modelId: input.modelId, credentialRef: target.credentialRef,
             keyHash: initialHash, revision: target.descriptor.revision,
@@ -277,8 +282,14 @@ export function installHostGatewayEffortSync(
       }
       const offPreview = registry.register({ path: DELTA_GATEWAY_EFFORT_PREVIEW_PATH,
         methods: ['POST'], requestBody: 'buffered', fetch: preview })
-      const offApply = registry.register({ path: DELTA_GATEWAY_EFFORT_APPLY_PATH,
-        methods: ['POST'], requestBody: 'buffered', fetch: apply })
+      let offApply: (() => void) | undefined
+      try {
+        offApply = registry.register({ path: DELTA_GATEWAY_EFFORT_APPLY_PATH,
+          methods: ['POST'], requestBody: 'buffered', fetch: apply })
+      } catch (error) {
+        offPreview?.()
+        throw error
+      }
       return () => { drafts.clear(); offPreview?.(); offApply?.() }
     })
     if (typeof off === 'function') stops.push(off)
