@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { isFreeSkillLicense, freeLicenseFromText, inspectFreeSkillText, FREE_ONLY_TOOL_GUIDANCE } from '../packages/dsh-delta-code/lib/delta-code-strategy/free-skill-policy.js'
+import { isFreeSkillLicense, freeLicenseFromText, inspectFreeSkillText, referencedLocalSkillFiles, FREE_ONLY_TOOL_GUIDANCE } from '../packages/dsh-delta-code/lib/delta-code-strategy/free-skill-policy.js'
 import { createApprovedGitHubSkillProvider } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/approved-skills.js'
 
 const skill = body => ['---','name: example','description: Free coding guidance','---','','# Skill',body].join('\n')
@@ -29,6 +29,15 @@ describe('Delta Code free-only external Skill policy', () => {
     ]) assert.equal(inspectFreeSkillText(skill(body), 'MIT').status, 'paid', body)
     assert.equal(inspectFreeSkillText(skill('Use the built-in file reader.'), 'MIT').eligible, true)
     assert.equal(inspectFreeSkillText(skill('See [script](./scripts/tool.sh)'), 'MIT').status, 'unknown')
+    for (const reference of [
+      '[mini rules](refactoring.mini.md)', '[docs](refactoring.md#examples)',
+      '[notes](../references/rules.md)', '[subfolder](references/tool.md)',
+      '[link](./README.md)', '[absolute](/external/steps.md)',
+    ]) {
+      assert.equal(inspectFreeSkillText(skill('Before work, read ' + reference), 'MIT').status, 'unknown')
+    }
+    assert.deepEqual(referencedLocalSkillFiles('[mini](refactoring.mini.md) [web](https://example.com) [anchor](#intro)'),
+      ['refactoring.mini.md'])
     assert.match(FREE_ONLY_TOOL_GUIDANCE, /unknown prices/)
   })
   it('does not expose paid remote Skill content through native provider get()', async () => {

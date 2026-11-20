@@ -51,9 +51,27 @@ export function paidSkillRequirement(text: string): string | null {
   return null
 }
 
-/** Secondary scripts/services cannot be assumed free until reviewed as a bundle. */
+/**
+ * Relative Markdown destinations are secondary Skill instructions, regardless
+ * of whether the author wrote "refactoring.mini.md" or "./references/foo.md".
+ * A path-only discovery/audit must not claim self-contained approval.
+ * Future bundle admission can independently pin and verify those references.
+ */
+export function referencedLocalSkillFiles(markdown: string): string[] {
+  const names = new Set<string>()
+  const bounded = markdown.slice(0, 64 * 1024)
+  for (const match of bounded.matchAll(/!?\[[^\]\r\n]{0,160}\]\(\s*<?([^)\s>]+)>?(?:\s+["'][^"'\r\n]{0,120}["'])?\s*\)/g)) {
+    const ref = match[1]!
+    if (ref.startsWith('#') || /^(?:https?:|mailto:|data:)/i.test(ref)) continue
+    names.add(ref)
+  }
+  return [...names]
+}
+
+/** Secondary references, scripts or assets are never implicitly executable or free. */
 export function hasUnverifiedSkillDependencies(markdown: string): boolean {
-  return /\]\((?:\.\.?\/|references\/|scripts\/|assets\/)[^)]*\)|(?:^|\s)(?:\.\.?\/)?(?:references|scripts|assets)\//im.test(markdown)
+  return referencedLocalSkillFiles(markdown).length > 0 ||
+    /(?:^|\s)(?:\.\.?\/)?(?:references|scripts|assets)\//im.test(markdown)
 }
 
 /** Structural verification for a pinned GitHub blob; never run the Markdown as commands. */
