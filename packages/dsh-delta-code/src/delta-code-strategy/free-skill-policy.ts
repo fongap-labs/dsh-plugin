@@ -85,8 +85,12 @@ export function hasUnlinkedSkillDependencies(markdown: string): boolean {
     /!?\[[^\]\r\n]{0,160}\]\(\s*<?([^\s)>]+)>?(?:\s+["'][^"'\r\n]{0,120}["'])?\s*\)/g,
     '',
   )
+  // File names next to retrieval instructions are also dependencies, even
+  // when the author omitted Markdown link syntax.
+  const unlinkedDocument = /(?:\b(?:read|open|see|load|consult|follow|include)\s+|(?:阅读|查看|加载|参照|参考)\s*)(?:["'`]?)(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:md|txt)\b/iu
   return hasUnverifiedSkillDependencies(withoutLinks) ||
-    /(?:^|[\s("'])\.{1,2}\//im.test(withoutLinks)
+    /(?:^|[\s("'])\.{1,2}\//im.test(withoutLinks) ||
+    unlinkedDocument.test(withoutLinks)
 }
 
 /** Structural verification for a pinned GitHub blob; never run the Markdown as commands. */
