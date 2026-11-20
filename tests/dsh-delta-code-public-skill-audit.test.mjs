@@ -87,6 +87,44 @@ describe('Delta Code anonymous public Skill static audit', () => {
       x.startsWith('/search/repositories?') || x === '/users/alpha'))
   })
 
+  it('accepts a verified free local license but rejects root-license substitution', async () => {
+    const h = setup(CLEAN, { override(path) {
+      if (path.endsWith('/commits/' + COMMIT)) return {
+        sha: COMMIT, commit: { tree: { sha: TREE } },
+      }
+      if (path.includes('/git/trees/')) return { sha: TREE, truncated: false, tree: [
+        { path: 'LICENSE', type: 'blob', mode: '100644', sha: LICENSE.sha },
+        { path: 'react-guide/LICENSE.txt', type: 'blob', mode: '100644', sha: LICENSE.sha },
+        { path: 'react-guide/SKILL.md', type: 'blob', mode: '100644', sha: CLEAN.sha },
+      ] }
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      if (path.endsWith('/git/blobs/' + CLEAN.sha)) return CLEAN
+      throw Error('Unexpected pinned lookup ' + path)
+    } })
+    const report = parse(await h.audit.execute({
+      ...input(), path: 'react-guide/SKILL.md',
+    }, h.exec))
+    assert.equal(report.reviewStatus, 'static-review-ready')
+    assert.equal(report.license, 'MIT')
+    assert.equal(h.authenticated, 0)
+
+    const restrictive = blob('All rights reserved. Permission denied.')
+    const other = setup(CLEAN, { override(path) {
+      if (path.endsWith('/commits/' + COMMIT)) return {
+        sha: COMMIT, commit: { tree: { sha: TREE } },
+      }
+      if (path.includes('/git/trees/')) return { sha: TREE, truncated: false, tree: [
+        { path: 'LICENSE', type: 'blob', mode: '100644', sha: LICENSE.sha },
+        { path: 'react-guide/LICENSE.txt', type: 'blob', mode: '100644', sha: restrictive.sha },
+        { path: 'react-guide/SKILL.md', type: 'blob', mode: '100644', sha: CLEAN.sha },
+      ] }
+      throw Error('Unexpected pinned lookup ' + path)
+    } })
+    await assert.rejects(other.audit.execute({
+      ...input(), path: 'react-guide/SKILL.md',
+    }, other.exec), /immutable blob SHA mismatch/)
+  })
+
   it('rejects paid dependencies and reports risky instructions as indicators, not approval', async () => {
     for (const [source, expected] of [
       [PAID, 'excluded-paid-or-unknown'],

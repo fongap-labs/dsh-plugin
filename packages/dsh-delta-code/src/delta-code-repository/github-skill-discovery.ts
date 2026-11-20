@@ -6,14 +6,14 @@ import { GitHubApiFailure } from '../delta-code-adapter/contracts/github.js'
 import { selectGitHubAccount, validatedCommitSha } from './github-policy.js'
 import { getActiveApprovedGitHubSkills } from '../delta-code-strategy/trusted-github-skills.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
+import { SKILL_SOURCE_PATH, skillNameFromPath } from '../delta-code-strategy/skill-source-path.js'
 import { freeLicenseFromText, isFreeSkillLicense, inspectFreeSkillText } from '../delta-code-strategy/free-skill-policy.js'
 import { createPublicSkillDiscoverySpecs } from './github-skill-public-discovery.js'
 import type { DeltaGitHubExecution, DeltaGitHubRepositoryResolver, DeltaGitHubToolSpec } from './github-operations.js'
 
-const SKILL_PATH = /^skills\/[a-z0-9-]+\/SKILL\.md$/
 const MAX_SKILL_BYTES = 64 * 1024
 const MAX_LICENSE_BYTES = 32 * 1024
-const LICENSE_PATH = /^(?:LICENSE(?:\.md|\.txt)?|skills\/[a-z0-9-]+\/LICENSE(?:\.md|\.txt)?)$/
+const LICENSE_PATH = /^(?:(?:[a-z0-9]+(?:-[a-z0-9]+)*\/){0,3})LICENSE(?:\.md|\.txt)?$/i
 
 function decodeFile(data: any, maximum: number): { text: string; sha: string } {
   if (!data || Array.isArray(data) || data.type !== 'file' ||
@@ -84,7 +84,7 @@ export function createGitHubSkillDiscoverySpecs(
         const suggestedCommit = Array.isArray(latest.data) &&
           /^[a-f0-9]{40}$/.test(latest.data[0]?.sha) ? latest.data[0].sha : null
         const matched = result.data.items.slice(0, 20)
-          .filter((item: any) => item && typeof item.path === 'string' && SKILL_PATH.test(item.path))
+          .filter((item: any) => item && typeof item.path === 'string' && SKILL_SOURCE_PATH.test(item.path))
         // One repository and one public maintainer-profile lookup per search,
         // never per candidate. Both use the token already bound to this owner;
         // no cross-owner token reuse or secondary HTTP client is introduced.
@@ -134,7 +134,7 @@ export function createGitHubSkillDiscoverySpecs(
                   const markdown = decodeFile(source.data, MAX_SKILL_BYTES).text
                   const cost = inspectFreeSkillText(markdown, licenseName)
                   const metadata = candidateMetadata(markdown)
-                  if (!cost.eligible || metadata.name !== item.path.split('/')[1]) {
+                  if (!cost.eligible || metadata.name !== skillNameFromPath(item.path)) {
                     excludedByCost++
                     continue
                   }
@@ -177,8 +177,8 @@ export function createGitHubSkillDiscoverySpecs(
       async execute(args, exec) {
         const repository = await resolveRepo(args.repository, exec)
         const commit = validatedCommitSha(args.commit, 'Skill candidate')
-        if (typeof args.path !== 'string' || !SKILL_PATH.test(args.path)) {
-          throw Error('Skill candidate must be a single skills/name/SKILL.md file')
+        if (typeof args.path !== 'string' || !SKILL_SOURCE_PATH.test(args.path)) {
+          throw Error('Skill candidate must be a bounded named SKILL.md file')
         }
         const licensePath = args.licensePath ?? 'LICENSE'
         if (typeof licensePath !== 'string' || !LICENSE_PATH.test(licensePath)) {
@@ -188,7 +188,7 @@ export function createGitHubSkillDiscoverySpecs(
         const skill = await get(repository, exec, path)
         const source = decodeFile(skill.data, MAX_SKILL_BYTES)
         const metadata = candidateMetadata(source.text)
-        if (metadata.name !== args.path.split('/')[1]) {
+        if (metadata.name !== skillNameFromPath(args.path)) {
           throw Error('Skill candidate name does not match its source path')
         }
         let licenseEvidence: { path: string; blobSha: string } | null = null

@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import { createPublicSkillDiscoverySpecs } from '../packages/dsh-delta-code/lib/delta-code-repository/github-skill-public-discovery.js'
 import { createGitHubTransport } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/github/api.js'
 import { GitHubApiFailure } from '../packages/dsh-delta-code/lib/delta-code-adapter/contracts/github.js'
+import { skillNameFromPath, nearestSkillLicense } from '../packages/dsh-delta-code/lib/delta-code-strategy/skill-source-path.js'
 
 const SHA = 'a'.repeat(40)
 const TREE = 'b'.repeat(40)
@@ -101,6 +102,74 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
       path === '/users/alpha' || path === '/users/beta'))
   })
 
+  it('recognizes safe root-level and category Skill directories but not traversals', () => {
+    for (const [path, expected] of [
+      ['refactoring/SKILL.md', 'refactoring'],
+      ['skills/api-tester/SKILL.md', 'api-tester'],
+      ['composio-skills/task-automation/SKILL.md', 'task-automation'],
+      ['books/coding/clean-code/SKILL.md', 'clean-code'],
+      ['../skills/evil/SKILL.md', null],
+      ['skills/a/../../private/SKILL.md', null],
+      ['hidden/.secret/SKILL.md', null],
+      ['skills/a/../../../SKILL.md', null],
+      ['SKILL.md', null],
+      ['skills/a/INSTALL.sh', null],
+    ]) assert.equal(skillNameFromPath(path), expected)
+    const tree = [
+      { path: 'LICENSE', sha: 'root' },
+      { path: 'refactoring/LICENSE.txt', sha: 'local' },
+    ]
+    assert.equal(nearestSkillLicense(tree, 'refactoring/SKILL.md').sha, 'local')
+    assert.equal(nearestSkillLicense(tree, 'skills/api/SKILL.md').sha, 'root')
+  })
+
+  it('discovers a free Skill with a local license when repository SPDX metadata is absent', async () => {
+    const source = skillBlob('refactoring')
+    const local = blob('MIT License\nPermission is hereby granted, free of charge.\n')
+    const h = mockTransport({ read(path) {
+      if (path.startsWith('/search/repositories?')) return {
+        total_count: 1, items: [{ ...repo('public/books', 'refactoring guidance'), license: null }],
+      }
+      if (path.endsWith('/commits/main')) return { sha: SHA, commit: { tree: { sha: TREE } } }
+      if (path.includes('/git/trees/')) return { sha: TREE, truncated: false, tree: [
+        { path: 'refactoring/SKILL.md', sha: source.sha, type: 'blob', mode: '100644' },
+        { path: 'refactoring/LICENSE.txt', sha: local.sha, type: 'blob', mode: '100644' },
+      ] }
+      if (path.endsWith('/git/blobs/' + local.sha)) return local
+      if (path.endsWith('/git/blobs/' + source.sha)) return source
+      if (path.startsWith('/users/')) return { login: 'public', created_at: '2020-01-01T00:00:00Z' }
+      throw Error('Unexpected public read ' + path)
+    } })
+    const result = parse(await h.tool.execute({ query: 'refactoring' }, h.exec))
+    assert.equal(result.candidates.length, 1)
+    assert.equal(result.candidates[0].path, 'refactoring/SKILL.md')
+    assert.equal(result.candidates[0].freeEvidence.licensePath, 'refactoring/LICENSE.txt')
+    assert.equal(result.candidates[0].freeEvidence.license, 'MIT')
+    assert.equal(h.privilegedCalls, 0)
+  })
+
+  it('requires the closest license even if a repository root has a free license', async () => {
+    const restrictive = blob('Copyright reserved. No permission to reuse.')
+    const current = skillBlob('refactoring')
+    const h = mockTransport({ read(path) {
+      if (path.startsWith('/search/repositories?')) return {
+        total_count: 1, items: [repo('alpha/skills', 'refactoring')],
+      }
+      if (path.endsWith('/commits/main')) return { sha: SHA, commit: { tree: { sha: TREE } } }
+      if (path.includes('/git/trees/')) return { sha: TREE, truncated: false, tree: [
+        { path: 'LICENSE', sha: LICENSE.sha, type: 'blob', mode: '100644' },
+        { path: 'refactoring/SKILL.md', sha: current.sha, type: 'blob', mode: '100644' },
+        { path: 'refactoring/LICENSE.txt', sha: restrictive.sha, type: 'blob', mode: '100644' },
+      ] }
+      if (path.endsWith('/git/blobs/' + restrictive.sha)) return restrictive
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      throw Error('Unexpected public read ' + path)
+    } })
+    const result = parse(await h.tool.execute({ query: 'refactoring' }, h.exec))
+    assert.deepEqual(result.candidates, [])
+    assert.equal(result.excludedByCost, 1)
+  })
+
   it('rejects query operators, unknown transport capability and aborted searches without credential fallback', async () => {
     const h = mockTransport()
     for (const query of ['r', 'repo:private secrets', 'react&token=x', ' ', 'a'.repeat(100)]) {
@@ -148,7 +217,7 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     assert.equal(h.privilegedCalls, 0)
   })
 
-  it('filters paid pinned Skills and unknown-license repositories before recommendation', async () => {
+  it('filters paid pinned Skills even if a repository lacks license metadata', async () => {
     const paid = blob(['---', 'name: react-profiler', 'description: Code tool', '---', '', '# Guidance', 'Requires a paid API subscription.'].join('\n'))
     const h = mockTransport({ read(path) {
       if (path.startsWith('/search/repositories?')) return {
@@ -171,9 +240,9 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     } })
     const result = parse(await h.tool.execute({ query: 'react' }, h.exec))
     assert.deepEqual(result.candidates, [])
-    assert.equal(result.excludedByCost, 1)
+    assert.equal(result.excludedByCost, 2)
     assert.equal(h.privilegedCalls, 0)
-    assert.ok(h.calls.every(path => !path.includes('/repos/paid/')))
+    assert.ok(h.calls.some(path => path.includes('/repos/paid/')))
   })
 
   it('never sends a credential through the real public transport and blocks unwanted paths', async () => {

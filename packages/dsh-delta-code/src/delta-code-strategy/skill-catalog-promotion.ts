@@ -10,10 +10,10 @@ import {
   type ReviewedSkillAdmission,
 } from './skill-catalog-admission.js'
 import type { ApprovedGitHubSkill } from './trusted-github-skills.js'
+import { skillNameFromPath } from './skill-source-path.js'
 
 const VERSION = /export const APPROVED_GITHUB_SKILLS_CATALOG_VERSION = ([1-9][0-9]*)/
 const CATALOG = 'export const APPROVED_GITHUB_SKILLS: readonly ApprovedGitHubSkill[] = ['
-const SKILL_NAME = /^skills\/([a-z0-9-]+)\/SKILL\.md$/
 const MAX_CATALOG_BYTES = 96 * 1024
 
 export interface PreparedSkillPromotion {
@@ -52,7 +52,7 @@ export function prepareReviewedSkillPromotion(
     throw Error('Trusted catalog array terminator is missing')
   }
   const proposal = admission.proposal
-  const name = proposal.source.path.match(SKILL_NAME)?.[1]
+  const name = skillNameFromPath(proposal.source.path)
   const [owner, repository] = proposal.source.repository.split('/')
   if (!name || !owner || !repository || !/^[a-z0-9-]+$/.test(owner) ||
       !/^[a-z0-9_.-]+$/.test(repository)) {

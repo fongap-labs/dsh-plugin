@@ -158,7 +158,7 @@ describe('Delta Code GitHub Skill candidate discovery and review', () => {
     const h = harness()
     await assert.rejects(h.review.execute({
       repository: 'acme/skills', path: '../private/SKILL.md', commit: COMMIT,
-    }, h.exec), /single skills/)
+    }, h.exec), /bounded named SKILL.md/)
     await assert.rejects(h.review.execute({
       repository: 'acme/skills', path: 'skills/reviewed-skill/SKILL.md', commit: 'main',
     }, h.exec), /commit SHA/)
