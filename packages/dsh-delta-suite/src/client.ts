@@ -5385,19 +5385,37 @@ window.__ModuleLoader__.load({
         snapshot?.writable === false ? el('p', { className: 'dtd-privacy-note' }, copy.ui.visionMissingForm) : null)
     }
     function ModelLabelExtension(props: AssistantSlotProps & {
-      provider?: { id?: string; name?: string }; model?: { name?: string }; placement?: string
+      provider?: { id?: string; name?: string }
+      model?: { name?: string; reasoning?: {
+        efforts?: readonly { id: string; name: string }[]
+      } }
+      placement?: string
     }): unknown {
       const prefs = useFeaturePreferences(React)
-      // Only public Slot owner props can contribute a route label. A selector
-      // option remains model-only, and empty or unrelated provider metadata
-      // must never create a misleading account badge.
+      // The Host's public model catalog owns the effort choices. This
+      // non-interactive label only describes what the native selector already
+      // advertises; it never probes /v1/models or invents a High/Off toggle.
       const modelName = typeof props.model?.name === 'string' ? props.model.name.trim() : ''
       const accountName = props.provider?.id === 'deepseek-account' && props.placement !== 'option' &&
         typeof props.provider.name === 'string' ? props.provider.name.trim() : ''
       const showModel = prefs.showModelInfo && !!modelName
       const showAccount = prefs.showDeepSeekAccountInfo && !!accountName
       if (!showModel && !showAccount) return null
-      return el('span', { className: 'dtd-model-label', 'data-placement': props.placement || '' },
+      const publishedEfforts = props.model?.reasoning?.efforts
+      const efforts = Array.isArray(publishedEfforts)
+        ? publishedEfforts
+          .filter(level => typeof level?.id === 'string' && typeof level?.name === 'string' &&
+            level.id.length > 0 && level.name.trim().length > 0)
+          .slice(0, 8).map(level => level.name.trim().slice(0, 48))
+        : []
+      // The public label can also be rendered in narrow Host fixtures without
+      // the optional Delta locale provider. No effort metadata needs no copy.
+      const title = efforts.length > 0
+        ? (typeof DICTIONARIES === 'undefined' ? 'Model reasoning levels'
+          : (DICTIONARIES[language()] ?? DICTIONARIES.en).ui.modelReasoningLevels) + ': ' + efforts.join(', ')
+        : undefined
+      return el('span', { className: 'dtd-model-label', 'data-placement': props.placement || '',
+        ...(title ? { title } : {}) },
         showAccount ? el('span', { className: 'dtd-model-account' }, accountName) : null,
         showModel ? el('span', { className: 'dtd-model-name' }, modelName) : null)
     }

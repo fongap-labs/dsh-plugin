@@ -6,6 +6,12 @@
 - 插件配置条目：`dsh-delta-suite`
 - 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
 
+## Gateway Reasoning Effort（公开模型目录兼容）
+
+本套件提供无网络请求、无配置副作用的 Gateway `/v1/models` 元数据解码器 `decodeGatewayReasoningCatalog`、`toHarnessReasoningEfforts` 和 `mapGatewayReasoningChoice`。Gateway 模型的可选等级属于当前访问 Key 的请求范围，`native_confirmed` 不等于所有物理节点承诺。`Default` 不发送思考字段，显式 `Off` 使用 `none`（OpenAI 兼容）或 `thinking.type=disabled`（Anthropic）；不会合并二者。详见 [Gateway Effort 契约](../../docs/DELTA_SUITE_GATEWAY_REASONING.md)。
+
+只有 Harness 已经公开的原生模型目录与 Effort 选择器负责真实用户选择和持久化；Delta 的模型标签仅提示 Host 已声明的等级，没有模型网络探测、凭据读取、菜单替换或自动配置写入。**目前不意味着模型目录自动从 Gateway 同步至 Harness，也不表示 #280 完成。**
+
 ## Delta Suite 配置入口（仅适用于已安装新构建）
 
 加载并启用 `dsh-delta-suite` 后，可以通过 Harness 的官方设置界面找到同一配置页：
