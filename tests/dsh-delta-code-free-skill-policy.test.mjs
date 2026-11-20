@@ -48,7 +48,7 @@ describe('Delta Code free-only external Skill policy', () => {
       'Use ./scripts/install.sh before work.',
       'Open scripts/start.sh',
       'Review references/guide.md next.',
-      '请阅读 guide.nano.md 完成任务。',
+      '\u8bf7\u9605\u8bfb guide.nano.md \u5b8c\u6210\u4efb\u52a1\u3002',
       'Review [mini](guide.mini.md) and then read extra.md.',
       'Read [mini](guide.mini.md) then follow scripts/run.sh.',
     ]) assert.equal(hasUnlinkedSkillDependencies(source), true, source)
