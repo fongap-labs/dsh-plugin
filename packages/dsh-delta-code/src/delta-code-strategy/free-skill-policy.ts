@@ -87,7 +87,7 @@ export function hasUnlinkedSkillDependencies(markdown: string): boolean {
   )
   // File names next to retrieval instructions are also dependencies, even
   // when the author omitted Markdown link syntax.
-  const unlinkedDocument = /(?:\b(?:read|open|see|load|consult|follow|include)\s+|(?:阅读|查看|加载|参照|参考)\s*)(?:["'`]?)(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:md|txt)\b/iu
+  const unlinkedDocument = /(?:\b(?:read|open|see|load|consult|follow|include)\s+|(?:\u9605\u8bfb|\u67e5\u770b|\u52a0\u8f7d|\u53c2\u7167|\u53c2\u8003)\s*)(?:["'`]?)(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:md|txt)\b/iu
   return hasUnverifiedSkillDependencies(withoutLinks) ||
     /(?:^|[\s("'])\.{1,2}\//im.test(withoutLinks) ||
     unlinkedDocument.test(withoutLinks)
