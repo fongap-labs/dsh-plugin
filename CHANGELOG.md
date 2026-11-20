@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 能力目录对不完整、控制字符、超长或非预期字段的声明实行有界校验与明确字段投影，防止非标准属性流入原生工具结果；文档补齐 Action Worker 集中回归测试入口。
+
 - 新增: Gateway Effort 预览绑定原生 Session 模型与等级，拒绝过期或正在切换的会话选择（#280）。
 
 - 新增: Delta Code 增加 Host 原生 Agent 可按语义选择的声明式能力目录 `code_capabilities`，校验能力引用/循环与受审核 Skill 名称；自动关键词路由降为兼容提示，不增加第二套 Agent 或权限入口。
