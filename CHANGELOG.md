@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 并行任务路由在采用原生子代理前，通过 Harness 公开 subagents 服务验证准确的当前 Agent、已注册 Provider 与实际可用接口；模型自行声明 nativeSubagents=true 不再视为权限或能力证据，无法确认时保持串行执行。
+
+- 修复: Delta Code 原生 Todo 恢复投影拒绝重复、倒退或非法事件序列号，失序时将检查点标为无效而不采用过期的完成状态，仅在后续有效新事件到达后恢复。
+
 - 修复: Delta Code 并行任务波次规划采用保守的跨平台写入路径归一化，识别大小写与 Unicode 等价路径冲突并改为串行，同时拒绝含控制字符的任务路径，防止误判为安全的原生子代理并行写入。
 
 - 修复: Delta Code 原生会话投影在 Harness 服务撤销、重挂载或异步注册晚到时立即失效旧句柄，防止用已注销的 Host Session Projection 继续恢复任务；卸载时同步停止读取并释放注册资源。
