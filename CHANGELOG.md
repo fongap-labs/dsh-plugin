@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Code 统一插件显示名称、设置入口与发布名称，保留现有包标识和工具接口。
+
 - 新增: Delta Code `code_github_skill_auto_advance` 在核验候选 PR 已合并且当前 HEAD 中央 CI 门禁全部成功后，自动重审固定版本并提交独立目录升级 PR，保留二次 CI 和宿主权限。
 
 - 新增: Delta Code `code_github_skill_auto_stage` 将免费公开 Skill 搜索、固定版本低风险审核和惰性 PR 提交整合为一次 Host 授权调用；中央 CI 后续晋级仍独立执行，未审内容不自动加载。
