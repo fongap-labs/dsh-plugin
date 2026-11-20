@@ -1597,6 +1597,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   const refreshState = async (): Promise<void> => {
     if (!canCallHostHttp()) {
       revokeHostConfirmation()
+      publish({ visionEngineReady: false, visionEngineAccount: null })
       return
     }
     if (refreshInFlight) return refreshInFlight
@@ -1637,6 +1638,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         }
       } catch {
         revokeHostConfirmation()
+        publish({ visionEngineReady: false, visionEngineAccount: null })
       }
       finally {
         refreshInFlight = undefined
