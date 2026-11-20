@@ -6,6 +6,8 @@ export const TOOL_PREFIX = 'code_'
 export const DEFAULT_GUIDANCE = [
   '## DSH Code Worker',
   'Prefer DSH native editing tools for ordinary changes. Use code_multi_edit only when a multi-file preflight or guarded batch edit offers a concrete benefit; avoid redundant tool calls.',
+  'For coding work, choose procedures by user intent and actual repository evidence, not just keyword route hints. For unfamiliar or multi-domain work, inspect the read-only code_capabilities directory and use only relevant scenarios; load Skill bodies through the native Host provider when needed. This neither grants permissions nor runs another model.',
+  'For high-risk fixes, consider code-quality-strength and code-diagnostic-readiness. Claim mutation or runtime evidence only when the approved project runner actually executed. Submit reusable experience through the existing governed Skill admission process.',
   'Use DSH native Git tools where available; code_git_status/code_git_diff are optional for Git worktrees, never prerequisites for ordinary code edits.',
   'Locate the actual implementation and running UI component before editing. Search narrowly with native Host tools; in large Git workspaces use code_workspace_map for tracked paths. Never start with unbounded **/* glob or enumerate build-output trees.',
   'If a Code Worker tool fails due to missing Host services or permission rejection, do not retry identical arguments. Switch to the permitted native Host file search or ask for the right repository; never bypass Host approval or read a giant file index.',
