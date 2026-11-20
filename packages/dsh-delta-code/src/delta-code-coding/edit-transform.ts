@@ -11,6 +11,11 @@ export interface TextEditInput {
   expectedSha256?: unknown
 }
 
+/** Reject high-confidence binary data in a UTF-8 source editing operation. */
+export function assertEditableText(value: string): void {
+  if (value.includes('\0')) throw new Error('binary-like file contains NUL; text edit refused')
+}
+
 export type PlannedTextEdit =
   | { action: 'overwrite'; content: string }
   | { action: 'replace'; find: string; replace: string }
@@ -36,14 +41,18 @@ export function planTextEdit(edit: TextEditInput, isPreflight: boolean): Planned
     if (typeof edit.find !== 'string' || edit.find.length === 0 || typeof edit.replace !== 'string') {
       throw new Error('find must be non-empty and replace must be a string')
     }
+    assertEditableText(edit.find)
+    assertEditableText(edit.replace)
     return { action: 'replace', find: edit.find, replace: edit.replace }
   }
   if (typeof edit.content !== 'string') throw new Error('content must be a string')
+  assertEditableText(edit.content)
   return { action: 'overwrite', content: edit.content }
 }
 
 /** In guarded preflight reject ambiguous matches; legacy mode still replaces the first one. */
 export function applyTextEdit(original: string, edit: Extract<PlannedTextEdit, { action: 'replace' }>, shouldRequireUnique = false): string {
+  assertEditableText(original)
   // Match newline spellings without normalizing the entire file, which would
   // change unrelated bytes and invalidate guarded snapshots. Keep exact
   // literal semantics for searches that do not contain a newline.
