@@ -160,7 +160,7 @@
 
 - 修复: 不再启用旧 `data-delta-compat` 侧栏样式、重排 Settings 导航或扫描无操作菜单；保留 Harness 原生布局/菜单顺序及现有锁定、删除安全路径（Issue #333）。
 
-- 修复: 在官方 Settings 和 Plugins 页面显示“Delta Suite”配置入口，复用原设置页，不修改原生导航（Issue #333）。
+- 修复: 在官方 Settings 和 Plugins 页面显示“Delta 扩展套件”配置入口，复用原设置页，不修改原生导航（Issue #333）。
 
 - 修复: 恢复 Harness 原生设置行及空“未分组”容器显示，不再按私有类名或文案隐藏；保留锁定、删除及受限命令保护（Issue #333）。
 
@@ -184,7 +184,7 @@
 
 - 修复: 移除通过 Harness 私有工作区展开状态及模拟 DOM 点击强制折叠原生工作区的逻辑，缺少公开接口时保持原生行为并更新 ZIP3 发布校验与回归测试（Issue #333）。
 
-- 修复 [breaking, migration]: 插件统一命名为 `dsh-delta-suite`、`Delta Suite` 和 `Delta Suite`，同步源码目录、Cordis 注册名、客户端与 Host 接口、构建校验、发行资产及测试路径；不改变 Harness 原生插件接管边界。
+- 修复 [breaking, migration]: 插件统一命名为 `dsh-delta-suite`、`Delta 扩展套件` 和 `Delta Suite`，同步源码目录、Cordis 注册名、客户端与 Host 接口、构建校验、发行资产及测试路径；不改变 Harness 原生插件接管边界。
 - 修复 [breaking, migration]: 更名后首次加载安全迁移先前 Profile 状态，完整保留会话锁定、删除墓碑与 2FA 配置；导入失败时拒绝以空状态继续运行，并新增源代码命名检查和迁移回归。
 
 - 修复: 原生会话删除现在隔离 Sessions.cancel 与各会话句柄 cancel 的异常；单项删除还会检查原始/session- 等价 ID 的现有句柄，避免某个取消方法报错后遗漏仍在运行的会话（Issue #333）。
