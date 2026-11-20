@@ -92,13 +92,24 @@ export function validateCodingCapabilities(
   catalog: readonly CodingCapability[] = CODING_CAPABILITIES,
   knownSkills: ReadonlySet<string> = new Set(ALL_CODING_SKILLS.map(skill => skill.name)),
 ): void {
+  if (!Array.isArray(catalog) || catalog.length < 1 || catalog.length > 64) {
+    throw new Error('invalid capability catalog size')
+  }
+  const validText = (value: unknown): value is string =>
+    typeof value === 'string' && value.trim().length > 0 &&
+    value.length <= 512 && !/[\\u0000-\\u001f\\u007f]/.test(value)
+  const validList = (value: unknown, allowEmpty = false): value is readonly string[] =>
+    Array.isArray(value) && value.length >= (allowEmpty ? 0 : 1) &&
+    value.length <= 16 && value.every(validText)
   const byId = new Map<string, CodingCapability>()
   for (const item of catalog) {
-    if (!/^[a-z][a-z0-9-]*$/.test(item.id) || byId.has(item.id)) {
-      throw new Error('invalid or duplicate capability id: ' + item.id)
+    if (!item || typeof item !== 'object' || typeof item.id !== 'string' ||
+      !/^[a-z][a-z0-9-]{0,63}$/.test(item.id) || byId.has(item.id)) {
+      throw new Error('invalid or duplicate capability id')
     }
-    if (!item.title.trim() || !item.intent.trim() || !item.accepts.length ||
-      !item.produces.length || !item.skills.length) {
+    if (!validText(item.title) || !validText(item.intent) ||
+      !validList(item.accepts) || !validList(item.produces) ||
+      !validList(item.skills) || !validList(item.uses, true)) {
       throw new Error('incomplete capability: ' + item.id)
     }
     if (new Set(item.skills).size !== item.skills.length ||
@@ -153,7 +164,10 @@ export function queryCodingCapabilities(
   if (query.action === 'list') {
     return {
       action: 'list', skills: [],
-      capabilities: catalog.map(item => ({ ...item, accepts: [], produces: [], uses: [], skills: [] })),
+      capabilities: catalog.map(item => ({
+        id: item.id, title: item.title, intent: item.intent,
+        accepts: [], produces: [], uses: [], skills: [],
+      })),
     }
   }
   const ids = query.action === 'get' ? [query.id] : query.ids
@@ -169,7 +183,8 @@ export function queryCodingCapabilities(
   return {
     action: query.action,
     capabilities: selected.map(item => ({
-      ...item, accepts: [...item.accepts], produces: [...item.produces],
+      id: item.id, title: item.title, intent: item.intent,
+      accepts: [...item.accepts], produces: [...item.produces],
       uses: [...item.uses], skills: [...item.skills],
     })),
     skills: [...new Set(selected.flatMap(item => item.skills))],
