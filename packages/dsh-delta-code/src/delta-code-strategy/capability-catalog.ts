@@ -1,6 +1,7 @@
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
 import { ALL_CODING_SKILLS } from './skills.js'
+import { planDeclaredCapabilities, type DeclaredCapabilityPlan } from './capability-plan.js'
 
 /**
  * Reviewed, host-neutral scenarios. The native Agent decides which scenario
@@ -15,6 +16,8 @@ export interface CodingCapability {
   readonly produces: readonly string[]
   /** Optional related capabilities, not implicit tool or Skill invocations. */
   readonly uses: readonly string[]
+  /** Mandatory capability dependencies, unlike optional related `uses`. */
+  readonly requires?: readonly string[]
   readonly skills: readonly string[]
 }
 
@@ -109,14 +112,16 @@ export function validateCodingCapabilities(
     }
     if (!validText(item.title) || !validText(item.intent) ||
       !validList(item.accepts) || !validList(item.produces) ||
-      !validList(item.skills) || !validList(item.uses, true)) {
+      !validList(item.skills) || !validList(item.uses, true) ||
+      (item.requires !== undefined && !validList(item.requires, true))) {
       throw new Error('incomplete capability: ' + item.id)
     }
     if (new Set(item.skills).size !== item.skills.length ||
       item.skills.some((skill: string) => !knownSkills.has(skill))) {
       throw new Error('unknown or duplicate capability Skill: ' + item.id)
     }
-    if (new Set(item.uses).size !== item.uses.length) {
+    if (new Set(item.uses).size !== item.uses.length ||
+        (item.requires !== undefined && new Set(item.requires).size !== item.requires.length)) {
       throw new Error('duplicate capability reference: ' + item.id)
     }
     byId.set(item.id, item)
@@ -129,7 +134,10 @@ export function validateCodingCapabilities(
     const item = byId.get(id)
     if (!item) throw new Error('unknown capability reference: ' + id)
     visiting.add(id)
-    for (const dependency of item.uses) visit(dependency)
+    for (const optional of item.uses) {
+      if (!byId.has(optional)) throw new Error('unknown optional capability: ' + optional)
+    }
+    for (const dependency of item.requires ?? []) visit(dependency)
     visiting.delete(id)
     visited.add(id)
   }
@@ -151,6 +159,7 @@ export type CapabilityQuery =
   | { action: 'list' }
   | { action: 'get'; id: string }
   | { action: 'compose'; ids: readonly string[] }
+  | { action: 'plan'; ids: readonly string[]; completed?: readonly string[]; active?: readonly string[] }
 
 /**
  * Lists and composes existing guidance only. Related "uses" are suggestions,
@@ -159,7 +168,7 @@ export type CapabilityQuery =
 export function queryCodingCapabilities(
   query: CapabilityQuery,
   catalog: readonly CodingCapability[] = CODING_CAPABILITIES,
-): { action: string; capabilities: CodingCapabilitySnapshot[]; skills: string[] } {
+): { action: string; capabilities: CodingCapabilitySnapshot[]; skills: string[]; plan?: DeclaredCapabilityPlan } {
   validateCodingCapabilities(catalog)
   if (query.action === 'list') {
     return {
@@ -180,6 +189,9 @@ export function queryCodingCapabilities(
     if (!found) throw new Error('unknown capability: ' + id)
     return found
   })
+  const plan = query.action === 'plan'
+    ? planDeclaredCapabilities(catalog, ids, query.completed, query.active)
+    : undefined
   return {
     action: query.action,
     capabilities: selected.map(item => ({
@@ -187,7 +199,8 @@ export function queryCodingCapabilities(
       accepts: [...item.accepts], produces: [...item.produces],
       uses: [...item.uses], skills: [...item.skills],
     })),
-    skills: [...new Set(selected.flatMap(item => item.skills))],
+    skills: plan ? [...plan.skills] : [...new Set(selected.flatMap(item => item.skills))],
+    ...(plan ? { plan } : {}),
   }
 }
 
