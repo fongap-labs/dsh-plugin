@@ -6,6 +6,8 @@
 
 - 新增: 按需提供测试强度、诊断充分性与已验证经验候选三项专项 Skill；只使用已有项目测试与授权工具，长期经验仍需可信 Skill PR 和中央 CI 审核。
 
+- 新增: Delta Suite 在 Harness 官方 Models 页扩展区域提供按需 Gateway Reasoning Effort 发现与明确确认应用；Host 侧读取当前凭据、验证修订号和一次性预览令牌，浏览器不接触 API Key（#280）。
+
 - 新增: 通过 Harness 官方 revisioned `remote.settings.mutate` 执行用户明确批准的单模型 Gateway Effort 配置变更，严格校验 Host 修订号、模型/凭据引用及写入结果，不自动发现密钥或接管菜单（#280）。
 
 - 新增: Gateway 模型 Effort 的安全同步预览；仅针对指定 Host 模型检查已选等级、差异与冲突，不自动修改任何原生配置（#280）。
