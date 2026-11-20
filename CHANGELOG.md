@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code `code_github_skill_auto_advance` 在核验候选 PR 已合并且当前 HEAD 中央 CI 门禁全部成功后，自动重审固定版本并提交独立目录升级 PR，保留二次 CI 和宿主权限。
+
 - 新增: Delta Code `code_github_skill_auto_stage` 将免费公开 Skill 搜索、固定版本低风险审核和惰性 PR 提交整合为一次 Host 授权调用；中央 CI 后续晋级仍独立执行，未审内容不自动加载。
 
 - 修复: Delta Code 免费外部 Skill 的审批说明区分只读工具审核与中央 CI 自动准入；符合完整免费、安全、来源和 Host 门禁者不默认要求每项人工签字，未实现的自动闭环仍明确标示。
