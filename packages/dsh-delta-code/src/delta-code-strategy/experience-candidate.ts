@@ -140,7 +140,7 @@ export function createExperienceCandidateTool(): ToolDefinition {
       sourceRepository: { type: 'string', required: true },
       sourceCommit: { type: 'string', required: true },
       evidence: { type: 'array', required: true, items: {
-        type: 'object', properties: {
+        type: 'object', additionalProperties: false, properties: {
           runUrl: { type: 'string', required: true },
           verifies: { type: 'string', required: true },
         },
