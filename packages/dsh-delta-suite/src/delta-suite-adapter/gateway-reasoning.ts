@@ -34,6 +34,16 @@ function decodeModel(value: unknown): GatewayReasoningCapability | undefined {
   // A generic /v1/models list alone does not prove Gateway-specific semantics.
   const policy = isObject(value.reasoning_policy) ? value.reasoning_policy : null
   const bestEffort = policy?.mode === 'best_effort' && policy.default === 'high'
+  // Gateway publishes both spellings for compatibility. If either declared
+  // field has an invalid shape, do not silently take the other and promote
+  // unverified levels into the official model picker.
+  if (Object.prototype.hasOwnProperty.call(value, 'reasoningEfforts') &&
+      !isObject(value.reasoningEfforts)) return undefined
+  if (Object.prototype.hasOwnProperty.call(value, 'reasoning_efforts') &&
+      (!Array.isArray(value.reasoning_efforts) ||
+       !value.reasoning_efforts.every(level => typeof level === 'string' &&
+         LEVELS.includes(level as typeof LEVELS[number])) ||
+       new Set(value.reasoning_efforts).size !== value.reasoning_efforts.length)) return undefined
   const rawMap = isObject(value.reasoningEfforts) ? value.reasoningEfforts : null
   const rawArray = Array.isArray(value.reasoning_efforts) ? value.reasoning_efforts : null
   if (!bestEffort && !rawMap && !rawArray) return undefined
