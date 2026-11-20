@@ -5401,8 +5401,9 @@ window.__ModuleLoader__.load({
       const showModel = prefs.showModelInfo && !!modelName
       const showAccount = prefs.showDeepSeekAccountInfo && !!accountName
       if (!showModel && !showAccount) return null
-      const efforts = Array.isArray(props.model?.reasoning?.efforts)
-        ? props.model.reasoning.efforts
+      const publishedEfforts = props.model?.reasoning?.efforts
+      const efforts = Array.isArray(publishedEfforts)
+        ? publishedEfforts
           .filter(level => typeof level?.id === 'string' && typeof level?.name === 'string' &&
             level.id.length > 0 && level.name.trim().length > 0)
           .slice(0, 8).map(level => level.name.trim().slice(0, 48))
