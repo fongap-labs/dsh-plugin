@@ -12,6 +12,8 @@ export const DELTA_GATEWAY_EFFORT_PREVIEW_PATH = '/api/delta-suite/gateway-effor
 export const DELTA_GATEWAY_EFFORT_APPLY_PATH = '/api/delta-suite/gateway-effort/apply'
 const MAX_CATALOG_BYTES = 256 * 1024
 const TTL_MS = 120_000
+/** Bound on concurrent, user-triggered credential-bearing Gateway HTTP requests. */
+const MAX_ACTIVE_DISCOVERIES = 2
 
 type HostSettings = {
   writable: boolean
@@ -109,20 +111,32 @@ export function installHostGatewayEffortSync(
 ): () => void {
   const drafts = new Map<string, Draft>()
   const aborts = new Set<AbortController>()
+  const activeDiscoveries = new Set<string>()
   const stops: (() => void)[] = []
   let isDisposed = false
+  let serviceGeneration = 0
   const now = options.now ?? Date.now
   const stop = (): void => {
     isDisposed = true
+    ++serviceGeneration
     drafts.clear()
     for (const abort of aborts) abort.abort()
     aborts.clear()
+    activeDiscoveries.clear()
     for (const off of stops.splice(0)) { try { off() } catch {} }
   }
   if (typeof ctx?.inject !== 'function') return stop
   try {
     const off = ctx.inject(['settings', 'credentials', 'llm', 'connection'], scope => {
       if (isDisposed) return () => {}
+      const generation = ++serviceGeneration
+      // A removed/replaced Host service must not leave credential-bearing
+      // discovery requests or its preview grants alive in the next generation.
+      for (const abort of aborts) abort.abort()
+      aborts.clear()
+      activeDiscoveries.clear()
+      drafts.clear()
+      const isCurrent = () => !isDisposed && serviceGeneration === generation
       const settings = scope.settings, credentials = scope.credentials, llm = scope.llm
       const registry = scope.connection?.fetch
       if (!settings || !credentials || !llm || !registry ||
@@ -130,7 +144,6 @@ export function installHostGatewayEffortSync(
           typeof settings.describe !== 'function' || typeof settings.mutate !== 'function' ||
           typeof credentials.resolve !== 'function' ||
           typeof llm.listConfigurableProviders !== 'function') return () => {}
-      drafts.clear()
       const read = () => settings.describe({ redactSecrets: true })
       const lookup = (namespace: string, providerId: string, modelId: string) => {
         if (!llm.listConfigurableProviders().some(entry =>
@@ -169,7 +182,14 @@ export function installHostGatewayEffortSync(
             !['default', 'off', 'low', 'medium', 'high', 'max'].includes(input.selectedEffort)) {
           return deny('invalid-request', 400)
         }
-        if (isDisposed) return deny('host-unavailable', 503)
+        if (!isCurrent()) return deny('host-unavailable', 503)
+        // A second click for the same Session must not cause a second
+        // authenticated request; a bounded global limit protects the Host if
+        // several distinct sessions request discovery at once.
+        const requestScope = JSON.stringify([input.namespace, input.providerId, input.modelId])
+        if (activeDiscoveries.has(requestScope)) return deny('discovery-in-progress', 429)
+        if (activeDiscoveries.size >= MAX_ACTIVE_DISCOVERIES) return deny('discovery-busy', 429)
+        activeDiscoveries.add(requestScope)
         try {
           if (!settings.writable) return deny('host-readonly', 403)
           const target = lookup(input.namespace, input.providerId, input.modelId)
@@ -178,8 +198,10 @@ export function installHostGatewayEffortSync(
           }
           if (!target.url) return deny('unsafe-endpoint', 400)
           const currentKey = await key(target.credentialRef)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           if (!currentKey) return deny('missing-credential')
           const initialHash = await hash(currentKey)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           const controller = new AbortController()
           aborts.add(controller)
           const timeout = setTimeout(() => controller.abort(), 8000)
@@ -193,11 +215,13 @@ export function installHostGatewayEffortSync(
             if (!response.ok) return deny('gateway-discovery-refused', 502)
             catalog = await readCatalog(response)
           } finally { clearTimeout(timeout); aborts.delete(controller) }
-          if (isDisposed) return deny('host-unavailable', 503)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           const currentCredential = await key(target.credentialRef)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           if (!currentCredential || await hash(currentCredential) !== initialHash) {
             return deny('credential-changed')
           }
+          if (!isCurrent()) return deny('host-unavailable', 503)
           const latest = lookup(input.namespace, input.providerId, input.modelId)
           if (!latest || latest.descriptor.revision !== target.descriptor.revision ||
               latest.credentialRef !== target.credentialRef ||
@@ -221,7 +245,7 @@ export function installHostGatewayEffortSync(
           for (const [id, draft] of drafts) if (now() - draft.at > TTL_MS) drafts.delete(id)
           while (drafts.size >= 8) drafts.delete(drafts.keys().next().value!)
           const id = await token()
-          if (isDisposed) return deny('host-unavailable', 503)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           drafts.set(id, { at: now(), namespace: input.namespace,
             providerId: input.providerId, modelId: input.modelId, credentialRef: target.credentialRef,
             keyHash: initialHash, revision: target.descriptor.revision,
@@ -229,6 +253,11 @@ export function installHostGatewayEffortSync(
           return makeJsonResponse(200, { ok: true, status: 'review',
             previewId: id, preview: reviewed })
         } catch { return deny('discovery-unavailable', 503) }
+        finally {
+          // A late completion from a replaced service must not release the
+          // same model's discovery slot now owned by a newer generation.
+          if (serviceGeneration === generation) activeDiscoveries.delete(requestScope)
+        }
       }
       const apply = async (req: unknown): Promise<unknown> => {
         const input = await parseBody(req)
@@ -238,12 +267,14 @@ export function installHostGatewayEffortSync(
         }
         const draft = drafts.get(input.previewId)
         drafts.delete(input.previewId) // one-use even on failure
-        if (!draft || now() - draft.at > TTL_MS || isDisposed) return deny('expired-preview')
+        if (!draft || now() - draft.at > TTL_MS || !isCurrent()) return deny('expired-preview')
         try {
           const currentKey = await key(draft.credentialRef)
+          if (!isCurrent()) return deny('host-unavailable', 503)
           if (!currentKey || await hash(currentKey) !== draft.keyHash) {
             return deny('credential-changed')
           }
+          if (!isCurrent()) return deny('host-unavailable', 503)
           const live = lookup(draft.namespace, draft.providerId, draft.modelId)
           if (!live || live.descriptor.revision !== draft.revision ||
               live.credentialRef !== draft.credentialRef) return deny('settings-changed')
@@ -254,11 +285,20 @@ export function installHostGatewayEffortSync(
             mutate: async (ns, ops, rev) => {
               // Validate the specific credential again immediately before CAS.
               const fresh = await key(draft.credentialRef)
+              if (!isCurrent()) {
+                return { ok: false, error: { code: 'host-service-replaced' } }
+              }
               if (!fresh || await hash(fresh) !== draft.keyHash) {
                 return { ok: false, error: { code: 'credential-changed' } }
               }
+              if (!isCurrent()) {
+                return { ok: false, error: { code: 'host-service-replaced' } }
+              }
               try {
                 await settings.mutate(ns, ops, rev)
+                if (!isCurrent()) {
+                  return { ok: false, error: { code: 'host-service-replaced' } }
+                }
                 const committed = read().find(item => item.ns === ns)
                 return committed ? { ok: true, value: committed }
                   : { ok: false, error: { code: 'unverified-write' } }
@@ -276,6 +316,7 @@ export function installHostGatewayEffortSync(
             authenticatedCatalog: draft.catalog, modelId: draft.modelId,
             selectedEffort: draft.selection, approvedPreview: draft.preview, settings: remote,
           })
+          if (!isCurrent()) return deny('host-unavailable', 503)
           return makeJsonResponse(result.status === 'applied' ? 200 : 409,
             { ok: result.status === 'applied', ...result })
         } catch { return deny('host-unavailable', 503) }
@@ -290,7 +331,17 @@ export function installHostGatewayEffortSync(
         offPreview?.()
         throw error
       }
-      return () => { drafts.clear(); offPreview?.(); offApply?.() }
+      return () => {
+        if (serviceGeneration === generation) {
+          ++serviceGeneration
+          drafts.clear()
+          for (const abort of aborts) abort.abort()
+          aborts.clear()
+          activeDiscoveries.clear()
+        }
+        offPreview?.()
+        offApply?.()
+      }
     })
     if (typeof off === 'function') stops.push(() => { off() })
   } catch { /* Missing public Host contracts keep native Settings untouched. */ }
