@@ -134,9 +134,9 @@ export function validateCodingCapabilities(
     const item = byId.get(id)
     if (!item) throw new Error('unknown capability reference: ' + id)
     visiting.add(id)
-    for (const optional of item.uses) {
-      if (!byId.has(optional)) throw new Error('unknown optional capability: ' + optional)
-    }
+    // Catalog reference cycles remain invalid for stable guidance; only the
+    // explicitly declared requires edges participate in execution planning.
+    for (const dependency of item.uses) visit(dependency)
     for (const dependency of item.requires ?? []) visit(dependency)
     visiting.delete(id)
     visited.add(id)
