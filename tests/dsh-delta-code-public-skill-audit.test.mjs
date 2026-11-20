@@ -143,6 +143,94 @@ describe('Delta Code anonymous public Skill static audit', () => {
     }
   })
 
+  it('audits pinned secondary Markdown without granting bundle approval', async () => {
+    const parent = skill('# React guide\\nRead [guide](references/guide.md#intro).')
+    const guide = blob('# Read-only guide\\nSee [nested](next.md) before use.')
+    const transport = setup(parent, { override(path) {
+      if (path.endsWith('/commits/' + COMMIT)) return {
+        sha: COMMIT, commit: { tree: { sha: TREE } },
+      }
+      if (path.includes('/git/trees/')) return { sha: TREE, truncated: false, tree: [
+        { path: 'LICENSE', type: 'blob', mode: '100644', sha: LICENSE.sha },
+        { path: 'skills/react-guide/SKILL.md', type: 'blob', mode: '100644', sha: parent.sha },
+        { path: 'skills/react-guide/references/guide.md', type: 'blob', mode: '100644', sha: guide.sha },
+      ] }
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      if (path.endsWith('/git/blobs/' + parent.sha)) return parent
+      if (path.endsWith('/git/blobs/' + guide.sha)) return guide
+      throw Error('Unexpected pinned reference endpoint: ' + path)
+    } })
+    const report = parse(await transport.audit.execute(input(parent), transport.exec))
+    assert.equal(report.reviewStatus, 'pending-reference-bundle-review')
+    assert.equal(report.bundleApprovalRequired, true)
+    assert.equal(report.approvalRequired, true)
+    assert.equal(report.autoEnabled, false)
+    assert.equal(report.executable, false)
+    assert.equal(report.referenceEvidence.length, 1)
+    assert.deepEqual(report.referenceEvidence[0], {
+      path: 'skills/react-guide/references/guide.md',
+      blobSha: guide.sha,
+      byteLength: Buffer.byteLength('# Read-only guide\\nSee [nested](next.md) before use.'),
+      riskIndicators: [],
+      hasUnreviewedDependencies: true,
+      hasPaidRequirement: false,
+    })
+    assert.equal(report.apiCalls, 5)
+    assert.equal(transport.authenticated, 0)
+    assert.equal(JSON.stringify(report).includes('Read-only guide'), false,
+      'untrusted secondary instructions must not leak into tool output')
+  })
+
+  it('rejects executable, traversing, absent, symlinked and conflicting-license references', async () => {
+    for (const link of ['../secrets.md', 'scripts/run.sh', '/tmp/secret.md',
+      'guide.md?raw=1', 'https:%2f%2fexample.com/a.md', 'SKILL.md']) {
+      const candidate = skill('# React guide\\nSee [reference](' + link + ')')
+      const h = setup(candidate)
+      await assert.rejects(h.audit.execute(input(candidate), h.exec),
+        /secondary Skill reference|reference lacks immutable/)
+      assert.equal(h.authenticated, 0)
+      assert.equal(h.calls.length, 4)
+    }
+    const candidate = skill('# React guide\\nSee [reference](references/guide.md)')
+    for (const variant of ['missing', 'symlink', 'local-license']) {
+      const h = setup(candidate, { override(path) {
+        if (path.endsWith('/commits/' + COMMIT)) return {
+          sha: COMMIT, commit: { tree: { sha: TREE } },
+        }
+        if (path.includes('/git/trees/')) {
+          const rows = [
+            { path: 'LICENSE', type: 'blob', mode: '100644', sha: LICENSE.sha },
+            { path: 'skills/react-guide/SKILL.md', type: 'blob', mode: '100644', sha: candidate.sha },
+          ]
+          if (variant !== 'missing') rows.push({
+            path: 'skills/react-guide/references/guide.md',
+            type: 'blob', mode: variant === 'symlink' ? '120000' : '100644', sha: 'e'.repeat(40),
+          })
+          if (variant === 'local-license') rows.push({
+            path: 'skills/react-guide/references/LICENSE',
+            type: 'blob', mode: '100644', sha: 'f'.repeat(40),
+          })
+          return { sha: TREE, truncated: false, tree: rows }
+        }
+        if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+        if (path.endsWith('/git/blobs/' + candidate.sha)) return candidate
+        throw Error('Unexpected reference endpoint: ' + path)
+      } })
+      await assert.rejects(h.audit.execute(input(candidate), h.exec),
+        /reference lacks immutable regular-file or matching license evidence/)
+      assert.equal(h.authenticated, 0)
+    }
+  })
+
+  it('keeps secondary reviews bounded to four referenced files', async () => {
+    const candidate = skill('# React guide\\n' +
+      Array.from({ length: 5 }, (_, i) => '[item](guide' + i + '.md)').join(' '))
+    const h = setup(candidate)
+    await assert.rejects(h.audit.execute(input(candidate), h.exec),
+      /references exceed bounded review limit/)
+    assert.equal(h.calls.length, 4)
+  })
+
   it('fails closed on substituted blobs, mismatched tree and symlink modes', async () => {
     const bad = setup(CLEAN, { mode: '120000' })
     await assert.rejects(bad.audit.execute(input(), bad.exec), /Git mode/)
