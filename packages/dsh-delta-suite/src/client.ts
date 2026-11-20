@@ -1612,6 +1612,12 @@ function createClientFeatureManager(): ClientFeatureManager {
     lastRefreshAttemptAt = Date.now()
     const proxyReadRevision = proxyMutationRevision
     const visionReadRevision = visionMutationRevision
+    const proxyReadDuringWrite = pendingProxyWrites > 0
+    const visionReadDuringWrite = pendingVisionWrites > 0
+    const canUseProxyRead = (): boolean => !proxyReadDuringWrite &&
+      proxyReadRevision === proxyMutationRevision && pendingProxyWrites === 0
+    const canUseVisionRead = (): boolean => !visionReadDuringWrite &&
+      visionReadRevision === visionMutationRevision && pendingVisionWrites === 0
     refreshInFlight = (async () => {
       try {
         const [stRes, pxRes, vsRes] = await Promise.all([
@@ -1626,14 +1632,14 @@ function createClientFeatureManager(): ClientFeatureManager {
             const payload = { ...stData!.state }
             // GET may have started before the user's POST and returned stale
             // Proxy/Vision settings. Durable Session protection is independent.
-            if (proxyReadRevision !== proxyMutationRevision || pendingProxyWrites > 0) delete payload.proxy
-            if (visionReadRevision !== visionMutationRevision || pendingVisionWrites > 0) delete payload.vision
+            if (!canUseProxyRead()) delete payload.proxy
+            if (!canUseVisionRead()) delete payload.vision
             applyHostStatePayload(payload)
           } else revokeHostConfirmation()
         } else revokeHostConfirmation()
-        if (pxRes?.ok && proxyReadRevision === proxyMutationRevision && pendingProxyWrites === 0) {
+        if (pxRes?.ok && canUseProxyRead()) {
           const pxData = (await pxRes.json().catch(() => null)) as { proxy?: ClientProxyConfig; effective?: ClientEffectiveProxy } | null
-          if (pxData?.proxy) {
+          if (pxData?.proxy && canUseProxyRead()) {
             publish({
               proxy: Object.freeze({ ...pxData.proxy }),
               ...(pxData.effective ? { effectiveProxy: Object.freeze({ ...pxData.effective }) } : {}),
@@ -1641,21 +1647,21 @@ function createClientFeatureManager(): ClientFeatureManager {
             })
           }
         }
-        if (visionReadRevision !== visionMutationRevision || pendingVisionWrites > 0) {
+        if (!canUseVisionRead()) {
           // An in-flight write owns this field; discard older GET status.
         } else if (vsRes && vsRes.ok) {
           const vsData = (await vsRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
-          publish({
+          if (canUseVisionRead()) publish({
             visionEngineReady: vsData?.ok === true && vsData?.engineReady === true,
             visionEngineAccount: vsData?.ok === true ? (vsData.account ?? null) : null,
           })
         } else {
           // A previously healthy vision channel is not proof of current availability.
-          publish({ visionEngineReady: false, visionEngineAccount: null })
+          if (canUseVisionRead()) publish({ visionEngineReady: false, visionEngineAccount: null })
         }
       } catch {
         revokeHostConfirmation()
-        publish({ visionEngineReady: false, visionEngineAccount: null })
+        if (canUseVisionRead()) publish({ visionEngineReady: false, visionEngineAccount: null })
       }
       finally {
         refreshInFlight = undefined
