@@ -8,10 +8,11 @@ import { createSkillAdmissionProposalSpecs } from './github-skill-admission-prop
 import { createPublicSkillDiscoverySpecs } from './github-skill-public-discovery.js'
 import { createPublicSkillAuditSpecs } from './github-skill-public-audit.js'
 import { isExternalSkillOptOut } from '../delta-code-strategy/trusted-github-skills.js'
+import { SKILL_SOURCE_PATH } from '../delta-code-strategy/skill-source-path.js'
+import { makePendingSkillProposal } from '../delta-code-strategy/skill-proposal-policy.js'
 
 const SHA = /^[a-f0-9]{40}$/
 const REPO = /^[a-z0-9-]{1,39}\/[a-z0-9_.-]{1,100}$/i
-const SKILL = /^skills\/[a-z0-9-]+\/SKILL\.md$/
 const MAX_AUDITS = 3
 
 export interface AutoSkillCandidate {
@@ -45,7 +46,7 @@ export function eligibleAutoSkillCandidates(value: unknown): AutoSkillCandidate[
     const pinned = free as Record<string, unknown>
     if (typeof candidate.repository !== 'string' || !REPO.test(candidate.repository) ||
       candidate.repository.includes('..') || typeof candidate.path !== 'string' ||
-      !SKILL.test(candidate.path) || typeof candidate.suggestedCommit !== 'string' ||
+      !SKILL_SOURCE_PATH.test(candidate.path) || typeof candidate.suggestedCommit !== 'string' ||
       !SHA.test(candidate.suggestedCommit) ||
       typeof candidate.sourceBlobSha !== 'string' || !SHA.test(candidate.sourceBlobSha) ||
       typeof pinned.licenseBlobSha !== 'string' || !SHA.test(pinned.licenseBlobSha) ||
@@ -127,12 +128,11 @@ export function createAutoSkillStageSpecs(
         }
         const verification = parsed(await audit.execute(pinned, exec))
         reviewed++
-        if (verification.reviewStatus !== 'static-review-ready' ||
-          !verification.freeEligibility ||
-          typeof verification.freeEligibility !== 'object' ||
-          (verification.freeEligibility as Record<string, unknown>).eligible !== true ||
-          !Array.isArray(verification.riskIndicators) ||
-          verification.riskIndicators.length !== 0) {
+        // One source of truth for both single-file and verified bundle
+        // proposal admission. A tool-provided status alone is not enough.
+        try {
+          makePendingSkillProposal(verification)
+        } catch {
           excluded++
           continue
         }

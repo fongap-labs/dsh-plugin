@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code 将无脚本、免费、低风险的 Markdown Skill 附属文件纳入不可变整包审查；通过两阶段 PR 和中央 CI 认证后，将引用哈希写入可信目录，原生 Skill Provider 按需加载时重新核对各文件 Blob SHA，保持取消与权限边界。
+
 - 新增: Delta Code 对同一 Git 提交下最多四个 Markdown Skill 附属文档进行不可变 Blob 与继承许可证检查，输出受限静态证据供后续 CI Bundle 审核；未审查多文件引用继续禁止自动启用，并拒绝脚本、路径穿越和未知依赖。
 
 - 修复: Delta Code 的执行统计与 Skill 反馈只计入退出码、信号、超时及输出完整性已证实的验证结果；缺失或矛盾证据单独计为未确认，防止 passed=true 的自报状态影响技能排序。

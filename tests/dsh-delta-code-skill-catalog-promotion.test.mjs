@@ -24,14 +24,25 @@ const blob = text => {
 const LICENSE = blob('MIT License\nPermission is hereby granted, free of charge.\n')
 const SKILL = body => blob('---\nname: safe-guide\ndescription: Free documentation\n---\n\n# Guide\n' + body)
 const GOOD = SKILL('Use built-in file navigation only.')
+const MINI = blob('# Companion guide\nUse built-in file inspection only.')
+const BUNDLE = SKILL('See [companion](guide.mini.md) before work.')
 const argsFor = source => ({
   targetRepository: TARGET, repository: 'free/skills',
   path: 'skills/safe-guide/SKILL.md', commit: COMMIT,
   sourceBlobSha: source.sha, licenseBlobSha: LICENSE.sha, submit: true,
 })
-const proposalFor = source => makePendingSkillProposal({
-  candidate: argsFor(source), license: 'MIT', reviewStatus: 'static-review-ready',
-  freeEligibility: { status: 'free-evidence', eligible: true },
+const proposalFor = (source, supplementary) => makePendingSkillProposal({
+  candidate: argsFor(source), license: 'MIT',
+  reviewStatus: supplementary ? 'pending-reference-bundle-review' : 'static-review-ready',
+  freeEligibility: supplementary ? { status: 'unknown', eligible: false } :
+    { status: 'free-evidence', eligible: true },
+  ...(supplementary ? {
+    referenceEvidence: [{
+      path: 'skills/safe-guide/guide.mini.md', blobSha: supplementary.sha,
+      hasPaidRequirement: false, hasUnreviewedDependencies: false, riskIndicators: [],
+    }],
+    bundleApprovalRequired: true,
+  } : {}),
   riskIndicators: [], approvalRequired: true, autoEnabled: false, executable: false,
 })
 const admissionFor = source => ({
@@ -54,7 +65,7 @@ function setup(source = GOOD, options = {}) {
   let publicCalls = 0
   let credentialCalls = 0
   let commitIndex = 0
-  const proposed = proposalFor(source)
+  const proposed = proposalFor(source, options.bundleRef)
   const stagedText = JSON.stringify(options.mismatchedStage ? proposalFor(GOOD) : proposed, null, 2) + '\n'
   const inputs = {
     [pendingSkillProposalPath(proposed)]: options.invalidStage ? '{}' : stagedText,
@@ -114,10 +125,13 @@ function setup(source = GOOD, options = {}) {
         sha: TREE, truncated: false, tree: [
           { path: 'LICENSE', sha: LICENSE.sha, mode: '100644', type: 'blob' },
           { path: 'skills/safe-guide/SKILL.md', sha: source.sha, mode: '100644', type: 'blob' },
+          ...(options.bundleRef ? [{ path: 'skills/safe-guide/guide.mini.md',
+            sha: options.bundleRef.sha, mode: '100644', type: 'blob' }] : []),
         ],
       }
       if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
       if (path.endsWith('/git/blobs/' + source.sha)) return source
+      if (options.bundleRef && path.endsWith('/git/blobs/' + options.bundleRef.sha)) return options.bundleRef
       throw Error('unexpected endpoint ' + path)
     },
   }
@@ -146,6 +160,25 @@ describe('Delta Code verified Skill catalog upgrade PR', () => {
     assert.equal(JSON.parse(prepared.admissionJson).permissions.writeFiles, false)
     assert.throws(() => prepareReviewedSkillPromotion(admission, prepared.catalogContent), /already exists/)
     assert.throws(() => prepareReviewedSkillPromotion(admission, 'broken TS'), /layout/)
+  })
+
+  it('promotes only complete pinned secondary Markdown evidence to a separately gated catalog PR', async () => {
+    const h = setup(BUNDLE, { bundleRef: MINI })
+    const result = JSON.parse((await h.tool.execute(h.args, h.exec)).result)
+    assert.equal(result.state, 'awaiting-central-ci')
+    assert.equal(h.publicCalls, 8)
+    const files = h.events.filter(x => x[0] === 'write')
+    const reviewed = validateReviewedSkillAdmission(JSON.parse(files[0][1].content))
+    assert.equal(reviewed.schemaVersion, 2)
+    assert.equal(reviewed.evidence.references.length, 1)
+    assert.equal(reviewed.evidence.references[0].markdown,
+      Buffer.from(MINI.content, 'base64').toString('utf8'))
+    const manifest = prepareReviewedSkillPromotion(reviewed, CATALOG)
+    assert.deepEqual(manifest.entry.references, [{
+      path: 'skills/safe-guide/guide.mini.md', blobSha: MINI.sha,
+    }])
+    assert.match(files[1][1].content, /guide\.mini\.md/)
+    assert.equal(h.credentialCalls, 0)
   })
 
   it('re-audits publicly and writes only to target owner on a branch with HEAD leases', async () => {

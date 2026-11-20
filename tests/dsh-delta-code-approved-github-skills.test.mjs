@@ -80,6 +80,62 @@ describe('Delta Code approved GitHub Skills', () => {
     await assert.rejects(provider.get(candidate, { signal: cancelled.signal }), /abort/i)
   })
 
+  it('lazily assembles only CI-pinned Markdown references with verified Git blob hashes', async () => {
+    const root = '---\nname: reviewed-skill\ndescription: Free documented skill\n---\n\n# Guide\nRead [mini](guide.mini.md).'
+    const mini = '# Mini guide\nUse the built-in file reader.'
+    const digest = body => {
+      const bytes = Buffer.from(body)
+      return createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
+    }
+    const entry = {
+      name: 'reviewed-bundle', sourceName: 'reviewed-skill',
+      description: 'CI reviewed multi-file Skill', owner: 'acme', repository: 'approved',
+      commit: 'a'.repeat(40), path: 'skills/reviewed-skill/SKILL.md',
+      blobSha: digest(root), license: 'MIT', keywords: ['reviewed'],
+      references: [{ path: 'skills/reviewed-skill/guide.mini.md', blobSha: digest(mini) }],
+    }
+    const urls = []
+    const fetcher = async (url, options) => {
+      assert.equal(options.redirect, 'error')
+      urls.push(url)
+      if (url.endsWith('/SKILL.md')) return new Response(root)
+      if (url.endsWith('/guide.mini.md')) return new Response(mini)
+      throw Error('Unexpected remote request')
+    }
+    const provider = createApprovedGitHubSkillProvider(fetcher, [entry])
+    const [candidate] = await provider.list()
+    assert.deepEqual(urls, [], 'Native list is always metadata-only')
+    assert.match(candidate.locator, /^[a-f0-9]{40}:[a-f0-9]{40}:[a-f0-9]{16}$/)
+    const loaded = await provider.get(candidate)
+    assert.match(loaded.content, /CI-reviewed immutable supplementary references/)
+    assert.match(loaded.content, /Use the built-in file reader/)
+    assert.equal(urls.length, 2)
+    assert.ok(urls.every(url => url.includes('/' + entry.commit + '/')))
+    assert.equal(await provider.get({ ...candidate, locator: 'deadbeef' }), undefined)
+    const replaced = {
+      ...entry, references: [{ ...entry.references[0], blobSha: 'b'.repeat(40) }],
+    }
+    const changed = createApprovedGitHubSkillProvider(fetcher, [replaced])
+    assert.equal(await changed.get(candidate), undefined, 'changed references invalidate native candidates')
+    const tampered = createApprovedGitHubSkillProvider(async url =>
+      new Response(url.endsWith('/SKILL.md') ? root : '# Different text'), [entry])
+    await assert.rejects(tampered.get(candidate), /hash mismatch/)
+    const alteredRoot = root.replace('guide.mini.md', 'other.md')
+    const missing = createApprovedGitHubSkillProvider(async url =>
+      new Response(url.endsWith('/SKILL.md') ? alteredRoot : mini),
+    [{ ...entry, blobSha: digest(alteredRoot) }])
+    await assert.rejects(missing.get((await missing.list())[0]),
+      /reference manifest is incomplete or changed/)
+    const cancelled = new AbortController()
+    const aborted = createApprovedGitHubSkillProvider(async (url) => {
+      if (url.endsWith('/SKILL.md')) return new Response(root)
+      cancelled.abort(new Error('reference retrieval cancelled'))
+      return new Response(mini)
+    }, [entry])
+    await assert.rejects(aborted.get((await aborted.list())[0], { signal: cancelled.signal }),
+      /reference retrieval cancelled/)
+  })
+
   it('revokes exact immutable revisions and refuses stale candidates after an update', async () => {
     const body = '---\nname: reviewed-skill\ndescription: safe\n---\n\n# Approved guidance\nOnly read.\n'
     const bytes = Buffer.from(body)
