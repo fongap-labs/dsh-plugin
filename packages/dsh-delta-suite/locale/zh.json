@@ -367,6 +367,7 @@
     "engineStatus": "引擎就绪状态",
     "ready": "已就绪",
     "notReady": "未检测到可用视觉引擎，建议配置多模态模型或自定义端点",
+    "hostUnavailable": "Harness 视觉服务不可用或未确认配置变更。",
     "testBtn": "测试视觉通道",
     "testing": "正在探测…",
     "testSuccess": "视觉引擎探测成功！模型：{model}",
