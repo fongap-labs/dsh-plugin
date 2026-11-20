@@ -1,6 +1,7 @@
 /** Public GitHub Skill bytes are read-only and pinned to a reviewed commit and Git blob. */
 import { createHash } from 'node:crypto'
 import { isFreeSkillLicense, inspectFreeSkillText } from '../../../delta-code-strategy/free-skill-policy.js'
+import { skillNameFromPath } from '../../../delta-code-strategy/skill-source-path.js'
 import {
   APPROVED_GITHUB_SKILLS,
   getActiveApprovedGitHubSkills,
@@ -124,7 +125,7 @@ export function createApprovedGitHubSkillProvider(
         throw new Error('GitHub Skill source metadata is incomplete')
       }
       if (!/^[a-z0-9-]+$/.test(approved.owner) || !/^[a-z0-9-]+$/.test(approved.repository) ||
-        !/^skills\/[a-z0-9-]+\/SKILL\.md$/.test(approved.path)) {
+        skillNameFromPath(approved.path) !== sourceName) {
         throw new Error('GitHub Skill source is not approved')
       }
       const url = 'https://raw.githubusercontent.com/' + approved.owner + '/' + approved.repository +
