@@ -15,6 +15,7 @@ export interface RouteInput {
   risk: CodingRisk
   independentTasks?: number
   nativeSubagents?: boolean
+  nativeSubagentProvider?: string
   taskPaths?: string[][]
   taskDependencies?: number[][]
 }
@@ -152,6 +153,7 @@ export function decideCodingWorkflow(
 
 export function createWorkflowRouteTool(
   rules: readonly CodingWorkflowRule[] = DEFAULT_CODING_WORKFLOW_RULES,
+  canDelegate?: (agent: unknown, provider: string) => boolean,
 ): ToolDefinition {
   return defineTool({
     name: 'code_workflow_route',
@@ -161,7 +163,8 @@ export function createWorkflowRouteTool(
       scope: { type: 'string', required: true, enum: [...CODING_SCOPES] },
       risk: { type: 'string', required: true, enum: [...CODING_RISKS] },
       independentTasks: { type: 'integer', description: 'Number of independently reviewable work items, 1..100; default 1.' },
-      nativeSubagents: { type: 'boolean', description: 'True only after confirming DSH native subagent dispatch is available and permitted.' },
+      nativeSubagents: { type: 'boolean', description: 'Request native delegation; a true value is not capability evidence. The Host adapter must confirm it.' },
+      nativeSubagentProvider: { type: 'string', description: 'Exact registered DSH subagent provider name, required to consider native parallel waves.' },
       taskPaths: { type: 'array', description: 'Explicit repository-relative write sets for each task, required for parallel execution.',
         items: { type: 'array', items: { type: 'string' } } },
       taskDependencies: { type: 'array', description: 'Earlier zero-based prerequisite indexes for each task.',
@@ -185,6 +188,14 @@ export function createWorkflowRouteTool(
         ...value.stopConditions.map(line => 'Stop: ' + line),
       ].join('\n') }]
     } },
-    execute: async (args) => decideCodingWorkflow(args as RouteInput, rules),
+    execute: async (args, exec) => {
+      const input = args as RouteInput
+      // Model-authored input cannot assert native Host availability. The
+      // adapter validates the exact live Agent and named Host provider.
+      const isVerified = input.nativeSubagents === true &&
+        typeof input.nativeSubagentProvider === 'string' &&
+        canDelegate?.(exec.agent, input.nativeSubagentProvider) === true
+      return decideCodingWorkflow({ ...input, nativeSubagents: isVerified }, rules)
+    },
   })
 }

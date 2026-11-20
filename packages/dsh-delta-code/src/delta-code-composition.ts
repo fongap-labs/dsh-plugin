@@ -17,6 +17,7 @@ import { registerApprovedGitHubSkills } from './delta-code-adapter/providers/dsh
 import { registerDeltaCodePrompt } from './delta-code-adapter/providers/dsh/prompt.js'
 import { deltaCodeQuality } from './delta-code-quality/index.js'
 import { registerNativeResume } from './delta-code-quality/resume.js'
+import { observeNativeDelegation } from './delta-code-adapter/providers/dsh/native-delegation.js'
 import { deltaCodeRepositoryRemote, deltaCodeRepositoryCommands } from './delta-code-repository/index.js'
 import { deltaCodeSupport } from './delta-code-support/index.js'
 import { ExecutionStats } from './delta-code-support/execution-stats.js'
@@ -25,14 +26,16 @@ import { ExecutionStats } from './delta-code-support/execution-stats.js'
 export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
   if (!settings.enabled) return () => {}
   const resume = registerNativeResume(ctx)
+  const delegation = observeNativeDelegation(ctx)
   const stats = new ExecutionStats()
   const releases: Array<() => void> = [
-    () => resume.dispose(), () => stats.clear(),
+    () => resume.dispose(), () => delegation.dispose(), () => stats.clear(),
   ]
   try {
     // The lightweight strategy and diagnostic tools never need subprocess.
     const coreFeatures = [
       deltaCodeStrategy({
+        canDelegate: delegation.canDelegate,
         registerSkills: () => {
           const releaseLocal = registerCodingSkills(ctx)
           try {
