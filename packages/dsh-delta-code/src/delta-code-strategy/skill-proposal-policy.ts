@@ -115,7 +115,8 @@ export function validatePendingSkillProposal(input: unknown): PendingSkillPropos
   const check = makePendingSkillProposal({
     candidate: value.source, license: value.source.license,
     reviewStatus: value.staticAudit.status,
-    freeEligibility: { status: 'free-evidence', eligible: value.staticAudit.freeUseEvidence },
+    freeEligibility: value.schemaVersion === 2 ? { status: 'unknown', eligible: false } :
+      { status: 'free-evidence', eligible: value.staticAudit.freeUseEvidence },
     riskIndicators: value.staticAudit.riskIndicators,
     approvalRequired: value.approvalRequired,
     referenceEvidence: value.source.references?.map(ref => ({ ...ref,
