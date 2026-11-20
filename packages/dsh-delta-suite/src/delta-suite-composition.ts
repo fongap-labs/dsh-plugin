@@ -76,6 +76,13 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
     }),
   })
   registry.register({
+    id: 'integrations.gateway-effort',
+    owner: 'integrations',
+    surfaces: ['settings'],
+    optional: true,
+    install: () => installHostGatewayEffortSync(ctx),
+  })
+  registry.register({
     id: 'integrations.vision-bridge',
     owner: 'integrations',
     surfaces: ['settings'],
