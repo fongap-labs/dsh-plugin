@@ -85,9 +85,9 @@ export const SPECIALIST_WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
     description: 'Convert a repeatedly useful, verified lesson into a review candidate without automatically changing trusted Skills.',
     instructions: [
       'Consider a reusable lesson only after the target behavior was reproduced or explained, a real fix was verified and relevant commit/test evidence is available.',
-      'Record a concise candidate with problem conditions, root cause, fix pattern, source revision, observed verification, applicability and explicit failure boundaries. Redact sensitive paths, payloads and identities.',
+      'After observing the actual source revision and CI run, use code_experience_candidate to format a bounded record of the problem, root cause, fix pattern, applicability and failure boundaries. Its pending stage is not evidence that CI passed. Redact sensitive paths, payloads and identities.',
       'Compare with existing project rules and approved Skills before proposing a new entry; avoid duplicate or one-off guidance. A historical result is a reference, not authority over the current code.',
-      'Do not persist a new global database, inject a session transcript or modify a trusted Skill catalog automatically. If the user authorizes a reusable project Skill, use the existing governed PR/admission process and central CI.',
+      'Do not persist a global transcript database or change the trusted Skill catalog outside governance. When authorized by Host permissions, progress eligible free GitHub Skills through automated evidence checks, the existing PR/admission workflow and central CI without imposing an extra blanket per-Skill human confirmation. Reject unsafe or uncertain candidates; do not claim automatic admission when its checks were not run.',
       'Review or reject the candidate independently of the last task outcome; never treat a model summary or unrun check as verified evidence.',
     ],
   },
