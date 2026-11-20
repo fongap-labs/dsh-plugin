@@ -1487,6 +1487,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   const contentProtectionListeners = new Set<() => void>()
   const sessionCatalogListeners = new Set<() => void>()
   let stopNativeSessionCatalog: (() => void) | undefined
+  let sessionCatalogBinding = 0
   const publishSessionCatalog = (): void => {
     for (const listener of [...sessionCatalogListeners]) {
       try { listener() } catch { /* another consumer must not block catalog updates */ }
@@ -2678,6 +2679,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       }
     },
     setSessionsApi: (api) => {
+      const binding = ++sessionCatalogBinding
       try { stopNativeSessionCatalog?.() } catch {}
       stopNativeSessionCatalog = undefined
       sessionsApi = api
@@ -2687,7 +2689,7 @@ function createClientFeatureManager(): ClientFeatureManager {
           // React's useSyncExternalStore compares each hovered Session's
           // primitive timestamp, so unrelated catalog updates don't rerender it.
           const stop = api.list.subscribe?.(() => {
-            if (sessionsApi === api) publishSessionCatalog()
+            if (sessionsApi === api && binding === sessionCatalogBinding) publishSessionCatalog()
           })
           if (typeof stop === 'function') stopNativeSessionCatalog = stop
         } catch { /* older Host without a working subscribe keeps static fallback */ }
