@@ -7,6 +7,7 @@ import { isExternalSkillOptOut, matchApprovedGitHubSkills } from '../../../delta
 import { chooseTaskResources, taskResourceGuidance, type TaskResource, type TaskResourceRule } from '../../../delta-code-strategy/task-resource-policy.js'
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
 import { FREE_ONLY_TOOL_GUIDANCE } from '../../../delta-code-strategy/free-skill-policy.js'
+import { hasNativeTodoGateCandidate, type NativeResumeReader } from '../../../delta-code-quality/resume-policy.js'
 
 /** Host-specific event subscription and system prompt integration. */
 interface UserClaim {
@@ -48,12 +49,14 @@ export interface DeltaCodeRoutingPolicy {
 
 export function registerAutomaticCodingRouter(
   ctx: Context, settings: () => Settings, policy: DeltaCodeRoutingPolicy = {},
+  nativeResume?: NativeResumeReader,
 ): () => void {
   const routed = new WeakMap<object, CodingRoute>()
   const specialists = new WeakMap<object, readonly string[]>()
   const externalSkillOptOuts = new WeakSet<object>()
   const resources = new WeakMap<object, readonly TaskResource[]>()
   const quality = new WeakMap<object, SkillOutcomeFeedback>()
+  const observedGateSeq = new WeakMap<object, number>()
   const knownSkills = new Set(ALL_CODING_SKILLS.map(skill => skill.name))
   const runtime = ctx as unknown as RuntimeContext
   const disposers: Array<() => void> = []
@@ -82,14 +85,14 @@ export function registerAutomaticCodingRouter(
       const matched = externalSkillOptOuts.has(agent) ? [] : matchApprovedGitHubSkills(text)
       // Explicit continuations belong to the same task; retain its loaded Skill
       // until verification. Any fresh task, even on the same route, resets attribution.
-      if (!continuation || !previous) feedback.beginTask()
+      if (!continuation || !previous) { feedback.beginTask(); observedGateSeq.delete(agent) }
       if (next && matched.length) specialists.set(agent, feedback.prioritize(matched))
       else if (!next || !continuation || externalSkillOptOuts.has(agent)) specialists.delete(agent)
     })
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
     const clear = runtime.on('agent/disposed', (payload) => {
       const { agent } = payload as UserClaim
-      if (agent) { routed.delete(agent); specialists.delete(agent); externalSkillOptOuts.delete(agent); resources.delete(agent); quality.delete(agent) }
+      if (agent) { routed.delete(agent); specialists.delete(agent); externalSkillOptOuts.delete(agent); resources.delete(agent); quality.delete(agent); observedGateSeq.delete(agent) }
     })
     if (typeof clear === 'function') disposers.push(clear)
 
@@ -101,6 +104,18 @@ export function registerAutomaticCodingRouter(
       const tracker = quality.get(exec.agent)
       if (!tracker) return
       const value = outcome.value
+      if (exec.name === 'code_delivery_gate' && outcome.isError === false &&
+          value && typeof value === 'object' && nativeResume) {
+        const result = value as { stage?: unknown; ready?: unknown }
+        const observed = (result.stage === 'verified' && result.ready === true) ||
+          ((result.stage === 'blocked' || result.stage === 'continue') && result.ready === false)
+        if (observed) {
+          try {
+            const state = nativeResume.read(exec.agent)
+            if (hasNativeTodoGateCandidate(state)) observedGateSeq.set(exec.agent, state!.writeSeq)
+          } catch { /* checkpoint unavailable; never infer completed delivery */ }
+        }
+      }
       if (exec.name === 'skill' && outcome.isError === false) {
         if (!value || typeof value !== 'object') return
         const skill = value as { name?: unknown; provider?: unknown }
@@ -131,6 +146,19 @@ export function registerAutomaticCodingRouter(
         const route = routed.get(context.agent)
         if (!route) return ''
         if (!knownSkills.has(route)) return ''
+        const gateGuidance: string[] = []
+        if (nativeResume && settings().gitEnabled && settings().allowCommands &&
+            route !== 'code-fast-change') {
+          try {
+            const state = nativeResume.read(context.agent)
+            if (hasNativeTodoGateCandidate(state) &&
+                observedGateSeq.get(context.agent) !== state!.writeSeq) {
+              gateGuidance.push(
+                'The native Todo checkpoint reports implementation tasks complete, not delivery verification. For substantial Git-backed work, inspect HEAD and diff, and use code_delivery_gate once only when mounted and authorized with declared final checks and task acceptance. If unavailable or blocked, report the gap and do not repeat the failed gate automatically.',
+              )
+            }
+          } catch { /* no trustworthy Host checkpoint; no readiness advice */ }
+        }
         const skipExternalSkills = externalSkillOptOuts.has(context.agent)
         const optOutGuidance = skipExternalSkills
           ? ['External GitHub Skills are disabled by the user for this task. Do not discover, recommend or invoke them.']
@@ -167,6 +195,7 @@ export function registerAutomaticCodingRouter(
             'External Skills are reference guidance only; never run remote scripts, install packages, or bypass Host permissions automatically.',
           ] : []),
           ...taskResourceGuidance(resources.get(context.agent) ?? [], policy.resourceRules),
+          ...gateGuidance,
           'Before claiming completion, verify the actual changes and tests. Do not report an unrun check as passed.',
         ].join('\n')
       },
