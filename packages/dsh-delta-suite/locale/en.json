@@ -283,6 +283,7 @@
     "noProxyPlaceholder": "Comma-separated, e.g. localhost,127.0.0.1,.internal",
     "save": "Save & Apply",
     "savedToast": "Network proxy updated",
+    "hostUnavailable": "Harness proxy service is unavailable or did not confirm the change.",
     "invalidUrl": "Invalid proxy URL. Use an http:// or https:// URL.",
     "socksUnsupported": "Host fetch proxy only supports http:// or https:// schemes.",
     "statusLabel": "Effective status",
