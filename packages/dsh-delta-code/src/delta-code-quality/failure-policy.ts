@@ -22,10 +22,10 @@ export function classifyFailure(value: unknown): FailureKind {
 
 /** Treat failed commands with a known exit status as test failures, not Host permission denials. */
 export function classifyVerificationEvidence(evidence: {
-  passed: boolean; timedOut: boolean; exitCode: number; truncated: boolean; output: string
+  passed: boolean; timedOut: boolean; exitCode: number; signal?: string; truncated: boolean; output: string
 }): FailureKind | 'none' {
   if (evidence.passed) return 'none'
-  if (evidence.timedOut || evidence.exitCode < 0) return 'uncertain'
+  if (evidence.timedOut || evidence.exitCode < 0 || evidence.signal) return 'uncertain'
   if (evidence.truncated) return 'unknown'
   return classifyFailure(evidence.output) === 'transient' ? 'transient' : 'verification'
 }

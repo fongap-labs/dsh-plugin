@@ -28,6 +28,10 @@ describe('DSH Code Worker native Host diagnostics', () => {
     assert.equal(result.fsAccessible, true)
     assert.equal(result.fsWriteText, true)
     assert.equal(result.subprocessSpawn, true)
+    assert.equal(result.subprocessState, 'mounted')
+    assert.equal(result.subprocessResolveExecutable, false)
+    assert.equal(result.processOutcomeContract, 'unverified')
+    assert.equal(result.toolRegistryState, 'mounted')
     assert.equal(result.workspaceEnsure, true)
     assert.equal(result.toolRegistry, true)
     assert.equal(result.writeContract, 'unverified')
@@ -52,8 +56,24 @@ describe('DSH Code Worker native Host diagnostics', () => {
     assert.equal(result.fsWriteText, false)
     assert.equal(result.subprocessMounted, true)
     assert.equal(result.subprocessSpawn, false)
+    assert.equal(result.subprocessState, 'mounted')
+    assert.equal(result.toolRegistryState, 'mounted')
     assert.equal(result.workspaceAccessible, true)
     assert.equal(result.workspaceEnsure, false)
+    assert.equal(result.toolRegistry, false)
+  })
+
+  it('does not crash or claim availability when Host service getters deny introspection', () => {
+    const ctx = {
+      get() { return undefined },
+      get subprocess() { throw new Error('permission denied') },
+      get tools() { throw new Error('permission denied') },
+    }
+    const result = inspectHostCapabilities(ctx)
+    assert.equal(result.subprocessState, 'inaccessible')
+    assert.equal(result.subprocessMounted, false)
+    assert.equal(result.subprocessSpawn, false)
+    assert.equal(result.toolRegistryState, 'inaccessible')
     assert.equal(result.toolRegistry, false)
   })
 

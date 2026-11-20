@@ -138,6 +138,32 @@ describe('DSH Code Worker fail-fast verification suite', () => {
     } finally { await f.cleanup() }
   })
 
+  it('does not accept a zero exit with a termination signal as verified', async () => {
+    const f = await fixture({ test: 'node --test' },
+      () => mockHostCommandResult({ exitCode: 0, signal: 'SIGTERM' }))
+    try {
+      const result = await f.tool.execute({ scripts: ['test'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].exitCode, 0)
+      assert.equal(result.results[0].signal, 'SIGTERM')
+      assert.equal(result.results[0].outcome, 'uncertain')
+      assert.equal(result.results[0].failureKind, 'uncertain')
+      assert.match(result.nextAction, /outcome is unconfirmed/)
+    } finally { await f.cleanup() }
+  })
+
+  it('does not accept a zero exit when captured evidence is incomplete', async () => {
+    const f = await fixture({ test: 'node --test' },
+      () => mockHostCommandResult({ exitCode: 0, stdoutLossy: true }))
+    try {
+      const result = await f.tool.execute({ scripts: ['test'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].outcome, 'succeeded')
+      assert.equal(result.results[0].truncated, true)
+      assert.equal(result.results[0].failureKind, 'unknown')
+    } finally { await f.cleanup() }
+  })
+
   it('stops on nonzero exit and labels remaining checks skipped', async () => {
     const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'tsc' },
       (_, n) => hostResult(n === 2 ? 2 : 0, n === 2 ? 'failed' : 'ok'))
