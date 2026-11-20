@@ -121,6 +121,19 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     ]
     assert.equal(nearestSkillLicense(tree, 'refactoring/SKILL.md').sha, 'local')
     assert.equal(nearestSkillLicense(tree, 'skills/api/SKILL.md').sha, 'root')
+    const nested = [
+      ...tree,
+      { path: 'books/LICENSE.md', sha: 'category' },
+      { path: 'books/coding/LICENSE.txt', sha: 'closer' },
+    ]
+    assert.equal(nearestSkillLicense(nested, 'books/coding/refactoring/SKILL.md').sha, 'closer')
+    assert.equal(nearestSkillLicense(nested, 'books/design/ui/SKILL.md').sha, 'category')
+    assert.equal(nearestSkillLicense(nested, 'books/coding/refactoring/SKILL.md'),
+      nested.find(row => row.sha === 'closer'))
+    assert.equal(nearestSkillLicense([...nested, { path: 'books/coding/LICENSE.md', sha: 'conflict' }],
+      'books/coding/refactoring/SKILL.md'), undefined)
+    assert.equal(nearestSkillLicense([{ path: 'skills/foo/LICENSE', sha: 'local' }],
+      '../foo/SKILL.md'), undefined)
   })
 
   it('discovers a free Skill with a local license when repository SPDX metadata is absent', async () => {
