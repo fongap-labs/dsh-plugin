@@ -22,6 +22,7 @@
 - `decodeGatewayReasoningCatalog(value)`：仅解析调用方已经获取的 `/v1/models` 完整 JSON 结果。拒绝非列表、无等级、矛盾的驼峰/下划线能力声明、非法线路值与重复模型项。不会自行发送请求、读取 Key 或跨账户缓存。
 - `toHarnessReasoningEfforts(model)`：生成可在当前官方 `llm-pi-ai` 模型配置中**明确审核后**采用的安全等级声明。仅输出 Gateway 已声明的 Low/Medium/High/Max；**始终省略 `off`**，因为当前 Host 适配器无法把这个选择转成 Gateway 可区分的显式关闭请求。它不凭空生成 High/Max，也不修改配置。
 - `mapGatewayReasoningChoice(model, choice, protocol)`：验证 Default 与 Off 的不同线路语义，仅作为适配器的纯契约测试（不是请求拦截钩子）。
+- `previewGatewayReasoningSync(authenticatedCatalog, hostProviderModels, modelId, selectedEffort)`：**只读、单模型** Effort 同步预览；从调用方已认证、当前访问 Key 范围内的完整 `/v1/models` 响应与官方 Host 当前模型列表计算 `added/removed/remapped`，不读取凭证、不联网、不写入设置。用户已选等级在新目录不支持时拒绝预览，选中 Off 时拒绝通过现有 Host 适配器保存；遇到重复 Host 模型、非法当前配置或不存在的模型同样拒绝，绝不自动回退为 Default。只返回推理等级字段，其他提供商配置及敏感字段不会进入结果。
 
 `conversation.input.model.label` 继续由 Harness 声明和提供 Slot owner props。Delta 的模型标签仅以 tooltip 展示官方 catalog 中已公开的等级名称；未声明时不显示，不读取模型服务外的数据，模型选项、键盘事件和持久选择归 Harness。
 
