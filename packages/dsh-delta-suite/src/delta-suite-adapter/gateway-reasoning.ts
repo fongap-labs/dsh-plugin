@@ -152,3 +152,107 @@ export function mapGatewayReasoningChoice(
   }
   return Object.freeze({ reasoning_effort: selected })
 }
+
+/** A review-only suggestion for ONE model in an already authenticated provider.
+ *
+ * The caller supplies the exact Host custom-provider models list and the
+ * currently selected effort from the official session. The input catalog
+ * must be the current, access-key-scoped response, not a cached global list.
+ *
+ * No settings service is invoked and no model, key, URL or session state is
+ * written here. Consumers must reload and compare the current Host snapshot
+ * before asking the official settings service to apply an approved change.
+ */
+export type GatewayReasoningSyncPreview = Readonly<
+  | {
+      status: 'blocked'
+      modelId: string
+      reason: 'invalid-selection' | 'missing-host-directory' | 'duplicate-host-model' |
+        'missing-host-model' | 'invalid-host-efforts' | 'unavailable-gateway-model' |
+        'unsupported-selected-effort' | 'native-off-unsafe'
+    }
+  | {
+      status: 'review' | 'unchanged'
+      modelId: string
+      previous: Readonly<Partial<Record<GatewayEffort, string>>>
+      proposed: Readonly<Partial<Record<Exclude<GatewayEffort, 'off'>, string>>>
+      added: readonly GatewayEffort[]
+      removed: readonly GatewayEffort[]
+      remapped: readonly GatewayEffort[]
+    }
+>
+
+const NATIVE_LEVELS = ['off', ...LEVELS] as const
+
+/** Build a safe, side-effect-free preview of a SINGLE native model's Effort settings.
+ *
+ * This does not create models or providers, merge with other credentials or
+ * dispatch a session selection. Missing Gateway models or invalid selected
+ * levels block rather than silently resetting a user's choice to Default.
+ */
+export function previewGatewayReasoningSync(
+  authenticatedCatalog: unknown,
+  hostProviderModels: unknown,
+  modelId: string,
+  selectedEffort: GatewayReasoningChoice,
+): GatewayReasoningSyncPreview {
+  const blocked = (reason: Extract<GatewayReasoningSyncPreview, { status: 'blocked' }>['reason']) =>
+    Object.freeze({ status: 'blocked' as const, modelId, reason })
+  if (typeof modelId !== 'string' || !modelId.trim() || modelId !== modelId.trim() ||
+      typeof selectedEffort !== 'string' ||
+      (selectedEffort !== 'default' && !NATIVE_LEVELS.includes(
+        selectedEffort as typeof NATIVE_LEVELS[number],
+      ))) return blocked('invalid-selection')
+  if (!Array.isArray(hostProviderModels)) return blocked('missing-host-directory')
+
+  // Exact identity only: an existing Host route is never synthesized or
+  // matched by fuzzy title, case conversion, alias or another provider's ID.
+  const matches = hostProviderModels.filter(record =>
+    isObject(record) && record.id === modelId)
+  if (matches.length > 1) return blocked('duplicate-host-model')
+  if (matches.length === 0) return blocked('missing-host-model')
+  const hostModel = matches[0] as Record<string, unknown>
+  const declared = hostModel.reasoningEfforts
+  if (declared === false || (declared !== undefined && !isObject(declared))) {
+    return blocked('invalid-host-efforts')
+  }
+  const previous: Partial<Record<GatewayEffort, string>> = {}
+  for (const [key, value] of Object.entries(isObject(declared) ? declared : {})) {
+    if (!NATIVE_LEVELS.includes(key as typeof NATIVE_LEVELS[number]) || !validWire(value)) {
+      return blocked('invalid-host-efforts')
+    }
+    previous[key as GatewayEffort] = value
+  }
+
+  const catalog = decodeGatewayReasoningCatalog(authenticatedCatalog)
+  const model = catalog.find(item => item.modelId === modelId)
+  if (!model) return blocked('unavailable-gateway-model')
+  // This official llm-pi-ai build cannot preserve a distinct Off request.
+  // Do not present "Off" as a supported saved selection or replace it with
+  // "Default", which could cause Gateway's soft High to run instead.
+  if (selectedEffort === 'off') return blocked('native-off-unsafe')
+  const proposed = toHarnessReasoningEfforts(model)
+  if (selectedEffort !== 'default' && proposed[selectedEffort] === undefined) {
+    return blocked('unsupported-selected-effort')
+  }
+
+  const added: GatewayEffort[] = []
+  const removed: GatewayEffort[] = []
+  const remapped: GatewayEffort[] = []
+  for (const level of NATIVE_LEVELS) {
+    const before = previous[level]
+    const after = level === 'off' ? undefined : proposed[level]
+    if (before === undefined && after !== undefined) added.push(level)
+    else if (before !== undefined && after === undefined) removed.push(level)
+    else if (before !== undefined && after !== undefined && before !== after) remapped.push(level)
+  }
+  return Object.freeze({
+    status: added.length || removed.length || remapped.length ? 'review' as const : 'unchanged' as const,
+    modelId,
+    previous: Object.freeze(previous),
+    proposed,
+    added: Object.freeze(added),
+    removed: Object.freeze(removed),
+    remapped: Object.freeze(remapped),
+  })
+}
