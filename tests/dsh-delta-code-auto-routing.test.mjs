@@ -134,7 +134,7 @@ describe('Code Worker automatic user-task routing', () => {
     f.claim(bob, '实现一个 React 新功能')
     assert.match(f.render(bob), /code-feature-delivery/)
     assert.match(f.render(bob), /independent read-only diff review/)
-    assert.match(f.render(bob), /code_capabilities list\\/get\\/compose/)
+    assert.ok(f.render(bob).includes('code_capabilities list/get/compose'))
     assert.match(f.render(bob), /keyword-based hint, not authority/)
     assert.match(f.render(bob), /load only applicable Skills through the native catalog/)
     assert.doesNotMatch(f.render(bob), /For each ready task, create or adjust a failing test/)
