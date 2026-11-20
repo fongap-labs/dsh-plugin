@@ -22,7 +22,9 @@ export interface SkillTreeFile {
 export function nearestSkillLicense(
   tree: readonly SkillTreeFile[], skillPath: string,
 ): SkillTreeFile | undefined {
-  if (!skillNameFromPath(skillPath)) return undefined
+  // Secondary Markdown evidence can inherit the same nearest directory license.
+  const isSafeDocument = /^(?:[a-z0-9]+(?:-[a-z0-9]+)*\/){1,5}[A-Za-z0-9][A-Za-z0-9._-]*\.(?:md|txt)$/i.test(skillPath)
+  if (!skillNameFromPath(skillPath) && !isSafeDocument) return undefined
   const directories = skillPath.split('/').slice(0, -1)
   // A category-level license governs descendants unless a nearer file
   // overrides it. Multiple competing LICENSE files at one level are
