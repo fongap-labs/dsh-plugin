@@ -352,6 +352,12 @@ Harness Agent 根据任务实际语义作选择；既有中英文关键词自动
 
 此能力目录、依赖与循环拒绝、Host 只读工具、按风险执行的专项质量流程，在 [Action Worker 中央 dsh-plugin 验收包](https://github.com/fongap-labs/action-worker/blob/main/tests/packs/dsh-plugin/delta-code-semantic-capabilities-test.mjs) 中集中维护，并在目标仓库真实中央 CI 中执行；不能仅根据测试文件存在判断验收通过。已有源仓库回归继续双跑，直至中央覆盖对账完成，不能为了集中测试减少有效断言。
 
+### 结构化工程经验候选
+
+`code_experience_candidate` 将经过实际任务分析的工程经验整理为固定结构：问题、根因、修复模式、适用条件、失效边界、来源仓库及完整 Commit SHA，并包含 1–5 个 GitHub Actions Run/Job 证据链接。输入有长度、格式、重复项及明显凭据文本校验；只返回白名单字段，不写盘、不调用远端脚本。
+
+返回的 `pending-automated-evidence-check` 表示证据**尚未由独立 CI 验证**，不能因为提供了 URL 或模型声称通过就视为成功。后续自动准入必须核对真实 Job 结果、源 SHA、免费使用依据、安全边界和宿主权限；满足准入条件后可由已有 GitHub PR/中央 CI 流程自动收录与按需使用，不要求默认逐项人工确认。未通过的候选阻断，不绕过 Host 授权；本工具本身不是自动准入执行器。
+
 ## 原生规划与执行闭环
 
 Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不绑定任何特定模型，也不新建 Agent Runtime：
