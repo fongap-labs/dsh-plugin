@@ -5796,7 +5796,6 @@ window.__ModuleLoader__.load({
               value: noVal,
               onChange: (e: any) => setDraftNo(String(e?.target?.value ?? '')),
             }),
-            fSnap.proxyError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.proxyError) : null,
             el('div', { className: 'dtd-dialog-actions' },
               el('button', {
                 type: 'button',
@@ -5815,6 +5814,7 @@ window.__ModuleLoader__.load({
                   })
                 },
               }, copy.networkProxy.save))) : null,
+          fSnap.proxyError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.proxyError) : null,
           el('p', { className: 'dtd-current', role: 'status' }, `${copy.networkProxy.statusLabel}: ${effText}`),
           el('p', { className: 'dtd-current' }, copy.networkProxy.note)),
 
