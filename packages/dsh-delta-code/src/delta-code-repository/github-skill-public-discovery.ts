@@ -5,7 +5,8 @@ import type { DeltaGitHubToolSpec } from './github-operations.js'
 import { rankSkillEvidence } from './github-skill-ranking.js'
 import { skillNameFromPath, nearestSkillLicense } from '../delta-code-strategy/skill-source-path.js'
 import { createPublicSkillAuditSpecs } from './github-skill-public-audit.js'
-import { isFreeSkillLicense, decodePinnedSkillBlob, inspectFreeSkillText, freeLicenseFromText } from '../delta-code-strategy/free-skill-policy.js'
+import { isFreeSkillLicense, decodePinnedSkillBlob, inspectFreeSkillText, freeLicenseFromText, referencedLocalSkillFiles, hasUnverifiedSkillDependencies } from '../delta-code-strategy/free-skill-policy.js'
+import { resolveSkillReferences } from '../delta-code-strategy/skill-reference-policy.js'
 
 const SEARCH_PAGE = 8
 const MAX_REPOSITORIES = 3
@@ -153,10 +154,22 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
             const sourceBlob = await read(base + '/git/blobs/' + skill.sha)
             const markdown = decodePinnedSkillBlob(sourceBlob, skill.sha)
             const cost = inspectFreeSkillText(markdown, license)
+            let isBundledCandidate = false
+            if (!cost.eligible && cost.status === 'unknown' &&
+                referencedLocalSkillFiles(markdown).length > 0) {
+              try {
+                const references = resolveSkillReferences(skill.path, markdown)
+                const withoutLinkedDestinations = markdown.replace(
+                  /!?\[[^\]\r\n]{0,160}\]\([^\r\n)]{1,240}\)/g, '',
+                )
+                isBundledCandidate = references.length > 0 &&
+                  !hasUnverifiedSkillDependencies(withoutLinkedDestinations)
+              } catch { /* invalid or excessive references cannot be recommended */ }
+            }
             const skillName = skillNameFromPath(skill.path)
             const frontmatter = /^---\r?\n([\s\S]{1,4096}?)\r?\n---\r?\n/.exec(markdown)
             const declaredName = frontmatter && /^name:\s*['"]?([a-z0-9-]+)['"]?\s*$/m.exec(frontmatter[1])?.[1]
-            if (!cost.eligible || !skillName || declaredName !== skillName ||
+            if ((!cost.eligible && !isBundledCandidate) || !skillName || declaredName !== skillName ||
                 !markdown.slice(frontmatter?.[0].length ?? 0).trim()) {
               excludedByCost++
               continue
