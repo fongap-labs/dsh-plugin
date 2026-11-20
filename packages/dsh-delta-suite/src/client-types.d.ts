@@ -60,7 +60,7 @@ interface DeltaCopy {
     modeAuto: string; modePasteToPath: string; modeInstantTranscribe: string;
     engine: string; engineAuto: string; engineCustom: string; engineGemini: string;
     customEndpoint: string; customApiKey: string; customModel: string;
-    engineStatus: string; ready: string; notReady: string;
+    engineStatus: string; ready: string; notReady: string; hostUnavailable: string;
     testBtn: string; testing: string; testSuccess: string; testFailed: string;
     toastPastedPath: string; toastTranscribing: string; toastTranscribed: string; toastFailed: string;
   }
