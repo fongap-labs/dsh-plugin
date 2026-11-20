@@ -249,7 +249,11 @@ export function installHostGatewayEffortSync(
           return makeJsonResponse(200, { ok: true, status: 'review',
             previewId: id, preview: reviewed })
         } catch { return deny('discovery-unavailable', 503) }
-        finally { activeDiscoveries.delete(requestScope) }
+        finally {
+          // A late completion from a replaced service must not release the
+          // same model's discovery slot now owned by a newer generation.
+          if (serviceGeneration === generation) activeDiscoveries.delete(requestScope)
+        }
       }
       const apply = async (req: unknown): Promise<unknown> => {
         const input = await parseBody(req)
