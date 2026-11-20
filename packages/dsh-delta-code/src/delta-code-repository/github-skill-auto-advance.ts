@@ -42,10 +42,9 @@ export function assertMergedSkillProposalEvidence(
       throw Error('Skill proposal missing successful required CI gate: ' + context)
     }
   }
-  if (run.statuses.some((row: any) =>
-    !row || !['success', 'pending'].includes(row.state)) ||
-    run.checks.some((row: any) => row &&
-      ['failure', 'cancelled', 'timed_out', 'action_required'].includes(row.conclusion))) {
+  if (run.statuses.some((row: any) => !row || row.state !== 'success') ||
+    run.checks.some((row: any) => !row || row.status !== 'completed' ||
+      !['success', 'skipped', 'neutral'].includes(row.conclusion))) {
     throw Error('Skill proposal contains failed, cancelled or unconfirmed checks')
   }
 }
