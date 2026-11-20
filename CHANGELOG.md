@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 交付策略拒绝缺失完整检查与任务验收证据的伪成功结果；验证失败分类优先使用实际 Host 退出码、终止信号和输出完整性，不被自报通过状态覆盖。
+
 - 修复: Delta Code 的 Host 能力探测新增 subprocess 与工具注册状态诊断；Git/验证执行统一按退出码、终止信号、超时及输出完整性认定结果，阻止非成功或证据不足的命令被误判为通过。
 
 - 新增: Delta Code `code_capabilities(plan)` 以声明式 `requires` 计算依赖波次、就绪和阻塞状态；`uses` 继续仅作可选参考，依据原生 Host 检查点去重，不添加第二套 Agent 或运行时。
