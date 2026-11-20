@@ -15,17 +15,17 @@ const TASKS = [
   { content: 'Run tests', status: 'pending' },
 ]
 
-function hostOutput(stdout, exitCode = 0) {
+function hostOutput(stdout, exitCode = 0, stderr = '') {
   return {
     done: Promise.resolve({ exitCode, signal: null }),
     collected: {
       stdout: { readFrom: () => ({ text: stdout, lossy: false }) },
-      stderr: { readFrom: () => ({ text: '', lossy: false }) },
+      stderr: { readFrom: () => ({ text: stderr, lossy: false }) },
     },
   }
 }
 
-async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true, transientOnce = false } = {}) {
+async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true, transientOnce = false, returnedFailure } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-native-resume-'))
   const commands = []
   const agent = { session: { id: 'session-one' } }
@@ -57,6 +57,9 @@ async function fixture({ status = '## main\0', statusAfter, deny = false, drift 
       spawn(spec) {
         commands.push(spec.argv)
         if (transientOnce && commands.length === 1) throw new Error('HTTP 503 Service Unavailable')
+        if (returnedFailure && commands.length === 1) {
+          return hostOutput('', returnedFailure.exitCode, returnedFailure.stderr)
+        }
         if (deny) throw new Error('Host denied request')
         if (spec.argv[0] !== 'git') throw new Error('Unexpected command')
         if (spec.argv[1] === 'rev-parse') {
@@ -135,6 +138,32 @@ describe('Delta Code Worker native session resume', () => {
       assert.equal(result.stage, 'resume')
       assert.equal(f.commands.filter(args => args[1] === 'rev-parse').length, 3)
     } finally { await f.cleanup() }
+  })
+
+  it('retries only a known transient Host Git failure, retaining the original status', async () => {
+    const f = await fixture({ returnedFailure: { exitCode: 2, stderr: 'HTTP 429 rate limited' } })
+    try {
+      f.emit(TASKS)
+      const outcome = await f.tool.execute({ expectedHead: HEAD }, execute(f.agent))
+      assert.equal(outcome.stage, 'resume')
+      assert.equal(f.commands.filter(args => args[1] === 'rev-parse').length, 3)
+    } finally { await f.cleanup() }
+  })
+
+  it('does not retry an explicit nonretryable Host response or an unknown exit', async () => {
+    for (const returnedFailure of [
+      { exitCode: 2, stderr: 'HTTP 429 rate limited; retryable=false' },
+      { exitCode: null, stderr: 'HTTP 503 Service Unavailable' },
+      { exitCode: 2, stderr: 'HTTP 403 access denied; HTTP 503' },
+    ]) {
+      const f = await fixture({ returnedFailure })
+      try {
+        f.emit(TASKS)
+        const outcome = await f.tool.execute({ expectedHead: HEAD }, execute(f.agent))
+        assert.equal(outcome.stage, 'blocked')
+        assert.equal(f.commands.length, 1)
+      } finally { await f.cleanup() }
+    }
   })
 
   it('requires manual reconciliation without the previous Git baseline', async () => {
