@@ -11,6 +11,7 @@ import {
   RESEARCH_WORKFLOW_VERIFICATION,
 } from '../packages/dsh-delta-code/lib/delta-code-strategy/workflow-policy.js'
 import { deltaCodeStrategy } from '../packages/dsh-delta-code/lib/delta-code-strategy/index.js'
+import { observeNativeDelegation } from '../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/native-delegation.js'
 
 const exec = { signal: new AbortController().signal }
 
@@ -144,6 +145,54 @@ describe('Delta Code declarative coding workflow policy', () => {
     for (const path of ['src/a\0.ts', 'src/a\n.ts']) {
       assert.throws(() => plan([['src/ok.ts'], [path]]), /taskPaths/)
     }
+  })
+
+  it('checks native Host provider ownership before recommending parallel subagents', async () => {
+    let attach
+    let disposed = 0
+    const ctx = {
+      inject(services, listener) {
+        assert.deepEqual(services, ['subagents'])
+        attach = listener
+        return { async dispose() { disposed++ } }
+      },
+      logger: { warn() {} },
+    }
+    const native = observeNativeDelegation(ctx)
+    const parent = {}
+    const name = 'review-provider'
+    const input = {
+      taskKind: 'feature', scope: 'large', risk: 'medium',
+      independentTasks: 2, nativeSubagents: true,
+      nativeSubagentProvider: name, taskPaths: [['src/a.ts'], ['src/b.ts']],
+    }
+    const tool = createWorkflowRouteTool(DEFAULT_CODING_WORKFLOW_RULES, native.canDelegate)
+    try {
+      assert.equal((await tool.execute(input, { ...exec, agent: parent })).parallelCandidate, false)
+      const release = attach({ subagents: {
+        startActivation() {},
+        rootOf(agent) { if (agent !== parent) throw new Error('unmanaged agent'); return agent },
+        getProvider(provider) { return provider === name ? { name: provider } : undefined },
+      } })
+      assert.equal(native.canDelegate(parent, name), true)
+      assert.equal((await tool.execute(input, { ...exec, agent: parent })).parallelCandidate, true)
+      for (const request of [
+        { ...input, nativeSubagentProvider: 'unregistered' },
+        { ...input, nativeSubagents: false },
+        { ...input, nativeSubagentProvider: '' },
+        { ...input, nativeSubagentProvider: 'x'.repeat(129) },
+      ]) {
+        assert.equal((await tool.execute(request, { ...exec, agent: parent })).parallelCandidate, false)
+      }
+      assert.equal((await tool.execute(input, { ...exec, agent: {} })).parallelCandidate, false)
+      assert.equal((await createWorkflowRouteTool().execute(input, { ...exec, agent: parent })).parallelCandidate, false)
+      release()
+      assert.equal((await tool.execute(input, { ...exec, agent: parent })).parallelCandidate, false)
+    } finally { native.dispose() }
+    assert.equal(native.canDelegate(parent, name), false)
+    await Promise.resolve()
+    await Promise.resolve()
+    assert.equal(disposed, 1)
   })
 
   it('uses reviewed catalog extensions without editing the selection engine', async () => {
