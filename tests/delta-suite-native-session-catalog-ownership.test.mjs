@@ -174,6 +174,8 @@ test('Vision settings only commit an acknowledged Host revision, preserving secr
 
 test('Vision status outage clears previously confirmed green readiness', async () => {
   const f = fixture()
+  // Drain the fixture's initial automatic refresh before changing transport.
+  await f.manager.refreshState()
   f.env.fetch = async path => ({
     ok: true, status: 200, json: async () => path === '/api/delta-suite/state'
       ? { state: f.state([]) }
