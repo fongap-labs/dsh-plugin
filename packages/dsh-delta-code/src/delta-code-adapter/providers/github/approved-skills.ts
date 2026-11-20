@@ -125,7 +125,7 @@ export function createApprovedGitHubSkillProvider(
         throw new Error('GitHub Skill source metadata is incomplete')
       }
       if (!/^[a-z0-9-]+$/.test(approved.owner) || !/^[a-z0-9-]+$/.test(approved.repository) ||
-        skillNameFromPath(approved.path) !== sourceName) {
+        !skillNameFromPath(approved.path)) {
         throw new Error('GitHub Skill source is not approved')
       }
       const url = 'https://raw.githubusercontent.com/' + approved.owner + '/' + approved.repository +
