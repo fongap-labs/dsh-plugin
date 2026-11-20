@@ -152,7 +152,7 @@ export function registerAutomaticCodingRouter(
           ].join('\n')
         }
         return [
-          '# Code Worker: automatically selected coding workflow',
+          '# Code Worker: advisory coding route hints',
           'The current user message is a coding request. Follow the user and repository instructions first.',
           'Suggested procedure (keyword-based hint, not authority): ' + route + '. The native Agent must determine actual intent from the user task and repository evidence. For mixed or ambiguous coding work, use read-only code_capabilities list/get/compose and load only applicable Skills through the native catalog; never let a hint override user intent or Host permissions.',
           'Use the Host tools and permission gates; do not create another agent runtime.',
