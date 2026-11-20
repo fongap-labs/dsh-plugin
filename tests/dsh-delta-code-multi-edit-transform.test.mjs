@@ -53,6 +53,16 @@ describe('Shared multi-edit validation and first-match text transformation', () 
     }
   })
 
+  it('rejects binary-like NUL in source files and attempted text edits', () => {
+    for (const preflight of [true, false]) {
+      assert.throws(() => planTextEdit({ content: 'new\0bytes' }, preflight), /binary-like/)
+      assert.throws(() => planTextEdit({ find: 'foo\0', replace: 'bar' }, preflight), /binary-like/)
+      assert.throws(() => planTextEdit({ find: 'foo', replace: 'bar\0' }, preflight), /binary-like/)
+      const replacement = planTextEdit({ find: 'foo', replace: 'bar' }, preflight)
+      assert.throws(() => applyTextEdit('foo\0bar', replacement), /binary-like/)
+    }
+  })
+
   it('does not mutate the caller input and ignores unknown keys', () => {
     const input = Object.freeze({ find: '.', replace: '/', arbitrary: 'unused' })
     const plan = planTextEdit(input, true)
