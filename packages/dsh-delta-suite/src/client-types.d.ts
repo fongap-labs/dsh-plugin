@@ -60,7 +60,7 @@ interface DeltaCopy {
     modeAuto: string; modePasteToPath: string; modeInstantTranscribe: string;
     engine: string; engineAuto: string; engineCustom: string; engineGemini: string;
     customEndpoint: string; customApiKey: string; customModel: string;
-    engineStatus: string; ready: string; notReady: string;
+    engineStatus: string; ready: string; notReady: string; hostUnavailable: string;
     testBtn: string; testing: string; testSuccess: string; testFailed: string;
     toastPastedPath: string; toastTranscribing: string; toastTranscribed: string; toastFailed: string;
   }
@@ -70,7 +70,7 @@ interface DeltaCopy {
     httpProxyLabel: string; httpProxyPlaceholder: string;
     httpsProxyLabel: string; httpsProxyPlaceholder: string;
     noProxyLabel: string; noProxyPlaceholder: string;
-    save: string; savedToast: string; invalidUrl: string; socksUnsupported: string;
+    save: string; savedToast: string; invalidUrl: string; socksUnsupported: string; hostUnavailable: string;
     statusLabel: string; statusSystemEnv: string; statusSystemReg: string;
     statusDirect: string; statusManual: string; note: string;
   }

@@ -209,6 +209,43 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.components.size, 0, 'plugin Settings contribution is removed on disable')
 })
 
+
+test('native Settings shows localized Host-unavailable errors without committing fake settings', async () => {
+  const app = harness()
+  const section = app.components.get('settings.section')
+  const controller = section.spec.inject().controller
+  const beforeProxy = app.features.getSnapshot().proxy
+  const beforeVision = app.features.getSnapshot().vision
+  const proxyInput = { mode: 'manual', httpProxy: 'http://127.0.0.1:7890',
+    httpsProxy: '', noProxy: 'localhost' }
+  const zh = JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/zh.json'), 'utf8'))
+  const en = JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/en.json'), 'utf8'))
+  try {
+    assert.equal(await app.features.saveProxy(proxyInput), false)
+    assert.equal(await app.features.saveVision({ enabled: false }), false)
+    assert.equal(app.features.getSnapshot().proxy, beforeProxy)
+    assert.equal(app.features.getSnapshot().vision, beforeVision)
+    const tested = await app.features.testVisionEngine()
+    assert.equal(tested.ok, false)
+    assert.doesNotMatch(tested.message, /Mock.Local|succeeded/)
+    let markup = JSON.stringify(section.component({ controller }))
+    assert.ok(markup.includes(zh.networkProxy.hostUnavailable),
+      'configuration surface must show that Host proxy writes were not persisted')
+    assert.ok(markup.includes(zh.visionBridge.hostUnavailable),
+      'vision controls must show that the Host rejected saving')
+    assert.ok(markup.includes('alert'), 'failures use accessible role alerts')
+
+    app.documentElement.lang = 'en'
+    app.context.observers.forEach(notify => notify())
+    await app.features.saveProxy(proxyInput)
+    await app.features.saveVision({ enabled: false })
+    markup = JSON.stringify(section.component({ controller }))
+    assert.ok(markup.includes(en.networkProxy.hostUnavailable))
+    assert.ok(markup.includes(en.visionBridge.hostUnavailable))
+    assert.equal(app.features.getSnapshot().visionEngineReady, false)
+  } finally { app.cleanup() }
+})
+
 test('Settings identifies unsupported Host contracts without claiming native takeover', () => {
   const app = harness()
   const entry = app.components.get('settings.section')

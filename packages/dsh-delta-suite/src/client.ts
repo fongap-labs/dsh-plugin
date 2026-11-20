@@ -715,6 +715,7 @@ interface ClientFeatureSnapshot {
   effectiveProxy?: ClientEffectiveProxy
   proxyBusy: boolean
   proxyError?: string
+  visionError?: string
   activeSessionId?: string
   vision: {
     enabled: boolean
@@ -1596,6 +1597,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   const refreshState = async (): Promise<void> => {
     if (!canCallHostHttp()) {
       revokeHostConfirmation()
+      publish({ visionEngineReady: false, visionEngineAccount: null })
       return
     }
     if (refreshInFlight) return refreshInFlight
@@ -1625,14 +1627,18 @@ function createClientFeatureManager(): ClientFeatureManager {
           }
         }
         if (vsRes && vsRes.ok) {
-          const vsData = (await vsRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
+          const vsData = (await vsRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
           publish({
-            visionEngineReady: Boolean(vsData?.engineReady),
-            visionEngineAccount: vsData?.account ?? null,
+            visionEngineReady: vsData?.ok === true && vsData?.engineReady === true,
+            visionEngineAccount: vsData?.ok === true ? (vsData.account ?? null) : null,
           })
+        } else {
+          // A previously healthy vision channel is not proof of current availability.
+          publish({ visionEngineReady: false, visionEngineAccount: null })
         }
       } catch {
         revokeHostConfirmation()
+        publish({ visionEngineReady: false, visionEngineAccount: null })
       }
       finally {
         refreshInFlight = undefined
@@ -1651,29 +1657,27 @@ function createClientFeatureManager(): ClientFeatureManager {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     publish({ proxyBusy: true, proxyError: undefined })
     if (!canCallHostHttp()) {
-      publish({
-        proxy: Object.freeze({ ...next }),
-        effectiveProxy: Object.freeze({
-          mode: next.mode,
-          source: next.mode === 'manual' ? 'manual' : 'direct',
-          ...(next.httpProxy ? { httpProxy: next.httpProxy } : {}),
-          ...(next.httpsProxy ? { httpsProxy: next.httpsProxy } : {}),
-          noProxy: next.noProxy,
-        }),
-        proxyBusy: false,
-      })
-      return true
+      publish({ proxyBusy: false, proxyError: copy.networkProxy.hostUnavailable })
+      return false
     }
     const res = await postHostJson('/api/delta-suite/proxy', { ...next })
-    if (!res.ok) {
+    const proxy = res.data?.proxy
+    const effective = res.data?.effective
+    if (!res.ok || res.data?.ok !== true ||
+        !proxy || proxy.mode !== next.mode || typeof proxy.httpProxy !== 'string' ||
+        typeof proxy.httpsProxy !== 'string' || typeof proxy.noProxy !== 'string' ||
+        !effective || effective.mode !== next.mode ||
+        !['system-env', 'system-registry', 'direct', 'manual'].includes(effective.source)) {
       const reason = res.data?.reason
-      const errMsg = reason === 'socks' ? copy.networkProxy.socksUnsupported : copy.networkProxy.invalidUrl
+      const errMsg = reason === 'socks' ? copy.networkProxy.socksUnsupported
+        : res.status === 400 && res.data?.error === 'INVALID_PROXY_URL'
+          ? copy.networkProxy.invalidUrl : copy.networkProxy.hostUnavailable
       publish({ proxyBusy: false, proxyError: errMsg })
       return false
     }
     publish({
-      proxy: Object.freeze({ ...(res.data?.proxy ?? next) }),
-      ...(res.data?.effective ? { effectiveProxy: Object.freeze({ ...res.data.effective }) } : {}),
+      proxy: Object.freeze({ ...proxy }),
+      effectiveProxy: Object.freeze({ ...effective }),
       proxyBusy: false,
       proxyError: undefined,
     })
@@ -1682,43 +1686,55 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const saveVision = async (next: Partial<ClientFeatureSnapshot['vision']>): Promise<boolean> => {
+    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     if (!canCallHostHttp()) {
-      publish({
-        vision: Object.freeze({ ...state.vision, ...next }),
-      })
-      return true
+      publish({ visionError: copy.visionBridge.hostUnavailable })
+      return false
     }
     const res = await postHostJson('/api/delta-suite/vision/config', { ...next })
-    if (res.ok && res.data?.vision) {
+    const confirmed = res.data?.vision
+    if (res.ok && res.data?.ok === true &&
+        confirmed && typeof confirmed.enabled === 'boolean' &&
+        ['auto', 'paste-to-path', 'instant-transcribe'].includes(confirmed.mode) &&
+        typeof confirmed.provider === 'string' &&
+        typeof confirmed.customEndpoint === 'string' &&
+        typeof confirmed.customModel === 'string' &&
+        Object.entries(next).every(([key, value]) =>
+          key === 'customApiKey' || (confirmed as Record<string, unknown>)[key] === value)) {
       publish({
-        vision: Object.freeze({ ...state.vision, ...res.data.vision }),
+        vision: Object.freeze({ ...state.vision, ...confirmed }),
+        visionError: undefined,
       })
       void (async () => {
         try {
           const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
-          const vData = (await vRes.json().catch(() => null)) as { engineReady?: boolean; account?: any } | null
-          if (vRes.ok) {
+          const vData = (await vRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
+          if (vRes.ok && vData?.ok === true) {
             publish({
-              visionEngineReady: Boolean(vData?.engineReady),
-              visionEngineAccount: vData?.account ?? null,
+              visionEngineReady: vData.engineReady === true,
+              visionEngineAccount: vData.account ?? null,
             })
-          }
-        } catch {}
+          } else publish({ visionEngineReady: false, visionEngineAccount: null })
+        } catch {
+          publish({ visionEngineReady: false, visionEngineAccount: null })
+        }
       })()
       return true
     }
+    publish({ visionError: copy.visionBridge.hostUnavailable })
     return false
   }
 
   const testVisionEngine = async (): Promise<{ ok: boolean; message: string }> => {
     const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
     if (!canCallHostHttp()) {
-      return { ok: true, message: copy.visionBridge.testSuccess.replace('{model}', 'Omni (Mock/Local)') }
+      publish({ visionEngineReady: false, visionEngineAccount: null })
+      return { ok: false, message: copy.visionBridge.testFailed.replace('{error}', copy.visionBridge.hostUnavailable) }
     }
     try {
       const res = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
       const data = await res.json().catch(() => null)
-      if (res.ok && data?.engineReady) {
+      if (res.ok && data?.ok === true && data?.engineReady === true) {
         const modelName = data.account?.model || 'Omni'
         publish({
           visionEngineReady: true,
@@ -5690,8 +5706,9 @@ window.__ModuleLoader__.load({
       const selectProxyMode = (mode: ClientProxyMode): void => {
         setManualModeActive(mode)
         if (mode !== 'manual') {
-          void deltaFeatures.saveProxy({ mode, httpProxy: httpVal, httpsProxy: httpsVal, noProxy: noVal }).then(ok => {
-            if (ok) setManualModeActive(null)
+          void deltaFeatures.saveProxy({ mode, httpProxy: httpVal, httpsProxy: httpsVal, noProxy: noVal }).then(() => {
+            // The Host, not the uncommitted button press, owns the active mode.
+            setManualModeActive(null)
           })
         }
       }
@@ -5779,7 +5796,6 @@ window.__ModuleLoader__.load({
               value: noVal,
               onChange: (e: any) => setDraftNo(String(e?.target?.value ?? '')),
             }),
-            fSnap.proxyError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.proxyError) : null,
             el('div', { className: 'dtd-dialog-actions' },
               el('button', {
                 type: 'button',
@@ -5798,10 +5814,12 @@ window.__ModuleLoader__.load({
                   })
                 },
               }, copy.networkProxy.save))) : null,
+          fSnap.proxyError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.proxyError) : null,
           el('p', { className: 'dtd-current', role: 'status' }, `${copy.networkProxy.statusLabel}: ${effText}`),
           el('p', { className: 'dtd-current' }, copy.networkProxy.note)),
 
         el('div', { className: 'dtd-form-stack', 'data-delta-vision-card': '' },
+          fSnap.visionError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.visionError) : null,
           el('div', { className: 'dtd-preference-row', style: { padding: 0, border: 'none', background: 'transparent' } },
             el('div', { className: 'dtd-preference-copy' },
               el('strong', null, copy.visionBridge.title),
