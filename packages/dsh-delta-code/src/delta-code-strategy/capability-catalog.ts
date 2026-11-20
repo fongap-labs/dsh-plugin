@@ -113,7 +113,7 @@ export function validateCodingCapabilities(
       throw new Error('incomplete capability: ' + item.id)
     }
     if (new Set(item.skills).size !== item.skills.length ||
-      item.skills.some(skill => !knownSkills.has(skill))) {
+      item.skills.some((skill: string) => !knownSkills.has(skill))) {
       throw new Error('unknown or duplicate capability Skill: ' + item.id)
     }
     if (new Set(item.uses).size !== item.uses.length) {
