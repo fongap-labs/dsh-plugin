@@ -237,6 +237,8 @@ test('native Settings shows localized Host-unavailable errors without committing
 
     app.documentElement.lang = 'en'
     app.context.observers.forEach(notify => notify())
+    await app.features.saveProxy(proxyInput)
+    await app.features.saveVision({ enabled: false })
     markup = JSON.stringify(section.component({ controller }))
     assert.ok(markup.includes(en.networkProxy.hostUnavailable))
     assert.ok(markup.includes(en.visionBridge.hostUnavailable))
