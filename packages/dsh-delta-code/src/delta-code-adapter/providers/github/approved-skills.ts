@@ -1,6 +1,6 @@
 /** Public GitHub Skill bytes are read-only and pinned to a reviewed commit and Git blob. */
 import { createHash } from 'node:crypto'
-import { isFreeSkillLicense, inspectFreeSkillText, paidSkillRequirement } from '../../../delta-code-strategy/free-skill-policy.js'
+import { isFreeSkillLicense, inspectFreeSkillText, paidSkillRequirement, hasUnlinkedSkillDependencies } from '../../../delta-code-strategy/free-skill-policy.js'
 import { resolveSkillReferences } from '../../../delta-code-strategy/skill-reference-policy.js'
 import { skillNameFromPath } from '../../../delta-code-strategy/skill-source-path.js'
 import {
@@ -163,7 +163,7 @@ export function createApprovedGitHubSkillProvider(
         if (declared.length !== references.length || references.length > 4 ||
             declared.some((ref, i) => ref.path !== references[i]?.path ||
               !/^[a-f0-9]{40}$/.test(references[i]?.blobSha ?? '')) ||
-            paidSkillRequirement(markdown)) {
+            paidSkillRequirement(markdown) || hasUnlinkedSkillDependencies(markdown)) {
           throw new Error('Reviewed Skill reference manifest is incomplete or changed')
         }
         let total = Buffer.byteLength(markdown, 'utf8')
