@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 维护: 标明 Delta Code 语义能力目录的 Action Worker 中央验收位置及源回归双跑边界，防止把测试文件存在误认为真实 CI 通过。
+- 修复: 标明 Delta Code 语义能力目录的 Action Worker 中央验收位置及源回归双跑边界，防止把测试文件存在误认为真实 CI 通过。
 
 - 新增: Gateway Effort 预览绑定原生 Session 模型与等级，拒绝过期或正在切换的会话选择（#280）。
 
