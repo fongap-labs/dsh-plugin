@@ -13,6 +13,7 @@ import { installHostVisionOps } from './host-vision.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
 import { registerPrivacyBridge, type DeltaPrivacyConfig } from './privacy-bridge.js'
+import { installHostGatewayEffortSync } from './host-gateway-effort.js'
 import { DeltaFeatureRegistry } from './delta-suite-kernel/feature-lifecycle-registry.js'
 
 export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): () => void {
