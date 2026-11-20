@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 文档: 标明 Delta Code 语义能力目录的 Action Worker 中央验收位置及源回归双跑边界，防止把测试文件存在误认为真实 CI 通过。
+
 - 新增: Gateway Effort 预览绑定原生 Session 模型与等级，拒绝过期或正在切换的会话选择（#280）。
 
 - 新增: Delta Code 增加 Host 原生 Agent 可按语义选择的声明式能力目录 `code_capabilities`，校验能力引用/循环与受审核 Skill 名称；自动关键词路由降为兼容提示，不增加第二套 Agent 或权限入口。
