@@ -13,7 +13,7 @@ export type GatewayReasoningProtocol = 'openai' | 'anthropic'
 
 export type GatewayReasoningCapability = Readonly<{
   modelId: string
-  /** Native provider reasoningEfforts keys/values; off is never an empty omission. */
+  /** Gateway wire-level intents, NOT a guarantee of the native Host adapter's Off serialization. */
   reasoningEfforts: Readonly<Partial<Record<GatewayEffort, string>>>
   /** Gateway may best-effort adapt across heterogeneous physical nodes. */
   defaultPolicy: 'high-best-effort' | 'unspecified'
@@ -37,6 +37,12 @@ function decodeModel(value: unknown): GatewayReasoningCapability | undefined {
   const rawMap = isObject(value.reasoningEfforts) ? value.reasoningEfforts : null
   const rawArray = Array.isArray(value.reasoning_efforts) ? value.reasoning_efforts : null
   if (!bestEffort && !rawMap && !rawArray) return undefined
+  if (value.supports_reasoning === false) return undefined
+  // Never accept a contradictory or invalid Off declaration, even if policy
+  // would otherwise synthesize an Off intent and silently hide the bad data.
+  const hasOff = rawMap !== null && Object.prototype.hasOwnProperty.call(rawMap, 'off')
+  if (hasOff && (!validWire(rawMap!.off) ||
+      (bestEffort && rawMap!.off !== 'none' && rawMap!.off !== 'off'))) return undefined
 
   const map: Partial<Record<GatewayEffort, string>> = {}
   for (const level of LEVELS) {
@@ -55,11 +61,8 @@ function decodeModel(value: unknown): GatewayReasoningCapability | undefined {
   // A best-effort policy is an explicit Gateway guarantee of the request
   // intent, not a guarantee that every physical node can honor it.
   // Explicit Off must not collapse to Default's omitted parameter.
-  if (bestEffort) map.off = 'none'
-  else if (rawMap && Object.prototype.hasOwnProperty.call(rawMap, 'off')) {
-    if (!validWire(rawMap.off)) return undefined
-    map.off = rawMap.off
-  }
+  if (bestEffort) map.off = hasOff ? rawMap!.off as string : 'none'
+  else if (hasOff) map.off = rawMap!.off as string
   // Don't publish a phantom Effort menu when only the policy is present.
   if (!LEVELS.some(level => map[level] !== undefined)) return undefined
   return Object.freeze({
@@ -95,13 +98,25 @@ export function decodeGatewayReasoningCatalog(value: unknown): readonly GatewayR
 }
 
 /**
- * A proposed value for a Harness custom model's official reasoningEfforts
- * configuration. Never mutate the Host form automatically.
+ * Only the levels which the CURRENT official Harness llm-pi-ai adapter can
+ * serialize correctly for a Gateway model. Its `off` selection is translated
+ * to an omitted reasoning option (see llm-pi-ai/src/adapter.ts profileOptions),
+ * which is indistinguishable from Gateway Default and may trigger soft High.
+ * Therefore never advertise Off to the native picker using this adapter.
+ * A future, versioned Host seam must prove explicit Off wire serialization
+ * before native Off can be enabled. The pure gateway request intent mapper
+ * below still preserves explicit Off correctly for a capable adapter.
+ * This helper never mutates the Host configuration.
  */
 export function toHarnessReasoningEfforts(
   model: GatewayReasoningCapability,
-): Readonly<Partial<Record<GatewayEffort, string>>> {
-  return Object.freeze({ ...model.reasoningEfforts })
+): Readonly<Partial<Record<Exclude<GatewayEffort, 'off'>, string>>> {
+  const safe: Partial<Record<Exclude<GatewayEffort, 'off'>, string>> = {}
+  for (const level of LEVELS) {
+    const wire = model.reasoningEfforts[level]
+    if (wire !== undefined) safe[level] = wire
+  }
+  return Object.freeze(safe)
 }
 
 /**
@@ -114,6 +129,8 @@ export function mapGatewayReasoningChoice(
   choice: GatewayReasoningChoice,
   protocol: GatewayReasoningProtocol,
 ): Readonly<Record<string, unknown>> | undefined {
+  // Unknown runtimes must not silently be treated as OpenAI-compatible.
+  if (protocol !== 'openai' && protocol !== 'anthropic') return undefined
   if (choice === 'default') return Object.freeze({})
   const selected = model.reasoningEfforts[choice]
   if (!selected || !validWire(selected)) return undefined
