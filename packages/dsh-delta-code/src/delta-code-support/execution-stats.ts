@@ -6,7 +6,7 @@ import { createHmac, randomBytes } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
-import { classifyFailure, type FailureKind } from '../delta-code-quality/failure-policy.js'
+import { classifyFailure, verificationEvidenceStatus, type FailureKind } from '../delta-code-quality/failure-policy.js'
 
 const MAX_SIGNATURES = 64
 const MAX_FINGERPRINT_BYTES = 16 * 1024
@@ -27,6 +27,7 @@ interface SessionCounters {
   failedOutcomes: number
   verificationPassed: number
   verificationFailed: number
+  verificationUnconfirmed: number
   focusedPassed: number
   deliveryVerified: number
   deliveryBlocked: number
@@ -40,6 +41,7 @@ function emptyCounters(): SessionCounters {
   return {
     calls: 0, duplicateCalls: 0, repeatedFailedCalls: 0, errors: 0,
     failedOutcomes: 0, verificationPassed: 0, verificationFailed: 0,
+    verificationUnconfirmed: 0,
     focusedPassed: 0, deliveryVerified: 0, deliveryBlocked: 0,
     totalDurationMs: 0,
     failureKinds: { permission: 0, environment: 0, transient: 0,
@@ -118,14 +120,17 @@ export class ExecutionStats {
       if (value && typeof value === 'object') {
         const result = value as { passed?: unknown; stage?: unknown; scope?: unknown }
         if (name === 'code_verify' || name === 'code_verify_suite') {
-          if (result.passed === true) {
+          const status = verificationEvidenceStatus(name, value)
+          if (status === 'passed') {
             counters.verificationPassed++
             if (result.scope === 'focused') counters.focusedPassed++
-          } else if (result.passed === false) counters.verificationFailed++
+          } else if (status === 'failed') counters.verificationFailed++
+          else counters.verificationUnconfirmed++
         }
         if (name === 'code_delivery_gate') {
-          if (result.stage === 'verified') counters.deliveryVerified++
-          else if (result.stage === 'blocked') counters.deliveryBlocked++
+          if (result.stage === 'verified' && (result as { ready?: unknown }).ready === true) {
+            counters.deliveryVerified++
+          } else if (result.stage === 'blocked') counters.deliveryBlocked++
         }
       }
       return value
@@ -170,6 +175,7 @@ export class ExecutionStats {
       failedOutcomes: state.failedOutcomes,
       verificationPassed: state.verificationPassed,
       verificationFailed: state.verificationFailed,
+      verificationUnconfirmed: state.verificationUnconfirmed,
       focusedPassed: state.focusedPassed,
       deliveryVerified: state.deliveryVerified,
       deliveryBlocked: state.deliveryBlocked,
@@ -201,6 +207,7 @@ export function createExecutionStatsTool(stats: ExecutionStats): ToolDefinition 
         failedOutcomes: { type: 'integer', required: true },
         verificationPassed: { type: 'integer', required: true },
         verificationFailed: { type: 'integer', required: true },
+        verificationUnconfirmed: { type: 'integer', required: true },
         focusedPassed: { type: 'integer', required: true },
         deliveryVerified: { type: 'integer', required: true },
         deliveryBlocked: { type: 'integer', required: true },
@@ -222,8 +229,8 @@ export function createExecutionStatsTool(stats: ExecutionStats): ToolDefinition 
           'Calls: ' + value.calls + ', repeated signatures: ' + value.duplicateCalls +
             ', repeated after failure: ' + value.repeatedFailedCalls,
           'Thrown errors: ' + value.errors + ', failed results: ' + value.failedOutcomes,
-          'Verification pass/fail: ' + value.verificationPassed + '/' + value.verificationFailed +
-            ' (focused passes: ' + value.focusedPassed + ')',
+          'Verification pass/fail/unconfirmed: ' + value.verificationPassed + '/' + value.verificationFailed +
+            '/' + value.verificationUnconfirmed + ' (focused passes: ' + value.focusedPassed + ')',
           'Delivery gate verified/blocked: ' + value.deliveryVerified + '/' + value.deliveryBlocked,
           'Recorded tool duration (ms): ' + value.totalDurationMs,
           'Scope excludes DSH native tools and internal retry attempts; duplicates may be intentional.',
