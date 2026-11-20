@@ -79,7 +79,7 @@ async function hostGit(ctx: Context, settings: Settings, cwd: string,
         classifyFailure(output.stderr) === 'transient'
       // Preserve the upstream explicit no-retry decision without including raw
       // stderr, which could contain Host paths or secrets.
-      const nonRetryable = /(?:(?:["']?retryable["']?\\s*[:=]\\s*false)\\b|\\bnon[- ]retryable\\b)/i.test(output.stderr)
+      const nonRetryable = /(?:["']?retryable["']?\s*[:=]\s*false\b|\bnon[- ]retryable\b)/i.test(output.stderr)
       throw new Error(transient
         ? 'Host Git temporarily unavailable' + (nonRetryable ? '; retryable=false' : '')
         : 'DSH Host Git inspection failed or returned incomplete data')
