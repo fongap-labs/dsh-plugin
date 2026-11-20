@@ -9,7 +9,8 @@ export function inspectHostCapabilities(ctx: Context) {
   const workspaceProbe = probeDshService(() => lookupDshWorkingDirectory(ctx))
   const fs = fsProbe.value
   const workingDirectory = workspaceProbe.value
-  const subprocessProbe = probeDshService(() => ctx.subprocess)
+  const host = ctx as Context & { subprocess?: unknown }
+  const subprocessProbe = probeDshService(() => host.subprocess)
   const toolsProbe = probeDshService(() => ctx.tools)
   const has = (value: unknown, method: string): boolean => {
     try {
