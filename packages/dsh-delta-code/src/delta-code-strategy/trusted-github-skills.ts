@@ -14,6 +14,8 @@ export interface ApprovedGitHubSkill {
   /** Git's SHA-1 of the exact "blob <byte-length>\0<content>" object. */
   readonly blobSha: string
   readonly keywords: readonly string[]
+  /** Declarative context guard; never a hard-coded name-specific routing rule. */
+  readonly requiresAnyOf?: readonly string[]
 }
 
 /** Explicit user refusal of external Skill use; not a generic coding-mode opt-out. */
@@ -50,7 +52,8 @@ export const APPROVED_GITHUB_SKILLS: readonly ApprovedGitHubSkill[] = [
     path: 'skills/composition-patterns/SKILL.md',
     license: 'MIT',
     blobSha: 'd07025bf943345bc1cf15eb923594f889ff881f0',
-    keywords: ['compound component', 'composition pattern', 'render props', 'react context', '组件组合', '复合组件', '组件架构'],
+    keywords: ['compound component', 'compound components', 'composition pattern', 'render props', 'react context', '组件组合', '复合组件', '组件架构'],
+    requiresAnyOf: ['react', 'next.js', 'nextjs', 'next js', '组件组合', '复合组件'],
   },
   {
     name: 'anthropic-frontend-design',
@@ -112,17 +115,26 @@ export function getActiveApprovedGitHubSkills(
   return catalog.filter(skill => !isRevokedGitHubSkillRevision(skill, revocations))
 }
 
-/** Suggest at most two specialist skills, never based on untrusted tool output. */
+/** Match phrases without accidentally matching "react" inside "reaction". */
+function matchesTaskKeyword(input: string, keyword: string): boolean {
+  const term = keyword.normalize('NFKC').toLowerCase().trim()
+  if (!term || term.length > 64) return false
+  if (/[\u3400-\u9fff]/u.test(term)) return input.includes(term)
+  const escaped = term.replace(/[^a-z0-9 ]/g, '\\$&')
+  return new RegExp('(?:^|[^\\p{L}\\p{N}_])' + escaped +
+    '(?=$|[^\\p{L}\\p{N}_])', 'u').test(input)
+}
+
+/** Suggest at most two reviewed specialist skills without trusting tool output. */
 export function matchApprovedGitHubSkills(
   task: string,
   catalog: readonly ApprovedGitHubSkill[] = APPROVED_GITHUB_SKILLS,
   revocations: readonly RevokedGitHubSkillRevision[] = REVOKED_GITHUB_SKILL_REVISIONS,
 ): string[] {
-  const input = task.toLowerCase().slice(-2048)
+  const input = task.normalize('NFKC').toLowerCase().slice(-2048)
   if (!input.trim() || isExternalSkillOptOut(input)) return []
-  const hasReactContext = /react|next[.\s-]?js|nextjs|\u7ec4\u4ef6\u7ec4\u5408|\u590d\u5408\u7ec4\u4ef6/.test(input)
   const matches = getActiveApprovedGitHubSkills(catalog, revocations).filter(entry =>
-    entry.keywords.some(keyword => input.includes(keyword.toLowerCase())) &&
-    (entry.name !== 'vercel-composition-patterns' || hasReactContext))
+    entry.keywords.some(keyword => matchesTaskKeyword(input, keyword)) &&
+    (!entry.requiresAnyOf || entry.requiresAnyOf.some(keyword => matchesTaskKeyword(input, keyword))))
   return matches.slice(0, 2).map(entry => entry.name)
 }

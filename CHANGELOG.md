@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 的可信 Skill 匹配采用明确的单词边界与声明式上下文条件，防止 react/reaction 等子串误匹配；不再通过写死具体 Skill 名称分流，中文关键词仍正常识别。
+
 - 修复: Delta Code 并行任务路由在采用原生子代理前，通过 Harness 公开 subagents 服务验证准确的当前 Agent、已注册 Provider 与实际可用接口；模型自行声明 nativeSubagents=true 不再视为权限或能力证据，无法确认时保持串行执行。
 
 - 修复: Delta Code 原生 Todo 恢复投影拒绝重复、倒退或非法事件序列号，失序时将检查点标为无效而不采用过期的完成状态，仅在后续有效新事件到达后恢复。

@@ -12,6 +12,15 @@ describe('Delta Code approved GitHub Skills', () => {
       'vercel-react-best-practices', 'vercel-composition-patterns',
     ])
     assert.deepEqual(matchApprovedGitHubSkills('Fix a Rust build'), [])
+    assert.deepEqual(matchApprovedGitHubSkills('Investigate a reaction to the update'), [])
+    assert.deepEqual(matchApprovedGitHubSkills('Fix a reactive socket'), [])
+    assert.deepEqual(matchApprovedGitHubSkills('Implement React-native components'), ['vercel-react-best-practices'])
+    assert.deepEqual(matchApprovedGitHubSkills('请修复 React组件 布局'), ['vercel-react-best-practices'])
+    const custom = [
+      { ...APPROVED_GITHUB_SKILLS[0], name: 'custom-specialist', keywords: ['build'], requiresAnyOf: ['typescript'] },
+    ]
+    assert.deepEqual(matchApprovedGitHubSkills('Build with no TypeScript', custom), ['custom-specialist'])
+    assert.deepEqual(matchApprovedGitHubSkills('Build a Rust app', custom), [])
     assert.equal(isExternalSkillOptOut('Do not use GitHub Skills for React code'), true)
     assert.equal(isExternalSkillOptOut('Fix React without GitHub Skills'), true)
     assert.equal(isExternalSkillOptOut('不要使用 GitHub Skill，修复 React bug'), true)
