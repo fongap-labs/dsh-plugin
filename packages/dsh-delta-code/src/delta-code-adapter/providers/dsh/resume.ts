@@ -55,12 +55,12 @@ export function registerNativeResume(ctx: Context): NativeResumeReader {
     if (typeof registry?.register !== 'function') return
     const epoch = ++registrationEpoch
     clearHandle()
-    let scopeActive = true
+    let isScopeActive = true
     try {
       // The Host's registration is awaitable and may complete after a service
       // withdrawal. Only the currently mounted epoch may publish a reader.
       void Promise.resolve(registry.register(definition)).then(registered => {
-        if (!isActive || !scopeActive || epoch !== registrationEpoch) {
+        if (!isActive || !isScopeActive || epoch !== registrationEpoch) {
           disposeHandle(registered)
           return
         }
@@ -72,7 +72,7 @@ export function registerNativeResume(ctx: Context): NativeResumeReader {
       ctx.logger?.warn?.('dsh-delta-code: native resume projection registration failed')
     }
     return () => {
-      scopeActive = false
+      isScopeActive = false
       if (epoch !== registrationEpoch) return
       registrationEpoch++
       clearHandle()
