@@ -74,6 +74,12 @@ export function planDeclaredCapabilities(
   }
   const proven = new Set(completed)
   const busy = new Set(active)
+  // A claimed finished or running task cannot skip unverified required predecessors.
+  for (const id of [...completed, ...active]) {
+    if ((byId.get(id)!.requires ?? []).some((dep: string) => !proven.has(dep))) {
+      throw Error('Host checkpoint lacks completed required prerequisites: ' + id)
+    }
+  }
   const remaining = new Set([...closure].filter(id => !proven.has(id) && !busy.has(id)))
   const ready = [...remaining].filter(id =>
     (byId.get(id)!.requires ?? []).every((dep: string) => proven.has(dep)))
