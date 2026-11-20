@@ -43,14 +43,14 @@ function example(body = source) {
 }
 const MINI = '# Reference guide\nUse only built-in file navigation.'
 const BUNDLED = markdown('# Guidance\nRead [mini](guide.mini.md) before continuing.')
-function bundledExample() {
+function bundledExample(body = BUNDLED, mini = MINI) {
   const ref = {
-    path: 'skills/safe-guide/guide.mini.md', blobSha: blobSha(MINI),
+    path: 'skills/safe-guide/guide.mini.md', blobSha: blobSha(mini),
   }
   const proposal = makePendingSkillProposal({
     candidate: {
       repository: 'safe/skills', path: 'skills/safe-guide/SKILL.md',
-      commit: COMMIT, sourceBlobSha: blobSha(BUNDLED), licenseBlobSha: blobSha(LICENSE),
+      commit: COMMIT, sourceBlobSha: blobSha(body), licenseBlobSha: blobSha(LICENSE),
     },
     license: 'MIT', reviewStatus: 'pending-reference-bundle-review',
     freeEligibility: { status: 'unknown', eligible: false },
@@ -63,8 +63,8 @@ function bundledExample() {
   return {
     schemaVersion: 2, proposal,
     evidence: {
-      skillMarkdown: BUNDLED, licenseText: LICENSE,
-      references: [{ ...ref, markdown: MINI }],
+      skillMarkdown: body, licenseText: LICENSE,
+      references: [{ ...ref, markdown: mini }],
     },
     permissions: {
       scope: 'documentation-only', runCommands: false, externalNetwork: false,
@@ -173,6 +173,49 @@ describe('Delta Code reviewed Skill catalog CI gate', () => {
         references: [{ ...admission.evidence.references[0], path: 'skills/other/guide.mini.md' }] } },
       { ...admission, permissions: { ...admission.permissions, runCommands: true } },
     ]) assert.throws(() => validateReviewedSkillAdmission(bad))
+  })
+
+  it('rejects undeclared secondary files even when the v2 main blob SHA is pinned', () => {
+    const bodies = [
+      markdown('# Guide\nRead [mini](guide.mini.md) and read extra.md before work.'),
+      markdown('# Guide\nRead [mini](guide.mini.md) then run ./scripts/setup.sh.'),
+      markdown('# Guide\nRead [mini](guide.mini.md) and follow references/setup.txt.'),
+      markdown('# Guide\nRead [mini](guide.mini.md) and consult ../private.md.'),
+    ]
+    for (const body of bodies) {
+      const input = bundledExample(body)
+      assert.throws(() => validateReviewedSkillAdmission(input),
+        /self-contained, low-risk, free/, body)
+    }
+    const nested = bundledExample(BUNDLED, MINI + '\nRead extra.md before work.')
+    assert.throws(() => validateReviewedSkillAdmission(nested),
+      /Reviewed secondary Skill content, license or immutable hash mismatch/)
+  })
+
+  it('rejects v2 bundles larger than the native 96 KiB combined context cap', () => {
+    const main = markdown('# Guide\n' + 'a'.repeat(40 * 1024) +
+      '\n[one](one.md) [two](two.md)')
+    const refs = [
+      { path: 'skills/safe-guide/one.md', markdown: 'b'.repeat(31 * 1024) },
+      { path: 'skills/safe-guide/two.md', markdown: 'c'.repeat(31 * 1024) },
+    ].map(ref => ({ ...ref, blobSha: blobSha(ref.markdown) }))
+    const proposal = makePendingSkillProposal({
+      candidate: {
+        repository: 'safe/skills', path: 'skills/safe-guide/SKILL.md',
+        commit: COMMIT, sourceBlobSha: blobSha(main), licenseBlobSha: blobSha(LICENSE),
+      }, license: 'MIT', reviewStatus: 'pending-reference-bundle-review',
+      freeEligibility: { status: 'unknown', eligible: false },
+      referenceEvidence: refs.map(ref => ({
+        path: ref.path, blobSha: ref.blobSha,
+        hasPaidRequirement: false, hasUnreviewedDependencies: false, riskIndicators: [],
+      })), bundleApprovalRequired: true,
+      riskIndicators: [], approvalRequired: true, autoEnabled: false, executable: false,
+    })
+    const admission = {
+      schemaVersion: 2, proposal, permissions: bundledExample().permissions,
+      evidence: { skillMarkdown: main, licenseText: LICENSE, references: refs },
+    }
+    assert.throws(() => validateReviewedSkillAdmission(admission), /native context size budget/)
   })
 
   it('refuses incomplete, unsafe or paid v2 reference proposal evidence', () => {

@@ -5,7 +5,7 @@ import { SKILL_SOURCE_PATH, skillNameFromPath, nearestSkillLicense } from '../de
 import { resolveSkillReferences } from '../delta-code-strategy/skill-reference-policy.js'
 import {
   decodePinnedSkillBlob, freeLicenseFromText, inspectFreeSkillText,
-  paidSkillRequirement, hasUnverifiedSkillDependencies,
+  paidSkillRequirement, hasUnverifiedSkillDependencies, hasUnlinkedSkillDependencies,
 } from '../delta-code-strategy/free-skill-policy.js'
 
 const SHA = /^[a-f0-9]{40}$/
@@ -119,11 +119,14 @@ export function createPublicSkillAuditSpecs(transport: DeltaGitHubTransport): De
           path: reference.path, blobSha: row.sha,
           byteLength: Buffer.byteLength(content, 'utf8'),
           riskIndicators: skillStaticRiskIndicators(content),
-          hasUnreviewedDependencies: hasUnverifiedSkillDependencies(content),
+          hasUnreviewedDependencies: hasUnverifiedSkillDependencies(content) ||
+            hasUnlinkedSkillDependencies(content),
           hasPaidRequirement: paidSkillRequirement(content) !== null,
         })
       }
-      const reviewStatus = references.length > 0 ? 'pending-reference-bundle-review' :
+      const reviewStatus = references.length > 0 && hasUnlinkedSkillDependencies(markdown)
+        ? 'excluded-paid-or-unknown' :
+        references.length > 0 ? 'pending-reference-bundle-review' :
         !cost.eligible ? 'excluded-paid-or-unknown' :
         riskIndicators.length ? 'manual-security-review-required' : 'static-review-ready'
       return {

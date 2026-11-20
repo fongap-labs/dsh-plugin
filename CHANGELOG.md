@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 多文件 Skill 的不可变审核、中央 CI 准入和运行时加载统一拒绝未显式审查的附属文档与脚本依赖，并对齐 96 KiB 整包上限，避免虚假准入和无法加载。
+
 - 新增: Delta Code 将无脚本、免费、低风险的 Markdown Skill 附属文件纳入不可变整包审查；通过两阶段 PR 和中央 CI 认证后，将引用哈希写入可信目录，原生 Skill Provider 按需加载时重新核对各文件 Blob SHA，保持取消与权限边界。
 
 - 新增: Delta Code 对同一 Git 提交下最多四个 Markdown Skill 附属文档进行不可变 Blob 与继承许可证检查，输出受限静态证据供后续 CI Bundle 审核；未审查多文件引用继续禁止自动启用，并拒绝脚本、路径穿越和未知依赖。

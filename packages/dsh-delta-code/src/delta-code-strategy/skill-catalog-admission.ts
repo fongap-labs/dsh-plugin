@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto'
 import {
   freeLicenseFromText, inspectFreeSkillText, paidSkillRequirement,
-  hasUnverifiedSkillDependencies,
+  hasUnverifiedSkillDependencies, hasUnlinkedSkillDependencies,
 } from './free-skill-policy.js'
 import {
   validatePendingSkillProposal,
@@ -179,7 +179,8 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
   const cost = inspectFreeSkillText(e.skillMarkdown, source.license)
   const isBundle = value.schemaVersion === 2
   if ((!isBundle && !cost.eligible) ||
-      (isBundle && paidSkillRequirement(e.skillMarkdown) !== null) ||
+      (isBundle && (paidSkillRequirement(e.skillMarkdown) !== null ||
+        hasUnlinkedSkillDependencies(e.skillMarkdown))) ||
       skillStaticRiskIndicators(e.skillMarkdown).length > 0 ||
       /(?:\]\(https?:\/\/|\b(?:sudo|rm\s+-rf|git\s+push|powershell|sh\s+-c)\b)/i.test(e.skillMarkdown) ||
       (!isBundle && /\.{1,2}\//.test(e.skillMarkdown))) {
@@ -196,6 +197,9 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
     if (declared.length !== e.references.length) {
       throw Error('Reviewed bundle source reference count differs')
     }
+    // Runtime only accepts 96 KiB in total. Admission must not mint a
+    // trusted catalog entry that the native provider can never load.
+    let bundleBytes = Buffer.byteLength(e.skillMarkdown, 'utf8')
     for (let index = 0; index < declared.length; index++) {
       const ref = e.references[index]!
       const pinned = source.references[index]!
@@ -207,9 +211,14 @@ export function validateReviewedSkillAdmission(value: unknown): ReviewedSkillAdm
           !ref.markdown.trim() || blobSha(ref.markdown) !== pinned.blobSha ||
           paidSkillRequirement(ref.markdown) !== null ||
           hasUnverifiedSkillDependencies(ref.markdown) ||
+          hasUnlinkedSkillDependencies(ref.markdown) ||
           skillStaticRiskIndicators(ref.markdown).length > 0 ||
           /\b(?:sudo|rm\s+-rf|git\s+push|powershell|sh\s+-c)\b/i.test(ref.markdown)) {
         throw Error('Reviewed secondary Skill content, license or immutable hash mismatch')
+      }
+      bundleBytes += Buffer.byteLength(ref.markdown, 'utf8')
+      if (bundleBytes > 96 * 1024) {
+        throw Error('Reviewed Skill bundle exceeds native context size budget')
       }
     }
   } else if (proposal.schemaVersion !== 1) {

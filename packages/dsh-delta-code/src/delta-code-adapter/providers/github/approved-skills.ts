@@ -1,6 +1,6 @@
 /** Public GitHub Skill bytes are read-only and pinned to a reviewed commit and Git blob. */
 import { createHash } from 'node:crypto'
-import { isFreeSkillLicense, inspectFreeSkillText, paidSkillRequirement } from '../../../delta-code-strategy/free-skill-policy.js'
+import { isFreeSkillLicense, inspectFreeSkillText, paidSkillRequirement, hasUnlinkedSkillDependencies } from '../../../delta-code-strategy/free-skill-policy.js'
 import { resolveSkillReferences } from '../../../delta-code-strategy/skill-reference-policy.js'
 import { skillNameFromPath } from '../../../delta-code-strategy/skill-source-path.js'
 import {
@@ -163,7 +163,7 @@ export function createApprovedGitHubSkillProvider(
         if (declared.length !== references.length || references.length > 4 ||
             declared.some((ref, i) => ref.path !== references[i]?.path ||
               !/^[a-f0-9]{40}$/.test(references[i]?.blobSha ?? '')) ||
-            paidSkillRequirement(markdown)) {
+            paidSkillRequirement(markdown) || hasUnlinkedSkillDependencies(markdown)) {
           throw new Error('Reviewed Skill reference manifest is incomplete or changed')
         }
         let total = Buffer.byteLength(markdown, 'utf8')
@@ -172,7 +172,7 @@ export function createApprovedGitHubSkillProvider(
           total += Buffer.byteLength(text, 'utf8')
           if (total > MAX_BUNDLE_BYTES) throw new Error('Reviewed Skill bundle exceeds bounded context budget')
           const referenceCost = inspectFreeSkillText(text, approved.license)
-          if (!referenceCost.eligible) {
+          if (!referenceCost.eligible || hasUnlinkedSkillDependencies(text)) {
             throw new Error('GitHub Skill reference excluded by free-only policy: ' + referenceCost.reason)
           }
           supplementary.push('### ' + ref.path + '\n\n' + text)

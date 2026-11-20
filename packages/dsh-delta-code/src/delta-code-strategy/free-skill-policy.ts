@@ -74,6 +74,25 @@ export function hasUnverifiedSkillDependencies(markdown: string): boolean {
     /(?:^|\s)(?:\.\.?\/)?(?:references|scripts|assets)\//im.test(markdown)
 }
 
+/**
+ * A bundle may explicitly review Markdown links, but such links cannot hide
+ * additional bare relative paths or script/asset dependencies in its body.
+ * Only the approved links are masked; remaining references fail closed.
+ * This applies equally at public audit, CI admission and native Host loading.
+ */
+export function hasUnlinkedSkillDependencies(markdown: string): boolean {
+  const withoutLinks = markdown.replace(
+    /!?\[[^\]\r\n]{0,160}\]\(\s*<?([^\s)>]+)>?(?:\s+["'][^"'\r\n]{0,120}["'])?\s*\)/g,
+    '',
+  )
+  // File names next to retrieval instructions are also dependencies, even
+  // when the author omitted Markdown link syntax.
+  const unlinkedDocument = /(?:\b(?:read|open|see|load|consult|follow|include)\s+|(?:\u9605\u8bfb|\u67e5\u770b|\u52a0\u8f7d|\u53c2\u7167|\u53c2\u8003)\s*)(?:["'`]?)(?:\.{1,2}\/)?(?:[A-Za-z0-9._-]+\/)*[A-Za-z0-9._-]+\.(?:md|txt)\b/iu
+  return hasUnverifiedSkillDependencies(withoutLinks) ||
+    /(?:^|[\s("'])\.{1,2}\//im.test(withoutLinks) ||
+    unlinkedDocument.test(withoutLinks)
+}
+
 /** Structural verification for a pinned GitHub blob; never run the Markdown as commands. */
 export function decodePinnedSkillBlob(data: unknown, expectedSha: string, maximum = 64 * 1024): string {
   const value = data as { encoding?: unknown; content?: unknown; size?: unknown; sha?: unknown }
