@@ -9,6 +9,7 @@ import { createGitHubSkillDiscoverySpecs } from './github-skill-discovery.js'
 import { createSkillAdmissionProposalSpecs } from './github-skill-admission-proposal.js'
 import { createSkillCatalogPromotionSpecs } from './github-skill-catalog-promotion.js'
 import { createAutoSkillStageSpecs } from './github-skill-auto-stage.js'
+import { createAutoSkillAdvanceSpecs } from './github-skill-auto-advance.js'
 
 export interface DeltaGitHubExecution {
   readonly signal: AbortSignal
@@ -347,6 +348,7 @@ export function createGitHubToolSpecs(
     ...createSkillAdmissionProposalSpecs(transport, writeActions, () => settings.githubAllowWrites),
     ...createSkillCatalogPromotionSpecs(transport, writeActions, () => settings.githubAllowWrites),
     ...createAutoSkillStageSpecs(transport, writeActions, () => settings.githubAllowWrites),
+    ...createAutoSkillAdvanceSpecs(settings, transport, writeActions, byName('code_github_checks'), () => settings.githubAllowWrites),
   ]
   return [...specs, ...admissions.map(spec => ({
     ...spec,
