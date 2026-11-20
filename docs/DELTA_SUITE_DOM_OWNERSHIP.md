@@ -107,6 +107,8 @@ Harness 上游 `packages/workspace/workspace/src/index.ts` 的 `WorkspaceRegistr
 
 `sidebar.session.row.hover` 允许插件增加自己的装饰内容，但不允许替换 Harness 原生悬浮卡布局。Suite 只对官方 `sessions.list.getSnapshot().byId` 中与当前 Session ID 严格匹配、且经锁定/工作区保护和删除墓碑检查后仍可见的记录，展示公开 `updatedAt` 最近更新时间。时间无效、疑似秒级的歧义值、服务缺失或快照不可用时直接省略；绝不读取会话目录的路径或打开 Session 的私有字段。中英文标签独立本地化，Host 原生悬浮卡和其他插件的贡献保留。回归覆盖锁定、工作区锁、删除、目录缺失及身份不一致。
 
+后续修复：客户端经 `sessions.list.subscribe` 订阅官方目录，`useSyncExternalStore` 采用单个原始数值选择器（拒绝、允许无时间、允许且有时间），仅所选会话的时间或可见权限改变才需 React 重新渲染。目录从普通工作区变更到已锁工作区，即使更新时间保持不变，也会立即撤销 Delta 自有会话编号与复制功能；陈旧复制回调会重新验证当前目录和锁定权限。宿主目录不可用时安全降级，注入/停用/同一服务重复挂载均正确释放旧订阅并拒绝过期事件，不修改宿主原始列表或其他插件。
+
 这一改动仅补充公开悬浮区域的元数据；#190 要求的原生悬浮卡完整排版、导航重排、默认工作区折叠和运行状态文案覆盖仍需要上游正式接口及 Windows 实机验收，不能把 `feature-readiness.json` 的完整能力置为 `true`。
 
 ## 迁移纪律

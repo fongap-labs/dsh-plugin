@@ -19,7 +19,12 @@ try {
 const start = compiled.indexOf('function canCallHostHttp(')
 const end = compiled.indexOf('const deltaFeatures = createClientFeatureManager()', start)
 assert.ok(start >= 0 && end > start)
-const managerSource = compiled.slice(start, end) + '\ncreateClientFeatureManager()'
+// Include the existing public timestamp normalizer in this isolated manager VM.
+const timeStart = compiled.indexOf('function normalizeSearchTime(', end)
+const timeEnd = compiled.indexOf('function revealSessionTurnInChat(', timeStart)
+assert.ok(timeStart > end && timeEnd > timeStart)
+const managerSource = compiled.slice(start, end) + '\n' +
+  compiled.slice(timeStart, timeEnd) + '\ncreateClientFeatureManager()'
 const createProjection = () => vm.runInNewContext(
   compiled.slice(start, end) + '\ncreateWorkspaceCompatibilityProjection()',
 )
@@ -60,6 +65,145 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
   manager.setNavigationApi({ startSession: () => calls.push(['new']) })
   return { manager, calls, state, list, snapshot, env }
 }
+
+
+test('public Session catalog notifications update selected hover time and respect service lifetime', async () => {
+  const f = fixture()
+  await f.manager.refreshState()
+  const first = makeCatalog({
+    target: { id: 'target', updatedAt: '2026-11-18T10:20:00.000Z' },
+    other: { id: 'other', updatedAt: '2026-11-18T10:20:00.000Z' },
+  })
+  function makeCatalog(initial) {
+    let records = initial
+    const callbacks = []
+    const released = []
+    return {
+      callbacks, released,
+      api: { list: {
+        getSnapshot: () => ({ byId: records }),
+        subscribe(listener) {
+          callbacks.push(listener)
+          const index = callbacks.length - 1
+          return () => { released.push(index) }
+        },
+      } },
+      setRecords(next) { records = next },
+    }
+  }
+  const observed = []
+  const stop = f.manager.subscribeSessionCatalog(() => {
+    observed.push(f.manager.readSessionHoverSelection('target'))
+  })
+  try {
+    f.manager.setSessionsApi(first.api)
+    const original = Date.parse('2026-11-18T10:20:00.000Z')
+    assert.equal(f.manager.readSessionUpdateTime('target'), original)
+    assert.deepEqual(observed, [original], 'replacing a Host catalog publishes its selected snapshot')
+
+    first.setRecords({
+      target: { id: 'target', updatedAt: '2026-11-18T10:20:00.000Z' },
+      other: { id: 'other', updatedAt: '2026-11-19T12:00:00.000Z' },
+    })
+    first.callbacks[0]()
+    assert.equal(observed.at(-1), original,
+      'unrelated catalog churn leaves the selected primitive snapshot unchanged')
+
+    const updated = Date.parse('2026-11-19T12:30:00.000Z')
+    first.setRecords({
+      target: { id: 'target', updatedAt: '2026-11-19T12:30:00.000Z' },
+    })
+    first.callbacks[0]()
+    assert.equal(observed.at(-1), updated, 'Host catalog updates refresh selected hover metadata')
+
+    f.manager.setSessionsApi(first.api)
+    assert.deepEqual(first.released, [0], 'reinjecting the same Host API releases the old subscription')
+    const countAfterRebind = observed.length
+    first.callbacks[0]()
+    assert.equal(observed.length, countAfterRebind, 'stale callback cannot publish after reinjection')
+    first.callbacks[1]()
+    assert.equal(observed.length, countAfterRebind + 1)
+
+    const next = makeCatalog({
+      target: { id: 'target', updatedAt: '2026-11-20T12:45:00.000Z' },
+    })
+    f.manager.setSessionsApi(next.api)
+    assert.deepEqual(first.released, [0, 1], 'replacing Host API releases the previous subscription')
+    const beforeStale = observed.length
+    first.callbacks[1]()
+    assert.equal(observed.length, beforeStale, 'replaced Host cannot publish late events')
+    next.callbacks[0]()
+    assert.equal(observed.at(-1), Date.parse('2026-11-20T12:45:00.000Z'))
+
+    f.manager.setSessionsApi(undefined)
+    assert.deepEqual(next.released, [0], 'disable releases the final Host subscriber')
+    assert.equal(observed.at(-1), 0, 'missing catalog retains only the authorized ID fallback')
+    assert.equal(f.manager.readSessionUpdateTime('target'), undefined)
+    const beforeDisable = observed.length
+    next.callbacks[0]()
+    assert.equal(observed.length, beforeDisable)
+
+    // Some older hosts expose only getSnapshot; subscription failure is optional.
+    f.manager.setSessionsApi({ list: {
+      getSnapshot: () => ({ byId: { target: {
+        id: 'target', updatedAt: '2026-11-20T12:45:00.000Z',
+      } } }),
+      subscribe() { throw new Error('catalog unavailable') },
+    } })
+    assert.equal(f.manager.readSessionUpdateTime('target'), Date.parse('2026-11-20T12:45:00.000Z'))
+  } finally {
+    stop()
+    f.manager.setSessionsApi(undefined)
+  }
+})
+
+
+test('native hover revokes a stale identity when Host catalog moves it into a locked Workspace', async () => {
+  const f = fixture({ initial: { lockedWorkspaceIds: ['restricted'] } })
+  const workspaceSnapshot = {
+    items: [
+      { workspaceId: 'open', path: '/open', sessionIds: ['target'] },
+      { workspaceId: 'restricted', path: '/restricted', sessionIds: [] },
+    ],
+  }
+  f.manager.setWorkspacesApi({ list: { getSnapshot: () => workspaceSnapshot } })
+  await f.manager.refreshState()
+  const initialTime = Date.parse('2026-11-18T10:20:00.000Z')
+  let record = { id: 'target', workspaceId: 'open', updatedAt: initialTime }
+  let onCatalogChange
+  const api = { list: {
+    getSnapshot: () => ({ byId: { target: record } }),
+    subscribe(listener) { onCatalogChange = listener; return () => {} },
+  } }
+  f.manager.setSessionsApi(api)
+  const selections = []
+  const stop = f.manager.subscribeSessionCatalog(() => {
+    selections.push(f.manager.readSessionHoverSelection('target'))
+  })
+  try {
+    assert.equal(f.manager.readSessionHoverSelection('target'), initialTime)
+    // This Host catalog event does not mutate the timestamp or the native
+    // Workspace list yet; its public workspaceId alone must revoke identity.
+    record = { ...record, workspaceId: 'restricted' }
+    onCatalogChange()
+    assert.deepEqual(selections, [null],
+      'selected React snapshot changes even if the timestamp does not')
+    assert.equal(f.manager.readSessionUpdateTime('target'), undefined)
+    record = { ...record, workspaceId: 'open' }
+    onCatalogChange()
+    assert.equal(selections.at(-1), initialTime)
+
+    // Broken catalogs are not permission to publish a stale identity.
+    f.manager.setSessionsApi({ list: {
+      getSnapshot() { throw new Error('catalog transient failure') },
+    } })
+    assert.equal(f.manager.readSessionHoverSelection('target'), null)
+  } finally {
+    stop()
+    f.manager.setSessionsApi(undefined)
+    f.manager.setWorkspacesApi(undefined)
+  }
+})
 
 test('unavailable, rejected or unacknowledged deletion never synthesizes a tombstone', async () => {
   for (const options of [
