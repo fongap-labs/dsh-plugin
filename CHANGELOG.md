@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 的执行统计与 Skill 反馈只计入退出码、信号、超时及输出完整性已证实的验证结果；缺失或矛盾证据单独计为未确认，防止 passed=true 的自报状态影响技能排序。
+
 - 新增: Delta Code 公共 GitHub Skill 检索、固定版本审核及准入目录统一支持受限的根目录/分类目录 Skill 路径，并优先核验技能最近目录的独立许可证；缺失许可证、付费依赖、未审查引用仍不得自动启用。
 
 - 修复: Delta Code 并行任务路由在采用原生子代理前，通过 Harness 公开 subagents 服务验证准确的当前 Agent、已注册 Provider 与实际可用接口；模型自行声明 nativeSubagents=true 不再视为权限或能力证据，无法确认时保持串行执行。
