@@ -125,7 +125,7 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
 
   it('discovers a free Skill with a local license when repository SPDX metadata is absent', async () => {
     const source = skillBlob('refactoring')
-    const local = blob('MIT License\\nPermission is hereby granted, free of charge.\\n')
+    const local = blob('MIT License\nPermission is hereby granted, free of charge.\n')
     const h = mockTransport({ read(path) {
       if (path.startsWith('/search/repositories?')) return {
         total_count: 1, items: [{ ...repo('public/books', 'refactoring guidance'), license: null }],
