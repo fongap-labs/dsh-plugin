@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Reject Code Worker ZIP/TGZ releases whose browser client fails the same
+// Reject Delta Code ZIP/TGZ releases whose browser client fails the same
 // __ModuleLoader__.load registration contract used by DeepSeek Harness.
 import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'

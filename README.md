@@ -5,7 +5,7 @@
 ## 仓库结构
 
 - `packages/dsh-delta-suite`：Delta Suite，提供主题、搜索、会话辅助、Profile 级自动上下文压缩和独立设置；完整布局仍受 Harness 公开插槽能力限制。
-- `packages/dsh-delta-code`：独立的 Delta 编程助手。
+- `packages/dsh-delta-code`：独立的 Delta Code。
 - `packages/shared`：无产品状态的通用工具和安全封装。
 - `projects/dsh-delta-suite/release.manifest.json`：Action Worker 的单产品发布清单。
 

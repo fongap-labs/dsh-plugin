@@ -14,9 +14,9 @@ node scripts/analyze-code-worker-session.mjs --session session.txt --format mark
 node scripts/analyze-code-worker-session.mjs --session session.txt --format json
 ```
 
-The analyzer reports Code Worker vs native/other tool calls, explicit tool errors, nonzero exits, observed failures and same-argument repeat candidates for one session. It accepts multiple `--session` inputs for pooled observational totals, not experimental groups. It never exports raw arguments, tool responses, credentials or transcript paths. It does not store or upload sessions. These counts do not prove task completion and differ from the in-session `code_execution_stats` tool.
+The analyzer reports Delta Code vs native/other tool calls, explicit tool errors, nonzero exits, observed failures and same-argument repeat candidates for one session. It accepts multiple `--session` inputs for pooled observational totals, not experimental groups. It never exports raw arguments, tool responses, credentials or transcript paths. It does not store or upload sessions. These counts do not prove task completion and differ from the in-session `code_execution_stats` tool.
 
-`code_execution_stats` 提供当前 DSH 原生会话内的临时、只读执行质量计数，包含 Code Worker 工具调用、重复请求、失败分类、验证通过/失败和交付门禁状态。以随机密钥 HMAC 计算最多 64 个近期参数指纹，仅保留指纹及计数，不保存实际参数、文件内容、密钥、令牌，也不向外部发送遥测；插件卸载即清除。缺少原生会话身份时返回 `unavailable`，不跨会话聚合。重复调用不必然是无效操作；统计不包含 Harness 原生工具、内部自动重试或模型 Token，不得据此宣称整体任务完成率。
+`code_execution_stats` 提供当前 DSH 原生会话内的临时、只读执行质量计数，包含 Delta Code 工具调用、重复请求、失败分类、验证通过/失败和交付门禁状态。以随机密钥 HMAC 计算最多 64 个近期参数指纹，仅保留指纹及计数，不保存实际参数、文件内容、密钥、令牌，也不向外部发送遥测；插件卸载即清除。缺少原生会话身份时返回 `unavailable`，不跨会话聚合。重复调用不必然是无效操作；统计不包含 Harness 原生工具、内部自动重试或模型 Token，不得据此宣称整体任务完成率。
 
 | 工具 | 说明 |
 | --- | --- |
@@ -29,7 +29,7 @@ The analyzer reports Code Worker vs native/other tool calls, explicit tool error
 
 ### 实测问题修复：子进程注入与多仓库检索
 
-Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，避免工具已注册但调用时产生 `cannot get property "subprocess" without inject`。若 Host 未挂载原生 `subprocess`，插件保持未激活，不用 Node 本地进程绕过权限；修复后需重新构建并安装插件才能生效。
+Delta Code 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，避免工具已注册但调用时产生 `cannot get property "subprocess" without inject`。若 Host 未挂载原生 `subprocess`，插件保持未激活，不用 Node 本地进程绕过权限；修复后需重新构建并安装插件才能生效。
 
 `code_workspace_map` 默认工作区不是 Git 仓库时，会只扫描直属子目录，按安全边界及数量限制发现真正的 Git 仓库，返回附带子目录前缀的相对路径。查询使用正向关键词匹配：中英文混合、不匹配的额外词不再抵消已命中的文件名。显式 `cwd` 仅检索指定路径，不擅自跨仓库搜索；宿主拒绝执行、超时、截断或不完整的 Host subprocess 均不允许退回 Node。
 
@@ -41,7 +41,7 @@ Code Worker 将 `tools` 和 `subprocess` 声明为正式 Cordis 必需服务，�
 
 工作流模式（快速修改、缺陷诊断、PR/CI、研究及计划执行）和技能装配顺序已移至 `delta-code-strategy/workflow-policy.ts` 的 `DEFAULT_CODING_WORKFLOW_RULES`，`workflow-route.ts` 只执行确定性匹配、任务依赖波次规划和强制安全检查。可信策略装配可以通过 `deltaCodeStrategy` 的可选 `workflowRules` 注入审核后的规则；`code_workflow_route` 工具参数与原调用保持一致。
 
-策略输入仅限可信插件代码，不从模型输出、GitHub 仓库内容、外部 Skill 或动态配置中执行任意正则。禁用 Code Worker、禁用外部 Skills、续接当前任务、当前用户消息校验与真实 Host 权限均不可由策略规则覆盖。即使错误的规则请求并行，仍必须是规划型 feature/refactor、宿主原生子代理已确认可用且每项任务有不重叠的显式写入集合；其他任务顺序执行。必要权限、破坏性操作审批、CI 失败或证据缺失的阻断条件始终强制执行，策略不可替换。资源提示只指引使用已有授权工具，不会自动安装 MCP 或远程脚本。规则变化使用单元测试和真实 Harness 验收，不引入 A/B 试验。
+策略输入仅限可信插件代码，不从模型输出、GitHub 仓库内容、外部 Skill 或动态配置中执行任意正则。禁用 Delta Code、禁用外部 Skills、续接当前任务、当前用户消息校验与真实 Host 权限均不可由策略规则覆盖。即使错误的规则请求并行，仍必须是规划型 feature/refactor、宿主原生子代理已确认可用且每项任务有不重叠的显式写入集合；其他任务顺序执行。必要权限、破坏性操作审批、CI 失败或证据缺失的阻断条件始终强制执行，策略不可替换。资源提示只指引使用已有授权工具，不会自动安装 MCP 或远程脚本。规则变化使用单元测试和真实 Harness 验收，不引入 A/B 试验。
 
 ## 宿主兼容与依赖
 
@@ -127,7 +127,7 @@ Delta Code 不使用旧式 `skills.register()` 作为兼容降级。仅当 Harne
 Host 不提供 `registerProvider` 或注册后没有返回注销函数时，**对应技能功能关闭，不回退旧式注册接口**。若一个不合规 Host 已登记无法注销的 Provider，Delta 会立即将其置为不可用并请求宿主刷新目录；核心编辑、GitHub、LSP、工程验证功能继续按各自能力运行。卸载插件/Host 子上下文时注销可释放的 Provider 并取消远程加载。**已进入历史会话上下文的技能文本不能被插件追溯清除**；需要完整隔离时应开启新会话。此能力以接口检测为准，不以 Harness 版本号判断。
 
 
-与 `dsh-ui-delta` 一致，Code Worker 使用 Harness 的原生 `ctx.tools` 工具注册服务，不将 `@deepseek-ai/dsh-tools` 作为发布包的运行时或 peer 依赖。它的 TypeScript 类型仅供开发时校验，编译后不会强制安装另一份 Host tools。工具注册前仍检查宿主服务是否存在；缺少服务时工具不可用，不会绕过 Harness 的权限或沙箱。
+与 `dsh-ui-delta` 一致，Delta Code 使用 Harness 的原生 `ctx.tools` 工具注册服务，不将 `@deepseek-ai/dsh-tools` 作为发布包的运行时或 peer 依赖。它的 TypeScript 类型仅供开发时校验，编译后不会强制安装另一份 Host tools。工具注册前仍检查宿主服务是否存在；缺少服务时工具不可用，不会绕过 Harness 的权限或沙箱。
 
 开发构建继续使用仓库锁文件中固定的依赖，**固定开发依赖不等于限定宿主可运行版本**。兼容性由宿主服务接口、回归测试及真实宿主验证共同决定，而不是把每一个候选版本硬编码到包元数据中。若未来 Harness 接口发生不兼容变更，应适配接口并增加验证，而不是无条件声称兼容所有版本。
 
@@ -304,7 +304,7 @@ github:
 
 ## 一体化工程工具
 
-不用安装额外编程插件或 Skill 包。Code Worker 直接注册以下工具，运行时复用 Harness 的宿主能力与项目已有工具链。
+不用安装额外编程插件或 Skill 包。Delta Code 直接注册以下工具，运行时复用 Harness 的宿主能力与项目已有工具链。
 
 | 工具 | 用途 |
 | --- | --- |
@@ -334,7 +334,7 @@ execution:
 
 ## 原生图形配置页面
 
-在 DSH **插件 → Code Worker → 组件 dsh-delta-code → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
+在 DSH **插件 → Delta Code → 组件 dsh-delta-code → 配置** 打开原生配置表单。该页面通过官方 `plugins.row.config` 注册，配置通过 Host 的 `ConfigForm.mutate`（修订号冲突保护）写入当前 Profile。
 
 - Git、执行权限、工作区、LSP、GitHub 多账号可直接编辑；权限默认关闭。
 - GitHub 多账号只通过 `tokenEnv` 环境变量名引用凭据；Token 永不写入配置，页面也不会回显。
@@ -366,7 +366,7 @@ Harness Agent 根据任务实际语义作选择；既有中英文关键词自动
 
 ## 原生规划与执行闭环
 
-Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不绑定任何特定模型，也不新建 Agent Runtime：
+Delta Code 借鉴工程实践中的**可执行规划**和**连续执行**，不绑定任何特定模型，也不新建 Agent Runtime：
 
 - **小任务**：识别影响范围，执行最小修改，运行针对性验证，再检查 Diff；不强制生成计划。
 - **复杂任务**：先给出目标、非目标、受影响文件、依赖顺序、验收条件和验证命令。要并行时，必须向 `code_workflow_route` 提交每个任务的显式 `taskPaths` 写入集合及 `taskDependencies` 前置索引，只有路径无重叠且原生子代理可用时才允许同波次执行；缺少写集时顺序执行。复杂缺陷修复先定位根因，再进入可执行计划和逐项验证；根因未明确前不进行推测性并行修改。使用宿主原生 `todo_write`（如果已挂载）记录 `pending`、`in_progress`、`completed`，每次更新完整列表。
@@ -381,7 +381,7 @@ Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不
 本地兼容写盘路径在支持的平台使用 `O_NOFOLLOW` 打开目标文件，拒绝在检查与打开之间被换成的最终路径符号链接。不支持该标志的平台保留原有路径预检。此措施**不能消除父目录并发替换的 TOCTOU 风险**，不保证跨文件事务原子性；宿主 FS 已挂载时仍交由 DSH 宿主执行与授权。
 
 
-- 当 DSH 已注入文件服务但缺少 `resolve`、`readText` 或 `writeText` 时，Code Worker 明确失败，不会退回本地 Node 文件系统；没有注入 FS 服务的兼容路径保持原有真实路径沙箱检查。
+- 当 DSH 已注入文件服务但缺少 `resolve`、`readText` 或 `writeText` 时，Delta Code 明确失败，不会退回本地 Node 文件系统；没有注入 FS 服务的兼容路径保持原有真实路径沙箱检查。
 - 在 `code_multi_edit` 中设置 `preflight: true` 时，整文件覆盖编辑可以提供 `expectedSha256`（**原文件 UTF-8 内容的 64 位小写 SHA-256**）。预检阶段校验文件版本，写入前再次核对原内容；不匹配则拒绝写入并停止后续编辑。
 - `expectedSha256` 仅支持 `content` 覆盖模式并且要求 `preflight: true`；不提供该参数时沿用原有行为。该检查不保证原子性，也不能消除两次检查与写盘间的并发竞态。
 
