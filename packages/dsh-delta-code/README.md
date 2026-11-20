@@ -348,6 +348,8 @@ Harness Agent 根据任务实际语义作选择；既有中英文关键词自动
 
 新增三个可选专项 Skill：`code-quality-strength` 针对已修改代码核对测试断言、复杂度和有条件的变异测试；`code-diagnostic-readiness` 核对故障复发时可取得的安全诊断证据；`code-experience-review` 从真正验证的修复形成待审查经验候选。变异测试只允许使用仓库已经声明且获 Host 授权的执行入口；没有实际运行不能宣称通过。经验候选不会自动写入可信 Skill 目录，必须经过既有 GitHub PR 准入与中央 CI。
 
+集中回归验收位于 [`action-worker/tests/packs/dsh-plugin/delta-code-semantic-capabilities-test.mjs`](https://github.com/fongap-labs/action-worker/blob/main/tests/packs/dsh-plugin/delta-code-semantic-capabilities-test.mjs)，通过中央测试包 `pack.json` 注册。下游代码只保留构建与交付入口，不在此仓库复制测试用例；源码或能力目录变更应以最新提交的 Linux、Windows、安全与集中合同测试为准。
+
 ## 原生规划与执行闭环
 
 Code Worker 借鉴工程实践中的**可执行规划**和**连续执行**，不绑定任何特定模型，也不新建 Agent Runtime：
