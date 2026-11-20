@@ -233,7 +233,10 @@ test('native session and workspace hover cards remain Host-owned; public Slot ke
   ]) assert.equal(style.includes(marker), false, 'Host card CSS override: ' + marker)
   assert.ok(source.includes("scope.slots.inject('sidebar.session.row.hover'"))
   assert.ok(source.includes('SessionHoverDetail(props, controller)'))
-  assert.ok(source.includes('deltaFeatures.readSearchProtection().allowsSession(sessionId)'))
+  assert.ok(source.includes('deltaFeatures.readSessionHoverSelection(sessionId)'))
+  assert.match(source, /if \(!policy\.allowsSession\(id\)\) return null/)
+  assert.match(source, /!policy\.allowsSession\(id, record\.workspaceId\)/)
+  // The shared selection rechecks public Workspace ownership before ID or copy.
   const hoverStart = source.indexOf('function SessionHoverDetail(')
   const hoverEnd = source.indexOf('function PersonalizationSection(', hoverStart)
   assert.ok(hoverStart >= 0 && hoverEnd > hoverStart)
