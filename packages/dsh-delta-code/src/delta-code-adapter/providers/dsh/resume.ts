@@ -165,6 +165,7 @@ export function createNativeResumeTool(
     async execute(args, exec) {
       if (!exec.agent) return result('blocked', 'Run in the owning DSH agent Session; do not use another session history.',
         undefined, '', [], ['owning agent session is absent'])
+      if (exec.signal.aborted) throw new Error('native resume cancelled')
       let state: ResumeState | undefined
       try { state = reader.read(exec.agent) } catch {
         return result('blocked', 'Inspect DSH native session projection restore failure.',
@@ -174,6 +175,18 @@ export function createNativeResumeTool(
         undefined, '', [], ['native Todo projection is unavailable'])
       if (state.invalid) return result('blocked', 'Inspect malformed native Todo history; do not replay stale operations.',
         undefined, '', [], ['native Todo event is malformed'])
+      // Check pinned identity even when the Host has no Todo snapshot or has
+      // written an empty list. Otherwise a stale checkpoint silently looks empty.
+      if (args.expectedSeq !== undefined &&
+          (!Number.isSafeInteger(args.expectedSeq) || args.expectedSeq < 0 || args.expectedSeq !== state.writeSeq)) {
+        return result('blocked', 'Native Todo checkpoint sequence differs; reload tasks before continuing.',
+          state, '', [], ['native Todo sequence differs from expected checkpoint'])
+      }
+      if (args.expectedHead !== undefined && (typeof args.expectedHead !== 'string' ||
+          !HEAD_PATTERN.test(args.expectedHead))) {
+        return result('blocked', 'Supply a valid 40/64-character previous Git HEAD or omit the baseline.',
+          state, '', [], ['invalid expectedHead'])
+      }
       if (args.expectedTasks !== undefined && !matchesNativeTodoPlan(state, args.expectedTasks)) {
         return result('blocked', 'Native Todo does not match the proposed plan; reconcile task ordering and content before resuming.',
           state, '', [], ['native Todo does not match expected plan'])
@@ -185,18 +198,8 @@ export function createNativeResumeTool(
       // A completed native Todo is a progress claim, not Git or test evidence.
       // Always validate its baseline and worktree before recommending next steps.
       const todosComplete = pending.length === 0
-      if (args.expectedSeq !== undefined &&
-          (!Number.isSafeInteger(args.expectedSeq) || args.expectedSeq < 0 || args.expectedSeq !== state.writeSeq)) {
-        return result('blocked', 'Native Todo checkpoint sequence differs; reload tasks before continuing.',
-          state, '', [], ['native Todo sequence differs from expected checkpoint'])
-      }
       if (!settings.gitEnabled) return result('blocked', 'Enable authorized Git inspection for task reconciliation.',
         state, '', [], ['Git tool is disabled'])
-      if (args.expectedHead !== undefined && (typeof args.expectedHead !== 'string' ||
-          !HEAD_PATTERN.test(args.expectedHead))) {
-        return result('blocked', 'Supply a valid 40/64-character previous Git HEAD or omit the baseline.',
-          state, '', [], ['invalid expectedHead'])
-      }
       if (exec.signal.aborted) throw new Error('native resume cancelled')
       let head = ''
       try {
