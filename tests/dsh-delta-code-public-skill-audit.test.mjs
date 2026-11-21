@@ -55,6 +55,7 @@ function setup(source = CLEAN, options = {}) {
   return {
     calls, transport, get authenticated() { return authenticated },
     audit: createPublicSkillAuditSpecs(transport)[0],
+    temporary: createPublicSkillAuditSpecs(transport)[1],
     discover: createPublicSkillDiscoverySpecs(transport)[0],
     exec: { signal: new AbortController().signal },
   }
@@ -62,6 +63,66 @@ function setup(source = CLEAN, options = {}) {
 const parse = value => JSON.parse(value.result)
 
 describe('Delta Code anonymous public Skill static audit', () => {
+  it('loads only a clean, pinned and bounded temporary reference without catalog PRs or privileged calls', async () => {
+    const h = setup()
+    const value = await h.temporary.execute(input(), h.exec)
+    const temporary = parse(value)
+    assert.equal(h.temporary.name, 'code_github_skill_temporary_use')
+    assert.equal(value.account, 'anonymous')
+    assert.equal(temporary.usage, 'temporary-task-reference')
+    assert.deepEqual(temporary.source, input())
+    assert.equal(temporary.license, 'MIT')
+    assert.equal(temporary.reviewStatus, 'static-review-ready')
+    assert.equal(temporary.persistedAsSkill, false)
+    assert.equal(temporary.catalogAdmissionRequired, false)
+    assert.equal(temporary.hostPermissionGranted, false)
+    assert.equal(temporary.scriptsExecuted, false)
+    assert.match(temporary.instructions, /UNTRUSTED third-party reference/)
+    assert.match(temporary.instructions, /Use built-in functions/)
+    assert.equal(h.authenticated, 0)
+    assert.equal(h.calls.length, 4, 'temporary load reuses one immutable review without a second network read')
+    assert.deepEqual(createPublicSkillDiscoverySpecs(h.transport).map(t => t.name).slice(-2), [
+      'code_github_skill_public_review', 'code_github_skill_temporary_use',
+    ])
+  })
+
+  it('rejects paid, risky, dependent and oversized temporary instructions while preserving audit', async () => {
+    for (const source of [PAID, RISKY]) {
+      const h = setup(source)
+      await assert.rejects(h.temporary.execute(input(source), h.exec), /Temporary Skill reference needs verified/)
+      assert.equal(h.authenticated, 0)
+    }
+    const referenced = skill('# React guide\nRead [guide](references/guide.md).')
+    const reference = blob('## Verified supplement')
+    const refs = setup(referenced, { override(path) {
+      if (path.endsWith('/commits/' + COMMIT)) return { sha: COMMIT, commit: { tree: { sha: TREE } } }
+      if (path.includes('/git/trees/')) return { sha: TREE, truncated: false, tree: [
+        { path: 'LICENSE', type: 'blob', mode: '100644', sha: LICENSE.sha },
+        { path: 'skills/react-guide/SKILL.md', type: 'blob', mode: '100644', sha: referenced.sha },
+        { path: 'skills/react-guide/references/guide.md', type: 'blob', mode: '100644', sha: reference.sha },
+      ] }
+      if (path.endsWith('/git/blobs/' + LICENSE.sha)) return LICENSE
+      if (path.endsWith('/git/blobs/' + referenced.sha)) return referenced
+      if (path.endsWith('/git/blobs/' + reference.sha)) return reference
+      throw Error('Unexpected reference request: ' + path)
+    } })
+    assert.equal(parse(await refs.audit.execute(input(referenced), refs.exec)).reviewStatus, 'pending-reference-bundle-review')
+    await assert.rejects(refs.temporary.execute(input(referenced), refs.exec), /Temporary Skill reference needs verified/)
+    assert.equal(refs.authenticated, 0)
+
+    const lengthy = skill('# Reference\n' + 'low-risk text. '.repeat(1500))
+    const large = setup(lengthy)
+    assert.equal(parse(await large.audit.execute(input(lengthy), large.exec)).reviewStatus, 'static-review-ready')
+    await assert.rejects(large.temporary.execute(input(lengthy), large.exec), /exceed bounded one-task context/)
+    const tampered = setup()
+    await assert.rejects(tampered.temporary.execute({ ...input(), sourceBlobSha: 'd'.repeat(40) }, tampered.exec), /blob SHA mismatch/)
+    const aborted = new AbortController()
+    aborted.abort(new Error('host cancelled'))
+    const h = setup()
+    await assert.rejects(h.temporary.execute(input(), { signal: aborted.signal }), /host cancelled/)
+    assert.deepEqual(h.calls, [])
+  })
+
   it('reviews a discovered pinned free Skill without granting execution authority', async () => {
     const h = setup()
     const discovered = parse(await h.discover.execute({ query: 'react' }, h.exec))
