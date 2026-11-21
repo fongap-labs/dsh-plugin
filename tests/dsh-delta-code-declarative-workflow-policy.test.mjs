@@ -87,6 +87,34 @@ describe('Delta Code declarative coding workflow policy', () => {
     }
   })
 
+  it('validates milestone acceptance and dependency waves without marking native Todo completed', () => {
+    const result = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'low', nativeSubagents: true,
+      milestones: [
+        { objective: 'Add contract', acceptance: 'Contract is validated', dependsOn: [], writePaths: ['src/contract.ts'] },
+        { objective: 'Integrate contract', acceptance: 'Integration succeeds', dependsOn: [0], writePaths: ['src/adapter.ts'] },
+        { objective: 'Add documentation', acceptance: 'Docs are accurate', dependsOn: [], writePaths: ['docs/intent.md'] },
+      ],
+    })
+    assert.deepEqual(result.executionWaves, [[0, 2], [1]])
+    assert.deepEqual(result.milestones.map(item => item.acceptance), [
+      'Contract is validated', 'Integration succeeds', 'Docs are accurate',
+    ])
+    assert.throws(() => decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'low',
+      milestones: [{ objective: 'Bad dependency', acceptance: 'Check', dependsOn: [0] }],
+    }), /dependencies/)
+    assert.throws(() => decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'low',
+      milestones: [{ objective: 'Duplicate path', acceptance: 'Check',
+        writePaths: ['src/File.ts', 'src/file.ts'] }],
+    }), /duplicate milestone write path/)
+    assert.throws(() => decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'low', independentTasks: 2,
+      milestones: [{ objective: 'Only one', acceptance: 'Check' }],
+    }), /inconsistent counts/)
+  })
+
   it('preserves safe native parallel waves only for planned feature/refactor writes', () => {
     for (const taskKind of ['feature', 'refactor']) {
       const result = decideCodingWorkflow({
