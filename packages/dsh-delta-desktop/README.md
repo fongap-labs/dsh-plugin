@@ -24,3 +24,7 @@ Quick-validation checklist: [docs/quick-validation.md](docs/quick-validation.md)
 This first alpha prototype ships **hand-maintained JavaScript source** directly from `src/index.js` and `src/client.js`, with `src/index.d.ts` as its public declaration. It does not require the existing trusted CI's fixed TypeScript compile list to produce `lib/` before bundle validation. Source version stays at `0.0.0`.
 
 The TS feature registry under `src/kernel/` remains independent and may be compiled by the package's local TypeScript build. This is a temporary bootstrap boundary, not an excuse to skip CI. When trusted CI can compile every sibling plugin through its approved control process, the package can migrate back to typed build outputs. Do not commit generated `lib/` files.
+
+## Workspace shell milestone
+
+The Root UI now has a workspace rail, a cwd-based workspace filter, a session browser, a dedicated conversation timeline and a read-only Session diagnostics panel. Workspace labels come from public `SessionSummary.cwd` (not a full Harness workspace registry); this does **not** claim complete workspace lifecycle support. Existing committed user and assistant text uses the public `eventSource`. Tool payloads, approvals, file attachments and transient stream chunks are deliberately not displayed. CI and Windows smoke proof remain mandatory.

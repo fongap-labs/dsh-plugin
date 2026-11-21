@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 从简易侧栏原型调整为多区域工作台，按 Harness 会话目录组织工作区与对话、提供独立时间线和只读会话诊断面板；数据仍来自公开 Session Controller，不替代原生工具审批或完整流式渲染。
+
 - 修复: Delta Desktop Root 按 Harness Windows/macOS 标题栏变量留出原生窗口控件区域，防止重叠；会话侧栏新增搜索与单行截断，输入区按钮不再被文本框拉伸，空历史区分加载状态与已载入数据，并允许按需读取更早历史。
 
 - 修复: Delta Desktop portable 发布验收区分 pnpm 规范化后的发布元数据与运行时包合同，仅忽略 `publishConfig` 差异，继续严格对比其余清单字段与 ZIP/TGZ 入口文件，解除首个 Beta 发布的误拒绝。
