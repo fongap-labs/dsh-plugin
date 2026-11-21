@@ -3,6 +3,7 @@
 // This module does not import another Delta product or bypass the central release.
 import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
+import { isDeepStrictEqual } from 'node:util'
 import { Script, createContext } from 'node:vm'
 import { gunzipSync, inflateRawSync } from 'node:zlib'
 import { pathToFileURL } from 'node:url'
@@ -102,6 +103,16 @@ export function verifyDesktopEntries(entries, version, format) {
   ensure(registered[0]?.id === NAME &&
     typeof registered[0]?.factory === 'function', format + ' Client module factory')
 }
+// pnpm pack removes publication-only publishConfig from the TGZ manifest.
+// Compare all other fields, including identity, runtime exports, DSH metadata,
+// dependencies and scripts, rather than requiring identical JSON bytes.
+export function verifyDesktopPackageParity(zipManifest, tgzManifest) {
+  const zip = JSON.parse(zipManifest.toString())
+  const tgz = JSON.parse(tgzManifest.toString())
+  delete zip.publishConfig
+  delete tgz.publishConfig
+  ensure(isDeepStrictEqual(zip, tgz), 'package.json runtime fields differ between ZIP and TGZ')
+}
 export function verifyDesktopRelease(zipPath, tgzPath, version) {
   ensure(/^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/.test(version),
     'unsupported version; current generic builder supports stable or beta only')
@@ -111,7 +122,8 @@ export function verifyDesktopRelease(zipPath, tgzPath, version) {
   const tgz = readTgz(readFileSync(tgzPath))
   verifyDesktopEntries(zip, version, 'ZIP')
   verifyDesktopEntries(tgz, version, 'TGZ')
-  for (const file of REQUIRED) {
+  verifyDesktopPackageParity(zip.get('package.json'), tgz.get('package.json'))
+  for (const file of REQUIRED.filter(file => file !== 'package.json')) {
     ensure(zip.get(file).equals(tgz.get(file)), file + ' differs between ZIP and TGZ')
   }
 }
