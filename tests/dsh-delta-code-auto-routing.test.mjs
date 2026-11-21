@@ -2,8 +2,9 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { routeCodingTask, registerAutomaticCodingRouter } from '../packages/dsh-delta-code/lib/auto-routing.js'
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
+import { UserTaskContext } from '../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js'
 
-function fixture(nativeResume) {
+function fixture(nativeResume, taskContext) {
   const listeners = new Map()
   let dynamic
   let settings = normalizeConfig({})
@@ -22,7 +23,7 @@ function fixture(nativeResume) {
       } })
     },
   }
-  const dispose = registerAutomaticCodingRouter(host, () => settings, undefined, nativeResume)
+  const dispose = registerAutomaticCodingRouter(host, () => settings, undefined, nativeResume, taskContext)
   const claim = (agent, text, source = 'user') => listeners.get('agent/inbox/claimed')?.({
     agent, message: { source: { kind: source }, content: [{ type: 'text', text }] },
   })
@@ -62,6 +63,24 @@ describe('Code Worker automatic user-task routing', () => {
     assert.equal(routeCodingTask('analyze heap snapshot for leak'), 'code-runtime-forensics')
     assert.equal(routeCodingTask('visual regression test against reference screenshot'), 'code-visual-parity')
     assert.equal(routeCodingTask('evaluate prompt change against rubric'), 'code-skill-evaluation')
+  })
+
+
+  it('keeps the current task source across continuation with optional routing disabled', () => {
+    const taskContext = new UserTaskContext()
+    const f = fixture(undefined, taskContext)
+    try {
+      const agent = {}
+      f.update({ autoRouting: false })
+      f.claim(agent, '修复真实 CI 红叉，并且不得绕过中央门禁')
+      assert.equal(taskContext.read(agent), '修复真实 CI 红叉，并且不得绕过中央门禁')
+      f.claim(agent, '继续')
+      assert.equal(taskContext.read(agent), '修复真实 CI 红叉，并且不得绕过中央门禁')
+      f.claim(agent, '改为审查源码')
+      assert.equal(taskContext.read(agent), '改为审查源码')
+      f.emit('agent/disposed', { agent })
+      assert.equal(taskContext.read(agent), undefined)
+    } finally { f.dispose() }
   })
 
   it('prioritizes the instruction after a long CI log instead of stale failure text', () => {
