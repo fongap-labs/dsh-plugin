@@ -127,14 +127,14 @@
       React.useEffect(() => {
         setBinding(null)
         if (!activeId) return
-        let live = true
+        let isActive = true
         let reference: SessionReference
         try { reference = ctx.sessions.retain(activeId, { source: NAME }) }
         catch (reason) { setError(String(reason)); return }
         void reference.ready.then(() => {
-          if (live) { setBinding(reference.binding); setError('') }
-        }).catch(reason => { if (live) setError(String(reason)) })
-        return () => { live = false; reference.release() }
+          if (isActive) { setBinding(reference.binding); setError('') }
+        }).catch(reason => { if (isActive) setError(String(reason)) })
+        return () => { isActive = false; reference.release() }
       }, [activeId])
       const current = binding?.sessionId === activeId ? binding : null
       const window = React.useSyncExternalStore(
