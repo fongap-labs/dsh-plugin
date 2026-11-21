@@ -78,13 +78,13 @@ export function findDirectConstraintConflicts(
   current: string, inherited: readonly string[],
 ): DirectConstraintConflict[] {
   const parse = (message: string): Array<{ subject: string; quote: string; negative: boolean }> =>
-    message.split(/[，,。；;！？!?\n]/u).flatMap(segment => {
-      const text = segment.trim().replace(/^(?:继续(?:推进任务)?|现在|改为)\s*[:：]?\s*/u, '')
-      const match = /^(不允许|禁止|不得|不要|允许|可以|必须)\s*(.{2,64})$/u.exec(text)
+    message.split(/[\uff0c,\u3002\uff1b;\uff01\uff1f!?\n]/u).flatMap(segment => {
+      const text = segment.trim().replace(/^(?:\u7ee7\u7eed(?:\u63a8\u8fdb\u4efb\u52a1)?|\u73b0\u5728|\u6539\u4e3a)\s*[:\uff1a]?\s*/u, '')
+      const match = /^(\u4e0d\u5141\u8bb8|\u7981\u6b62|\u4e0d\u5f97|\u4e0d\u8981|\u5141\u8bb8|\u53ef\u4ee5|\u5fc5\u987b)\s*(.{2,64})$/u.exec(text)
       if (!match) return []
       const subject = match[2]!.replace(/\s+/gu, '').trim()
       if (subject.length < 2) return []
-      return [{ subject, quote: match[0], negative: /^(?:不允许|禁止|不得|不要)$/u.test(match[1]!) }]
+      return [{ subject, quote: match[0], negative: /^(?:\u4e0d\u5141\u8bb8|\u7981\u6b62|\u4e0d\u5f97|\u4e0d\u8981)$/u.test(match[1]!) }]
     })
   const latestBySubject = new Map<string, { quote: string; negative: boolean }>()
   for (const message of inherited) {
