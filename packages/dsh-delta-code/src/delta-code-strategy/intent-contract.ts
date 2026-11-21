@@ -113,7 +113,7 @@ function statements(value: unknown, name: string, min = 0): string[] {
  */
 export function prepareTaskSpec(
   input: TaskSpecInput, sourceText: string, inheritedTexts: readonly string[] = [],
-  historyIncomplete = false,
+  isHistoryIncomplete = false,
 ): TaskSpec {
   if (!input || typeof input !== 'object' ||
       !CODING_TASK_KINDS.includes(input.taskKind) ||
@@ -143,7 +143,7 @@ export function prepareTaskSpec(
   })
   return {
     goal, taskKind: input.taskKind, scope: input.scope, risk: input.risk,
-    userQuotes, quoteEvidence, sourceHistoryComplete: !historyIncomplete,
+    userQuotes, quoteEvidence, sourceHistoryComplete: !isHistoryIncomplete,
     proposedAcceptance, unknowns, firstAction,
     workflow: route.mode, verification: route.verification,
   }
