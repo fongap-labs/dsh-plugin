@@ -37,8 +37,19 @@
       const entry = entries[index]
       if (entry?.type !== 'event') continue
       const event = entry.event
+      const data = event?.data ?? {}
+      if (event?.type === 'tool/call' || event?.type === 'tool/result') {
+        // A tool event can be shown without exposing raw arguments/results,
+        // attachment payloads, private metadata or approval assumptions.
+        const name = event.type === 'tool/call' && typeof data.name === 'string'
+          ? data.name.slice(0, 100) : 'Tool'
+        const isError = event.type === 'tool/result' && data.message?.isError === true
+        rows.push({ key: String(event.seq ?? index) + ':' + event.type,
+          who: 'Tool', body: event.type === 'tool/call'
+            ? 'Requested: ' + name : (isError ? 'Execution failed' : 'Result recorded') })
+        continue
+      }
       if (event?.type !== 'user/message' && event?.type !== 'assistant/message') continue
-      const data = event.data ?? {}
       // Durable Assistant output lives in data.message.content, not data.stream.
       // Never print tool arguments, metadata or raw stream chunks.
       const content = event.type === 'assistant/message' ? data.message : data.content
