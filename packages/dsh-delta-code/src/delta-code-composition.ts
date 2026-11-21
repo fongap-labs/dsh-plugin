@@ -11,6 +11,7 @@ import { createGitHubTransport } from './delta-code-adapter/providers/github/api
 import { registerGatewayRetryCoordinator } from './delta-code-adapter/providers/dsh/gateway-retry-coordination.js'
 import { deltaCodeCodingWithoutCommands, deltaCodeCodingCommands } from './delta-code-coding/index.js'
 import { deltaCodeStrategy } from './delta-code-strategy/index.js'
+import { UserTaskContext } from './delta-code-strategy/task-spec.js'
 import { registerAutomaticCodingRouter } from './delta-code-adapter/providers/dsh/auto-routing.js'
 import { registerCodingSkills } from './delta-code-adapter/providers/dsh/skills.js'
 import { registerApprovedGitHubSkills } from './delta-code-adapter/providers/dsh/github-skills.js'
@@ -28,14 +29,17 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
   const resume = registerNativeResume(ctx)
   const delegation = observeNativeDelegation(ctx)
   const stats = new ExecutionStats()
+  const taskContext = new UserTaskContext()
   const releases: Array<() => void> = [
     () => resume.dispose(), () => delegation.dispose(), () => stats.clear(),
+    () => taskContext.clear(),
   ]
   try {
     // The lightweight strategy and diagnostic tools never need subprocess.
     const coreFeatures = [
       deltaCodeStrategy({
         canDelegate: delegation.canDelegate,
+        taskContext,
         registerSkills: () => {
           const releaseLocal = registerCodingSkills(ctx)
           try {
@@ -46,7 +50,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
             throw error
           }
         },
-        registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings, undefined, resume),
+        registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings, undefined, resume, taskContext),
         registerPrompt: () => registerDeltaCodePrompt(ctx, settings),
       }),
       deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
