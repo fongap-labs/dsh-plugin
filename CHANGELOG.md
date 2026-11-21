@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 通过 Harness 的公开 Session Model Catalog 和 selectModel Remote API 增加真实模型选择与推理强度控制，使用 Session 投影同步当前选择，不依赖原生 ui-model-selection 界面。
+
 - 新增: Delta Desktop 在会话时间线中显示工具调用名称及结果状态，不显示参数、原始输出或私有元数据；没有可见文本时提供只读事件计数。
 
 - 新增: Delta Desktop 从简易侧栏原型调整为多区域工作台，按 Harness 会话目录组织工作区与对话、提供独立时间线和只读会话诊断面板；数据仍来自公开 Session Controller，不替代原生工具审批或完整流式渲染。

@@ -65,6 +65,170 @@
     const React = require('react')
     const h = React.createElement
 
+
+    // Desktop-owned model UI using the Host public Session remote, not
+    // ui-model-selection or any other native UI component. The catalog is
+    // shared across Session views for the current Client module lifetime.
+    let cachedModelCatalog = null
+    let modelCatalogRequest = null
+
+    function loadModelCatalog(ctx, force = false) {
+      if (force) cachedModelCatalog = null
+      if (!force && cachedModelCatalog !== null) return Promise.resolve(cachedModelCatalog)
+      if (modelCatalogRequest !== null) return modelCatalogRequest
+      const request = Promise.resolve().then(() => ctx.remote.session.modelCatalog())
+        .then(result => {
+          if (!result.ok) throw new Error(result.error?.message ?? 'Model catalog request failed')
+          cachedModelCatalog = result.value
+          return result.value
+        })
+      modelCatalogRequest = request
+      void request.finally(() => {
+        if (modelCatalogRequest === request) modelCatalogRequest = null
+      }).catch(() => {})
+      return request
+    }
+
+    function ModelControls({ ctx, binding, sessionId }) {
+      const [catalogState, setCatalogState] = React.useState({
+        status: 'loading', catalog: null, error: '',
+      })
+      const [isSaving, setIsSaving] = React.useState(false)
+      const [actionError, setActionError] = React.useState('')
+      const projection = binding.session.projections.faceOf('modelSelection')
+      const modelProjection = React.useSyncExternalStore(
+        listener => projection.subscribe(listener),
+        () => projection.getSnapshot(),
+      )
+      const subagent = typeof ctx.sessions.subagentAddress === 'function'
+        ? ctx.sessions.subagentAddress(sessionId) : undefined
+      const unavailable = subagent !== undefined
+
+      React.useEffect(() => {
+        if (unavailable) return
+        let isActive = true
+        setCatalogState({ status: 'loading', catalog: null, error: '' })
+        void loadModelCatalog(ctx)
+          .then(catalog => {
+            if (isActive) setCatalogState({ status: 'ready', catalog, error: '' })
+          })
+          .catch(reason => {
+            if (isActive) setCatalogState({
+              status: 'error', catalog: null, error: String(reason),
+            })
+          })
+        return () => { isActive = false }
+      }, [ctx, sessionId, unavailable])
+
+      const modelCatalog = catalogState.catalog
+      const groups = modelCatalog?.groups ?? []
+      const current = modelProjection?.next ?? modelCatalog?.default ?? null
+      const selectedGroup = groups.find(group => group.id === current?.provider)
+      const selectedModel = selectedGroup?.models.find(model => model.id === current?.model)
+      const reasoning = selectedModel?.reasoning
+      const effort = current?.reasoningEffort ?? reasoning?.defaultEffort ?? ''
+      const choices = groups.flatMap(group => group.models.map(model => ({
+        key: JSON.stringify([group.id, model.id]),
+        group, model,
+      })))
+      const selectedKey = current ? JSON.stringify([current.provider, current.model]) : ''
+      const isSelectable = !unavailable && catalogState.status === 'ready' && !isSaving
+
+      async function selectModel(selection) {
+        if (!selection || unavailable || isSaving) return
+        setIsSaving(true)
+        setActionError('')
+        try {
+          // Same Host RPC as Harness's own model selection UI. The durable
+          // Session projection, not local component state, owns the current model.
+          const result = await ctx.remote.session.selectModel({ sessionId, ...selection })
+          if (!result.ok) throw new Error(result.error?.message ?? 'Model switch rejected')
+        } catch (reason) {
+          setActionError(String(reason))
+        } finally {
+          setIsSaving(false)
+        }
+      }
+
+      const fieldStyle = { border: '1px solid #dbe2e6', borderRadius: 8,
+        minHeight: 32, maxWidth: 228, background: '#fff', color: '#23404c',
+        font: 'inherit', fontSize: 12, padding: '5px 9px' }
+      const labelStyle = { display: 'flex', gap: 7, alignItems: 'center',
+        fontSize: 12, color: '#536976', minWidth: 0 }
+
+      if (unavailable) {
+        return h('span', { style: { color: '#667c85', fontSize: 12 } },
+          'Subagent model is controlled by its parent')
+      }
+      return h('div', { 'aria-label': 'Model controls',
+        style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
+        h('label', { style: labelStyle }, 'Model',
+          h('select', { 'aria-label': 'Session model',
+            style: fieldStyle,
+            value: selectedKey,
+            disabled: !isSelectable || choices.length === 0,
+            onChange: event => {
+              const item = choices.find(entry => entry.key === event.target.value)
+              if (!item) return
+              const reasoningEffort = item.model.reasoning?.defaultEffort
+              void selectModel({
+                provider: item.group.id, model: item.model.id,
+                ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+              })
+            },
+          },
+          ...(!choices.some(item => item.key === selectedKey) ? [
+            h('option', { key: 'unavailable', value: selectedKey },
+              selectedKey ? 'Unavailable: ' + current.provider + '/' + current.model : 'Choose model'),
+          ] : []),
+          ...groups.map(group => h('optgroup', { key: group.id, label: group.name },
+            ...group.models.map(model => h('option', {
+              key: JSON.stringify([group.id, model.id]),
+              value: JSON.stringify([group.id, model.id]),
+            }, model.name)))))),
+        reasoning && reasoning.efforts.length > 0
+          ? h('label', { style: labelStyle }, 'Reasoning',
+            h('select', { 'aria-label': 'Reasoning effort',
+              style: fieldStyle, disabled: !isSelectable || !current,
+              value: effort,
+              onChange: event => {
+                if (!current) return
+                void selectModel({
+                  provider: current.provider, model: current.model,
+                  ...(event.target.value ? { reasoningEffort: event.target.value } : {}),
+                })
+              },
+            },
+            ...(!reasoning.defaultEffort ? [
+              h('option', { key: '', value: '' }, 'Provider default'),
+            ] : []),
+            ...reasoning.efforts.map(item => h('option', {
+              key: item.id, value: item.id,
+            }, item.name))))
+          : null,
+        h('button', { type: 'button', title: 'Reload model catalog',
+          'aria-label': 'Refresh model catalog', disabled: isSaving,
+          onClick: () => {
+            setCatalogState({ status: 'loading', catalog: null, error: '' })
+            void loadModelCatalog(ctx, true)
+              .then(catalog => setCatalogState({ status: 'ready', catalog, error: '' }))
+              .catch(reason => setCatalogState({
+                status: 'error', catalog: null, error: String(reason),
+              }))
+          },
+          style: { border: 0, background: 'transparent', color: '#2a7380',
+            padding: 5, cursor: 'pointer', fontSize: 13 } }, 'Refresh'),
+        catalogState.status === 'loading'
+          ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
+            'Loading models…') : null,
+        isSaving
+          ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
+            'Saving model…') : null,
+        catalogState.status === 'error' || actionError
+          ? h('span', { role: 'alert', style: { fontSize: 12, color: '#b32436' } },
+            catalogState.error || actionError) : null)
+    }
+
     function Shell({ ctx }) {
       const catalog = React.useSyncExternalStore(
         listener => ctx.sessions.list.subscribe(listener),
@@ -311,6 +475,14 @@
                 : null,
               h('button', { type: 'button', style: { ...style.button, padding: '8px 12px' },
                 onClick: () => setInspector(v => !v) }, inspector ? 'Hide details' : 'Show details'))),
+          h('div', { style: { borderBottom: '1px solid ' + border,
+            padding: '9px 24px', minHeight: 45, boxSizing: 'border-box',
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
+            active
+              ? h(ModelControls, { key: selectedId, ctx, binding: active,
+                sessionId: selectedId })
+              : h('span', { style: { fontSize: 12, color: secondary } },
+                selectedId ? 'Opening Session model controls…' : 'Select a session to choose a model')),
           h('div', { role: 'log', 'aria-label': 'Session messages',
             style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '26px 30px 36px',
               display: 'flex', flexDirection: 'column', gap: 16, background: '#fff' } },
@@ -398,7 +570,7 @@
     }
 
     return {
-      inject: ['slots', 'sessions'],
+      inject: ['slots', 'sessions', 'remote', 'remote.session'],
       apply(ctx) {
         ctx.effect(
           () => ctx.slots.register({ name: 'root', priority: -100 }, () => h(Shell, { ctx })),
