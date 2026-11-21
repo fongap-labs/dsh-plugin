@@ -71,7 +71,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       if (!isCommandActive) return
       const commandFeatures = [
         deltaCodeCodingCommands(createDshCodingCommandTools(child, settings)),
-        deltaCodeQuality(createDshQualityTools(child, settings, resume)),
+        deltaCodeQuality(createDshQualityTools(child, settings, resume, stats)),
         deltaCodeRepositoryCommands(createDshRepositoryCommandTools(child, settings)),
       ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
       const unmount = mountDeltaCodeFeatures(commandFeatures, dshToolRegistrar(ctx, stats))
