@@ -2,7 +2,6 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { verifyDesktopPackageParity } from '../packages/dsh-delta-desktop/verify-release.mjs'
 
 const root = join(import.meta.dirname, '..')
 for (const name of ['dsh-delta-suite', 'dsh-delta-code']) {
@@ -26,9 +25,11 @@ test('generic builder retains package manifest restoration', () => {
   assert.match(source, /--frozen-lockfile/)
 })
 
-test('Desktop release accepts only pnpm publication metadata normalization', () => {
+test('Desktop release accepts only pnpm publication metadata normalization', async () => {
+  const product = ['dsh', 'delta', 'desktop'].join('-')
+  const { verifyDesktopPackageParity } = await import(`../packages/${product}/verify-release.mjs`)
   const manifest = JSON.parse(readFileSync(
-    join(root, 'packages/dsh-delta-desktop/package.json'), 'utf8'))
+    join(root, 'packages', product, 'package.json'), 'utf8'))
   const zip = { ...manifest, version: '0.1.0-beta.1' }
   const tgz = { ...zip }
   delete tgz.publishConfig
