@@ -228,7 +228,7 @@ export function createWorkflowRouteTool(
       taskDependencies: { type: 'array', description: 'Earlier zero-based prerequisite indexes for each task.',
         items: { type: 'array', items: { type: 'integer' } } },
       milestones: { type: 'array', description: 'Optional 1..20 model-proposed task steps with observable acceptance. No status/permission claims; exclusive with taskPaths/taskDependencies.',
-        items: { type: 'object', properties: {
+        items: { type: 'object', additionalProperties: false, properties: {
           objective: { type: 'string', required: true },
           acceptance: { type: 'string', required: true },
           dependsOn: { type: 'array', items: { type: 'integer' } },
@@ -262,7 +262,7 @@ export function createWorkflowRouteTool(
       ].join('\n') }]
     } },
     execute: async (args, exec) => {
-      const input = args as RouteInput
+      const input = args as unknown as RouteInput
       // Model-authored input cannot assert native Host availability. The
       // adapter validates the exact live Agent and named Host provider.
       const isVerified = input.nativeSubagents === true &&
