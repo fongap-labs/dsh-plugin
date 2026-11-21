@@ -11,6 +11,8 @@ import { createVerifyTool } from './verify.js'
 import { createVerifySuiteTool } from './verify-suite.js'
 import { createDeliveryGateTool } from './delivery-gate.js'
 import { createNativeResumeTool } from './resume.js'
+import { createExecutionNextTool } from './execution-next.js'
+import type { ExecutionStats } from '../../../delta-code-support/execution-stats.js'
 import { createWorkspaceMapTool } from './workspace.js'
 import { createWorktreeTool } from './worktree.js'
 import { createGitStatusTool, createGitDiffTool } from './git.js'
@@ -27,10 +29,11 @@ export function createDshCodingCommandTools(ctx: Context, settings: Settings): T
 }
 
 export function createDshQualityTools(
-  ctx: Context, settings: Settings, resume: NativeResumeReader,
+  ctx: Context, settings: Settings, resume: NativeResumeReader, stats: ExecutionStats,
 ): ToolDefinition[] {
   return [createVerifyTool(ctx, settings), createVerifySuiteTool(ctx, settings),
-    createDeliveryGateTool(ctx, settings, resume), createNativeResumeTool(ctx, settings, resume)]
+    createDeliveryGateTool(ctx, settings, resume), createNativeResumeTool(ctx, settings, resume),
+    createExecutionNextTool(resume, stats)]
 }
 
 export function createDshRepositoryRemoteTools(
