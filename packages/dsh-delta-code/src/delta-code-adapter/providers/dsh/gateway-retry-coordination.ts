@@ -8,6 +8,7 @@
  * DSH's native retry decision has settled.
  */
 import type { Context } from '@deepseek-ai/cordis'
+import { isAccountQuotaExhausted } from '../../../delta-code-quality/failure-policy.js'
 
 type RecoveryAction = { kind: string } | undefined
 type RecoveryEvent = {
@@ -98,6 +99,10 @@ export function registerGatewayRetryCoordinator(
   let isActive = true
   const unbind = runtime.on('agent/request-error', async (event, next) => {
     if (!isActive || !isEnabled() || event?.retryPolicy?.mode === 'always') return next()
+    if (isAccountQuotaExhausted(event?.failure?.message)) {
+      runtime.logger?.info?.('dsh-delta-code: account quota is exhausted; stopping automatic replay')
+      return undefined
+    }
     const hint = gatewayRetryHint(event?.failure?.message)
     if (!hint) return next()
     if (event.signal?.aborted) return undefined
