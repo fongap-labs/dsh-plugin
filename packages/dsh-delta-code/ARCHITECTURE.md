@@ -13,7 +13,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-quality/` | Verification, task recovery, delivery evidence and failure policy |
 | `delta-code-repository/` | Workspace, Git, worktrees, repository selection, PR and CI business rules |
 | `delta-code-collaboration/` | Safe native-subagent delegation policy, not a second agent runner |
-| `delta-code-support/` | Ephemeral execution counters; no persistent session database |
+| `delta-code-support/` | Ephemeral Delta tool counters and optional native result-event observations; no persistent session database |
 
 ## Boundaries
 
@@ -64,6 +64,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - DSH-backed `code_lsp_probe` execution lives in `delta-code-adapter/providers/dsh/lsp.ts`; language-server status classification is an SDK-free Coding policy. Existing tool import paths remain compatibility facades.
 - Coding, Quality and Repository feature assembly accepts only Delta-owned named-tool contracts. DSH-specific tool construction lives in `delta-code-adapter/providers/dsh/feature-tools.ts`; no Host SDK types enter their feature entrypoints.
 - DSH tool implementation, Host FS and subprocess access are now owned by `delta-code-adapter/providers/dsh/`; Coding, Quality and Repository modules retain Host-independent policy/operation contracts and legacy compatibility facades.
+- Native `tools/result` observation is an optional, disposable, name-only Host adapter in `delta-code-adapter/providers/dsh/native-tool-stats.ts`. It counts result events without arguments or raw output and excludes registered Delta tools from double counting. These are not authoritative native call counts, retry counts or duplicate-call statistics; only Delta tool wrappers can fingerprint arguments.
+
 - Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
 
 - Public `src/types.ts` contains only Host-independent configuration/result types. Cordis Context augmentation and DSH prompt type imports are isolated in `delta-code-adapter/providers/dsh/host-types.ts`.
