@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Delta Suite",
-    "description": "Delta Suite native DeepSeek Harness plugin with extensible appearance and settings."
+    "description": "Delta Suite: appearance, session assistance, and extensible settings for Harness."
   },
   "ui": {
     "preference": "Change the interface theme without affecting sessions, models, or plugins.",
