@@ -80,15 +80,26 @@ phase_end
 # package is compiled first: compiling it also type checks it, and the dependent packages then
 # resolve the shared types instead of failing with an unresolved module.
 SHARED_TSCONFIG=packages/shared/tsconfig.json
-HOST_TSCONFIGS=(
-  packages/dsh-delta-code/tsconfig.json
-  packages/dsh-delta-suite/tsconfig.json
-)
-CLIENT_TSCONFIG=packages/dsh-delta-suite/tsconfig.client.json
+# Discover independent Cordis plugin packages rather than hard-coding the current
+# package list. A new sibling plugin must be compiled on its first PR, even
+# when the trusted CI script is checked out from the unchanged base branch.
+HOST_TSCONFIGS=()
+CLIENT_TSCONFIGS=()
+for package_dir in packages/*; do
+  if [ ! -f "$package_dir/package.json" ] || [ "$package_dir" = "packages/shared" ]; then
+    continue
+  fi
+  if [ -f "$package_dir/tsconfig.json" ]; then
+    HOST_TSCONFIGS+=("$package_dir/tsconfig.json")
+  fi
+  if [ -f "$package_dir/tsconfig.client.json" ]; then
+    CLIENT_TSCONFIGS+=("$package_dir/tsconfig.client.json")
+  fi
+done
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"
-  "$CLIENT_TSCONFIG"
+  "${CLIENT_TSCONFIGS[@]}"
 )
 
 phase_begin typecheck
@@ -96,7 +107,9 @@ phase_begin typecheck
 for config in "${HOST_TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config" --noEmit
 done
-./node_modules/.bin/tsc -p "$CLIENT_TSCONFIG" --noEmit
+for config in "${CLIENT_TSCONFIGS[@]}"; do
+  ./node_modules/.bin/tsc -p "$config" --noEmit
+done
 phase_end
 
 phase_begin build

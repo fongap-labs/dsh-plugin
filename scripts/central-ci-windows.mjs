@@ -4,7 +4,7 @@
  * no release credentials, deployments, npm publishing, or host installation.
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const targetRoot = resolve(process.argv[2] ?? '.')
@@ -28,12 +28,19 @@ const command = name => process.platform === 'win32' ? name + '.cmd' : name
 execute(command('corepack'), ['enable'], 'enable corepack')
 execute(command('corepack'), ['prepare', manager, '--activate'], 'activate pinned pnpm')
 execute(command('pnpm'), ['install', '--frozen-lockfile'], 'frozen install')
-const configurations = [
-  'packages/shared/tsconfig.json',
-  'packages/dsh-delta-code/tsconfig.json',
-  'packages/dsh-delta-suite/tsconfig.json',
-  'packages/dsh-delta-suite/tsconfig.client.json',
-]
+// Discover each Cordis plugin's Host and Client project without trusting a
+// PR-controlled build script or accidentally omitting newly added siblings.
+const configurations = ['packages/shared/tsconfig.json']
+for (const entry of readdirSync(join(targetRoot, 'packages'), { withFileTypes: true })) {
+  if (!entry.isDirectory() || entry.name === 'shared') continue
+  const packageDir = join('packages', entry.name)
+  if (!existsSync(join(targetRoot, packageDir, 'package.json'))) continue
+  for (const configName of ['tsconfig.json', 'tsconfig.client.json']) {
+    if (existsSync(join(targetRoot, packageDir, configName))) {
+      configurations.push(join(packageDir, configName))
+    }
+  }
+}
 for (const config of configurations) {
   execute(process.execPath, [join(targetRoot, 'node_modules/typescript/bin/tsc'), '-p', config],
     'compile ' + config)
