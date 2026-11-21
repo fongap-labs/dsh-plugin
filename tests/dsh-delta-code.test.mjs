@@ -177,6 +177,38 @@ describe("dsh-delta-code", () => {
     assert.equal(memory.read(agent), undefined);
   });
 
+  it("flags literal cross-turn constraint contradictions before planning", async () => {
+    const { prepareTaskSpec, findDirectConstraintConflicts } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
+    const previous = ["\u4fee\u590d CI\uff0c\u7981\u6b62\u65b0\u589e\u73af\u5883\u53d8\u91cf\u3002", "\u7ee7\u7eed\uff0c\u7981\u6b62\u4fee\u6539\u5df2\u6709\u914d\u7f6e\u3002"];
+    const current = "\u7ee7\u7eed\uff0c\u5141\u8bb8\u65b0\u589e\u73af\u5883\u53d8\u91cf\u3002";
+    assert.deepEqual(findDirectConstraintConflicts(current, previous), [
+      { subject: "\u65b0\u589e\u73af\u5883\u53d8\u91cf", inherited: "\u7981\u6b62\u65b0\u589e\u73af\u5883\u53d8\u91cf", current: "\u5141\u8bb8\u65b0\u589e\u73af\u5883\u53d8\u91cf" },
+    ]);
+    const task = {
+      goal: "\u4fee\u590d\u771f\u5b9e CI",
+      taskKind: "ci", scope: "medium", risk: "medium",
+      userQuotes: ["\u5141\u8bb8\u65b0\u589e\u73af\u5883\u53d8\u91cf"],
+      proposedAcceptance: ["\u5f53\u524d\u63d0\u4ea4\u5fc5\u8981\u68c0\u67e5\u901a\u8fc7"],
+      firstAction: "\u6838\u5bf9\u65b0\u65e7\u7ea6\u675f\u548c\u95e8\u7981\u6743\u9650",
+    };
+    const spec = prepareTaskSpec(task, current, previous);
+    assert.equal(spec.readyForPlanning, false);
+    assert.equal(spec.sourceHistoryComplete, true);
+    assert.equal(spec.potentialConflicts.length, 1);
+    const same = prepareTaskSpec(task, current, ["\u7ee7\u7eed\uff0c\u5141\u8bb8\u65b0\u589e\u73af\u5883\u53d8\u91cf\u3002"]);
+    assert.equal(same.readyForPlanning, true);
+    assert.deepEqual(same.potentialConflicts, []);
+    const incomplete = prepareTaskSpec(task, current, [], true);
+    assert.equal(incomplete.readyForPlanning, false);
+    assert.deepEqual(incomplete.potentialConflicts, []);
+    assert.deepEqual(findDirectConstraintConflicts(
+      "\u7ee7\u7eed\uff0c\u5141\u8bb8\u4fee\u6539\u914d\u7f6e\u3002", ["\u4e0d\u5141\u8bb8\u4fee\u6539\u53e6\u4e00\u4e2a\u6a21\u5757\u3002"],
+    ), [], "different targets must not be treated as direct contradictions");
+    assert.deepEqual(findDirectConstraintConflicts(
+      "\u7ee7\u7eed\uff0c\u5141\u8bb8\u65b0\u589e\u73af\u5883\u53d8\u91cf\u3002", ["\u7981\u6b62\u65b0\u589e\u73af\u5883\u53d8\u91cf\u3002", "\u5141\u8bb8\u65b0\u589e\u73af\u5883\u53d8\u91cf\u3002"],
+    ), [], "the most recent inherited instruction prevails");
+  });
+
   it("carries native user amendments with source provenance without leaking across tasks", async () => {
     const { prepareTaskSpec, UserTaskContext } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
     const memory = new UserTaskContext();

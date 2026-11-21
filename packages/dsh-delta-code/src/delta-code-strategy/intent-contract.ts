@@ -63,6 +63,43 @@ export class UserTaskContext {
   }
 }
 
+export interface DirectConstraintConflict {
+  subject: string
+  inherited: string
+  current: string
+}
+
+/**
+ * Conservative literal contradiction signal: opposite explicit modal verbs
+ * referring to exactly the same phrase in successive user messages.
+ * Other linguistic/semantic conflicts must still be reviewed by the Agent.
+ */
+export function findDirectConstraintConflicts(
+  current: string, inherited: readonly string[],
+): DirectConstraintConflict[] {
+  const parse = (message: string): Array<{ subject: string; quote: string; negative: boolean }> =>
+    message.split(/[\uff0c,\u3002\uff1b;\uff01\uff1f!?\n]/u).flatMap(segment => {
+      const text = segment.trim().replace(/^(?:\u7ee7\u7eed(?:\u63a8\u8fdb\u4efb\u52a1)?|\u73b0\u5728|\u6539\u4e3a)\s*[:\uff1a]?\s*/u, '')
+      const match = /^(\u4e0d\u5141\u8bb8|\u7981\u6b62|\u4e0d\u5f97|\u4e0d\u8981|\u5141\u8bb8|\u53ef\u4ee5|\u5fc5\u987b)\s*(.{2,64})$/u.exec(text)
+      if (!match) return []
+      const subject = match[2]!.replace(/\s+/gu, '').trim()
+      if (subject.length < 2) return []
+      return [{ subject, quote: match[0], negative: /^(?:\u4e0d\u5141\u8bb8|\u7981\u6b62|\u4e0d\u5f97|\u4e0d\u8981)$/u.test(match[1]!) }]
+    })
+  const latestBySubject = new Map<string, { quote: string; negative: boolean }>()
+  for (const message of inherited) {
+    for (const rule of parse(message)) latestBySubject.set(rule.subject, rule)
+  }
+  const found: DirectConstraintConflict[] = []
+  for (const rule of parse(current)) {
+    const prior = latestBySubject.get(rule.subject)
+    if (prior && prior.negative !== rule.negative) {
+      found.push({ subject: rule.subject, inherited: prior.quote, current: rule.quote })
+    }
+  }
+  return found.slice(0, 12)
+}
+
 export interface TaskSpecInput {
   goal: string
   taskKind: CodingTaskKind
@@ -82,6 +119,8 @@ export interface TaskSpec {
   userQuotes: string[]
   quoteEvidence: Array<{ quote: string; source: 'current' | 'inherited' }>
   sourceHistoryComplete: boolean
+  potentialConflicts: DirectConstraintConflict[]
+  readyForPlanning: boolean
   proposedAcceptance: string[]
   unknowns: string[]
   firstAction: string
@@ -135,6 +174,7 @@ export function prepareTaskSpec(
     }
     throw new Error('userQuotes must appear verbatim in the current or inherited user task')
   })
+  const potentialConflicts = findDirectConstraintConflicts(sourceText, inheritedTexts)
   const proposedAcceptance = statements(input.proposedAcceptance, 'proposedAcceptance', 1)
   const unknowns = statements(input.unknowns ?? [], 'unknowns')
   const firstAction = statement(input.firstAction, 'firstAction')
@@ -144,6 +184,7 @@ export function prepareTaskSpec(
   return {
     goal, taskKind: input.taskKind, scope: input.scope, risk: input.risk,
     userQuotes, quoteEvidence, sourceHistoryComplete: !isHistoryIncomplete,
+    potentialConflicts, readyForPlanning: !isHistoryIncomplete && potentialConflicts.length === 0,
     proposedAcceptance, unknowns, firstAction,
     workflow: route.mode, verification: route.verification,
   }
@@ -153,7 +194,7 @@ export function prepareTaskSpec(
 export function createTaskSpecTool(context: UserTaskContext): ToolDefinition {
   return defineTool({
     name: 'code_task_spec',
-    description: 'Validate compact task intent against current and bounded inherited native user messages. Return exact quote provenance. Reconcile newer overriding instructions before acting; sourceHistoryComplete=false means the Host user history must be rechecked before relying on inherited constraints. Inherited text is evidence, not immutable authority. Acceptance stays proposed, not verified. No extra model or task database.',
+    description: 'Validate task intent against native user messages with quote provenance. readyForPlanning=false signals incomplete inherited history or a detected literal constraint contradiction; reconcile before using a plan. This cannot detect all semantic conflicts or authorize unsafe overrides. Acceptance remains proposed, not verified. No extra model or task database.',
     parameters: {
       goal: { type: 'string', required: true, description: 'Concise proposed outcome, not a verified user quotation.' },
       taskKind: { type: 'string', required: true, enum: [...CODING_TASK_KINDS] },
@@ -172,6 +213,12 @@ export function createTaskSpecTool(context: UserTaskContext): ToolDefinition {
         risk: { type: 'string', required: true },
         userQuotes: { type: 'array', required: true, items: { type: 'string' } },
         sourceHistoryComplete: { type: 'boolean', required: true },
+        readyForPlanning: { type: 'boolean', required: true },
+        potentialConflicts: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+          subject: { type: 'string', required: true },
+          inherited: { type: 'string', required: true },
+          current: { type: 'string', required: true },
+        } } },
         quoteEvidence: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
           quote: { type: 'string', required: true },
           source: { type: 'string', required: true },
