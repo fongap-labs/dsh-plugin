@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Delta Code",
-    "description": "Delta Code：基于 DeepSeek Harness 的 AI 编程工作流、代码编辑、Git、LSP 与工程验证。"
+    "description": "Delta Code：提供任务规划、代码编辑、Git 协作、LSP 分析和工程验证。"
   }
 }
