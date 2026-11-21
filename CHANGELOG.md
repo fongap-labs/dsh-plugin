@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop portable 发布验收区分 pnpm 规范化后的发布元数据与运行时包合同，仅忽略 `publishConfig` 差异，继续严格对比其余清单字段与 ZIP/TGZ 入口文件，解除首个 Beta 发布的误拒绝。
+
 - 新增: Delta Desktop 独立 portable 发布清单、轻量构建入口和交付 ZIP/TGZ 验证器；实际发布仍要求中央签名 CI 和人工确认版本。
 
 - 新增: Delta Desktop 作为与 Delta Suite、Delta Code 平级的独立 DeepSeek Harness 插件包加入同一仓库，提供 API-first Root Shell 和基础会话交互实验；默认保留官方 UI，B2 原生 UI 裁剪与回退仍待实机验证。
