@@ -18,6 +18,103 @@
     muted: { color: 'var(--dsw-alias-label-secondary, #777)', fontSize: 12 },
   }
 
+  // Display copy follows the same host/browser language boundary as Delta Suite.
+  // Native Harness services and event identities remain unchanged.
+  const ZH_UI = Object.freeze({
+    "Could not load the model catalog": "无法加载模型目录",
+    "Model change was rejected": "模型切换被拒绝",
+    "The parent task controls this subagent's model": "子代理模型由主任务控制",
+    "Model settings": "模型设置",
+    "Model": "模型",
+    "Conversation model": "会话模型",
+    "Unavailable: ": "不可用：",
+    "Select a model": "选择模型",
+    "Reasoning effort": "推理强度",
+    "Provider default": "提供方默认",
+    "Reload model list": "重新加载模型列表",
+    "Refresh model list": "刷新模型列表",
+    "Refresh": "刷新",
+    "Loading models…": "正在加载模型…",
+    "No models available. Configure a provider in Harness settings.": "暂无可用模型，请在 Harness 设置中配置提供方。",
+    "Saving model selection…": "正在保存模型选择…",
+    "Unassigned": "未分配工作区",
+    "Loading conversation history…": "正在加载会话记录…",
+    "Could not load conversation history. Check Harness logs.": "无法加载会话记录，请查看 Harness 日志。",
+    "No readable messages on this page. Older history is available.": "当前页面没有可显示的消息，可以继续加载较早记录。",
+    "Loaded events contain no readable messages.": "已加载的事件中没有可显示的消息。",
+    "No messages in the loaded history.": "已加载的记录中没有消息。",
+    "The request was rejected by Harness.": "Harness 已拒绝该请求。",
+    "New conversation": "新建对话",
+    "Opening conversation history…": "正在打开会话记录…",
+    "Could not open conversation history.": "无法打开会话记录。",
+    "This view contains tool activity but no visible messages.": "当前视图包含工具活动，但没有可显示的消息。",
+    "No readable messages in the loaded events. See the event summary on the right.": "已加载的事件中没有可显示的消息，请查看右侧事件摘要。",
+    "No conversation history has been loaded yet.": "尚未加载会话记录。",
+    "Select a conversation or create a new one.": "选择已有对话或新建对话。",
+    "Delta navigation": "Delta 导航",
+    "All workspaces": "全部工作区",
+    "Conversation details": "会话详情",
+    "Show or hide conversation details": "显示或隐藏会话详情",
+    "Conversation list": "会话列表",
+    "Workspaces": "工作区",
+    "+ New conversation": "+ 新建对话",
+    "Workspace filters": "工作区筛选",
+    "All conversations": "全部对话",
+    "No linked workspace": "未关联工作区",
+    "Conversations": "对话",
+    "Search conversations": "搜索对话",
+    "Search conversations…": "搜索对话…",
+    "No matching conversations.": "没有匹配的对话。",
+    "No conversations in this workspace.": "此工作区暂无对话。",
+    " shown · ": " 已显示 · ",
+    " total": " 总计",
+    " / Conversation": " / 对话",
+    "Delta Desktop / Conversation": "Delta Desktop / 对话",
+    "● Running": "● 运行中",
+    "Idle": "空闲",
+    "Stop": "停止",
+    "Hide details": "隐藏详情",
+    "Show details": "显示详情",
+    "Opening model settings…": "正在打开模型设置…",
+    "Select a conversation to choose a model": "选择对话后可切换模型",
+    "Conversation messages": "会话消息",
+    "No readable messages in this view": "当前视图暂无可显示的消息",
+    "Your workspace is ready": "工作区已就绪",
+    " events · ": " 条事件 · ",
+    " user · ": " 用户 · ",
+    " assistant · ": " 助手 · ",
+    " tool": " 工具",
+    "Loading older messages…": "正在加载更早的消息…",
+    "Load older messages": "加载更早的消息",
+    "Message input": "消息输入框",
+    "Message the assistant…": "向助手发送消息…",
+    "Select a conversation…": "请先选择对话…",
+    "Sending…": "正在发送…",
+    "Send": "发送",
+    "Enter to send · Shift+Enter for a new line · Powered by Harness": "回车发送 · Shift+Enter 换行 · 由 Harness 提供运行支持",
+    "Harness Session Controller": "Harness 会话控制器",
+    "Workspace": "工作区",
+    "Not assigned": "未分配",
+    "Conversation status": "会话状态",
+    "Opening…": "正在打开…",
+    "Failed to open": "打开失败",
+    "Running": "运行中",
+    "Loaded events": "已加载事件",
+    "User / Assistant": "用户 / 助手",
+    "Tool activity": "工具活动",
+    "Other events": "其他事件",
+    "Older messages": "更早的消息",
+    "Available": "可加载",
+    "Not available": "不可用",
+    " events": " 条事件",
+    "Preview: text messages and session metadata only. Tool approvals, attachments, and streaming UI are not yet supported.": "当前仅支持预览文本消息和会话信息；工具审批、附件和流式界面尚未实现。"
+  })
+  function uiText(english) {
+    const docLanguage = typeof document !== 'undefined' ? document.documentElement?.lang : ''
+    const browserLanguage = typeof navigator !== 'undefined' ? navigator.language : ''
+    return /^zh(?:-|$)/i.test(docLanguage || browserLanguage || 'en') ? (ZH_UI[english] ?? english) : english
+  }
+
   function textOf(value, depth = 0) {
     if (typeof value === 'string') return value
     if (value === null || value === undefined || depth >= 4) return ''
@@ -78,7 +175,7 @@
       if (modelCatalogRequest !== null) return modelCatalogRequest
       const request = Promise.resolve().then(() => ctx.remote.session.modelCatalog())
         .then(result => {
-          if (!result.ok) throw new Error(result.error?.message ?? 'Model catalog request failed')
+          if (!result.ok) throw new Error(result.error?.message ?? uiText("Could not load the model catalog"))
           cachedModelCatalog = result.value
           return result.value
         })
@@ -142,7 +239,7 @@
           // Same Host RPC as Harness's own model selection UI. The durable
           // Session projection, not local component state, owns the current model.
           const result = await ctx.remote.session.selectModel({ sessionId, ...selection })
-          if (!result.ok) throw new Error(result.error?.message ?? 'Model switch rejected')
+          if (!result.ok) throw new Error(result.error?.message ?? uiText("Model change was rejected"))
         } catch (reason) {
           setActionError(String(reason))
         } finally {
@@ -158,12 +255,12 @@
 
       if (unavailable) {
         return h('span', { style: { color: '#667c85', fontSize: 12 } },
-          'Subagent model is controlled by its parent')
+          uiText("The parent task controls this subagent's model"))
       }
-      return h('div', { 'aria-label': 'Model controls',
+      return h('div', { 'aria-label': uiText("Model settings"),
         style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
-        h('label', { style: labelStyle }, 'Model',
-          h('select', { 'aria-label': 'Session model',
+        h('label', { style: labelStyle }, uiText("Model"),
+          h('select', { 'aria-label': uiText("Conversation model"),
             style: fieldStyle,
             value: selectedKey,
             disabled: !isSelectable || choices.length === 0,
@@ -179,7 +276,7 @@
           },
           ...(!choices.some(item => item.key === selectedKey) ? [
             h('option', { key: 'unavailable', value: selectedKey },
-              selectedKey ? 'Unavailable: ' + current.provider + '/' + current.model : 'Choose model'),
+              selectedKey ? uiText("Unavailable: ") + current.provider + '/' + current.model : uiText("Select a model")),
           ] : []),
           ...groups.map(group => h('optgroup', { key: group.id, label: group.name },
             ...group.models.map(model => h('option', {
@@ -187,8 +284,8 @@
               value: JSON.stringify([group.id, model.id]),
             }, model.name)))))),
         reasoning && reasoning.efforts.length > 0
-          ? h('label', { style: labelStyle }, 'Reasoning',
-            h('select', { 'aria-label': 'Reasoning effort',
+          ? h('label', { style: labelStyle }, uiText("Reasoning effort"),
+            h('select', { 'aria-label': uiText("Reasoning effort"),
               style: fieldStyle, disabled: !isSelectable || !current,
               value: effort,
               onChange: event => {
@@ -200,14 +297,14 @@
               },
             },
             ...(!reasoning.defaultEffort ? [
-              h('option', { key: '', value: '' }, 'Provider default'),
+              h('option', { key: '', value: '' }, uiText("Provider default")),
             ] : []),
             ...reasoning.efforts.map(item => h('option', {
               key: item.id, value: item.id,
             }, item.name))))
           : null,
-        h('button', { type: 'button', title: 'Reload model catalog',
-          'aria-label': 'Refresh model catalog', disabled: isSaving,
+        h('button', { type: 'button', title: uiText("Reload model list"),
+          'aria-label': uiText("Refresh model list"), disabled: isSaving,
           onClick: () => {
             setCatalogState({ status: 'loading', catalog: null, error: '' })
             void loadModelCatalog(ctx, true)
@@ -217,19 +314,19 @@
               }))
           },
           style: { border: 0, background: 'transparent', color: '#2a7380',
-            padding: 5, cursor: 'pointer', fontSize: 13 } }, 'Refresh'),
+            padding: 5, cursor: 'pointer', fontSize: 13 } }, uiText("Refresh")),
         catalogState.status === 'loading'
           ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
-            'Loading models…') : null,
+            uiText("Loading models…")) : null,
         catalogState.status === 'ready' && choices.length === 0
           ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
-            'No available models. Configure a provider in Harness settings.') : null,
+            uiText("No models available. Configure a provider in Harness settings.")) : null,
         catalogState.status === 'ready' && (modelCatalog?.failures?.length ?? 0) > 0
           ? h('span', { role: 'alert', style: { fontSize: 12, color: '#a35421' } },
             modelCatalog.failures.map(failure => failure.name + ': ' + failure.message).join('; ').slice(0, 300)) : null,
         isSaving
           ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
-            'Saving model…') : null,
+            uiText("Saving model selection…")) : null,
         catalogState.status === 'error' || actionError
           ? h('span', { role: 'alert', style: { fontSize: 12, color: '#b32436' } },
             catalogState.error || actionError) : null)
@@ -259,7 +356,7 @@
       }
       const workspaceNames = [...workspaceCounts.keys()]
       const workspaceLabels = value => {
-        if (value === '__unassigned__') return 'No workspace'
+        if (value === '__unassigned__') return uiText("Unassigned")
         return String(value).replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop() || String(value)
       }
       const scopedIds = workspace === '__all__' ? ids : ids.filter(id => cwdOf(id) === workspace)
@@ -314,14 +411,14 @@
       const currentWorkspace = selectedRow.cwd || ''
       const isHistoryLoading = sessionState.openState === 'cold' || sessionState.openState === 'loading'
       const emptyMessage = isHistoryLoading
-        ? 'Loading session history…'
+        ? uiText("Loading conversation history…")
         : sessionState.openState === 'error'
-          ? 'Session history failed to load. Check Harness logs.'
+          ? uiText("Could not load conversation history. Check Harness logs.")
           : events.hasMore
-            ? 'No supported text in this loaded page. Older history is available.'
+            ? uiText("No readable messages on this page. Older history is available.")
             : events.entries.length > 0
-              ? 'Loaded events contain no supported text messages.'
-              : 'No messages in loaded history.'
+              ? uiText("Loaded events contain no readable messages.")
+              : uiText("No messages in the loaded history.")
 
       async function createSession() {
         if (pending) return
@@ -341,7 +438,7 @@
         try {
           const result = await active.session.prompt([{ type: 'text', text }], 'queue')
           if (result.ok) setDraft('')
-          else setError(result.error?.message ?? 'The Host rejected the prompt.')
+          else setError(result.error?.message ?? uiText("The request was rejected by Harness."))
         } catch (reason) { setError(String(reason)) }
         finally { setPending(false) }
       }
@@ -362,19 +459,19 @@
         padding: '10px 0', borderBottom: '1px solid ' + border } },
         h('span', { style: smallLabel }, label),
         h('span', { style: { color: '#24323a', fontSize: 13, wordBreak: 'break-word' } }, value))
-      const readable = String(selectedRow.displayTitle ?? selectedId ?? 'New conversation')
+      const readable = String(selectedRow.displayTitle ?? selectedId ?? uiText("New conversation"))
       const toolOnly = eventCounters.tool > 0 && eventCounters.user + eventCounters.assistant === 0
       const summary = selectedId ? (
-        isHistoryLoading ? 'Opening session history…'
-          : sessionState.openState === 'error' ? 'History could not be opened.'
+        isHistoryLoading ? uiText("Opening conversation history…")
+          : sessionState.openState === 'error' ? uiText("Could not open conversation history.")
             : events.entries.length > 0
-              ? toolOnly ? 'This window contains tool activity but no visible text messages.'
-                : 'The loaded event window contains no readable text. Its event summary is shown at right.'
-              : 'No history is currently loaded for this session.'
-      ) : 'Choose a session or create a new one.'
+              ? toolOnly ? uiText("This view contains tool activity but no visible messages.")
+                : uiText("No readable messages in the loaded events. See the event summary on the right.")
+              : uiText("No conversation history has been loaded yet.")
+      ) : uiText("Select a conversation or create a new one.")
       return h('main', { 'data-delta-desktop-root': '1',
           style: { ...style.frame, paddingTop: chromeInset, background: '#fff' } },
-        h('aside', { 'aria-label': 'Delta navigation',
+        h('aside', { 'aria-label': uiText("Delta navigation"),
           style: { width: 60, flexShrink: 0, background: '#162e3b',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             gap: 16, padding: '20px 8px', boxSizing: 'border-box' } },
@@ -382,29 +479,29 @@
             style: { width: 38, height: 38, display: 'grid', placeItems: 'center',
               color: 'white', fontSize: 22, fontWeight: 750, borderRadius: 12,
               background: '#277a88' } }, 'Δ'),
-          h('button', { type: 'button', title: 'All workspaces',
-            'aria-label': 'All workspaces', onClick: () => setWorkspace('__all__'),
+          h('button', { type: 'button', title: uiText("All workspaces"),
+            'aria-label': uiText("All workspaces"), onClick: () => setWorkspace('__all__'),
             style: { ...railButton, ...(workspace === '__all__'
               ? { background: '#2b5360', color: 'white' } : {}) } }, '▦'),
-          h('button', { type: 'button', title: 'Session details',
-            'aria-label': 'Toggle session details', onClick: () => setInspector(v => !v),
+          h('button', { type: 'button', title: uiText("Conversation details"),
+            'aria-label': uiText("Show or hide conversation details"), onClick: () => setInspector(v => !v),
             style: { ...railButton, ...(inspector ? { color: 'white' } : {}) } }, 'ⓘ'),
           h('div', { style: { marginTop: 'auto', fontSize: 10, color: '#a9c1c9',
             writingMode: 'vertical-rl', transform: 'rotate(180deg)',
-            letterSpacing: 1.2 } }, 'HARNESS PLUGIN')),
-        h('aside', { 'aria-label': 'Session browser',
+            letterSpacing: 1.2 } }, 'DELTA DESKTOP')),
+        h('aside', { 'aria-label': uiText("Conversation list"),
           style: { display: 'flex', flexDirection: 'column', flexShrink: 0,
             width: 274, minWidth: 0, minHeight: 0, background: soft,
             borderRight: '1px solid ' + border } },
           h('header', { style: { padding: '21px 16px 13px', display: 'grid', gap: 12 } },
             h('div', { style: { display: 'flex', justifyContent: 'space-between',
               alignItems: 'center' } },
-              h('strong', { style: { fontSize: 18, color: '#172c37' } }, 'Workspaces'),
+              h('strong', { style: { fontSize: 18, color: '#172c37' } }, uiText("Workspaces")),
               h('span', { style: { fontSize: 12, color: secondary } }, String(workspaceNames.length))),
             h('button', { type: 'button', style: { ...style.primary, minHeight: 39,
               fontWeight: 650 }, disabled: pending,
-              onClick: () => { void createSession() } }, '+ New session')),
-          h('div', { 'aria-label': 'Workspace filters',
+              onClick: () => { void createSession() } }, uiText("+ New conversation"))),
+          h('div', { 'aria-label': uiText("Workspace filters"),
             style: { maxHeight: 177, overflowY: 'auto', padding: '2px 10px 8px',
               borderBottom: '1px solid ' + border } },
             h('button', { type: 'button', 'aria-current': workspace === '__all__' ? 'page' : undefined,
@@ -412,10 +509,10 @@
               style: { ...style.button, border: 0, width: '100%', minHeight: 33,
                 background: workspace === '__all__' ? '#dfecf0' : 'transparent',
                 fontWeight: 650, display: 'flex', justifyContent: 'space-between' } },
-                h('span', null, 'All sessions'),
+                h('span', null, uiText("All conversations")),
                 h('span', { style: { color: secondary } }, String(ids.length))),
             ...workspaceNames.map(key => h('button', { key,
-              type: 'button', title: key === '__unassigned__' ? 'No linked workspace' : key,
+              type: 'button', title: key === '__unassigned__' ? uiText("No linked workspace") : key,
               'aria-current': workspace === key ? 'page' : undefined,
               onClick: () => setWorkspace(key),
               style: { ...style.button, width: '100%', border: 0, minHeight: 34,
@@ -428,15 +525,15 @@
                 String(workspaceCounts.get(key) ?? 0))))),
           h('div', { style: { padding: '13px 14px 9px', display: 'grid', gap: 9 } },
             h('div', { style: { display: 'flex', justifyContent: 'space-between' } },
-              h('strong', { style: { fontSize: 13 } }, 'Conversations'),
+              h('strong', { style: { fontSize: 13 } }, uiText("Conversations")),
               h('span', { style: { fontSize: 12, color: secondary } }, String(scopedIds.length))),
-            h('input', { type: 'search', 'aria-label': 'Search sessions', value: search,
+            h('input', { type: 'search', 'aria-label': uiText("Search conversations"), value: search,
               onChange: event => setSearch(event.target.value),
-              placeholder: 'Find a conversation…',
+              placeholder: uiText("Search conversations…"),
               style: { border: '1px solid ' + border, borderRadius: 9,
                 padding: '10px 11px', background: '#fff', color: '#263742',
                 font: 'inherit', boxSizing: 'border-box', width: '100%' } })),
-          h('nav', { 'aria-label': 'Sessions',
+          h('nav', { 'aria-label': uiText("Conversations"),
             style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '2px 8px 10px' } },
             ...shownIds.map(id => h('button', { key: id, type: 'button',
               title: rowOf(id).displayTitle ?? id,
@@ -454,10 +551,10 @@
                 textOverflow: 'ellipsis', overflow: 'hidden', flex: 1 } },
                 rowOf(id).displayTitle ?? id))),
             shownIds.length === 0 ? h('div', { style: { padding: 14, fontSize: 12, color: secondary } },
-              search ? 'No matching conversations.' : 'No sessions in this workspace.') : null),
+              search ? uiText("No matching conversations.") : uiText("No conversations in this workspace.")) : null),
           h('footer', { style: { padding: '10px 16px', fontSize: 11, color: secondary,
             borderTop: '1px solid ' + border } },
-            String(shownIds.length) + ' shown · ' + String(ids.length) + ' total')),
+            String(shownIds.length) + uiText(" shown · ") + String(ids.length) + uiText(" total"))),
         h('section', { style: { display: 'flex', flex: 1, minWidth: 0, minHeight: 0,
             flexDirection: 'column', background: '#fff' } },
           h('header', { style: { padding: '15px 24px', minHeight: 72,
@@ -466,7 +563,7 @@
             gap: 16 } },
             h('div', { style: { minWidth: 0, display: 'grid', gap: 4 } },
               h('div', { style: { fontSize: 11, color: secondary } },
-                currentWorkspace ? workspaceLabels(currentWorkspace) + ' / Conversation' : 'Delta Desktop / Conversation'),
+                currentWorkspace ? workspaceLabels(currentWorkspace) + uiText(" / Conversation") : uiText("Delta Desktop / Conversation")),
               h('strong', { title: readable,
                 style: { fontSize: 17, color: '#1f3039', overflow: 'hidden',
                   textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, readable)),
@@ -474,13 +571,13 @@
               h('span', { style: { padding: '6px 9px', borderRadius: 50,
                 background: running ? '#dff7eb' : '#f0f2f4',
                 color: running ? '#12754b' : '#687984', fontSize: 12 } },
-                running ? '● Running' : 'Idle'),
+                running ? uiText("● Running") : uiText("Idle")),
               running && active && typeof active.session.cancel === 'function'
                 ? h('button', { type: 'button', style: { ...style.button, padding: '8px 12px' },
-                  onClick: () => { void active.session.cancel().catch(reason => setError(String(reason))) } }, 'Stop')
+                  onClick: () => { void active.session.cancel().catch(reason => setError(String(reason))) } }, uiText("Stop"))
                 : null,
               h('button', { type: 'button', style: { ...style.button, padding: '8px 12px' },
-                onClick: () => setInspector(v => !v) }, inspector ? 'Hide details' : 'Show details'))),
+                onClick: () => setInspector(v => !v) }, inspector ? uiText("Hide details") : uiText("Show details")))),
           h('div', { style: { borderBottom: '1px solid ' + border,
             padding: '9px 24px', minHeight: 45, boxSizing: 'border-box',
             display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
@@ -488,8 +585,8 @@
               ? h(ModelControls, { key: selectedId, ctx, binding: active,
                 sessionId: selectedId })
               : h('span', { style: { fontSize: 12, color: secondary } },
-                selectedId ? 'Opening Session model controls…' : 'Select a session to choose a model')),
-          h('div', { role: 'log', 'aria-label': 'Session messages',
+                selectedId ? uiText("Opening model settings…") : uiText("Select a conversation to choose a model"))),
+          h('div', { role: 'log', 'aria-label': uiText("Conversation messages"),
             style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '26px 30px 36px',
               display: 'flex', flexDirection: 'column', gap: 16, background: '#fff' } },
             ...messages.map(row => h('article', { key: row.key,
@@ -500,26 +597,26 @@
                 padding: '14px 17px', borderRadius: 14 } },
               h('div', { style: { fontSize: 11, letterSpacing: .4,
                 fontWeight: 750, color: row.who === 'You' ? '#1d6977' : '#536978',
-                marginBottom: 8 } }, row.who === 'You' ? 'YOU' : 'ASSISTANT'),
+                marginBottom: 8 } }, uiText(row.who)),
               h('div', { style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere',
                 lineHeight: 1.65, color: '#24323c', fontSize: 14 } }, row.body))),
             messages.length === 0 ? h('div', { style: { padding: '12vh 16px 20px',
                 margin: 'auto', maxWidth: 430, textAlign: 'center' } },
               h('div', { style: { fontSize: 35, color: '#488f9b', marginBottom: 14 } }, '◈'),
               h('strong', { style: { fontSize: 18, color: '#263b46' } },
-                selectedId ? 'No conversation text in this window' : 'Your workspace is ready'),
+                selectedId ? uiText("No readable messages in this view") : uiText("Your workspace is ready")),
               h('p', { style: { color: secondary, lineHeight: 1.6, fontSize: 13 } }, summary),
               selectedId ? h('p', { style: { color: secondary, fontSize: 12 } },
-                String(eventCounters.all) + ' durable events · ' +
-                String(eventCounters.user) + ' user · ' +
-                String(eventCounters.assistant) + ' assistant · ' +
-                String(eventCounters.tool) + ' tool') : null)
+                String(eventCounters.all) + uiText(" events · ") +
+                String(eventCounters.user) + uiText(" user · ") +
+                String(eventCounters.assistant) + uiText(" assistant · ") +
+                String(eventCounters.tool) + uiText(" tool")) : null)
               : null,
             active && events.hasMore && typeof active.session.loadOlder === 'function'
               ? h('button', { type: 'button', disabled: !!sessionState.loadingOlder,
                 onClick: () => { void active.session.loadOlder().catch(reason => setError(String(reason))) },
                 style: { ...style.button, alignSelf: 'center', padding: '10px 20px' } },
-                sessionState.loadingOlder ? 'Loading older history…' : 'Load older history')
+                sessionState.loadingOlder ? uiText("Loading older messages…") : uiText("Load older messages"))
               : null),
           error ? h('p', { role: 'alert', style: { margin: 0, padding: '9px 22px',
               background: '#fff1f2', color: '#a32232', fontSize: 12 } }, error) : null,
@@ -528,7 +625,7 @@
             h('div', { style: { display: 'flex', gap: 10,
               border: '1px solid ' + border, borderRadius: 12,
               padding: 9, background: '#fff' } },
-              h('textarea', { 'aria-label': 'Prompt', value: draft, rows: 2,
+              h('textarea', { 'aria-label': uiText("Message input"), value: draft, rows: 2,
                 disabled: !active || pending,
                 onChange: event => setDraft(event.target.value),
                 onKeyDown: event => {
@@ -537,7 +634,7 @@
                     void send()
                   }
                 },
-                placeholder: active ? 'Message Harness Agent…' : 'Select a conversation…',
+                placeholder: active ? uiText("Message the assistant…") : uiText("Select a conversation…"),
                 style: { border: 0, outline: 'none', flex: 1, minWidth: 0,
                   color: '#1f3039', minHeight: 46, maxHeight: 170,
                   boxSizing: 'border-box', resize: 'vertical', padding: '10px 12px',
@@ -545,33 +642,33 @@
               h('button', { type: 'button', disabled: !active || pending || !draft.trim(),
                 onClick: () => { void send() }, style: { ...style.primary,
                   minWidth: 73, alignSelf: 'flex-end', height: 42,
-                  flexShrink: 0, borderRadius: 8 } }, pending ? 'Sending…' : 'Send')),
+                  flexShrink: 0, borderRadius: 8 } }, pending ? uiText("Sending…") : uiText("Send"))),
             h('div', { style: { textAlign: 'center', fontSize: 11,
               color: secondary, paddingTop: 8 } },
-              'Enter to send · Shift+Enter for a line break · Harness remains the runtime'))),
-        inspector ? h('aside', { 'aria-label': 'Session details',
+              uiText("Enter to send · Shift+Enter for a new line · Powered by Harness")))),
+        inspector ? h('aside', { 'aria-label': uiText("Conversation details"),
           style: { display: 'flex', flexDirection: 'column', width: 248, flexShrink: 0,
             borderLeft: '1px solid ' + border, background: '#fafbfc',
             boxSizing: 'border-box', overflowY: 'auto', padding: '22px 17px' } },
           h('div', { style: { display: 'grid', gap: 4, marginBottom: 20 } },
-            h('strong', { style: { color: '#243744', fontSize: 16 } }, 'Session details'),
+            h('strong', { style: { color: '#243744', fontSize: 16 } }, uiText("Conversation details")),
             h('span', { style: { fontSize: 12, color: secondary } },
-              'Harness Session Controller')),
-          labelAndValue('Workspace', currentWorkspace
-            ? workspaceLabels(currentWorkspace) : 'Not assigned'),
-          labelAndValue('Session status',
-            isHistoryLoading ? 'Opening…'
-              : sessionState.openState === 'error' ? 'Open failed'
-                : running ? 'Running' : 'Idle'),
-          labelAndValue('Loaded history', String(eventCounters.all) + ' durable events'),
-          labelAndValue('User / Assistant', String(eventCounters.user) +
+              uiText("Harness Session Controller"))),
+          labelAndValue(uiText("Workspace"), currentWorkspace
+            ? workspaceLabels(currentWorkspace) : uiText("Not assigned")),
+          labelAndValue(uiText("Conversation status"),
+            isHistoryLoading ? uiText("Opening…")
+              : sessionState.openState === 'error' ? uiText("Failed to open")
+                : running ? uiText("Running") : uiText("Idle")),
+          labelAndValue(uiText("Loaded events"), String(eventCounters.all) + ' durable events'),
+          labelAndValue(uiText("User / Assistant"), String(eventCounters.user) +
             ' / ' + String(eventCounters.assistant)),
-          labelAndValue('Tool activity', String(eventCounters.tool) + ' events'),
-          labelAndValue('Other events', String(eventCounters.other)),
-          labelAndValue('Older history', events.hasMore ? 'Available' : 'Not indicated'),
+          labelAndValue(uiText("Tool activity"), String(eventCounters.tool) + uiText(" events")),
+          labelAndValue(uiText("Other events"), String(eventCounters.other)),
+          labelAndValue(uiText("Older messages"), events.hasMore ? uiText("Available") : uiText("Not available")),
           h('div', { style: { paddingTop: 20, fontSize: 12, lineHeight: 1.65,
             color: secondary } },
-            'Preview scope: text messages and session metadata only. Full tool approvals, rich attachments and stream rendering require further implementation.')) : null)
+            uiText("Preview: text messages and session metadata only. Tool approvals, attachments, and streaming UI are not yet supported."))) : null)
 
     }
 
