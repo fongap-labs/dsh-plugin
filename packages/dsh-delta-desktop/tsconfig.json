@@ -3,9 +3,16 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib",
-    "lib": ["ES2022", "DOM"],
-    "types": []
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [],
+    "allowJs": true,
+    "checkJs": false
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/client.ts"]
+  "include": [
+    "src/index.js",
+    "src/kernel/**/*.ts"
+  ]
 }

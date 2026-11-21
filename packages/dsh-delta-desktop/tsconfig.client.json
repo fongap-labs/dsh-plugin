@@ -6,9 +6,18 @@
     "moduleResolution": "bundler",
     "rootDir": "src",
     "outDir": "lib",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "declaration": false,
-    "types": []
+    "types": [],
+    "allowJs": true,
+    "checkJs": false,
+    "moduleDetection": "legacy"
   },
-  "include": ["src/client.ts"]
+  "include": [
+    "src/client.js"
+  ]
 }

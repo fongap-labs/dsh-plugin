@@ -4,14 +4,14 @@
   "private": false,
   "type": "module",
   "description": "Experimental API-first Delta Root UI as an independent DeepSeek Harness plugin",
-  "main": "./lib/index.js",
-  "types": "./lib/index.d.ts",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
-      "default": "./lib/index.js"
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
     },
-    "./client": "./lib/client.js",
+    "./client": "./src/client.js",
     "./icon": "./icon.svg",
     "./locale/*.json": "./locale/*.json"
   },
@@ -30,14 +30,14 @@
     }
   },
   "files": [
-    "lib/**/*.js",
-    "lib/**/*.d.ts",
     "cordis.patch.yml",
     "cordis.delta-only.patch.yml",
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "src/**/*.js",
+    "src/**/*.d.ts"
   ],
   "engines": {
     "node": ">=22.0.0"
