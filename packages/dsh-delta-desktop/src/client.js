@@ -67,7 +67,7 @@
 
 
     // Desktop-owned model UI using the Host public Session remote, not
-    // ui-model-selection or any other native UI component. The catalog is
+    // native UI model components. The catalog is
     // shared across Session views for the current Client module lifetime.
     let cachedModelCatalog = null
     let modelCatalogRequest = null
@@ -221,6 +221,12 @@
         catalogState.status === 'loading'
           ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
             'Loading models…') : null,
+        catalogState.status === 'ready' && choices.length === 0
+          ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
+            'No available models. Configure a provider in Harness settings.') : null,
+        catalogState.status === 'ready' && (modelCatalog?.failures?.length ?? 0) > 0
+          ? h('span', { role: 'alert', style: { fontSize: 12, color: '#a35421' } },
+            modelCatalog.failures.map(failure => failure.name + ': ' + failure.message).join('; ').slice(0, 300)) : null,
         isSaving
           ? h('span', { role: 'status', style: { fontSize: 12, color: '#657786' } },
             'Saving model…') : null,
