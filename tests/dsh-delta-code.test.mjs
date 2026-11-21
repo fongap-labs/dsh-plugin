@@ -1,7 +1,7 @@
 /**
  * dsh-delta-code integration and regression tests
- * \u901a\u8fc7 mock \u7684 Cordis ctx \u6355\u83b7\u63d2\u4ef6\u771f\u5b9e\u6ce8\u518c\u7684\u5de5\u5177\uff0c\u5e76\u76f4\u63a5\u6267\u884c\u5b83\u4eec\u3002
- * \u8fd0\u884c\uff1apnpm test
+ * 通过 mock 的 Cordis ctx 捕获插件真实注册的工具，并直接执行它们。
+ * 运行：pnpm test
  */
 
 import { describe, it, before, after } from "node:test";
@@ -131,7 +131,7 @@ describe("dsh-delta-code", () => {
     assert.equal(fresh.registeredSkills.size, 0);
   });
 
-  it("\u63d2\u4ef6\u58f0\u660e\u5143\u4fe1\u606f\u6b63\u786e", () => {
+  it("插件声明元信息正确", () => {
     assert.equal(codeWorker.name, "@fongap-labs/dsh-delta-code");
     assert.deepEqual(codeWorker.inject, ["tools"]);
   });
@@ -143,36 +143,36 @@ describe("dsh-delta-code", () => {
 
   it("validates explicit coding requirements against the native user message", async () => {
     const { prepareTaskSpec, UserTaskContext } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
-    const userText = "\u4fee\u590d CI \u7ea2\u53c9\uff0c\u4e0d\u8981\u7ed5\u8fc7\u95e8\u7981\uff0c\u4e5f\u4e0d\u8981\u7f16\u9020\u73af\u5883\u53d8\u91cf\u3002";
+    const userText = "修复 CI 红叉，不要绕过门禁，也不要编造环境变量。";
     const input = {
-      goal: "\u4fee\u590d\u771f\u5b9e CI \u5931\u8d25",
+      goal: "修复真实 CI 失败",
       taskKind: "ci", scope: "medium", risk: "medium",
-      userQuotes: ["\u4e0d\u8981\u7ed5\u8fc7\u95e8\u7981", "\u4e0d\u8981\u7f16\u9020\u73af\u5883\u53d8\u91cf"],
-      proposedAcceptance: ["\u5f53\u524d\u63d0\u4ea4\u6240\u9700\u68c0\u67e5\u5b9e\u9645\u901a\u8fc7"],
-      unknowns: ["\u5931\u8d25 job \u539f\u59cb\u9519\u8bef"],
-      firstAction: "\u68c0\u67e5\u5f53\u524d\u63d0\u4ea4\u7684\u5931\u8d25\u4f5c\u4e1a\u65e5\u5fd7",
+      userQuotes: ["不要绕过门禁", "不要编造环境变量"],
+      proposedAcceptance: ["当前提交所需检查实际通过"],
+      unknowns: ["失败 job 原始错误"],
+      firstAction: "检查当前提交的失败作业日志",
     };
     const spec = prepareTaskSpec(input, userText);
     assert.deepEqual(spec.userQuotes, input.userQuotes);
     assert.equal(spec.sourceHistoryComplete, true);
     assert.deepEqual(spec.quoteEvidence, [
-      { quote: "\u4e0d\u8981\u7ed5\u8fc7\u95e8\u7981", source: "current" },
-      { quote: "\u4e0d\u8981\u7f16\u9020\u73af\u5883\u53d8\u91cf", source: "current" },
+      { quote: "不要绕过门禁", source: "current" },
+      { quote: "不要编造环境变量", source: "current" },
     ]);
     assert.deepEqual(spec.unknowns, input.unknowns);
     assert.equal(spec.workflow, "ci-repair");
     assert.ok(spec.verification.length > 0);
     assert.throws(() => prepareTaskSpec({
-      ...input, userQuotes: ["\u4e0d\u5b58\u5728\u7684\u7528\u6237\u8981\u6c42"],
+      ...input, userQuotes: ["不存在的用户要求"],
     }, userText), /verbatim/);
     assert.throws(() => prepareTaskSpec(input, ""), /source is unavailable/);
     const memory = new UserTaskContext();
     const agent = {};
     memory.capture(agent, userText, false, true);
-    memory.capture(agent, "\u7ee7\u7eed", true, true);
+    memory.capture(agent, "继续", true, true);
     assert.equal(memory.read(agent), userText);
-    memory.capture(agent, "\u65b0\u4efb\u52a1", false, true);
-    assert.equal(memory.read(agent), "\u65b0\u4efb\u52a1");
+    memory.capture(agent, "新任务", false, true);
+    assert.equal(memory.read(agent), "新任务");
     memory.remove(agent);
     assert.equal(memory.read(agent), undefined);
   });
@@ -214,41 +214,41 @@ describe("dsh-delta-code", () => {
     const memory = new UserTaskContext();
     const agent = {};
     const secondAgent = {};
-    memory.capture(agent, "\u4fee\u590d CI \u7ea2\u53c9\uff0c\u4e0d\u5f97\u7ed5\u8fc7\u95e8\u7981", false, true);
-    memory.capture(agent, "\u7ee7\u7eed\uff0c\u7981\u6b62\u6dfb\u52a0\u65b0\u73af\u5883\u53d8\u91cf", true, true);
-    memory.capture(agent, "\u7ee7\u7eed", true, true);
-    assert.equal(memory.read(agent), "\u7ee7\u7eed\uff0c\u7981\u6b62\u6dfb\u52a0\u65b0\u73af\u5883\u53d8\u91cf");
+    memory.capture(agent, "修复 CI 红叉，不得绕过门禁", false, true);
+    memory.capture(agent, "继续，禁止添加新环境变量", true, true);
+    memory.capture(agent, "继续", true, true);
+    assert.equal(memory.read(agent), "继续，禁止添加新环境变量");
     const sources = memory.readSources(agent);
     assert.deepEqual(sources, {
-      current: "\u7ee7\u7eed\uff0c\u7981\u6b62\u6dfb\u52a0\u65b0\u73af\u5883\u53d8\u91cf",
-      inherited: ["\u4fee\u590d CI \u7ea2\u53c9\uff0c\u4e0d\u5f97\u7ed5\u8fc7\u95e8\u7981"],
+      current: "继续，禁止添加新环境变量",
+      inherited: ["修复 CI 红叉，不得绕过门禁"],
       historyIncomplete: false,
     });
     const spec = prepareTaskSpec({
-      goal: "\u4fee\u590d CI \u7ea2\u53c9",
+      goal: "修复 CI 红叉",
       taskKind: "ci", scope: "medium", risk: "medium",
-      userQuotes: ["\u4e0d\u5f97\u7ed5\u8fc7\u95e8\u7981", "\u7981\u6b62\u6dfb\u52a0\u65b0\u73af\u5883\u53d8\u91cf"],
-      proposedAcceptance: ["\u5f53\u524d\u63d0\u4ea4\u4e2d\u592e CI \u901a\u8fc7"],
-      firstAction: "\u8bfb\u53d6 CI \u5931\u8d25\u65e5\u5fd7",
+      userQuotes: ["不得绕过门禁", "禁止添加新环境变量"],
+      proposedAcceptance: ["当前提交中央 CI 通过"],
+      firstAction: "读取 CI 失败日志",
     }, sources.current, sources.inherited);
     assert.equal(spec.sourceHistoryComplete, true);
     assert.deepEqual(spec.quoteEvidence, [
-      { quote: "\u4e0d\u5f97\u7ed5\u8fc7\u95e8\u7981", source: "inherited" },
-      { quote: "\u7981\u6b62\u6dfb\u52a0\u65b0\u73af\u5883\u53d8\u91cf", source: "current" },
+      { quote: "不得绕过门禁", source: "inherited" },
+      { quote: "禁止添加新环境变量", source: "current" },
     ]);
     assert.throws(() => prepareTaskSpec({
-      goal: "\u4fee\u590d CI \u7ea2\u53c9",
+      goal: "修复 CI 红叉",
       taskKind: "ci", scope: "medium", risk: "medium",
-      userQuotes: ["\u67d0\u4e2a\u672a\u51fa\u73b0\u7684\u7ea6\u675f"],
-      proposedAcceptance: ["\u5f53\u524d\u63d0\u4ea4\u4e2d\u592e CI \u901a\u8fc7"],
-      firstAction: "\u8bfb\u53d6 CI \u5931\u8d25\u65e5\u5fd7",
+      userQuotes: ["某个未出现的约束"],
+      proposedAcceptance: ["当前提交中央 CI 通过"],
+      firstAction: "读取 CI 失败日志",
     }, sources.current, sources.inherited), /verbatim/);
     assert.equal(memory.read(secondAgent), undefined);
-    memory.capture(agent, "\u73b0\u5728\u6539\u4e3a\u8bc4\u4f30\u53e6\u4e00\u4e2a\u4ed3\u5e93", false, true);
-    assert.deepEqual(memory.readSources(agent), { current: "\u73b0\u5728\u6539\u4e3a\u8bc4\u4f30\u53e6\u4e00\u4e2a\u4ed3\u5e93", inherited: [], historyIncomplete: false });
-    memory.capture(agent, "\u666e\u901a\u804a\u5929", false, false);
+    memory.capture(agent, "现在改为评估另一个仓库", false, true);
+    assert.deepEqual(memory.readSources(agent), { current: "现在改为评估另一个仓库", inherited: [], historyIncomplete: false });
+    memory.capture(agent, "普通聊天", false, false);
     assert.equal(memory.readSources(agent), undefined);
-    memory.capture(agent, "\u65b0\u7684\u4efb\u52a1", false, true);
+    memory.capture(agent, "新的任务", false, true);
     memory.clear();
     assert.equal(memory.readSources(agent), undefined);
   });
@@ -257,22 +257,22 @@ describe("dsh-delta-code", () => {
     const { UserTaskContext, prepareTaskSpec } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
     const memory = new UserTaskContext();
     const agent = {};
-    memory.capture(agent, "\u539f\u59cb\u76ee\u6807", false, true);
+    memory.capture(agent, "原始目标", false, true);
     for (let n = 1; n <= 6; n++) {
-      memory.capture(agent, "\u7ee7\u7eed\uff0c\u8ffd\u52a0\u8981\u6c42" + n, true, true);
+      memory.capture(agent, "继续，追加要求" + n, true, true);
     }
     assert.deepEqual(memory.readSources(agent), {
-      current: "\u7ee7\u7eed\uff0c\u8ffd\u52a0\u8981\u6c426",
-      inherited: ["\u7ee7\u7eed\uff0c\u8ffd\u52a0\u8981\u6c422", "\u7ee7\u7eed\uff0c\u8ffd\u52a0\u8981\u6c423", "\u7ee7\u7eed\uff0c\u8ffd\u52a0\u8981\u6c424", "\u7ee7\u7eed\uff0c\u8ffd\u52a0\u8981\u6c425"],
+      current: "继续，追加要求6",
+      inherited: ["继续，追加要求2", "继续，追加要求3", "继续，追加要求4", "继续，追加要求5"],
       historyIncomplete: true,
     });
     const evidence = memory.readSources(agent);
     const spec = prepareTaskSpec({
-      goal: "\u6301\u7eed\u4fee\u6539",
+      goal: "持续修改",
       taskKind: "feature", scope: "medium", risk: "medium",
-      userQuotes: ["\u7ee7\u7eed\uff0c\u8ffd\u52a0\u8981\u6c426"],
-      proposedAcceptance: ["\u9a8c\u8bc1\u5b8c\u6210"],
-      firstAction: "\u5ba1\u67e5\u5386\u53f2",
+      userQuotes: ["继续，追加要求6"],
+      proposedAcceptance: ["验证完成"],
+      firstAction: "审查历史",
     }, evidence.current, evidence.inherited, evidence.historyIncomplete);
     assert.equal(spec.sourceHistoryComplete, false);
     memory.remove(agent);
@@ -306,7 +306,7 @@ describe("dsh-delta-code", () => {
     }
   });
 
-  it("code_multi_edit: dryRun \u4e0d\u5199\u76d8", async () => {
+  it("code_multi_edit: dryRun 不写盘", async () => {
     const tool = ctx.registered.get("code_multi_edit");
     const result = await tool.execute(
       { edits: [{ path: "a.txt", content: "hello" }], dryRun: true },
@@ -346,7 +346,7 @@ describe("dsh-delta-code", () => {
     assert.equal(JSON.stringify(result).includes("node --test"), false);
   });
 
-  it("code_multi_edit: \u5b9e\u9645\u5199\u5165\u6587\u4ef6\u5185\u5bb9", async () => {
+  it("code_multi_edit: 实际写入文件内容", async () => {
     const tool = ctx.registered.get("code_multi_edit");
     const result = await tool.execute(
       { edits: [{ path: "nested/b.txt", content: "world" }] },
@@ -357,7 +357,7 @@ describe("dsh-delta-code", () => {
     assert.equal(await readFile(join(workspace, "nested/b.txt"), "utf8"), "world");
   });
 
-  it("code_multi_edit: find/replace \u66ff\u6362\u9996\u4e2a\u5339\u914d", async () => {
+  it("code_multi_edit: find/replace 替换首个匹配", async () => {
     await writeFile(join(workspace, "c.txt"), "alpha beta alpha", "utf8");
     const tool = ctx.registered.get("code_multi_edit");
     const result = await tool.execute(
@@ -369,7 +369,7 @@ describe("dsh-delta-code", () => {
     assert.equal(await readFile(join(workspace, "c.txt"), "utf8"), "gamma beta alpha");
   });
 
-  it("code_multi_edit: \u8d8a\u754c\u8def\u5f84\u88ab\u6c99\u7bb1\u62d2\u7edd\u4e14\u4e0d\u5f71\u54cd\u5176\u5b83\u7f16\u8f91", async () => {
+  it("code_multi_edit: 越界路径被沙箱拒绝且不影响其它编辑", async () => {
     const tool = ctx.registered.get("code_multi_edit");
     const result = await rejectedMultiEditResult(tool.execute(
       {
@@ -388,7 +388,7 @@ describe("dsh-delta-code", () => {
     assert.equal(await readFile(join(workspace, "safe.txt"), "utf8"), "yes");
   });
 
-  it("code_multi_edit: find \u672a\u547d\u4e2d\u65f6\u8df3\u8fc7\u8be5\u7f16\u8f91", async () => {
+  it("code_multi_edit: find 未命中时跳过该编辑", async () => {
     const tool = ctx.registered.get("code_multi_edit");
     const result = await rejectedMultiEditResult(tool.execute(
       { edits: [{ path: "c.txt", find: "not-present", replace: "x" }] },
@@ -399,7 +399,7 @@ describe("dsh-delta-code", () => {
     assert.match(result.results[0].note, /not present/i);
   });
 
-  it("code_git_status: \u8fd4\u56de\u7ed3\u6784\u5316\u7ed3\u679c", async () => {
+  it("code_git_status: 返回结构化结果", async () => {
     const host = createContext();
     host.subprocess = createGitSubprocess("## main\\0?? demo.txt\\0".replaceAll("\\0", "\0"));
     const dispose = codeWorker.apply(host, { workspaceRoot: workspace });
@@ -410,7 +410,7 @@ describe("dsh-delta-code", () => {
     dispose();
   });
 
-  it("code_git_diff: \u8fd4\u56de diff \u5b57\u6bb5", async () => {
+  it("code_git_diff: 返回 diff 字段", async () => {
     const host = createContext();
     host.subprocess = createGitSubprocess("diff --git a/a.txt b/a.txt\n");
     const dispose = codeWorker.apply(host, { workspaceRoot: workspace });
@@ -420,7 +420,7 @@ describe("dsh-delta-code", () => {
     dispose();
   });
 
-  it("code_lsp_probe: \u8fd4\u56de\u9010\u670d\u52a1\u63a2\u6d4b\u7ed3\u8bba", async () => {
+  it("code_lsp_probe: 返回逐服务探测结论", async () => {
     const tool = ctx.registered.get("code_lsp_probe");
     const result = await tool.execute({}, { signal: new AbortController().signal });
     assert.ok(Array.isArray(result.servers));
@@ -429,7 +429,7 @@ describe("dsh-delta-code", () => {
     assert.equal(typeof result.servers[0].available, "boolean");
   });
 
-  it("code_lsp_probe: \u53ef\u6ce8\u5165\u63a2\u6d4b\u6210\u529f\u7684\u865a\u6784\u547d\u4ee4", async () => {
+  it("code_lsp_probe: 可注入探测成功的虚构命令", async () => {
     const probeCtx = createContext();
     codeWorker.apply(probeCtx, {
       enabled: true,
@@ -450,7 +450,7 @@ describe("dsh-delta-code", () => {
     assert.equal(result.servers[0].available, true);
   });
 
-  it("disposer \u53ef\u5378\u8f7d\u6240\u6709\u5df2\u6ce8\u518c\u5de5\u5177", () => {
+  it("disposer 可卸载所有已注册工具", () => {
     const unregisterCtx = createContext();
     const disposer = codeWorker.apply(unregisterCtx, {
       enabled: true,
