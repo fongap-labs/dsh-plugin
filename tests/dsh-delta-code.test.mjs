@@ -177,6 +177,38 @@ describe("dsh-delta-code", () => {
     assert.equal(memory.read(agent), undefined);
   });
 
+  it("flags literal cross-turn constraint contradictions before planning", async () => {
+    const { prepareTaskSpec, findDirectConstraintConflicts } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
+    const previous = ["修复 CI，禁止新增环境变量。", "继续，禁止修改已有配置。"];
+    const current = "继续，允许新增环境变量。";
+    assert.deepEqual(findDirectConstraintConflicts(current, previous), [
+      { subject: "新增环境变量", inherited: "禁止新增环境变量", current: "允许新增环境变量" },
+    ]);
+    const task = {
+      goal: "修复真实 CI",
+      taskKind: "ci", scope: "medium", risk: "medium",
+      userQuotes: ["允许新增环境变量"],
+      proposedAcceptance: ["当前提交必要检查通过"],
+      firstAction: "核对新旧约束和门禁权限",
+    };
+    const spec = prepareTaskSpec(task, current, previous);
+    assert.equal(spec.readyForPlanning, false);
+    assert.equal(spec.sourceHistoryComplete, true);
+    assert.equal(spec.potentialConflicts.length, 1);
+    const same = prepareTaskSpec(task, current, ["继续，允许新增环境变量。"]);
+    assert.equal(same.readyForPlanning, true);
+    assert.deepEqual(same.potentialConflicts, []);
+    const incomplete = prepareTaskSpec(task, current, [], true);
+    assert.equal(incomplete.readyForPlanning, false);
+    assert.deepEqual(incomplete.potentialConflicts, []);
+    assert.deepEqual(findDirectConstraintConflicts(
+      "继续，允许修改配置。", ["不允许修改另一个模块。"],
+    ), [], "different targets must not be treated as direct contradictions");
+    assert.deepEqual(findDirectConstraintConflicts(
+      "继续，允许新增环境变量。", ["禁止新增环境变量。", "允许新增环境变量。"],
+    ), [], "the most recent inherited instruction prevails");
+  });
+
   it("carries native user amendments with source provenance without leaking across tasks", async () => {
     const { prepareTaskSpec, UserTaskContext } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
     const memory = new UserTaskContext();
