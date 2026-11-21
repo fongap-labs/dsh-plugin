@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Delta Desktop",
-    "description": "Experimental API-first Harness plugin with a Delta-owned Root Shell."
+    "description": "Delta Desktop: an experimental desktop workspace for Harness, delivered as a plugin rather than a standalone app."
   }
 }
