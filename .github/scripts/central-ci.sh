@@ -80,23 +80,37 @@ phase_end
 # package is compiled first: compiling it also type checks it, and the dependent packages then
 # resolve the shared types instead of failing with an unresolved module.
 SHARED_TSCONFIG=packages/shared/tsconfig.json
-HOST_TSCONFIGS=(
-  packages/dsh-delta-code/tsconfig.json
-  packages/dsh-delta-suite/tsconfig.json
-)
-CLIENT_TSCONFIG=packages/dsh-delta-suite/tsconfig.client.json
+if [ ! -f "$SHARED_TSCONFIG" ]; then
+  echo "central-ci: shared TypeScript project is missing" >&2
+  exit 65
+fi
+
+# Resolve all plugin TypeScript projects from package directories. Shared must
+# compile first so package imports can resolve its generated declarations.
+# Do not maintain a hard-coded product list as plugins are added or removed.
+HOST_TSCONFIGS=()
+CLIENT_TSCONFIGS=()
+for package_dir in packages/*; do
+  [ -d "$package_dir" ] || continue
+  [ "$package_dir" != "packages/shared" ] || continue
+  if [ -f "$package_dir/tsconfig.json" ]; then
+    HOST_TSCONFIGS+=("$package_dir/tsconfig.json")
+  fi
+  if [ -f "$package_dir/tsconfig.client.json" ]; then
+    CLIENT_TSCONFIGS+=("$package_dir/tsconfig.client.json")
+  fi
+done
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"
-  "$CLIENT_TSCONFIG"
+  "${CLIENT_TSCONFIGS[@]}"
 )
 
 phase_begin typecheck
 ./node_modules/.bin/tsc -p "$SHARED_TSCONFIG"
-for config in "${HOST_TSCONFIGS[@]}"; do
+for config in "${HOST_TSCONFIGS[@]}" "${CLIENT_TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config" --noEmit
 done
-./node_modules/.bin/tsc -p "$CLIENT_TSCONFIG" --noEmit
 phase_end
 
 phase_begin build
