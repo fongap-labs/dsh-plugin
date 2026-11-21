@@ -16,3 +16,5 @@ The root workspace's `pnpm typecheck`, `pnpm build`, and `pnpm validate` include
 B2 is **not finished** until native UI exclusions, API contract parity, permission/approval flows, third-party slots, startup-safe rollback and measured memory improvements are verified. Installing both Delta Suite and Delta Desktop is technically a separate bundle selection, but Suite's native UI additions may no longer be visible under Desktop Root and coexistence is not yet tested.
 
 Development source is in this directory alone; release artifacts must be versioned and published separately from Suite and Code.
+
+Quick-validation checklist: [docs/quick-validation.md](docs/quick-validation.md). This is not yet a Windows-validated or released build.
