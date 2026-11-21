@@ -31,6 +31,8 @@ describe('Delta Code specialist Skill discovery', () => {
     assert.match(instructions, /Never install or register unreviewed content/)
     assert.match(instructions, /code_github_skill_temporary_use/)
     assert.match(instructions, /without a persistent catalog PR/)
+    assert.match(instructions, /For task-scoped use of a public Skill, prefer code_github_skill_discover/)
+    assert.match(instructions, /For owner-scoped catalog admission, use code_github_skill_candidates/)
     assert.match(instructions, /license/)
   })
 })
