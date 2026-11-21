@@ -178,6 +178,37 @@ describe('Delta Code real Cordis optional-services integration acceptance', () =
     }
   })
 
+  it('mounts temporary public Skill consultation without a native Skill provider and removes the tool on disposal', async () => {
+    const ctx = new Context()
+    const host = nativeServices()
+    const releaseTools = ctx.provide('tools', host.toolsService)
+    let fiber
+    try {
+      fiber = await mount(ctx, { github: { enabled: true } })
+      await settle(() => host.tools.has('code_github_skill_temporary_use'))
+      assert.equal(host.providers.size, 0, 'temporary consultation must not register a persistent Skill provider')
+      assert.equal(host.skillRegistrations, 0)
+      const temporary = host.tools.get('code_github_skill_temporary_use')
+      const audit = host.tools.get('code_github_skill_public_review')
+      assert.ok(audit, 'persistent catalog evidence path remains available')
+      await assert.rejects(temporary.execute({
+        repository: '../private',
+        path: 'skills/example/SKILL.md',
+        commit: 'a'.repeat(40),
+        sourceBlobSha: 'b'.repeat(40),
+        licenseBlobSha: 'c'.repeat(40),
+      }, exec()), /Invalid public Skill audit repository/, 'invalid sources fail before HTTP or credentials')
+      await fiber.dispose()
+      fiber = undefined
+      assert.equal(host.tools.has('code_github_skill_temporary_use'), false)
+      assert.equal(host.tools.has('code_github_skill_public_review'), false)
+      assert.equal(host.providers.size, 0)
+    } finally {
+      if (fiber?.dispose) await fiber.dispose()
+      await releaseTools()
+    }
+  })
+
   it('keeps existing routing and tool schemas intact if optional Skill services are absent', async () => {
     const ctx = new Context()
     const host = nativeServices()
