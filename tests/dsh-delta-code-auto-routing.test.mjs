@@ -4,7 +4,7 @@ import { routeCodingTask, registerAutomaticCodingRouter } from '../packages/dsh-
 import { normalizeConfig } from '../packages/dsh-delta-code/lib/runtime.js'
 import { UserTaskContext } from '../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js'
 
-function fixture(nativeResume, taskContext) {
+function fixture(nativeResume, taskContext, stats) {
   const listeners = new Map()
   let dynamic
   let settings = normalizeConfig({})
@@ -23,7 +23,7 @@ function fixture(nativeResume, taskContext) {
       } })
     },
   }
-  const dispose = registerAutomaticCodingRouter(host, () => settings, undefined, nativeResume, taskContext)
+  const dispose = registerAutomaticCodingRouter(host, () => settings, undefined, nativeResume, taskContext, stats)
   const claim = (agent, text, source = 'user') => listeners.get('agent/inbox/claimed')?.({
     agent, message: { source: { kind: source }, content: [{ type: 'text', text }] },
   })
@@ -184,6 +184,33 @@ describe('Code Worker automatic user-task routing', () => {
       f.update({ execution: { allowCommands: true } })
       f.claim(agent, 'Implement a React feature')
       assert.doesNotMatch(f.render(agent), /native Todo checkpoint reports implementation tasks complete/)
+    } finally { f.dispose() }
+  })
+
+  it('warns once per observed repeat failure and isolates the next user task', () => {
+    const counts = new WeakMap()
+    const stats = { readRepeatedFailedCalls: agent => counts.get(agent) ?? 0 }
+    const f = fixture(undefined, undefined, stats)
+    const agent = {}
+    const other = {}
+    try {
+      f.claim(agent, 'Fix the broken CI tests')
+      assert.doesNotMatch(f.render(agent), /identical arguments was repeated/)
+      counts.set(agent, 1)
+      assert.match(f.render(agent), /identical arguments was repeated/)
+      assert.doesNotMatch(f.render(agent), /secret-value/)
+      assert.doesNotMatch(f.render(agent), /identical arguments was repeated/, 'once per failure count')
+      f.claim(agent, '继续推进任务')
+      assert.doesNotMatch(f.render(agent), /identical arguments was repeated/)
+      counts.set(agent, 2)
+      assert.match(f.render(agent), /identical arguments was repeated/)
+      f.claim(other, 'Fix the broken CI tests')
+      assert.doesNotMatch(f.render(other), /identical arguments was repeated/)
+      f.claim(agent, 'Fix a new CI failure')
+      assert.doesNotMatch(f.render(agent), /identical arguments was repeated/, 'new task baseline')
+      f.update({ autoRouting: false })
+      counts.set(agent, 3)
+      assert.equal(f.render(agent), '', 'disabled routing never injects hints')
     } finally { f.dispose() }
   })
 
