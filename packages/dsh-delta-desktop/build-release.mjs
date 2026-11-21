@@ -22,7 +22,7 @@ function run(command, parameters) {
   if (result.status !== 0) throw new Error(command + ' failed: ' + result.status)
 }
 run(process.execPath, [
-  join(root, 'scripts', 'build-release.mjs'),
+  join(root, 'scripts/build-release.mjs'),
   '--package', 'dsh-delta-desktop', ...args,
 ])
 // Generic builder validates the bundle and produces assets; this independent
