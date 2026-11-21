@@ -83,6 +83,7 @@ describe('Code Worker automatic user-task routing', () => {
       assert.deepEqual(taskContext.readSources(agent), {
         current: '继续，禁止新增环境变量',
         inherited: ['修复真实 CI 红叉，并且不得绕过中央门禁'],
+        historyIncomplete: false,
       })
       f.claim(agent, '继续')
       assert.equal(taskContext.read(agent), '继续，禁止新增环境变量')
