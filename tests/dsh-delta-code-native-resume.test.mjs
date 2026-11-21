@@ -119,6 +119,26 @@ describe('Delta Code Worker native session resume', () => {
     } finally { await f.cleanup() }
   })
 
+  it('blocks stale milestone handoff before any Git operation', async () => {
+    const f = await fixture()
+    try {
+      f.emit(TASKS)
+      const mismatch = await f.tool.execute({
+        expectedHead: HEAD,
+        expectedTasks: ['Inspect code', 'Wrong task', 'Run tests'],
+      }, execute(f.agent))
+      assert.equal(mismatch.stage, 'blocked')
+      assert.match(mismatch.blockers.join(' '), /does not match expected plan/)
+      assert.deepEqual(f.commands, [], 'mismatched plans must not run commands')
+      const valid = await f.tool.execute({
+        expectedHead: HEAD,
+        expectedTasks: ['Inspect code', 'Fix bug', 'Run tests'],
+      }, execute(f.agent))
+      assert.equal(valid.stage, 'resume')
+      assert.deepEqual(valid.remaining, ['Fix bug', 'Run tests'])
+    } finally { await f.cleanup() }
+  })
+
   it('revokes registered native projection readers on service withdrawal and remount', async () => {
     let attach
     let injectionDisposals = 0

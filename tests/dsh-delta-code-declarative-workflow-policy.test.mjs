@@ -97,6 +97,16 @@ describe('Delta Code declarative coding workflow policy', () => {
       ],
     })
     assert.deepEqual(result.executionWaves, [[0, 2], [1]])
+    assert.deepEqual(result.nativeTodoDraft, [
+      { content: 'Add contract', status: 'pending' },
+      { content: 'Integrate contract', status: 'pending' },
+      { content: 'Add documentation', status: 'pending' },
+    ])
+    assert.deepEqual(result.acceptanceHints, [
+      { task: 'Add contract', criterion: 'Contract is validated' },
+      { task: 'Integrate contract', criterion: 'Integration succeeds' },
+      { task: 'Add documentation', criterion: 'Docs are accurate' },
+    ])
     assert.deepEqual(result.milestones.map(item => item.acceptance), [
       'Contract is validated', 'Integration succeeds', 'Docs are accurate',
     ])
@@ -113,6 +123,11 @@ describe('Delta Code declarative coding workflow policy', () => {
       taskKind: 'feature', scope: 'large', risk: 'low', independentTasks: 2,
       milestones: [{ objective: 'Only one', acceptance: 'Check' }],
     }), /inconsistent counts/)
+    assert.throws(() => decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'low',
+      milestones: [{ objective: 'x'.repeat(201), acceptance: 'Must be verified' }],
+    }), /native Todo 200-character limit/)
+    assert.equal(decideCodingWorkflow({ taskKind: 'feature', scope: 'small', risk: 'low' }).nativeTodoDraft, undefined)
   })
 
   it('preserves safe native parallel waves only for planned feature/refactor writes', () => {
