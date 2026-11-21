@@ -81,7 +81,13 @@
       const ids = catalog?.ids ?? []
       const rowOf = id => catalog?.byId?.[id] ?? {}
       const cwdOf = id => rowOf(id).cwd || '__unassigned__'
-      const workspaceNames = [...new Set(ids.map(cwdOf))]
+      // One catalog walk instead of rescanning every Session for each workspace.
+      const workspaceCounts = new Map()
+      for (const id of ids) {
+        const key = cwdOf(id)
+        workspaceCounts.set(key, (workspaceCounts.get(key) ?? 0) + 1)
+      }
+      const workspaceNames = [...workspaceCounts.keys()]
       const workspaceLabels = value => {
         if (value === '__unassigned__') return 'No workspace'
         return String(value).replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop() || String(value)
@@ -249,7 +255,7 @@
               h('span', { style: { minWidth: 0, flex: 1, overflow: 'hidden',
                 whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, workspaceLabels(key)),
               h('span', { style: { fontSize: 11, color: secondary } },
-                String(ids.filter(id => cwdOf(id) === key).length))))),
+                String(workspaceCounts.get(key) ?? 0))))),
           h('div', { style: { padding: '13px 14px 9px', display: 'grid', gap: 9 } },
             h('div', { style: { display: 'flex', justifyContent: 'space-between' } },
               h('strong', { style: { fontSize: 13 } }, 'Conversations'),
