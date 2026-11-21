@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import vm from 'node:vm'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
+const uiEn = JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/en.json'), 'utf8')).ui
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/dsh-delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const clientSource = buildDesktopClientFixture()
@@ -572,11 +573,11 @@ test('redaction and vision bridge settings persist through Host forms while cred
   tree = app.render('privacy', privacy.type, privacy.props)
   findField(tree, 'Vision model source').props.onChange({ target: { value: 'custom' } })
   tree = app.render('privacy', privacy.type, privacy.props)
-  findField(tree, 'Endpoint base URL').props.onChange({ target: { value: 'https://vision.example/v1' } })
+  findField(tree, uiEn.visionBaseURL).props.onChange({ target: { value: 'https://vision.example/v1' } })
   tree = app.render('privacy', privacy.type, privacy.props)
   findField(tree, 'Vision model ID').props.onChange({ target: { value: 'vision-model' } })
   tree = app.render('privacy', privacy.type, privacy.props)
-  findField(tree, 'API key (leave empty if not required)').props.onChange({ target: { value: 'secret-never-in-config' } })
+  findField(tree, uiEn.visionCredentialPlaceholder).props.onChange({ target: { value: 'secret-never-in-config' } })
   tree = app.render('privacy', privacy.type, privacy.props)
   await findButton(tree, 'Save settings').props.onClick()
   await turn()
@@ -624,7 +625,7 @@ test('failed privacy settings writes keep credentials out of the Host form and s
   await findButton(tree, 'Save settings').props.onClick()
   await turn()
   tree = app.render('privacy-failed', privacy.type, privacy.props)
-  assert.match(textOf(tree), /Save failed or settings are invalid/i)
+  assert.ok(textOf(tree).includes(uiEn.visionFailed))
   assert.deepEqual(credentialWrites, [])
 })
 
@@ -684,7 +685,7 @@ test('main-task corrections require a review step and are queued without steerin
   assert.ok(findClass(tree, 'dtd-assistant-conversation'), 'the main area remains the independent conversation')
   assert.equal(findClass(tree, 'dtd-correction-box'), undefined, 'correction entry is opened only on request')
   assert.equal(findElement(tree, 'textarea'), undefined, 'correction editor stays out of the conversation until requested')
-  await findButton(tree, 'Send guidance').props.onClick()
+  await findButton(tree, uiEn.queueCorrection).props.onClick()
   tree = app.render('sidebar', tab.component, props)
   const textarea = (() => {
     const walk = node => !node || typeof node !== 'object' ? undefined
@@ -694,9 +695,9 @@ test('main-task corrections require a review step and are queued without steerin
   })()
   textarea.props.onChange({ currentTarget: { value: 'Change the task direction and prioritize security.' } })
   tree = app.render('sidebar', tab.component, props)
-  await findButton(tree, 'Review the content to queue for the main task').props.onClick()
+  await findButton(tree, uiEn.reviewCorrection).props.onClick()
   tree = app.render('sidebar', tab.component, props)
-  await findButton(tree, 'Confirm and queue').props.onClick()
+  await findButton(tree, uiEn.confirmQueue).props.onClick()
   await turn()
   const mainPrompt = app.prompts.find(value => value.sessionId === 'main-1')
   assert.equal(mainPrompt.mode, 'queue')
@@ -724,7 +725,7 @@ test('a completed compaction shows its structured checkpoint in the chat activit
   await app.ready
   const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
   const tree = app.render('compaction', activity.component, app.mainProps)
-  assert.match(textOf(tree), /Earlier conversation condensed/)
+  assert.ok(textOf(tree).includes(uiEn.compactionCompleted))
   assert.match(textOf(tree), /View summary/)
   assert.match(textOf(tree), /Primary Request and Intent/)
   assert.match(textOf(tree), /Keep user constraints/)
@@ -736,10 +737,10 @@ test('a failed automatic compaction reports in the chat and preserves the draft'
   await app.ready
   const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
   const composer = app.render('input', input.component, app.mainProps)
-  assert.doesNotMatch(textOf(composer), /compression failed/i)
+  assert.ok(!textOf(composer).includes(uiEn.automaticCompactionFailed))
   const activity = app.components.get('conversation.chat.assistant-actions:delta.context.compaction-activity')
   const notice = app.render('compaction', activity.component, app.mainProps)
-  assert.match(textOf(notice), /Context compression failed/)
+  assert.ok(textOf(notice).includes(uiEn.automaticCompactionFailed))
   assert.equal(findClass(notice, 'dtd-compaction-event is-failed')?.props.role, 'alert')
   assert.equal(app.draft, 'Please explain the request clearly.')
   assert.equal(app.commands.length, 0)
@@ -762,7 +763,7 @@ test('input optimization refuses to replace a draft edited while the result was 
   const preview = app.render('result', action.component, props)
   await findButton(preview, 'Use this version').props.onClick()
   const after = app.render('result', action.component, props)
-  assert.match(textOf(after), /main draft changed/i)
+  assert.ok(textOf(after).includes(uiEn.draftChanged))
   assert.equal(app.draft, 'A newer instruction typed after optimization started.')
 })
 
@@ -784,7 +785,7 @@ test('restoring optimized text does not overwrite a newer main draft', async () 
   const preview = app.render('result', action.component, props)
   await findButton(preview, 'Restore original').props.onClick()
   const after = app.render('result', action.component, props)
-  assert.match(textOf(after), /main draft changed/i)
+  assert.ok(textOf(after).includes(uiEn.draftChanged))
   assert.equal(app.draft, 'A newer user draft.')
 })
 

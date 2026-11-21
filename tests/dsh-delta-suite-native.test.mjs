@@ -8,6 +8,7 @@ import vm from 'node:vm'
 
 // Central CI invokes node --test directly, so build the actual client artifact here.
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
+const uiZh = JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/zh.json'), 'utf8')).ui
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/dsh-delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
@@ -744,7 +745,7 @@ test('public model route label mounts without optional assistant sidebar service
   })
   assert.match(advertised.props.title, /Off, High/,
     'Delta only describes the exact reasoning levels in the public Host model catalog')
-  assert.match(advertised.props.title, /\u6a21\u578b\u601d\u8003\u7b49\u7ea7/)
+  assert.ok(advertised.props.title.includes(uiZh.modelReasoningLevels))
   const unsupported = modelSlot.component({
     provider: { id: 'openai', name: 'OpenAI' },
     model: { name: 'Gateway Max', reasoningEfforts: { high: 'high' } }, placement: 'option',
@@ -780,7 +781,7 @@ test('missing theme keeps the independent Settings entry usable', () => {
   const controller = entry.spec.inject().controller
   assert.equal(controller.getSnapshot().error, true)
   assert.equal(app.layers.size, 0, 'missing theme must not install a broken palette')
-  assert.ok(JSON.stringify(entry.component({ controller })).includes('此版本缺少必要能力'))
+  assert.ok(JSON.stringify(entry.component({ controller })).includes(uiZh.unavailable))
   assert.match(JSON.stringify(entry.component({ controller })), /dtd-error/)
   controller.setMode('official')
   assert.equal(controller.getSnapshot().error, false)
