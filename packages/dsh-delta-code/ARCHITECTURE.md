@@ -13,7 +13,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 | `delta-code-quality/` | Verification, task recovery, delivery evidence and failure policy |
 | `delta-code-repository/` | Workspace, Git, worktrees, repository selection, PR and CI business rules |
 | `delta-code-collaboration/` | Safe native-subagent delegation policy, not a second agent runner |
-| `delta-code-support/` | Ephemeral execution counters; no persistent session database |
+| `delta-code-support/` | Ephemeral Delta tool counters and optional native result-event observations; no persistent session database |
 
 ## Boundaries
 
@@ -24,6 +24,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - Project rule discovery inspects only bounded ancestor directories inside the authorized workspace through DSH Host FS; it reports existing AGENTS.md/CLAUDE.md paths but does not interpret or inject file contents. Native Host instruction precedence remains authoritative.
 
 - Approved Skill selection can be re-ordered using session-local, verified native tool outcome co-occurrence after at least three observations per candidate. `tools/result` only observes approved Skill load successes and definite `code_verify` results. Tool arguments, transcripts and sources are never stored; this feedback is not causal evidence and never authorizes external commands.
+
+- `code_workflow_route` may also accept a small, model-proposed milestone plan with explicit per-step acceptance and earlier-step dependencies. Its pure validator checks length, duplicate objectives, safe relative write sets and cycle-free ordering before computing waves. These proposed milestones do not mark any native Todo completed, dispatch agents, or override Host permissions. Replanning requires contradictory evidence or a changed task requirement rather than routine repeated investigation.
 
 - SDK-free `delta-code-strategy/builtin-task-signals.ts` owns reviewed bilingual keyword patterns. `declarative-rules.ts` is a pure matching engine; ordered `task-routing.ts` and `task-resource-policy.ts` catalogs hold route/resource decisions and resource guidance as declarative data. The optional, Host-injected `DeltaCodeRoutingPolicy` can select reviewed rule catalogs without changing the matcher. Workflow mode, ordered conditional Skill steps, and verification text are separately declared in `delta-code-strategy/workflow-policy.ts`; `workflow-route.ts` only matches profiles and computes dependency waves. The strategy feature accepts reviewed `workflowRules` at the trusted composition boundary. Invariant Host permissions, irreversible-action approval, red/pending CI evidence, and disjoint-write/native-subagent checks are always enforced by the engine, not overridable via a profile. User opt-outs, external Skill consent, current-user-message ownership, and Host capabilities remain enforced; no model/tool output may introduce executable matching policy. No secondary web/MCP client or project-wide indexing agent is created.
 
@@ -51,6 +53,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - `code_multi_edit` DSH Host FS guarded writes, batch preflight, readback, cancellation and compensation execution live in `delta-code-adapter/providers/dsh/multi-edit.ts`. Pure edit transformations and mode/compensation selection remain in Coding; the old Coding tool path is a compatibility facade.
 
+- Quota exhaustion is classified distinctly from short transient network failures in Quality and suppresses blind DSH automatic replay through the existing request-error waterfall. This is a stop decision only, not a second retry scheduler; explicit Host policy and authorized new credentials remain outside Delta's control.
+
 - Native `todo/write` folding, checkpoint validation and recovery decisions live in `delta-code-quality/resume-policy.ts`; DSH session projection registration and read-only Git inspection live in `delta-code-adapter/providers/dsh/resume.ts`. Legacy imports remain compatible.
 
 - `code_delivery_gate` DSH Git/verification execution and native Todo checkpoint enforcement live in `delta-code-adapter/providers/dsh/delivery-gate.ts`, while task acceptance and gate-result policies remain SDK-free in `delta-code-quality/delivery-policy.ts`. The former Quality entrypoint is a compatibility facade.
@@ -64,6 +68,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - DSH-backed `code_lsp_probe` execution lives in `delta-code-adapter/providers/dsh/lsp.ts`; language-server status classification is an SDK-free Coding policy. Existing tool import paths remain compatibility facades.
 - Coding, Quality and Repository feature assembly accepts only Delta-owned named-tool contracts. DSH-specific tool construction lives in `delta-code-adapter/providers/dsh/feature-tools.ts`; no Host SDK types enter their feature entrypoints.
 - DSH tool implementation, Host FS and subprocess access are now owned by `delta-code-adapter/providers/dsh/`; Coding, Quality and Repository modules retain Host-independent policy/operation contracts and legacy compatibility facades.
+- Native `tools/result` observation is an optional, disposable, name-only Host adapter in `delta-code-adapter/providers/dsh/native-tool-stats.ts`. It counts result events without arguments or raw output and excludes registered Delta tools from double counting. These are not authoritative native call counts, retry counts or duplicate-call statistics; only Delta tool wrappers can fingerprint arguments.
+
 - Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
 
 - Public `src/types.ts` contains only Host-independent configuration/result types. Cordis Context augmentation and DSH prompt type imports are isolated in `delta-code-adapter/providers/dsh/host-types.ts`.
