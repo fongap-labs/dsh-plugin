@@ -98,7 +98,10 @@
       if (event.type !== 'user/message' && event.type !== 'assistant/message') continue
       const value = event.data && typeof event.data === 'object'
         ? event.data as Record<string, unknown> : {}
-      const text = textOf(event.type === 'assistant/message' ? (value.stream ?? value.content) : value.content)
+      // Durable assistant text is held at event.data.message.content.
+      // Raw stream chunks have a different schema and must not be displayed as text.
+      const message = event.type === 'assistant/message' ? value.message : value.content
+      const text = textOf(message)
       if (!text.trim()) continue
       result.push({
         key: String(event.seq ?? i) + ':' + event.type,
