@@ -30,7 +30,7 @@ export const CODING_SKILLS: readonly CodingSkill[] = [
     instructions: [
       'Identify user goal, constraints, non-goals and observable acceptance tests. Ask only when a consequential ambiguity blocks safe progress.',
       'Read project rules and use code_project_profile. Prefer existing modules and Host tools before introducing a package or architectural layer.',
-      'For multi-step work write an executable plan: goal, non-goals, affected files, dependencies, acceptance checks and per-task verification. Use native todo_write if mounted; avoid a second planner, task store or model call.',
+      'For multi-step work write an executable plan: goal, non-goals, affected files, dependencies, acceptance checks and per-task verification. Use native todo_write if mounted; avoid a second planner, task store or model call. On explicit continuation, compaction recovery or transport interruption, use native Todo and code_resume once when the Host projection and authorized Git baseline are available; reconcile HEAD, diff and prior evidence before replaying edits. Never treat a completed Todo as passed tests or invent a missing checkpoint.',
       'If configured, use code_git_worktree for isolation; otherwise respect the current branch and existing uncommitted changes.',
       'For substantial cross-module work, if DSH native subagents are verified available, request one independent read-only diff review automatically after implementation. Never invent subagent availability or delegate overlapping writes; small changes do not require a review team.',
       'For each ready task, create or adjust a failing test when practical, make the minimum change, run focused verification and inspect the diff; update Host todo_write only when that task has concrete completion evidence. Never make passing the delivery gate a self-referential Todo.',
@@ -48,7 +48,7 @@ export const CODING_SKILLS: readonly CodingSkill[] = [
       'Trace from the observed failure to the owner of the data or state. Check assumptions at each boundary; distinguish cause from symptom.',
       'Form one falsifiable hypothesis, then write a regression test that fails for the identified cause whenever feasible.',
       'Change the smallest causal location; rerun the regression and adjacent tests. Do not simultaneously apply speculative fixes.',
-      'After repeated unsuccessful hypotheses, revisit the architecture and missing evidence rather than making more blind edits.',
+      'After repeated unsuccessful hypotheses, revisit the architecture and missing evidence rather than making more blind edits. Avoid rereading unchanged files or reloading an already loaded Skill without a specific evidence gap; inspect new failure output and update the causal hypothesis before retrying.',
       'Inspect final diff, report root cause and exact validation evidence. Preserve logs without copying secrets into reports.',
     ],
   },
