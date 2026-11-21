@@ -33,7 +33,7 @@ pnpm validate
 
 ## 发行
 
-三个插件源码版本均保留 `0.0.0` 占位，不随 PR 修改。Delta Suite 目前由 Action Worker 手动发布（`product=dsh-delta-suite`，填写 `requested_version`）；Delta Desktop 尚未配置正式发布流程。未经 Windows Harness 会话、停用与恢复验收，不得宣称 Desktop 可正式替换原生 UI。
+三个插件源码版本均保留 `0.0.0` 占位，不随 PR 修改。Delta Suite 目前由 Action Worker 手动发布（`product=dsh-delta-suite`，填写 `requested_version`）；Delta Desktop 已新增独立发布清单但尚未经 Windows 实机验收。未经 Windows Harness 会话、停用与恢复验收，不得宣称 Desktop 可正式替换原生 UI。
 
 ## 许可证
 
