@@ -34,7 +34,7 @@ const legitimateDesktopLocations = new Set([
 const desktopPrefix = ['packages', ['dsh', 'delta', 'desktop'].join('-')].join('/') + '/'
 const allowedNewDesktopIdentity = (path, token) =>
   legitimateDesktopIdentity.has(token) &&
-  (path.startsWith(desktopPrefix) || legitimateDesktopLocations.has(path))
+  (path === desktopPrefix.slice(0, -1) || path.startsWith(desktopPrefix) || legitimateDesktopLocations.has(path))
 
 export function findRetiredIdentifiers(projectRoot = root) {
   const found = []
