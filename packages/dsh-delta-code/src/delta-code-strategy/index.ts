@@ -2,7 +2,7 @@ import type { DeltaCodeFeature } from '../delta-code-kernel/feature.js'
 import { createWorkflowRouteTool } from './workflow-route.js'
 import { createCodingCapabilitiesTool } from './capability-catalog.js'
 import { createExperienceCandidateTool } from './experience-candidate.js'
-import { createTaskSpecTool, type UserTaskContext } from './task-spec.js'
+import { createTaskSpecTool, type UserTaskContext } from './intent-contract.js'
 import type { CodingWorkflowRule } from './workflow-policy.js'
 
 export interface DeltaCodeStrategyBindings {
