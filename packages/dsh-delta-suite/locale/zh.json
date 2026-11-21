@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Delta Suite",
-    "description": "Delta Suite 原生插件，提供可扩展的桌面体验与设置。"
+    "description": "Delta Suite：为 Harness 提供界面外观、会话辅助和扩展设置。"
   },
   "ui": {
     "preference": "仅切换界面主题，不影响会话、模型或插件。",
