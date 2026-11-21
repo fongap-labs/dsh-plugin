@@ -61,6 +61,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - `delta-code-quality/execution-convergence.ts` is a pure, read-only next-step policy. The optional lightweight `code_execution_next` Host tool (available even without subprocess) uses actual native Todo and sanitized, session-scoped outcomes observed by `ExecutionStats`; a mutation invalidates previous verification. It never runs tools or certifies delivery. A missing/invalid Host projection blocks instead of fabricating progress.
 
 - Native `todo/write` folding, checkpoint validation and recovery decisions live in `delta-code-quality/resume-policy.ts`; DSH session projection registration and read-only Git inspection live in `delta-code-adapter/providers/dsh/resume.ts`. Legacy imports remain compatible.
+- The native `code_resume` adapter validates supplied Todo seq / HEAD format and cancellation before returning even for a missing or empty Todo. Stale pinned checkpoints fail closed without invoking Host Git.
 
 - `code_delivery_gate` DSH Git/verification execution and native Todo checkpoint enforcement live in `delta-code-adapter/providers/dsh/delivery-gate.ts`, while task acceptance and gate-result policies remain SDK-free in `delta-code-quality/delivery-policy.ts`. The former Quality entrypoint is a compatibility facade.
 
