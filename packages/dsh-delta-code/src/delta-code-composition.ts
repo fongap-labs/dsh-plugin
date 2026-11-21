@@ -22,6 +22,7 @@ import { deltaCodeRepositoryRemote, deltaCodeRepositoryCommands } from './delta-
 import { deltaCodeSupport } from './delta-code-support/index.js'
 import { ExecutionStats } from './delta-code-support/execution-stats.js'
 import { UserTaskContext } from './delta-code-strategy/intent-contract.js'
+import { createExecutionNextTool } from './delta-code-adapter/providers/dsh/execution-next.js'
 import { registerNativeToolStats } from './delta-code-adapter/providers/dsh/native-tool-stats.js'
 
 /** Only this composition root knows both Host adapters and feature implementations. */
@@ -57,6 +58,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
       deltaCodeRepositoryRemote(createDshRepositoryRemoteTools(
         ctx, settings, createGitHubTransport(settings.githubAccounts, ctx))),
+      deltaCodeQuality([createExecutionNextTool(resume, stats)]),
       deltaCodeSupport(stats),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))
@@ -71,7 +73,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       if (!isCommandActive) return
       const commandFeatures = [
         deltaCodeCodingCommands(createDshCodingCommandTools(child, settings)),
-        deltaCodeQuality(createDshQualityTools(child, settings, resume, stats)),
+        deltaCodeQuality(createDshQualityTools(child, settings, resume)),
         deltaCodeRepositoryCommands(createDshRepositoryCommandTools(child, settings)),
       ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
       const unmount = mountDeltaCodeFeatures(commandFeatures, dshToolRegistrar(ctx, stats))
