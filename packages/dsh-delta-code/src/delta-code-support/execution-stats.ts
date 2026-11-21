@@ -1,6 +1,7 @@
 /**
- * Ephemeral, per-native-session quality counters for Code Worker tools only.
- * No raw tool arguments, file contents, credentials or durable telemetry.
+ * Ephemeral per-native-session quality counters for Delta tools, plus optional
+ * name-only Host `tools/result` observations. Never collect native arguments,
+ * file contents, credentials or durable telemetry.
  */
 import { createHmac, randomBytes } from 'node:crypto'
 import { performance } from 'node:perf_hooks'
@@ -19,7 +20,13 @@ interface ToolCounters {
   duplicateCalls: number
 }
 
+interface NativeToolCounters { name: string; results: number; errors: number }
+
 interface SessionCounters {
+  nativeResults: number
+  nativeErrors: number
+  nativeUnconfirmed: number
+  nativeTools: Map<string, NativeToolCounters>
   calls: number
   duplicateCalls: number
   repeatedFailedCalls: number
@@ -39,6 +46,8 @@ interface SessionCounters {
 
 function emptyCounters(): SessionCounters {
   return {
+    nativeResults: 0, nativeErrors: 0, nativeUnconfirmed: 0,
+    nativeTools: new Map(),
     calls: 0, duplicateCalls: 0, repeatedFailedCalls: 0, errors: 0,
     failedOutcomes: 0, verificationPassed: 0, verificationFailed: 0,
     verificationUnconfirmed: 0,
@@ -50,10 +59,14 @@ function emptyCounters(): SessionCounters {
   }
 }
 
-function sessionOf(exec: ToolRunContext): object | undefined {
-  const agent = exec.agent as { session?: unknown } | undefined
+function sessionFromAgent(agentValue: unknown): object | undefined {
+  const agent = agentValue as { session?: unknown } | undefined
   const session = agent?.session
   return session !== null && typeof session === 'object' ? session : undefined
+}
+
+function sessionOf(exec: ToolRunContext): object | undefined {
+  return sessionFromAgent(exec.agent)
 }
 
 function outcomeFailed(name: string, value: unknown): boolean {
@@ -68,6 +81,7 @@ function outcomeFailed(name: string, value: unknown): boolean {
 export class ExecutionStats {
   private readonly fingerprintsKey = randomBytes(32)
   private sessions = new WeakMap<object, SessionCounters>()
+  private readonly ownedNames = new Set<string>()
 
   /** A fingerprint never leaves this process; only bounded counts are exported. */
   private signature(name: string, args: unknown): string | undefined {
@@ -154,7 +168,35 @@ export class ExecutionStats {
     }
   }
 
+  /** Observe only a Host result event, not a guaranteed native call or retry. */
+  observeNativeResult(rawExecution: unknown, rawOutcome: unknown): void {
+    if (!rawExecution || typeof rawExecution !== 'object') return
+    const execution = rawExecution as { agent?: unknown; name?: unknown }
+    if (typeof execution.name !== 'string' || !/^[\w.:-]{1,80}$/.test(execution.name) ||
+        this.ownedNames.has(execution.name)) return
+    const session = sessionFromAgent(execution.agent)
+    if (!session) return
+    let state = this.sessions.get(session)
+    if (!state) { state = emptyCounters(); this.sessions.set(session, state) }
+    const outcome = rawOutcome && typeof rawOutcome === 'object'
+      ? rawOutcome as { isError?: unknown } : undefined
+    const isError = outcome?.isError === true
+    state.nativeResults++
+    if (isError) state.nativeErrors++
+    if (outcome?.isError !== true && outcome?.isError !== false) state.nativeUnconfirmed++
+    const name = state.nativeTools.size >= 64 && !state.nativeTools.has(execution.name)
+      ? '(other)' : execution.name
+    let counter = state.nativeTools.get(name)
+    if (!counter) {
+      counter = { name, results: 0, errors: 0 }
+      state.nativeTools.set(name, counter)
+    }
+    counter.results++
+    if (isError) counter.errors++
+  }
+
   wrap(tool: ToolDefinition): ToolDefinition {
+    this.ownedNames.add(tool.name)
     // Exclude the stats reader itself so viewing counters is never a new sample.
     if (tool.name === 'code_execution_stats') return tool
     return { ...tool, execute: (args: any, exec: ToolRunContext) =>
@@ -168,6 +210,10 @@ export class ExecutionStats {
     const scope: 'current-session' | 'unavailable' = session ? 'current-session' : 'unavailable'
     return {
       scope,
+      nativeResults: state.nativeResults,
+      nativeErrors: state.nativeErrors,
+      nativeUnconfirmed: state.nativeUnconfirmed,
+      nativeTools: [...state.nativeTools.values()].map(item => ({ ...item })),
       calls: state.calls,
       duplicateCalls: state.duplicateCalls,
       repeatedFailedCalls: state.repeatedFailedCalls,
@@ -187,6 +233,7 @@ export class ExecutionStats {
 
   clear(): void {
     this.sessions = new WeakMap()
+    this.ownedNames.clear()
     this.fingerprintsKey.fill(0)
   }
 }
@@ -195,11 +242,19 @@ export class ExecutionStats {
 export function createExecutionStatsTool(stats: ExecutionStats): ToolDefinition {
   return defineTool({
     name: 'code_execution_stats',
-    description: 'Show ephemeral execution counters for this DSH session and Code Worker tools only. No native-tool counts, tokens, content, paths, credentials or persistent telemetry.',
+    description: 'Show ephemeral Delta tool execution counters and optional name-only native Host result events. Native result counts do not prove exact call counts or duplicate signatures. Never records arguments, tokens, paths, credentials or persistent telemetry.',
     parameters: {},
     output: {
       schema: { type: 'object', additionalProperties: false, properties: {
         scope: { type: 'string', required: true, enum: ['current-session', 'unavailable'] },
+        nativeResults: { type: 'integer', required: true },
+        nativeErrors: { type: 'integer', required: true },
+        nativeUnconfirmed: { type: 'integer', required: true },
+        nativeTools: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+          name: { type: 'string', required: true },
+          results: { type: 'integer', required: true },
+          errors: { type: 'integer', required: true },
+        } } },
         calls: { type: 'integer', required: true },
         duplicateCalls: { type: 'integer', required: true },
         repeatedFailedCalls: { type: 'integer', required: true },
@@ -226,6 +281,8 @@ export function createExecutionStatsTool(stats: ExecutionStats): ToolDefinition 
       render(_args, value) {
         return [{ type: 'text', text: [
           'Code Worker execution stats: ' + value.scope,
+          'Observed native Host results/errors/unconfirmed: ' + value.nativeResults + '/' +
+            value.nativeErrors + '/' + value.nativeUnconfirmed,
           'Calls: ' + value.calls + ', repeated signatures: ' + value.duplicateCalls +
             ', repeated after failure: ' + value.repeatedFailedCalls,
           'Thrown errors: ' + value.errors + ', failed results: ' + value.failedOutcomes,
@@ -233,7 +290,7 @@ export function createExecutionStatsTool(stats: ExecutionStats): ToolDefinition 
             '/' + value.verificationUnconfirmed + ' (focused passes: ' + value.focusedPassed + ')',
           'Delivery gate verified/blocked: ' + value.deliveryVerified + '/' + value.deliveryBlocked,
           'Recorded tool duration (ms): ' + value.totalDurationMs,
-          'Scope excludes DSH native tools and internal retry attempts; duplicates may be intentional.',
+          'Native result observations exclude arguments and do not measure retries or duplicate signatures. Delta duplicate signatures may be intentional.',
         ].join('\n') }]
       },
     },

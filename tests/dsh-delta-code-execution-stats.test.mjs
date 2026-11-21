@@ -36,6 +36,31 @@ describe('Code Worker native session execution metrics', () => {
     assert.equal(stats.read(execution(session)).calls, 0)
   })
 
+  it('observes native result events only by name and without double-counting Delta tools', async () => {
+    const stats = new ExecutionStats()
+    const session = {}
+    const agent = { session }
+    const own = stats.wrap({ name: 'code_verify', execute: async () => verifiedStep(true) })
+    await own.execute({ secret: 'sensitive token' }, { agent, signal })
+    stats.observeNativeResult({ agent, name: 'code_verify' }, { isError: false })
+    stats.observeNativeResult({ agent, name: 'read', arguments: { secret: 'hidden' } }, { isError: false })
+    stats.observeNativeResult({ agent, name: 'read' }, { isError: true })
+    stats.observeNativeResult({ agent, name: 'skill' }, { value: { secret: 'hidden' } })
+    stats.observeNativeResult({ agent, name: 'bad name with spaces' }, { isError: true })
+    const snap = stats.read({ agent, signal })
+    assert.equal(snap.calls, 1)
+    assert.equal(snap.nativeResults, 3)
+    assert.equal(snap.nativeErrors, 1)
+    assert.equal(snap.nativeUnconfirmed, 1)
+    assert.deepEqual(snap.nativeTools, [
+      { name: 'read', results: 2, errors: 1 },
+      { name: 'skill', results: 1, errors: 0 },
+    ])
+    assert.equal(JSON.stringify(snap).includes('sensitive token'), false)
+    assert.equal(JSON.stringify(snap).includes('hidden'), false)
+    assert.equal(stats.read(execution({})).nativeResults, 0)
+  })
+
   it('distinguishes thrown errors, failed results and repeated failed requests', async () => {
     const stats = new ExecutionStats()
     const session = {}
