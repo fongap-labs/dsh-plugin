@@ -36,6 +36,8 @@ export interface RouteResult {
   verification: string[]
   stopConditions: string[]
   milestones?: Array<{ objective: string; acceptance: string; dependsOn: number[]; writePaths: string[] }>
+  nativeTodoDraft?: Array<{ content: string; status: 'pending' }>
+  acceptanceHints?: Array<{ task: string; criterion: string }>
 }
 
 function safeTaskPath(raw: string): string {
@@ -87,6 +89,30 @@ export function normalizeCodingMilestones(input: readonly CodingMilestone[]): Ar
     }
     return { objective, acceptance, dependsOn: [...dependsOn], writePaths: [...writePaths] }
   })
+}
+
+/**
+ * A lossless, read-only handoff to DSH native todo_write and the delivery-gate
+ * acceptance vocabulary. No Host state is written; checks require fresh execution.
+ */
+export function draftNativeTodoHandoff(
+  milestones: readonly { objective: string; acceptance: string }[],
+): {
+  nativeTodoDraft: Array<{ content: string; status: 'pending' }>
+  acceptanceHints: Array<{ task: string; criterion: string }>
+} {
+  const tasks = milestones.map(item => {
+    // DSH native Todo limits task content to 200 chars. Never silently truncate
+    // an objective: delivery-gate acceptance requires exact content matching.
+    if (item.objective.length > 200) {
+      throw new Error('milestone objective exceeds native Todo 200-character limit')
+    }
+    return item.objective
+  })
+  return {
+    nativeTodoDraft: tasks.map(content => ({ content, status: 'pending' as const })),
+    acceptanceHints: milestones.map(item => ({ task: item.objective, criterion: item.acceptance })),
+  }
 }
 
 function overlaps(left: string, right: string): boolean {
@@ -205,7 +231,7 @@ export function decideCodingWorkflow(
     executionWaves,
     verification: [...profile.verification],
     stopConditions: [...REQUIRED_WORKFLOW_STOP_CONDITIONS],
-    ...(milestones ? { milestones } : {}),
+    ...(milestones ? { milestones, ...draftNativeTodoHandoff(milestones) } : {}),
   }
 }
 
@@ -215,7 +241,7 @@ export function createWorkflowRouteTool(
 ): ToolDefinition {
   return defineTool({
     name: 'code_workflow_route',
-    description: 'Choose a compact, deterministic coding lifecycle from existing Code Worker Skills. Read-only; does not dispatch agents, run commands or change files. For substantial tasks only: tiny changes can load code-fast-change directly.',
+    description: 'Choose a deterministic coding workflow. Optional milestones produce pending native Todo and exact acceptance hints for the existing Host and delivery gate; advisory only, does not call native todo_write, execute commands or mark tasks complete. Tiny changes can load code-fast-change directly.',
     parameters: {
       taskKind: { type: 'string', required: true, enum: [...CODING_TASK_KINDS] },
       scope: { type: 'string', required: true, enum: [...CODING_SCOPES] },
@@ -242,6 +268,14 @@ export function createWorkflowRouteTool(
       executionWaves: { type: 'array', required: true, items: { type: 'array', items: { type: 'integer' } } },
       verification: { type: 'array', required: true, items: { type: 'string' } },
       stopConditions: { type: 'array', required: true, items: { type: 'string' } },
+      nativeTodoDraft: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+        content: { type: 'string', required: true },
+        status: { type: 'string', required: true },
+      } } },
+      acceptanceHints: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+        task: { type: 'string', required: true },
+        criterion: { type: 'string', required: true },
+      } } },
       milestones: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
         objective: { type: 'string', required: true },
         acceptance: { type: 'string', required: true },
@@ -257,6 +291,11 @@ export function createWorkflowRouteTool(
           wave.map(task => '#' + task).join(', ')),
         ...value.milestones?.map((item, index) => 'Proposed milestone #' + index + ': ' + item.objective +
           ' | acceptance: ' + item.acceptance + ' | prerequisites: ' + item.dependsOn.join(', ')) ?? [],
+        ...(value.nativeTodoDraft ? [
+          'Native Todo handoff draft: write pending tasks through authorized DSH todo_write, then verify native state. Never treat this draft as completed work.',
+          ...value.nativeTodoDraft.map((item, index) => 'Todo #' + index + ': ' + item.content + ' [pending]'),
+          'Acceptance hints map by exact Todo content; delivery gate still requires real executed checks.',
+        ] : []),
         ...value.verification.map(line => 'Verify: ' + line),
         ...value.stopConditions.map(line => 'Stop: ' + line),
       ].join('\n') }]
