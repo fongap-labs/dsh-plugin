@@ -8,7 +8,7 @@ import { chooseTaskResources, taskResourceGuidance, type TaskResource, type Task
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
 import { verificationEvidenceStatus } from '../../../delta-code-quality/failure-policy.js'
 import { FREE_ONLY_TOOL_GUIDANCE } from '../../../delta-code-strategy/free-skill-policy.js'
-import type { UserTaskContext } from '../../../delta-code-strategy/task-spec.js'
+import type { UserTaskContext } from '../../../delta-code-strategy/intent-contract.js'
 import { hasNativeTodoGateCandidate, type NativeResumeReader } from '../../../delta-code-quality/resume-policy.js'
 
 /** Host-specific event subscription and system prompt integration. */
