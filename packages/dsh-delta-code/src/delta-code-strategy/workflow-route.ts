@@ -9,7 +9,16 @@ import {
 
 export type { CodingTaskKind, CodingScope, CodingRisk, CodingWorkflowMode, CodingWorkflowRule } from './workflow-policy.js'
 
+export interface CodingMilestone {
+  objective: string
+  acceptance: string
+  dependsOn?: number[]
+  writePaths?: string[]
+}
+
 export interface RouteInput {
+  /** Model-proposed steps, not Host Todo completion evidence. */
+  milestones?: CodingMilestone[]
   taskKind: CodingTaskKind
   scope: CodingScope
   risk: CodingRisk
@@ -26,6 +35,7 @@ export interface RouteResult {
   executionWaves: number[][]
   verification: string[]
   stopConditions: string[]
+  milestones?: Array<{ objective: string; acceptance: string; dependsOn: number[]; writePaths: string[] }>
 }
 
 function safeTaskPath(raw: string): string {
@@ -37,6 +47,46 @@ function safeTaskPath(raw: string): string {
     throw new Error('taskPaths must contain safe, explicit repository-relative paths')
   }
   return raw
+}
+
+/** Validate all proposed milestones without executing or marking a native Todo completed. */
+export function normalizeCodingMilestones(input: readonly CodingMilestone[]): Array<{
+  objective: string; acceptance: string; dependsOn: number[]; writePaths: string[]
+}> {
+  if (!Array.isArray(input) || input.length < 1 || input.length > 20) {
+    throw new Error('milestones must contain 1..20 bounded steps')
+  }
+  const unique = new Set<string>()
+  return input.map((step, index) => {
+    if (!step || typeof step !== 'object') throw new Error('invalid milestone')
+    const clean = (value: unknown, field: string): string => {
+      if (typeof value !== 'string' || !value.trim() ||
+          value.length > 240 || /[\u0000-\u001f\u007f]/.test(value)) {
+        throw new Error('invalid milestone ' + field)
+      }
+      return value.trim()
+    }
+    const objective = clean(step.objective, 'objective')
+    const acceptance = clean(step.acceptance, 'acceptance')
+    if (unique.has(objective)) throw new Error('duplicate milestone objective')
+    unique.add(objective)
+    const dependsOn = step.dependsOn ?? []
+    if (!Array.isArray(dependsOn) || dependsOn.length > index ||
+        dependsOn.some(i => !Number.isSafeInteger(i) || i < 0 || i >= index) ||
+        new Set(dependsOn).size !== dependsOn.length) {
+      throw new Error('milestone dependencies must reference unique earlier indexes')
+    }
+    const writePaths = step.writePaths ?? []
+    if (!Array.isArray(writePaths) || writePaths.length > 32 ||
+        writePaths.some(path => typeof path !== 'string')) {
+      throw new Error('milestone writePaths must be bounded explicit relative paths')
+    }
+    const canonical = writePaths.map(path => safeTaskPath(path).normalize('NFC').toLowerCase())
+    if (new Set(canonical).size !== canonical.length) {
+      throw new Error('duplicate milestone write path')
+    }
+    return { objective, acceptance, dependsOn: [...dependsOn], writePaths: [...writePaths] }
+  })
 }
 
 function overlaps(left: string, right: string): boolean {
@@ -109,7 +159,12 @@ export function decideCodingWorkflow(
       !CODING_RISKS.includes(input.risk)) {
     throw new Error('invalid taskKind, scope or risk')
   }
-  const independentTasks = input.independentTasks ?? 1
+  const milestones = input.milestones === undefined ? undefined : normalizeCodingMilestones(input.milestones)
+  if (milestones && (input.taskPaths !== undefined || input.taskDependencies !== undefined ||
+      (input.independentTasks !== undefined && input.independentTasks !== milestones.length))) {
+    throw new Error('milestones are exclusive with separate taskPaths/taskDependencies and inconsistent counts')
+  }
+  const independentTasks = milestones?.length ?? input.independentTasks ?? 1
   if (!Number.isSafeInteger(independentTasks) || independentTasks < 1 || independentTasks > 100) {
     throw new Error('independentTasks must be an integer from 1 to 100')
   }
@@ -126,8 +181,10 @@ export function decideCodingWorkflow(
     profile.canParallelize === true && isPlanned &&
     (input.taskKind === 'feature' || input.taskKind === 'refactor') &&
     independentTasks >= 2 && input.nativeSubagents === true
+  const plannedPaths = milestones && milestones.every(item => item.writePaths.length > 0)
+    ? milestones.map(item => item.writePaths) : input.taskPaths
   const executionWaves = planCodingWaves(independentTasks,
-    input.taskPaths, input.taskDependencies, isParallelPermitted)
+    plannedPaths, milestones?.map(item => item.dependsOn) ?? input.taskDependencies, isParallelPermitted)
   const canParallelize = executionWaves.some(wave => wave.length > 1)
   const conditions: Record<WorkflowStepCondition, boolean> = {
     planned: isPlanned,
@@ -148,6 +205,7 @@ export function decideCodingWorkflow(
     executionWaves,
     verification: [...profile.verification],
     stopConditions: [...REQUIRED_WORKFLOW_STOP_CONDITIONS],
+    ...(milestones ? { milestones } : {}),
   }
 }
 
@@ -169,6 +227,13 @@ export function createWorkflowRouteTool(
         items: { type: 'array', items: { type: 'string' } } },
       taskDependencies: { type: 'array', description: 'Earlier zero-based prerequisite indexes for each task.',
         items: { type: 'array', items: { type: 'integer' } } },
+      milestones: { type: 'array', description: 'Optional 1..20 model-proposed task steps with observable acceptance. No status/permission claims; exclusive with taskPaths/taskDependencies.',
+        items: { type: 'object', additionalProperties: false, properties: {
+          objective: { type: 'string', required: true },
+          acceptance: { type: 'string', required: true },
+          dependsOn: { type: 'array', items: { type: 'integer' } },
+          writePaths: { type: 'array', items: { type: 'string' } },
+        } } },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
       mode: { type: 'string', required: true },
@@ -177,6 +242,12 @@ export function createWorkflowRouteTool(
       executionWaves: { type: 'array', required: true, items: { type: 'array', items: { type: 'integer' } } },
       verification: { type: 'array', required: true, items: { type: 'string' } },
       stopConditions: { type: 'array', required: true, items: { type: 'string' } },
+      milestones: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+        objective: { type: 'string', required: true },
+        acceptance: { type: 'string', required: true },
+        dependsOn: { type: 'array', required: true, items: { type: 'integer' } },
+        writePaths: { type: 'array', required: true, items: { type: 'string' } },
+      } } },
     } }, render(_args, value) {
       return [{ type: 'text', text: [
         'Coding route: ' + value.mode,
@@ -184,12 +255,14 @@ export function createWorkflowRouteTool(
         'Parallel candidate: ' + (value.parallelCandidate ? 'yes (disjoint write sets)' : 'no'),
         ...value.executionWaves.map((wave, index) => 'Execution wave ' + (index + 1) + ': ' +
           wave.map(task => '#' + task).join(', ')),
+        ...value.milestones?.map((item, index) => 'Proposed milestone #' + index + ': ' + item.objective +
+          ' | acceptance: ' + item.acceptance + ' | prerequisites: ' + item.dependsOn.join(', ')) ?? [],
         ...value.verification.map(line => 'Verify: ' + line),
         ...value.stopConditions.map(line => 'Stop: ' + line),
       ].join('\n') }]
     } },
     execute: async (args, exec) => {
-      const input = args as RouteInput
+      const input = args as unknown as RouteInput
       // Model-authored input cannot assert native Host availability. The
       // adapter validates the exact live Agent and named Host provider.
       const isVerified = input.nativeSubagents === true &&
