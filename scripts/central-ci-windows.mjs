@@ -33,8 +33,6 @@ const configurations = [
   'packages/dsh-delta-code/tsconfig.json',
   'packages/dsh-delta-suite/tsconfig.json',
   'packages/dsh-delta-suite/tsconfig.client.json',
-  'packages/dsh-delta-desktop/tsconfig.json',
-  'packages/dsh-delta-desktop/tsconfig.client.json',
 ]
 for (const config of configurations) {
   execute(process.execPath, [join(targetRoot, 'node_modules/typescript/bin/tsc'), '-p', config],
