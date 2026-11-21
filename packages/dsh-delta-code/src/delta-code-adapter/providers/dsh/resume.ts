@@ -14,7 +14,7 @@ import { parseGitStatus } from '../../../delta-code-repository/git.js'
 import { retryReadOnly, classifyFailure } from '../../../delta-code-quality/failure-policy.js'
 
 import {
-  EMPTY, HEAD_PATTERN, foldNativeResume, parseResumeState, result,
+  EMPTY, HEAD_PATTERN, foldNativeResume, parseResumeState, result, matchesNativeTodoPlan,
   type ResumeState, type NativeResumeReader,
 } from '../../../delta-code-quality/resume-policy.js'
 type ProjectionHandle = { stateOf(session: unknown): ResumeState; dispose(): Promise<void> }
@@ -131,10 +131,11 @@ export function createNativeResumeTool(
 ): ToolDefinition {
   return defineTool({
     name: 'code_resume',
-    description: 'Recover last native todo_write snapshot from DSH session history across turns, reconcile it with Host Git HEAD and status. No writes, no auto replay. Supply expectedHead if the previous checkpoint recorded one.',
+    description: 'Recover native todo_write snapshot and verify its optional exact planned tasks against real Host state, then reconcile Git HEAD/status. No writes or auto replay. Supply expectedHead when the previous checkpoint recorded one.',
     parameters: {
       expectedHead: { type: 'string', description: 'Optional checkpoint HEAD SHA; when supplied, a mismatch blocks continuation.' },
       expectedSeq: { type: 'integer', description: 'Exact native todo/write sequence from the previous checkpoint; reject stale continuations when supplied.' },
+      expectedTasks: { type: 'array', items: { type: 'string' }, description: 'Optional exact native Todo content list from a prior code_workflow_route nativeTodoDraft. Mismatch blocks resuming; no task is written.' },
       cwd: { type: 'string', description: 'Optional workspace-relative repository/worktree path.' },
     },
     output: { schema: { type: 'object', additionalProperties: false, properties: {
@@ -173,6 +174,10 @@ export function createNativeResumeTool(
         undefined, '', [], ['native Todo projection is unavailable'])
       if (state.invalid) return result('blocked', 'Inspect malformed native Todo history; do not replay stale operations.',
         undefined, '', [], ['native Todo event is malformed'])
+      if (args.expectedTasks !== undefined && !matchesNativeTodoPlan(state, args.expectedTasks)) {
+        return result('blocked', 'Native Todo does not match the proposed plan; reconcile task ordering and content before resuming.',
+          state, '', [], ['native Todo does not match expected plan'])
+      }
       if (state.tasks === null || state.tasks.length === 0) {
         return result('empty', 'No current native Todo checkpoint exists; establish a new task plan.', state)
       }
