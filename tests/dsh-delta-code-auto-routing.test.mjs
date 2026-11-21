@@ -48,6 +48,9 @@ describe('Code Worker automatic user-task routing', () => {
     assert.equal(routeCodingTask('实现一个 React 新功能'), 'code-feature-delivery')
     assert.equal(routeCodingTask('继续', 'code-ci-repair'), 'code-ci-repair')
     assert.equal(routeCodingTask('继续推进任务链', 'code-feature-delivery'), 'code-feature-delivery')
+    assert.equal(routeCodingTask('继续，禁止新增环境变量', 'code-ci-repair'), 'code-ci-repair')
+    assert.equal(routeCodingTask('继续推进任务，保留现有 CI 门禁', 'code-feature-delivery'), 'code-feature-delivery')
+    assert.equal(routeCodingTask('继续，禁止新增环境变量'), undefined)
     assert.equal(routeCodingTask('继续推进', 'code-root-cause-debugging'), 'code-root-cause-debugging')
     assert.equal(routeCodingTask('继续执行任务', 'code-ci-repair'), 'code-ci-repair')
     assert.equal(routeCodingTask('接着做', 'code-review-readiness'), 'code-review-readiness')
@@ -76,6 +79,14 @@ describe('Code Worker automatic user-task routing', () => {
       assert.equal(taskContext.read(agent), '修复真实 CI 红叉，并且不得绕过中央门禁')
       f.claim(agent, '继续')
       assert.equal(taskContext.read(agent), '修复真实 CI 红叉，并且不得绕过中央门禁')
+      f.claim(agent, '继续，禁止新增环境变量')
+      assert.deepEqual(taskContext.readSources(agent), {
+        current: '继续，禁止新增环境变量',
+        inherited: ['修复真实 CI 红叉，并且不得绕过中央门禁'],
+        historyIncomplete: false,
+      })
+      f.claim(agent, '继续')
+      assert.equal(taskContext.read(agent), '继续，禁止新增环境变量')
       f.claim(agent, '改为审查源码')
       assert.equal(taskContext.read(agent), '改为审查源码')
       f.emit('agent/disposed', { agent })

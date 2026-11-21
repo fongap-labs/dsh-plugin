@@ -5,24 +5,53 @@ import {
   type CodingTaskKind, type CodingScope, type CodingRisk,
 } from './workflow-policy.js'
 import { decideCodingWorkflow } from './workflow-route.js'
+import { CONTINUE } from './builtin-task-signals.js'
 
-/** Ephemeral user-message anchor; native Session/Todo remain the task store. */
+interface UserTaskSources {
+  latest: string
+  inherited: string[]
+  historyIncomplete: boolean
+}
+
+/**
+ * Native user-authored task evidence only. A bare "continue" retains the last
+ * substantive source; a follow-up amendment becomes the current source while
+ * earlier sources remain bounded, provenance-labeled evidence. This is not a
+ * persistent task store and does not resolve conflicting instructions.
+ */
 export class UserTaskContext {
-  private current = new WeakMap<object, string>()
+  private current = new WeakMap<object, UserTaskSources>()
 
   capture(agent: object, text: string, continuation: boolean, routed: boolean): void {
     if (!routed) {
       this.current.delete(agent)
       return
     }
-    if (!continuation || !this.current.has(agent)) {
-      // Bound retained text; do not copy raw messages into prompts or telemetry.
-      this.current.set(agent, text.slice(-16_384))
+    const next = text.slice(-16_384)
+    if (!next.trim()) return
+    const prior = this.current.get(agent)
+    if (!continuation || !prior) {
+      this.current.set(agent, { latest: next, inherited: [], historyIncomplete: false })
+    } else if (!CONTINUE.test(text.trim())) {
+      // User amendments are evidence, not permission to disregard prior rules.
+      const previous = [...prior.inherited, prior.latest]
+      this.current.set(agent, {
+        latest: next,
+        inherited: previous.slice(-4),
+        historyIncomplete: prior.historyIncomplete || previous.length > 4,
+      })
     }
   }
 
   read(agent: unknown): string | undefined {
-    return agent && typeof agent === 'object' ? this.current.get(agent) : undefined
+    return this.readSources(agent)?.current
+  }
+
+  readSources(agent: unknown): { current: string; inherited: string[]; historyIncomplete: boolean } | undefined {
+    if (!agent || typeof agent !== 'object') return undefined
+    const entry = this.current.get(agent)
+    if (!entry) return undefined
+    return { current: entry.latest, inherited: [...entry.inherited], historyIncomplete: entry.historyIncomplete }
   }
 
   remove(agent: object): void {
@@ -51,6 +80,8 @@ export interface TaskSpec {
   scope: CodingScope
   risk: CodingRisk
   userQuotes: string[]
+  quoteEvidence: Array<{ quote: string; source: 'current' | 'inherited' }>
+  sourceHistoryComplete: boolean
   proposedAcceptance: string[]
   unknowns: string[]
   firstAction: string
@@ -80,7 +111,10 @@ function statements(value: unknown, name: string, min = 0): string[] {
  * Only quotes found verbatim in the current user-authored task are called
  * explicit. Acceptance criteria are proposals until evidence verifies them.
  */
-export function prepareTaskSpec(input: TaskSpecInput, sourceText: string): TaskSpec {
+export function prepareTaskSpec(
+  input: TaskSpecInput, sourceText: string, inheritedTexts: readonly string[] = [],
+  isHistoryIncomplete = false,
+): TaskSpec {
   if (!input || typeof input !== 'object' ||
       !CODING_TASK_KINDS.includes(input.taskKind) ||
       !CODING_SCOPES.includes(input.scope) ||
@@ -92,11 +126,15 @@ export function prepareTaskSpec(input: TaskSpecInput, sourceText: string): TaskS
   }
   const goal = statement(input.goal, 'goal')
   const userQuotes = statements(input.userQuotes ?? [], 'userQuotes')
-  for (const quote of userQuotes) {
-    if (!sourceText.includes(quote)) {
-      throw new Error('userQuotes must appear verbatim in the current user task')
+  // Quotes must match actual user-authored messages; historical evidence is
+  // labeled inherited and must be checked for overrides against the latest turn.
+  const quoteEvidence = userQuotes.map(quote => {
+    if (sourceText.includes(quote)) return { quote, source: 'current' as const }
+    if (inheritedTexts.some(text => text.includes(quote))) {
+      return { quote, source: 'inherited' as const }
     }
-  }
+    throw new Error('userQuotes must appear verbatim in the current or inherited user task')
+  })
   const proposedAcceptance = statements(input.proposedAcceptance, 'proposedAcceptance', 1)
   const unknowns = statements(input.unknowns ?? [], 'unknowns')
   const firstAction = statement(input.firstAction, 'firstAction')
@@ -105,7 +143,8 @@ export function prepareTaskSpec(input: TaskSpecInput, sourceText: string): TaskS
   })
   return {
     goal, taskKind: input.taskKind, scope: input.scope, risk: input.risk,
-    userQuotes, proposedAcceptance, unknowns, firstAction,
+    userQuotes, quoteEvidence, sourceHistoryComplete: !isHistoryIncomplete,
+    proposedAcceptance, unknowns, firstAction,
     workflow: route.mode, verification: route.verification,
   }
 }
@@ -114,13 +153,13 @@ export function prepareTaskSpec(input: TaskSpecInput, sourceText: string): TaskS
 export function createTaskSpecTool(context: UserTaskContext): ToolDefinition {
   return defineTool({
     name: 'code_task_spec',
-    description: 'Validate a compact natural-language-to-task contract against the current native user message. Quote explicit user requirements verbatim; label all acceptance criteria as proposed, not verified. For substantial tasks only; no extra model, side effects, task database or permission elevation.',
+    description: 'Validate compact task intent against current and bounded inherited native user messages. Return exact quote provenance. Reconcile newer overriding instructions before acting; sourceHistoryComplete=false means the Host user history must be rechecked before relying on inherited constraints. Inherited text is evidence, not immutable authority. Acceptance stays proposed, not verified. No extra model or task database.',
     parameters: {
       goal: { type: 'string', required: true, description: 'Concise proposed outcome, not a verified user quotation.' },
       taskKind: { type: 'string', required: true, enum: [...CODING_TASK_KINDS] },
       scope: { type: 'string', required: true, enum: [...CODING_SCOPES] },
       risk: { type: 'string', required: true, enum: [...CODING_RISKS] },
-      userQuotes: { type: 'array', items: { type: 'string' }, description: '0..12 exact, contiguous phrases present in current user-authored task. No paraphrases.' },
+      userQuotes: { type: 'array', items: { type: 'string' }, description: '0..12 verbatim phrases from current or inherited native user task. Check newest instructions for conflicts and overrides.' },
       proposedAcceptance: { type: 'array', required: true, items: { type: 'string' }, description: '1..12 observable acceptance proposals, not claims of executed tests.' },
       unknowns: { type: 'array', items: { type: 'string' }, description: '0..12 unresolved facts to inspect, never invent missing values.' },
       firstAction: { type: 'string', required: true, description: 'First bounded, read-only investigation or safe next step.' },
@@ -132,6 +171,11 @@ export function createTaskSpecTool(context: UserTaskContext): ToolDefinition {
         scope: { type: 'string', required: true },
         risk: { type: 'string', required: true },
         userQuotes: { type: 'array', required: true, items: { type: 'string' } },
+        sourceHistoryComplete: { type: 'boolean', required: true },
+        quoteEvidence: { type: 'array', required: true, items: { type: 'object', additionalProperties: false, properties: {
+          quote: { type: 'string', required: true },
+          source: { type: 'string', required: true },
+        } } },
         proposedAcceptance: { type: 'array', required: true, items: { type: 'string' } },
         unknowns: { type: 'array', required: true, items: { type: 'string' } },
         firstAction: { type: 'string', required: true },
@@ -143,9 +187,10 @@ export function createTaskSpecTool(context: UserTaskContext): ToolDefinition {
       },
     },
     async execute(args, exec) {
-      const source = context.read(exec.agent)
-      if (!source) throw new Error('no native user task is available; do not invent a task source')
-      return prepareTaskSpec(args as unknown as TaskSpecInput, source)
+      const sources = context.readSources(exec.agent)
+      if (!sources) throw new Error('no native user task is available; do not invent a task source')
+      return prepareTaskSpec(args as unknown as TaskSpecInput,
+        sources.current, sources.inherited, sources.historyIncomplete)
     },
   })
 }

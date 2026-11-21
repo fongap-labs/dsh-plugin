@@ -10,7 +10,11 @@ export type CodingRoute = 'code-ci-repair' | 'code-root-cause-debugging' | 'code
 export function isCodingTaskContinuation(text: string): boolean {
   const lastLine = text.trim().slice(-2048).split(/\r?\n/)
     .map(line => line.trim()).filter(Boolean).at(-1) ?? ''
-  return CONTINUE.test(lastLine)
+  if (CONTINUE.test(lastLine)) return true
+  // A continued task can append a new constraint after explicit punctuation.
+  // Do not classify arbitrary new coding requests as continuations.
+  const amendment = lastLine.match(/^([^，,:：;；]{1,32})[，,:：;；]\s*(\S.{0,1023})$/u)
+  return Boolean(amendment && CONTINUE.test(amendment[1]!.trim()))
 }
 
 
