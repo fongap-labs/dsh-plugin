@@ -51,6 +51,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - `code_multi_edit` DSH Host FS guarded writes, batch preflight, readback, cancellation and compensation execution live in `delta-code-adapter/providers/dsh/multi-edit.ts`. Pure edit transformations and mode/compensation selection remain in Coding; the old Coding tool path is a compatibility facade.
 
+- Quota exhaustion is classified distinctly from short transient network failures in Quality and suppresses blind DSH automatic replay through the existing request-error waterfall. This is a stop decision only, not a second retry scheduler; explicit Host policy and authorized new credentials remain outside Delta's control.
+
 - Native `todo/write` folding, checkpoint validation and recovery decisions live in `delta-code-quality/resume-policy.ts`; DSH session projection registration and read-only Git inspection live in `delta-code-adapter/providers/dsh/resume.ts`. Legacy imports remain compatible.
 
 - `code_delivery_gate` DSH Git/verification execution and native Todo checkpoint enforcement live in `delta-code-adapter/providers/dsh/delivery-gate.ts`, while task acceptance and gate-result policies remain SDK-free in `delta-code-quality/delivery-policy.ts`. The former Quality entrypoint is a compatibility facade.
