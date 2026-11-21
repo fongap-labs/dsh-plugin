@@ -154,6 +154,10 @@ describe("dsh-delta-code", () => {
     };
     const spec = prepareTaskSpec(input, userText);
     assert.deepEqual(spec.userQuotes, input.userQuotes);
+    assert.deepEqual(spec.quoteEvidence, [
+      { quote: "不要绕过门禁", source: "current" },
+      { quote: "不要编造环境变量", source: "current" },
+    ]);
     assert.deepEqual(spec.unknowns, input.unknowns);
     assert.equal(spec.workflow, "ci-repair");
     assert.ok(spec.verification.length > 0);
@@ -170,6 +174,64 @@ describe("dsh-delta-code", () => {
     assert.equal(memory.read(agent), "新任务");
     memory.remove(agent);
     assert.equal(memory.read(agent), undefined);
+  });
+
+  it("carries native user amendments with source provenance without leaking across tasks", async () => {
+    const { prepareTaskSpec, UserTaskContext } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
+    const memory = new UserTaskContext();
+    const agent = {};
+    const secondAgent = {};
+    memory.capture(agent, "修复 CI 红叉，不得绕过门禁", false, true);
+    memory.capture(agent, "继续，禁止添加新环境变量", true, true);
+    memory.capture(agent, "继续", true, true);
+    assert.equal(memory.read(agent), "继续，禁止添加新环境变量");
+    const sources = memory.readSources(agent);
+    assert.deepEqual(sources, {
+      current: "继续，禁止添加新环境变量",
+      inherited: ["修复 CI 红叉，不得绕过门禁"],
+    });
+    const spec = prepareTaskSpec({
+      goal: "修复 CI 红叉",
+      taskKind: "ci", scope: "medium", risk: "medium",
+      userQuotes: ["不得绕过门禁", "禁止添加新环境变量"],
+      proposedAcceptance: ["当前提交中央 CI 通过"],
+      firstAction: "读取 CI 失败日志",
+    }, sources.current, sources.inherited);
+    assert.deepEqual(spec.quoteEvidence, [
+      { quote: "不得绕过门禁", source: "inherited" },
+      { quote: "禁止添加新环境变量", source: "current" },
+    ]);
+    assert.throws(() => prepareTaskSpec({
+      goal: "修复 CI 红叉",
+      taskKind: "ci", scope: "medium", risk: "medium",
+      userQuotes: ["某个未出现的约束"],
+      proposedAcceptance: ["当前提交中央 CI 通过"],
+      firstAction: "读取 CI 失败日志",
+    }, sources.current, sources.inherited), /verbatim/);
+    assert.equal(memory.read(secondAgent), undefined);
+    memory.capture(agent, "现在改为评估另一个仓库", false, true);
+    assert.deepEqual(memory.readSources(agent), { current: "现在改为评估另一个仓库", inherited: [] });
+    memory.capture(agent, "普通聊天", false, false);
+    assert.equal(memory.readSources(agent), undefined);
+    memory.capture(agent, "新的任务", false, true);
+    memory.clear();
+    assert.equal(memory.readSources(agent), undefined);
+  });
+
+  it("bounds inherited intent amendments to four user turns", async () => {
+    const { UserTaskContext } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
+    const memory = new UserTaskContext();
+    const agent = {};
+    memory.capture(agent, "原始目标", false, true);
+    for (let n = 1; n <= 6; n++) {
+      memory.capture(agent, "继续，追加要求" + n, true, true);
+    }
+    assert.deepEqual(memory.readSources(agent), {
+      current: "继续，追加要求6",
+      inherited: ["继续，追加要求2", "继续，追加要求3", "继续，追加要求4", "继续，追加要求5"],
+    });
+    memory.remove(agent);
+    assert.equal(memory.readSources(agent), undefined);
   });
 
   it("code_multi_edit: local fallback rejects symlink escapes on reads and writes", { skip: process.platform === "win32" }, async () => {
