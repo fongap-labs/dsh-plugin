@@ -11,7 +11,7 @@ import { createGitHubTransport } from './delta-code-adapter/providers/github/api
 import { registerGatewayRetryCoordinator } from './delta-code-adapter/providers/dsh/gateway-retry-coordination.js'
 import { deltaCodeCodingWithoutCommands, deltaCodeCodingCommands } from './delta-code-coding/index.js'
 import { deltaCodeStrategy } from './delta-code-strategy/index.js'
-import { UserTaskContext } from './delta-code-strategy/task-spec.js'
+import { UserTaskContext } from './delta-code-strategy/intent-contract.js'
 import { registerAutomaticCodingRouter } from './delta-code-adapter/providers/dsh/auto-routing.js'
 import { registerCodingSkills } from './delta-code-adapter/providers/dsh/skills.js'
 import { registerApprovedGitHubSkills } from './delta-code-adapter/providers/dsh/github-skills.js'
