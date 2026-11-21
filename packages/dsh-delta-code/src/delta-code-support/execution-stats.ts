@@ -8,9 +8,11 @@ import { performance } from 'node:perf_hooks'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
 import { classifyFailure, verificationEvidenceStatus, type FailureKind } from '../delta-code-quality/failure-policy.js'
+import type { ExecutionObservation } from '../delta-code-quality/execution-convergence.js'
 
 const MAX_SIGNATURES = 64
 const MAX_FINGERPRINT_BYTES = 16 * 1024
+const MUTATION_TOOLS = new Set(['code_multi_edit', 'code_github_commit_file', 'code_github_branch', 'code_github_create_pr', 'code_git_worktree'])
 
 interface ToolCounters {
   name: string
@@ -23,6 +25,7 @@ interface ToolCounters {
 interface NativeToolCounters { name: string; results: number; errors: number }
 
 interface SessionCounters {
+  lastObservation: ExecutionObservation
   nativeResults: number
   nativeErrors: number
   nativeUnconfirmed: number
@@ -46,6 +49,7 @@ interface SessionCounters {
 
 function emptyCounters(): SessionCounters {
   return {
+    lastObservation: { kind: 'none' },
     nativeResults: 0, nativeErrors: 0, nativeUnconfirmed: 0,
     nativeTools: new Map(),
     calls: 0, duplicateCalls: 0, repeatedFailedCalls: 0, errors: 0,
@@ -135,6 +139,7 @@ export class ExecutionStats {
         const result = value as { passed?: unknown; stage?: unknown; scope?: unknown }
         if (name === 'code_verify' || name === 'code_verify_suite') {
           const status = verificationEvidenceStatus(name, value)
+          counters.lastObservation = { kind: 'verification', status }
           if (status === 'passed') {
             counters.verificationPassed++
             if (result.scope === 'focused') counters.focusedPassed++
@@ -142,17 +147,21 @@ export class ExecutionStats {
           else counters.verificationUnconfirmed++
         }
         if (name === 'code_delivery_gate') {
+          counters.lastObservation = { kind: 'delivery', ready: result.stage === 'verified' && (result as { ready?: unknown }).ready === true }
           if (result.stage === 'verified' && (result as { ready?: unknown }).ready === true) {
             counters.deliveryVerified++
           } else if (result.stage === 'blocked') counters.deliveryBlocked++
         }
       }
+      // Any mutation invalidates prior verification for future progress decisions.
+      if (MUTATION_TOOLS.has(name)) counters.lastObservation = { kind: 'mutation' }
       return value
     } catch (error) {
       isFailed = true
       counters.errors++
       tool.errors++
       const kind = classifyFailure(error)
+      counters.lastObservation = { kind: 'failure', failure: kind }
       counters.failureKinds[kind]++
       throw error
     } finally {
@@ -166,6 +175,13 @@ export class ExecutionStats {
         }
       }
     }
+  }
+
+  /** Only observed execution outcomes are eligible; never reconstruct from user text. */
+  readLastObservation(agent: unknown): ExecutionObservation {
+    const session = sessionFromAgent(agent)
+    const observation = session ? this.sessions.get(session)?.lastObservation : undefined
+    return observation ? { ...observation } : { kind: 'none' }
   }
 
   /** Observe only a Host result event, not a guaranteed native call or retry. */
