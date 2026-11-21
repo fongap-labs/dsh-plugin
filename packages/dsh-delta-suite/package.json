@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": false,
   "type": "module",
-  "description": "Delta Suite native DeepSeek Harness plugin with extensible appearance and settings.",
+  "description": "Delta Suite: appearance, session assistance, and extensible settings for Harness.",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
   "exports": {
