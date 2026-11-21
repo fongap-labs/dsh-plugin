@@ -157,6 +157,63 @@ describe('Code Worker native session execution metrics', () => {
     assert.equal(stats.read({ signal }).calls, 0)
   })
 
+  it('derives a safe next step from native Todo and observed verification, never model claims', async () => {
+    const { createExecutionNextTool } = await import('../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/execution-next.js')
+    const stats = new ExecutionStats()
+    const session = {}
+    const native = { tasks: [
+      { content: 'Fix failure', status: 'in_progress' },
+      { content: 'Run final checks', status: 'pending' },
+    ], writeSeq: 4, invalid: false }
+    const tool = createExecutionNextTool({ read: () => native, dispose() {} }, stats)
+    const ex = execution(session)
+    let next = await tool.execute({}, ex)
+    assert.equal(next.transition, 'continue')
+    assert.equal(next.deliveryConfirmed, false)
+    const verify = stats.wrap({ name: 'code_verify', execute: async () => verifiedStep(false) })
+    await verify.execute({}, ex)
+    next = await tool.execute({}, ex)
+    assert.equal(next.transition, 'diagnose')
+    const edit = stats.wrap({ name: 'code_multi_edit', execute: async () => ({ applied: 1 }) })
+    await edit.execute({}, ex)
+    next = await tool.execute({}, ex)
+    assert.equal(next.transition, 'verify', 'a new mutation invalidates earlier test outcomes')
+    const successful = stats.wrap({ name: 'code_verify', execute: async () => verifiedStep(true) })
+    await successful.execute({}, ex)
+    next = await tool.execute({}, ex)
+    assert.equal(next.transition, 'continue')
+    native.tasks[0].status = 'completed'
+    native.tasks[1].status = 'completed'
+    next = await tool.execute({}, ex)
+    assert.equal(next.transition, 'verify', 'completed Todos still require a fresh delivery gate')
+    assert.equal(next.deliveryConfirmed, false)
+    stats.clear()
+    assert.equal(stats.readLastObservation(ex.agent).kind, 'none')
+  })
+
+  it('fails closed on native checkpoint loss and Host denial, without replaying writes', async () => {
+    const { createExecutionNextTool } = await import('../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/execution-next.js')
+    const stats = new ExecutionStats()
+    const session = {}
+    const ex = execution(session)
+    const native = { tasks: [{ content: 'Fix CI', status: 'pending' }], writeSeq: 1, invalid: false }
+    const tool = createExecutionNextTool({ read: () => native, dispose() {} }, stats)
+    const denied = stats.wrap({ name: 'code_git_status', execute: async () => {
+      throw Error('Host permission denied')
+    } })
+    await assert.rejects(denied.execute({}, ex), /permission denied/)
+    const next = await tool.execute({}, ex)
+    assert.equal(next.transition, 'blocked')
+    assert.match(next.nextAction, /permission/)
+    assert.equal(next.deliveryConfirmed, false)
+    native.invalid = true
+    const missing = await tool.execute({}, ex)
+    assert.equal(missing.transition, 'blocked')
+    assert.deepEqual(missing.remaining, [])
+    const unavailable = createExecutionNextTool({ read: () => undefined, dispose() {} }, stats)
+    assert.equal((await unavailable.execute({}, ex)).transition, 'blocked')
+  })
+
   it('bounds fingerprint memory and does not misclassify a distant repeat', async () => {
     const stats = new ExecutionStats()
     const session = {}
