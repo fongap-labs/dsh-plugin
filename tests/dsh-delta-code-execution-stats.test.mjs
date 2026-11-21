@@ -214,6 +214,33 @@ describe('Code Worker native session execution metrics', () => {
     assert.equal((await unavailable.execute({}, ex)).transition, 'blocked')
   })
 
+  it('reports compaction review without replaying user content or creating work', async () => {
+    const { createExecutionNextTool } = await import('../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/execution-next.js')
+    const stats = new ExecutionStats()
+    const agent = { session: {} }
+    const ex = { agent, signal }
+    let nativeReads = 0
+    const resume = { read() {
+      nativeReads++
+      return { tasks: [{ content: 'Revalidate constraint', status: 'pending' }], writeSeq: 7, invalid: false }
+    }, dispose() {} }
+    const marker = { read() {
+      return { summarySeq: 10, summaries: 1, invalid: false }
+    }, dispose() {} }
+    const tool = createExecutionNextTool(resume, stats, marker)
+    const result = await tool.execute({}, ex)
+    assert.equal(result.transition, 'continue')
+    assert.equal(result.contextReviewState, 'review')
+    assert.equal(result.contextSummarySeq, 10)
+    assert.equal(result.contextTodoRefreshed, false)
+    assert.match(result.contextReviewAction, /user constraints/)
+    assert.equal(result.deliveryConfirmed, false)
+    assert.equal(nativeReads, 1)
+    assert.equal(stats.read(ex).calls, 0)
+    const absent = createExecutionNextTool(resume, stats).execute({}, ex)
+    assert.equal((await absent).contextReviewState, 'unavailable')
+  })
+
   it('bounds fingerprint memory and does not misclassify a distant repeat', async () => {
     const stats = new ExecutionStats()
     const session = {}
