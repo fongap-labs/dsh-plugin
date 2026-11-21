@@ -9,9 +9,10 @@
     getSnapshot() { return EMPTY_EVENTS },
     subscribe() { return () => {} },
   }
+  const EMPTY_SESSION_STATE = Object.freeze({ running: false, openState: 'cold', loadingOlder: false })
   const style = {
-    frame: { display: 'flex', height: '100vh', color: 'var(--dsw-alias-label-primary, #222)', background: 'var(--dsw-alias-bg-layer-1, #fff)', fontFamily: 'system-ui, sans-serif' },
-    sidebar: { display: 'flex', flexDirection: 'column', flexShrink: 0, width: 240, borderRight: '1px solid #ddd', background: 'var(--dsw-alias-bg-layer-2, #f6f7f8)' },
+    frame: { display: 'flex', height: '100vh', minHeight: 0, boxSizing: 'border-box', overflow: 'hidden', color: 'var(--dsw-alias-label-primary, #222)', background: 'var(--dsw-alias-bg-layer-1, #fff)', fontFamily: 'system-ui, sans-serif' },
+    sidebar: { display: 'flex', flexDirection: 'column', flexShrink: 0, width: 260, minWidth: 0, borderRight: '1px solid #ddd', background: 'var(--dsw-alias-bg-layer-2, #f6f7f8)' },
     button: { padding: 10, border: '1px solid #ddd', borderRadius: 8, cursor: 'pointer', color: 'inherit', background: 'transparent', textAlign: 'left' },
     primary: { padding: 10, border: 'none', borderRadius: 8, background: '#286f78', color: 'white', cursor: 'pointer' },
     muted: { color: 'var(--dsw-alias-label-secondary, #777)', fontSize: 12 },
@@ -63,8 +64,20 @@
       const [draft, setDraft] = React.useState('')
       const [pending, setPending] = React.useState(false)
       const [error, setError] = React.useState('')
+      const [search, setSearch] = React.useState('')
       const ids = catalog?.ids ?? []
       const selectedId = sessionId && catalog.byId[sessionId] ? sessionId : ids[0] ?? ''
+      const needle = search.trim().toLocaleLowerCase()
+      const shownIds = needle ? ids.filter(id => (catalog.byId[id]?.displayTitle ?? id).toLocaleLowerCase().includes(needle)) : ids
+      // Harness's native AppFrame reserves the non-client caption row. Delta's
+      // replacement root must respect the SAME platform-owned CSS variables.
+      const html = typeof document === 'undefined' ? null : document.documentElement
+      const hasWindowsCaption = html?.hasAttribute('data-windows-titlebar') ?? false
+      const isFullscreen = html?.hasAttribute('data-fullscreen') ?? false
+      const isMac = html?.dataset?.platform === 'darwin'
+      const chromeInset = isFullscreen ? 0 : hasWindowsCaption
+        ? 'var(--dsh-windows-titlebar-height, 48px)'
+        : isMac ? 'var(--dsh-frame-top-clearance, 48px)' : 0
 
       React.useEffect(() => {
         setBinding(null)
@@ -84,11 +97,22 @@
         listener => (active?.eventSource ?? EMPTY_SOURCE).subscribe(listener),
         () => (active?.eventSource ?? EMPTY_SOURCE).getSnapshot(),
       )
-      const running = React.useSyncExternalStore(
+      const sessionState = React.useSyncExternalStore(
         listener => active?.session.subscribe(listener) ?? (() => {}),
-        () => active?.session.getSnapshot().running ?? false,
+        () => active?.session.getSnapshot() ?? EMPTY_SESSION_STATE,
       )
+      const running = sessionState.running === true
       const messages = readableEvents(events)
+      const isHistoryLoading = sessionState.openState === 'cold' || sessionState.openState === 'loading'
+      const emptyMessage = isHistoryLoading
+        ? 'Loading session history…'
+        : sessionState.openState === 'error'
+          ? 'Session history failed to load. Check Harness logs.'
+          : events.hasMore
+            ? 'No supported text in this loaded page. Older history is available.'
+            : events.entries.length > 0
+              ? 'Loaded events contain no supported text messages.'
+              : 'No messages in loaded history.'
 
       async function createSession() {
         if (pending) return
@@ -109,19 +133,27 @@
         finally { setPending(false) }
       }
 
-      return h('main', { 'data-delta-desktop-root': '1', style: style.frame },
+      return h('main', { 'data-delta-desktop-root': '1', style: { ...style.frame, paddingTop: chromeInset } },
         h('aside', { style: style.sidebar },
           h('header', { style: { padding: 16, display: 'grid', gap: 12 } },
             h('strong', null, 'Delta Desktop'),
             h('span', { style: style.muted }, 'Harness plugin · rapid validation'),
             h('button', { type: 'button', style: style.primary, disabled: pending, onClick: () => { void createSession() } }, '+ New session')),
-          h('nav', { 'aria-label': 'Sessions', style: { flex: 1, padding: 10, overflowY: 'auto' } },
-            ...ids.map(id => h('button', {
+          h('div', { style: { padding: '0 10px 6px' } },
+            h('input', { type: 'search', 'aria-label': 'Search sessions', value: search,
+              onChange: event => setSearch(event.target.value), placeholder: 'Search sessions',
+              style: { ...style.button, width: '100%', boxSizing: 'border-box', minWidth: 0, padding: 9,
+                background: 'var(--dsw-alias-bg-layer-1, #fff)' } })),
+          h('nav', { 'aria-label': 'Sessions', style: { flex: 1, minHeight: 0, padding: 10, overflowY: 'auto' } },
+            ...shownIds.map(id => h('button', {
               key: id, type: 'button', onClick: () => setSessionId(id),
-              style: { ...style.button, display: 'block', width: '100%', marginBottom: 6,
-                borderColor: id === selectedId ? '#286f78' : 'transparent' },
+              title: catalog.byId[id]?.displayTitle ?? id,
+              'aria-current': id === selectedId ? 'page' : undefined,
+              style: { ...style.button, display: 'block', width: '100%', boxSizing: 'border-box',
+                minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                marginBottom: 4, borderColor: id === selectedId ? '#286f78' : 'transparent' },
             }, (catalog.byId[id]?.running ? '● ' : '') + (catalog.byId[id]?.displayTitle ?? id)))),
-          h('footer', { style: { ...style.muted, padding: 12 } }, String(ids.length) + ' sessions')),
+          h('footer', { style: { ...style.muted, padding: 12 } }, String(shownIds.length) + ' / ' + String(ids.length) + ' sessions')),
         h('section', { style: { display: 'flex', flex: 1, minWidth: 0, flexDirection: 'column' } },
           h('header', { style: { borderBottom: '1px solid #ddd', padding: 18 } },
             h('strong', null, selectedId ? (catalog.byId[selectedId]?.displayTitle ?? selectedId) : 'Select or create a session'),
@@ -132,18 +164,26 @@
               style: { border: '1px solid #ddd', borderRadius: 8, padding: 12, maxWidth: 850 } },
               h('strong', null, row.who),
               h('div', { style: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: 6 } }, row.body))),
-            messages.length === 0 ? h('p', { style: style.muted }, selectedId ? 'No readable messages yet.' : 'Create a Session to start.') : null),
+            messages.length === 0 ? h('p', { style: style.muted },
+              selectedId ? emptyMessage : 'Create a Session to start.') : null,
+            active && events.hasMore ? h('button', {
+              type: 'button', disabled: !!sessionState.loadingOlder,
+              onClick: () => { void active.session.loadOlder().catch(reason => setError(String(reason))) },
+              style: { ...style.button, maxWidth: 190 },
+            }, sessionState.loadingOlder ? 'Loading older history…' : 'Load older history') : null),
           error ? h('p', { role: 'alert', style: { padding: '0 16px', color: '#b91c1c' } }, error) : null,
-          h('div', { style: { padding: 16, borderTop: '1px solid #ddd', display: 'flex', gap: 12 } },
-            h('textarea', { 'aria-label': 'Prompt', value: draft, disabled: !active || pending,
+          h('div', { style: { padding: 14, borderTop: '1px solid #ddd', display: 'flex', alignItems: 'flex-end', gap: 10 } },
+            h('textarea', { 'aria-label': 'Prompt', value: draft, rows: 2, disabled: !active || pending,
               onChange: event => setDraft(event.target.value),
               onKeyDown: event => {
                 if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() }
               },
-              style: { flex: 1, minHeight: 60, resize: 'vertical', border: '1px solid #ddd',
-                borderRadius: 8, padding: 12, color: 'inherit', background: 'transparent', font: 'inherit' },
+              style: { flex: 1, minWidth: 0, minHeight: 48, maxHeight: 168, boxSizing: 'border-box',
+                resize: 'vertical', border: '1px solid #ddd', borderRadius: 8, padding: 10,
+                color: 'inherit', background: 'transparent', font: 'inherit' },
               placeholder: active ? 'Message Harness Agent…' : 'Select a Session…' }),
-            h('button', { type: 'button', style: style.primary,
+            h('button', { type: 'button', style: { ...style.primary, minWidth: 72, height: 42,
+              flexShrink: 0, alignSelf: 'flex-end' },
               disabled: !active || pending || !draft.trim(), onClick: () => { void send() } }, pending ? 'Sending…' : 'Send'))))
     }
 
