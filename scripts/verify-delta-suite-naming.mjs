@@ -21,6 +21,21 @@ const ignoredDirs = new Set(['.git', 'node_modules', 'dist', 'coverage',
   '.cache', '.next', '.pnpm-store', '.turbo'])
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+// Desktop is a new, independent product. Its exact identity is no longer a
+// retired Suite identity; keep blocking obsolete variants in all other files.
+const legitimateDesktopIdentity = new Set([
+  ['dsh', 'delta', 'desktop'].join('-'),
+  ['delta', 'desktop'].join('-'),
+  ['Delta', 'Desktop'].join(' '),
+])
+const legitimateDesktopLocations = new Set([
+  'README.md', 'CHANGELOG.md', 'package.json', 'pnpm-lock.yaml',
+])
+const desktopPrefix = ['packages', ['dsh', 'delta', 'desktop'].join('-')].join('/') + '/'
+const allowedNewDesktopIdentity = (path, token) =>
+  legitimateDesktopIdentity.has(token) &&
+  (path === desktopPrefix.slice(0, -1) || path.startsWith(desktopPrefix) || legitimateDesktopLocations.has(path))
+
 export function findRetiredIdentifiers(projectRoot = root) {
   const found = []
   const visit = directory => {
@@ -30,7 +45,7 @@ export function findRetiredIdentifiers(projectRoot = root) {
       const absolute = join(directory, entry.name)
       const name = relative(projectRoot, absolute).replaceAll('\\', '/')
       for (const token of retired) {
-        if (name.includes(token)) found.push(name + ': path contains an obsolete identifier')
+        if (name.includes(token) && !allowedNewDesktopIdentity(name, token)) found.push(name + ': path contains an obsolete identifier')
       }
       if (entry.isDirectory()) { visit(absolute); continue }
       const bytes = readFileSync(absolute)
@@ -42,7 +57,7 @@ export function findRetiredIdentifiers(projectRoot = root) {
         if (name === 'CHANGELOG.md' &&
             (token === ['Delta', 'Desktop'].join(' ') ||
              token === ['Delta', '桌面'].join(' '))) continue
-        if (bytes.includes(Buffer.from(token, 'utf8'))) {
+        if (!allowedNewDesktopIdentity(name, token) && bytes.includes(Buffer.from(token, 'utf8'))) {
           found.push(name + ': content contains an obsolete identifier')
         }
       }

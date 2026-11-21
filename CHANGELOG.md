@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 作为与 Delta Suite、Delta Code 平级的独立 DeepSeek Harness 插件包加入同一仓库，提供 API-first Root Shell 和基础会话交互实验；默认保留官方 UI，B2 原生 UI 裁剪与回退仍待实机验证。
+
 - 修复: Delta Code 多文件 Skill 的不可变审核、中央 CI 准入和运行时加载统一拒绝未显式审查的附属文档与脚本依赖，并对齐 96 KiB 整包上限，避免虚假准入和无法加载。
 
 - 新增: Delta Code 将无脚本、免费、低风险的 Markdown Skill 附属文件纳入不可变整包审查；通过两阶段 PR 和中央 CI 认证后，将引用哈希写入可信目录，原生 Skill Provider 按需加载时重新核对各文件 Blob SHA，保持取消与权限边界。
