@@ -183,6 +183,29 @@ describe('Delta Code Worker native session resume', () => {
     } finally { await f.cleanup() }
   })
 
+  it('rejects stale empty checkpoints, invalid HEAD and cancellation without Git', async () => {
+    const f = await fixture()
+    try {
+      const noSnapshot = await f.tool.execute({ expectedSeq: 0 }, execute(f.agent))
+      assert.equal(noSnapshot.stage, 'blocked')
+      assert.match(noSnapshot.blockers.join(' '), /sequence differs/)
+      f.emit([], 7)
+      const stale = await f.tool.execute({ expectedSeq: 6 }, execute(f.agent))
+      assert.equal(stale.stage, 'blocked')
+      assert.match(stale.blockers.join(' '), /sequence differs/)
+      const invalidHead = await f.tool.execute({ expectedSeq: 7, expectedHead: 'bad' }, execute(f.agent))
+      assert.equal(invalidHead.stage, 'blocked')
+      assert.match(invalidHead.blockers.join(' '), /invalid expectedHead/)
+      const controller = new AbortController()
+      controller.abort()
+      await assert.rejects(f.tool.execute({ expectedSeq: 7 },
+        { agent: f.agent, signal: controller.signal }), /native resume cancelled/)
+      const valid = await f.tool.execute({ expectedSeq: 7 }, execute(f.agent))
+      assert.equal(valid.stage, 'empty')
+      assert.deepEqual(f.commands, [], 'invalid or empty Todo checks must not execute Host Git')
+    } finally { await f.cleanup() }
+  })
+
   it('blocks stale milestone handoff before any Git operation', async () => {
     const f = await fixture()
     try {
