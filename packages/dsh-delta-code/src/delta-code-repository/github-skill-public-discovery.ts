@@ -228,7 +228,7 @@ export function createPublicSkillDiscoverySpecs(transport: DeltaGitHubTransport)
           isRateLimited, excludedByCost, skipped, candidates: results.slice(0, MAX_RESULTS),
           truncated: search.total_count > repositories.length || results.length > MAX_RESULTS ||
             isRateLimited,
-          note: 'Free-only: recognized pinned root or nearest Skill licenses are required. Missing or restrictive nearest licenses fail closed; paid and unresolved dependencies are excluded. External services may still charge. This is bounded discovery, NOT exhaustive. Candidates remain unreviewed and cannot be invoked before separate central-CI approval.',
+          note: 'Free-only: recognized pinned root or nearest Skill licenses are required. Missing or restrictive nearest licenses fail closed; paid and unresolved dependencies are excluded. External services may still charge. This is bounded discovery, NOT exhaustive. Candidates remain unreviewed. One-time use requires an independent pinned, free and low-risk temporary read; persistent registration still requires separate central-CI catalog admission.',
         }),
       }
     },
