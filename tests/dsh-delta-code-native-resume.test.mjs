@@ -99,6 +99,70 @@ async function fixture({ status = '## main\0', statusAfter, deny = false, drift 
 }
 
 describe('Delta Code Worker native session resume', () => {
+  it('reconstructs native compaction watermarks without retaining summary bodies', async () => {
+    const { EMPTY_COMPACTION, foldCompactionMarker, parseCompactionMarker, compactionReview } =
+      await import('../packages/dsh-delta-code/lib/delta-code-quality/compaction-continuity.js')
+    const secret = 'private-user-decision-must-not-be-copied'
+    const summary = { type: 'compaction/summary', seq: 12, data: { summary: [{ type: 'text', text: secret }] } }
+    const first = foldCompactionMarker(EMPTY_COMPACTION, summary)
+    assert.deepEqual(first, { summarySeq: 12, summaries: 1, invalid: false })
+    assert.equal(JSON.stringify(first).includes(secret), false)
+    assert.equal(foldCompactionMarker(first, { type: 'turn/start', seq: 13 }), first)
+    assert.deepEqual(compactionReview(first, 9), {
+      state: 'review', lastSummarySeq: 12, todoUpdatedAfterSummary: false,
+      action: 'Native compaction occurred. Recheck the user constraints, technical decisions, unresolved failures and test evidence against the current Host Session and Git state; do not reconstruct missing facts from memory.',
+    })
+    assert.equal(compactionReview(first, 14).todoUpdatedAfterSummary, true)
+    assert.equal(compactionReview(EMPTY_COMPACTION, -1).state, 'none')
+    assert.equal(compactionReview(undefined, -1).state, 'unavailable')
+    const invalid = foldCompactionMarker(first, { ...summary, seq: 11 })
+    assert.equal(invalid.invalid, true)
+    assert.equal(compactionReview(invalid, 14).state, 'unavailable')
+    assert.throws(() => parseCompactionMarker({ summarySeq: 2, summaries: 0, invalid: false }), /checkpoint/)
+  })
+
+  it('uses the native Host projection and revokes stale compaction readers on disposal', async () => {
+    const { registerNativeCompactionMarker } =
+      await import('../packages/dsh-delta-code/lib/delta-code-adapter/providers/dsh/compaction-marker.js')
+    let attach
+    let released = 0
+    let currentState
+    let spec
+    const agent = { session: {} }
+    const reader = registerNativeCompactionMarker({
+      inject(services, callback) {
+        assert.deepEqual(services, ['sessionProjections'])
+        attach = callback
+      },
+    })
+    try {
+      const release = attach({ sessionProjections: {
+        async register(definition) {
+          spec = definition
+          currentState = spec.init()
+          return {
+            stateOf(session) { assert.equal(session, agent.session); return currentState },
+            async dispose() { released++ },
+          }
+        },
+      } })
+      await Promise.resolve()
+      assert.equal(reader.read(agent).summaries, 0)
+      currentState = spec.apply(currentState, {
+        type: 'compaction/summary', seq: 22,
+        data: { summary: [{ type: 'text', text: 'sensitive summary' }] },
+      })
+      assert.deepEqual(reader.read(agent), { summarySeq: 22, summaries: 1, invalid: false })
+      release()
+      assert.equal(reader.read(agent), undefined)
+      await Promise.resolve()
+      await Promise.resolve()
+      assert.equal(released, 1)
+      reader.dispose()
+      assert.equal(reader.read(agent), undefined)
+    } finally { reader.dispose() }
+  })
+
   it('retains the durable native Todo snapshot across a new turn without copying state to disk', async () => {
     const f = await fixture()
     try {
