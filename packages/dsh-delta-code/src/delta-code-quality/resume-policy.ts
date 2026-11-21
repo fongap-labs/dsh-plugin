@@ -45,6 +45,17 @@ export function parseResumeState(value: unknown): ResumeState {
   return state
 }
 
+/** Check that a model-supplied plan actually reached the native Host Todo. */
+export function matchesNativeTodoPlan(state: ResumeState, expectedTasks: unknown): boolean {
+  if (state.invalid || !Array.isArray(state.tasks) || !Array.isArray(expectedTasks) ||
+      expectedTasks.length < 1 || expectedTasks.length > 32 ||
+      state.tasks.length !== expectedTasks.length) return false
+  const expected = expectedTasks as unknown[]
+  return expected.every((item, index) =>
+    typeof item === 'string' && item.length > 0 && item.length <= 200 &&
+    item === state.tasks![index]!.content)
+}
+
 export interface NativeResumeReader {
   read(agent: unknown): ResumeState | undefined
   dispose(): void
