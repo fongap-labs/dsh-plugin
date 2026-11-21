@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Desktop Root 按 Harness Windows/macOS 标题栏变量留出原生窗口控件区域，防止重叠；会话侧栏新增搜索与单行截断，输入区按钮不再被文本框拉伸，空历史区分加载状态与已载入数据，并允许按需读取更早历史。
+
 - 修复: Delta Desktop portable 发布验收区分 pnpm 规范化后的发布元数据与运行时包合同，仅忽略 `publishConfig` 差异，继续严格对比其余清单字段与 ZIP/TGZ 入口文件，解除首个 Beta 发布的误拒绝。
 
 - 新增: Delta Desktop 独立 portable 发布清单、轻量构建入口和交付 ZIP/TGZ 验证器；实际发布仍要求中央签名 CI 和人工确认版本。

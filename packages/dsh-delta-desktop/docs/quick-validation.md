@@ -6,6 +6,14 @@ This tests a **single Root UI plugin** inside DeepSeek Harness, not a second Ele
 
 Use a disposable Windows Harness Desktop profile with a functioning model, a backup of the existing profile, and an **out-of-band way to disable the plugin** if its UI cannot open. Install this package alone for the first test, without Delta Suite; coexistence testing comes later. Do **not** apply `cordis.delta-only.patch.yml`.
 
+## Screenshot-driven UI regression checklist
+
+- On Windows, the title, session search box and top controls must begin **below** the Harness caption/menu row (the native menu remains Harness-owned). On macOS, traffic-light clearance must also be maintained.
+- Long session titles must stay on one line and show their full value via hover title. Search must filter only the visible list, not delete or move Sessions.
+- The composer Send button must not stretch to the textarea height. Tab/Enter navigation must remain usable.
+- An empty page must show whether the selected Session is loading, failed, has additional older history, or has no supported text; the UI must not claim the durable Session is empty without checking its event window.
+- The native UI remains installed for out-of-band rollback. This is **not** proof of B2 memory savings or complete conversation rendering.
+
 ## Smoke checklist
 
 1. Install and enable `@fongap-labs/dsh-delta-desktop` as a regular Harness plugin. Confirm a single Harness window and the **Delta Desktop** heading. If no UI changes, stop and check Client loader logs.
