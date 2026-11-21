@@ -4,6 +4,8 @@
 
 - 新增: Delta Code Intent-to-Spec 支持续接任务追加新约束，保存有界用户原文及当前/历史来源标记；保留新指令覆盖旧要求的判定边界，不引入独立会话存储或额外模型调用。
 
+- 新增: Delta Code 里程碑规划提供原生 Todo 草案和验收提示；原生恢复可核对预期任务与实际 Todo 是否一致，避免计划漂移后盲目继续，不自动写入或宣称任务完成。
+
 - 新增: Delta Code `code_task_spec` 将用户自然语言整理为受限任务契约；逐字核对用户原文约束，将验收条件标为建议并记录未知事项，不新增模型调用、任务数据库或宿主权限。
 
 - 新增: Delta Desktop 通过 Harness 的公开 Session Model Catalog 和 selectModel Remote API 增加真实模型选择与推理强度控制，使用 Session 投影同步当前选择，不依赖原生 ui-model-selection 界面。
