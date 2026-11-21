@@ -12,15 +12,15 @@ type NativeRuntime = {
 export function registerNativeToolStats(ctx: Context, stats: ExecutionStats): () => void {
   const runtime = ctx as unknown as NativeRuntime
   if (typeof runtime.on !== 'function') return () => {}
-  let active = true
+  let isActive = true
   const unbind = runtime.on('tools/result', (execution, outcome) => {
-    if (!active) return
+    if (!isActive) return
     try { stats.observeNativeResult(execution, outcome) } catch {
       // Never break a native tool call or modify its outcome for telemetry.
     }
   })
   return () => {
-    active = false
+    isActive = false
     if (typeof unbind === 'function') unbind()
   }
 }
