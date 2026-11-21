@@ -58,6 +58,23 @@ describe('Gateway request retry coordination', () => {
     assert.equal(gatewayRetryAfterMs(failure(1.1).message), null)
     assert.equal(gatewayRetryAfterMs(failure(242000).message + 'garbage'), null)
   })
+  it('stops automatic replay for explicitly exhausted account quota', async () => {
+    const f = fixture()
+    try {
+      let nativeAttempts = 0
+      for (const message of [
+        '429: insufficient_quota account limit reached',
+        'Provider credits exhausted; try a different authorized account',
+      ]) {
+        const action = await f.handler({
+          failure: { message }, retryPolicy: { mode: 'normal' },
+        }, async () => { nativeAttempts++; return { kind: 'retry' } })
+        assert.equal(action, undefined)
+      }
+      assert.equal(nativeAttempts, 0)
+      assert.deepEqual(f.waits, [])
+    } finally { f.dispose() }
+  })
   it('preempts stock DSH retries when Gateway says to wait 242 seconds', async () => {
     const f = fixture()
     try {
