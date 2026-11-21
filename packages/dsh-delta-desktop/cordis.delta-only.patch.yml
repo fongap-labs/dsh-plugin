@@ -1,0 +1,15 @@
+# EXPERIMENT ONLY. This is NOT part of dsh.bundle.patch.
+# Apply solely in an isolated Desktop Profile, after verifying that the
+# installed Delta Desktop client registers an active Root and can be reverted.
+# These entries suppress official visual owners; required API / renderer /
+# session-controller services must stay enabled.
+- id: ui-layout
+  disabled: true
+- id: ui-sidebar
+  disabled: true
+- id: ui-sidebar-right
+  disabled: true
+- id: ui-chat
+  disabled: true
+- id: ui-conversation
+  disabled: true
