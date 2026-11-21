@@ -70,6 +70,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - DSH tool implementation, Host FS and subprocess access are now owned by `delta-code-adapter/providers/dsh/`; Coding, Quality and Repository modules retain Host-independent policy/operation contracts and legacy compatibility facades.
 - Native `tools/result` observation is an optional, disposable, name-only Host adapter in `delta-code-adapter/providers/dsh/native-tool-stats.ts`. It counts result events without arguments or raw output and excludes registered Delta tools from double counting. These are not authoritative native call counts, retry counts or duplicate-call statistics; only Delta tool wrappers can fingerprint arguments.
 
+- Intent-to-Spec validation lives in `delta-code-strategy/intent-contract.ts`. The optional `code_task_spec` tool checks model-selected user quotations against the last claimed native user message; proposed acceptance is never represented as verified. `UserTaskContext` is a bounded in-memory per-agent anchor, not persistent task storage or a second planner. Host native Todo/session remains authoritative for task progress. Substantial tasks may generate one contract before planning; fast changes do not require another tool or model call.
+
 - Coding task selection and Skills data live in `delta-code-strategy` with no Host dependencies. DSH Inbox events, Skills service registration and static/dynamic prompt installation live in `delta-code-adapter/providers/dsh`; composition supplies registration callbacks to Strategy.
 
 - Public `src/types.ts` contains only Host-independent configuration/result types. Cordis Context augmentation and DSH prompt type imports are isolated in `delta-code-adapter/providers/dsh/host-types.ts`.

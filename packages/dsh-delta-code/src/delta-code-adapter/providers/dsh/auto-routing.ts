@@ -8,6 +8,7 @@ import { chooseTaskResources, taskResourceGuidance, type TaskResource, type Task
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
 import { verificationEvidenceStatus } from '../../../delta-code-quality/failure-policy.js'
 import { FREE_ONLY_TOOL_GUIDANCE } from '../../../delta-code-strategy/free-skill-policy.js'
+import type { UserTaskContext } from '../../../delta-code-strategy/intent-contract.js'
 import { hasNativeTodoGateCandidate, type NativeResumeReader } from '../../../delta-code-quality/resume-policy.js'
 
 /** Host-specific event subscription and system prompt integration. */
@@ -50,7 +51,7 @@ export interface DeltaCodeRoutingPolicy {
 
 export function registerAutomaticCodingRouter(
   ctx: Context, settings: () => Settings, policy: DeltaCodeRoutingPolicy = {},
-  nativeResume?: NativeResumeReader,
+  nativeResume?: NativeResumeReader, taskContext?: UserTaskContext,
 ): () => void {
   const routed = new WeakMap<object, CodingRoute>()
   const specialists = new WeakMap<object, readonly string[]>()
@@ -65,7 +66,7 @@ export function registerAutomaticCodingRouter(
   if (typeof runtime.on === 'function') {
     const unsubscribe = runtime.on('agent/inbox/claimed', (payload) => {
       const { agent, message } = payload as UserClaim
-      if (!isActive || !settings().enabled || !settings().autoRoutingEnabled || !agent || !message) return
+      if (!isActive || !settings().enabled || !agent || !message) return
       if (message.source?.kind !== 'user') return
       const text = Array.isArray(message.content)
         ? message.content.filter(item => item.type === 'text' && typeof item.text === 'string')
@@ -74,6 +75,11 @@ export function registerAutomaticCodingRouter(
       const previous = routed.get(agent)
       const next = routeCodingTask(text, previous, policy.routeRules)
       const continuation = isCodingTaskContinuation(text)
+      // Intent anchoring remains available even when optional route hints are disabled.
+      const isTaskSource = settings().autoRoutingEnabled ? Boolean(next) : text.trim().length > 0
+      taskContext?.capture(agent, text, continuation, isTaskSource)
+      // Task source anchoring must work even when optional route hints are off.
+      if (!settings().autoRoutingEnabled) return
       if (isExternalSkillOptOut(text)) externalSkillOptOuts.add(agent)
       else if (!continuation) externalSkillOptOuts.delete(agent)
       if (next) routed.set(agent, next)
@@ -93,7 +99,7 @@ export function registerAutomaticCodingRouter(
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
     const clear = runtime.on('agent/disposed', (payload) => {
       const { agent } = payload as UserClaim
-      if (agent) { routed.delete(agent); specialists.delete(agent); externalSkillOptOuts.delete(agent); resources.delete(agent); quality.delete(agent); observedGateSeq.delete(agent) }
+      if (agent) { routed.delete(agent); specialists.delete(agent); externalSkillOptOuts.delete(agent); resources.delete(agent); quality.delete(agent); observedGateSeq.delete(agent); taskContext?.remove(agent) }
     })
     if (typeof clear === 'function') disposers.push(clear)
 
@@ -185,6 +191,7 @@ export function registerAutomaticCodingRouter(
           'The current user message is a coding request. Follow the user and repository instructions first.',
           'Suggested procedure (keyword-based hint, not authority): ' + route + '. The native Agent must determine actual intent from the user task and repository evidence. For mixed or ambiguous coding work, use read-only code_capabilities list/get/compose and load only applicable Skills through the native catalog; never let a hint override user intent or Host permissions.',
           'Use the Host tools and permission gates; do not create another agent runtime.',
+          'For a substantial task, derive one concise user-intent contract before planning. If code_task_spec is mounted, call it once with verbatim userQuotes, proposed (not verified) acceptance criteria, explicit unknowns and a bounded first action. Do not rerun it for each implementation step. Keep native Todo as the only task ledger. Never invent source facts, permissions, test results or environment variables.',
           FREE_ONLY_TOOL_GUIDANCE,
           ...optOutGuidance,
           ...(route === 'code-feature-delivery' ? [

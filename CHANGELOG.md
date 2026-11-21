@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code `code_task_spec` 将用户自然语言整理为受限任务契约；逐字核对用户原文约束，将验收条件标为建议并记录未知事项，不新增模型调用、任务数据库或宿主权限。
+
 - 新增: Delta Desktop 通过 Harness 的公开 Session Model Catalog 和 selectModel Remote API 增加真实模型选择与推理强度控制，使用 Session 投影同步当前选择，不依赖原生 ui-model-selection 界面。
 
 - 修复: Delta Code 识别账号额度耗尽并停止无效的原生自动重试，继续任务时优先复用 Harness 原生 Todo 与 Git 验证状态，不重放已完成写入或重复调查。

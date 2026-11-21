@@ -21,6 +21,7 @@ import { observeNativeDelegation } from './delta-code-adapter/providers/dsh/nati
 import { deltaCodeRepositoryRemote, deltaCodeRepositoryCommands } from './delta-code-repository/index.js'
 import { deltaCodeSupport } from './delta-code-support/index.js'
 import { ExecutionStats } from './delta-code-support/execution-stats.js'
+import { UserTaskContext } from './delta-code-strategy/intent-contract.js'
 import { registerNativeToolStats } from './delta-code-adapter/providers/dsh/native-tool-stats.js'
 
 /** Only this composition root knows both Host adapters and feature implementations. */
@@ -29,14 +30,17 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
   const resume = registerNativeResume(ctx)
   const delegation = observeNativeDelegation(ctx)
   const stats = new ExecutionStats()
+  const taskContext = new UserTaskContext()
   const releases: Array<() => void> = [
     () => resume.dispose(), () => delegation.dispose(), () => stats.clear(),
+    () => taskContext.clear(),
   ]
   try {
     // The lightweight strategy and diagnostic tools never need subprocess.
     const coreFeatures = [
       deltaCodeStrategy({
         canDelegate: delegation.canDelegate,
+        taskContext,
         registerSkills: () => {
           const releaseLocal = registerCodingSkills(ctx)
           try {
@@ -47,7 +51,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
             throw error
           }
         },
-        registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings, undefined, resume),
+        registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings, undefined, resume, taskContext),
         registerPrompt: () => registerDeltaCodePrompt(ctx, settings),
       }),
       deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
