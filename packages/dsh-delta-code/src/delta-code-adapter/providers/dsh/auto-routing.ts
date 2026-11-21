@@ -191,7 +191,7 @@ export function registerAutomaticCodingRouter(
           'The current user message is a coding request. Follow the user and repository instructions first.',
           'Suggested procedure (keyword-based hint, not authority): ' + route + '. The native Agent must determine actual intent from the user task and repository evidence. For mixed or ambiguous coding work, use read-only code_capabilities list/get/compose and load only applicable Skills through the native catalog; never let a hint override user intent or Host permissions.',
           'Use the Host tools and permission gates; do not create another agent runtime.',
-          'For a substantial task, derive one concise user-intent contract before planning. If code_task_spec is mounted, call it once with verbatim userQuotes, proposed (not verified) acceptance criteria, explicit unknowns and a bounded first action. Do not rerun it for each implementation step. Keep native Todo as the only task ledger. Never invent source facts, permissions, test results or environment variables.',
+          'For substantial work, form one concise intent contract before planning. If code_task_spec is mounted, call it with verbatim userQuotes from current or inherited user messages and inspect quoteEvidence provenance. Newer user instructions may supersede earlier ones; do not silently enforce contradictory inherited requirements. Keep acceptance proposed, unknowns explicit and first action bounded. Do not rerun per step. Native Todo is the only task ledger; never invent source facts, permissions or test results.',
           FREE_ONLY_TOOL_GUIDANCE,
           ...optOutGuidance,
           ...(route === 'code-feature-delivery' ? [
