@@ -83,12 +83,16 @@ SHARED_TSCONFIG=packages/shared/tsconfig.json
 HOST_TSCONFIGS=(
   packages/dsh-delta-code/tsconfig.json
   packages/dsh-delta-suite/tsconfig.json
+  packages/dsh-delta-desktop/tsconfig.json
 )
-CLIENT_TSCONFIG=packages/dsh-delta-suite/tsconfig.client.json
+CLIENT_TSCONFIGS=(
+  packages/dsh-delta-suite/tsconfig.client.json
+  packages/dsh-delta-desktop/tsconfig.client.json
+)
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"
-  "$CLIENT_TSCONFIG"
+  "${CLIENT_TSCONFIGS[@]}"
 )
 
 phase_begin typecheck
@@ -96,7 +100,9 @@ phase_begin typecheck
 for config in "${HOST_TSCONFIGS[@]}"; do
   ./node_modules/.bin/tsc -p "$config" --noEmit
 done
-./node_modules/.bin/tsc -p "$CLIENT_TSCONFIG" --noEmit
+for config in "${CLIENT_TSCONFIGS[@]}"; do
+  ./node_modules/.bin/tsc -p "$config" --noEmit
+done
 phase_end
 
 phase_begin build
