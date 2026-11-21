@@ -75,7 +75,9 @@ export function registerAutomaticCodingRouter(
       const previous = routed.get(agent)
       const next = routeCodingTask(text, previous, policy.routeRules)
       const continuation = isCodingTaskContinuation(text)
-      taskContext?.capture(agent, text, continuation, Boolean(next))
+      // Intent anchoring remains available even when optional route hints are disabled.
+      const isTaskSource = settings().autoRoutingEnabled ? Boolean(next) : text.trim().length > 0
+      taskContext?.capture(agent, text, continuation, isTaskSource)
       // Task source anchoring must work even when optional route hints are off.
       if (!settings().autoRoutingEnabled) return
       if (isExternalSkillOptOut(text)) externalSkillOptOuts.add(agent)
