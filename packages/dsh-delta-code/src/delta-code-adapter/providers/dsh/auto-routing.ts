@@ -66,7 +66,7 @@ export function registerAutomaticCodingRouter(
   if (typeof runtime.on === 'function') {
     const unsubscribe = runtime.on('agent/inbox/claimed', (payload) => {
       const { agent, message } = payload as UserClaim
-      if (!isActive || !settings().enabled || !settings().autoRoutingEnabled || !agent || !message) return
+      if (!isActive || !settings().enabled || !agent || !message) return
       if (message.source?.kind !== 'user') return
       const text = Array.isArray(message.content)
         ? message.content.filter(item => item.type === 'text' && typeof item.text === 'string')
@@ -76,6 +76,8 @@ export function registerAutomaticCodingRouter(
       const next = routeCodingTask(text, previous, policy.routeRules)
       const continuation = isCodingTaskContinuation(text)
       taskContext?.capture(agent, text, continuation, Boolean(next))
+      // Task source anchoring must work even when optional route hints are off.
+      if (!settings().autoRoutingEnabled) return
       if (isExternalSkillOptOut(text)) externalSkillOptOuts.add(agent)
       else if (!continuation) externalSkillOptOuts.delete(agent)
       if (next) routed.set(agent, next)
