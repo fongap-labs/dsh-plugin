@@ -177,6 +177,12 @@ export class ExecutionStats {
     }
   }
 
+  /** Scalar only, scoped to an actual native Session; never exposes tool arguments. */
+  readRepeatedFailedCalls(agent: unknown): number {
+    const session = sessionFromAgent(agent)
+    return session ? this.sessions.get(session)?.repeatedFailedCalls ?? 0 : 0
+  }
+
   /** Only observed execution outcomes are eligible; never reconstruct from user text. */
   readLastObservation(agent: unknown): ExecutionObservation {
     const session = sessionFromAgent(agent)

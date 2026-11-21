@@ -85,6 +85,8 @@ describe('Code Worker native session execution metrics', () => {
     assert.equal(snapshot.calls, 4)
     assert.equal(snapshot.duplicateCalls, 1)
     assert.equal(snapshot.repeatedFailedCalls, 1)
+    assert.equal(stats.readRepeatedFailedCalls(execution(session).agent), 1)
+    assert.equal(stats.readRepeatedFailedCalls({ session: {} }), 0)
     assert.equal(snapshot.errors, 2)
     assert.equal(snapshot.failedOutcomes, 2)
     assert.equal(snapshot.failureKinds.permission, 2)
