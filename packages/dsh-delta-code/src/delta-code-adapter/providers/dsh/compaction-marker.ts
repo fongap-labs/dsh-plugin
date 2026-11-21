@@ -15,7 +15,7 @@ export function registerNativeCompactionMarker(ctx: Context): NativeCompactionRe
   const runtime = ctx as unknown as {
     inject: (services: string[], listener: (child: unknown) => void | (() => void)) => unknown
   }
-  let active = true
+  let isActive = true
   let epoch = 0
   let handle: ProjectionHandle | undefined
   const release = (old?: ProjectionHandle): void => {
@@ -37,15 +37,15 @@ export function registerNativeCompactionMarker(ctx: Context): NativeCompactionRe
     apply: foldCompactionMarker,
   }
   const injection = runtime.inject(['sessionProjections'], child => {
-    if (!active) return
+    if (!isActive) return
     const service = (child as { sessionProjections?: ProjectionRegistry }).sessionProjections
     if (typeof service?.register !== 'function') return
     const currentEpoch = ++epoch
     clear()
-    let attached = true
+    let isAttached = true
     try {
       void Promise.resolve(service.register(definition)).then(value => {
-        if (!active || !attached || epoch !== currentEpoch) { release(value); return }
+        if (!isActive || !isAttached || epoch !== currentEpoch) { release(value); return }
         handle = value
       }).catch(() => {
         ctx.logger?.warn?.('dsh-delta-code: native compaction marker registration failed')
@@ -54,7 +54,7 @@ export function registerNativeCompactionMarker(ctx: Context): NativeCompactionRe
       ctx.logger?.warn?.('dsh-delta-code: native compaction marker registration failed')
     }
     return () => {
-      attached = false
+      isAttached = false
       if (epoch !== currentEpoch) return
       epoch++
       clear()
@@ -62,14 +62,14 @@ export function registerNativeCompactionMarker(ctx: Context): NativeCompactionRe
   })
   return {
     read(agent) {
-      if (!active || !handle || !agent || typeof agent !== 'object') return undefined
+      if (!isActive || !handle || !agent || typeof agent !== 'object') return undefined
       const session = (agent as { session?: unknown }).session
       if (!session) return undefined
       return parseCompactionMarker(handle.stateOf(session))
     },
     dispose() {
-      if (!active) return
-      active = false
+      if (!isActive) return
+      isActive = false
       epoch++
       clear()
       const dispose = (injection as { dispose?: () => Promise<void> } | null)?.dispose
