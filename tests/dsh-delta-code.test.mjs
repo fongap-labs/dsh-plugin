@@ -154,6 +154,7 @@ describe("dsh-delta-code", () => {
     };
     const spec = prepareTaskSpec(input, userText);
     assert.deepEqual(spec.userQuotes, input.userQuotes);
+    assert.equal(spec.sourceHistoryComplete, true);
     assert.deepEqual(spec.quoteEvidence, [
       { quote: "不要绕过门禁", source: "current" },
       { quote: "不要编造环境变量", source: "current" },
@@ -189,6 +190,7 @@ describe("dsh-delta-code", () => {
     assert.deepEqual(sources, {
       current: "继续，禁止添加新环境变量",
       inherited: ["修复 CI 红叉，不得绕过门禁"],
+      historyIncomplete: false,
     });
     const spec = prepareTaskSpec({
       goal: "修复 CI 红叉",
@@ -197,6 +199,7 @@ describe("dsh-delta-code", () => {
       proposedAcceptance: ["当前提交中央 CI 通过"],
       firstAction: "读取 CI 失败日志",
     }, sources.current, sources.inherited);
+    assert.equal(spec.sourceHistoryComplete, true);
     assert.deepEqual(spec.quoteEvidence, [
       { quote: "不得绕过门禁", source: "inherited" },
       { quote: "禁止添加新环境变量", source: "current" },
@@ -210,7 +213,7 @@ describe("dsh-delta-code", () => {
     }, sources.current, sources.inherited), /verbatim/);
     assert.equal(memory.read(secondAgent), undefined);
     memory.capture(agent, "现在改为评估另一个仓库", false, true);
-    assert.deepEqual(memory.readSources(agent), { current: "现在改为评估另一个仓库", inherited: [] });
+    assert.deepEqual(memory.readSources(agent), { current: "现在改为评估另一个仓库", inherited: [], historyIncomplete: false });
     memory.capture(agent, "普通聊天", false, false);
     assert.equal(memory.readSources(agent), undefined);
     memory.capture(agent, "新的任务", false, true);
@@ -229,7 +232,17 @@ describe("dsh-delta-code", () => {
     assert.deepEqual(memory.readSources(agent), {
       current: "继续，追加要求6",
       inherited: ["继续，追加要求2", "继续，追加要求3", "继续，追加要求4", "继续，追加要求5"],
+      historyIncomplete: true,
     });
+    const evidence = memory.readSources(agent);
+    const spec = prepareTaskSpec({
+      goal: "持续修改",
+      taskKind: "feature", scope: "medium", risk: "medium",
+      userQuotes: ["继续，追加要求6"],
+      proposedAcceptance: ["验证完成"],
+      firstAction: "审查历史",
+    }, evidence.current, evidence.inherited, evidence.historyIncomplete);
+    assert.equal(spec.sourceHistoryComplete, false);
     memory.remove(agent);
     assert.equal(memory.readSources(agent), undefined);
   });
