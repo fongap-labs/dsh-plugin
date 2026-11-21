@@ -21,6 +21,9 @@
   // Display copy follows the same host/browser language boundary as Delta Suite.
   // Native Harness services and event identities remain unchanged.
   const ZH_UI = Object.freeze({
+    "You": "你",
+    "Assistant": "助手",
+    "Tool": "工具",
     "Could not load the model catalog": "无法加载模型目录",
     "Model change was rejected": "模型切换被拒绝",
     "The parent task controls this subagent's model": "子代理模型由主任务控制",
