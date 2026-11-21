@@ -28,3 +28,9 @@ The TS feature registry under `src/kernel/` remains independent and may be compi
 ## Workspace shell milestone
 
 The Root UI now has a workspace rail, a cwd-based workspace filter, a session browser, a dedicated conversation timeline and a read-only Session diagnostics panel. Workspace labels come from public `SessionSummary.cwd` (not a full Harness workspace registry); this does **not** claim complete workspace lifecycle support. Existing committed user and assistant text uses the public `eventSource`. Tool call names and completion status are visible, but raw tool payloads, approvals, file attachments and transient stream chunks are deliberately not displayed. CI and Windows smoke proof remain mandatory.
+
+## Model control milestone
+
+The Desktop Shell now uses the existing Harness Host `remote.session.modelCatalog()` and `remote.session.selectModel()` API to populate a provider-grouped model picker, with reasoning effort values supplied by the selected model. The selected model is read from the current Session's `modelSelection` projection rather than a locally persisted preference. The Client requires `remote` and `remote.session` dependencies, and does not import or depend on the original `ui-model-selection` UI module. Addressed subagent Sessions cannot switch the model through this panel. This is not a provider credential editor or a full Settings implementation.
+
+The central API contract test is owned by `fongap-labs/action-worker` (`tests/packs/dsh-plugin/delta-desktop-client-contract-test.mjs`; approved in PR #1884). Do not add duplicate local test runners. The picker reports unavailable/failed providers from the Host catalog but does not edit credentials. Merge/release is blocked until all exact-head Action Worker checks pass and Windows Harness confirms the model switch persists for a real Session.

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 通过 Harness 的公开 Session Model Catalog 和 selectModel Remote API 增加真实模型选择与推理强度控制，使用 Session 投影同步当前选择，不依赖原生 ui-model-selection 界面。
+
 - 修复: Delta Code 识别账号额度耗尽并停止无效的原生自动重试，继续任务时优先复用 Harness 原生 Todo 与 Git 验证状态，不重放已完成写入或重复调查。
 
 - 新增: Delta Code 执行统计可选观察 Harness 原生工具结果事件，按会话记录工具名称与成功/错误/未确认数量，不读取参数或内容，不将事件数误报为重试次数或重复调用率。
