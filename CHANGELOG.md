@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Desktop 独立 portable 发布清单、轻量构建入口和交付 ZIP/TGZ 验证器；实际发布仍要求中央签名 CI 和人工确认版本。
+
 - 新增: Delta Desktop 作为与 Delta Suite、Delta Code 平级的独立 DeepSeek Harness 插件包加入同一仓库，提供 API-first Root Shell 和基础会话交互实验；默认保留官方 UI，B2 原生 UI 裁剪与回退仍待实机验证。
 
 - 修复: Delta Code 多文件 Skill 的不可变审核、中央 CI 准入和运行时加载统一拒绝未显式审查的附属文档与脚本依赖，并对齐 96 KiB 整包上限，避免虚假准入和无法加载。

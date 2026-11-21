@@ -31,10 +31,12 @@ const legitimateDesktopIdentity = new Set([
 const legitimateDesktopLocations = new Set([
   'README.md', 'CHANGELOG.md', 'package.json', 'pnpm-lock.yaml',
 ])
-const desktopPrefix = ['packages', ['dsh', 'delta', 'desktop'].join('-')].join('/') + '/'
+const desktopIdentity = ['dsh', 'delta', 'desktop'].join('-')
+const desktopPrefixes = ['packages', 'projects'].map(base => base + '/' + desktopIdentity)
 const allowedNewDesktopIdentity = (path, token) =>
   legitimateDesktopIdentity.has(token) &&
-  (path === desktopPrefix.slice(0, -1) || path.startsWith(desktopPrefix) || legitimateDesktopLocations.has(path))
+  (desktopPrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/')) ||
+    legitimateDesktopLocations.has(path))
 
 export function findRetiredIdentifiers(projectRoot = root) {
   const found = []

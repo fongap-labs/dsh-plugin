@@ -11,11 +11,11 @@
 
 ## Build and boundaries
 
-The root workspace's `pnpm typecheck`, `pnpm build`, and `pnpm validate` include this sibling package. The source version stays `0.0.0`; it has **no independent release pipeline or Windows acceptance** yet.
+The root workspace's `pnpm typecheck`, `pnpm build`, and `pnpm validate` include this sibling package. The source version stays `0.0.0`; it now has a product release manifest and portable artifact verification, but **no Windows acceptance or published release** yet.
 
 B2 is **not finished** until native UI exclusions, API contract parity, permission/approval flows, third-party slots, startup-safe rollback and measured memory improvements are verified. Installing both Delta Suite and Delta Desktop is technically a separate bundle selection, but Suite's native UI additions may no longer be visible under Desktop Root and coexistence is not yet tested.
 
-Development source is in this directory alone; release artifacts must be versioned and published separately from Suite and Code.
+Development source is in this directory alone; release artifacts must be versioned and published separately from Suite and Code. The new `projects/dsh-delta-desktop/release.manifest.json` opts into the existing Action Worker release contract; no local release workflow was added. The existing generic builder currently permits stable and beta versions only, so the previously suggested alpha tag is **not supported**. This prototype must not be represented as production-ready.
 
 Quick-validation checklist: [docs/quick-validation.md](docs/quick-validation.md). This is not yet a Windows-validated or released build.
 
