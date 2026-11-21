@@ -2,12 +2,20 @@ import { setTimeout as delay } from 'node:timers/promises'
 
 export type FailureKind = 'permission' | 'environment' | 'transient' | 'verification' | 'uncertain' | 'unknown'
 
+/** Account quota exhaustion is not a short-lived transport failure. */
+export function isAccountQuotaExhausted(value: unknown): boolean {
+  const message = value instanceof Error ? value.message : typeof value === 'string' ? value : ''
+  return /(?:insufficient[_ -]?quota|quota[_ -]?(?:exhausted|exceeded|depleted)|(?:credit|balance)s?\s+(?:exhausted|depleted|insufficient)|usage\s+limit\s+(?:reached|exceeded)|billing\s+limit\s+(?:reached|exceeded))/i.test(message.slice(0, 8192))
+}
+
 /** Authorization failures always take precedence over transient transport errors. */
 export function classifyFailure(value: unknown): FailureKind {
   const message = value instanceof Error ? value.message : String(value)
   if (/\b(?:EACCES|EPERM|permission denied|access denied|not authorized|unauthorized|forbidden|host refused|host rejected|host denied|HTTP\s*40[13])\b/i.test(message)) {
     return 'permission'
   }
+  // Exhausted account quotas require a new authorized capacity source, not blind retries.
+  if (isAccountQuotaExhausted(message)) return 'environment'
   // A missing result may reflect a command still running: do not auto-retry it.
   if (/\b(?:outcome (?:is )?(?:unconfirmed|unknown)|verification deadline exceeded|result (?:was )?lost|exit (?:code|status) unavailable|process state unknown)\b/i.test(message)) return 'uncertain'
   if (/\b(?:ENOENT|ENOTDIR|command not found|executable not found|host subprocess service (?:is )?(?:unavailable|required)|missing subprocess|cannot find (?:module|executable)|not recognized as an internal or external command)\b/i.test(message)) return 'environment'
