@@ -24,16 +24,18 @@ import { ExecutionStats } from './delta-code-support/execution-stats.js'
 import { UserTaskContext } from './delta-code-strategy/intent-contract.js'
 import { createExecutionNextTool } from './delta-code-adapter/providers/dsh/execution-next.js'
 import { registerNativeToolStats } from './delta-code-adapter/providers/dsh/native-tool-stats.js'
+import { registerNativeCompactionMarker } from './delta-code-adapter/providers/dsh/compaction-marker.js'
 
 /** Only this composition root knows both Host adapters and feature implementations. */
 export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
   if (!settings.enabled) return () => {}
   const resume = registerNativeResume(ctx)
+  const compaction = registerNativeCompactionMarker(ctx)
   const delegation = observeNativeDelegation(ctx)
   const stats = new ExecutionStats()
   const taskContext = new UserTaskContext()
   const releases: Array<() => void> = [
-    () => resume.dispose(), () => delegation.dispose(), () => stats.clear(),
+    () => resume.dispose(), () => compaction.dispose(), () => delegation.dispose(), () => stats.clear(),
     () => taskContext.clear(),
   ]
   try {
@@ -58,7 +60,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
       deltaCodeRepositoryRemote(createDshRepositoryRemoteTools(
         ctx, settings, createGitHubTransport(settings.githubAccounts, ctx))),
-      deltaCodeQuality([createExecutionNextTool(resume, stats)]),
+      deltaCodeQuality([createExecutionNextTool(resume, stats, compaction)]),
       deltaCodeSupport(stats),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))

@@ -56,6 +56,8 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 
 - Quota exhaustion is classified distinctly from short transient network failures in Quality and suppresses blind DSH automatic replay through the existing request-error waterfall. This is a stop decision only, not a second retry scheduler; explicit Host policy and authorized new credentials remain outside Delta's control.
 
+- Native `compaction/summary` events are reduced into a metadata-only, versioned Host Session Projection by `delta-code-adapter/providers/dsh/compaction-marker.ts`; the summary body is never copied or emitted by Delta. `code_execution_next` reports the compaction watermark and whether the native Todo was updated afterward, and advises reviewing user constraints/decisions/unresolved errors using Host history and Git. This is not a replacement compressor, a task database or proof of successful semantic retention. Unsupported/unavailable Host projections report unavailable rather than inventing continuity.
+
 - `delta-code-quality/execution-convergence.ts` is a pure, read-only next-step policy. The optional lightweight `code_execution_next` Host tool (available even without subprocess) uses actual native Todo and sanitized, session-scoped outcomes observed by `ExecutionStats`; a mutation invalidates previous verification. It never runs tools or certifies delivery. A missing/invalid Host projection blocks instead of fabricating progress.
 
 - Native `todo/write` folding, checkpoint validation and recovery decisions live in `delta-code-quality/resume-policy.ts`; DSH session projection registration and read-only Git inspection live in `delta-code-adapter/providers/dsh/resume.ts`. Legacy imports remain compatible.

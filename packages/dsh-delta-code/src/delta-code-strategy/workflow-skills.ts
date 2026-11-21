@@ -67,6 +67,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'When Host todo_write is available, replace its whole list at each checkpoint (pending/in_progress/completed); keep one active item unless native parallel execution is permitted. Never fake completed work or create a second ledger.',
       'When a focused test fails, inspect its actual error before changing more code. Replan only when new evidence contradicts the approach, an authorized user requirement changes, or the current path is demonstrably blocked. If evidence requires replanning, revise the remaining steps and acceptance checks; never rerun completed edits blindly or reload the same Skill without a reason.',
       'Continue to the next ready item after verification without asking for redundant confirmation; stop for denied Host permissions, destructive actions, user approval boundaries or cancelled execution.',
+      'After a native context compaction in a long task, consult code_execution_next once if available: a compaction watermark signals an evidence review, not proof that user constraints or technical decisions survived. Recheck current Host Session, native Todo and Git, especially unresolved failures and verification; never reconstruct missing facts or run duplicate edits.',
       'After the final task, run relevant integration checks, compare outcomes against the original acceptance criteria, request native independent review when available and apply code-verification-gate before completion.',
     ],
   },
