@@ -13,12 +13,18 @@ export function registerNativeToolStats(ctx: Context, stats: ExecutionStats): ()
   const runtime = ctx as unknown as NativeRuntime
   if (typeof runtime.on !== 'function') return () => {}
   let isActive = true
-  const unbind = runtime.on('tools/result', (execution, outcome) => {
-    if (!isActive) return
-    try { stats.observeNativeResult(execution, outcome) } catch {
-      // Never break a native tool call or modify its outcome for telemetry.
-    }
-  })
+  let unbind: (() => void) | void
+  try {
+    unbind = runtime.on('tools/result', (execution, outcome) => {
+      if (!isActive) return
+      try { stats.observeNativeResult(execution, outcome) } catch {
+        // Never break a native tool call or modify its outcome for telemetry.
+      }
+    })
+  } catch {
+    // Unsupported native event must not prevent Delta Code from mounting.
+    return () => {}
+  }
   return () => {
     isActive = false
     if (typeof unbind === 'function') unbind()
