@@ -222,7 +222,7 @@ describe("dsh-delta-code", () => {
   });
 
   it("bounds inherited intent amendments to four user turns", async () => {
-    const { UserTaskContext } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
+    const { UserTaskContext, prepareTaskSpec } = await import("../packages/dsh-delta-code/lib/delta-code-strategy/intent-contract.js");
     const memory = new UserTaskContext();
     const agent = {};
     memory.capture(agent, "原始目标", false, true);
