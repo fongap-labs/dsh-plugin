@@ -19,6 +19,7 @@ interface Draft {
   autoRouting: boolean
   workspaceRoot: string
   readOnlyRepositoryRoots: string
+  writeRepositoryRoots: string
   gitEnabled: boolean
   gitCommand: string
   githubEnabled: boolean
@@ -78,6 +79,8 @@ function readDraft(value: any): Draft {
     workspaceRoot: value?.workspaceRoot ?? '',
     readOnlyRepositoryRoots: Array.isArray(value?.sessionRepositories?.readOnlyRoots)
       ? value.sessionRepositories.readOnlyRoots.join('\n') : '',
+    writeRepositoryRoots: Array.isArray(value?.sessionRepositories?.writeRoots)
+      ? value.sessionRepositories.writeRoots.join('\n') : '',
     gitEnabled: git.enabled !== false, gitCommand: git.command ?? 'git',
     githubEnabled: github.enabled !== false, githubAllowWrites: github.allowWrites === true,
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
@@ -121,10 +124,18 @@ function validation(draft: Draft, value: any): string | undefined {
     }
   }
   const roots = draft.readOnlyRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
-  if (roots.length > 12 || new Set(roots.map(value => value.toLowerCase())).size !== roots.length ||
-      roots.some(value => value.length > 1024 || !/^(?:\/|[A-Za-z]:[\\/])/.test(value) ||
-        value.startsWith('\\\\') || value.split(/[\\/]/).includes('..') || /[\u0000-\u001f\u007f]/.test(value))) {
-    return 'Read-only repositories require at most 12 distinct safe absolute paths.'
+  const writes = draft.writeRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
+  const rootKey = (value: string) => /^[A-Za-z]:[\\/]/.test(value)
+    ? value.replace(/\\/g, '/').toLowerCase() : value.replace(/\\/g, '/')
+  const validRoots = (values: string[]) => values.length <= 12 &&
+    new Set(values.map(rootKey)).size === values.length &&
+    values.every(value => value.length <= 1024 && /^(?:\/(?!\/)|[A-Za-z]:[\\/])/.test(value) &&
+      !value.startsWith('\\\\') && !value.split(/[\\/]/).includes('..') && !/[\u0000-\u001f\u007f]/.test(value))
+  if (!validRoots(roots)) return 'Read-only repositories require at most 12 distinct safe absolute paths.'
+  if (!validRoots(writes)) return 'Writable repositories require at most 12 distinct safe absolute paths.'
+  const readKeys = new Set(roots.map(rootKey))
+  if (writes.some(value => !readKeys.has(rootKey(value)))) {
+    return 'Every writable repository must also appear in the read-only allowlist.'
   }
   if (!draft.gitCommand.trim()) return 'Git 命令不能为空。'
   for (const server of draft.servers) {
@@ -151,6 +162,10 @@ function operations(draft: Draft, value: any): Op[] {
   if (draft.readOnlyRepositoryRoots !== original.readOnlyRepositoryRoots) {
     set(['sessionRepositories', 'readOnlyRoots'],
       draft.readOnlyRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
+  }
+  if (draft.writeRepositoryRoots !== original.writeRepositoryRoots) {
+    set(['sessionRepositories', 'writeRoots'],
+      draft.writeRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
   }
   const current = value?.github?.accounts ?? []
   const seen = new Set(draft.accounts.filter(a => a.sourceIndex >= 0).map(a => a.sourceIndex))
@@ -372,15 +387,21 @@ function installClient(require: (id: string) => unknown) {
           toggle(t('启用 Git', 'Enable Git'), draft.gitEnabled, v => patch({ gitEnabled: v })),
           field(t('Git 可执行文件', 'Git command'), draft.gitCommand, v => patch({ gitCommand: v })),
         )),
-      section(t('会话仓库关联（只读）', 'Session repositories (read only)'),
+      section(t('会话仓库授权', 'Session repository access'),
         h('label', { style: { display: 'grid', gap: '5px', fontSize: '13px' } },
-          h('span', null, t('允许关联的本地 Git 仓库（每行一个绝对路径）',
-            'Allowlisted Git repositories (one absolute path per line)')),
+          h('span', null, t('允许关联的本地 Git 仓库（只读白名单，每行一个绝对路径）',
+            'Allowed local Git repositories (read allowlist, one absolute path per line)')),
           h('textarea', { style: inputStyle, rows: 3, disabled,
             value: draft.readOnlyRepositoryRoots,
             onChange: (e: any) => patch({ readOnlyRepositoryRoots: e.target.value }) })),
-        hint(t('默认不允许外部仓库。路径清单不会自动授予宿主读写权限；Agent 仍须通过 Host 验证，只能只读关联。',
-          'Empty by default. Allowlisting never grants Host access or write privileges; the Host must independently authorize read-only inspection.'))),
+        h('label', { style: { display: 'grid', gap: '5px', fontSize: '13px', marginTop: '10px' } },
+          h('span', null, t('允许修改的仓库（可写白名单，必须同时出现在只读白名单中）',
+            'Repositories allowed to be edited (write allowlist; each must also be in the read allowlist)')),
+          h('textarea', { style: inputStyle, rows: 3, disabled,
+            value: draft.writeRepositoryRoots,
+            onChange: (e: any) => patch({ writeRepositoryRoots: e.target.value }) })),
+        hint(t('两个白名单默认均为空。只读白名单不会授予 Host 权限；可写白名单也不会绕过 Host 写入授权。关联状态按当前设置实时重新校验。',
+          'Both allowlists are empty by default. Neither grants Host access; the write list never bypasses Host write authorization. Current settings are rechecked on every operation.'))),
       section(t('执行与写入权限', 'Execution & write permissions'),
         toggle(t('允许创建 Worktree', 'Allow worktree writes'), draft.allowWorktreeWrites, v => patch({ allowWorktreeWrites: v })),
         toggle(t('允许执行项目脚本', 'Allow project commands'), draft.allowCommands, v => patch({ allowCommands: v })),
