@@ -265,7 +265,7 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
   })
   const settings = normalizeConfig({
     workspaceRoot: '/dsh-primary',
-    sessionRepositories: { readOnlyRoots: allowed },
+    sessionRepositories: { readOnlyRoots: allowed, writeRoots: options.writeRoots ?? [] },
   })
   let state = { ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }
   let seq = 1
