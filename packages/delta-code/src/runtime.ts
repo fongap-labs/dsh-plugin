@@ -111,21 +111,32 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
   const execution = cfg.execution && typeof cfg.execution === 'object' ? cfg.execution : {}
   const github = cfg.github && typeof cfg.github === 'object' ? cfg.github : {}
   const accounts = validateGitHubAccounts(github.accounts)
-  const rawReadOnly = cfg.sessionRepositories?.readOnlyRoots ?? []
-  if (!Array.isArray(rawReadOnly) || rawReadOnly.length > 12) {
-    throw new Error('sessionRepositories.readOnlyRoots must have at most 12 paths')
+  const normalizeRepositoryRoots = (raw: unknown, field: string): string[] => {
+    if (!Array.isArray(raw) || raw.length > 12) throw new Error(field + ' must have at most 12 paths')
+    const roots = raw.map(path => {
+      if (typeof path !== 'string' || !path.trim() || path.length > 1024 ||
+          /[\u0000-\u001f\u007f]/u.test(path) ||
+          !(/^(?:\/(?!\/)|[A-Za-z]:[\\/])/.test(path)) ||
+          path.split(/[\\/]/).some(part => part === '..')) {
+        throw new Error(field + ' requires safe absolute local directory paths')
+      }
+      return path.trim()
+    })
+    const key = (value: string) => /^[A-Za-z]:[\\/]/.test(value)
+      ? value.replace(/\\/g, '/').toLowerCase() : value
+    if (new Set(roots.map(key)).size !== roots.length) throw new Error('duplicate repository root in ' + field)
+    return roots
   }
-  const sessionReadOnlyRepositories = rawReadOnly.map(path => {
-    if (typeof path !== 'string' || !path.trim() || path.length > 1024 ||
-        /[\u0000-\u001f\u007f]/u.test(path) ||
-        !/^(?:\/(?!\/)|[A-Za-z]:[\\/])/.test(path) ||
-        path.split(/[\\/]/).some(part => part === '..')) {
-      throw new Error('sessionRepositories.readOnlyRoots requires safe absolute local directory paths')
-    }
-    return path.trim()
-  })
-  if (new Set(sessionReadOnlyRepositories.map(x => /^[A-Za-z]:[\\/]/.test(x) ? x.toLowerCase() : x)).size !==
-      sessionReadOnlyRepositories.length) throw new Error('duplicate read-only repository root')
+  const sessionReadOnlyRepositories = normalizeRepositoryRoots(
+    cfg.sessionRepositories?.readOnlyRoots ?? [], 'sessionRepositories.readOnlyRoots')
+  const sessionWriteRepositories = normalizeRepositoryRoots(
+    cfg.sessionRepositories?.writeRoots ?? [], 'sessionRepositories.writeRoots')
+  const readOnlyKeys = new Set(sessionReadOnlyRepositories.map(value =>
+    /^[A-Za-z]:[\\/]/.test(value) ? value.replace(/\\/g, '/').toLowerCase() : value))
+  if (sessionWriteRepositories.some(value => !readOnlyKeys.has(
+    /^[A-Za-z]:[\\/]/.test(value) ? value.replace(/\\/g, '/').toLowerCase() : value))) {
+    throw new Error('sessionRepositories.writeRoots must be a subset of readOnlyRoots')
+  }
   const fsWriteContract = execution.fsWriteContract ?? 'legacy-overwrite'
   if (fsWriteContract !== 'legacy-overwrite' && fsWriteContract !== 'native-unguarded' &&
       fsWriteContract !== 'guarded-intent') {
@@ -138,6 +149,7 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
     autoRoutingEnabled: cfg.autoRouting !== false,
     workspaceRoot: typeof cfg.workspaceRoot === 'string' ? cfg.workspaceRoot.trim() : '',
     sessionReadOnlyRepositories,
+    sessionWriteRepositories,
     gitEnabled: git.enabled !== false,
     gitCommand:
       typeof git.command === 'string' && git.command.trim() !== '' ? git.command.trim() : 'git',
