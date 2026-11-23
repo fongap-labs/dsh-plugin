@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 命令工具保持稳定注册身份；Host subprocess 暂时失联时拒绝执行，服务恢复后将调用切换到新的 Host，避免会话内 UNKNOWN_TOOL。
+- 优化: GitHub 文件及目录按偏移量有界读取，验证日志仅向模型展示错误优先的有限摘要，明确标识省略内容，减少无关上下文消耗。
+- 修复: Harness 原生上下文压缩后，恢复编程前必须验证原始用户意图、更新的原生 Todo 及同一会话的 Git/Todo 对账；代码变更自动使旧对账失效。
+
 - 维护: Delta Suite 将单一 Theme palette 与原生 Token 映射从大型 client.ts 提取至构建时内联模块，仍仅发布一个浏览器客户端入口。
 
 - 修复: Delta Code 新增基于 Harness Host 子进程的两阶段安全 Git 同步工具；先预览和获取远程提交，分支及工作区二次核验成功后才允许重置，脏文件需显式留存 Git stash，不再串接失败后仍可能执行的清理命令。
