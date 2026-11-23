@@ -483,7 +483,7 @@
 | 大型 Client | src/client.ts ~333 KB / 6639 行，集成 UI、服务、权限、主题、配置、QR、MCP | 检查失败 | 不适用 | 职责集中，阶段 P0-4 仅拆真正跨职责部分；S |
 | 原生 DOM 兼容层 | src/client.ts:installLiveNativePresentation / installSidebarCompatibility → querySelector、MutationObserver、原生菜单点击 | 检查失败 | 否 | 违反全局 DOM 劫持边界，依赖文案/结构，停用回退待验；S |
 | Harness 源码补丁 | scripts/apply-harness-ui-patch.mjs；package.json.files 将脚本打包 | 检查失败 | 否 | 修改原生组件/语言文案的路径与本任务硬边界冲突；本轮未执行该脚本；S |
-| 语言来源 | src/client.ts:language → document.documentElement.lang // navigator.language → DICTIONARIES | 已配置但未验证 | 未验证 | zh 系列回退逻辑有代码，尚未证明与 Harness Locale 当前值/变更一致；S |
+| 语言来源 | src/client.ts:language → document.documentElement.lang // navigator.language → DICTIONARIES | 已配置但未验证 | 是（官方 Locale 同步 html lang） | 官方文档确认 LocaleRuntime 将当前语言写入 html lang；组件仍未直接订阅公开 Locale snapshot，异步首帧与 H/W 待验；S |
 | 集中翻译字典 | locale/zh.json / locale/en.json → finalize-client.mjs → DICTIONARIES | 已配置但未验证 | 是（Suite 自有） | 两份各 291 个叶子 Key，Key 集合/{} 占位符一致；未使用 Key/无漏译尚未完整证明；S |
 | 组件硬编码 | client.ts:wording/showHover/shortcut commands/GatewayEffortFooter:say | 检查失败 | 是（Suite 自有） | 存在直接中英分支与内联词条，未完全集中；S |
 | Theme API | client.ts:TOKENS → createController.applyPalette → theme.overrideTokens → dispose | 已配置但未验证 | 是 | light/dark token 有映射；主题切换/恢复缺 Windows H/W；S,M |
@@ -513,7 +513,7 @@
 2. 原始凭据：host-gateway-effort.ts 已经调用 credentials.resolve 并取得 credential.value，MCP env/headers 编辑也需核对明文字段处理。要求禁止原始 Token 读取/缓存/输出；缺少官方无明文请求代理时应停用对应增强，不能声明成功。
 3. 协商未接线：DELTA_HOST_CAPABILITIES 与 negotiateHostCapabilities 虽存在，composition.ts 仍以空 Set mount；没有真实 Host manifest，版本字符串不可作为能力证据。
 4. 官方未提供已证实接口：原生顶栏任意重排、重命名菜单改顺序、运行文案局部覆盖、首次工作区折叠、完整 HoverCard 控制、默认工作区删除前业务拒绝。均不得借源码补丁/私有 Store 补齐。
-5. 国际化：当前读取 document.lang/navigator.language 而非已核实的 Harness 语言变更接口。中英 JSON 有 291 个同名叶子 Key，简单占位符一致，但硬编码/死 Key 与用户选择的其他宿主语言兼容性尚未验收。
+5. 国际化：官方 packages/client/locale/README.md 确认 LocaleRuntime 将已选语言同步至 html lang；当前 Suite 仍通过 document.lang/navigator.language 读取，未直接订阅公开 Locale snapshot。中英 JSON 各 291 个同名叶子 Key，简单占位符一致，但硬编码/死 Key、异步首次加载及其他语言回退尚未实机验收。
 6. 状态与产品声明：feature-readiness.json 的 false readiness 位须保持保守；已有 COMPATIBILITY 历史章节的“无 DOM 接管”等描述与当前源码并存时以新矩阵为准。不可将纯单元算法、README 或 CI 视为实机交付。
 
 ### 五个证据等级分别报告（本轮）
