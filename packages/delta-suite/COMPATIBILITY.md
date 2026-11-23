@@ -548,3 +548,9 @@ API“是”仅表示相应官方文档或类型确有声明，不保证用户�
 没有新增第二套模型选择器、凭据读取、隐私设置或宿主代理。公开 `conversation.input.model.label` 插槽、Host 自有推理等级和已有 Gateway reasoning 的纯函数工具仍保留，避免影响仍有调用的适配契约。
 
 验收范围：静态/单元 CI、字典 Key/占位符一致性及死代码检查；真实官方 Harness、Windows 客户端以及两个 Host 版本的安装与回退仍未完成。因此本记录不等于 P0 全部验收通过。
+
+## 2026-11-24 P0-1 官方 Locale API 响应式适配
+
+官方 `@deepseek-ai/dsh-client-locale` 公开 `getSnapshot().active` / `subscribe()`，Suite 通过 Cordis 的可选 `locale` 服务只读订阅；中文系列使用原有 zh 词典，其他语言使用 en 词典。不修改 Host 语言偏好或全部原生语言，取消监控 `<html lang>` 的全局 MutationObserver。服务不可用的老宿主仅按初始文档/浏览器语言降级，不承诺后续热切换。
+
+证据为官方源码/README 静态接口检查与新增模拟订阅/卸载用例；CI、真实 Windows、两版宿主及异常恢复仍独立待验收。

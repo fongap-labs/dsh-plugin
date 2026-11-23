@@ -973,10 +973,12 @@ const TOKENS: Record<string, { light: string; dark: string }> = {
   '--ens-color-ring': DELTA_PALETTE.brand,
 }
 
+// Public Host locale wins; other locales fall back to Suite English.
+let currentHostLocale: string | undefined
 function language(): Language {
   const navLang = typeof navigator !== 'undefined' ? navigator.language : ''
   const docLang = typeof document !== 'undefined' ? document.documentElement?.lang : ''
-  const value = docLang || navLang || 'en'
+  const value = currentHostLocale || docLang || navLang || 'en'
   return /^zh(?:-|$)/i.test(value) ? 'zh' : 'en'
 }
 function readMode(): Mode {
@@ -5948,11 +5950,24 @@ window.__ModuleLoader__.load({
                 tag.dataset.plugin = DELTA_SUITE_OWNER
                 tag.textContent = OWNED_CSS
                 document.head.appendChild(tag)
-                const observer = typeof MutationObserver !== 'undefined'
-                  ? new MutationObserver(() => controller.syncLanguage()) : undefined
-                observer?.observe(document.documentElement, {
-                  attributes: true, attributeFilter: ['lang'],
-                })
+                // Official Host LocaleRuntime is the only live language source.
+                try {
+                  scope.inject(['locale'], localeScope => {
+                    const localeApi = localeScope.locale
+                    if (!localeApi || typeof localeApi.getSnapshot !== 'function' ||
+                        typeof localeApi.subscribe !== 'function') return
+                    localeScope.effect(() => {
+                      const sync = (): void => {
+                        const active = localeApi.getSnapshot()?.active
+                        currentHostLocale = typeof active === 'string' ? active : undefined
+                        controller.syncLanguage()
+                      }
+                      const release = localeApi.subscribe(sync)
+                      sync()
+                      return () => { release(); currentHostLocale = undefined }
+                    }, 'delta-suite: public Host Locale subscription')
+                  })
+                } catch { /* Older Hosts retain initial document/browser language fallback. */ }
 
                 const syncAppearance = (): void => {
                   if (controller.getSnapshot().mode === 'delta') {
@@ -5997,7 +6012,6 @@ window.__ModuleLoader__.load({
                 // Unsupported native UI adjustments remain under Harness ownership.
 
                 return () => {
-                  observer?.disconnect()
                   stopAppearance()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
