@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 预备 Delta 与 DeepSeek Harness 共用插件仓库由 dsh-plugin 更名为 plugins，统一工作区身份、三个产品的 GitHub Release 目标与现行文档；保留 `projects/<产品>/release.manifest.json`、`root: packages`、历史发行记录及独立插件包名，迁移协调完成前不改变正式发布入口。
+
 - 维护 [breaking]: 将 Delta Suite、Delta Desktop、Delta Code 的源码目录、包名、Cordis 标识和发行资产统一为 delta-*，不再提供旧名称兼容入口；原有安装需先卸载再安装新包。
 
 - 维护: 统一智能体规则入口并整理相关文档引用。
