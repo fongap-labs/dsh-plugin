@@ -279,6 +279,37 @@ describe("delta-code", () => {
     assert.equal(memory.readSources(agent), undefined);
   });
 
+  it("marks clipped user constraints and orphan continuations incomplete", async () => {
+    const { UserTaskContext, prepareTaskSpec } = await import(
+      "../packages/delta-code/lib/delta-code-strategy/intent-contract.js");
+    const task = {
+      goal: "Fix one function", taskKind: "debug", scope: "small", risk: "low",
+      userQuotes: ["RETAIN-THIS-RESTRICTION"],
+      proposedAcceptance: ["Verify the actual behavior"],
+      firstAction: "Restore full user instructions",
+    };
+    const memory = new UserTaskContext();
+    const agent = {};
+    const original = "DO-NOT-PUBLISH " + "x".repeat(16_400) + " RETAIN-THIS-RESTRICTION";
+    memory.capture(agent, original, false, true);
+    let source = memory.readSources(agent);
+    assert.equal(source.historyIncomplete, true, "the missing prefix may contain prohibitions");
+    let spec = prepareTaskSpec(task, source.current, source.inherited, source.historyIncomplete);
+    assert.equal(spec.sourceHistoryComplete, false);
+    assert.equal(spec.readyForPlanning, false);
+    memory.capture(agent, "continue", true, true);
+    source = memory.readSources(agent);
+    assert.equal(source.historyIncomplete, true, "continuation cannot erase truncated history");
+
+    const isolated = {};
+    memory.capture(isolated, "\\u7ee7\\u7eed", true, true);
+    assert.equal(memory.readSources(isolated).historyIncomplete, true,
+      "orphan continuation cannot imply a complete user task");
+    memory.capture(isolated, "Fix a simple function", false, true);
+    assert.equal(memory.readSources(isolated).historyIncomplete, false,
+      "a new complete task can replace missing historical evidence");
+  });
+
   it("code_multi_edit: local fallback rejects symlink escapes on reads and writes", { skip: process.platform === "win32" }, async () => {
     const outside = await mkdtemp(join(tmpdir(), "delta-code-outside-"));
     const linkedFile = join(workspace, "external-file.txt");
