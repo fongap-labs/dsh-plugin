@@ -5,6 +5,7 @@ import type { Settings } from '../../../types.js'
 import { isAllowedVerificationScript, selectImpactVerification, type VerificationScript } from '../../../delta-code-quality/verify-presets.js'
 import { prepareVerify, runPreparedVerify, type PreparedVerification } from './verify.js'
 import { classifyFailure, classifyVerificationEvidence, verificationNextAction } from '../../../delta-code-quality/failure-policy.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 
 const STEP_SCHEMA = {
   type: 'object' as const,
@@ -25,10 +26,12 @@ const STEP_SCHEMA = {
 } as const
 
 /** Bounded sequential execution; every requested step is checked before the first spawn. */
-export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createVerifySuiteTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: 'code_verify_suite',
-    description: 'Prevalidate 1–5 distinct scripts, then execute sequentially in the DSH Host. Optional changedPaths selects a focused advisory subset; full delivery verification remains required. Stop on first failure.',
+    description: 'Prevalidate 1–5 distinct scripts, then execute sequentially in the DSH Host. Set repositoryId to target one attached Session repository; it requires sessionRepositories.writeRoots, allowCommands and native Host write permission. Optional changedPaths selects a focused advisory subset; full delivery verification remains required. Stop on first failure.',
     parameters: {
       scripts: {
         type: 'array', required: true,
@@ -37,7 +40,8 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
       },
       changedPaths: { type: 'array', description: 'Optional 1..64 repository-relative changed paths supplied after inspecting Git; selects a focused subset of scripts, never proves completion.',
         items: { type: 'string' } },
-      cwd: { type: 'string', description: 'Optional workspace-relative directory.' },
+      cwd: { type: 'string', description: 'Optional directory relative to the selected repository.' },
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID; requires the explicit write allowlist.' },
       project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'], description: 'Project type; auto requires exactly one manifest type.' },
       timeoutMs: { type: 'integer', description: 'Per-step timeout, 10000..600000 ms.' },
     },
@@ -81,7 +85,8 @@ export function createVerifySuiteTool(ctx: Context, settings: Settings): ToolDef
         // cwd and checking processPath for each planned script.
         prepared.push(await prepareVerify(ctx, settings, exec, {
           script, cwd: args.cwd, project: args.project, timeoutMs: args.timeoutMs,
-        }, prepared[0]?.probe))
+          repositoryId: args.repositoryId,
+        }, prepared[0]?.probe, sessionRepositories))
       }
       // Every step must target the same Host execution filesystem.
       // A changing processPath during preflight is not safe to execute.
