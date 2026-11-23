@@ -146,7 +146,7 @@ pnpm link:dev delta-suite
 
 ## 原生菜单和全局主题覆盖审计（2026-11-24）
 
-- 根因：Harness 的 `design-platform.css` 为各组件定义约 155 项 `--dsw-alias-*` / `--dsw-specific-*` 语义色，旧 Delta 主题层仅映射约 50 项；未映射项继续采用原生中性色。同时原生 `MenuSurface` 用 `--dsw-menu-backdrop-filter` 实现透明毛玻璃，即便菜单底色已覆盖也会混入背景。
-- 修复：为菜单加不透明材质并禁用背景滤镜，扩充全局 `ThemeRuntime.overrideTokens` 映射，统一原生背景、卡片、按钮、悬停、文本、图标、输入框、侧栏、弹层和滚动条。该覆盖按 light/dark 成对设置，切回 Official 时清理。
-- 安全边界：代码语法高亮、diff 增删、日志状态、危险/成功/警告图形等仍保留独立语义色，不能为了品牌统一变成单一蓝绿色。未来上游新增 token 应由语义审计追踪，不能直接全局替换 CSS，也不应使用版本号黑白名单。
+- 根因：当前 Harness 的 `design-platform.css` 为各组件定义 155 项 `--dsw-alias-*` / `--dsw-specific-*` / `--dsw-menu-*` 语义色，旧 Delta 主题层仅映射约 50 项；未映射项继续采用原生中性色。同时原生 `MenuSurface` 用 `--dsw-menu-backdrop-filter` 实现透明毛玻璃，即便菜单底色已覆盖也会混入背景。
+- 修复：为菜单加不透明材质并禁用背景滤镜，当前上游已定义的 155 个语义色均已通过 `ThemeRuntime.overrideTokens` 映射，覆盖原生背景、卡片、按钮、悬停、文本、图标、输入框、侧栏、弹层、滚动条和内容语义色。该覆盖按 light/dark 成对设置，切回 Official 时清理。
+- 安全边界：代码语法高亮、diff 增删、日志状态、危险/成功/警告图形等保留独立语义色，而非全部变成单一蓝绿色。源码补丁的 `--check` 会审计已安装上游主题定义，并报告尚未映射的新 token；报告新项不阻断启动，避免绑定版本。仍需客户端 light/dark、系统平台和第三方插件实机视觉验收。
 - 会话右键菜单由原生 `ui-workspace` 注册贡献，按 `order` 排序。客户端源码补丁将 `rename` 的优先级从 200 调为 50，保证实际可访问性/键盘顺序一起变化；已经安装的纯插件无法通过目前的公开 API 重排既有贡献，必须在 Delta 客户端源码构建时应用补丁。
