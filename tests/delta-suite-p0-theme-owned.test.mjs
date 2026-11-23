@@ -35,8 +35,8 @@ test('light and dark Delta palettes each cover critical interaction and popup co
 })
 
 test('published Theme API retains reversible ownership without global Host CSS takeover', () => {
-  assert.match(client, /theme\.overrideTokens/)
-  assert.match(client, /themeOverrideRelease/)
+  assert.match(client, /activeTheme\.overrideTokens\(DELTA_SUITE_OWNER, TOKENS\)/)
+  assert.match(client, /ownedLayer\?\.\(\)/)
   assert.doesNotMatch(theme, /\[role=["'](?:menu|menuitem|tooltip|listbox)["']\]/)
   assert.doesNotMatch(extras, /\[class[*~^$|]?=/)
 })
