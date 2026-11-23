@@ -239,10 +239,10 @@ test('today spending remains explicitly unavailable until authenticated platform
 })
 
 
-test('installed Delta Suite actually mounts its native presentation compatibility', () => {
+test('Delta Suite preserves native presentation by not mounting the DOM takeover', () => {
   const client = read(base + 'client.ts')
-  assert.match(client, /const stopLivePresentation = installLiveNativePresentation\(controller, Boolean\(livePortal\)\)/)
-  assert.match(client, /stopLivePresentation\(\)/, 'unload must dispose the adapter')
+  assert.doesNotMatch(client, /const stopLivePresentation = installLiveNativePresentation\(controller, Boolean\(livePortal\)\)/)
+  assert.doesNotMatch(client, /stopLivePresentation\(\)/, 'no native DOM adapter may be mounted')
   assert.match(client, /document\.documentElement\.setAttribute\('data-delta-ui', 'delta'\)/)
   assert.match(client, /scope\.slots\.inject\('sidebar\.session\.action'/,
     'native New Session placement must preserve the Host HOC')

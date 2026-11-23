@@ -32,7 +32,6 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "scripts/apply-harness-ui-patch.mjs",
     "README.md",
     "COMPATIBILITY.md",
     "LICENSE"

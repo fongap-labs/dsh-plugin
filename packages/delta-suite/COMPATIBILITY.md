@@ -532,3 +532,16 @@
 完成本审计矩阵并进入单独审计 PR 后，才能开始任何实现。P0 顺序：集中 i18n；官方适配/生命周期并排除明文 Token 和全局 DOM；Delta 自有 Theme/Slots；有收益的 client.ts 职责拆分。P0 的单元/模拟/真实 Host/Windows 和两版本证据独立满足前不得进入 P1。P1 独立拆分配置备份、账户、搜索/MCP/上下文与其他通用能力。禁止 Fongap 新治理、上游跟踪、独立 Desktop、代理、Vision Bridge、遥测或重复 Host 核心服务。
 
 API“是”仅表示相应官方文档或类型确有声明，不保证用户正在运行的 Harness 构建实现该接口。对外产品文案只能据 H/W 证据写已交付。
+
+
+## 2026-11-24 P0-2 边界整改（待中央 CI 与实机验收）
+
+本次代码整改仅作用于 Delta Suite 插件，不修改官方 Harness 的源码、语言文件、`app.asar` 或 Profile。结果按证据等级分别列出，不能用源码检查替代真实宿主。
+
+- **凭据**：撤销 Gateway Effort 服务的手工凭据解析、Bearer 调用与路由注册。历史导出名称仅保留安全无操作兼容接口；没有已证实的 Host 凭据不透明请求代理能力时，不显示 Gateway 元数据同步操作，也不宣布写入成功。官方模型选择与推理配置由 Harness 自行管理。
+- **原生 UI**：不再挂载 `installLiveNativePresentation`，因此不接管原生头像、导航、菜单、会话列表或滚动布局。仅通过官方公开 Slots 和自有组件提供 Delta 增强；不支持的 UI 重排交还宿主。
+- **Workspace**：不再挂载 `installWorkspaceMutationGuards` 对宿主方法的包装；Workspace 删除/归档的业务权限仍归 Harness，Suite 自有锁定与保护提示不能宣称替代 Host 的真实事务拒绝能力。
+- **源码补丁**：`package.json.files` 排除 `apply-harness-ui-patch.mjs`，原测试脚本不随插件分发或自动执行；不依靠 Harness 版本绑定、改造语言包或修改客户端源码。
+- **其他能力**：公开 API 的主题 Token、Settings/Brand/Session Slot、Session Log 上传贡献排除仍按原有所有权和生命周期管理。没有新增遥测、网络代理、Vision Bridge 或隐私开关。
+
+**验收状态**：静态源码检查与针对性断言正在本 PR 上进行；中央 Linux/Windows CI 需等待返回；真实 Harness 安装、启用、停用、卸载、异常恢复及第二个不同版本**未验证**。此次修复不等于 P0-2 完结，更不允许提前进入 P1。

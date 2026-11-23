@@ -6197,7 +6197,8 @@ window.__ModuleLoader__.load({
                 // presentation, but public feature slots must still register.
                 // Legacy DOM-based protection is deliberately not mounted.
                 // Host-side business authorization remains authoritative.
-                const stopLivePresentation = installLiveNativePresentation(controller, Boolean(livePortal))
+                // Host native navigation, account and layout are not plugin-owned.
+                // No DOM interception is mounted; public Slots remain available.
                 // Only read Harness' published sanitized account UI snapshot.
                 // Authentication and confirmation continue through native menu actions.
                 try {
@@ -6226,7 +6227,6 @@ window.__ModuleLoader__.load({
                 return () => {
                   observer?.disconnect()
                   stopAppearance()
-                  stopLivePresentation()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
                   document.body?.removeAttribute('data-delta-ui')
@@ -6284,13 +6284,8 @@ window.__ModuleLoader__.load({
               }, ({ view }: { view?: 'page' | 'summary' }) => view === 'summary'
                 ? null : el(PersonalizationSection, { controller })))
 
-              // Contribute only to Harness' published Models-footer Slot.
-              // Without the official Models plugin/Slot the native page stays intact.
-              scope.slots.inject('settings.models.footer', () => scope.slots.register({
-                name: 'settings.models.footer',
-                id: 'delta.gateway.effort-sync',
-                order: 120,
-              }, GatewayEffortFooter))
+              // No Gateway discovery control: Host has no verified credential-opaque
+              // API for querying Gateway metadata. Native Models UI stays unchanged.
 
               // Current session provider/model/Effort is public, Host-authoritative.
               // Older Hosts lacking modelDirectories keep all native surfaces.
@@ -6426,23 +6421,8 @@ window.__ModuleLoader__.load({
                 workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
                   'delta-suite: workspaces reference')
 
-                workspaceScope.effect(() => installWorkspaceMutationGuards(
-                  workspaces, readNative, deltaFeatures.getSnapshot,
-                  () => controller.getSnapshot().mode === 'delta',
-                  (reason, lockId) => {
-                    if (reason === 'workspace-guard-disposed') return
-                    if (reason === 'session-locked' && lockId) {
-                      deltaFeatures.openUnlockPinDialog(lockId)
-                      return
-                    }
-                    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                    showDeltaToast(reason === 'sole-workspace-protected'
-                      ? copy.ui.cannotDeleteSoleWorkspace
-                      : reason === 'protected-default-workspace'
-                        ? copy.ui.protectedDefaultWorkspace
-                        : copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
-                  },
-                ), 'delta-suite: workspace mutation compatibility guards')
+                // Host-owned Workspace operations are intentionally not wrapped.
+                // A missing public before-delete veto cannot be emulated here.
               })
 
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {

@@ -141,9 +141,9 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config', 'settings.models.footer', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.trailing', 'sidebar.session.row.hover'])
-  assert.equal(app.components.get('settings.models.footer').spec.id, 'delta.gateway.effort-sync',
-    'Host Models footer owns the opt-in Gateway Effort UI without replacing native Settings')
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.trailing', 'sidebar.session.row.hover'])
+  assert.equal(app.components.has('settings.models.footer'), false,
+    'unverified Gateway discovery must not create an ineffective control')
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
   assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta Suite'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
@@ -152,7 +152,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(hover.component({ sessionId: '0123456789abcdef' }), null, 'cold protection state never renders session identity')
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
   assert.equal(app.components.has('shell.overlay'), false)
-  assert.notEqual(app.workspaces.delete, app.originalDelete, 'ZIP adds a default-workspace deletion safeguard')
+  assert.equal(app.workspaces.delete, app.originalDelete, 'Host Workspace authority must remain untouched')
   const palette = app.layers.get(app.registration.id)
   assert.equal(palette['--dsw-alias-brand-primary'].light, '#286F78')
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
@@ -218,100 +218,12 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
 })
 
 
-test('Gateway Effort footer derives model and effort exclusively from the public active Session', () => {
-  const directorySnapshot = {
-    current: { provider: 'my-gateway', model: 'Max', reasoningEffort: 'medium' },
-    status: 'ready', pending: null, routable: true,
-  }
-  const directory = {
-    store: { getSnapshot: () => directorySnapshot, subscribe: () => () => {} },
-    load: async () => directorySnapshot,
-  }
-  const app = harness({
-    modelDirectories: { directoryFor(id) {
-      assert.equal(id, 'session-one')
-      return directory
-    } },
-  })
-  app.features.setActiveSessionId('session-one')
-  const footer = app.components.get('settings.models.footer')
-  assert.equal(footer.spec.id, 'delta.gateway.effort-sync')
-  const render = () => footer.component({})
-  const rendered = render()
-  const text = JSON.stringify(rendered)
-  assert.match(text, /my-gateway \/ Max \/ medium/)
-  assert.equal(text.includes('Gateway 路由 ID'), false,
-    'the former editable route field must be absent')
-  assert.doesNotMatch(text, /Model ID|Current selected effort/,
-    'users cannot forge model identity or effort through manual inputs')
-  const findNodes = (node, filter) => {
-    if (!node || typeof node !== 'object') return []
-    return [ ...(filter(node) ? [node] : []),
-      ...(Array.isArray(node.children)
-        ? node.children.flatMap(child => findNodes(child, filter)) : []) ]
-  }
-  const preview = findNodes(rendered, node => node.type === 'button' &&
-    String(node.children?.[0]).includes('预览'))
-  assert.equal(preview.length, 1)
-  assert.equal(preview[0].props.disabled, false,
-    'active session and official directory authorize user-initiated discovery')
-  directorySnapshot.current = { provider: 'my-gateway', model: 'Max', reasoningEffort: 'off' }
-  const unsupported = render()
-  assert.doesNotMatch(JSON.stringify(unsupported), /my-gateway \/ Max \/ off/,
-    'native Off cannot masquerade as supported Gateway Off')
-  app.cleanup()
-})
-
-test('Gateway preview reads Host Session selection on click, never user-entered model/Effort', async () => {
+test('unverified Gateway discovery does not appear in native Models or send requests', () => {
   const requests = []
-  let state = {
-    current: { provider: 'native-route', model: 'model-v1', reasoningEffort: 'high' },
-    status: 'ready', pending: null, routable: true,
-  }
-  const app = harness({
-    modelDirectories: { directoryFor() {
-      return {
-        store: { getSnapshot: () => state, subscribe: () => () => {} },
-        load: async () => state,
-      }
-    } },
-    fetchImpl: async (path, init) => {
-      requests.push({ path, payload: JSON.parse(init.body) })
-      return { ok: true, json: async () => ({ ok: true, status: 'unchanged' }) }
-    },
-  })
-  app.features.setActiveSessionId('session-one')
-  const footer = app.components.get('settings.models.footer')
-  const findPreview = () => {
-    const elements = []
-    const walk = node => {
-      if (!node || typeof node !== 'object') return
-      if (node.type === 'button' && String(node.children?.[0]).includes('预览')) elements.push(node)
-      for (const child of node.children ?? []) walk(child)
-    }
-    walk(footer.component({}))
-    assert.equal(elements.length, 1)
-    return elements[0]
-  }
-  assert.equal(requests.length, 0, 'a mounted Models panel must not probe Gateway')
-  findPreview().props.onClick()
-  await new Promise(resolve => setTimeout(resolve, 0))
-  assert.equal(requests.length, 1)
-  assert.equal(requests[0].path, '/api/delta-suite/gateway-effort/preview')
-  assert.deepEqual(requests[0].payload, {
-    namespace: 'llm-pi-ai', providerId: 'native-route', modelId: 'model-v1',
-    selectedEffort: 'high',
-  }, 'preview uses the durable native Session selection, not typed model IDs')
-
-  state = { ...state, current: { ...state.current, reasoningEffort: 'off' } }
-  findPreview().props.onClick()
-  await new Promise(resolve => setTimeout(resolve, 0))
-  assert.equal(requests.length, 1, 'unsupported native Off must not trigger discovery')
-  state = { ...state, current: { ...state.current, reasoningEffort: 'low' },
-    status: 'selecting', pending: { ...state.current } }
-  findPreview().props.onClick()
-  await new Promise(resolve => setTimeout(resolve, 0))
-  assert.equal(requests.length, 1, 'in-flight Host model switching cannot be synced')
+  const app = harness({ fetchImpl: async () => { requests.push('unexpected'); throw Error('unexpected') },
+    modelDirectories: { directoryFor() { throw Error('model probing should not occur') } } })
+  assert.equal(app.components.has('settings.models.footer'), false)
+  assert.deepEqual(requests, [])
   app.cleanup()
 })
 
@@ -805,30 +717,18 @@ test('obsolete standalone routes and UI packages are excluded from Desktop', () 
   assert.match(source, /scope\.slots\.inject\('settings\.plugins\.tab'/)
 })
 
-test('workspace deletion remains Host owned regardless of appearance mode', async () => {
+test('workspace deletion remains entirely Host owned regardless of appearance mode', async () => {
   const app = harness()
-  assert.notEqual(app.workspaces.delete, app.originalDelete,
-    'ZIP protects the default workspace through a guarded Host call')
-  await assert.rejects(() => app.workspaces.delete('default'), /delta\/workspace-state-unavailable/)
-  await assert.rejects(() => app.workspaces.delete('other'), /delta\/workspace-state-unavailable/)
-  assert.deepEqual(app.deletedWorkspaces, [], 'no native mutations before Host confirmation')
-  app.context.window.location = { href: 'https://harness.test/' }
-  app.context.fetch = async path => ({
-    ok: true, status: 200,
-    json: async () => path === '/api/delta-suite/state'
-      ? { state: {
-        hasPin: false, lockMode: 'none',
-        lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {},
-      } } : {},
-  })
-  await app.features.refreshState()
-  await assert.rejects(() => app.workspaces.delete('default'), /delta\/protected-default-workspace/)
+  assert.equal(app.workspaces.delete, app.originalDelete,
+    'Delta must not replace native Workspace mutation methods')
+  await app.workspaces.delete('default')
   await app.workspaces.delete('other')
+  assert.deepEqual(app.deletedWorkspaces, ['default', 'other'])
   const controller = app.components.get('settings.section').spec.inject().controller
   controller.setMode('official')
   app.cleanup()
-  assert.equal(app.workspaces.delete, app.originalDelete, 'the Host method is restored on disposal')
-  assert.deepEqual(app.deletedWorkspaces, ['other'])
+  assert.equal(app.workspaces.delete, app.originalDelete,
+    'Host methods must remain unchanged after disposal')
 })
 
 test('ZIP personalization keeps its layout and includes only a collapsed feature extension', () => {

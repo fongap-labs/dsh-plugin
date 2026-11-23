@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -87,4 +87,28 @@ test('unsupported required capability fails closed even when the Host advertises
   assert.deepEqual(mixed.missing, [future, 'workspace.before-delete'])
   const stable = host.negotiateHostCapabilities(manifest, ['theme.tokens'])
   assert.equal(stable.compatible, true, 'unrelated Host extensions cannot break known supported capabilities')
+})
+
+test('Gateway service cannot read credentials or register a phantom feature', () => {
+  const service = readFileSync(fixture('packages/delta-suite/src/host-gateway-effort.ts'), 'utf8')
+  const composition = readFileSync(fixture('packages/delta-suite/src/delta-suite-composition.ts'), 'utf8')
+  const client = readFileSync(fixture('packages/delta-suite/src/client.ts'), 'utf8')
+  assert.doesNotMatch(service, /credentials\\.resolve|credential\\.value|authorization:|Bearer /)
+  assert.doesNotMatch(composition, /id: 'integrations\\.gateway-effort'/)
+  assert.doesNotMatch(client, /scope\\.slots\\.inject\\('settings\\.models\\.footer'/)
+  let touched = false
+  const cleanup = host.installHostGatewayEffortSync({
+    inject() { touched = true; throw Error('the Host must not be probed') },
+  })
+  assert.equal(touched, false)
+  assert.doesNotThrow(cleanup)
+})
+
+test('Delta leaves native DOM, Workspace operations and original Host source untouched', () => {
+  const client = readFileSync(fixture('packages/delta-suite/src/client.ts'), 'utf8')
+  const pkg = JSON.parse(readFileSync(fixture('packages/delta-suite/package.json'), 'utf8'))
+  assert.doesNotMatch(client, /const stopLivePresentation = installLiveNativePresentation\\(/)
+  assert.doesNotMatch(client, /workspaceScope\\.effect\\(\\(\\) => installWorkspaceMutationGuards\\(/)
+  assert.equal(pkg.files.includes('scripts/apply-harness-ui-patch.mjs'), false)
+  assert.ok(pkg.files.includes('cordis.patch.yml'), 'official Cordis patch remains')
 })
