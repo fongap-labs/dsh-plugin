@@ -148,7 +148,34 @@ describe("delta-code", () => {
 
   it("registers the expected Code Worker tools", () => {
     const names = [...ctx.registered.keys()].sort();
-    assert.deepEqual(names, ["code_capabilities","code_delivery_gate","code_execution_next","code_execution_stats","code_experience_candidate","code_git_diff","code_git_status","code_git_worktree","code_github_branch","code_github_checks","code_github_commit_file","code_github_connection","code_github_create_pr","code_github_file","code_github_job_logs","code_github_jobs","code_github_pulls","code_github_skill_auto_advance","code_github_skill_auto_stage","code_github_skill_candidates","code_github_skill_discover","code_github_skill_promote_pr","code_github_skill_propose_pr","code_github_skill_public_review","code_github_skill_review","code_github_skill_temporary_use","code_host_probe","code_lsp_probe","code_modern_web_guidance","code_multi_edit","code_project_profile","code_resume","code_session_repositories","code_task_spec","code_verify","code_verify_suite","code_workflow_route","code_workspace_map"]);
+    assert.deepEqual(names, ["code_capabilities","code_delivery_gate","code_execution_next","code_execution_stats","code_experience_candidate","code_git_diff","code_git_status","code_git_sync","code_git_worktree","code_github_branch","code_github_checks","code_github_commit_file","code_github_connection","code_github_create_pr","code_github_file","code_github_job_logs","code_github_jobs","code_github_pulls","code_github_skill_auto_advance","code_github_skill_auto_stage","code_github_skill_candidates","code_github_skill_discover","code_github_skill_promote_pr","code_github_skill_propose_pr","code_github_skill_public_review","code_github_skill_review","code_github_skill_temporary_use","code_host_probe","code_lsp_probe","code_modern_web_guidance","code_multi_edit","code_project_profile","code_resume","code_session_repositories","code_task_spec","code_verify","code_verify_suite","code_workflow_route","code_workspace_map"]);
+  });
+
+  it("keeps registered tools stable on unrelated Host volatile updates", () => {
+    const fresh = createContext();
+    let update;
+    fresh.on = (event, callback) => {
+      if (event === "loader/volatile-update") update = callback;
+      return () => {};
+    };
+    const config = { git: { enabled: true } };
+    const dispose = codeWorker.apply(fresh, config);
+    try {
+      assert.equal(typeof update, "function");
+      const before = new Map(fresh.registered);
+      assert.ok(before.has("code_project_profile"));
+      assert.ok(before.has("code_git_status"));
+      update(); // The Loader signalled, but Delta Code config is unchanged.
+      assert.equal(fresh.registered.get("code_project_profile"), before.get("code_project_profile"));
+      assert.equal(fresh.registered.get("code_git_status"), before.get("code_git_status"));
+      config.git.enabled = false;
+      update(); // An actual Delta Code setting change still reconfigures tools.
+      assert.equal(fresh.registered.has("code_git_status"), false);
+      assert.ok(fresh.registered.has("code_project_profile"));
+    } finally {
+      dispose();
+      assert.equal(fresh.registered.size, 0);
+    }
   });
 
   it("validates explicit coding requirements against the native user message", async () => {
