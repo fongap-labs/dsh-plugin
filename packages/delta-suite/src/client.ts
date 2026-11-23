@@ -381,6 +381,11 @@ const LIVE_PRESENTATION_CSS = String.raw`
   overflow: visible !important;
 }
 :root[data-delta-ui="delta"] [data-dtd-live-preview="1"] { display: none !important; }
+/* Keep primary navigation above the workspace/session scroller. */
+:root[data-delta-ui="delta"] [data-dtd-live-pinned-nav="1"] {
+  position: sticky; top: 0; z-index: 8;
+  background: var(--dtd-bg-sidebar); isolation: isolate;
+}
 :root[data-delta-ui="delta"] [data-dtd-live-hero-title="1"] { order: 0; }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-fish="1"] {
   order: 1; align-self: center; width: 16px !important; height: 12px !important;
@@ -704,6 +709,7 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       const lang = language()
       const scroll = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
       const nav = scroll?.querySelector<HTMLElement>('nav')
+      if (nav) mark(nav, 'pinned-nav')
       const sidebar = scroll?.parentElement?.parentElement
       if (sidebar) {
         const row = Array.from(sidebar.children).find(node =>
