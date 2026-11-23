@@ -22,7 +22,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
     description: 'Start a coding task or decide which coding procedure to use; routes by risk and complexity rather than forcing a full process for small changes.',
     instructions: [
       'First obey user instructions and repository AGENTS.md/CLAUDE.md. Inspect code_project_profile. For substantial work use code_workflow_route with grounded scope/risk and only confirmed native subagent capability; then read bounded relevant sources.',
-      'Route a clear one-file edit to code-fast-change; a defect to code-root-cause-debugging; uncertain requirements to code-brainstorming; an agreed multi-step change to code-writing-plans then code-executing-plans.',
+      'Route a clear one-file edit to code-fast-change; a defect to code-root-cause-debugging; uncertain requirements to code-brainstorming; an agreed multi-step change to code-writing-plans then code-executing-plans. For complex code relations prefer Host-native lsp definitions/references when present, otherwise use bounded authorized search; verify caller/test evidence and do not claim inferred edges as fact.',
       'Use code-subagent-delivery only for independently reviewable work when the native Host exposes agent dispatch. Use code-parallel-work only for disjoint tasks; never invent agent APIs or silently raise permissions.',
       'For behavior changes use code-test-driven-development when a meaningful test exists. Apply code-verification-gate before completion claims, and code-finish-branch for PR or cleanup.',
       'Success means correct behavior with observed verification, readable diffs, and preserved user work. Failed tests and unavailable capabilities are explicit unresolved outcomes, not excuses to claim completion.',

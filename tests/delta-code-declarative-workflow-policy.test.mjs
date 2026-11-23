@@ -87,6 +87,23 @@ describe('Delta Code declarative coding workflow policy', () => {
     }
   })
 
+  it('uses existing native LSP only when code relationships matter, without a second indexer', async () => {
+    const quick = decideCodingWorkflow({ taskKind: 'feature', scope: 'small', risk: 'low' })
+    assert.equal(quick.codeNavigation, undefined, 'simple change must keep its fast path')
+    const complex = decideCodingWorkflow({ taskKind: 'bugfix', scope: 'medium', risk: 'medium' })
+    assert.match(complex.codeNavigation.tools.join(' '), /native lsp/)
+    assert.match(complex.codeNavigation.tools.join(' '), /goToDefinition.*findReferences/)
+    assert.match(complex.codeNavigation.tools.join(' '), /missing or denied/)
+    assert.match(complex.codeNavigation.evidenceRequired.join(' '), /related tests/)
+    const readOnly = decideCodingWorkflow({ taskKind: 'research', scope: 'large', risk: 'low' })
+    assert.equal(readOnly.codeNavigation, undefined, 'ordinary research must not force code navigation')
+    const tool = createWorkflowRouteTool()
+    const routed = await tool.execute({ taskKind: 'refactor', scope: 'large', risk: 'medium' }, exec)
+    assert.deepEqual(routed.codeNavigation, decideCodingWorkflow({
+      taskKind: 'refactor', scope: 'large', risk: 'medium',
+    }).codeNavigation)
+  })
+
   it('validates milestone acceptance and dependency waves without marking native Todo completed', () => {
     const result = decideCodingWorkflow({
       taskKind: 'feature', scope: 'large', risk: 'low', nativeSubagents: true,
