@@ -12,7 +12,7 @@ import type { ExecutionObservation } from '../delta-code-quality/execution-conve
 
 const MAX_SIGNATURES = 64
 const MAX_FINGERPRINT_BYTES = 16 * 1024
-const MUTATION_TOOLS = new Set(['code_multi_edit', 'code_github_commit_file', 'code_github_branch', 'code_github_create_pr', 'code_git_worktree'])
+const MUTATION_TOOLS = new Set(['code_multi_edit', 'code_github_commit_file', 'code_github_branch', 'code_github_create_pr', 'code_git_worktree', 'code_git_sync'])
 
 interface ToolCounters {
   name: string
@@ -26,6 +26,7 @@ interface NativeToolCounters { name: string; results: number; errors: number }
 
 interface SessionCounters {
   lastObservation: ExecutionObservation
+  reconciledTodoSeq: number
   nativeResults: number
   nativeErrors: number
   nativeUnconfirmed: number
@@ -49,7 +50,7 @@ interface SessionCounters {
 
 function emptyCounters(): SessionCounters {
   return {
-    lastObservation: { kind: 'none' },
+    lastObservation: { kind: 'none' }, reconciledTodoSeq: -1,
     nativeResults: 0, nativeErrors: 0, nativeUnconfirmed: 0,
     nativeTools: new Map(),
     calls: 0, duplicateCalls: 0, repeatedFailedCalls: 0, errors: 0,
@@ -146,6 +147,13 @@ export class ExecutionStats {
           } else if (status === 'failed') counters.verificationFailed++
           else counters.verificationUnconfirmed++
         }
+        if (name === 'code_resume') {
+          const resume = value as { stage?: unknown; head?: unknown; sourceSeq?: unknown }
+          counters.reconciledTodoSeq = resume.stage === 'resume' &&
+            typeof resume.head === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(resume.head) &&
+            typeof resume.sourceSeq === 'number' && Number.isSafeInteger(resume.sourceSeq) &&
+            resume.sourceSeq >= 0 ? resume.sourceSeq : -1
+        }
         if (name === 'code_delivery_gate') {
           counters.lastObservation = { kind: 'delivery', ready: result.stage === 'verified' && (result as { ready?: unknown }).ready === true }
           if (result.stage === 'verified' && (result as { ready?: unknown }).ready === true) {
@@ -154,10 +162,14 @@ export class ExecutionStats {
         }
       }
       // Any mutation invalidates prior verification for future progress decisions.
-      if (MUTATION_TOOLS.has(name)) counters.lastObservation = { kind: 'mutation' }
+      if (MUTATION_TOOLS.has(name)) {
+        counters.lastObservation = { kind: 'mutation' }
+        counters.reconciledTodoSeq = -1
+      }
       return value
     } catch (error) {
       isFailed = true
+      if (name === 'code_resume' || MUTATION_TOOLS.has(name)) counters.reconciledTodoSeq = -1
       counters.errors++
       tool.errors++
       const kind = classifyFailure(error)
@@ -181,6 +193,12 @@ export class ExecutionStats {
   readRepeatedFailedCalls(agent: unknown): number {
     const session = sessionFromAgent(agent)
     return session ? this.sessions.get(session)?.repeatedFailedCalls ?? 0 : 0
+  }
+
+  /** The latest safe code_resume Git/Todo reconciliation, never transcript content. */
+  readReconciledTodoSeq(agent: unknown): number {
+    const session = sessionFromAgent(agent)
+    return session ? this.sessions.get(session)?.reconciledTodoSeq ?? -1 : -1
   }
 
   /** Only observed execution outcomes are eligible; never reconstruct from user text. */

@@ -55,7 +55,7 @@ describe('Code Worker real Cordis subprocess injection', () => {
 })
 
 describe('Code Worker optional subprocess capability', () => {
-  it('keeps strategy tools alive and mounts command tools only while subprocess is provided', async () => {
+  it('preserves advertised command tool identities while Host subprocess is withdrawn and remounted', async () => {
     const ctx = new Context()
     const registered = new Map()
     const releaseTools = ctx.provide('tools', {
@@ -91,9 +91,33 @@ describe('Code Worker optional subprocess capability', () => {
       })
       await settle(() => registered.has('code_git_status') && registered.has('code_workspace_map') &&
         registered.has('code_lsp_probe'))
+      const stableStatus = registered.get('code_git_status')
+      const stableWorkspace = registered.get('code_workspace_map')
       await releaseSubprocess()
       releaseSubprocess = undefined
-      await settle(() => !registered.has('code_git_status') && !registered.has('code_workspace_map'))
+      assert.strictEqual(registered.get('code_git_status'), stableStatus,
+        'an in-flight model tool snapshot must not become UNKNOWN_TOOL')
+      assert.strictEqual(registered.get('code_workspace_map'), stableWorkspace)
+      await assert.rejects(stableStatus.execute({}, { signal: new AbortController().signal }),
+        /Host subprocess is unavailable/, 'withdrawn Host must fail closed')
+      releaseSubprocess = ctx.provide('subprocess', {
+        spawn() { throw Error('remounted Host was reached') },
+      })
+      let didReachNewHost = false
+      for (let attempt = 0; attempt < 40; attempt++) {
+        try {
+          await stableStatus.execute({}, { signal: new AbortController().signal })
+        } catch (error) {
+          if (/remounted Host was reached/.test(String(error))) {
+            didReachNewHost = true
+            break
+          }
+        }
+        await new Promise(resolve => setImmediate(resolve))
+      }
+      assert.equal(didReachNewHost, true, 'stable tool must rebind to the remounted Host')
+      assert.strictEqual(registered.get('code_git_status'), stableStatus)
+      assert.strictEqual(registered.get('code_workspace_map'), stableWorkspace)
       for (const name of ['code_workflow_route', 'code_multi_edit', 'code_project_profile', 'code_host_probe', 'code_execution_next']) {
         assert.ok(registered.has(name), name + ' should remain after subprocess removal')
       }

@@ -27,6 +27,7 @@ export function createExecutionNextTool(
       contextReviewState: { type: 'string', required: true },
       contextSummarySeq: { type: 'integer', required: true },
       contextTodoRefreshed: { type: 'boolean', required: true },
+      contextGitReconciled: { type: 'boolean', required: true },
       contextReviewAction: { type: 'string', required: true },
       contextIntentEvidence: { type: 'string', required: true },
     } }, render(_args, result) {
@@ -38,6 +39,7 @@ export function createExecutionNextTool(
         ...(result.contextReviewState !== 'none' ? [
           'Compaction context review: ' + result.contextReviewState,
           'User intent evidence: ' + result.contextIntentEvidence,
+          'Host Git/Todo checkpoint reconciled: ' + result.contextGitReconciled,
           ...(result.contextReviewAction ? [result.contextReviewAction] : []),
         ] : []),
         'Advisory only; never an independent test result, Host authorization or delivery certificate.',
@@ -57,7 +59,10 @@ export function createExecutionNextTool(
       const intentEvidence: CodingIntentEvidence = sources?.historyIncomplete ? 'incomplete'
         : sources?.current.trim() ? 'anchored' : 'unavailable'
       const decision = decideExecutionTransition(state, stats.readLastObservation(exec.agent))
-      const gate = checkpointRecoveryGate(review, intentEvidence, decision.transition)
+      const isGitTodoReconciled = review.state === 'review' &&
+        review.todoUpdatedAfterSummary &&
+        (state?.writeSeq ?? -1) === stats.readReconciledTodoSeq(exec.agent)
+      const gate = checkpointRecoveryGate(review, intentEvidence, decision.transition, isGitTodoReconciled)
       return {
         ...decision,
         transition: gate.transition,
@@ -65,6 +70,7 @@ export function createExecutionNextTool(
         contextReviewState: review.state,
         contextSummarySeq: review.lastSummarySeq,
         contextTodoRefreshed: review.todoUpdatedAfterSummary,
+        contextGitReconciled: isGitTodoReconciled,
         contextReviewAction: [review.action, gate.action].filter(Boolean).join(' '),
         contextIntentEvidence: intentEvidence,
       }
