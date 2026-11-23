@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { normalizeConfig, validateGitHubAccounts } from '../packages/delta-code/lib/runtime.js'
 import { repositoryFromRemote, selectGitHubAccount, createGitHubTools } from '../packages/delta-code/lib/tools/github.js'
 
@@ -58,6 +59,14 @@ describe('GitHub account configuration and automatic routing', () => {
       'code_github_checks', 'code_github_jobs', 'code_github_job_logs', 'code_github_branch', 'code_github_commit_file', 'code_github_create_pr',
       'code_github_skill_candidates', 'code_github_skill_review', 'code_github_skill_discover', 'code_github_skill_public_review', 'code_github_skill_temporary_use', 'code_github_skill_propose_pr', 'code_github_skill_promote_pr', 'code_github_skill_auto_stage', 'code_github_skill_auto_advance',
     ])
+  })
+  it('points automatic Skill promotion to CI events instead of a duplicate manual PR', () => {
+    const source = readFileSync(new URL(
+      '../packages/delta-code/src/delta-code-repository/github-skill-auto-stage.ts', import.meta.url,
+    ), 'utf8')
+    assert.match(source, /next: 'After this proposal PR passes central CI and merges, Action Worker event reconciliation/)
+    assert.match(source, /Do not manually submit a duplicate promotion/)
+    assert.doesNotMatch(source, /then independently re-audit and promote using code_github_skill_promote_pr/)
   })
   it('fails closed before any network request for unmatched owners or unauthorized writes', async () => {
     const config = normalizeConfig({ github: { accounts } })
