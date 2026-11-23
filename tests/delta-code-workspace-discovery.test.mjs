@@ -373,6 +373,29 @@ describe('Delta Code native Session read-only repository bindings', () => {
     assert.equal(f.state.bindings.length, 0)
   })
 
+  it('does not permit UI commands to attach new repositories after Git is disabled', async () => {
+    const f = sessionRepoFixture()
+    const command = createSessionRepositoryCommand(f.ctx, f.settings, f.reader)
+    f.settings.gitEnabled = false
+    const signal = new AbortController().signal
+    await assert.rejects(command.handler({
+      rawInput: 'attach ' + JSON.stringify(EXTERNAL_REPO), agent: f.agent, signal,
+    }), /native Git support is disabled/)
+    assert.equal(f.state.bindings.length, 0)
+    assert.equal(f.commands.length, 0)
+    assert.equal(f.seenPaths.length, 0)
+  })
+
+  it('fails closed when an attached repository lacks complete native Host index capabilities', async () => {
+    const f = sessionRepoFixture()
+    await f.run({ action: 'attach', path: EXTERNAL_REPO })
+    const id = f.state.bindings[0].id
+    const mapped = createWorkspaceMapTool(f.ctx, f.settings, f.reader)
+    await assert.rejects(mapped.execute({ repositoryId: id }, {
+      agent: f.agent, signal: new AbortController().signal,
+    }), /Host FS|native Host FS|Host capability|require/i)
+  })
+
   it('allows multi-edit only for an attached repository in the separate write allowlist', async () => {
     const f = sessionRepoFixture([EXTERNAL_REPO], { writeRoots: [EXTERNAL_REPO] })
     const args = { action: 'attach', path: EXTERNAL_REPO }
