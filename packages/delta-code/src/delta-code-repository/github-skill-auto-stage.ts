@@ -145,7 +145,7 @@ export function createAutoSkillStageSpecs(
           result: JSON.stringify({
             state: 'pending-ci-review', staged: true, reviewed, excluded,
             candidate: pinned, proposal: JSON.parse(created.result),
-            next: 'Wait for verified central CI + protected-branch merge; then independently re-audit and promote using code_github_skill_promote_pr.',
+            next: 'After this proposal PR passes central CI and merges, Action Worker event reconciliation must create the separate catalog PR. Do not manually submit a duplicate promotion while reconciliation is pending; inspect CI evidence and report any blocker.',
           }) }
       }
       return { repository: args.targetRepository, account: exec.account ?? 'unresolved',

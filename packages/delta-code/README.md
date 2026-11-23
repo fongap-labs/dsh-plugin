@@ -346,7 +346,7 @@ execution:
 
 `code_github_skill_auto_stage` 在用户请求专业 Skill 且原生 `github.allowWrites` 获授权时，一次完成免费公共 GitHub 候选搜索、最多三份固定版本公开审核、并为符合低风险条件的一项 Skill 自动建立候选 PR。它不需要每次额外人工签字；不可用、费用不明、含命令/密钥/外链或完整性不足时拒绝收录。候选 PR 仍为惰性记录，不能加载执行。
 
-候选 PR 经中央 CI 合并后，独立的 `code_github_skill_promote_pr` 才能重新审核固定 SHA 和完整证据、提出可信目录版本升级 PR；此 PR 再次通过中央 CI 并合并后，Host 原生 Provider 才允许在新插件版本中按需加载。Stage PR 经 GitHub 确认已合并，且同一 PR HEAD 的 PR Governance、CI Evidence 与 validate-merge 均成功后，`code_github_skill_auto_advance` 可再次独立审核并自动提交目录升级 PR。任一状态缺失、失败或不匹配直接拒绝；目录 PR 自身仍须通过 CI 并合并才能在新插件版本中加载。两步操作由原生 Agent 在活动会话中继续，不引入后台监控或第二套运行时。
+候选 PR 通过中央 CI 并合并后，Action Worker 的既有 GitHub 事件续接会核对原始 PR HEAD、PR Governance、CI Evidence、validate-merge 与固定版本来源证据，并在满足准入条件时创建独立的可信目录晋级 PR。`code_github_skill_auto_advance` 与 `code_github_skill_promote_pr` 保留为受原生 Host 权限与 CI 门禁约束的工具入口，不要求 Agent 在自动续接等待期间再次发起相同的晋级写入。目录 PR 仍须独立通过中央 CI 并合并，新插件版本中的 Host 原生 Provider 才可按需加载；续接未完成或证据不明确时只核查状态并报告，不盲目重复提交。该机制使用现有 Action Worker，不新增 Agent Runtime 或常驻监控。
 
 ## 语义能力目录与专项质量检查
 
