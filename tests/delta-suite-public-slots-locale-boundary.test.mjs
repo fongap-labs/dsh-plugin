@@ -61,11 +61,14 @@ test('Suite zh and en dictionaries have identical nonempty keys and placeholders
   }
 })
 
-test('new native-view and Gateway copy uses only central dictionaries', () => {
-  for (const key of Object.keys(zhCopy.gatewayEffort)) {
-    assert.ok(client.includes("say('" + key + "')"), 'unused Gateway key ' + key)
-  }
-  assert.equal(Object.keys(zhCopy.gatewayEffort).length, 29)
+test('navigation and palette copy uses central dictionaries without dead Gateway keys', () => {
+  assert.equal('gatewayEffort' in zhCopy, false)
+  assert.equal('gatewayEffort' in enCopy, false)
+  assert.doesNotMatch(client, /GatewayEffortFooter|nativeGatewaySelection|emptyGatewayDirectoryState/)
+  const types = read('packages/delta-suite/src/client-types.d.ts')
+  assert.doesNotMatch(types, /gatewayEffort|GatewayModelDirectory|modelDirectories/)
+  assert.equal('gatewayEffort' in zhCopy, false)
+  assert.equal('gatewayEffort' in enCopy, false)
   assert.doesNotMatch(client, /\bsay\(\s*'[^'\n]+'\s*,\s*'[^'\n]+'/)
   for (const name of ['navigationPlugins', 'navigationSchedules', 'navigationSession',
     'accountBalance', 'todaySpending', 'dataUnavailable']) {
@@ -79,16 +82,4 @@ test('new native-view and Gateway copy uses only central dictionaries', () => {
   assert.doesNotMatch(client, /const wording:\s*Record<'zh'/)
   assert.match(client, /function language\(\): Language/)
   assert.match(client, /\/\^zh\(\?:-\|\$\)\/i/)
-})
-
-test('central Suite dictionaries contain no unreferenced leaf keys', () => {
-  const source = client + '\n' + read('packages/delta-suite/scripts/finalize-client.mjs')
-  for (const [key] of flattenCopy(zhCopy)) {
-    const leaf = key.split('.').at(-1)
-    const used = source.includes('.' + leaf) ||
-      source.includes("'" + leaf + "'") ||
-      source.includes('"' + leaf + '"') ||
-      source.includes('[' + leaf + ']')
-    assert.ok(used, 'unused Suite translation key: ' + key)
-  }
 })

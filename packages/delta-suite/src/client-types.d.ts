@@ -3,24 +3,34 @@ interface DeltaCopy {
   meta: { title: string; description: string }
   ui: {
     [key: string]: string
-    theme: string; official: string; delta: string;
+    preference: string; theme: string; official: string; delta: string;
     open: string; close: string; conversation: string; sidebar: string;
-    status: string; unavailable: string; shortcut: string;
-    personalization: string; enabled: string;
-    appearance: string; appearanceDescription: string; integrationTitle: string; integrationSummary: string;
+    status: string; unavailable: string; recovery: string; shortcut: string;
+    personalization: string; personalizationDescription: string; enabled: string;
+    appearance: string; appearanceDescription: string; hostOwned: string;
+    integrationTitle: string; integrationSummary: string;
     integrationSidebar: string; integrationCollapse: string;
     integrationDeletion: string; integrationRunning: string;
     integrationNative: string; integrationReasoning: string; integrationGuidance: string;
     sessionId: string; copySessionId: string; copy: string; sessionLastUpdated: string;
     modelReasoningLevels: string;
-    searchSessions: string; searching: string; noResults: string;
-    copied: string; copyFailed: string; settings: string; signIn: string; signOut: string;
+    searchSessions: string; newConversation: string; searching: string; noResults: string;
+    copied: string; copyFailed: string; protectedDefaultWorkspace: string;
+    updateNotification: string; settings: string; signIn: string; signOut: string;
     navigationPlugins: string; navigationSchedules: string; navigationSession: string;
     accountBalance: string; todaySpending: string; dataUnavailable: string;
+    signedIn: string; latestVersion: string; signedOut: string;
+    signInRequired: string; signOutFromMenu: string;
+    collapseLeftSidebar: string; expandLeftSidebar: string;
+    collapseRightSidebar: string; expandRightSidebar: string;
+    cannotDeleteSoleWorkspace: string;
     cancel: string; confirm: string; delete: string;
   }
   privacy: {
-    title: string; description: string; }
+    title: string; description: string; statusEnforced: string;
+    sessionLogBlocked: string; telemetryBlocked: string;
+    geolocationOff: string; redactionActive: string;
+  }
   sessionMenu: {
     moveSession: string; lockSession: string; unlockSession: string; deleteSession: string;
     moveTitle: string; moveDescription: string; moveEmpty: string; movedToast: string;
@@ -28,7 +38,7 @@ interface DeltaCopy {
     deleteUngrouped: string; deleteUngroupedTitle: string; deleteUngroupedDescription: string;
     deleteUngroupedLockedWarning: string; deletedUngroupedToast: string;
     unlockFirst: string;
-    setPinTitle: string; setPinDescription: string; pinConfirmLabel: string;
+    setPinTitle: string; setPinDescription: string; pinLabel: string; pinConfirmLabel: string;
     pinPlaceholder: string; pinTooShort: string; pinMismatch: string; wrongPin: string;
     lockedShieldTitle: string; lockedShieldDesc: string; unlockViewOnce: string; unlockPermanent: string;
     lockedToast: string; unlockedToast: string;
@@ -49,34 +59,24 @@ interface DeltaCopy {
     setPinDescription?: string;
   }
   searchPalette: {
-    sidebarPlaceholder: string; placeholder: string;
+    triggerHint: string; sidebarPlaceholder: string; placeholder: string;
     clear: string; close: string; searchingContent: string;
     noResults: string; noResultsHint: string; turnLabel: string;
     roleUser: string; roleAssistant: string;
     tabAll: string; tabSession: string; tabWorkspace: string;
     tabPlugin: string; tabSkill: string; tabShortcut: string; tabAction: string;
     kindSession: string; kindContent: string; kindWorkspace: string;
-    kindSkill: string; kindCommand: string;
+    kindPlugin: string; kindSkill: string; kindCommand: string;
     kindShortcut: string; kindAction: string;
-    actionNewConversation: string; actionToggleSidebar: string; actionToggleRightbar: string;
+    actionNewConversation: string; actionPlugins: string;
+    actionSchedules: string; actionSettings: string;
+    actionToggleSidebar: string; actionToggleRightbar: string;
     footerNav: string; footerOpen: string; footerTab: string; footerEsc: string;
     commandCopyLabel: string; commandCopyHint: string; commandCopied: string; commandCopyFailed: string;
     commandPickerLabel: string; commandInsertLabel: string; commandInsertHint: string; commandInserted: string; commandInsertFailed: string;
     globalCommandSearch: string; workspaceFiles: string; builtInBrowser: string; archivedBadge: string;
     builtinPlan: string; builtinGoal: string; builtinCompact: string; builtinSchedule: string;
     builtinBrowser: string; builtinBoost: string;
-  }
-  gatewayEffort: {
-    modelSelectionUnavailable: string; selectionChanging: string; previewSelectionChanged: string;
-    previewBlockedPrefix: string; levelsUnchanged: string; approvalRequired: string;
-    invalidPreview: string; modelLoadFailed: string; selectionChangedBeforeApply: string;
-    savedRevisionPrefix: string; writeRefusedPrefix: string; writeUnknown: string;
-    none: string; modelNotLoaded: string; noActiveSession: string;
-    title: string; description: string; providerNamespace: string;
-    nativeSelectionPrefix: string; nativeOffUnsupported: string; working: string;
-    previewButton: string; confirmTitle: string; added: string;
-    removed: string; remapped: string; selectionChangedNotice: string;
-    approvalCheckbox: string; applyButton: string;
   }
 }
 type Language = 'zh' | 'en'
@@ -156,29 +156,6 @@ interface SearchNavigationApi {
   startSession(workspaceId?: string): void
 }
 
-/** Public Harness modelDirectories service; per-Session durable selection is Host-owned. */
-interface GatewayModelSelection {
-  provider: string
-  model: string
-  reasoningEffort?: string
-}
-interface GatewayModelDirectoryState {
-  current: GatewayModelSelection | null
-  status: 'idle' | 'loading' | 'ready' | 'selecting' | 'error'
-  pending: GatewayModelSelection | null
-  routable: boolean | null
-}
-interface GatewayModelDirectory {
-  store: {
-    getSnapshot(): GatewayModelDirectoryState
-    subscribe(listener: () => void): () => void
-  }
-  load(): Promise<GatewayModelDirectoryState>
-}
-interface GatewayModelDirectoriesApi {
-  directoryFor(sessionId: string): GatewayModelDirectory
-}
-
 interface ClientContext {
   get?(name: string): unknown
   theme?: ThemeApi
@@ -190,7 +167,6 @@ interface ClientContext {
   resources?: ResourceProviderApi
   sidebarRightTabs?: SidebarRightTabsApi
   configForms?: ConfigFormsApi
-  modelDirectories?: GatewayModelDirectoriesApi
   remote?: { mcpManager?: McpManagerApi; credentials?: CredentialRemoteApi }
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
