@@ -60,5 +60,12 @@
     ],
     "p0_completed": false,
     "p1_permitted": false
+  },
+  "p0_3_theme_progress": {
+    "as_of": "2026-11-24",
+    "stage": "owned-css-static-check-passed-client-not-verified",
+    "status": "feature-extras has no native dsw fallbacks",
+    "evidence": "tests/delta-suite-p0-theme-owned.test.mjs",
+    "host_and_windows": "not verified"
   }
 }
