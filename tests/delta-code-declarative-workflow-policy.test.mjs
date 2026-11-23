@@ -190,6 +190,41 @@ describe('Delta Code declarative coding workflow policy', () => {
     }
   })
 
+  it('bounds native parallel advice, protects shared CI/build config and skips low-benefit fanout', () => {
+    const many = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium', nativeSubagents: true,
+      independentTasks: 7,
+      taskPaths: Array.from({ length: 7 }, (_, index) => ['src/module-' + index + '.ts']),
+    })
+    assert.deepEqual(many.executionWaves, [[0, 1, 2], [3, 4, 5], [6]],
+      'the plugin must not advise an unbounded number of paid model workers')
+    assert.equal(many.parallelCandidate, true)
+    const config = decideCodingWorkflow({
+      taskKind: 'refactor', scope: 'large', risk: 'medium', nativeSubagents: true,
+      independentTasks: 2, taskPaths: [['package.json'], ['pnpm-lock.yaml']],
+    })
+    assert.deepEqual(config.executionWaves, [[0], [1]],
+      'shared root build and lock files are not safe to write concurrently')
+    assert.equal(config.parallelCandidate, false)
+    const small = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'medium', risk: 'low', nativeSubagents: true,
+      independentTasks: 2, taskPaths: [['src/feature-a.ts'], ['src/feature-b.ts']],
+    })
+    assert.deepEqual(small.executionWaves, [[0], [1]],
+      'two medium tasks should prefer one Agent when setup overhead can dominate')
+    const missing = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium', nativeSubagents: false,
+      independentTasks: 4, taskPaths: [['src/a'], ['src/b'], ['src/c'], ['src/d']],
+    })
+    assert.deepEqual(missing.executionWaves, [[0], [1], [2], [3]])
+    const dependent = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium', nativeSubagents: true,
+      independentTasks: 3, taskPaths: [['src/a'], ['src/b'], ['src/c']],
+      taskDependencies: [[], [0], [1]],
+    })
+    assert.deepEqual(dependent.executionWaves, [[0], [1], [2]])
+  })
+
   it('checks native Host provider ownership before recommending parallel subagents', async () => {
     let attach
     let disposed = 0
