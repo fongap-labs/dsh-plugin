@@ -288,23 +288,35 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
     dispose() {},
   }
   const tool = createSessionRepositoryTool(ctx, settings, reader)
-  const run = (args, who = agent) =>
-    tool.execute(args, { agent: who, signal: new AbortController().signal })
-  const accept = (args, output) => {
+  const run = async (args, who = agent) => {
+    if (who !== agent) return tool.execute(args, { agent: who, signal: new AbortController().signal })
     const callId = 'call_' + seq
     state = foldSessionRepositoryEvent(state, {
       type: 'tool/call', seq: seq++, data: {
         name: 'code_session_repositories', callId, arguments: JSON.stringify(args),
       },
     })
-    const rendered = tool.output.render(args, output)[0].text
-    state = foldSessionRepositoryEvent(state, {
-      type: 'tool/result', seq: seq++, data: {
-        message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
-          isError: false, content: [{ type: 'text', text: rendered }] },
-      },
-    })
+    try {
+      const output = await tool.execute(args, { agent: who, signal: new AbortController().signal })
+      const rendered = tool.output.render(args, output)[0].text
+      state = foldSessionRepositoryEvent(state, {
+        type: 'tool/result', seq: seq++, data: {
+          message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
+            isError: false, content: [{ type: 'text', text: rendered }] },
+        },
+      })
+      return output
+    } catch (error) {
+      state = foldSessionRepositoryEvent(state, {
+        type: 'tool/result', seq: seq++, data: {
+          message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
+            isError: true, content: [{ type: 'text', text: String(error) }] },
+        },
+      })
+      throw error
+    }
   }
+  const accept = () => {}
   return { ctx, settings, tool, run, accept, reader, get state() { return state }, commands, seenPaths, writes, agent }
 }
 
