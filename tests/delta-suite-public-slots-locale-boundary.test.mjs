@@ -93,3 +93,15 @@ test('language subscription uses public Locale and never DOM observer', () => {
   assert.doesNotMatch(client, /observer\?\.observe\(document\.documentElement/)
   assert.doesNotMatch(client, /localeApi\.setLocale\(/)
 })
+
+test('Suite locale dictionaries contain no unused leaf key', () => {
+  const used = key =>
+    client.includes('.' + key) ||
+    client.includes("['" + key + "']") ||
+    client.includes('["' + key + '"]') ||
+    client.includes("'" + key + "'")
+  for (const [name] of flattenCopy(zhCopy)) {
+    const key = name.split('.').at(-1)
+    assert.ok(used(key), 'unused Suite locale key: ' + name)
+  }
+})
