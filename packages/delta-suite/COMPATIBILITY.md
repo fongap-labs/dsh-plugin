@@ -539,3 +539,12 @@ API“是”仅表示相应官方文档或类型确有声明，不保证用户�
 本改动不使用私有 Harness 样式类名或全局 DOM 接管，不改动原生右键菜单、账号控件或第三方插件的 CSS。官方 Theme API 仍负责自身声明的语义色覆盖及恢复。浅色、深色均新增 `--dtd-bg-muted` / `--dtd-qr-shadow`；MCP 管理弹窗、纠正对话框和遮罩改用 `--dtd-modal-*` / `--dtd-bg-mask`，可聚焦按钮及表单增加 `--dtd-border-focus` 焦点轮廓。
 
 静态 CSS 引用完整性、色值不泄漏、发布用 Git Blob SHA1 指纹均增加回归检查。**未完成**真实 Harness 的两种外观模式对照、Windows 多屏幕缩放和主题切换后 Portal 销毁验收；本次静态/CI 检查不等同于视觉验收。
+
+
+## 2026-11-24 P0-4 退役 Gateway UI 代码清理
+
+在凭据不透明的官方请求接口尚未确认前，P0-2 已停用 Gateway Effort 的服务和设置入口。P0-4 相应删除 `client.ts` 中约 12 KB 不再调用的原生 Models 目录订阅、Gateway 同步交互组件及状态类型；同时清理 `client-types.d.ts` 中的对应接口和两份 Suite 词典各 29 条无引用文案。
+
+没有新增第二套模型选择器、凭据读取、隐私设置或宿主代理。公开 `conversation.input.model.label` 插槽、Host 自有推理等级和已有 Gateway reasoning 的纯函数工具仍保留，避免影响仍有调用的适配契约。
+
+验收范围：静态/单元 CI、字典 Key/占位符一致性及死代码检查；真实官方 Harness、Windows 客户端以及两个 Host 版本的安装与回退仍未完成。因此本记录不等于 P0 全部验收通过。
