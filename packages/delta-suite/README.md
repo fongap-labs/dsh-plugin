@@ -19,7 +19,7 @@
 
 仅执行仓库内 **源码补丁脚本** 时，Harness 原生侧栏和空白首页仍由宿主管理；这一段描述的是离线客户端构建阶段，不是新版插件中的运行时兼容层。需要将原生「新会话」移动到「定时任务」下方、折叠品牌占位、改变 Hero 图标顺序和宿主页面标题时，**必须在 Delta/Harness 客户端源码构建前应用补丁**。补丁不能修改用户设备上已安装的 Harness 二进制，也不会随 npm 插件加载自动修改宿主源码。
 
-维护在 `scripts/apply-harness-ui-patch.mjs`，根据 Harness 包的 **package.json 身份 + 源码关键结构**定位目标；不比较版本号、Tag、Commit，也不固定安装路径。修改原生 Sidebar、Hero、插件管理、定时任务、账号底部布局、通用设置版本行、会话状态词典与 Session Log 宿主服务及设置注册共 15 个文件。改动严格限定在 Delta 模式的 CSS；中文与英文页面标签从宿主词典源头修改，保留原生按钮、React 事件、权限和快捷键。预览徽标仅在 Delta 模式隐藏，鲸鱼仍为原生 SVG 动画。
+维护在 `scripts/apply-harness-ui-patch.mjs`，根据 Harness 包的 **package.json 身份 + 源码关键结构**定位目标；不比较版本号、Tag、Commit，也不固定安装路径。修改原生 Sidebar、Hero、插件管理、定时任务、账号底部布局、通用设置版本行、会话状态词典与 Session Log 宿主服务及设置注册共 16 个文件。改动严格限定在 Delta 模式的 CSS；中文与英文页面标签从宿主词典源头修改，保留原生按钮、React 事件、权限和快捷键。预览徽标仅在 Delta 模式隐藏，鲸鱼仍为原生 SVG 动画。
 
 使用方式（`<checkout>` 指已经检出的 Harness/Delta 源码根目录，而非 `app.asar`）：
 
@@ -143,3 +143,10 @@ pnpm link:dev delta-suite
 - 原生 Session Log 服务在 Delta 源码构建补丁中不再贡献 `dsh_session_log`，无论用户旧 Profile 是否将开关存为 true；新配置默认 false，并取消通用设置里的开关注册。已安装插件由 Host 侧 `sessionLogDeepSeek.registerExclusion(() => true)` 阻止日志贡献，Delta 运行时界面同步隐藏误导性开关。这些保护仅在 Delta Suite 启用且注入生效时成立；不能据此宣称官方 Harness 自身默认禁用此功能。
 - 「隐私与数据最小化」模块保留标题及 PIN 管理，移除关于“已强制禁用”的描述、条目与徽标，避免把未验证的宿主能力宣传为已完成。
 - 颜色统一通过 Delta 的 `--dtd-*` 语义 Token 与 Theme API 映射；官方主题不被全局覆盖。构建补丁须先通过 `--check`；安装插件不等于客户端已应用源码补丁，需分别验证并发布新版本。
+
+## 原生菜单和全局主题覆盖审计（2026-11-24）
+
+- 根因：Harness 的 `design-platform.css` 为各组件定义约 155 项 `--dsw-alias-*` / `--dsw-specific-*` 语义色，旧 Delta 主题层仅映射约 50 项；未映射项继续采用原生中性色。同时原生 `MenuSurface` 用 `--dsw-menu-backdrop-filter` 实现透明毛玻璃，即便菜单底色已覆盖也会混入背景。
+- 修复：为菜单加不透明材质并禁用背景滤镜，扩充全局 `ThemeRuntime.overrideTokens` 映射，统一原生背景、卡片、按钮、悬停、文本、图标、输入框、侧栏、弹层和滚动条。该覆盖按 light/dark 成对设置，切回 Official 时清理。
+- 安全边界：代码语法高亮、diff 增删、日志状态、危险/成功/警告图形等仍保留独立语义色，不能为了品牌统一变成单一蓝绿色。未来上游新增 token 应由语义审计追踪，不能直接全局替换 CSS，也不应使用版本号黑白名单。
+- 会话右键菜单由原生 `ui-workspace` 注册贡献，按 `order` 排序。客户端源码补丁将 `rename` 的优先级从 200 调为 50，保证实际可访问性/键盘顺序一起变化；已经安装的纯插件无法通过目前的公开 API 重排既有贡献，必须在 Delta 客户端源码构建时应用补丁。
