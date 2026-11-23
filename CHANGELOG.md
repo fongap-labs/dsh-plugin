@@ -4,7 +4,7 @@
 
 - 维护: 配合 Action Worker 将中央插件测试包目录从 `tests/packs/dsh-plugin/` 更名为 `tests/packs/plugins/`，保留现有回归测试与发布工作流的执行边界。
 
-- 维护: 预备 Delta 与 DeepSeek Harness 共用插件仓库由 dsh-plugin 更名为 plugins，统一工作区身份、三个产品的 GitHub Release 目标与现行文档；保留 `projects/<产品>/release.manifest.json`、`root: packages`、历史发行记录及独立插件包名，迁移协调完成前不改变正式发布入口。
+- 维护: 将 Delta 与 Harness 共用插件仓库更名为 plugins，统一三个产品的 Release 目标、工作区名称和操作文档；保留原有发布目录及历史记录。
 
 - 维护 [breaking]: 将 Delta Suite、Delta Desktop、Delta Code 的源码目录、包名、Cordis 标识和发行资产统一为 delta-*，不再提供旧名称兼容入口；原有安装需先卸载再安装新包。
 
