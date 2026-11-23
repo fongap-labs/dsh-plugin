@@ -24,11 +24,11 @@ interface SessionLogScope {
 /** Install an upload-field exclusion only when the official service is present. */
 export function installHostPrivacyGuards(ctx: PrivacyHostContext): () => void {
   if (typeof ctx.inject !== 'function') return () => {}
-  let disposed = false
+  let isDisposed = false
   let stopScope: void | (() => void | Promise<void>)
   try {
     stopScope = ctx.inject(['sessionLogDeepSeek'], scope => {
-      if (disposed || typeof scope.sessionLogDeepSeek?.registerExclusion !== 'function') return
+      if (isDisposed || typeof scope.sessionLogDeepSeek?.registerExclusion !== 'function') return
       // The Host owns the provider request. This predicate cannot inspect its
       // content, mutate other plugins, or affect local feedback operations.
       return scope.sessionLogDeepSeek.registerExclusion(() => true)
@@ -38,8 +38,8 @@ export function installHostPrivacyGuards(ctx: PrivacyHostContext): () => void {
     return () => {}
   }
   return () => {
-    if (disposed) return
-    disposed = true
+    if (isDisposed) return
+    isDisposed = true
     try {
       const cleanup = stopScope?.()
       if (cleanup && typeof (cleanup as Promise<void>).then === 'function') {
