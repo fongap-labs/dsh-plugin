@@ -234,6 +234,6 @@ test('today spending remains explicitly unavailable until authenticated platform
   assert.doesNotMatch(script, /todaySpend\s*=\s*wallet|balanceDelta\s*=|lastBalance\s*-/)
   assert.doesNotMatch(script, /<small className=\{css\.deltaHoverHint\}>/)
   const copy = read('packages/delta-suite/README.md')
-  assert.match(copy, /不自动使用余额下降代替消费/)
-  assert.match(copy, /鉴权、统计范围及时区验收/)
+  assert.ok(copy.includes('不自动使用余额下降代替消费'))
+  assert.ok(copy.includes('鉴权、统计范围及时区验收'))
 })
