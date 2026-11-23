@@ -2,7 +2,7 @@
   "schema_version": 1,
   "root": "packages",
   "artifact_name": "delta-suite-release",
-  "target_repository": "fongap-labs/dsh-plugin",
+  "target_repository": "fongap-labs/plugins",
   "release_key": "delta-suite",
   "release_name": "Delta Suite",
   "release_notes": "首次以 Delta Suite 新名称提供可安装的功能验证候选包。适用于隔离 Profile 中的 Windows Harness 实机验收，不代表完整原生侧栏替换或工作区授权已交付。安装后通过“设置 → Delta Suite”、插件设置标签或已安装插件详情检查同一配置页；检查官方主题回退、会话锁状态与第三方插件共存。宿主未开放侧栏重排、工作区默认折叠/删除前置拒绝和原生运行文案替换等接口时继续使用原生界面；Gateway Reasoning Effort 自动元数据适配尚未验收。不得使用历史旧版安装包代替此版本。",
