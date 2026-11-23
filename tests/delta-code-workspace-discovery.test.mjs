@@ -2,13 +2,14 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createWorkspaceMapTool, rankTrackedFiles } from '../packages/delta-code/lib/tools/workspace.js'
 import { normalizeConfig } from '../packages/delta-code/lib/runtime.js'
 
-import { createSessionRepositoryTool } from '../packages/delta-code/lib/delta-code-adapter/providers/dsh/session-repositories.js'
+import { createSessionRepositoryTool, createSessionRepositoryCommand } from '../packages/delta-code/lib/delta-code-adapter/providers/dsh/session-repositories.js'
+import { createMultiEditTool } from '../packages/delta-code/lib/tools/multi-edit.js'
 import {
   SESSION_REPOSITORY_EMPTY, foldSessionRepositoryEvent,
   parseSessionRepositoryState, REPOSITORY_EVENT_MARKER,
@@ -223,21 +224,33 @@ describe('Delta Code Worker bounded multi-repo discovery', () => {
 })
 
 
-const EXTERNAL_REPO = '/dsh-approved-external/repo-a'
-const OTHER_REPO = '/dsh-unapproved-external/repo-b'
+const EXTERNAL_REPO = resolve('/dsh-approved-external/repo-a')
+const OTHER_REPO = resolve('/dsh-unapproved-external/repo-b')
+const PRIMARY_REPO = resolve('/dsh-primary')
 function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
   const commands = []
   const seenPaths = []
+  const writes = []
   const fs = {
-    async resolve(path) {
+    async resolve(path, params = {}) {
       seenPaths.push(path)
       if (options.denyFs) throw new Error('Host FS denied external root')
-      return { path }
+      return { path: /^([A-Za-z]:[\\/]|\/)/.test(path) ? path : join(params.cwd ?? PRIMARY_REPO, path) }
     },
     async stat(target) {
       if (options.noDirectory) return undefined
+      if (/\.(?:ts|tsx|js|json)$/.test(target.path)) {
+        return { type: 'file', size: Buffer.byteLength(options.fileContent ?? 'export const value = 1') }
+      }
       return { type: 'directory' }
     },
+    contains(parent, target) {
+      const separator = parent.path.includes('\\') ? '\\' : '/'
+      const base = parent.path.replace(/[\\/]+$/, '')
+      return target.path === parent.path || target.path.startsWith(base + separator)
+    },
+    async readText(target) { return options.fileContent ?? 'export const value = 1\\n' },
+    async writeText(target, content) { writes.push({ path: target.path, content }) },
     processPath(target) {
       return options.changedRoot ?? target.path
     },
@@ -260,36 +273,54 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
     } },
   })
   const settings = normalizeConfig({
-    workspaceRoot: '/dsh-primary',
-    sessionRepositories: { readOnlyRoots: allowed },
+    workspaceRoot: PRIMARY_REPO,
+    sessionRepositories: { readOnlyRoots: allowed, writeRoots: options.writeRoots ?? [] },
   })
   let state = { ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }
-  const agent = { session: { id: 'owning-session' } }
+  let seq = 1
+  const agent = { session: {
+    id: 'owning-session',
+    append(type, data) {
+      const eventSeq = seq++
+      state = foldSessionRepositoryEvent(state, { type, seq: eventSeq, data })
+      return { seq: eventSeq }
+    },
+  } }
   const reader = {
     read: who => who === agent ? parseSessionRepositoryState(state) : undefined,
     dispose() {},
   }
   const tool = createSessionRepositoryTool(ctx, settings, reader)
-  let seq = 1
-  const run = (args, who = agent) =>
-    tool.execute(args, { agent: who, signal: new AbortController().signal })
-  const accept = (args, output) => {
+  const run = async (args, who = agent) => {
+    if (who !== agent) return tool.execute(args, { agent: who, signal: new AbortController().signal })
     const callId = 'call_' + seq
     state = foldSessionRepositoryEvent(state, {
       type: 'tool/call', seq: seq++, data: {
         name: 'code_session_repositories', callId, arguments: JSON.stringify(args),
       },
     })
-    const rendered = tool.output.render(args, output)[0].text
-    assert.ok(rendered.includes(REPOSITORY_EVENT_MARKER))
-    state = foldSessionRepositoryEvent(state, {
-      type: 'tool/result', seq: seq++, data: {
-        message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
-          isError: false, content: [{ type: 'text', text: rendered }] },
-      },
-    })
+    try {
+      const output = await tool.execute(args, { agent: who, signal: new AbortController().signal })
+      const rendered = tool.output.render(args, output)[0].text
+      state = foldSessionRepositoryEvent(state, {
+        type: 'tool/result', seq: seq++, data: {
+          message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
+            isError: false, content: [{ type: 'text', text: rendered }] },
+        },
+      })
+      return output
+    } catch (error) {
+      state = foldSessionRepositoryEvent(state, {
+        type: 'tool/result', seq: seq++, data: {
+          message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
+            isError: true, content: [{ type: 'text', text: String(error) }] },
+        },
+      })
+      throw error
+    }
   }
-  return { ctx, settings, tool, run, accept, get state() { return state }, commands, seenPaths, agent }
+  const accept = () => {}
+  return { ctx, settings, tool, run, accept, reader, get state() { return state }, commands, seenPaths, writes, agent }
 }
 
 describe('Delta Code native Session read-only repository bindings', () => {
@@ -308,13 +339,89 @@ describe('Delta Code native Session read-only repository bindings', () => {
     assert.equal(status.unstaged, 1)
     const found = await f.run({ action: 'search', id, query: 'module' })
     assert.deepEqual(found.selected, ['src/module.ts'])
-    assert.ok(f.commands.every(c => c.cwd !== '/dsh-primary' &&
+    assert.ok(f.commands.every(c => c.cwd !== PRIMARY_REPO &&
       c.argv[0] === 'git' && ['rev-parse', '--no-optional-locks', 'ls-files'].includes(c.argv[1])))
-    assert.equal(f.settings.workspaceRoot, '/dsh-primary')
+    assert.equal(f.settings.workspaceRoot, PRIMARY_REPO)
     assert.equal(f.state.bindings.length, 2)
     const detached = await f.run({ action: 'detach', id })
     f.accept({ action: 'detach', id }, detached)
     assert.equal((await f.run({ action: 'list' })).repositories.length, 1)
+  })
+
+  it('reads attached repository files through Host FS without granting write access', async () => {
+    const f = sessionRepoFixture()
+    const args = { action: 'attach', path: EXTERNAL_REPO }
+    const attached = await f.run(args)
+    f.accept(args, attached)
+    const id = f.state.bindings[0].id
+    const result = await f.run({ action: 'read', id, path: 'src/module.ts' })
+    assert.equal(result.file, 'src/module.ts')
+    assert.match(result.content, /export const value/)
+    assert.equal((await f.run({ action: 'list' })).repositories[0].readOnly, true)
+    assert.equal(f.writes.length, 0)
+  })
+
+  it('exposes the same attach/detach operation through the native human command', async () => {
+    const f = sessionRepoFixture()
+    const command = createSessionRepositoryCommand(f.ctx, f.settings, f.reader)
+    const signal = new AbortController().signal
+    const attached = await command.handler({
+      rawInput: 'attach ' + JSON.stringify(EXTERNAL_REPO), agent: f.agent, signal,
+    })
+    assert.equal(attached.kind, 'success')
+    assert.equal(f.state.bindings.length, 1)
+    const id = f.state.bindings[0].id
+    const detached = await command.handler({ rawInput: 'detach ' + id, agent: f.agent, signal })
+    assert.equal(detached.kind, 'success')
+    assert.equal(f.state.bindings.length, 0)
+  })
+
+  it('does not permit UI commands to attach new repositories after Git is disabled', async () => {
+    const f = sessionRepoFixture()
+    const command = createSessionRepositoryCommand(f.ctx, f.settings, f.reader)
+    f.settings.gitEnabled = false
+    const signal = new AbortController().signal
+    await assert.rejects(command.handler({
+      rawInput: 'attach ' + JSON.stringify(EXTERNAL_REPO), agent: f.agent, signal,
+    }), /native Git support is disabled/)
+    assert.equal(f.state.bindings.length, 0)
+    assert.equal(f.commands.length, 0)
+    assert.equal(f.seenPaths.length, 0)
+  })
+
+  it('fails closed when an attached repository lacks complete native Host index capabilities', async () => {
+    const f = sessionRepoFixture()
+    await f.run({ action: 'attach', path: EXTERNAL_REPO })
+    const id = f.state.bindings[0].id
+    const mapped = createWorkspaceMapTool(f.ctx, f.settings, f.reader)
+    await assert.rejects(mapped.execute({ repositoryId: id }, {
+      agent: f.agent, signal: new AbortController().signal,
+    }), /Host FS|native Host FS|Host capability|require/i)
+  })
+
+  it('allows multi-edit only for an attached repository in the separate write allowlist', async () => {
+    const f = sessionRepoFixture([EXTERNAL_REPO], { writeRoots: [EXTERNAL_REPO] })
+    const args = { action: 'attach', path: EXTERNAL_REPO }
+    const attached = await f.run(args)
+    f.accept(args, attached)
+    const id = f.state.bindings[0].id
+    const multiEdit = createMultiEditTool(f.ctx, f.settings, f.reader)
+    const result = await multiEdit.execute({ repositoryId: id, edits: [
+      { path: 'src/new.ts', content: 'export const created = true' },
+    ] }, { agent: f.agent, signal: new AbortController().signal })
+    assert.equal(result.applied, 1)
+    assert.deepEqual(f.writes, [{
+      path: join(EXTERNAL_REPO, 'src/new.ts'), content: 'export const created = true',
+    }])
+    const readOnly = sessionRepoFixture([EXTERNAL_REPO])
+    const readOnlyArgs = { action: 'attach', path: EXTERNAL_REPO }
+    const readOnlyAttached = await readOnly.run(readOnlyArgs)
+    readOnly.accept(readOnlyArgs, readOnlyAttached)
+    const readOnlyEdit = createMultiEditTool(readOnly.ctx, readOnly.settings, readOnly.reader)
+    await assert.rejects(readOnlyEdit.execute({ repositoryId: readOnly.state.bindings[0].id, edits: [
+      { path: 'src/blocked.ts', content: 'must not be written' },
+    ] }, { agent: readOnly.agent, signal: new AbortController().signal }), /writeRoots/)
+    assert.equal(readOnly.writes.length, 0)
   })
 
   it('rejects unallowlisted roots before any Host file or Git access', async () => {

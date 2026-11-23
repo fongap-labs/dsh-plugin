@@ -31,6 +31,7 @@ export const Config: Schema<Record<string, unknown>> = Schema.object({
   workspaceRoot: Schema.string().default('').volatile(),
   sessionRepositories: Schema.object({
     readOnlyRoots: Schema.array(Schema.string()).default([]),
+    writeRoots: Schema.array(Schema.string()).default([]),
   }).volatile(),
   git: Schema.object({
     enabled: Schema.boolean().default(true),

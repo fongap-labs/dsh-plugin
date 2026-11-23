@@ -6,14 +6,19 @@ import { TOOL_PREFIX, resolveRoot, errorMessage } from '../../../runtime.js'
 import { resolveAuthorizedGitCwd } from '../../../delta-code-repository/host-git-cwd.js'
 import { lookupDshHostFs } from './host-adapter.js'
 import { classifyLspCommandResult } from '../../../delta-code-coding/lsp-probe-policy.js'
+import { resolveSessionRepositoryRoot } from './session-repositories.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 
-export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createLspProbeTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: `${TOOL_PREFIX}lsp_probe`,
     description:
       'Probe the workspace for available language servers (by checking command availability via `--help`/`--version`). Returns which configured LSP servers are installed and runnable.',
     parameters: {
-      cwd: { type: 'string', description: 'Optional subdirectory inside the workspace to probe from.' },
+      cwd: { type: 'string', description: 'Optional subdirectory inside the selected workspace or repository.' },
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID from code_session_repositories list.' },
     },
     output: {
       schema: {
@@ -50,7 +55,11 @@ export function createLspProbeTool(ctx: Context, settings: Settings): ToolDefini
     },
     async execute(args, exec) {
       if (exec.signal.aborted) throw new Error('lsp probe cancelled')
-      const root = await resolveRoot(ctx, exec, settings)
+      const root = args.repositoryId === undefined
+        ? await resolveRoot(ctx, exec, settings)
+        : sessionRepositories
+          ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'read')
+          : (() => { throw new Error('Session repository LSP probe is unavailable in this Host') })()
       // Host FS is authoritative for virtual/remote workspaces and symlink
       // containment. Never inspect a mounted Host workspace with Node realpath.
       let canonicalCwd: string

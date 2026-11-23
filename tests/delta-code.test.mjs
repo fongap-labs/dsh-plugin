@@ -19,7 +19,9 @@ function createContext() {
   const registered = new Map();
   const warnings = [];
   const skills = new Map();
+  const registeredCommands = new Map();
   const ctx = {
+    registeredCommands,
     registered,
     warnings,
     registeredSkills: skills,
@@ -38,7 +40,9 @@ function createContext() {
         return;
       }
       if (deps.includes("subprocess")) {
-        return callback(ctx);
+        const release = callback(ctx);
+        if (deps.includes("commands")) return { dispose: async () => { if (typeof release === "function") release(); } };
+        return release;
       }
       callback({
         systemPrompt: {
@@ -48,6 +52,12 @@ function createContext() {
       });
     },
     get: () => undefined,
+    commands: {
+      register(definition) {
+        registeredCommands.set(definition.name, definition);
+        return () => registeredCommands.delete(definition.name);
+      },
+    },
     tools: {
       register(definition) {
         registered.set(definition.name, definition);
