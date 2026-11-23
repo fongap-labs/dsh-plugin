@@ -1,6 +1,19 @@
+import type { SessionProjectionSummaryExcluded } from '@deepseek-ai/dsh-session-projection/types'
+
 /** Session-scoped, read-only repository associations replayed from DSH tool events.
  * Never treat model arguments as a permission grant or rely on a second database.
  */
+declare module '@deepseek-ai/dsh-session/types' {
+  interface SessionEventMap {
+    'delta-code/repository-binding': {
+      version: 1
+      action: 'attach' | 'detach'
+      id: string
+      path: string
+    }
+  }
+}
+
 export interface RepositoryBinding {
   id: string
   path: string
@@ -11,6 +24,15 @@ interface PendingBinding {
   action: 'attach' | 'detach'
   id: string
 }
+export type SessionRepositoryProjectionView =
+  SessionProjectionSummaryExcluded<readonly RepositoryBinding[]>
+
+declare module '@deepseek-ai/dsh-session-projection/types' {
+  interface SessionProjectionMap {
+    deltaCodeSessionRepositories: SessionRepositoryProjectionView
+  }
+}
+
 export interface SessionRepositoryState {
   bindings: RepositoryBinding[]
   pending: PendingBinding[]
@@ -45,6 +67,11 @@ function validPending(value: unknown): value is PendingBinding[] {
       typeof entry.id === 'string' && entry.id.length <= 80) &&
     new Set(value.map(entry => entry.callId)).size === value.length
 }
+export function parseSessionRepositoryView(value: unknown): readonly RepositoryBinding[] {
+  if (!validBindings(value)) throw new Error('invalid native session repository view')
+  return value
+}
+
 export function parseSessionRepositoryState(value: unknown): SessionRepositoryState {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('invalid native session repository projection')
@@ -80,6 +107,32 @@ export function foldSessionRepositoryEvent(
   state: SessionRepositoryState,
   event: { type: string; seq: number; data?: unknown },
 ): SessionRepositoryState {
+  if (event.type === 'delta-code/repository-binding') {
+    if (!Number.isSafeInteger(event.seq) || event.seq < 0 || event.seq <= state.lastSeq) {
+      return { ...state, invalid: true }
+    }
+    if (state.invalid) return state
+    const data = event.data && typeof event.data === 'object'
+      ? event.data as { version?: unknown; action?: unknown; id?: unknown; path?: unknown }
+      : {}
+    if (data.version !== 1 || (data.action !== 'attach' && data.action !== 'detach') ||
+        typeof data.id !== 'string' || !REPO_ID.test(data.id) || !PATH_OK(data.path)) {
+      return { ...state, lastSeq: event.seq, invalid: true }
+    }
+    const base = { ...state, lastSeq: event.seq }
+    if (data.action === 'attach') {
+      if (state.bindings.length >= MAX_REPOSITORIES ||
+          state.bindings.some(binding => binding.id === data.id || binding.path === data.path)) {
+        return { ...base, invalid: true }
+      }
+      return { ...base, bindings: [...state.bindings, {
+        id: data.id, path: data.path, addedSeq: event.seq,
+      }] }
+    }
+    const existing = state.bindings.find(binding => binding.id === data.id)
+    if (!existing || existing.path !== data.path) return { ...base, invalid: true }
+    return { ...base, bindings: state.bindings.filter(binding => binding.id !== data.id) }
+  }
   if (event.type !== 'tool/call' && event.type !== 'tool/result') return state
   if (!Number.isSafeInteger(event.seq) || event.seq < 0 || event.seq <= state.lastSeq) {
     return { ...state, invalid: true }
