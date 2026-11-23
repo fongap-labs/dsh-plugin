@@ -17,6 +17,8 @@ interface DeltaCopy {
     searchSessions: string; newConversation: string; searching: string; noResults: string;
     copied: string; copyFailed: string; protectedDefaultWorkspace: string;
     updateNotification: string; settings: string; signIn: string; signOut: string;
+    navigationPlugins: string; navigationSchedules: string; navigationSession: string;
+    accountBalance: string; todaySpending: string; dataUnavailable: string;
     signedIn: string; latestVersion: string; signedOut: string;
     signInRequired: string; signOutFromMenu: string;
     collapseLeftSidebar: string; expandLeftSidebar: string;
@@ -72,6 +74,21 @@ interface DeltaCopy {
     footerNav: string; footerOpen: string; footerTab: string; footerEsc: string;
     commandCopyLabel: string; commandCopyHint: string; commandCopied: string; commandCopyFailed: string;
     commandPickerLabel: string; commandInsertLabel: string; commandInsertHint: string; commandInserted: string; commandInsertFailed: string;
+    globalCommandSearch: string; workspaceFiles: string; builtInBrowser: string; archivedBadge: string;
+    builtinPlan: string; builtinGoal: string; builtinCompact: string; builtinSchedule: string;
+    builtinBrowser: string; builtinBoost: string;
+  }
+  gatewayEffort: {
+    modelSelectionUnavailable: string; selectionChanging: string; previewSelectionChanged: string;
+    previewBlockedPrefix: string; levelsUnchanged: string; approvalRequired: string;
+    invalidPreview: string; modelLoadFailed: string; selectionChangedBeforeApply: string;
+    savedRevisionPrefix: string; writeRefusedPrefix: string; writeUnknown: string;
+    none: string; modelNotLoaded: string; noActiveSession: string;
+    title: string; description: string; providerNamespace: string;
+    nativeSelectionPrefix: string; nativeOffUnsupported: string; working: string;
+    previewButton: string; confirmTitle: string; added: string;
+    removed: string; remapped: string; selectionChangedNotice: string;
+    approvalCheckbox: string; applyButton: string;
   }
 }
 type Language = 'zh' | 'en'

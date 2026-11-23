@@ -288,7 +288,11 @@ test('Delta sidebar pins cannot unmount the scheduled-task navigation layout', (
   assert.match(client, /data-dtd-live-footer-card/)
   assert.match(client, /activeSessionId\?: string/)
   assert.match(client, /readLiveAccountState/)
-  assert.ok(client.includes("values[1]!.textContent = localize('Unavailable', '暂无数据')"))
+  assert.ok(client.includes('values[1]!.textContent = uiCopy.dataUnavailable'))
+  for (const language of ['zh', 'en']) {
+    const dictionary = JSON.parse(read(`packages/delta-suite/locale/${language}.json`))
+    assert.ok(dictionary.ui.dataUnavailable?.trim(), 'missing unavailable copy: ' + language)
+  }
 })
 
 test('Delta Suite contains no proxy or Vision Bridge service registration or front-end settings', () => {

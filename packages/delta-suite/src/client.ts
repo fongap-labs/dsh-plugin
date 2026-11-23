@@ -430,9 +430,10 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
   const unmark = (node: HTMLElement, key: string): void => {
     node.removeAttribute('data-dtd-live-' + key)
   }
-  const wording: Record<'zh' | 'en', { plugins: string; schedules: string; session: string }> = {
-    zh: { plugins: '插件管理', schedules: '定时任务', session: '开始对话' },
-    en: { plugins: 'Plugin Manager', schedules: 'Scheduled Tasks', session: 'Start Conversation' },
+  const wording = (lang: Language) => {
+    const copy = DICTIONARIES[lang] ?? DICTIONARIES.en
+    return { plugins: copy.ui.navigationPlugins, schedules: copy.ui.navigationSchedules,
+      session: copy.ui.navigationSession }
   }
   const kind = (value: string): 'plugins' | 'schedules' | 'session' | undefined => {
     if (['插件', '插件管理', 'Plugins', 'Plugin Manager'].includes(value)) return 'plugins'
@@ -493,20 +494,19 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
         !footerCard?.isConnected || footerTrigger?.getAttribute('aria-expanded') === 'true') return
     const snapshot = (() => { try { return readLiveAccountState?.() } catch { return undefined } })()
     const wallets = snapshot?.details?.balance
-    const label = language() === 'zh'
-    const localize = (english: string, chinese: string): string => label ? chinese : english
+    const uiCopy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
     const balance = wallets?.status === 'ready' && Array.isArray(wallets.value) && wallets.value.length > 0
       ? wallets.value.map(item => (item.currency === 'CNY' ? '¥' : item.currency === 'USD' ? '$' : item.currency + ' ') +
         item.balance).join(' + ')
-      : localize('Unavailable', '暂无数据')
+      : uiCopy.dataUnavailable
     const keys = footerCard.querySelectorAll<HTMLElement>('[data-dtd-live-footer-label]')
     const values = footerCard.querySelectorAll<HTMLElement>('[data-dtd-live-footer-value]')
     if (keys.length !== 2 || values.length !== 2) return
-    keys[0]!.textContent = localize('Account balance', '账户余额')
-    keys[1]!.textContent = localize("Today's spending", '今日消费')
+    keys[0]!.textContent = uiCopy.accountBalance
+    keys[1]!.textContent = uiCopy.todaySpending
     values[0]!.textContent = balance
     // The Host has no verified account-wide daily cost capability.
-    values[1]!.textContent = localize('Unavailable', '暂无数据')
+    values[1]!.textContent = uiCopy.dataUnavailable
     footerCard.setAttribute('data-open', '1')
   }
   const onAccountOver = (event: Event): void => {
@@ -577,11 +577,8 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
         button.addEventListener('click', () => activateNativeAccount(id))
         footerActions.set(id, button)
       }
-      const isChinese = language() === 'zh'
-      const localize = (english: string, chinese: string): string => isChinese ? chinese : english
-      const label = id === 'settings' ? localize('Settings', '设置')
-        : isSignedIn ? localize('Sign out', '退出登录')
-          : localize('Sign in', '登录')
+      const uiCopy = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
+      const label = id === 'settings' ? uiCopy.settings : isSignedIn ? uiCopy.signOut : uiCopy.signIn
       button.title = label
       button.setAttribute('aria-label', label)
       const state = id + ':' + String(isSignedIn)
@@ -641,10 +638,10 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       if (nav) for (const button of nav.querySelectorAll<HTMLButtonElement>('button[aria-label]')) {
         const category = kind(button.getAttribute('aria-label')?.trim() ?? '')
         if (category !== 'plugins' && category !== 'schedules') continue
-        updateAria(button, wording[lang][category])
+        updateAria(button, wording(lang)[category])
         for (const span of button.querySelectorAll<HTMLElement>('span')) {
           const found = kind(span.textContent?.trim() ?? '')
-          if (found === category) updateCopy(span, wording[lang][category])
+          if (found === category) updateCopy(span, wording(lang)[category])
         }
         let row: HTMLElement = button
         while (row.parentElement && row.parentElement !== nav) row = row.parentElement
@@ -702,9 +699,9 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       }
       if (target) for (const button of target.querySelectorAll<HTMLButtonElement>('button[aria-label]')) {
         if (kind(button.getAttribute('aria-label')?.trim() ?? '') !== 'session') continue
-        updateAria(button, wording[lang].session)
+        updateAria(button, wording(lang).session)
         for (const span of button.querySelectorAll<HTMLElement>('span')) {
-          if (kind(span.textContent?.trim() ?? '') === 'session') updateCopy(span, wording[lang].session)
+          if (kind(span.textContent?.trim() ?? '') === 'session') updateCopy(span, wording(lang).session)
         }
       }
       // Only default blank-session hero; never rewrite custom session headings.
@@ -723,7 +720,7 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       for (const heading of document.querySelectorAll<HTMLElement>('h1, h2, [role="heading"]')) {
         if (heading.closest('nav, [role="dialog"]') || heading.children.length) continue
         const category = kind(heading.textContent?.trim() ?? '')
-        if (category === 'plugins' || category === 'schedules') updateCopy(heading, wording[lang][category])
+        if (category === 'plugins' || category === 'schedules') updateCopy(heading, wording(lang)[category])
       }
     } finally {
       isSyncing = false
@@ -4080,12 +4077,12 @@ function installHostSearch(
 
     // Safe built-in & live slash commands (strictly exclude /export & /feedback per privacy rules)
     const safeBuiltins: Array<{ cmd: string; descZh: string; descEn: string }> = [
-      { cmd: '/plan', descZh: '\u5236\u5B9A\u4EFB\u52A1\u6267\u884C\u8BA1\u5212\u540E\u518D\u4FEE\u6539\u4EE3\u7801', descEn: 'Create a structured execution plan' },
-      { cmd: '/goal', descZh: '\u8BBE\u5B9A\u6301\u7EED\u8FBE\u6807\u76EE\u6807，\u76F4\u5230\u5B8C\u6210\u4E3A\u6B62', descEn: 'Run toward a goal until verified' },
-      { cmd: '/compact', descZh: '\u538B\u7F29\u5E76\u7CBE\u7B80\u5F53\u524D\u4F1A\u8BDD\u4E0A\u4E0B\u6587', descEn: 'Compact current conversation context' },
-      { cmd: '/schedule', descZh: '\u521B\u5EFA\u5B9A\u65F6\u6216\u81EA\u52A8\u5316\u5468\u671F\u4EFB\u52A1', descEn: 'Create a recurring or scheduled task' },
-      { cmd: '/browser', descZh: '\u8C03\u7528\u5185\u7F6E\u6D4F\u89C8\u5668\u4EA4\u4E92\u4E0E\u68C0\u7D22', descEn: 'Interact with web applications via browser' },
-      { cmd: '/boost', descZh: '\u6DF1\u5EA6\u89C4\u5212\u4E0E\u591A\u7EF4\u5EA6\u4E25\u683C\u9A8C\u8BC1', descEn: 'Deep thinking and rigorous verification' },
+      { cmd: '/plan', descZh: DICTIONARIES.zh.searchPalette.builtinPlan, descEn: DICTIONARIES.en.searchPalette.builtinPlan },
+      { cmd: '/goal', descZh: DICTIONARIES.zh.searchPalette.builtinGoal, descEn: DICTIONARIES.en.searchPalette.builtinGoal },
+      { cmd: '/compact', descZh: DICTIONARIES.zh.searchPalette.builtinCompact, descEn: DICTIONARIES.en.searchPalette.builtinCompact },
+      { cmd: '/schedule', descZh: DICTIONARIES.zh.searchPalette.builtinSchedule, descEn: DICTIONARIES.en.searchPalette.builtinSchedule },
+      { cmd: '/browser', descZh: DICTIONARIES.zh.searchPalette.builtinBrowser, descEn: DICTIONARIES.en.searchPalette.builtinBrowser },
+      { cmd: '/boost', descZh: DICTIONARIES.zh.searchPalette.builtinBoost, descEn: DICTIONARIES.en.searchPalette.builtinBoost },
     ]
     const seenCmds = new Set<string>()
     for (const c of safeBuiltins) {
@@ -4208,9 +4205,9 @@ function installHostSearch(
       }
     } catch {}
     // Native right-sidebar guide entries are Host-owned and not command targets.
-    pushShortcut('search', language() === 'zh' ? '\u5168\u5C40\u641C\u7D22\u547D\u4EE4\u9762\u677F' : 'Global Command Search', '', () => openPalette(''))
-    pushShortcut('files', language() === 'zh' ? '\u5DE5\u4F5C\u533A\u6587\u4EF6' : 'Workspace Files', isDarwin ? '⌘ + P' : 'Ctrl + P', () => controller.toggleRightbarSafe?.())
-    pushShortcut('browser', language() === 'zh' ? '\u5185\u7F6E\u6D4F\u89C8\u5668' : 'Built-in Browser', isDarwin ? '⌘ + T' : 'Ctrl + T', () => controller.toggleRightbarSafe?.())
+    pushShortcut('search', (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette.globalCommandSearch, '', () => openPalette(''))
+    pushShortcut('files', (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette.workspaceFiles, isDarwin ? '⌘ + P' : 'Ctrl + P', () => controller.toggleRightbarSafe?.())
+    pushShortcut('browser', (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette.builtInBrowser, isDarwin ? '⌘ + T' : 'Ctrl + T', () => controller.toggleRightbarSafe?.())
 
     return { plugins, skills, shortcuts }
   }
@@ -4283,7 +4280,7 @@ function installHostSearch(
         title,
         snippet: wsLabel || redactPathForUi(ws?.path ?? ''),
         badge: pCopy.kindSession,
-        meta: isArchived ? (language() === 'zh' ? '\u5DF2\u5F52\u6863' : 'Archived') : undefined,
+        meta: isArchived ? pCopy.archivedBadge : undefined,
         score: q ? (isPrefix ? 140 : 110) : 70,
         run: () => openSessionHit(s.id, s.workspaceId),
       })
@@ -5840,7 +5837,6 @@ window.__ModuleLoader__.load({
     }
     /** Official Models footer Slot: all identity and Effort come from native Session. */
     function GatewayEffortFooter(): unknown {
-      const chinese = language() === 'zh'
       const [namespace, setNamespace] = React.useState('llm-pi-ai')
       const [busy, setBusy] = React.useState(false)
       const [approved, setApproved] = React.useState(false)
@@ -5873,7 +5869,7 @@ window.__ModuleLoader__.load({
       const current = nativeGatewaySelection(activeSessionId, resolver)
       const isReviewCurrent = Boolean(review && review.namespace === namespace &&
         sameNativeSelection(current, review.selection))
-      const say = (zh: string, en: string): string => chinese ? zh : en
+      const say = (key: keyof DeltaCopy['gatewayEffort']): string => (DICTIONARIES[language()] ?? DICTIONARIES.en).gatewayEffort[key]
       const reset = (): void => {
         setReview(null)
         setApproved(false)
@@ -5902,8 +5898,7 @@ window.__ModuleLoader__.load({
           const startedSession = deltaFeatures.getSnapshot().activeSessionId
           const directories = gatewayDirectories
           if (!startedSession || !directories) {
-            setFeedback(say('宿主没有提供当前会话的公开模型选择接口。',
-              'Native session model-selection service is unavailable.'))
+            setFeedback(say('modelSelectionUnavailable'))
             return
           }
           // Only a user click loads the authoritative native catalog. No
@@ -5912,8 +5907,7 @@ window.__ModuleLoader__.load({
           const bound = nativeGatewaySelection(startedSession, directories)
           if (!bound || directories !== gatewayDirectories ||
               deltaFeatures.getSnapshot().activeSessionId !== startedSession) {
-            setFeedback(say('当前会话模型不可用、选择正在变化或 Off 无法安全映射。',
-              'Native selection is unavailable, changing or Off is unsupported.'))
+            setFeedback(say('selectionChanging'))
             return
           }
           const result = await send('/api/delta-suite/gateway-effort/preview', {
@@ -5924,15 +5918,13 @@ window.__ModuleLoader__.load({
           if (!sameNativeSelection(bound, nativeGatewaySelection(
             deltaFeatures.getSnapshot().activeSessionId, directories)) ||
             directories !== gatewayDirectories) {
-            setFeedback(say('预览期间原生会话选择发生变化，请重新获取。',
-              'Native session selection changed during preview. Discover again.'))
+            setFeedback(say('previewSelectionChanged'))
             return
           }
           if (!result.ok) {
-            setFeedback(say('无法生成预览：', 'Preview blocked: ') + result.reason)
+            setFeedback(say('previewBlockedPrefix') + result.reason)
           } else if (result.data.status === 'unchanged') {
-            setFeedback(say('当前等级与 Gateway 一致，无需写入。',
-              'Current levels match Gateway; no write is required.'))
+            setFeedback(say('levelsUnchanged'))
           } else if (result.data.status === 'review' &&
               typeof result.data.previewId === 'string') {
             setReview({
@@ -5941,14 +5933,12 @@ window.__ModuleLoader__.load({
               removed: result.data.preview?.removed ?? [],
               remapped: result.data.preview?.remapped ?? [],
             })
-            setFeedback(say('请核对变更后明确批准；预览两分钟失效。',
-              'Review and explicitly approve. Preview expires in two minutes.'))
+            setFeedback(say('approvalRequired'))
           } else {
-            setFeedback(say('宿主没有返回有效预览。', 'Host returned no valid preview.'))
+            setFeedback(say('invalidPreview'))
           }
         } catch {
-          if (mounted.current) setFeedback(say('当前宿主无法获取模型信息。',
-            'Host could not load the selected model.'))
+          if (mounted.current) setFeedback(say('modelLoadFailed'))
         } finally { if (mounted.current) setBusy(false) }
       }
       const apply = async (): Promise<void> => {
@@ -5959,8 +5949,7 @@ window.__ModuleLoader__.load({
         if (!sameNativeSelection(confirmed, draft.selection) ||
             namespace !== draft.namespace) {
           reset()
-          setFeedback(say('原生会话的模型或 Effort 已变化，需重新预览。',
-            'Native model or effort changed. Preview again.'))
+          setFeedback(say('selectionChangedBeforeApply'))
           return
         }
         setReview(null) // approval tokens are one-use, even when Host refuses
@@ -5971,35 +5960,28 @@ window.__ModuleLoader__.load({
             { previewId: draft.id, approved: true })
           if (!mounted.current) return
           setFeedback(result.ok && result.data.status === 'applied'
-            ? say('Harness 已保存模型能力配置，修订号：', 'Harness saved revision: ') +
+            ? say('savedRevisionPrefix') +
               String(result.data.revision)
-            : say('宿主拒绝写入，请核查原生设置并重新预览：',
-              'Host rejected the write; inspect native settings and preview again: ') +
+            : say('writeRefusedPrefix') +
               (result.ok ? 'unverified-write' : result.reason))
         } catch {
-          if (mounted.current) setFeedback(say('保存结果未知，先核查原生设置，不要直接重试。',
-            'Unknown write result. Inspect native settings before retrying.'))
+          if (mounted.current) setFeedback(say('writeUnknown'))
         } finally { if (mounted.current) setBusy(false) }
       }
       const list = (title: string, levels: readonly string[]): unknown =>
         el('p', { className: 'dtd-current' }, title + ': ' +
-          (levels.length ? levels.join(', ') : say('无', 'none')))
+          (levels.length ? levels.join(', ') : say('none')))
       const label = current
         ? current.providerId + ' / ' + current.modelId + ' / ' + current.selectedEffort
-        : activeSessionId ? say('尚未加载当前会话模型；点击下方按钮从 Harness 读取。',
-          'Current session model not loaded. Use the button below to load it from Harness.')
-          : say('没有当前会话；请先打开一个原生会话。',
-            'No active native session. Open a session first.')
+        : activeSessionId ? say('modelNotLoaded')
+          : say('noActiveSession')
       return el('details', { className: 'dtd-advanced-features',
         'data-delta-gateway-effort': '' },
-      el('summary', null, say('Gateway 推理等级同步（需要批准）',
-        'Gateway reasoning levels (approval required)')),
+      el('summary', null, say('title')),
       el('div', { className: 'dtd-form-stack', style: { marginTop: '12px' } },
-        el('p', null, say(
-          '只读取当前 Harness 会话的模型和 Effort；密钥始终留在 Host，不接管原生选择器。',
-          'Uses the actual native session model and effort. Keys stay in the Host; its picker remains authoritative.')),
+        el('p', null, say('description')),
         el('label', { className: 'dtd-form-field' },
-          el('span', null, say('Provider 设置命名空间', 'Provider settings namespace')),
+          el('span', null, say('providerNamespace')),
           el('input', { type: 'text', className: 'dtd-form-input', value: namespace,
             maxLength: 160, disabled: busy,
             onChange: (event: any) => {
@@ -6007,36 +5989,32 @@ window.__ModuleLoader__.load({
               reset()
             } })),
         el('p', { className: 'dtd-current', role: 'status' },
-          say('原生会话模型 / Effort：', 'Native session model / effort: ') + label),
-        el('p', { className: 'dtd-current' }, say(
-          '原生 Off 当前不能保证 Gateway 显式关闭；若会话正在切换模型，则无法预览和写入。',
-          'Native Off cannot reliably disable Gateway reasoning; model changes in progress block sync.')),
+          say('nativeSelectionPrefix') + label),
+        el('p', { className: 'dtd-current' }, say('nativeOffUnsupported')),
         el('button', { type: 'button', className: 'dtd-btn-secondary',
           disabled: busy || !activeSessionId || !resolver || !namespace.trim(),
           onClick: () => { void preview() } },
-          busy ? say('处理中…', 'Working…') :
-            say('读取当前会话并预览 Gateway', 'Discover selected model and preview Gateway')),
+          busy ? say('working') :
+            say('previewButton')),
         review ? el('div', { className: 'dtd-privacy-card', role: 'group',
-          'aria-label': say('等级变更确认', 'Level change confirmation') },
+          'aria-label': say('confirmTitle') },
           el('p', { className: 'dtd-current' },
             review.selection.providerId + ' / ' + review.selection.modelId +
             ' / ' + review.selection.selectedEffort),
-          list(say('新增', 'Add'), review.added),
-          list(say('移除', 'Remove'), review.removed),
-          list(say('变更线路值', 'Remap'), review.remapped),
+          list(say('added'), review.added),
+          list(say('removed'), review.removed),
+          list(say('remapped'), review.remapped),
           !isReviewCurrent ? el('p', { role: 'alert', className: 'dtd-error' },
-            say('原生会话选择已变化；必须重新获取预览。',
-              'Native selection changed; preview again.')) : null,
+            say('selectionChangedNotice')) : null,
           el('label', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
             el('input', { type: 'checkbox', checked: approved,
               disabled: busy || !isReviewCurrent,
               onChange: (event: any) => setApproved(Boolean(event?.target?.checked)) }),
-            say('我已核对并批准修改该模型的推理等级。',
-              'I reviewed and approve editing only this model’s levels.')),
+            say('approvalCheckbox')),
           el('button', { type: 'button', className: 'dtd-btn-primary',
             disabled: busy || !approved || !isReviewCurrent,
             onClick: () => { void apply() } },
-            say('确认应用到 Harness', 'Apply to Harness'))) : null,
+            say('applyButton'))) : null,
         feedback ? el('p', { role: 'status', className: 'dtd-current' }, feedback) : null))
     }
 

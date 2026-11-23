@@ -27,7 +27,11 @@ test('Ctrl/Cmd+K remains native, Delta palette opens on its own input Enter', ()
   assert.match(section, /if \(!isModalOpen && e\.key === 'Enter'\)/)
   assert.match(section, /openPalette\(input\.value\)/)
   assert.match(section, /kbdHint\.textContent = 'Enter'/)
-  assert.match(section, /pushShortcut\('search', .*Global Command Search', '', \(\) => openPalette\(''\)\)/)
+  assert.ok(section.includes("pushShortcut('search', (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette.globalCommandSearch, '', () => openPalette(''))"))
+  for (const language of ['zh', 'en']) {
+    const dictionary = JSON.parse(read(`packages/delta-suite/locale/${language}.json`))
+    assert.ok(dictionary.searchPalette.globalCommandSearch?.trim(), 'missing search label: ' + language)
+  }
   assert.match(section, /modal\.addEventListener\('keydown', \(e: KeyboardEvent\)/)
   assert.match(section, /if \(!isModalOpen \|\| e\.key !== 'Escape'\) return/)
   assert.match(section, /mInput\.addEventListener\('keydown'/)
