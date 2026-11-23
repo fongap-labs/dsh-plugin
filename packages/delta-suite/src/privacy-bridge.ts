@@ -45,18 +45,18 @@ const DEEPSEEK_PROVIDER_ROUTES = new Set(['deepseek-official', 'deepseek-account
 function isDeepSeekProvider(provider: string): boolean { return DEEPSEEK_PROVIDER_ROUTES.has(provider) }
 
 export function registerPrivacyBridge(ctx: HostContext, config: DeltaPrivacyConfig): () => void {
-  let active = true
+  let isActive = true
   let restoreModels: (() => void) | undefined
   let restoreResolver: (() => void) | undefined
   ctx.inject(['llm'], scope => {
     const llm = scope.llm ?? ctx.llm
-    if (!active || !llm || typeof llm.stream !== 'function') return
+    if (!isActive || !llm || typeof llm.stream !== 'function') return
     const originalList = llm.listModels
     if (typeof originalList === 'function') {
       const descriptor = Object.getOwnPropertyDescriptor(llm, 'listModels')
       const bound = originalList.bind(llm)
       const wrapped = async (provider: string, ...args: unknown[]): Promise<readonly ModelInfo[]> => {
-        if (active && !configSnapshot(config).deepSeekModelsEnabled && isDeepSeekProvider(provider)) return []
+        if (isActive && !configSnapshot(config).deepSeekModelsEnabled && isDeepSeekProvider(provider)) return []
         return await bound(provider, ...args)
       }
       try {
@@ -75,7 +75,7 @@ export function registerPrivacyBridge(ctx: HostContext, config: DeltaPrivacyConf
       const descriptor = Object.getOwnPropertyDescriptor(llm, 'resolveModelInfo')
       const bound = resolver.bind(llm)
       const wrapped = async (provider: string, model: string, signal?: AbortSignal): Promise<Record<string, any>> => {
-        if (active && !configSnapshot(config).deepSeekModelsEnabled && isDeepSeekProvider(provider)) {
+        if (isActive && !configSnapshot(config).deepSeekModelsEnabled && isDeepSeekProvider(provider)) {
           throw new Error('DeepSeek model routes are disabled in Delta settings.')
         }
         return bound(provider, model, signal)
@@ -93,12 +93,12 @@ export function registerPrivacyBridge(ctx: HostContext, config: DeltaPrivacyConf
     }
     scope.on('llm/stream', async function* (options, next) {
       const settings = configSnapshot(config)
-      if (active && !settings.deepSeekModelsEnabled && isDeepSeekProvider(options.provider)) {
+      if (isActive && !settings.deepSeekModelsEnabled && isDeepSeekProvider(options.provider)) {
         yield { type: 'finish', reason: { kind: 'error',
           failure: { code: 'DELTA_DEEPSEEK_MODELS_DISABLED', message: 'DeepSeek model routes are disabled in Delta settings.' } } }
         return
       }
-      if (!active || !settings.redactionEnabled) { yield* next(); return }
+      if (!isActive || !settings.redactionEnabled) { yield* next(); return }
       const redactor = createSensitiveRedactor()
       const masked = redactModelRequest(options as Parameters<typeof redactModelRequest>[0], redactor)
       if (!redactor.hasMatches()) { yield* next(); return }
@@ -106,5 +106,5 @@ export function registerPrivacyBridge(ctx: HostContext, config: DeltaPrivacyConf
       yield* restoreStream(llm.stream(masked as LlmRequest), redactor)
     })
   })
-  return () => { active = false; restoreModels?.(); restoreResolver?.() }
+  return () => { isActive = false; restoreModels?.(); restoreResolver?.() }
 }

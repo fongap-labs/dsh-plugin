@@ -559,10 +559,10 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
   let footerTrigger: HTMLButtonElement | null = null
   let footerCard: HTMLElement | null = null
   const footerActions = new Map<'settings' | 'auth', HTMLButtonElement>()
-  const actionIcon = (id: 'settings' | 'auth', signedIn: boolean): string => {
+  const actionIcon = (id: 'settings' | 'auth', isSignedIn: boolean): string => {
     const path = id === 'settings'
       ? '<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/><path d="M19.4 15.5a8.5 8.5 0 0 0 .1-7l1.8-1.4-2-3.4-2.2.9A8.6 8.6 0 0 0 14 3L13.6 1h-4L9 3a8.6 8.6 0 0 0-3.1 1.6l-2.2-.9-2 3.4L3.5 8.5a8.5 8.5 0 0 0-.1 7l-1.8 1.4 2 3.4 2.2-.9A8.6 8.6 0 0 0 9 21l.6 2h4l.4-2a8.6 8.6 0 0 0 3.1-1.6l2.2.9 2-3.4z" transform="translate(2 2) scale(.83)"/>'
-      : signedIn
+      : isSignedIn
         ? '<path d="M10 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/><path d="m16 17 5-5-5-5M21 12H9"/>'
         : '<circle cx="12" cy="8" r="4"/><path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2"/>'
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>'
@@ -604,9 +604,9 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
   const activateNativeAccount = (action: 'settings' | 'auth'): void => {
     const trigger = footerTrigger
     if (!trigger?.isConnected || controller.getSnapshot().mode !== 'delta') return
-    const signedIn = trigger.getAttribute('data-signed-out') === 'false'
+    const isSignedIn = trigger.getAttribute('data-signed-out') === 'false'
     const labels = action === 'settings' ? ['设置', 'Settings'] :
-      signedIn ? ['退出登录', 'Sign out', 'Sign Out'] : ['登录', 'Sign in', 'Sign In']
+      isSignedIn ? ['退出登录', 'Sign out', 'Sign Out'] : ['登录', 'Sign in', 'Sign In']
     dismissHover()
     if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click()
     // Keep all authentication, running-task checks and confirmation dialogs
@@ -628,8 +628,8 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
     const account = trigger?.closest<HTMLElement>('[data-inset]')
     const row = account?.parentElement
     if (!trigger || !account || !row || !sidebar.contains(row)) { clearFooter(); return }
-    const signedIn = trigger.getAttribute('data-signed-out') === 'false'
-    if (!signedIn) dismissHover()
+    const isSignedIn = trigger.getAttribute('data-signed-out') === 'false'
+    if (!isSignedIn) dismissHover()
     footerTrigger = trigger
     mark(row, 'footer-row')
     mark(account, 'footer-avatar')
@@ -655,13 +655,13 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       const isChinese = language() === 'zh'
       const localize = (english: string, chinese: string): string => isChinese ? chinese : english
       const label = id === 'settings' ? localize('Settings', '设置')
-        : signedIn ? localize('Sign out', '退出登录')
+        : isSignedIn ? localize('Sign out', '退出登录')
           : localize('Sign in', '登录')
       button.title = label
       button.setAttribute('aria-label', label)
-      const state = id + ':' + String(signedIn)
+      const state = id + ':' + String(isSignedIn)
       if (button.dataset.iconState !== state) {
-        button.innerHTML = actionIcon(id, signedIn)
+        button.innerHTML = actionIcon(id, isSignedIn)
         button.dataset.iconState = state
       }
       if (button.parentElement !== row) row.appendChild(button)
