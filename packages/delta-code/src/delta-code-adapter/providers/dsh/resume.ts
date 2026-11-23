@@ -205,8 +205,22 @@ export function createNativeResumeTool(
       try {
         const root = await resolveRoot(ctx, exec, settings)
         const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
-        head = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
-        if (!HEAD_PATTERN.test(head)) throw new Error('Host returned invalid Git HEAD')
+        // A valid Git repository may be unborn (git init without a first commit).
+        // Only recognize it using read-only Host Git evidence. A denied Git
+        // command, malformed HEAD or ordinary repository failure stays blocked.
+        let unbornRef = ''
+        try {
+          head = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
+          if (!HEAD_PATTERN.test(head)) throw new Error('Host returned invalid Git HEAD')
+        } catch {
+          const ref = (await hostGit(ctx, settings, cwd, exec, ['symbolic-ref', '--quiet', 'HEAD'])).trim()
+          const status = await hostGit(ctx, settings, cwd, exec, ['status', '--porcelain=v1', '--branch', '-z'])
+          if (!/^refs\/heads\/[A-Za-z0-9._/-]+$/.test(ref) ||
+              !/^## (?:No commits yet on|Initial commit on) /u.test(status)) {
+            throw new Error('Cannot verify an unborn Git repository')
+          }
+          unbornRef = ref
+        }
         if (args.expectedHead && head !== args.expectedHead) {
           return result('blocked', 'Git HEAD changed; inspect commits and refresh plan before any task operation.',
             state, head, [], ['Git HEAD differs from previous checkpoint'])
@@ -216,8 +230,9 @@ export function createNativeResumeTool(
         // worktree while the Host inspection is in progress. Re-read status
         // before accepting a resume recommendation; no local Git fallback.
         const after = await hostGit(ctx, settings, cwd, exec, ['status', '--porcelain=v1', '--branch', '-z'])
-        const afterHead = (await hostGit(ctx, settings, cwd, exec, ['rev-parse', '--verify', 'HEAD'])).trim()
-        if (head !== afterHead) {
+        const afterHead = (await hostGit(ctx, settings, cwd, exec,
+          unbornRef ? ['symbolic-ref', '--quiet', 'HEAD'] : ['rev-parse', '--verify', 'HEAD'])).trim()
+        if ((unbornRef || head) !== afterHead) {
           return result('blocked', 'HEAD changed during read; reconcile repository and retry.',
             state, afterHead, [], ['Git HEAD changed while inspecting'])
         }
@@ -239,6 +254,10 @@ export function createNativeResumeTool(
             : 'Inspect existing staged/unstaged/untracked work before continuing: ' + pending[0],
             state, head, changed)
         }
+        if (unbornRef) return result('reconcile', todosComplete
+          ? 'Native Todos claim completion but this Git branch has no commits; verify worktree and delivery evidence.'
+          : 'Git branch has no commits yet; revalidate the native Todo and worktree before continuing: ' + pending[0],
+          state, '', changed)
         if (!args.expectedHead) return result('reconcile', todosComplete
           ? 'Native Todos claim completion but no Git baseline was supplied; inspect commits and run the delivery gate.'
           : 'No previous Git baseline was supplied; inspect commits and validate completed Todo steps before continuing: ' + pending[0],
