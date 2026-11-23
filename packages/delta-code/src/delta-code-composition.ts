@@ -25,17 +25,20 @@ import { UserTaskContext } from './delta-code-strategy/intent-contract.js'
 import { createExecutionNextTool } from './delta-code-adapter/providers/dsh/execution-next.js'
 import { registerNativeToolStats } from './delta-code-adapter/providers/dsh/native-tool-stats.js'
 import { registerNativeCompactionMarker } from './delta-code-adapter/providers/dsh/compaction-marker.js'
+import { registerNativeSessionRepositories } from './delta-code-adapter/providers/dsh/session-repository-projection.js'
 
 /** Only this composition root knows both Host adapters and feature implementations. */
 export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
   if (!settings.enabled) return () => {}
   const resume = registerNativeResume(ctx)
   const compaction = registerNativeCompactionMarker(ctx)
+  const sessionRepositories = registerNativeSessionRepositories(ctx)
   const delegation = observeNativeDelegation(ctx)
   const stats = new ExecutionStats()
   const taskContext = new UserTaskContext()
   const releases: Array<() => void> = [
-    () => resume.dispose(), () => compaction.dispose(), () => delegation.dispose(), () => stats.clear(),
+    () => resume.dispose(), () => compaction.dispose(), () => sessionRepositories.dispose(),
+    () => delegation.dispose(), () => stats.clear(),
     () => taskContext.clear(),
   ]
   try {
@@ -76,7 +79,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       const commandFeatures = [
         deltaCodeCodingCommands(createDshCodingCommandTools(child, settings)),
         deltaCodeQuality(createDshQualityTools(child, settings, resume)),
-        deltaCodeRepositoryCommands(createDshRepositoryCommandTools(child, settings)),
+        deltaCodeRepositoryCommands(createDshRepositoryCommandTools(child, settings, sessionRepositories)),
       ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
       const unmount = mountDeltaCodeFeatures(commandFeatures, dshToolRegistrar(ctx, stats))
       commandDisposers.add(unmount)
