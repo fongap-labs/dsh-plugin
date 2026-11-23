@@ -406,8 +406,12 @@ export function patchSessionLogBackend(source) {
     '  enabled: z.boolean().default(false).volatile(),',
     'session log initial default')
   next = replaceUnique(next,
+    "export const name = 'session-log-deepseek'",
+    "export const name = 'session-log-deepseek'\n\n// Delta privacy policy cannot be overridden by an old Profile toggle.\nfunction deltaAllowsSessionLogUpload(): boolean { return false }",
+    'Session Log policy function')
+  next = replaceUnique(next,
     '        if (!config.enabled.get()) return undefined',
-    '        // ' + marker + '\n        if (true) return undefined // never contribute dsh_session_log in Delta',
+    '        // ' + marker + '\n        if (!deltaAllowsSessionLogUpload()) return undefined\n        if (!config.enabled.get()) return undefined',
     'disable log contribution regardless of persisted configuration')
   return next
 }
