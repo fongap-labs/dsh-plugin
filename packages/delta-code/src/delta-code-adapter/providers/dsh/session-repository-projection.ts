@@ -15,7 +15,7 @@ export interface NativeSessionRepositoryReader {
  * No on-disk database, global repository map, or session ID taken from model input.
  */
 export function registerNativeSessionRepositories(ctx: Context): NativeSessionRepositoryReader {
-  let active = true
+  let isActive = true
   let epoch = 0
   let handle: ProjectionHandle | undefined
   const release = (old?: ProjectionHandle) => {
@@ -37,15 +37,15 @@ export function registerNativeSessionRepositories(ctx: Context): NativeSessionRe
     apply: foldSessionRepositoryEvent,
   }
   const injection = ctx.inject(['sessionProjections'], child => {
-    if (!active) return
+    if (!isActive) return
     const service = (child as unknown as { sessionProjections?: ProjectionRegistry }).sessionProjections
     if (typeof service?.register !== 'function') return
     const current = ++epoch
     clear()
-    let scopeActive = true
+    let isScopeActive = true
     try {
       void Promise.resolve(service.register(definition)).then(value => {
-        if (!active || !scopeActive || current !== epoch) { release(value); return }
+        if (!isActive || !isScopeActive || current !== epoch) { release(value); return }
         handle = value
       }).catch(() => {
         ctx.logger?.warn?.('delta-code: session repository projection registration failed')
@@ -54,7 +54,7 @@ export function registerNativeSessionRepositories(ctx: Context): NativeSessionRe
       ctx.logger?.warn?.('delta-code: session repository projection registration failed')
     }
     return () => {
-      scopeActive = false
+      isScopeActive = false
       if (current !== epoch) return
       epoch++
       clear()
@@ -62,14 +62,14 @@ export function registerNativeSessionRepositories(ctx: Context): NativeSessionRe
   })
   return {
     read(agent) {
-      if (!active || !handle || !agent || typeof agent !== 'object') return undefined
+      if (!isActive || !handle || !agent || typeof agent !== 'object') return undefined
       const session = (agent as { session?: unknown }).session
       if (!session) return undefined
       return parseSessionRepositoryState(handle.stateOf(session))
     },
     dispose() {
-      if (!active) return
-      active = false
+      if (!isActive) return
+      isActive = false
       epoch++
       clear()
       const dispose = (injection as { dispose?: () => Promise<void> } | null)?.dispose
