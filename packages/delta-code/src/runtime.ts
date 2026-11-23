@@ -1,6 +1,5 @@
 import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
 import { normalizeLanguageConventions } from './consistency.js'
-import { posix, win32 } from 'node:path'
 import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'
 
 export const TOOL_PREFIX = 'code_'
@@ -119,14 +118,13 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
   const sessionReadOnlyRepositories = rawReadOnly.map(path => {
     if (typeof path !== 'string' || !path.trim() || path.length > 1024 ||
         /[\u0000-\u001f\u007f]/u.test(path) ||
-        (!posix.isAbsolute(path) && !win32.isAbsolute(path)) ||
-        (win32.isAbsolute(path) && path.startsWith('\\\\')) ||
+        !/^(?:\/(?!\/)|[A-Za-z]:[\\/])/.test(path) ||
         path.split(/[\\/]/).some(part => part === '..')) {
       throw new Error('sessionRepositories.readOnlyRoots requires safe absolute local directory paths')
     }
     return path.trim()
   })
-  if (new Set(sessionReadOnlyRepositories.map(x => win32.isAbsolute(x) ? x.toLowerCase() : x)).size !==
+  if (new Set(sessionReadOnlyRepositories.map(x => /^[A-Za-z]:[\\/]/.test(x) ? x.toLowerCase() : x)).size !==
       sessionReadOnlyRepositories.length) throw new Error('duplicate read-only repository root')
   const fsWriteContract = execution.fsWriteContract ?? 'legacy-overwrite'
   if (fsWriteContract !== 'legacy-overwrite' && fsWriteContract !== 'native-unguarded' &&
