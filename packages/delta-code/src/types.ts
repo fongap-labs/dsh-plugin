@@ -55,6 +55,7 @@ export interface Settings {
   autoRoutingEnabled: boolean
   workspaceRoot: string
   sessionReadOnlyRepositories: string[]
+  sessionWriteRepositories: string[]
   gitEnabled: boolean
   gitCommand: string
   allowWorktreeWrites: boolean
