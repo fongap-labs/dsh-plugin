@@ -100,7 +100,7 @@ test('dictionary updates only requested language and key, without upstream versi
   assert.match(en, /panel: 'Plugins'/)
   assert.equal(patchDictionary(en, 'zh', 'panel', '插件', '插件管理'), en)
   assert.throws(() => patchDictionary(source, 'zh', 'title', '别的标题', '插件管理'), /contract changed/)
-  assert.equal(changes.length, 15)
+  assert.equal(changes.length, 16)
 })
 
 test('native layout changes are scoped to Delta and preserve official mode', () => {
