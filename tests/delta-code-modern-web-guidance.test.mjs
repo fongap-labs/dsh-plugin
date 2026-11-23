@@ -36,11 +36,11 @@ describe('Delta Code pinned Modern Web Guidance', () => {
 
   it('only suggests guidance for substantial browser work and respects opt-outs', () => {
     assert.equal(shouldSuggestModernWebGuidance('Fix dialog keyboard focus'), true)
-    assert.equal(shouldSuggestModernWebGuidance('优化 CSS 响应式布局'), true)
+    assert.equal(shouldSuggestModernWebGuidance('\u4f18\u5316 CSS \u54cd\u5e94\u5f0f\u5e03\u5c40'), true)
     assert.equal(shouldSuggestModernWebGuidance('fix backend Rust CI'), false)
     assert.equal(shouldSuggestModernWebGuidance('rename a CSS variable'), false)
     assert.equal(shouldSuggestModernWebGuidance('Fix CSS modal without network'), false)
-    assert.equal(shouldSuggestModernWebGuidance('不要联网，修复页面侧栏'), false)
+    assert.equal(shouldSuggestModernWebGuidance('\u4e0d\u8981\u8054\u7f51\uff0c\u4fee\u590d\u9875\u9762\u4fa7\u680f'), false)
   })
 
   it('searches locally, then fetches only the exact pinned guide with verified bytes', async () => {
