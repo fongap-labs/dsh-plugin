@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '06dd0c3c8934064cf994bdd3622199d34a08abe7')
+    assert.equal(sha, '1bc86d3be948e39269a334e69da2d950811a9ec3')
   })
   it('does not style native Host inputs, hero, guide cards or global token scales', () => {
     assert.doesNotMatch(css, /\[class[*~^$|]?=/)
@@ -169,4 +169,31 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     }
   })
 
+})
+
+
+describe('Delta-owned visual tokens and modal accessibility', () => {
+  it('defines every referenced Delta token and separates both appearance modes', () => {
+    const extras = file('src/feature-extras.css')
+    const definitions = new Set([...css.matchAll(/(--dtd-[a-z0-9-]+)\s*:/g)].map(m => m[1]))
+    const uses = new Set([...(css + extras).matchAll(/var\((--dtd-[a-z0-9-]+)/g)].map(m => m[1]))
+    for (const token of uses) assert.ok(definitions.has(token), 'undefined Delta token: ' + token)
+    for (const token of ['--dtd-bg-muted', '--dtd-qr-shadow']) {
+      assert.equal([...css.matchAll(new RegExp(token + '\\s*:', 'g'))].length, 2,
+        'token requires explicit light and dark values: ' + token)
+    }
+    assert.match(css, /--dtd-brand:\s*#286F78/)
+    assert.match(css, /--dtd-brand:\s*#60B4BF/)
+  })
+
+  it('styles only Suite-owned modal overlays, surfaces and visible keyboard focus', () => {
+    const extras = file('src/feature-extras.css')
+    assert.doesNotMatch(extras, /rgba?\(/, 'component colors must use semantic tokens')
+    assert.match(extras, /\.dtd-mcp-overlay[^\{]*\{[^\}]*var\(--dtd-bg-mask\)/)
+    assert.match(extras, /\.dtd-correction-overlay[^\{]*\{[^\}]*var\(--dtd-bg-mask\)/)
+    assert.match(extras, /\.dtd-mcp-dialog[^\{]*\{[^\}]*var\(--dtd-modal-bg\)/)
+    assert.match(extras, /\.dtd-mcp-dialog[^\{]*\{[^\}]*var\(--dtd-modal-shadow\)/)
+    assert.match(extras, /:focus-visible\s*\{[^\}]*var\(--dtd-border-focus\)/)
+    assert.doesNotMatch(extras, /(^|\s)--dsw-[a-z-]+\s*:/m)
+  })
 })
