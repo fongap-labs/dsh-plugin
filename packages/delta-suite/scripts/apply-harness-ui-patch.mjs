@@ -79,11 +79,11 @@ const heroCSS = [
 
 function ensureHeroV2Style(source) {
   if (source.includes('delta-suite:hero-align-v2')) return source
-  return source + '\\n/* delta-suite:hero-align-v2 */\\n' + [
+  return source + '\n/* delta-suite:hero-align-v2 */\n' + [
     ":global(html[data-delta-ui='delta']) .fishHitbox { transform: translateY(-4px); }",
     ":global(html[data-delta-ui='delta']) .fish { color: var(--dtd-fg-primary); }",
     ":global(html[data-delta-ui='delta']) .headline { color: var(--dtd-fg-primary); }",
-  ].join('\\n') + '\\n'
+  ].join('\n') + '\n'
 }
 
 export function patchHeroStyle(source) {
@@ -104,7 +104,7 @@ export function patchDictionary(source, lang, key, before, after) {
   const end = following < 0 ? source.length : following
   const part = source.slice(begin, end)
   const keyPattern = key.replaceAll('.', '\\.')
-  const line = new RegExp("(^[ \\t]*['\"]?" + keyPattern + "['\"]?[ \\t]*:[ \\t]*')([^'\"\\n]*)(['\"][^\\n]*$)", 'm')
+  const line = new RegExp("(^[ \\t]*['\"]?" + keyPattern + "['\"]?[ \\t]*:[ \\t]*')([^'\"\n]*)(['\"][^\n]*$)", 'm')
   const found = part.match(line)
   requireShape(found && found.index !== undefined, lang + '.' + key + ' entry')
   requireShape(found[2] === before || found[2] === after, lang + '.' + key + ' value')
@@ -272,11 +272,11 @@ const footerV2Css = [
   '    background: var(--dtd-bg-hover);',
   '  }',
   '}',
-].join('\\n')
+].join('\n')
 
 function ensureFooterV2Style(source) {
   if (source.includes('delta-suite:footer-style-v2')) return source
-  return source + '\\n/* delta-suite:footer-style-v2 */\\n' + footerV2Css + '\\n'
+  return source + '\n/* delta-suite:footer-style-v2 */\n' + footerV2Css + '\n'
 }
 
 export function patchAccountMenuStyle(source) {
@@ -353,7 +353,7 @@ const settingsFooterCSS = [
 
 function ensureSettingsFooterV2Style(source) {
   if (source.includes('delta-suite:settings-footer-v2')) return source
-  return source + '\\n/* delta-suite:settings-footer-v2 */\\n' + [
+  return source + '\n/* delta-suite:settings-footer-v2 */\n' + [
     ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] {',
     '  color: var(--dtd-fg-primary);',
     '}',
@@ -375,14 +375,14 @@ function ensureSettingsFooterV2Style(source) {
     '    background: var(--dtd-bg-hover);',
     '  }',
     '}',
-  ].join('\\n') + '\\n'
+  ].join('\n') + '\n'
 }
 
 export function patchCurrentVersionStyle(source) {
   const marker = 'delta-suite:hide-general-version-v1'
   if (source.includes(marker)) return source
   requireShape(source.includes('.row {'), 'native General current version stylesheet')
-  return source + '\\n/* ' + marker + ' */\\n:global(html[data-delta-ui="delta"]) .row { display: none; }\\n'
+  return source + '\n/* ' + marker + ' */\n:global(html[data-delta-ui="delta"]) .row { display: none; }\n'
 }
 
 export function patchSettingsRootStyle(source) {
