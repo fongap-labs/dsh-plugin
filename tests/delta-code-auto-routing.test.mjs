@@ -116,7 +116,7 @@ describe('Code Worker automatic user-task routing', () => {
       assert.doesNotMatch(f.render(agent), /code_modern_web_guidance/)
       f.claim(agent, 'Fix HTML dialog but do not use GitHub Skills')
       assert.doesNotMatch(f.render(agent), /code_modern_web_guidance/)
-      f.claim(agent, '修复 HTML 弹窗焦点')
+      f.claim(agent, '\u4fee\u590d HTML \u5f39\u7a97\u7126\u70b9')
       assert.match(f.render(agent), /code_modern_web_guidance/)
     } finally { f.dispose() }
   })
