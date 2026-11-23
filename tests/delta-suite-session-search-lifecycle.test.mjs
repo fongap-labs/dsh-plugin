@@ -12,8 +12,8 @@ let installHostSessionSearch, readHostSearchExclusion
 try {
   execFileSync(process.execPath, [
     fixture('node_modules/typescript/bin/tsc'),
-    fixture('packages/dsh-delta-suite/src/host-search.ts'),
-    fixture('packages/dsh-delta-suite/src/host-sessions.ts'),
+    fixture('packages/delta-suite/src/host-search.ts'),
+    fixture('packages/delta-suite/src/host-sessions.ts'),
     '--target', 'ES2022', '--module', 'node16', '--moduleResolution', 'node16',
     '--outDir', temp, '--strict', '--skipLibCheck',
   ], { stdio: 'pipe' })

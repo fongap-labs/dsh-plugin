@@ -30,7 +30,7 @@ pnpm install --frozen-lockfile
 
 ## 3. 新增独立产品（仅在需要时）
 
-当前仅维护两个实际插件产品：`dsh-delta-suite` 与 `dsh-delta-code`。不再内置示例插件、插件模板或脚手架生成命令。
+当前仅维护两个实际插件产品：`delta-suite` 与 `delta-code`。不再内置示例插件、插件模板或脚手架生成命令。
 
 确需新增独立插件时，在 `packages/<name>/` 创建源码、`package.json`、`cordis.patch.yml`、LICENSE 和 README，并在 `projects/<name>/release.manifest.json` 明确单产品发布入口。参考真实插件的契约，但不要复制业务逻辑、私有 UI 选择器或产品身份。
 

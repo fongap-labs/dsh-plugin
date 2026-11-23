@@ -20,17 +20,17 @@ export function buildDesktopClientFixture() {
   try {
     execFileSync(process.execPath, [
       fixture('node_modules/typescript/bin/tsc'),
-      '-p', fixture('packages/dsh-delta-suite/tsconfig.client.json'),
+      '-p', fixture('packages/delta-suite/tsconfig.client.json'),
       '--outDir', temp,
     ], { stdio: 'pipe' })
     let source = readFileSync(join(temp, 'client.js'), 'utf8')
     const dictionaries = Object.fromEntries(['zh', 'en'].map(lang => [
-      lang, JSON.parse(readFileSync(fixture('packages/dsh-delta-suite/locale/' + lang + '.json'), 'utf8')),
+      lang, JSON.parse(readFileSync(fixture('packages/delta-suite/locale/' + lang + '.json'), 'utf8')),
     ]))
     const replacements = new Map([
       ['__DELTA_SUITE_LOCALES__', JSON.stringify(dictionaries)],
-      ['__DELTA_SUITE_STYLE__', JSON.stringify(readFileSync(fixture('packages/dsh-delta-suite/src/theme.css'), 'utf8'))],
-      ['__DELTA_SUITE_FEATURE_STYLE__', JSON.stringify(readFileSync(fixture('packages/dsh-delta-suite/src/feature-extras.css'), 'utf8'))],
+      ['__DELTA_SUITE_STYLE__', JSON.stringify(readFileSync(fixture('packages/delta-suite/src/theme.css'), 'utf8'))],
+      ['__DELTA_SUITE_FEATURE_STYLE__', JSON.stringify(readFileSync(fixture('packages/delta-suite/src/feature-extras.css'), 'utf8'))],
     ])
     for (const [marker, value] of replacements) {
       const literal = "'" + marker + "'"

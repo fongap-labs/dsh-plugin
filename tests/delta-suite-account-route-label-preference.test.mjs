@@ -6,9 +6,9 @@ import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
 
 const source = readFileSync(fileURLToPath(
-  new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
 const readiness = JSON.parse(readFileSync(fileURLToPath(
-  new URL('../projects/dsh-delta-suite/feature-readiness.json', import.meta.url)), 'utf8'))
+  new URL('../projects/delta-suite/feature-readiness.json', import.meta.url)), 'utf8'))
 const preferencesStart = source.indexOf('type FeaturePreferences =')
 const preferencesEnd = source.indexOf('\nfunction readContextUsage(', preferencesStart)
 const labelStart = source.indexOf('    function ModelLabelExtension(')
@@ -20,11 +20,11 @@ function fixture(initial = null) {
   let stored = initial
   const localStorage = {
     getItem(key) {
-      assert.equal(key, 'fongap.dsh-delta-suite.features.v1')
+      assert.equal(key, 'fongap.delta-suite.features.v1')
       return stored
     },
     setItem(key, value) {
-      assert.equal(key, 'fongap.dsh-delta-suite.features.v1')
+      assert.equal(key, 'fongap.delta-suite.features.v1')
       stored = value
     },
   }

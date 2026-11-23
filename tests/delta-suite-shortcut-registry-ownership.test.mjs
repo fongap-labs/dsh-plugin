@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const source = read('packages/dsh-delta-suite/src/client.ts')
+const source = read('packages/delta-suite/src/client.ts')
 const normalized = source.replace(/\r\n/g, '\n')
-const theme = read('packages/dsh-delta-suite/src/theme.css')
+const theme = read('packages/delta-suite/src/theme.css')
 const start = normalized.indexOf('function installHostSearch(')
 const end = normalized.indexOf('\nwindow.__ModuleLoader__.load(', start)
 const emitted = [

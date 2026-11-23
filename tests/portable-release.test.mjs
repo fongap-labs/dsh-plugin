@@ -4,7 +4,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
-for (const name of ['dsh-delta-suite', 'dsh-delta-code']) {
+for (const name of ['delta-suite', 'delta-code']) {
   test(name + ' is built as a portable Linux-hosted bundle', () => {
     const manifest = JSON.parse(readFileSync(join(root, 'projects', name, 'release.manifest.json'), 'utf8'))
     const build = manifest.builds[0]
@@ -26,7 +26,7 @@ test('generic builder retains package manifest restoration', () => {
 })
 
 test('Desktop release accepts only pnpm publication metadata normalization', async () => {
-  const product = ['dsh', 'delta', 'desktop'].join('-')
+  const product = 'delta-desktop'
   const { verifyDesktopPackageParity } = await import(`../packages/${product}/verify-release.mjs`)
   const manifest = JSON.parse(readFileSync(
     join(root, 'packages', product, 'package.json'), 'utf8'))

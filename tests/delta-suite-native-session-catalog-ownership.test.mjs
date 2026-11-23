@@ -8,12 +8,12 @@ import { join } from 'node:path'
 import vm from 'node:vm'
 
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
-const source = readFileSync(file('packages/dsh-delta-suite/src/client.ts'), 'utf8')
+const source = readFileSync(file('packages/delta-suite/src/client.ts'), 'utf8')
 const dir = mkdtempSync(join(tmpdir(), 'delta-session-catalog-'))
 let compiled
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-    file('packages/dsh-delta-suite/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
+    file('packages/delta-suite/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
   compiled = readFileSync(join(dir, 'client.js'), 'utf8')
 } finally { rmSync(dir, { recursive: true, force: true }) }
 const start = compiled.indexOf('function canCallHostHttp(')

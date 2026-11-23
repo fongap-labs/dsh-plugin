@@ -14,8 +14,8 @@ try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'),
     '--target', 'ES2022', '--module', 'node16', '--moduleResolution', 'node16',
     '--lib', 'ES2022,DOM', '--strict', '--skipLibCheck', '--outDir', dir,
-    file('packages/dsh-delta-suite/src/host-state.ts'),
-    file('packages/dsh-delta-suite/src/host-sessions.ts')], { stdio: 'pipe' })
+    file('packages/delta-suite/src/host-state.ts'),
+    file('packages/delta-suite/src/host-sessions.ts')], { stdio: 'pipe' })
   ops = await import(pathToFileURL(join(dir, 'host-sessions.js')).href)
   state = await import(pathToFileURL(join(dir, 'host-state.js')).href)
 } finally { rmSync(dir, { recursive: true, force: true }) }

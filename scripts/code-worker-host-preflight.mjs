@@ -11,7 +11,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export function parseArgs(argv) {
-  const options = { dsh: 'dsh', pluginDir: resolve(import.meta.dirname, '../packages/dsh-delta-code'), profile: 'sdk', bootMs: 3500 }
+  const options = { dsh: 'dsh', pluginDir: resolve(import.meta.dirname, '../packages/delta-code'), profile: 'sdk', bootMs: 3500 }
   for (let index = 0; index < argv.length; index++) {
     const flag = argv[index]
     if (!['--dsh', '--plugin-dir', '--profile', '--boot-ms'].includes(flag) || !argv[index + 1]) {
@@ -152,7 +152,7 @@ export async function preflight(options) {
     await mkdir(cwd)
     const metadata = JSON.parse(await readFile(join(options.pluginDir, 'package.json'), 'utf8'))
     const built = await stat(join(options.pluginDir, 'lib', 'index.js'))
-    if (metadata.name !== '@fongap-labs/dsh-delta-code' || !built.isFile()) {
+    if (metadata.name !== '@fongap-labs/delta-code' || !built.isFile()) {
       throw new Error('plugin must be built before real Host preflight')
     }
     report.stages.push('plugin-build-present')
@@ -171,7 +171,7 @@ export async function preflight(options) {
     report.stages.push('plugin-linked-in-isolated-profile')
     stage = 'inspect-composition'
     const composition = await invoke(cli.binary, [...cli.prefix, '--profile', profile, '--dump-config'], runtime)
-    if (!composition.includes('dsh-delta-code')) throw new Error('plugin absent from effective Host profile composition')
+    if (!composition.includes('delta-code')) throw new Error('plugin absent from effective Host profile composition')
     report.stages.push('effective-profile-includes-plugin')
     stage = 'boot-native-host'
     await bootProfile(cli.binary, cli.prefix, runtime, options.bootMs, profile)

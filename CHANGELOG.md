@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护 [breaking]: 将 Delta Suite、Delta Desktop、Delta Code 的源码目录、包名、Cordis 标识和发行资产统一为 delta-*，不再提供旧名称兼容入口；原有安装需先卸载再安装新包。
+
 - 维护: 统一智能体规则入口并整理相关文档引用。
 
 - 维护: 统一 Delta Suite 中英文界面用词和操作提示，为 Delta Desktop 原型补充随宿主语言切换的简体中文标签，并优化 Delta Code、Delta Suite 与 Delta Desktop 插件介绍；不修改宿主服务、模型路由或公开接口。

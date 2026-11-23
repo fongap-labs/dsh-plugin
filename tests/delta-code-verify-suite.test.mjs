@@ -1,0 +1,263 @@
+import { describe, it } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { createVerifySuiteTool } from '../packages/delta-code/lib/tools/verify-suite.js'
+import { selectImpactVerification } from '../packages/delta-code/lib/tools/verify-presets.js'
+import { normalizeConfig } from '../packages/delta-code/lib/runtime.js'
+import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
+
+const execute = () => ({ signal: new AbortController().signal })
+function hostResult(exitCode, text = 'ok') {
+  return mockHostCommandResult({ exitCode, stdout: text })
+}
+async function fixture(scripts, spawn) {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-verify-suite-'))
+  await writeFile(join(root, 'package.json'), JSON.stringify({ scripts }))
+  const calls = []
+  const ctx = { get: () => undefined, subprocess: { spawn(spec) {
+    calls.push(spec)
+    return spawn(spec, calls.length)
+  } } }
+  const tool = createVerifySuiteTool(ctx, normalizeConfig({ workspaceRoot: root, execution: { allowCommands: true } }))
+  return { root, tool, calls, cleanup: () => rm(root, { recursive: true, force: true }) }
+}
+
+describe('DSH Code Worker fail-fast verification suite', () => {
+  it('selects focused Node checks without marking full delivery verified', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', 'test:unit': 'node --test unit', build: 'tsc', lint: 'eslint' },
+      () => hostResult(0))
+    try {
+      const result = await f.tool.execute({
+        scripts: ['typecheck', 'test:unit', 'test', 'build', 'lint'],
+        changedPaths: ['src/lib.ts'],
+      }, execute())
+      assert.equal(result.passed, true)
+      assert.equal(result.scope, 'focused')
+      assert.equal(result.completed, 2)
+      assert.deepEqual(result.deferred, ['test', 'build', 'lint'])
+      assert.deepEqual(result.skipped, [])
+      assert.deepEqual(f.calls.map(call => call.argv), [
+        ['npm', 'run', 'typecheck'], ['npm', 'run', 'test:unit'],
+      ])
+      assert.match(result.nextAction, /complete verification.*required/)
+    } finally { await f.cleanup() }
+  })
+
+  it('includes UI builds and does not narrow dependency, workflow or unknown changes', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'vite build', lint: 'eslint' },
+      () => hostResult(0))
+    try {
+      const ui = await f.tool.execute({
+        scripts: ['typecheck', 'test', 'build', 'lint'], changedPaths: ['src/components/Panel.tsx'],
+      }, execute())
+      assert.equal(ui.scope, 'focused')
+      assert.deepEqual(ui.deferred, ['lint'])
+      assert.deepEqual(f.calls.map(call => call.argv), [
+        ['npm', 'run', 'typecheck'], ['npm', 'run', 'test'], ['npm', 'run', 'build'],
+      ])
+      for (const path of ['package.json', '.github/workflows/ci.yml', 'docs/README.md']) {
+        const prior = f.calls.length
+        const full = await f.tool.execute({
+          scripts: ['typecheck', 'test', 'build', 'lint'], changedPaths: [path],
+        }, execute())
+        assert.equal(full.scope, 'full')
+        assert.deepEqual(full.deferred, [])
+        assert.equal(f.calls.length - prior, 4)
+      }
+    } finally { await f.cleanup() }
+  })
+
+  it('rejects invalid impact hints and undeclared deferred scripts before executing anything', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test' }, () => hostResult(0))
+    try {
+      for (const changedPaths of [[], ['../src/lib.ts'], ['/src/lib.ts'], ['src/lib.ts', 'src/lib.ts'], ['src\\lib.ts']]) {
+        await assert.rejects(f.tool.execute({ scripts: ['typecheck', 'test'], changedPaths }, execute()),
+          /changedPaths/)
+      }
+      await assert.rejects(f.tool.execute({
+        scripts: ['typecheck', 'test', 'build'], changedPaths: ['src/lib.ts'],
+      }, execute()), /does not declare script build/)
+      assert.equal(f.calls.length, 0)
+    } finally { await f.cleanup() }
+  })
+
+  it('fails fast in focused mode and keeps not-run candidates distinct from interrupted checks', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'tsc' }, (_, n) => hostResult(n === 1 ? 1 : 0))
+    try {
+      const result = await f.tool.execute({
+        scripts: ['typecheck', 'test', 'build'], changedPaths: ['src/main.ts'],
+      }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.scope, 'focused')
+      assert.deepEqual(result.skipped, ['test'])
+      assert.deepEqual(result.deferred, ['build'])
+      assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('uses conservative pure selection for mixed languages and unsupported scopes', () => {
+    assert.equal(selectImpactVerification(['check', 'test', 'build'], ['src/main.rs']).scope, 'focused')
+    assert.deepEqual(selectImpactVerification(['check', 'test', 'build'], ['src/main.rs']).selected, ['check', 'test'])
+    assert.equal(selectImpactVerification(['test', 'build'], ['src/main.go', 'web/app.ts']).scope, 'full')
+    assert.equal(selectImpactVerification(['test', 'build', 'lint'], ['src/widget.css']).scope, 'focused')
+    assert.equal(selectImpactVerification(['test', 'build'], ['Cargo.toml']).scope, 'full')
+    assert.equal(selectImpactVerification(['test', 'build'], undefined).scope, 'full')
+  })
+
+  it('runs three declared checks in order and reports evidence', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'tsc' }, () => hostResult(0))
+    try {
+      const result = await f.tool.execute({ scripts: ['typecheck', 'test', 'build'] }, execute())
+      assert.equal(result.passed, true)
+      assert.equal(result.completed, 3)
+      assert.deepEqual(result.skipped, [])
+      assert.deepEqual(f.calls.map(c => c.argv), [
+        ['npm','run','typecheck'], ['npm','run','test'], ['npm','run','build'],
+      ])
+      assert.ok(result.results.every(step => step.passed && step.exitCode === 0 && step.failureKind === 'none'))
+      assert.match(result.nextAction, /Verification passed/)
+      assert.ok(f.calls.every(c => c.stdio.stdin === 'ignore'))
+    } finally { await f.cleanup() }
+  })
+
+  it('executes declared Node variants but rejects absent and malformed names before spawning', async () => {
+    const f = await fixture({ test: 'node --test', 'test:unit': 'node --test unit', 'lint:ci': 'eslint --quiet' },
+      () => hostResult(0))
+    try {
+      const result = await f.tool.execute({ scripts: ['test:unit', 'lint:ci'] }, execute())
+      assert.equal(result.passed, true)
+      assert.deepEqual(f.calls.map(c => c.argv), [
+        ['npm', 'run', 'test:unit'], ['npm', 'run', 'lint:ci'],
+      ])
+      await assert.rejects(f.tool.execute({ scripts: ['test', 'test:missing'] }, execute()),
+        /does not declare script test:missing/)
+      await assert.rejects(f.tool.execute({ scripts: ['test:unit;rm'] }, execute()), /not allowlisted/)
+      assert.equal(f.calls.length, 2)
+    } finally { await f.cleanup() }
+  })
+
+  it('does not accept a zero exit with a termination signal as verified', async () => {
+    const f = await fixture({ test: 'node --test' },
+      () => mockHostCommandResult({ exitCode: 0, signal: 'SIGTERM' }))
+    try {
+      const result = await f.tool.execute({ scripts: ['test'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].exitCode, 0)
+      assert.equal(result.results[0].signal, 'SIGTERM')
+      assert.equal(result.results[0].outcome, 'uncertain')
+      assert.equal(result.results[0].failureKind, 'uncertain')
+      assert.match(result.nextAction, /outcome is unconfirmed/)
+    } finally { await f.cleanup() }
+  })
+
+  it('does not accept a zero exit when captured evidence is incomplete', async () => {
+    const f = await fixture({ test: 'node --test' },
+      () => mockHostCommandResult({ exitCode: 0, stdoutLossy: true }))
+    try {
+      const result = await f.tool.execute({ scripts: ['test'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].outcome, 'succeeded')
+      assert.equal(result.results[0].truncated, true)
+      assert.equal(result.results[0].failureKind, 'unknown')
+    } finally { await f.cleanup() }
+  })
+
+  it('stops on nonzero exit and labels remaining checks skipped', async () => {
+    const f = await fixture({ typecheck: 'tsc', test: 'node --test', build: 'tsc' },
+      (_, n) => hostResult(n === 2 ? 2 : 0, n === 2 ? 'failed' : 'ok'))
+    try {
+      const result = await f.tool.execute({ scripts: ['typecheck', 'test', 'build'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.completed, 2)
+      assert.deepEqual(result.skipped, ['build'])
+      assert.equal(f.calls.length, 2)
+      assert.equal(result.results[1].exitCode, 2)
+      assert.match(result.results[1].output, /failed/)
+      assert.equal(result.results[1].failureKind, 'verification')
+      assert.match(result.nextAction, /Diagnose/)
+    } finally { await f.cleanup() }
+  })
+
+  it('validates every script before launching any process', async () => {
+    const f = await fixture({ test: 'node --test' }, () => { throw Error('must not spawn') })
+    try {
+      await assert.rejects(f.tool.execute({ scripts: ['test', 'build'] }, execute()), /does not declare script build/)
+      await assert.rejects(f.tool.execute({ scripts: ['test', 'test'] }, execute()), /must not be duplicated/)
+      await assert.rejects(f.tool.execute({ scripts: [] }, execute()), /1\.\.5/)
+      await assert.rejects(f.tool.execute({ scripts: ['test', 'rm'] }, execute()), /one of|not allowlisted/)
+      assert.equal(f.calls.length, 0)
+    } finally { await f.cleanup() }
+  })
+
+  it('never retries a Host denial locally', async () => {
+    const f = await fixture({ test: 'node --test', build: 'tsc' },
+      () => { throw Error('Host refused') })
+    try {
+      const result = await f.tool.execute({ scripts: ['test', 'build'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.completed, 1)
+      assert.deepEqual(result.skipped, ['build'])
+      assert.equal(result.results[0].exitCode, -1)
+      assert.equal(result.results[0].failureKind, 'permission')
+      assert.match(result.results[0].output, /Host subprocess refused/)
+      assert.match(result.nextAction, /Host authorization/)
+      assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('does not auto-retry a test that fails due to an HTTP 503 dependency', async () => {
+    const f = await fixture({ test: 'node --test' }, () => hostResult(1, 'HTTP 503 Service Unavailable'))
+    try {
+      const result = await f.tool.execute({ scripts: ['test'] }, execute())
+      assert.equal(result.results[0].failureKind, 'transient')
+      assert.equal(f.calls.length, 1)
+      assert.match(result.nextAction, /rerun explicitly/)
+    } finally { await f.cleanup() }
+  })
+
+  it('classifies a missing Host executable as environment failure without retry', async () => {
+    const f = await fixture({ test: 'node --test', build: 'tsc' }, () => { throw Error('spawn npm ENOENT') })
+    try {
+      const result = await f.tool.execute({ scripts: ['test', 'build'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].failureKind, 'environment')
+      assert.deepEqual(result.skipped, ['build'])
+      assert.match(result.nextAction, /Restore the missing Host subprocess or executable/)
+      assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('treats a missing Host exit status as uncertain, never as a passing check', async () => {
+    const f = await fixture({ test: 'node --test', build: 'tsc' }, () => hostResult(null))
+    try {
+      const result = await f.tool.execute({ scripts: ['test', 'build'] }, execute())
+      assert.equal(result.passed, false)
+      assert.equal(result.results[0].failureKind, 'uncertain')
+      assert.deepEqual(result.skipped, ['build'])
+      assert.match(result.nextAction, /outcome is unconfirmed/)
+      assert.equal(f.calls.length, 1)
+    } finally { await f.cleanup() }
+  })
+
+  it('keeps command execution disabled by default', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'dsh-verify-disabled-'))
+    try {
+      await writeFile(join(root, 'package.json'), JSON.stringify({ scripts: { test: 'node --test' } }))
+      const tool = createVerifySuiteTool({ get: () => undefined },
+        normalizeConfig({ workspaceRoot: root }))
+      await assert.rejects(tool.execute({ scripts: ['test'] }, execute()), /script execution disabled/)
+    } finally { await rm(root, { recursive: true, force: true }) }
+  })
+
+  it('does not run checks when cancelled before preparation', async () => {
+    const f = await fixture({ test: 'node --test' }, () => { throw Error('must not spawn') })
+    try {
+      const controller = new AbortController()
+      controller.abort()
+      await assert.rejects(f.tool.execute({ scripts: ['test'] }, { signal: controller.signal }), /verification cancelled/)
+      assert.equal(f.calls.length, 0)
+    } finally { await f.cleanup() }
+  })
+})
