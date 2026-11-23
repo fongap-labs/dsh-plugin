@@ -31,7 +31,15 @@ describe('Delta Code native settings contract', () => {
     assert.deepEqual(normalizeConfig({}).sessionReadOnlyRepositories, [])
     assert.deepEqual(normalizeConfig({ sessionRepositories: {
       readOnlyRoots: ['/authorized/repo-a', '/authorized/repo-b'],
+      writeRoots: ['/authorized/repo-b'],
     } }).sessionReadOnlyRepositories, ['/authorized/repo-a', '/authorized/repo-b'])
+    assert.deepEqual(normalizeConfig({ sessionRepositories: {
+      readOnlyRoots: ['/authorized/repo-a', '/authorized/repo-b'],
+      writeRoots: ['/authorized/repo-b'],
+    } }).sessionWriteRepositories, ['/authorized/repo-b'])
+    assert.throws(() => normalizeConfig({ sessionRepositories: {
+      readOnlyRoots: ['/authorized/repo-a'], writeRoots: ['/outside/repo'],
+    } }), /writeRoots must be a subset/)
     for (const invalid of [
       ['../secret'], ['local-folder'], ['/ok/../secret'], ['\\\\server\\share\\repo'],
       ['/repo-a', '/repo-a'], Array.from({ length: 13 }, (_, n) => '/repo-' + n),
@@ -43,6 +51,12 @@ describe('Delta Code native settings contract', () => {
     }
     const schema = read('src/config.ts')
     assert.ok(schema.includes('readOnlyRoots: Schema.array(Schema.string()).default([])'))
+    assert.ok(schema.includes('writeRoots: Schema.array(Schema.string()).default([])'))
+    const client = read('src/client.ts')
+    assert.match(client, /writeRepositoryRoots/)
+    assert.match(client, /delta-code\.repositories/)
+    assert.match(client, /remote\.commands\.execute/)
+    assert.match(client, /conversation\.session\.panel\.section/)
   })
 
   it('uses one shared default LSP catalog in settings and runtime', () => {
