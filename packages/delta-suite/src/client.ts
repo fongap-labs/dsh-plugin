@@ -6090,12 +6090,6 @@ window.__ModuleLoader__.load({
       deltaFeatures.ensureLoaded()
       const { state, copy } = useCopy(controller)
       const fSnap = React.useSyncExternalStore(deltaFeatures.subscribe, deltaFeatures.getSnapshot)
-      const privacyItems = [
-        copy.privacy.sessionLogBlocked,
-        copy.privacy.telemetryBlocked,
-        copy.privacy.geolocationOff,
-        copy.privacy.redactionActive,
-      ]
       // These four feature contracts are not verified in the installed Host.
       // Present a truthful native fallback, never a simulated success or
       // a live capability claim inferred from the Host version or DOM.
@@ -6135,14 +6129,7 @@ window.__ModuleLoader__.load({
 
         el('div', { className: 'dtd-privacy-card', 'data-delta-privacy-card': '' },
           el('div', { className: 'dtd-privacy-header' },
-            el('strong', null, copy.privacy.title),
-            el('span', { className: 'dtd-privacy-badge' }, copy.privacy.statusEnforced)),
-          el('p', null, copy.privacy.description),
-          el('ul', { className: 'dtd-privacy-list' },
-            privacyItems.map((itemText, idx) =>
-              el('li', { key: idx, className: 'dtd-privacy-item' },
-                el('span', { className: 'dtd-privacy-dot', 'aria-hidden': true }),
-                el('span', null, itemText)))),
+            el('strong', null, copy.privacy.title)),
           el('div', { className: 'dtd-pin-manage-row' },
             el('span', null, `${copy.sessionMenu.pinSettingsTitle}: ${fSnap.hasPin ? copy.sessionMenu.pinSetStatus : copy.sessionMenu.pinUnsetStatus}`),
             fSnap.hasPin ? el('button', {
