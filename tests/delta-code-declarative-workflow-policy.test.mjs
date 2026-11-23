@@ -87,7 +87,7 @@ describe('Delta Code declarative coding workflow policy', () => {
     }
   })
 
-  it('uses existing native LSP only when code relationships matter, without a second indexer', () => {
+  it('uses existing native LSP only when code relationships matter, without a second indexer', async () => {
     const quick = decideCodingWorkflow({ taskKind: 'feature', scope: 'small', risk: 'low' })
     assert.equal(quick.codeNavigation, undefined, 'simple change must keep its fast path')
     const complex = decideCodingWorkflow({ taskKind: 'bugfix', scope: 'medium', risk: 'medium' })
