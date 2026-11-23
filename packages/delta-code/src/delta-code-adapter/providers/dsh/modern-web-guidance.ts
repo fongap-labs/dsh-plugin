@@ -32,10 +32,11 @@ export function findModernWebGuides(
     word.length > 1 && !STOP.has(word)))].slice(0, 8)
   if (!terms.length) return []
   return catalog.map(guide => {
-    const id = guide.id.replace(/-/g, ' ')
-    const path = guide.path.replace(/[-/]/g, ' ')
+    const idWords = new Set(guide.id.split('-'))
+    const pathWords = new Set(guide.path.split(/[-/.]/))
+    // Whole identifier tokens only: "rust" must not match "untrusted".
     const score = terms.reduce((total, term) =>
-      total + (id.includes(term) ? 3 : path.includes(term) ? 1 : 0), 0)
+      total + (idWords.has(term) ? 3 : pathWords.has(term) ? 1 : 0), 0)
     return { guide, score }
   }).filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score || a.guide.id.localeCompare(b.guide.id))
