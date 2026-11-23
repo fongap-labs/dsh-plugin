@@ -111,7 +111,7 @@ function dictionary(entries) {
 /** Preserve native AccountMenu state, dialogs and callbacks; add Delta-only icons. */
 export function patchAccountMenu(source) {
   const marker = 'delta-suite:footer-ui-v1 account'
-  if (source.includes(marker)) return source
+  if (source.includes(marker)) return patchAccountHover(source)
   let next = replaceUnique(source,
     'IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular,',
     'IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular, FishLogo,',
@@ -154,9 +154,9 @@ function patchAccountHover(source) {
   if (source.includes('delta-suite:account-hover-v1')) return source
   let next = source
   next = replaceUnique(next, "import { AccountAvatar } from './AccountAvatar.tsx'", "import { AccountAvatar } from './AccountAvatar.tsx'\nimport { formatBalance } from './formatBalance.ts'", "account existing formatter")
-  next = replaceUnique(next, "  const [open, setOpen] = useState(false)", "  const [open, setOpen] = useState(false)\n  // delta-suite:account-hover-v1\n  const [deltaHover, setDeltaHover] = useState(false)\n  const hoverAccount = useRef<typeof account.view>(undefined)\n  const hoverAccountDetails = (): void => {\n    if (!signedIn || !wide || document.documentElement.dataset.deltaUi !== 'delta') return\n    setDeltaHover(true)\n    if (hoverAccount.current !== account.view) {\n      hoverAccount.current = account.view\n      void refreshAccount().catch(() => undefined)\n    }\n  }\n  const hoverLabels = t('signIn') === '登录'\n    ? { balance: '账户余额', today: '今日消费', missing: '暂无数据', usage: '查看用量' }\n    : { balance: 'Account balance', today: 'Today spending', missing: 'Unavailable', usage: 'View usage' }", "account hover state")
+  next = replaceUnique(next, "  const [open, setOpen] = useState(false)", "  const [open, setOpen] = useState(false)\n  // delta-suite:account-hover-v1\n  const [deltaHover, setDeltaHover] = useState(false)\n  const hoverAccount = useRef<typeof account.view>(undefined)\n  const hoverAccountDetails = (): void => {\n    if (!signedIn || !wide || document.documentElement.dataset.deltaUi !== 'delta') return\n    setDeltaHover(true)\n    if (hoverAccount.current !== account.view) {\n      hoverAccount.current = account.view\n      void refreshAccount().catch(() => undefined)\n    }\n  }\n  const hoverLabels = t('signIn') === '登录'\n    ? { balance: '账户余额', today: '今日消费', missing: '暂无数据' }\n    : { balance: 'Account balance', today: 'Today spending', missing: 'Unavailable' }", "account hover state")
   next = replaceUnique(next, "        aria-haspopup=\"menu\" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>", "        aria-haspopup=\"menu\" aria-expanded={open} onMouseEnter={hoverAccountDetails} onMouseLeave={() => { setDeltaHover(false) }} onFocus={hoverAccountDetails} onBlur={() => { setDeltaHover(false) }} onClick={() => { setDeltaHover(false); setOpen(value => !value) }}>", "native avatar hover event")
-  next = replaceUnique(next, "    {account.loginVisible && !account.onboarding && <SignInDialog", "    {signedIn && wide && deltaHover && !open && (\n      <div className={css.deltaHoverCard} role=\"tooltip\">\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.balance}</span>\n          <strong>{account.details?.balance?.status === 'ready' && account.details.balance.value.length > 0\n            ? account.details.balance.value.map(wallet => formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')).join(' + ')\n            : hoverLabels.missing}</strong>\n        </div>\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.today}</span>\n          <strong>{hoverLabels.missing}</strong>\n        </div>\n        {account.view?.links.usageUrl && <small className={css.deltaHoverHint}>{hoverLabels.usage}</small>}\n      </div>\n    )}\n    {account.loginVisible && !account.onboarding && <SignInDialog", "account hover card")
+  next = replaceUnique(next, "    {account.loginVisible && !account.onboarding && <SignInDialog", "    {signedIn && wide && deltaHover && !open && (\n      <div className={css.deltaHoverCard} role=\"tooltip\">\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.balance}</span>\n          <strong>{account.details?.balance?.status === 'ready' && account.details.balance.value.length > 0\n            ? account.details.balance.value.map(wallet => formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')).join(' + ')\n            : hoverLabels.missing}</strong>\n        </div>\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.today}</span>\n          <strong>{hoverLabels.missing}</strong>\n        </div>\n      </div>\n    )}\n    {account.loginVisible && !account.onboarding && <SignInDialog", "account hover card")
   return next
 }
 const accountFooterCSS = [
@@ -205,12 +205,21 @@ const accountFooterCSS = [
   '}',
 ].join('\n')
 
+/** Add hover styling to an already patched account footer without doubling v1 CSS. */
+function ensureAccountHoverStyle(source) {
+  if (source.includes('.deltaHoverCard {') && source.includes('.deltaHoverRow {')) return source
+  const hoverLines = accountFooterCSS.split('\n').filter(line =>
+    line.includes('.deltaHoverCard ') || line.includes('.deltaHoverRow ') || line.includes('.deltaHoverHint '))
+  requireShape(hoverLines.length >= 4, 'Account hover stylesheet declarations')
+  return source + '\n/* delta-suite:account-hover-style-v1 */\n' + hoverLines.join('\n') + '\n'
+}
+
 export function patchAccountMenuStyle(source) {
   const marker = 'delta-suite:footer-ui-v1 account-style'
-  if (source.includes(marker)) return source
+  if (source.includes(marker)) return ensureAccountHoverStyle(source)
   requireShape(source.includes('.root {') && source.includes('.anchor {') &&
     source.includes('.trigger {') && source.includes('.avatar {'), 'AccountMenu stylesheet')
-  return source + '\n/* ' + marker + ' */\n' + accountFooterCSS + '\n'
+  return ensureAccountHoverStyle(source + '\n/* ' + marker + ' */\n' + accountFooterCSS + '\n')
 }
 
 /** Reorder native updater and connection presentation without creating copies. */
