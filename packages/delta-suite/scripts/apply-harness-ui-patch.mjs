@@ -521,6 +521,26 @@ export function planPatches(root) {
   })
 }
 
+/**
+ * Report native semantic color roles not covered by Delta's public Theme API layer.
+ * A newer Harness may introduce new color roles: warn for review, never assume
+ * they can all be rewritten safely or block launching the client.
+ */
+export function auditThemeTokens(hostStylesheet, deltaClientSource) {
+  const official = [...new Set([...hostStylesheet.matchAll(/^\\s*(--dsw-(?:alias|specific|menu)-[\\w-]+)\\s*:/gm)]
+    .map(match => match[1]))].sort()
+  const begin = deltaClientSource.indexOf('const TOKENS:')
+  const end = deltaClientSource.indexOf('function language()', begin)
+  requireShape(begin >= 0 && end > begin, 'Delta Theme API overrides dictionary')
+  const names = new Set([...deltaClientSource.slice(begin, end).matchAll(/'(--dsw-[\\w-]+)':/g)]
+    .map(match => match[1]))
+  return {
+    official: official.length,
+    mapped: official.filter(name => names.has(name)).length,
+    unmapped: official.filter(name => !names.has(name)),
+  }
+}
+
 function main() {
   const args = process.argv.slice(2)
   const index = args.indexOf('--root')
@@ -529,6 +549,14 @@ function main() {
   requireShape(!(args.includes('--check') && args.includes('--apply')), 'choose --check OR --apply')
   const write = args.includes('--apply')
   const plan = planPatches(resolve(root))
+  const upstreamTheme = join(resolve(root), 'packages/client/ui-theme/src/styles/design-platform.css')
+  if (existsSync(upstreamTheme)) {
+    const deltaClient = readFileSync(fileURLToPath(new URL('../src/client.ts', import.meta.url)), 'utf8')
+    const audit = auditThemeTokens(readFileSync(upstreamTheme, 'utf8'), deltaClient)
+    process.stdout.write('[delta-suite theme] ' + audit.mapped + '/' + audit.official +
+      ' native semantic color tokens covered' + (audit.unmapped.length ? '; new roles: ' +
+      audit.unmapped.join(', ') : '') + '\\n')
+  }
   // All targets are validated before the first write.
   if (write) for (const item of plan) if (item.changed) writeFileSync(item.file, item.newText)
   for (const item of plan) {
