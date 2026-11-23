@@ -311,7 +311,6 @@ test('Delta Suite contains no proxy or Vision Bridge service registration or fro
     assert.equal(Object.keys(copy.ui).some(x => x.startsWith('vision')), false)
   }
   const policy = read('packages/delta-suite/src/privacy-bridge.ts')
-  assert.match(policy, /redactModelRequest/)
-  assert.match(policy, /deepSeekModelsEnabled/)
+  assert.doesNotMatch(policy, /redactModelRequest|Object\.defineProperty|listModels\(/)
   assert.equal(policy.includes('requestVisionDescription'), false)
 })

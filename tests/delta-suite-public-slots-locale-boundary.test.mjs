@@ -31,9 +31,10 @@ test('Delta Suite does not mutate Cordis originals or the Host locale service', 
 
 test('clean-up still keeps native appearance and unrelated UI resource ownership', () => {
   assert.match(client, /observer\?\.disconnect\(\)/)
-  assert.match(client, /stopPrivacyGuards\(\)/)
+  assert.doesNotMatch(client, /stopPrivacyGuards\(\)|installClientPrivacyGuards\(/)
   assert.doesNotMatch(client, /installClientVisionBridge|stopVisionBridge|data-composer-input/)
   assert.match(client, /tag\.parentNode\?\.removeChild\(tag\)/)
   // Legacy DOM compatibility is intentionally separate and must be migrated later.
   assert.match(client, /function installSidebarCompatibility/)
+  assert.doesNotMatch(client, /installSidebarCompatibility\(controller\)/)
 })

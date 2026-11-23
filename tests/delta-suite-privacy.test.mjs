@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
@@ -8,141 +9,54 @@ execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p'
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const built = relative => pathToFileURL(fixture(`packages/delta-suite/lib/${relative}`)).href
 const { createSensitiveRedactor, redactModelRequest, restoreStream } = await import(built('privacy.js'))
-const { registerPrivacyBridge } = await import(built('privacy-bridge.js'))
-const { shouldBlockPrivacyHttpRequest, installHostPrivacyGuards } = await import(built('host-privacy.js'))
+const { installHostPrivacyGuards } = await import(built('host-privacy.js'))
 
 async function* iterable(values) { yield* values }
 const collect = async stream => { const out = []; for await (const chunk of stream) out.push(chunk); return out }
 
-function makePrivacyHarness({ deepSeekModelsEnabled = true, redactionEnabled = true } = {}) {
-  let listener
-  const llm = {
-    async resolveModelInfo(_provider, model) {
-      return { id: model, inputModalities: ['text'] }
-    },
-    async listModels(provider) {
-      return provider === 'deepseek-official' || provider === 'deepseek-account'
-        ? [{ id: 'deepseek-flash', inputModalities: ['text'] }]
-        : [{ id: 'text-model', inputModalities: ['text'] }]
-    },
-    stream() {
-      return iterable([{ type: 'finish', reason: { kind: 'stop' } }])
-    },
-  }
-  const originalResolver = llm.resolveModelInfo
-  const originalListModels = llm.listModels
-  const scope = {
-    llm,
-    on(event, handler) {
-      assert.equal(event, 'llm/stream')
-      listener = handler
-      return () => { if (listener === handler) listener = undefined }
-    },
-  }
-  const ctx = {
-    inject(services, callback) {
-      assert.deepEqual(services, ['llm'])
-      callback(scope)
-    },
-  }
-  const dispose = registerPrivacyBridge(ctx, { deepSeekModelsEnabled, redactionEnabled })
-  return {
-    llm,
-    originalResolver,
-    originalListModels,
-    getListener: () => listener,
-    dispose,
-  }
-}
 
-test('Host privacy request classifier rejects encoded, traversed, and alternate path spellings', () => {
-  const blocked = [
-    ['/api/telemetry', 'GET'],
-    ['/api/telemetry/events?source=host', 'POST'],
-    ['/api/product-analytics/', 'GET'],
-    ['/api/sessionfeedback', 'POST'],
-    ['/api/messagefeedback', 'GET'],
-    ['/api/otel/v1/traces', 'POST'],
-    ['/api/productanalytics/report', 'GET'],
-    ['/api/productanalytics/track', 'post'],
-    ['/API/%74elemetry', 'GET'],
-    ['/api%2Ftelemetry', 'GET'],
-    ['/api/%2574elemetry', 'GET'],
-    ['/api%25252ftelemetry', 'GET'],
-    ['/api\\telemetry', 'GET'],
-    ['//api///telemetry', 'GET'],
-    ['/api/misc/../telemetry', 'GET'],
-    ['/api/%2e%2e/api/telemetry', 'GET'],
-    ['/api/telemetry/../health', 'GET'],
-    ['https://local.example/api/telemetry/../health?check=1', 'GET'],
-    ['https://local.example/api%2Ftelemetry?q=%252f', 'POST'],
-    ['/api/telemetry/%ZZ', 'GET'],
-    ['/api/telemetry?goto=/api/safe', 'GET'],
-  ]
-  for (const [url, method] of blocked) {
-    assert.equal(shouldBlockPrivacyHttpRequest(url, method), true,
-      'privacy path escaped the Host request guard: ' + url)
-  }
-  const allowed = [
-    [undefined, 'GET'], ['', 'POST'], ['api/telemetry', 'GET'],
-    ['/api/telemetry-v2', 'POST'], ['/api/otels', 'GET'],
-    ['/api/product-analytics-v2', 'POST'], ['/api/messagefeedback-other', 'POST'],
-    ['/api/productanalytics', 'POST'], ['/api/productanalytics/track', 'GET'],
-    ['/api/productanalytics/report2', 'GET'], ['/api/health', 'GET'],
-    ['/api/misc/../health', 'POST'], ['/api/misc/../health/ready', 'GET'],
-    ['https://local.example/', 'GET'], ['/api/%ZZ/other', 'GET'],
-  ]
-  for (const [url, method] of allowed) {
-    assert.equal(shouldBlockPrivacyHttpRequest(url, method), false,
-      'unrelated Host endpoint should retain native routing: ' + url)
-  }
-})
-
-test('Host privacy event intercepts encoded telemetry requests and disposes cleanly', () => {
-  const listeners = new Map()
-  let excluded = false
-  let disposedExclusion = false
+test('Session Log exclusion uses only the public service and never intercepts local routes', async () => {
+  let registered = 0
+  let released = 0
+  let predicate
   const ctx = {
     inject(deps, callback) {
       assert.deepEqual(deps, ['sessionLogDeepSeek'])
       return callback({ sessionLogDeepSeek: {
-        registerExclusion(predicate) {
-          excluded = predicate({ sessionId: 'sid-1' })
-          return () => { disposedExclusion = true }
+        registerExclusion(exclude) {
+          registered++
+          predicate = exclude
+          return async () => { released++ }
         },
       } })
     },
-    on(event, listener) {
-      listeners.set(event, listener)
-      return () => { listeners.delete(event) }
-    },
+    on() { throw new Error('request and telemetry events must not be intercepted') },
   }
   const stop = installHostPrivacyGuards(ctx)
-  assert.equal(excluded, true, 'Host session-log requests are excluded via public service')
-  const event = listeners.get('connection/request')
-  assert.equal(typeof event, 'function')
-  let forwarded = 0
-  const request = (url, method) => {
-    const response = {
-      status: null, headers: null, body: '',
-      writeHead(status, headers) { this.status = status; this.headers = headers },
-      end(body) { this.body = body },
-    }
-    event({ url, method }, response, () => { forwarded++; return 'next' })
-    return response
-  }
-  const blocked = request('/api/%2574elemetry/events', 'POST')
-  assert.equal(blocked.status, 403)
-  assert.equal(blocked.headers['content-type'], 'application/json; charset=utf-8')
-  assert.equal(JSON.parse(blocked.body).error, 'PRIVACY_POLICY_BLOCKED')
-  assert.equal(forwarded, 0, 'blocked request must not reach the native handler')
-  assert.equal(request('/api/telemetry-v2', 'GET').status, null)
-  assert.equal(forwarded, 1, 'an unrelated endpoint must preserve the native handler')
-  assert.throws(() => listeners.get('session-telemetry/record')(), /prohibited/)
+  assert.equal(registered, 1)
+  assert.equal(predicate({ sessionId: 'mock-session' }), true)
   stop()
   stop()
-  assert.equal(disposedExclusion, true)
-  assert.equal(listeners.size, 0, 'Host hooks must be released on plugin unload')
+  await Promise.resolve()
+  assert.equal(released, 1, 'unmount releases the Host-owned registration exactly once')
+})
+
+test('missing official Session Log capability leaves ordinary Host behavior untouched', () => {
+  assert.doesNotThrow(() => installHostPrivacyGuards({})())
+  const stop = installHostPrivacyGuards({ inject: () => { throw new Error('missing optional service') } })
+  assert.doesNotThrow(() => stop())
+})
+
+test('unsafe model, HTTP response, browser and local feedback interception is retired', () => {
+  const source = name => readFileSync(fixture('packages/delta-suite/src/' + name), 'utf8')
+  const bridge = source('privacy-bridge.ts')
+  const host = source('host-privacy.ts')
+  const cookies = source('host-auth-cookies.ts')
+  const composition = source('delta-suite-composition.ts')
+  assert.doesNotMatch(bridge, /Object\.defineProperty|listModels|resolveModelInfo|llm\.stream\(|ctx\.on\('llm\/stream'/)
+  assert.doesNotMatch(host, /connection\/request|session-telemetry\/record|\/api\/messagefeedback/)
+  assert.doesNotMatch(cookies, /prependListener|writeHead|setHeader|\.server\b/)
+  assert.doesNotMatch(composition, /registerPrivacyBridge|installHostAuthCookiePruner/)
 })
 
 test('redaction masks common secrets and private contact data with reversible request-local markers', () => {
@@ -231,34 +145,3 @@ test('stream restoration handles markers split across text and tool argument chu
   assert.doesNotMatch(JSON.stringify(toolChunks), /tool-stream-secret/)
 })
 
-test('disabled DeepSeek routes disappear from model catalogs and reject new requests, then restore on unload', async () => {
-  const harness = makePrivacyHarness({ deepSeekModelsEnabled: false })
-  assert.deepEqual(await harness.llm.listModels('deepseek-official'), [])
-  assert.deepEqual(await harness.llm.listModels('deepseek-account'), [])
-  assert.deepEqual(await harness.llm.listModels('text-route'), [{ id: 'text-model', inputModalities: ['text'] }])
-  await assert.rejects(harness.llm.resolveModelInfo('deepseek-official', 'deepseek-flash'), /disabled/i)
-  let nextCalled = false
-  const result = await collect(harness.getListener()({ provider: 'deepseek-account', model: 'deepseek-flash', messages: [] }, () => {
-    nextCalled = true
-    return iterable([{ type: 'finish', reason: { kind: 'stop' } }])
-  }))
-  assert.equal(nextCalled, false)
-  assert.equal(result.at(-1).reason.failure.code, 'DELTA_DEEPSEEK_MODELS_DISABLED')
-  harness.dispose()
-  assert.equal(harness.llm.resolveModelInfo, harness.originalResolver)
-  assert.equal(harness.llm.listModels, harness.originalListModels)
-})
-
-test('removing Vision Bridge preserves native model image handling and optional redaction', async () => {
-  const plain = makePrivacyHarness({ redactionEnabled: false })
-  const image = { type: 'image', attachment: { attachmentId: 'native-image', mediaType: 'image/png' } }
-  const request = { provider: 'text-route', model: 'text-model',
-    messages: [{ role: 'user', content: [image, { type: 'text', text: 'password=example' }] }] }
-  let called = false
-  await collect(plain.getListener()(request, () => { called = true; return iterable([{ type: 'finish' }]) }))
-  assert.equal(called, true)
-  assert.equal(request.messages[0].content[0], image)
-  const model = await plain.llm.resolveModelInfo('text-route', 'text-model')
-  assert.deepEqual(model.inputModalities, ['text'])
-  plain.dispose()
-})
