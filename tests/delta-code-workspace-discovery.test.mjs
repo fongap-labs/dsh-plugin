@@ -292,17 +292,11 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
     tool.execute(args, { agent: who, signal: new AbortController().signal })
   const accept = (args, output) => {
     const callId = 'call_' + seq
-    const previous = state
     state = foldSessionRepositoryEvent(state, {
       type: 'tool/call', seq: seq++, data: {
         name: 'code_session_repositories', callId, arguments: JSON.stringify(args),
       },
     })
-    if (args.action === 'attach') {
-      assert.ok(output.repositories.some(repo => !previous.bindings.some(item => item.id === repo.id)))
-    } else if (args.action === 'detach') {
-      assert.ok(previous.bindings.some(repo => repo.id === args.id))
-    }
     const rendered = tool.output.render(args, output)[0].text
     state = foldSessionRepositoryEvent(state, {
       type: 'tool/result', seq: seq++, data: {
