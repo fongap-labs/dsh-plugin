@@ -254,9 +254,26 @@ describe('Code Worker native session execution metrics', () => {
     todoSeq = 11
     const refreshed = await reviewed.execute({}, ex)
     assert.equal(refreshed.contextTodoRefreshed, true)
-    assert.equal(refreshed.transition, 'continue',
-      'a refreshed Todo permits ordinary next-step advice, not delivery certification')
-    assert.equal(refreshed.deliveryConfirmed, false)
+    assert.equal(refreshed.contextGitReconciled, false)
+    assert.equal(refreshed.transition, 'reconcile',
+      'a refreshed Todo alone does not prove Git state or original decisions survived compaction')
+    assert.match(refreshed.nextAction, /code_resume/)
+    const unresolved = stats.wrap({ name: 'code_resume',
+      execute: async () => ({ stage: 'reconcile', head: 'a'.repeat(40), sourceSeq: 11 }) })
+    await unresolved.execute({}, ex)
+    assert.equal((await reviewed.execute({}, ex)).transition, 'reconcile')
+    const safeResume = stats.wrap({ name: 'code_resume',
+      execute: async () => ({ stage: 'resume', head: 'a'.repeat(40), sourceSeq: 11 }) })
+    await safeResume.execute({}, ex)
+    const restored = await reviewed.execute({}, ex)
+    assert.equal(restored.contextGitReconciled, true)
+    assert.equal(restored.transition, 'continue')
+    assert.equal(restored.deliveryConfirmed, false)
+    const changed = stats.wrap({ name: 'code_multi_edit', execute: async () => ({ applied: 1 }) })
+    await changed.execute({}, ex)
+    assert.equal((await reviewed.execute({}, ex)).transition, 'reconcile',
+      'a later write invalidates the pre-compaction recovery checkpoint')
+    assert.equal(stats.readReconciledTodoSeq(agent), -1)
     const clipped = createExecutionNextTool(resume, stats, marker,
       { readSources: () => ({ current: 'do not publish', inherited: [], historyIncomplete: true }) })
     const unreliable = await clipped.execute({}, ex)
@@ -264,6 +281,8 @@ describe('Code Worker native session execution metrics', () => {
     assert.equal(unreliable.contextIntentEvidence, 'incomplete')
     const absent = createExecutionNextTool(resume, stats).execute({}, ex)
     assert.equal((await absent).contextReviewState, 'unavailable')
+    assert.equal(stats.readReconciledTodoSeq({ session: {} }), -1,
+      'recovery evidence must never cross native Sessions')
   })
 
   it('bounds fingerprint memory and does not misclassify a distant repeat', async () => {
