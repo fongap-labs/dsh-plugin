@@ -121,6 +121,7 @@ export function hasUnsafeHostPatch(source) {
 }
 
 // ZIP3 pins the audited transition adapter and author-provided theme exactly.
+// Reviewed 2026-11-23: the two client region pins are recomputed after verified name-only dsh-delta- to delta- substitution.
 // Unavailable native sidebar layout features must stay on the Harness fallback.
 // Reviewed 2026-11-18: removed native running-status DOM text rewriting.
 // Reviewed 2026-11-18: removed native page heading DOM text rewriting.
@@ -256,12 +257,12 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installSidebarCompatibility(',
     end: '\ntype SearchTabId',
-    sha1: 'e5b42f0da1c75d8aada071cf0be54d7d1dda1785',
+    sha1: '10ee7129d3c9ce78985420fe213e5207b029d206',
   },
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: 'cca3d4932c7a7f78f90135f174f2a1fed223c6c1',
+    sha1: 'c9ba7f1315dbc01ed85debacf42e5d6a4d42425c',
   },
 ]
 

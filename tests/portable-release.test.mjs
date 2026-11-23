@@ -26,7 +26,7 @@ test('generic builder retains package manifest restoration', () => {
 })
 
 test('Desktop release accepts only pnpm publication metadata normalization', async () => {
-  const product = ['dsh', 'delta', 'desktop'].join('-')
+  const product = 'delta-desktop'
   const { verifyDesktopPackageParity } = await import(`../packages/${product}/verify-release.mjs`)
   const manifest = JSON.parse(readFileSync(
     join(root, 'packages', product, 'package.json'), 'utf8'))
