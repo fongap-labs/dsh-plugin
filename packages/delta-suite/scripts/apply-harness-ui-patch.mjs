@@ -59,6 +59,9 @@ const sidebarCSS = [
   ":global(html[data-delta-ui='delta']) .panelList .newSessionLabelMask { flex: 0 1 auto; }",
   ":global(html[data-delta-ui='delta']) .panelList .newSessionContent { justify-content: flex-start; gap: 8px; }",
   ":global(html[data-delta-ui='delta']) .panelList .newSessionShortcut { display: none; }",
+  ":global(html[data-delta-ui='delta']) .panelList {",
+  "  position: sticky; top: 0; z-index: 8; background: var(--dtd-bg-sidebar); isolation: isolate;",
+  "}",
 ].join('\n')
 
 export function patchSidebarStyle(source) {
@@ -393,12 +396,45 @@ export function patchSettingsRootStyle(source) {
   return ensureSettingsFooterV2Style(source + '\n/* ' + marker + ' */\n' + settingsFooterCSS + '\n')
 }
 
+
+/** Turn off the DeepSeek session-log upload at the source, including existing true preferences. */
+export function patchSessionLogBackend(source) {
+  const marker = 'delta-suite:session-log-upload-disabled-v1'
+  if (source.includes(marker)) return source
+  let next = replaceUnique(source,
+    '  enabled: z.boolean().default(true).volatile(),',
+    '  enabled: z.boolean().default(false).volatile(),',
+    'session log initial default')
+  next = replaceUnique(next,
+    '        if (!config.enabled.get()) return undefined',
+    '        // ' + marker + '\\n        if (true) return undefined // never contribute dsh_session_log in Delta',
+    'disable log contribution regardless of persisted configuration')
+  return next
+}
+
+/** Retain official settings plugins while removing the no-longer-effective Session Log toggle. */
+export function patchSessionLogSettings(source) {
+  const marker = 'delta-suite:hide-session-log-preference-v1'
+  if (source.includes(marker)) return source
+  let next = replaceUnique(source,
+    "import { UploadRow, UploadToast, type UploadInjected } from './UploadRow.tsx'",
+    "import { UploadToast, type UploadInjected } from './UploadRow.tsx'",
+    'native log preference import')
+  next = replaceUnique(next,
+    "  ctx.effect(() => ctx.configForms.whileServed([namespace], () => ctx.slots.inject('settings.general.item', () =>\\n    ctx.slots.register({ name: 'settings.general.item', id: namespace, order: 90, locale, inject: face }, UploadRow))))",
+    "  // " + marker,
+    'remove native log preference registration')
+  return next
+}
+
 export const changes = [
   { package: '@deepseek-ai/dsh-client-ui-settings-account', file: 'src/client/AccountMenu.tsx', transform: patchAccountMenu },
   { package: '@deepseek-ai/dsh-client-ui-settings-account', file: 'src/client/AccountMenu.module.css', transform: patchAccountMenuStyle },
   { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/SettingsRoot.tsx', transform: patchSettingsRoot },
   { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/SettingsRoot.module.css', transform: patchSettingsRootStyle },
   { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/CurrentVersionRow.module.css', transform: patchCurrentVersionStyle },
+  { package: '@deepseek-ai/dsh-client-ui-settings-session-log', file: 'src/client/index.ts', transform: patchSessionLogSettings },
+  { package: '@deepseek-ai/dsh-session-log-deepseek', file: 'src/index.ts', transform: patchSessionLogBackend },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.tsx', transform: patchSidebarRoot },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.module.css', transform: patchSidebarStyle },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/locales.ts', transform: dictionary([
