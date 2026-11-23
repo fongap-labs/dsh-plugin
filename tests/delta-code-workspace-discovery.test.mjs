@@ -250,7 +250,7 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
       if (spec.argv[1] === 'rev-parse') {
         return mockHostCommandResult({ stdout: (options.wrongGitRoot ?? spec.cwd) + '\n' })
       }
-      if (spec.argv[1] === 'status') {
+      if (spec.argv[1] === '--no-optional-locks' && spec.argv[2] === 'status') {
         return mockHostCommandResult({ stdout: '## main\0 M src/changed.ts\0' })
       }
       if (spec.argv[1] === 'ls-files') {
@@ -309,7 +309,7 @@ describe('Delta Code native Session read-only repository bindings', () => {
     const found = await f.run({ action: 'search', id, query: 'module' })
     assert.deepEqual(found.selected, ['src/module.ts'])
     assert.ok(f.commands.every(c => c.cwd !== '/dsh-primary' &&
-      c.argv[0] === 'git' && ['rev-parse', 'status', 'ls-files'].includes(c.argv[1])))
+      c.argv[0] === 'git' && ['rev-parse', '--no-optional-locks', 'ls-files'].includes(c.argv[1])))
     assert.equal(f.settings.workspaceRoot, '/dsh-primary')
     assert.equal(f.state.bindings.length, 2)
     const detached = await f.run({ action: 'detach', id })
