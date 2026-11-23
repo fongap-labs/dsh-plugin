@@ -227,8 +227,11 @@ export function createNativeResumeTool(
         if (inspectedHead === UNBORN_HEAD) {
           const ref = (await hostGit(ctx, settings, cwd, exec, ['symbolic-ref', '--quiet', 'HEAD'])).trim()
           const status = await hostGit(ctx, settings, cwd, exec, ['status', '--porcelain=v1', '--branch', '-z'])
+          const branch = ref.slice('refs/heads/'.length)
+          const header = status.split('\0', 1)[0]
           if (!/^refs\/heads\/[A-Za-z0-9._/-]+$/.test(ref) ||
-              !/^## (?:No commits yet on|Initial commit on) /u.test(status)) {
+              (header !== '## No commits yet on ' + branch &&
+                header !== '## Initial commit on ' + branch)) {
             throw new Error('Cannot verify an unborn Git repository')
           }
           unbornRef = ref
