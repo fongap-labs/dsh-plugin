@@ -417,7 +417,9 @@ const LIVE_PRESENTATION_CSS = String.raw`
 `
 
 function installLiveNativePresentation(controller: DeltaController, canUsePortal: boolean): () => void {
-  if (typeof document === 'undefined' || !document.body) return () => {}
+  if (typeof document === 'undefined' || !document.body ||
+      typeof document.querySelector !== 'function' ||
+      typeof document.querySelectorAll !== 'function') return () => {}
   const labelChanges = new Map<HTMLElement, { original: string; current: string }>()
   const ariaChanges = new Map<HTMLElement, { original: string | null; current: string }>()
   const marks = new Set<HTMLElement>()
