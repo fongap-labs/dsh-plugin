@@ -39,6 +39,8 @@ describe('Code Worker automatic user-task routing', () => {
   it('selects minimal workflows for coding requests in Chinese and English', () => {
     assert.equal(routeCodingTask('PR #76 CI红叉，定位并修复'), 'code-ci-repair')
     assert.equal(routeCodingTask('Fix CI failure in GitHub Actions'), 'code-ci-repair')
+    assert.equal(routeCodingTask('Fix CSS dialog keyboard focus'), 'code-root-cause-debugging')
+    assert.equal(routeCodingTask('\u4fee\u590d HTML \u5f39\u7a97\u7126\u70b9'), 'code-root-cause-debugging')
     assert.equal(routeCodingTask('修复 Python 程序崩溃的 bug'), 'code-root-cause-debugging')
     assert.equal(routeCodingTask('请审查这个 Rust PR 的代码'), 'code-review-readiness')
     assert.equal(routeCodingTask('设计 API 架构方案'), 'code-writing-plans')
