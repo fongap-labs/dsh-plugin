@@ -18,6 +18,7 @@ interface Draft {
   enabled: boolean
   autoRouting: boolean
   workspaceRoot: string
+  readOnlyRepositoryRoots: string
   gitEnabled: boolean
   gitCommand: string
   githubEnabled: boolean
@@ -75,6 +76,8 @@ function readDraft(value: any): Draft {
     enabled: value?.enabled !== false,
     autoRouting: value?.autoRouting !== false,
     workspaceRoot: value?.workspaceRoot ?? '',
+    readOnlyRepositoryRoots: Array.isArray(value?.sessionRepositories?.readOnlyRoots)
+      ? value.sessionRepositories.readOnlyRoots.join('\n') : '',
     gitEnabled: git.enabled !== false, gitCommand: git.command ?? 'git',
     githubEnabled: github.enabled !== false, githubAllowWrites: github.allowWrites === true,
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
@@ -117,6 +120,12 @@ function validation(draft: Draft, value: any): string | undefined {
       repositories.add(key)
     }
   }
+  const roots = draft.readOnlyRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
+  if (roots.length > 12 || new Set(roots.map(value => value.toLowerCase())).size !== roots.length ||
+      roots.some(value => value.length > 1024 || !/^(?:\/|[A-Za-z]:[\\/])/.test(value) ||
+        value.startsWith('\\\\') || value.split(/[\\/]/).includes('..') || /[\u0000-\u001f\u007f]/.test(value))) {
+    return 'Read-only repositories require at most 12 distinct safe absolute paths.'
+  }
   if (!draft.gitCommand.trim()) return 'Git 命令不能为空。'
   for (const server of draft.servers) {
     if (!server.language.trim() || !server.command.trim()) return '语言服务器必须填写语言和命令。'
@@ -138,6 +147,10 @@ function operations(draft: Draft, value: any): Op[] {
   ]
   for (const [name, path] of scalars) {
     if (draft[name] !== original[name]) set(path, draft[name])
+  }
+  if (draft.readOnlyRepositoryRoots !== original.readOnlyRepositoryRoots) {
+    set(['sessionRepositories', 'readOnlyRoots'],
+      draft.readOnlyRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
   }
   const current = value?.github?.accounts ?? []
   const seen = new Set(draft.accounts.filter(a => a.sourceIndex >= 0).map(a => a.sourceIndex))
@@ -359,6 +372,15 @@ function installClient(require: (id: string) => unknown) {
           toggle(t('启用 Git', 'Enable Git'), draft.gitEnabled, v => patch({ gitEnabled: v })),
           field(t('Git 可执行文件', 'Git command'), draft.gitCommand, v => patch({ gitCommand: v })),
         )),
+      section(t('会话仓库关联（只读）', 'Session repositories (read only)'),
+        h('label', { style: { display: 'grid', gap: '5px', fontSize: '13px' } },
+          h('span', null, t('允许关联的本地 Git 仓库（每行一个绝对路径）',
+            'Allowlisted Git repositories (one absolute path per line)')),
+          h('textarea', { style: inputStyle, rows: 3, disabled,
+            value: draft.readOnlyRepositoryRoots,
+            onChange: (e: any) => patch({ readOnlyRepositoryRoots: e.target.value }) })),
+        hint(t('默认不允许外部仓库。路径清单不会自动授予宿主读写权限；Agent 仍须通过 Host 验证，只能只读关联。',
+          'Empty by default. Allowlisting never grants Host access or write privileges; the Host must independently authorize read-only inspection.'))),
       section(t('执行与写入权限', 'Execution & write permissions'),
         toggle(t('允许创建 Worktree', 'Allow worktree writes'), draft.allowWorktreeWrites, v => patch({ allowWorktreeWrites: v })),
         toggle(t('允许执行项目脚本', 'Allow project commands'), draft.allowCommands, v => patch({ allowCommands: v })),

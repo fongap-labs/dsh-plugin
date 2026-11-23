@@ -415,6 +415,20 @@ Delta Code 借鉴工程实践中的**可执行规划**和**连续执行**，不�
 
 本功能**不执行**上游 Skill 所建议的 `npx @latest`、npm 安装、`legacy-scan`，不启用其 CLI 遥测，不上传项目代码、搜索词或文件内容。网络不可用、Host 拒绝或校验失败时如实报告并使用现有工程检查继续；指南内容属于不可信参考资料，不能修改用户规则、宿主权限或浏览器兼容性要求。每个任务仅主动提示一次，推荐检索一项主题、最多读取两份匹配指南；不是必需的任务门禁。
 
+### 单会话关联多个本地 Git 仓库（只读 P0）
+
+默认不允许任何外部仓库。用户先在 Delta Code 插件设置 `sessionRepositories.readOnlyRoots` 中逐项填写**绝对路径**（最多 12 个预批准根目录）；这只是插件内的只读候选清单，不是 Host 文件系统或终端权限授权。只有 DSH 已挂载真实 `fs`、`subprocess` 和 `sessionProjections` 服务，且 Host 真正允许访问该路径及运行只读 Git 时才可关联。不存在任何本地 Node 文件/进程权限降级。
+
+对话内调用 `code_session_repositories`：
+
+- `action=list` 列出当前**原生会话**已关联仓库及撤销数量；不探测未关联目录
+- `action=attach, path=<已配置绝对路径>` 校验目录及 Git 顶层后记录关联；最多 8 个
+- `action=inspect, id=<仓库 ID>` 独立重新授权并查看 Git 分支、暂存/改动/未跟踪数量
+- `action=search, id=<仓库 ID>, query=sidebar` 按需读取该仓库已跟踪文件路径；最多返回 100 条
+- `action=detach, id=<仓库 ID>` 解除关联；即使授权清单后来删除该路径，仍允许删除旧关联
+
+关联事件从 DSH 原生 `tool/call` 与成功 `tool/result` 恢复，按原生 Session 独立，不建立第二个数据库；插件卸载或 Host 投影服务不可用时不得假装关联仍然可用。每次 `inspect/search` 必须重新核对配置白名单、Host FS 权限、仓库真实根路径与会话 ID。移除授权后立即拒绝读取，旧记录可解除。关联不会切换 Harness 活动工作目录，不会克隆、自动修改代码、提交、推送、建立 PR 或授予原生 Shell 写入权限。无法从原生 Host 获得外部目录访问时返回明确错误；不得私自通过软链接、工作目录切换或其他工具绕过限制。跨仓库写入与客户端仓库选择器为后续独立阶段，真实 Windows Host 的会话恢复仍需单独验收。
+
 ### Coding Checkpoint 与上下文压缩恢复
 
 保留 Harness 原生 CompactionEngine、`compaction/summary` 日志、Todo 投影与 Git 权限，不新建压缩服务或第二份任务数据库。`code_execution_next` 输出 `contextIntentEvidence`（`anchored` / `incomplete` / `unavailable`），并结合原生摘要水位和 Todo 写入事件次序建议下一步：压缩后缺少完整原始用户来源时返回 `blocked`；用户来源已锚定但原生 Todo 尚未更新时返回 `reconcile`。原生 Todo 已更新仅表示可继续检查，**不表示**用户约束、代码差异、测试或交付已被自动验证。
