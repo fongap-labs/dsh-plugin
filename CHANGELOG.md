@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 清理自建 MCP 凭据编辑器、env/header 读取、配置写入、原生插件菜单覆盖及废弃样式、类型和中英双语文案；MCP 配置恢复 Harness 原生所有权，增加安全边界回归测试。
+
 - 修复: Delta Code 在 Harness 原生终端、补丁或文件写入工具返回后作废旧 Coding/Git/Todo 恢复检查点和验证状态，避免压缩续接误用已过期证据；原生只读工具不会触发重复恢复。
 
 - 修复: Delta Suite 删除退役的 Workspace 方法包装和模拟删除拦截，保留运行中的只读搜索保护，并将 CI 测试改为验证真实调用与 Host 原生权限。

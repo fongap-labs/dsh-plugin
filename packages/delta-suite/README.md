@@ -149,3 +149,7 @@ Delta 自有弹窗、搜索、MCP 和助手辅助组件只消费 `--dtd-*` 语�
 ## P0-4 Theme palette 模块边界（2026-11-24）
 
 将 Delta Suite 的 Theme Token 定义移入 `src/client-theme-tokens.ts`，`tsconfig.client.json` 在同一类型检查单元内编译，再由 `finalize-client.mjs` 将该产物内联到唯一的 `lib/client.js` 并删除中间文件。不新增运行时模块、私有 Host API、原生源码补丁、语言系统或其他独立入口。正式发布物继续使用公开 Theme API 并保持撤销注册能力；Windows/双版本客户端验收仍需单独进行。
+
+## MCP 配置边界
+
+Delta Suite 的自建 MCP 凭据编辑器已删除；MCP 服务器配置、凭据读写及启停继续使用 Harness 原生能力。本插件不读取或缓存 MCP 的 `env`、`headers` 或原始凭据。相关静态与模拟测试不代表已完成官方 Harness 客户端验收。

@@ -189,10 +189,8 @@ describe('Delta-owned visual tokens and modal accessibility', () => {
   it('styles only Suite-owned modal overlays, surfaces and visible keyboard focus', () => {
     const extras = file('src/feature-extras.css')
     assert.doesNotMatch(extras, /rgba?\(/, 'component colors must use semantic tokens')
-    assert.match(extras, /\.dtd-mcp-overlay[^\{]*\{[^\}]*var\(--dtd-bg-mask\)/)
     assert.match(extras, /\.dtd-correction-overlay[^\{]*\{[^\}]*var\(--dtd-bg-mask\)/)
-    assert.match(extras, /\.dtd-mcp-dialog[^\{]*\{[^\}]*var\(--dtd-modal-bg\)/)
-    assert.match(extras, /\.dtd-mcp-dialog[^\{]*\{[^\}]*var\(--dtd-modal-shadow\)/)
+    assert.doesNotMatch(extras, /\.dtd-mcp-/, 'retired MCP credential editor CSS must be absent')
     assert.match(extras, /:focus-visible\s*\{[^\}]*var\(--dtd-border-focus\)/)
     assert.doesNotMatch(extras, /(^|\s)--dsw-[a-z-]+\s*:/m)
   })
