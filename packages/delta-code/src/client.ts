@@ -422,7 +422,7 @@ function installClient(require: (id: string) => unknown) {
     )
   }
   return {
-    inject: ['slots', 'configForms', 'remote', 'remote.credentials'],
+    inject: ['slots', 'configForms', 'remote', 'remote.credentials', 'remote.commands', 'sessions'],
     apply(ctx: any) {
       // The plugin row's Cordis config namespace is its patch id, not its
       // package name. The Settings section uses the same revision-fenced form.
@@ -435,6 +435,116 @@ function installClient(require: (id: string) => unknown) {
           state: snapshot, mutate: (ops: Op[], revision?: number) => form.mutate(ops, revision),
         }, credentials })
       }
+      function SessionRepositoriesSection(props: any) {
+        const sessionId = props.sessionId
+        const [settings, setSettings] = React.useState(() => form.getSnapshot().value ?? {})
+        const [repositories, setRepositories] = React.useState<any[]>([])
+        const [busy, setBusy] = React.useState('')
+        const [notice, setNotice] = React.useState('')
+        React.useEffect(() => form.subscribe(() => setSettings(form.getSnapshot().value ?? {})), [])
+        React.useEffect(() => {
+          let isActive = true
+          let currentFace: any
+          let stop = () => {}
+          const connect = () => {
+            if (!isActive) return
+            const next = ctx.sessions.binding(sessionId)?.session?.projections?.faceOf?.('deltaCodeSessionRepositories')
+            if (!next || next === currentFace) return
+            stop()
+            currentFace = next
+            const update = () => {
+              if (isActive) {
+                const value = currentFace.getSnapshot()
+                setRepositories(Array.isArray(value) ? value : [])
+              }
+            }
+            update()
+            stop = currentFace.subscribe(update)
+          }
+          connect()
+          void ctx.sessions.refreshProjections(sessionId).then(connect).catch((error: unknown) => {
+            if (isActive) setNotice(String(error))
+          })
+          return () => { isActive = false; stop() }
+        }, [sessionId])
+        const roots = Array.isArray(settings?.sessionRepositories?.readOnlyRoots)
+          ? settings.sessionRepositories.readOnlyRoots.filter((value: unknown) => typeof value === 'string') : []
+        const writeRoots = Array.isArray(settings?.sessionRepositories?.writeRoots)
+          ? settings.sessionRepositories.writeRoots.filter((value: unknown) => typeof value === 'string') : []
+        const pathKey = (value: string) => /^[A-Za-z]:[\\/]/.test(value)
+          ? value.replace(/\\/g, '/').toLowerCase() : value.replace(/\\/g, '/')
+        const isWriteAllowed = (value: string) => writeRoots.some((root: string) => pathKey(root) === pathKey(value))
+        const execute = async (action: 'attach' | 'detach', value: string) => {
+          const key = action + ':' + value
+          setBusy(key)
+          setNotice('')
+          try {
+            const line = action === 'attach'
+              ? '/delta-repo attach ' + JSON.stringify(value)
+              : '/delta-repo detach ' + value
+            const response = await ctx.remote.commands.execute(sessionId, line, [])
+            if (!response.ok) throw new Error(response.error.message || response.error.code)
+            if (!response.value) throw new Error('Unknown Delta Code repository command.')
+            if (response.value.result.kind === 'error') throw new Error(response.value.result.text)
+            setNotice(response.value.result.text || (action === 'attach' ? 'Repository attached.' : 'Repository detached.'))
+            await ctx.sessions.refreshProjections(sessionId)
+          } catch (error) {
+            setNotice(error instanceof Error ? error.message : String(error))
+          } finally {
+            setBusy('')
+          }
+        }
+        const attachedFor = (root: string) => repositories.find(repo => pathKey(repo.path) === pathKey(root))
+        const rows = roots.map((root: string) => {
+          const attached = attachedFor(root)
+          const name = root.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || root
+          const writable = isWriteAllowed(root)
+          const action = attached ? 'detach' : 'attach'
+          const key = action + ':' + (attached?.id ?? root)
+          return h('div', { key: root, 'data-session-panel-row': '' },
+            h('button', {
+              type: 'button', 'data-row-part': 'body', disabled: busy !== '',
+              title: root, 'aria-label': name + (attached ? ', detach repository' : ', attach repository'),
+              onClick: () => { void execute(action, attached?.id ?? root) },
+            },
+              h('span', { 'data-row-part': 'icon', 'aria-hidden': 'true' }, '▣'),
+              h('span', { 'data-row-part': 'lines' },
+                h('span', { 'data-row-part': 'content' }, name),
+                h('span', { 'data-row-part': 'detail', title: root }, root))),
+            h('span', { 'data-row-part': 'trailing' }, attached
+              ? (writable ? t('已关联 · 可写', 'Attached · writable') : t('已关联 · 只读', 'Attached · read only'))
+              : (writable ? t('未关联 · 可写', 'Not attached · writable') : t('未关联 · 只读', 'Not attached · read only'))),
+            busy === key && h('span', { 'data-row-part': 'menu', 'aria-hidden': 'true' }, '…'))
+        })
+        const revoked = repositories.filter(repo => !roots.some((root: string) => pathKey(root) === pathKey(repo.path)))
+        const revokedRows = revoked.map(repo => h('div', { key: repo.id, 'data-session-panel-row': '' },
+          h('button', {
+            type: 'button', 'data-row-part': 'body', disabled: busy !== '',
+            title: repo.path, 'aria-label': repo.path + ', revoked access, detach repository',
+            onClick: () => { void execute('detach', repo.id) },
+          },
+            h('span', { 'data-row-part': 'icon', 'aria-hidden': 'true' }, '▣'),
+            h('span', { 'data-row-part': 'lines' },
+              h('span', { 'data-row-part': 'content' }, repo.path.split(/[\\/]/).pop() || repo.path),
+              h('span', { 'data-row-part': 'detail' }, repo.path))),
+          h('span', { 'data-row-part': 'trailing' }, t('授权已撤销', 'Access revoked'))))
+        return h('div', { style: { display: 'grid', gap: '5px', padding: '2px 0 8px' } },
+          h('p', { style: { fontSize: '12px', opacity: 0.72, lineHeight: 1.45, margin: '0 0 5px' } },
+            t('只显示设置中明确允许的本地仓库。可写权限还要求单独加入可写白名单，并由 Host 授权。',
+              'Only explicitly allowlisted local repositories appear. Writes also require the separate write allowlist and Host authorization.')),
+          ...rows,
+          ...revokedRows,
+          roots.length === 0 && h('p', { style: { fontSize: '12px', opacity: 0.72, margin: '4px 0' } },
+            t('尚未配置仓库。请先在 Delta Code 设置中添加只读路径白名单。',
+              'No repositories configured. Add read-only roots in Delta Code settings first.')),
+          notice && h('p', { role: 'status', style: { fontSize: '12px', overflowWrap: 'anywhere', margin: '4px 0' } }, notice))
+      }
+      ctx.effect(() => ctx.slots.inject('conversation.session.panel.section', () => ctx.slots.register({
+        name: 'conversation.session.panel.section',
+        id: 'delta-code.repositories',
+        order: 275,
+        label: () => t('关联仓库', 'Repositories'),
+      }, SessionRepositoriesSection)), 'delta-code: session repositories section')
       // settings.section is shared by native Settings and the Plugins page.
       // Do not register plugins.row.config as well, which would hide this page
       // in the plugin manager and create two competing configuration surfaces.
