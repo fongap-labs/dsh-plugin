@@ -11,7 +11,6 @@ const theme = read('../packages/delta-suite/src/theme.css')
 // Simulate the compiler + finalize-client markers used by both published archives.
 const emittedClient = (style = theme) => [
   'window.__ModuleLoader__.load({',
-  'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
   'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
@@ -159,10 +158,9 @@ test('release guard rejects synthetic Ungrouped context menu and global capture'
     /retired Ungrouped native context menu in emitted theme/)
 })
 
-test('release guard refuses changes to either approved compatibility implementation', () => {
-  assert.throws(() => verifyApprovedZip3Client(emittedClient(), source.replace(
-    'function installSidebarCompatibility(', 'function installSidebarCompatibility(/* changed */'
-  )), /approved compatibility adapter changed/)
+test('release guard refuses revived Sidebar interception and changes to pinned Host Search', () => {
+  assert.throws(() => verifyApprovedZip3Client(emittedClient() + '\nfunction installSidebarCompatibility() {}', source),
+    /retired native Sidebar DOM interception/)
   assert.throws(() => verifyApprovedZip3Client(emittedClient(), source.replace(
     'function installHostSearch(', 'function installHostSearch(/* changed */'
   )), /approved compatibility adapter changed/)

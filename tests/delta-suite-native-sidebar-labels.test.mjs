@@ -15,7 +15,7 @@ test('native sidebar labels stay fully Host-owned without runtime DOM adapters',
   assert.doesNotMatch(source, /hiddenMoreElements/, 'the native More action must no longer be hidden')
   assert.doesNotMatch(source, /target\.style\.setProperty\('display', 'none', 'important'\)/)
   assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
-  assert.match(source, /function installSidebarCompatibility\(/)
+  assert.doesNotMatch(source, /function installSidebarCompatibility\(/)
   assert.doesNotMatch(source, /function installLiveNativePresentation\(/)
   assert.doesNotMatch(source, /if \(controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
   assert.doesNotMatch(source, /scope\.slots\.inject\('sidebar\.session\.action'/)
@@ -24,16 +24,15 @@ test('native sidebar labels stay fully Host-owned without runtime DOM adapters',
 
 test('ZIP3 checksum still rejects unreviewed native navigation mutation', () => {
   const client = [
-    'function installSidebarCompatibility() {}',
     'function installHostSearch() {}',
     'data-delta-compat dtd-host-search',
     'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(client, source))
   const changed = source.replace(
-    'function installSidebarCompatibility(controller: DeltaController): () => void {',
-    'function installSidebarCompatibility(controller: DeltaController): () => void { /* unreviewed native label rewrite */',
+    'function installHostSearch(',
+    'function installSidebarCompatibility() {}\nfunction installHostSearch(',
   )
   assert.notEqual(changed, source)
-  assert.throws(() => verifyApprovedZip3Client(client, changed), /approved compatibility adapter changed/)
+  assert.throws(() => verifyApprovedZip3Client(client, changed), /retired native Sidebar DOM interception/)
 })

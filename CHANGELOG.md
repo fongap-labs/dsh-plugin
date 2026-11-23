@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 删除 Delta Suite 未挂载的原生侧边栏 DOM 兼容函数和帧调度器，转为严格校验仅通过公开 Search Slot 扩展，禁止重新引入菜单点击/原生节点接管。
+
 - 修复: Delta Code GitHub PR/CI 诊断支持锁定期望 HEAD，检查期间 HEAD 发生变化则拒绝过期结果，分页不完整时明确报告证据不足。
 
 - 新增: Delta Code 原生多 Agent 编程协作采用有界并行波次，关联根配置和依赖锁文件不得未经协调并行修改；小规模任务优先单 Agent，原生 Host 并发与权限仍为最终依据。

@@ -162,5 +162,16 @@
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"
+  },
+  "p0_sidebar_dom_retirement": {
+    "as_of": "2026-11-24",
+    "stage": "code-implemented-ci-pending",
+    "deleted": "unmounted native Sidebar DOM compatibility and frame scheduler",
+    "release_guard": "public Search region SHA1 pinned; retired Sidebar DOM entry forbidden",
+    "native_sidebar": "Host-owned; unsupported layout overrides disabled",
+    "static_source_checks": "11 targeted ownership assertions passed; full central CI pending",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }

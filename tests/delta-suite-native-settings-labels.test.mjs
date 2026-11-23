@@ -12,11 +12,10 @@ const source = read('packages/delta-suite/src/client.ts')
 const palette = read('packages/delta-suite/src/client-theme-tokens.ts')
 const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/delta-suite/src/theme.css')
-const begin = normalizedSource.indexOf('function installSidebarCompatibility(')
-const end = normalizedSource.indexOf('\ntype SearchTabId', begin)
+const begin = normalizedSource.indexOf('function installHostSearch(')
+const end = normalizedSource.indexOf('\nwindow.__ModuleLoader__.load(', begin)
 
 const emitted = [
-  'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
   'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
@@ -30,14 +29,14 @@ test('Settings navigation remains under Harness layout and label ownership', () 
 
 test('ZIP3 release verifier rejects reintroduced native Settings layout activation', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const anchor = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
+  const anchor = 'const initialCopy = DICTIONARIES[language()] ?? DICTIONARIES.en'
   const anchorOffset = normalizedSource.indexOf(anchor, begin)
   assert.ok(begin >= 0 && end > begin && anchorOffset >= begin && anchorOffset < end,
-    'mutation fixture must target the pinned sidebar region')
+    'mutation fixture must target the pinned public Search region')
   const tampered = normalizedSource.slice(0, anchorOffset) +
     normalizedSource.slice(anchorOffset).replace(anchor,
       anchor + "\n    document.documentElement.dataset.deltaCompat = '1'")
-  assert.notEqual(tampered, normalizedSource, 'negative fixture must mutate the compatibility function')
+  assert.notEqual(tampered, normalizedSource, 'negative fixture must mutate the reviewed Search region')
   assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
 })
 
