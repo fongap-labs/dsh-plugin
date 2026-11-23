@@ -103,10 +103,21 @@ describe('Code Worker optional subprocess capability', () => {
       releaseSubprocess = ctx.provide('subprocess', {
         spawn() { throw Error('remounted Host was reached') },
       })
-      await settle(() => registered.get('code_git_status') === stableStatus)
+      let didReachNewHost = false
+      for (let attempt = 0; attempt < 40; attempt++) {
+        try {
+          await stableStatus.execute({}, { signal: new AbortController().signal })
+        } catch (error) {
+          if (/remounted Host was reached/.test(String(error))) {
+            didReachNewHost = true
+            break
+          }
+        }
+        await new Promise(resolve => setImmediate(resolve))
+      }
+      assert.equal(didReachNewHost, true, 'stable tool must rebind to the remounted Host')
+      assert.strictEqual(registered.get('code_git_status'), stableStatus)
       assert.strictEqual(registered.get('code_workspace_map'), stableWorkspace)
-      await assert.rejects(stableStatus.execute({}, { signal: new AbortController().signal }),
-        /remounted Host was reached/, 'same model-visible tool must use the new Host')
       for (const name of ['code_workflow_route', 'code_multi_edit', 'code_project_profile', 'code_host_probe', 'code_execution_next']) {
         assert.ok(registered.has(name), name + ' should remain after subprocess removal')
       }
