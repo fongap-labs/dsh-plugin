@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Release build script for plugins repository (per-plugin).
+  Release build script for dsh-plugin (per-plugin).
   Called by per-plugin wrapper scripts in packages/<pkg>/build-plugin-release.ps1.
 
 .DESCRIPTION

@@ -4,7 +4,7 @@
 # Usage: central-ci.sh <target-root> [shard]
 #
 # The Action Worker sandbox checks out this repository at the change under test and runs this
-# script against it. plugins owns its tests (tests/) and its bundle validation script, so this
+# script against it. dsh-plugin owns its tests (tests/) and its bundle validation script, so this
 # script invokes them directly; it does not use a central test pack. Exit 0 only when every phase
 # passes. Phase markers keep per-phase timing visible for public repositories.
 set -Eeuo pipefail
