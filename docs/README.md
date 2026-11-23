@@ -15,6 +15,4 @@
 ## 专项验证与包文档
 
 - [Code Worker 宿主冒烟测试](CODE_WORKER_HOST_SMOKE.md)
-- [Delta Code 宿主结果合同](../packages/dsh-delta-code/docs/host-outcome-contract.md)
-- [可信 GitHub 技能治理](../packages/dsh-delta-code/docs/trusted-github-skills-governance.md)
-- [Delta Desktop 快速验证](../packages/dsh-delta-desktop/docs/quick-validation.md)
+- 各包的专项文档随对应包维护。
