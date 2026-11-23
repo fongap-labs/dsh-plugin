@@ -44,8 +44,9 @@ function gatewayRetryHint(message: unknown): GatewayRetryHint | null {
     // A structured Gateway refusal is authoritative even when no Retry-After
     // exists. Never let the stock Host policy replay an explicitly terminal
     // response (as seen in the free-model session).
-    const gatewayCode = details?.gateway_code
-    if (typeof gatewayCode !== 'string' || !/^gateway_[a-z0-9_]+$/.test(gatewayCode)) return null
+    if (!details || typeof details.gateway_code !== 'string' ||
+        !/^gateway_[a-z0-9_]+$/.test(details.gateway_code)) return null
+    const gatewayCode = details.gateway_code
     if (details.retryable === false) {
       return { retryAfterMs: null, suppressAutomaticReplay: true }
     }
