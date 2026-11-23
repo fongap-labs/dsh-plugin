@@ -431,6 +431,16 @@ export function patchSessionLogSettings(source) {
   return next
 }
 
+/** Keep keyboard and visual order consistent by moving the native rename contribution first. */
+export function patchSessionMenuOrder(source) {
+  const marker = 'delta-suite:session-rename-first-v1'
+  if (source.includes(marker)) return source
+  return replaceUnique(source,
+    "  register('rename', 200, ['session/rename'], target =>",
+    "  // " + marker + "\n  register('rename', 50, ['session/rename'], target =>",
+    'native Session context menu rename contribution')
+}
+
 export const changes = [
   { package: '@deepseek-ai/dsh-client-ui-settings-account', file: 'src/client/AccountMenu.tsx', transform: patchAccountMenu },
   { package: '@deepseek-ai/dsh-client-ui-settings-account', file: 'src/client/AccountMenu.module.css', transform: patchAccountMenuStyle },
@@ -439,6 +449,7 @@ export const changes = [
   { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/CurrentVersionRow.module.css', transform: patchCurrentVersionStyle },
   { package: '@deepseek-ai/dsh-client-ui-settings-session-log', file: 'src/client/index.ts', transform: patchSessionLogSettings },
   { package: '@deepseek-ai/dsh-session-log-deepseek', file: 'src/index.ts', transform: patchSessionLogBackend },
+  { package: '@deepseek-ai/dsh-client-ui-workspace', file: 'src/client/session-actions/context-menus.tsx', transform: patchSessionMenuOrder },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.tsx', transform: patchSidebarRoot },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.module.css', transform: patchSidebarStyle },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/locales.ts', transform: dictionary([
