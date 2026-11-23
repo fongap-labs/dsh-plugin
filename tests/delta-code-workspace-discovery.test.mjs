@@ -275,13 +275,21 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
     tool.execute(args, { agent: who, signal: new AbortController().signal })
   const accept = (args, output) => {
     const callId = 'call_' + seq
+    const previous = state
     state = foldSessionRepositoryEvent(state, {
       type: 'tool/call', seq: seq++, data: {
         name: 'code_session_repositories', callId, arguments: JSON.stringify(args),
       },
     })
+    const binding = args.action === 'attach'
+      ? output.repositories.find(repo => !previous.bindings.some(item => item.id === repo.id))
+      : previous.bindings.find(repo => repo.id === args.id)
+    assert.ok(binding, 'successful attach/detach must identify the affected repository')
+    state = foldSessionRepositoryEvent(state, {
+      type: 'delta-code/repository-binding', seq: seq++,
+      data: { version: 1, action: args.action, id: binding.id, path: binding.path },
+    })
     const rendered = tool.output.render(args, output)[0].text
-    assert.ok(rendered.includes(REPOSITORY_EVENT_MARKER))
     state = foldSessionRepositoryEvent(state, {
       type: 'tool/result', seq: seq++, data: {
         message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
