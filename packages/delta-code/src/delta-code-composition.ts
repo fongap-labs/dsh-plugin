@@ -26,6 +26,7 @@ import { createExecutionNextTool } from './delta-code-adapter/providers/dsh/exec
 import { registerNativeToolStats } from './delta-code-adapter/providers/dsh/native-tool-stats.js'
 import { registerNativeCompactionMarker } from './delta-code-adapter/providers/dsh/compaction-marker.js'
 import { registerNativeSessionRepositories } from './delta-code-adapter/providers/dsh/session-repository-projection.js'
+import { createSessionRepositoryCommand } from './delta-code-adapter/providers/dsh/session-repositories.js'
 
 /** Only this composition root knows both Host adapters and feature implementations. */
 export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
@@ -60,7 +61,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
         registerRouter: () => registerAutomaticCodingRouter(ctx, () => settings, undefined, resume, taskContext, stats),
         registerPrompt: () => registerDeltaCodePrompt(ctx, settings),
       }),
-      deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
+      deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings, sessionRepositories)),
       deltaCodeRepositoryRemote(createDshRepositoryRemoteTools(
         ctx, settings, createGitHubTransport(settings.githubAccounts, ctx))),
       deltaCodeQuality([createExecutionNextTool(resume, stats, compaction, taskContext)]),
@@ -95,6 +96,18 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       const stop = (injected as { dispose?: () => Promise<void> } | null)?.dispose
       if (typeof stop === 'function') void Promise.resolve(stop.call(injected)).catch(() => {
         ctx.logger?.warn?.('delta-code: subprocess injector disposal failed')
+      })
+    })
+    let isRepositoryCommandActive = true
+    const repositoryCommandInjection = ctx.inject(['commands', 'subprocess'], child => {
+      if (!isRepositoryCommandActive) return
+      return child.commands.register(createSessionRepositoryCommand(child, settings, sessionRepositories))
+    })
+    releases.push(() => {
+      isRepositoryCommandActive = false
+      const stop = (repositoryCommandInjection as { dispose?: () => Promise<void> } | null)?.dispose
+      if (typeof stop === 'function') void Promise.resolve(stop.call(repositoryCommandInjection)).catch(() => {
+        ctx.logger?.warn?.('delta-code: session repository command injector disposal failed')
       })
     })
     releases.push(registerGatewayRetryCoordinator(ctx, () => settings.enabled))
