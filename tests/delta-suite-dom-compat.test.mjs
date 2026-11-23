@@ -47,9 +47,9 @@ test('Delta-owned modal backdrops are scoped to Delta, not Harness chrome', () =
 
 test('ZIP3 session operations retain Host permission and privacy boundaries', () => {
   assert.match(source, /deltaFeatures\.isLocked/)
-  assert.match(source, /return 'protected-default-workspace'/)
-  assert.match(source, /new Error\('delta\/' \+ reason\)/)
-  assert.match(source, /installWorkspaceMutationGuards/)
+  assert.doesNotMatch(source, /return 'protected-default-workspace'/)
+  assert.doesNotMatch(source, /new Error\('delta\/' \+ reason\)/)
+  assert.doesNotMatch(source, /installWorkspaceMutationGuards/)
   assert.doesNotMatch(source, /installClientPrivacyGuards|makeGeolocationDeniedError/)
   assert.doesNotMatch(source, /installSidebarCompatibility\(controller\)/)
   assert.doesNotMatch(source, /navigator\.geolocation|permissions\.query/)
@@ -213,8 +213,8 @@ test('Host owns native session/workspace lock badges; Delta keeps the tested aut
   assert.doesNotMatch(compat, /querySelectorAll<HTMLElement>\('\[data-row-key\^="workspace:"\]'\)/)
   assert.match(compat, /hiddenDeletedRows/)
   assert.match(compat, /syncLockShieldOverlay/)
-  assert.match(source, /installWorkspaceMutationGuards/)
-  assert.match(source, /readWorkspaceMutationPolicy/)
+  assert.doesNotMatch(source, /installWorkspaceMutationGuards/)
+  assert.doesNotMatch(source, /readWorkspaceMutationPolicy/)
 })
 
 test('native session and workspace hover cards remain Host-owned; public Slot keeps privacy protection', () => {
