@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- 重构: Delta Suite 删除已退役 Gateway Effort 控件、Models 目录订阅、过时类型和中英各 29 条无引用文案，保留 Harness 原生模型与推理配置，并增加无死代码和词条校验。
+- 维护: Delta Suite 删除已退役 Gateway Effort 控件、Models 目录订阅、过时类型和中英各 29 条无引用文案，保留 Harness 原生模型与推理配置，并增加无死代码和词条校验。
 
 - 修复: 清理 52 个未被 Delta Suite 当前代码引用的遗留翻译 Key，保持 zh/en 对齐，并在现有国际化回归测试中阻止新增未使用词条。
 
