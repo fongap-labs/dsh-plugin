@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { analyzeTranscript, analyzeSessions } from '../scripts/analyze-code-worker-session.mjs'
+import { analyzeSessionEvents, analyzeJsonlFiles } from '../scripts/analyze-code-worker-jsonl.mjs'
 import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -96,5 +97,106 @@ describe('DSH Markdown session analysis', () => {
     } finally {
       await rm(dir, { recursive: true, force: true })
     }
+  })
+})
+
+
+const nativeInput = [
+  { type: 'session', id: 'PRIVATE-SESSION-ID', cwd: '/private/workspace' },
+  { type: 'user/message', seq: 1, time: 1000, data: { source: { kind: 'user' },
+    content: [{ type: 'text', text: 'token=top-secret' }] } },
+  { type: 'tool/call', seq: 2, time: 1010, data: { name: 'code_verify',
+    arguments: '{"password":"top-secret"}' } },
+  { type: 'tool/result', seq: 3, time: 1020, data: { message: { isError: true,
+    content: [{ type: 'text', text: 'token=top-secret' }] } } },
+  { type: 'tool/call', seq: 4, time: 1025, data: { name: 'code_verify',
+    arguments: '{"password":"top-secret"}' } },
+  { type: 'compaction/start', seq: 5, time: 1100, data: { compactionId: 'PRIVATE-ID' } },
+  { type: 'compaction/summary', seq: 6, time: 1500, data: {
+    compactionId: 'PRIVATE-ID', shadowedTokenCount: 123,
+    summary: [{ type: 'text', text: 'model summary includes top-secret' }] } },
+  { type: 'compaction/end', seq: 7, time: 1501, data: { compactionId: 'PRIVATE-ID' } },
+  { type: 'tool/result', seq: 8, time: 1502, data: { message: { isError: false } } },
+  { type: 'tool/call', seq: 9, time: 1510, data: { name: 'code_execution_next', arguments: '{}' } },
+  { type: 'todo/write', seq: 10, time: 1600, data: { todos: [
+    { content: 'private work', status: 'completed' }, { content: 'pending work', status: 'pending' },
+  ] } },
+  { type: 'llm/retry', seq: 11, time: 1700, data: { error: 'top-secret' } },
+]
+
+describe('native DSH JSONL session evidence', () => {
+  it('reports observed events and native checkpoint timing, never task success', () => {
+    const result = analyzeSessionEvents(nativeInput)
+    assert.equal(result.eventCount, 11)
+    assert.equal(result.userMessages, 1)
+    assert.equal(result.toolCalls, 3)
+    assert.equal(result.codeToolCalls, 3)
+    assert.equal(result.toolResults, 2)
+    assert.equal(result.toolErrors, 1)
+    assert.equal(result.repeatCandidates, 1)
+    assert.equal(result.compactionSummaries, 1)
+    assert.equal(result.linkedSummaryCount, 1)
+    assert.equal(result.compactionMedianMs, 400)
+    assert.equal(result.shadowedTokenCountSum, 123)
+    assert.equal(result.lastSummarySeq, 6)
+    assert.equal(result.lastTodoSeq, 10)
+    assert.equal(result.todoRefreshedAfterSummary, true)
+    assert.equal(result.todosAfterLastSummary, 1)
+    assert.equal(result.toolCallsAfterLastSummary, 1)
+    assert.equal(result.elapsedMs, 700)
+    assert.equal(result.modelRetryEvents, 1)
+    assert.deepEqual(result.latestTodoStatus, { pending: 1, in_progress: 0, completed: 1 })
+    for (const secret of ['top-secret', '/private/', 'PRIVATE', 'pending work', 'model summary']) {
+      assert.equal(JSON.stringify(result).includes(secret), false)
+    }
+    assert.equal(Object.hasOwn(result, 'taskSuccess'), false)
+  })
+
+  it('does not mistake a summary without a later Todo event for recovery', () => {
+    const result = analyzeSessionEvents(nativeInput.filter(event => event.seq !== 10))
+    assert.equal(result.compactionSummaries, 1)
+    assert.equal(result.todoRefreshedAfterSummary, false)
+    assert.equal(result.todosAfterLastSummary, 0)
+  })
+
+  it('uses only events after the latest compaction summary for active checkpoint counts', () => {
+    const events = [...nativeInput,
+      { type: 'compaction/start', seq: 12, time: 1800, data: { compactionId: 'next' } },
+      { type: 'compaction/summary', seq: 13, time: 2100, data: { compactionId: 'next' } },
+      { type: 'tool/call', seq: 14, time: 2150, data: { name: 'read', arguments: '{}' } }]
+    const result = analyzeSessionEvents(events)
+    assert.equal(result.compactionSummaries, 2)
+    assert.equal(result.compactionMedianMs, 300)
+    assert.equal(result.todoRefreshedAfterSummary, false)
+    assert.equal(result.toolCallsAfterLastSummary, 1)
+  })
+
+  it('rejects duplicate sequence or malformed session headers', () => {
+    assert.throws(() => analyzeSessionEvents([
+      { type: 'todo/write', seq: 2 }, { type: 'todo/write', seq: 2 }]), /reordered/)
+    assert.throws(() => analyzeSessionEvents([{ type: 'tool/call', seq: -1 }]), /invalid/)
+    assert.throws(() => analyzeSessionEvents([
+      { type: 'session', id: 'a' }, { type: 'session', id: 'b' }]), /invalid/)
+  })
+
+  it('streams extracted JSONL offline without returning file paths or raw user content', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'delta-code-jsonl-'))
+    const file = join(dir, 'session.v4.jsonl')
+    try {
+      await writeFile(file, nativeInput.map(event => JSON.stringify(event)).join('\n') + '\n')
+      const result = await analyzeJsonlFiles([file, file])
+      assert.equal(result.sessions.length, 2)
+      assert.equal(result.sessions[0].toolCalls, 3)
+      assert.match(result.interpretation, /overlapping exports/)
+      assert.equal(JSON.stringify(result).includes(dir), false)
+      assert.equal(JSON.stringify(result).includes('top-secret'), false)
+      const script = fileURLToPath(new URL('../scripts/analyze-code-worker-jsonl.mjs', import.meta.url))
+      const output = JSON.parse(execFileSync(process.execPath,
+        [script, '--session', file], { encoding: 'utf8' }))
+      assert.equal(output.sessions[0].compactionSummaries, 1)
+      await assert.rejects(analyzeJsonlFiles([]), /1\.\.12/)
+      await writeFile(file, '{bad json}')
+      await assert.rejects(analyzeJsonlFiles([file]), /invalid session JSONL/)
+    } finally { await rm(dir, { recursive: true, force: true }) }
   })
 })
