@@ -38,3 +38,45 @@ test('clean-up still keeps native appearance and unrelated UI resource ownership
   assert.match(client, /function installSidebarCompatibility/)
   assert.doesNotMatch(client, /installSidebarCompatibility\(controller\)/)
 })
+
+
+const zhCopy = JSON.parse(read('packages/delta-suite/locale/zh.json'))
+const enCopy = JSON.parse(read('packages/delta-suite/locale/en.json'))
+const flattenCopy = (value, prefix = '') =>
+  Object.entries(value).flatMap(([key, entry]) => typeof entry === 'string'
+    ? [[prefix + key, entry]]
+    : flattenCopy(entry, prefix + key + '.'))
+const placeholders = value => [...value.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_.-]*)\}/g)]
+  .map(match => match[1]).sort()
+
+test('Suite zh and en dictionaries have identical nonempty keys and placeholders', () => {
+  const zh = new Map(flattenCopy(zhCopy))
+  const en = new Map(flattenCopy(enCopy))
+  assert.deepEqual([...zh.keys()].sort(), [...en.keys()].sort())
+  for (const [key, text] of zh) {
+    assert.ok(text.trim(), key + ' missing zh copy')
+    assert.ok(en.get(key)?.trim(), key + ' missing en copy')
+    assert.deepEqual(placeholders(text), placeholders(en.get(key)), key + ' placeholder mismatch')
+    assert.doesNotMatch(text + en.get(key), /[\u200B\uFEFF]/, key + ' contains forbidden format characters')
+  }
+})
+
+test('new native-view and Gateway copy uses only central dictionaries', () => {
+  for (const key of Object.keys(zhCopy.gatewayEffort)) {
+    assert.ok(client.includes("say('" + key + "')"), 'unused Gateway key ' + key)
+  }
+  assert.equal(Object.keys(zhCopy.gatewayEffort).length, 29)
+  assert.doesNotMatch(client, /\bsay\(\s*'[^'\n]+'\s*,\s*'[^'\n]+'/)
+  for (const name of ['navigationPlugins', 'navigationSchedules', 'navigationSession',
+    'accountBalance', 'todaySpending', 'dataUnavailable']) {
+    assert.ok(client.includes('.' + name), 'unused account or nav key ' + name)
+  }
+  for (const name of ['globalCommandSearch', 'workspaceFiles', 'builtInBrowser',
+    'archivedBadge', 'builtinPlan', 'builtinGoal', 'builtinCompact',
+    'builtinSchedule', 'builtinBrowser', 'builtinBoost']) {
+    assert.ok(client.includes('.' + name), 'unused palette key ' + name)
+  }
+  assert.doesNotMatch(client, /const wording:\s*Record<'zh'/)
+  assert.match(client, /function language\(\): Language/)
+  assert.match(client, /\/\^zh\(\?:-\|\$\)\/i/)
+})

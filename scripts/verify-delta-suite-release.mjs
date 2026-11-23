@@ -121,6 +121,8 @@ export function hasUnsafeHostPatch(source) {
 }
 
 // ZIP3 pins the audited transition adapter and author-provided theme exactly.
+// Reviewed 2026-11-24: P0-1 localizes only public Search Palette descriptions,
+// shortcut labels and archived badge inside installHostSearch; region remains SHA1 pinned.
 // Reviewed 2026-11-23: region digests regenerated after an audited package-identity-only rename.
 // Unavailable native sidebar layout features must stay on the Harness fallback.
 // Reviewed 2026-11-18: removed native running-status DOM text rewriting.
@@ -263,7 +265,7 @@ const ZIP3_COMPAT_REGIONS = [
   {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
-    sha1: 'c9ba7f1315dbc01ed85debacf42e5d6a4d42425c',
+    sha1: 'd60a21ab054aeed20a026e0fa864f04b87f83a98',
   },
 ]
 
