@@ -1,5 +1,6 @@
 /** Delta Code plugin entry. All business features are composed by the kernel. */
 import type { Context } from '@deepseek-ai/cordis'
+import { isDeepStrictEqual } from 'node:util'
 import type { CodeWorkerConfig } from './types.js'
 import { normalizeConfig } from './runtime.js'
 import { mountDeltaCode } from './delta-code-composition.js'
@@ -23,6 +24,10 @@ export function apply(ctx: Context, config?: CodeWorkerConfig): () => void {
     if (isClosed) return
     // Validate the replacement before releasing the currently mounted generation.
     const nextSettings = normalizeConfig(config)
+    // Loader volatile updates frequently involve other plugins. Unregistering
+    // unchanged Code tools while an Agent holds a prior tool snapshot can
+    // produce UNKNOWN_TOOL for otherwise valid tool calls.
+    if (isDeepStrictEqual(nextSettings, currentSettings)) return
     const previousSettings = currentSettings
     release()
     try {
