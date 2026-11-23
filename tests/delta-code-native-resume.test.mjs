@@ -25,7 +25,7 @@ function hostOutput(stdout, exitCode = 0, stderr = '') {
   }
 }
 
-async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true, transientOnce = false, returnedFailure } = {}) {
+async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true, transientOnce = false, returnedFailure, unborn = false } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-native-resume-'))
   const commands = []
   const agent = { session: { id: 'session-one' } }
@@ -64,11 +64,14 @@ async function fixture({ status = '## main\0', statusAfter, deny = false, drift 
         if (spec.argv[0] !== 'git') throw new Error('Unexpected command')
         if (spec.argv[1] === 'rev-parse') {
           headReads++
+          if (unborn) return hostOutput('', 128, 'fatal: Needed a single revision')
           return hostOutput((drift && headReads > 1 ? SECOND_HEAD : HEAD) + '\n')
         }
+        if (spec.argv[1] === 'symbolic-ref') return hostOutput('refs/heads/main\n')
         if (spec.argv[1] === 'status') {
           statusReads++
-          return hostOutput(statusReads > 1 && statusAfter !== undefined ? statusAfter : status)
+          const initial = unborn && status === '## main\0' ? '## No commits yet on main\0' : status
+          return hostOutput(statusReads > 1 && statusAfter !== undefined ? statusAfter : initial)
         }
         throw new Error('Unexpected Git args')
       },
@@ -181,6 +184,41 @@ describe('Delta Code Worker native session resume', () => {
         ['git', 'rev-parse', '--verify', 'HEAD'],
       ])
     } finally { await f.cleanup() }
+  })
+
+  it('reconciles a valid unborn Git branch without claiming a verified HEAD or replaying writes', async () => {
+    const f = await fixture({ unborn: true })
+    try {
+      f.emit(TASKS)
+      const actual = await f.tool.execute({}, execute(f.agent))
+      assert.equal(actual.stage, 'reconcile')
+      assert.equal(actual.head, '')
+      assert.match(actual.nextAction, /no commits yet/)
+      assert.deepEqual(actual.remaining, ['Fix bug', 'Run tests'])
+      assert.ok(f.commands.some(args => args[1] === 'symbolic-ref'))
+      assert.ok(f.commands.filter(args => args[1] === 'status').length >= 3)
+      assert.ok(f.commands.every(args => args[0] === 'git'))
+      const pinned = await f.tool.execute({ expectedHead: HEAD }, execute(f.agent))
+      assert.equal(pinned.stage, 'blocked', 'an unborn repository cannot satisfy an old committed baseline')
+      assert.match(pinned.blockers.join(' '), /HEAD differs/)
+    } finally { await f.cleanup() }
+  })
+
+  it('fails closed if an unborn branch cannot be independently confirmed or status changes', async () => {
+    const unexpected = await fixture({ unborn: true, status: '## main\0' })
+    try {
+      unexpected.emit(TASKS)
+      const actual = await unexpected.tool.execute({}, execute(unexpected.agent))
+      assert.equal(actual.stage, 'blocked')
+      assert.match(actual.blockers.join(' '), /Host Git inspection/)
+    } finally { await unexpected.cleanup() }
+    const drift = await fixture({ unborn: true, statusAfter: '## main\0' })
+    try {
+      drift.emit(TASKS)
+      const actual = await drift.tool.execute({}, execute(drift.agent))
+      assert.equal(actual.stage, 'blocked')
+      assert.match(actual.blockers.join(' '), /Git status changed/)
+    } finally { await drift.cleanup() }
   })
 
   it('rejects stale empty checkpoints, invalid HEAD and cancellation without Git', async () => {
