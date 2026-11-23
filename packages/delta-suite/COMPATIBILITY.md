@@ -461,3 +461,74 @@
 - **UI 限制**：浏览器全局 DOM 安全扫描的遗留 `installSidebarCompatibility` 不再由插件入口安装。原生菜单、会话、权限恢复到宿主路径；该文件中的兼容函数暂留为不可达代码供独立治理，**不代表锁定/删除保护具备 Host 业务级统一拒绝能力**。不可通过隐藏控件声称完成保护。
 - **功能就绪**：`request_redaction=false` 和 `deepseek_model_route_toggle=false` 保留。纯本地 `privacy.ts` / `redact.ts` 不代表存在实际可改写模型请求的公开契约。日志、导出、诊断、遥测策略以分级验证报告为准。
 - **实时状态与历史数据**：没有真实 Windows 安装实例、官方 OAuth/DeepSeek 登录链路、上传队列观测、模型流式/第三方插件回归证据；此前的文档中“阻断全部上传/已强制关闭”等文字一律不得作为安全声明。停用宿主遥测配置也不会自动清空已排队的数据。
+
+
+---
+
+## 2026-11-24 阶段一：Delta Suite 插件能力及架构静态审计（P0/P1 前置门禁）
+
+审计范围仅限 fongap-labs/plugins/packages/delta-suite；本次不修改 Harness 本体、app.asar、官方语言资源或 Profile，不执行实现。仓库快照：fongap-labs/plugins main@1635c31cc2df98d6cc834923b4341aa92907aa7c；官方源码 deepseek-ai/deepseek-harness master@4b399c39a6d1479cd84ca591b4d7c88e24d38a96。两者仅为源码基线，不是实际安装版本。
+
+状态口径：已验证生效仅指真实 Harness 的可重现集成结果，本轮没有足够证据将任何一项归为此类。已配置但未验证＝代码已配置/注册，缺实机证明；未启用＝纯函数/模板或未接线；宿主不支持＝公开 API 缺少该特定能力；检查失败＝发现违反本任务硬边界。证据级别 S=本轮静态源码/官方 API 文档；U=仓库存在相关单元测试（未在本轮重跑）；M=仓库存在模拟 Host 测试（未在本轮重跑）；H=真实官方 Harness；W=Windows 实机。S/U/M 均不能推断 H/W。
+
+### 功能矩阵
+
+| 功能 | 代码位置与真实调用链 | 当前状态 | 公开 API | 风险 / 证据 |
+| --- | --- | --- | --- | --- |
+| Kernel 生命周期 | src/delta-suite-kernel/feature-lifecycle-registry.ts → composition.ts register/mount/dispose | 已配置但未验证 | 是 | 支持回滚/逆序释放，未证实所有 Client 监听器均纳入；S,U |
+| Adapter 协商 | src/delta-suite-adapter/host-capability-contract.ts → index.ts 导出；composition.ts 实际 mount(new Set()) | 未启用 | 未验证 | 无 Host manifest 接线；helper 单测不等于运行协商；S,U |
+| Cordis 功能组合 | src/index.ts → delta-suite-composition.ts → privacy/search/sessions/context/gateway 安装器 | 已配置但未验证 | 是（Cordis）；子服务逐项核查 | 安装/卸载/异常恢复未经 Host 实验；S,M |
+| 上下文压缩状态 | src/context-projection.ts → sessionProjections.register → Client 显示 | 已配置但未验证 | 是 | 异步注册、资源清理需要真实服务验证；S,U,M |
+| 客户端装载 | src/client.ts → window.__ModuleLoader__.load → ctx.inject(['slots']) | 已配置但未验证 | 是（官方模块注册） | 模块装载公开；其后 DOM 接管不因启动成功而合规；S,M |
+| 大型 Client | src/client.ts ~333 KB / 6639 行，集成 UI、服务、权限、主题、配置、QR、MCP | 检查失败 | 不适用 | 职责集中，阶段 P0-4 仅拆真正跨职责部分；S |
+| 原生 DOM 兼容层 | src/client.ts:installLiveNativePresentation / installSidebarCompatibility → querySelector、MutationObserver、原生菜单点击 | 检查失败 | 否 | 违反全局 DOM 劫持边界，依赖文案/结构，停用回退待验；S |
+| Harness 源码补丁 | scripts/apply-harness-ui-patch.mjs；package.json.files 将脚本打包 | 检查失败 | 否 | 修改原生组件/语言文案的路径与本任务硬边界冲突；本轮未执行该脚本；S |
+| 语言来源 | src/client.ts:language → document.documentElement.lang // navigator.language → DICTIONARIES | 已配置但未验证 | 未验证 | zh 系列回退逻辑有代码，尚未证明与 Harness Locale 当前值/变更一致；S |
+| 集中翻译字典 | locale/zh.json / locale/en.json → finalize-client.mjs → DICTIONARIES | 已配置但未验证 | 是（Suite 自有） | 两份各 291 个叶子 Key，Key 集合/{} 占位符一致；未使用 Key/无漏译尚未完整证明；S |
+| 组件硬编码 | client.ts:wording/showHover/shortcut commands/GatewayEffortFooter:say | 检查失败 | 是（Suite 自有） | 存在直接中英分支与内联词条，未完全集中；S |
+| Theme API | client.ts:TOKENS → createController.applyPalette → theme.overrideTokens → dispose | 已配置但未验证 | 是 | light/dark token 有映射；主题切换/恢复缺 Windows H/W；S,M |
+| 样式分层 | src/theme.css、feature-extras.css、client.ts:LIVE_PRESENTATION_CSS | 检查失败 | 是（自有），否（原生私有 DOM） | 多处注入及原生 DOM 选择器造成颜色混用与维护风险；S |
+| Suite 设置项 | client.ts:settings.section、settings.plugins.tab、plugins.bundle.config → PersonalizationSection | 已配置但未验证 | 是 | 需逐项删除不生效的开关/成功提示；S,M |
+| 自有配置存储 | client.ts:FEATURE_STORAGE_KEY、STORAGE_KEY 和 assistant association localStorage | 已配置但未验证 | 是（自有数据） | 缺统一 schema/写入串行、跨页面版本冲突处理；S |
+| 自有偏好备份恢复 | 未见 Suite-only export/import 及恢复确认实现 | 未启用 | 是（自有数据） | 只允许备份偏好，禁止账号标识、Token、Session、Host 原生数据；S |
+| Host 本地保护状态 | host-state.ts:createHostStateStore → Profile .delta-suite-state.json → host-sessions.ts | 已配置但未验证 | 未验证 | 含 PIN hash/TOTP secret、墓碑；不能并入偏好备份；S,U,M |
+| 会话搜索 | host-search.ts:installHostSessionSearch → connection.fetch.register → sessionQuery/sessions/sessionPersistence → client.ts:installHostSearch | 已配置但未验证 | 是（路由/Slots），底层会话接口未验证 | 缓存/脱敏/授权有实现，真实搜索与卸载无 H/W；S,U,M |
+| 会话 Hover | client.ts:sidebar.session.row.hover → SessionHoverDetail → Session catalog | 已配置但未验证 | 是 | 公开 Slot 仅追加内容，不提供整个原生卡片布局所有权；S,M |
+| 会话菜单 | client.ts:contextMenus.register(move/lock/delete)、contextMenu.icon | 已配置但未验证 | 是（扩展 action） | 不能经公开接口重排宿主自有 Rename 优先级；不允许源码补丁；S,M |
+| Session 删除/移动 | host-sessions.ts → 自有 HTTP 路由 → Host Sessions/Workspace + 实体文件管理 | 已配置但未验证 | 未验证 | 自有实体删除和 Host 权限/状态并行；需确认安全契约，否则回退原生；S,U,M |
+| Workspace 辅助 | client.ts:installWorkspaceMutationGuards、host-sessions.ts 状态映射和保护 | 检查失败 | 否（默认删除前拒绝/首次折叠） | 兼容方法包装不等于官方业务边界权限；缺公开 API 时禁用；S |
+| 官方 Agent/Compaction 复用 | cordis.patch.yml 官方 compaction+agent preset → context-projection.ts → registerAssistantSurface | 已配置但未验证 | 是（部分 Slots/Session） | 独立讨论是否符合最小复用及资源释放仍需 Host 验证；S,M |
+| MCP 管理 | client.ts:plugins.add.actions → McpManagementDialog → configForms.mutate(...revision)/remote.mcpManager | 已配置但未验证 | 是（Slots/ConfigForms），probe/restart 未验证 | 编辑 env/headers 可能读取含密钥值；禁止原始 Token 暴露；S,M |
+| 模型/推理显示 | client.ts:modelDirectories.directoryFor + conversation.input.model.label + GatewayEffortFooter | 已配置但未验证 | 是 | 不取代宿主模型选择器；Gateway 自动元数据/写入需单独证据；S,M |
+| Gateway 原始凭据 | host-gateway-effort.ts:credentials.resolve(ref) → credential.value → Bearer HTTP/HMAC | 检查失败 | 未验证 | 明确违反本次禁止读取原始 Token 的边界；P0 必须移除明文链路或能力不可用；S |
+| 账号/余额 | client.ts:accountUi.getSnapshot().details.balance → showHover | 已配置但未验证 | 是 | 仅官方快照，无持久余额缓存；今日消费当前显示暂无数据；S |
+| 登录/退出 | client.ts:activateNativeAccount → 搜索 DOM role=menu + 文本匹配 + click | 检查失败 | 否（未找到本任务可用的公开 action） | 模拟点击宿主菜单违反 DOM 边界，必须保留原生入口；S |
+| Session Log 排除 | host-privacy.ts:installHostPrivacyGuards → sessionLogDeepSeek.registerExclusion(() => true) | 已配置但未验证 | 是 | 只阻断该上传字段，不代表禁用遥测/OTLP；停用恢复与真实请求待验；S,M |
+| 离线敏感信息脱敏 | privacy.ts:redactModelRequest/restoreStream；privacy-bridge.ts:空 Config | 未启用 | 否（暂无前置 LLM 请求改写公共契约） | 纯算法不等于模型出站链路保护，不得展示生效开关；S,U |
+| 启停/卸载/故障回退 | client.ts:ctx.effect/controller.dispose；composition.ts:registry.dispose | 已配置但未验证 | 是 | 监听、Portal、CSS、缓存/网络请求释放及官方主题恢复需 H/W；S,M |
+
+### 阻断问题与宿主能力缺口
+
+1. 非公共 DOM：运行时有原生节点查找、文字/属性更改、模拟菜单点击及 MutationObserver，既有源码补丁脚本还可改 Harness。本轮硬性禁令不容许将这些归入 Suite 的稳定能力。P0 应限定自身 UI + 公共 Slots；无接口则保持原生。
+2. 原始凭据：host-gateway-effort.ts 已经调用 credentials.resolve 并取得 credential.value，MCP env/headers 编辑也需核对明文字段处理。要求禁止原始 Token 读取/缓存/输出；缺少官方无明文请求代理时应停用对应增强，不能声明成功。
+3. 协商未接线：DELTA_HOST_CAPABILITIES 与 negotiateHostCapabilities 虽存在，composition.ts 仍以空 Set mount；没有真实 Host manifest，版本字符串不可作为能力证据。
+4. 官方未提供已证实接口：原生顶栏任意重排、重命名菜单改顺序、运行文案局部覆盖、首次工作区折叠、完整 HoverCard 控制、默认工作区删除前业务拒绝。均不得借源码补丁/私有 Store 补齐。
+5. 国际化：当前读取 document.lang/navigator.language 而非已核实的 Harness 语言变更接口。中英 JSON 有 291 个同名叶子 Key，简单占位符一致，但硬编码/死 Key 与用户选择的其他宿主语言兼容性尚未验收。
+6. 状态与产品声明：feature-readiness.json 的 false readiness 位须保持保守；已有 COMPATIBILITY 历史章节的“无 DOM 接管”等描述与当前源码并存时以新矩阵为准。不可将纯单元算法、README 或 CI 视为实机交付。
+
+### 五个证据等级分别报告（本轮）
+
+| 等级 | 已有证据 | 本轮结论 |
+| --- | --- | --- |
+| 1 静态检查 | 本轮审查真实仓库树、调用链、官方公开文档、字典键/占位符；约 333 KB / 6639 行 client.ts | 已完成此范围静态审计，发现边界检查失败；本轮未执行 tsc/lint |
+| 2 单元测试 | 现有 delta-suite-feature-registry、delta-suite-context、delta-suite-privacy 等测试文件 | 已有测试但本轮未重跑，不能标记通过 |
+| 3 模拟 Host | 现有 delta-suite-native、delta-suite-host-guard、delta-suite-dom-compat 等 | 已有测试但本轮未重跑，不能等同于真实 Host |
+| 4 真实 Harness | 无本轮真实安装的启动/对话/启停完整日志 | 未验证 |
+| 5 Windows 客户端 | COMPATIBILITY 记录历史 Windows 启动失败，不是当前版本重测 | 未验证 |
+| 两版本兼容 | 只静态核对官方源码一个 SHA，未获取两个不同安装构建结果 | 未验证 |
+
+### 下一阶段门禁
+
+完成本审计矩阵并进入单独审计 PR 后，才能开始任何实现。P0 顺序：集中 i18n；官方适配/生命周期并排除明文 Token 和全局 DOM；Delta 自有 Theme/Slots；有收益的 client.ts 职责拆分。P0 的单元/模拟/真实 Host/Windows 和两版本证据独立满足前不得进入 P1。P1 独立拆分配置备份、账户、搜索/MCP/上下文与其他通用能力。禁止 Fongap 新治理、上游跟踪、独立 Desktop、代理、Vision Bridge、遥测或重复 Host 核心服务。
+
+API“是”仅表示相应官方文档或类型确有声明，不保证用户正在运行的 Harness 构建实现该接口。对外产品文案只能据 H/W 证据写已交付。
