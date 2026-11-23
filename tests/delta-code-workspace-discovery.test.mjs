@@ -333,6 +333,59 @@ describe('Delta Code native Session read-only repository bindings', () => {
     assert.equal((await f.run({ action: 'list' })).repositories.length, 1)
   })
 
+  it('reads attached repository files through Host FS without granting write access', async () => {
+    const f = sessionRepoFixture()
+    const args = { action: 'attach', path: EXTERNAL_REPO }
+    const attached = await f.run(args)
+    f.accept(args, attached)
+    const id = f.state.bindings[0].id
+    const result = await f.run({ action: 'read', id, path: 'src/module.ts' })
+    assert.equal(result.file, 'src/module.ts')
+    assert.match(result.content, /export const value/)
+    assert.equal((await f.run({ action: 'list' })).repositories[0].readOnly, true)
+    assert.equal(f.writes.length, 0)
+  })
+
+  it('exposes the same attach/detach operation through the native human command', async () => {
+    const f = sessionRepoFixture()
+    const command = createSessionRepositoryCommand(f.ctx, f.settings, f.reader)
+    const signal = new AbortController().signal
+    const attached = await command.handler({
+      rawInput: 'attach ' + JSON.stringify(EXTERNAL_REPO), agent: f.agent, signal,
+    })
+    assert.equal(attached.kind, 'success')
+    assert.equal(f.state.bindings.length, 1)
+    const id = f.state.bindings[0].id
+    const detached = await command.handler({ rawInput: 'detach ' + id, agent: f.agent, signal })
+    assert.equal(detached.kind, 'success')
+    assert.equal(f.state.bindings.length, 0)
+  })
+
+  it('allows multi-edit only for an attached repository in the separate write allowlist', async () => {
+    const f = sessionRepoFixture([EXTERNAL_REPO], { writeRoots: [EXTERNAL_REPO] })
+    const args = { action: 'attach', path: EXTERNAL_REPO }
+    const attached = await f.run(args)
+    f.accept(args, attached)
+    const id = f.state.bindings[0].id
+    const multiEdit = createMultiEditTool(f.ctx, f.settings, f.reader)
+    const result = await multiEdit.execute({ repositoryId: id, edits: [
+      { path: 'src/new.ts', content: 'export const created = true' },
+    ] }, { agent: f.agent, signal: new AbortController().signal })
+    assert.equal(result.applied, 1)
+    assert.deepEqual(f.writes, [{
+      path: EXTERNAL_REPO + '/src/new.ts', content: 'export const created = true',
+    }])
+    const readOnly = sessionRepoFixture([EXTERNAL_REPO])
+    const readOnlyArgs = { action: 'attach', path: EXTERNAL_REPO }
+    const readOnlyAttached = await readOnly.run(readOnlyArgs)
+    readOnly.accept(readOnlyArgs, readOnlyAttached)
+    const readOnlyEdit = createMultiEditTool(readOnly.ctx, readOnly.settings, readOnly.reader)
+    await assert.rejects(readOnlyEdit.execute({ repositoryId: readOnly.state.bindings[0].id, edits: [
+      { path: 'src/blocked.ts', content: 'must not be written' },
+    ] }, { agent: readOnly.agent, signal: new AbortController().signal }), /writeRoots/)
+    assert.equal(readOnly.writes.length, 0)
+  })
+
   it('rejects unallowlisted roots before any Host file or Git access', async () => {
     const f = sessionRepoFixture()
     await assert.rejects(f.run({ action: 'attach', path: OTHER_REPO }), /configured by the user/)
