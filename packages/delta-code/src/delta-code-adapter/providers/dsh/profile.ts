@@ -9,6 +9,8 @@ import { requireHostFs } from './host-fs.js'
 import { PROJECT_FILES, ancestorRuleDirectories, declaredScripts, declaredTechnologies, profileSummary } from '../../../delta-code-coding/project-profile-policy.js'
 import type { ProjectProfile, ProjectModuleProfile } from '../../../delta-code-coding/project-profile-policy.js'
 import { lookupDshHostFs } from './host-adapter.js'
+import { resolveSessionRepositoryRoot } from './session-repositories.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 import type { HostFsCapabilities } from './host-fs.js'
 export type { ProjectProfile } from '../../../delta-code-coding/project-profile-policy.js'
 
@@ -239,12 +241,15 @@ async function addModuleProfiles(ctx: Context, exec: { signal: AbortSignal }, cw
   ])], modules: scan.modules, moduleScanTruncated: scan.truncated }
 }
 
-export function createProjectProfileTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createProjectProfileTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: 'code_project_profile',
     description: 'Quick read-only project preflight: detect tech stack, project rule files and existing verification scripts, including bounded submodule discovery without reading source bodies. Use before planning or choosing tests.',
     parameters: {
-      cwd: { type: 'string', description: 'Optional workspace-relative project directory.' },
+      cwd: { type: 'string', description: 'Optional project directory relative to the primary workspace or selected repository.' },
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID from code_session_repositories list.' },
     },
     output: {
       schema: { type: 'object', additionalProperties: false, properties: {
@@ -279,7 +284,11 @@ export function createProjectProfileTool(ctx: Context, settings: Settings): Tool
       },
     },
     async execute(args, exec) {
-      const root = await resolveRoot(ctx, exec, settings)
+      const root = args.repositoryId === undefined
+        ? await resolveRoot(ctx, exec, settings)
+        : sessionRepositories
+          ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'read')
+          : (() => { throw new Error('Session repository profiling is unavailable in this Host') })()
       const cwd = args.cwd ? resolveInside(root, args.cwd) : root
       const profile = await inspectProjectWithHost(ctx, exec, cwd, root)
       return addModuleProfiles(ctx, exec, cwd, root, profile)
