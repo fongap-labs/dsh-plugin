@@ -548,101 +548,12 @@ test('Client never retries Host archive or stop-activity on reattached Workspace
   assert.equal(f.manager.isLocked('target'), true)
 })
 
-const makeMutationPolicy = vm.runInNewContext(
-  compiled.slice(start, end) + '\nreadWorkspaceMutationPolicy',
-)
-const installMutationGuards = vm.runInNewContext(
-  compiled.slice(start, end) + '\ninstallWorkspaceMutationGuards',
-)
-const mutationRows = [
-  { workspaceId: 'a', path: '/protected', sessionIds: ['session-member', 'moved-away'] },
-  { workspaceId: 'b', path: '/ordinary', sessionIds: ['ordinary', 'moved-in'] },
-  { workspaceId: 'default', path: 'C:\\deepseek-harness\\default-workspace', sessionIds: [] },
-]
-const mutationState = {
-  isSearchProtectionReady: true,
-  lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {},
-  tempUnlockedIds: [], tempUnlockedWorkspaceIds: [],
-}
-
-test('native mutation policy protects durable workspace membership, aliases and moves despite temporary viewing grants', () => {
-  const state = {
-    ...mutationState, lockedSessionIds: ['direct'], lockedWorkspaceIds: ['/protected'],
-    deletedSessionIds: ['gone'], movedSessions: { 'moved-away': 'b', 'moved-in': 'a' },
-    tempUnlockedIds: ['direct'], tempUnlockedWorkspaceIds: ['a', '/protected'],
+test('Suite has no Client-side native Workspace method wrapper or synthetic mutation policy', () => {
+  for (const marker of ['readWorkspaceMutationPolicy', 'installWorkspaceMutationGuards',
+    'guardedDelete', 'guardedUnarchive']) {
+    assert.equal(source.includes(marker), false, 'retired native Workspace mutation: ' + marker)
   }
-  const policy = makeMutationPolicy(state, () => ({ items: mutationRows }))
-  for (const id of ['member', 'session-member', 'moved-away', 'moved-in']) {
-    assert.equal(policy.unarchive(id).reason, 'workspace-locked')
-  }
-  assert.equal(policy.unarchive('session-direct').lockId, 'direct')
-  assert.equal(policy.unarchive('session-gone').reason, 'session-deleted')
-  assert.equal(policy.unarchive('ordinary'), undefined)
-  assert.equal(policy.deleteWorkspace('a', false), 'workspace-locked')
-  assert.equal(policy.deleteWorkspace('b', false), undefined)
-})
-
-test('workspace deletion respects native and mapped direct locks and preserves default protection', () => {
-  const read = () => ({ items: mutationRows })
-  const direct = makeMutationPolicy({ ...mutationState, lockedSessionIds: ['member'] }, read)
-  assert.equal(direct.deleteWorkspace('a', true), 'session-locked')
-  const moved = makeMutationPolicy({
-    ...mutationState, lockedSessionIds: ['incoming'], movedSessions: { incoming: 'b' },
-  }, read)
-  assert.equal(moved.deleteWorkspace('b', false), 'session-locked')
-  const defaultPolicy = makeMutationPolicy({
-    ...mutationState, movedSessions: { incoming: 'default' },
-  }, read)
-  assert.equal(defaultPolicy.deleteWorkspace('default', true), 'protected-default-workspace')
-  assert.equal(defaultPolicy.deleteWorkspace('default', false), undefined)
-  assert.equal(makeMutationPolicy(mutationState, () => ({ items: mutationRows.slice(0, 1) }))
-    .deleteWorkspace('a', false), 'sole-workspace-protected')
-})
-
-test('uncertain workspace membership cannot authorize guarded mutations', () => {
-  for (const read of [
-    () => { throw new Error('offline') },
-    () => ({ items: [] }),
-    () => ({ items: [{ workspaceId: 'a', path: '/protected' }] }),
-    () => ({ items: [{ workspaceId: 'a', path: '/protected', sessionIds: [] },
-      { workspaceId: 'b', path: '/ordinary' }] }),
-  ]) {
-    const policy = makeMutationPolicy({ ...mutationState, lockedWorkspaceIds: ['a'] }, read)
-    assert.equal(policy.unarchive('other').reason, 'workspace-state-unavailable')
-    assert.ok(policy.deleteWorkspace('b', false))
-  }
-})
-
-test('guard lifecycle preserves native receivers, rejects stale callbacks and does not overwrite third-party methods', async () => {
-  const calls = [], notices = []
-  let state = { ...mutationState, lockedWorkspaceIds: ['a'] }
-  const list = { getSnapshot: () => ({ items: mutationRows }) }
-  const api = {
-    list,
-    delete(id) { assert.equal(this, api); calls.push(['delete', id]); return Promise.resolve('deleted') },
-    unarchiveSession(id) { assert.equal(this, api); calls.push(['unarchive', id]); return Promise.resolve('restored') },
-  }
-  const nativeDelete = api.delete
-  const nativeUnarchive = api.unarchiveSession
-  const stop = installMutationGuards(api, list.getSnapshot, () => state, () => true,
-    (reason, lockId) => notices.push([reason, lockId]))
-  const stale = api.delete
-  await assert.rejects(api.delete('a'), /workspace-locked/)
-  await assert.rejects(api.unarchiveSession('member'), /workspace-locked/)
-  assert.equal(calls.length, 0)
-  state = { ...mutationState }
-  assert.equal(await api.delete('b'), 'deleted')
-  assert.equal(await api.unarchiveSession('ordinary'), 'restored')
-  const later = () => Promise.resolve('other plugin')
-  api.unarchiveSession = later
-  stop()
-  stop()
-  assert.equal(api.delete, nativeDelete)
-  assert.notEqual(api.unarchiveSession, nativeUnarchive)
-  assert.equal(api.unarchiveSession, later)
-  await assert.rejects(stale('b'), /workspace-guard-disposed/)
-  assert.deepEqual(calls, [['delete', 'b'], ['unarchive', 'ordinary']])
-  assert.equal(notices.length, 3)
+  assert.match(source, /function createSearchContentProtection\(/)
 })
 
 const makeSearchProtection = vm.runInNewContext(compiled.slice(start, end) + '\ncreateSearchContentProtection')
@@ -672,34 +583,7 @@ test('client search excludes durable protection independently of temporary viewi
 })
 
 
-test('workspace mutation hooks never trust a cold or revoked Host protection snapshot', async () => {
-  const calls = []
-  let current = { ...mutationState, isSearchProtectionReady: false }
-  const list = { getSnapshot: () => ({ items: mutationRows }) }
-  const api = {
-    list,
-    async delete(id) { calls.push(['delete', id]); return 'deleted' },
-    async unarchiveSession(id) { calls.push(['unarchive', id]); return 'unarchived' },
-  }
-  const messages = []
-  const stop = installMutationGuards(api, list.getSnapshot, () => current, () => true,
-    reason => messages.push(reason))
-  try {
-    await assert.rejects(api.delete('b'), /workspace-state-unavailable/)
-    await assert.rejects(api.unarchiveSession('ordinary'), /workspace-state-unavailable/)
-    assert.equal(calls.length, 0)
-    current = { ...mutationState }
-    assert.equal(await api.delete('b'), 'deleted')
-    assert.equal(await api.unarchiveSession('ordinary'), 'unarchived')
-    current = { ...mutationState, isSearchProtectionReady: false }
-    await assert.rejects(api.delete('b'), /workspace-state-unavailable/)
-    await assert.rejects(api.unarchiveSession('ordinary'), /workspace-state-unavailable/)
-    assert.deepEqual(calls, [['delete', 'b'], ['unarchive', 'ordinary']])
-    assert.deepEqual(messages, Array(4).fill('workspace-state-unavailable'))
-  } finally { stop() }
-})
-
-test('incomplete Host refresh preserves previously confirmed durable locks and revokes mutation readiness', async () => {
+test('incomplete Host refresh preserves locks and disables Suite-owned Search', async () => {
   const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
   await f.manager.refreshState()
   assert.equal(f.manager.isLocked('locked'), true)
@@ -711,11 +595,11 @@ test('incomplete Host refresh preserves previously confirmed durable locks and r
   await f.manager.refreshState()
   assert.equal(f.manager.isLocked('locked'), true)
   assert.equal(f.manager.getSnapshot().isSearchProtectionReady, false)
-  const api = { list: { getSnapshot: () => ({ items: mutationRows }) },
-    async delete() { assert.fail('native destructive mutation must not run') } }
-  const stop = installMutationGuards(api, api.list.getSnapshot, f.manager.getSnapshot, () => true, () => {})
-  try { await assert.rejects(api.delete('b'), /workspace-state-unavailable/) }
-  finally { stop() }
+  const policy = makeSearchProtection(f.manager.getSnapshot(), () => ({
+    items: [{ workspaceId: 'one', path: '/one', sessionIds: ['locked'] }],
+  }))
+  assert.equal(policy.canQuery, false)
+  assert.equal(policy.allowsSession('locked'), false)
 })
 
 test('partial move and delete acknowledgements do not erase confirmed lock membership', async () => {
@@ -783,25 +667,31 @@ test('transient Host state failure revokes mutations yet automatically recovers 
   assert.equal(stateRequests, 2, 'a newly confirmed state does not schedule needless rereads')
 })
 
-test('Host transport failures do not authorize workspace mutation and recovery restores ordinary calls', async () => {
+test('Host transport failure does not patch native Workspace methods and Suite Search recovers', async () => {
   const f = fixture()
   await f.manager.refreshState()
-  const host = { list: { getSnapshot: () => ({ items: mutationRows }) },
-    delete() { return Promise.resolve('native') } }
-  const stop = installMutationGuards(host, host.list.getSnapshot, f.manager.getSnapshot, () => true, () => {})
-  try {
-    assert.equal(await host.delete('b'), 'native')
-    f.env.fetch = async path => {
-      if (path === '/api/delta-suite/state') throw new Error('network offline')
-      return { ok: true, status: 200, json: async () => ({}) }
-    }
-    await f.manager.refreshState()
-    await assert.rejects(host.delete('b'), /workspace-state-unavailable/)
-    f.env.fetch = async path => ({
-      ok: true, status: 200,
-      json: async () => path === '/api/delta-suite/state' ? { state: f.state([]) } : {},
-    })
-    await f.manager.refreshState()
-    assert.equal(await host.delete('b'), 'native')
-  } finally { stop() }
+  const calls = []
+  const host = { list: { getSnapshot: () => ({ items: [] }) },
+    delete(id) { calls.push(id); return Promise.resolve('native') } }
+  const original = host.delete
+  assert.equal(await host.delete('b'), 'native')
+  f.env.fetch = async path => {
+    if (path === '/api/delta-suite/state') throw new Error('network offline')
+    return { ok: true, status: 200, json: async () => ({}) }
+  }
+  await f.manager.refreshState()
+  const cold = makeSearchProtection(f.manager.getSnapshot(), host.list.getSnapshot)
+  assert.equal(cold.canQuery, false)
+  assert.equal(cold.allowsSession('ordinary'), false)
+  assert.equal(await host.delete('b'), 'native')
+  assert.equal(host.delete, original, 'native Workspace operation stays Host-owned')
+  f.env.fetch = async path => ({
+    ok: true, status: 200,
+    json: async () => path === '/api/delta-suite/state' ? { state: f.state([]) } : {},
+  })
+  await f.manager.refreshState()
+  const warm = makeSearchProtection(f.manager.getSnapshot(), host.list.getSnapshot)
+  assert.equal(warm.canQuery, true)
+  assert.equal(await host.delete('b'), 'native')
+  assert.deepEqual(calls, ['b', 'b', 'b'])
 })

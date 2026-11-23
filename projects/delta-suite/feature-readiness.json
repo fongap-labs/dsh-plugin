@@ -151,5 +151,16 @@
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"
+  },
+  "p0_workspace_method_retirement": {
+    "as_of": "2026-11-24",
+    "stage": "code-review-and-ci-pending",
+    "native_workspace_methods": "not intercepted; Host-owned",
+    "mutating_wrapper": "deleted from source",
+    "search_protection": "read-only Session/Workspace membership policy retained",
+    "tests": "converted from dead native-mutation adapter to live search protection",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }

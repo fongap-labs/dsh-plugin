@@ -94,17 +94,17 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.doesNotMatch(client, /dtd-search-dialog-backdrop/)
     assert.doesNotMatch(client, /openSearchDialog\(/)
   })
-  it('leaves the native Ungrouped context menu untouched and retains Host delete guards', () => {
+  it('leaves the native Ungrouped context menu and Workspace mutations Host-owned', () => {
     assert.doesNotMatch(client, /openUngroupedContextMenu|closeUngroupedMenu|ungroupedMenuEl/)
     assert.doesNotMatch(client, /(?:addEventListener|removeEventListener)\(['"]contextmenu['"]/)
     assert.doesNotMatch(css, /\.dtd-context-menu(?:-item)?\b/)
     assert.match(client, /session-delete-ungrouped/)
-    assert.match(client, /installWorkspaceMutationGuards/)
+    assert.doesNotMatch(client, /installWorkspaceMutationGuards/)
     assert.match(client, /onMenuClickCapture/)
   })
   it('preserves TOTP, session protection and Delta-owned modal backdrops without Host chrome takeover', () => {
     for (const term of ['encodeQrMatrix', 'setup-begin', 'session-delete-ungrouped',
-      'installWorkspaceMutationGuards']) {
+      'createSearchContentProtection']) {
       assert.ok(client.includes(term), 'ZIP behavior missing: ' + term)
     }
     assert.doesNotMatch(client, /syncModalChromeOverlay|data-delta-modal-open/)
@@ -136,7 +136,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       assert.equal(css.includes(marker), false, marker)
     }
     assert.match(client, /syncLockShieldOverlay/)
-    assert.match(client, /installWorkspaceMutationGuards/)
+    assert.doesNotMatch(client, /installWorkspaceMutationGuards/)
     assert.match(client, /hiddenDeletedRows/)
     assert.match(client, /onMenuClickCapture/)
   })

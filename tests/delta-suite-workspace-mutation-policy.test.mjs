@@ -5,94 +5,84 @@ import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import { stripTypeScriptTypes } from 'node:module'
 
+// Test the live, read-only Search policy. Native Workspace mutations are Host-owned.
 const source = readFileSync(fileURLToPath(
   new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
-const begin = source.indexOf('type WorkspaceMutationBlock =')
-const end = source.indexOf('// Keep this one compatibility adapter lifecycle-owned', begin)
-assert.ok(begin >= 0 && end > begin, 'workspace policy source must remain testable')
-const fragment = source.slice(begin, end)
-const compiled = stripTypeScriptTypes(fragment + '\nthis.policy = readWorkspaceMutationPolicy',
-  { mode: 'strip' })
+const begin = source.indexOf('type WorkspaceProtectionState =')
+const end = source.indexOf('function createClientFeatureManager()', begin)
+assert.ok(begin >= 0 && end > begin, 'read-only search protection must be available')
+const compiled = stripTypeScriptTypes(
+  source.slice(begin, end) + '\nthis.policy = createSearchContentProtection', { mode: 'strip' })
 const context = {}
 runInNewContext(compiled, context, { timeout: 1000 })
-const readWorkspaceMutationPolicy = context.policy
-assert.equal(typeof readWorkspaceMutationPolicy, 'function')
+const protect = context.policy
+assert.equal(typeof protect, 'function')
 
 const rows = () => [
   { workspaceId: 'one', path: '/projects/one', sessionIds: ['ordinary', 'session-protected'] },
   { workspaceId: 'two', path: '/projects/two', sessionIds: ['other'] },
 ]
-const state = (override = {}) => ({
+const state = (overrides = {}) => ({
+  isSearchProtectionReady: true,
   lockedSessionIds: [], lockedWorkspaceIds: [], deletedSessionIds: [], movedSessions: {},
-  ...override,
+  ...overrides,
 })
-const policy = (snapshot = rows(), overrides = {}) =>
-  readWorkspaceMutationPolicy(state(overrides), () => ({ items: snapshot }))
+const policy = (overrides = {}, snapshot = rows()) =>
+  protect(state(overrides), () => ({ items: snapshot }))
 
-test('complete workspace snapshots preserve allowed actions and sole/default rules', () => {
-  assert.equal(policy().deleteWorkspace('two', true), undefined)
-  assert.equal(policy().unarchive('ordinary'), undefined)
-  assert.equal(policy([rows()[0]]).deleteWorkspace('one', false), 'sole-workspace-protected')
-  assert.equal(policy([
-    { workspaceId: 'default', path: '/deepseek-harness/default-workspace', sessionIds: ['ordinary'] },
-    rows()[1],
-  ]).deleteWorkspace('default', true), 'protected-default-workspace')
-})
-
-test('locked session aliases and workspace path locks reject deletions and unarchive', () => {
-  const direct = policy(rows(), { lockedSessionIds: ['protected'] })
-  assert.equal(direct.deleteWorkspace('one', true), 'session-locked')
-  assert.equal(direct.deleteWorkspace('two', true), undefined)
-  assert.equal(direct.unarchive('session-protected').reason, 'session-locked')
-  const lockedWorkspace = policy(rows(), { lockedWorkspaceIds: ['/projects/two'] })
-  assert.equal(lockedWorkspace.deleteWorkspace('two', true), 'workspace-locked')
-  assert.equal(lockedWorkspace.unarchive('other').reason, 'workspace-locked')
-  const deleted = policy(rows(), { deletedSessionIds: ['other'] })
-  assert.equal(deleted.unarchive('session-other').reason, 'session-deleted')
+test('ordinary search uses native results without rewriting Workspace operations', () => {
+  const p = policy()
+  assert.equal(p.canQuery, true)
+  assert.equal(p.canUseNativeFallback, true)
+  assert.equal(p.allowsWorkspace('one', '/projects/one'), true)
+  assert.equal(p.allowsSession('ordinary', 'one'), true)
+  assert.doesNotMatch(source, /function installWorkspaceMutationGuards\(/)
+  assert.doesNotMatch(source, /workspaces\.delete\s*=|workspaces\.unarchiveSession\s*=/)
+  assert.doesNotMatch(source, /function readWorkspaceMutationPolicy\(/)
 })
 
-test('malformed native snapshots fail closed even when no workspace is locked', () => {
-  const cases = [
-    [{ ...rows()[0], sessionIds: undefined }, rows()[1]],
-    [{ ...rows()[0], sessionIds: [''] }, rows()[1]],
-    [{ ...rows()[0], path: '/projects/two' }, rows()[1]],
-    [{ ...rows()[0], workspaceId: 'two' }, rows()[1]],
-    [{ ...rows()[0], path: '' }, rows()[1]],
-    [{ ...rows()[0], workspaceId: ' ' }, rows()[1]],
-  ]
-  for (const invalid of cases) {
-    const p = policy(invalid)
-    assert.equal(p.deleteWorkspace('two', false), 'workspace-state-unavailable')
-    assert.equal(p.unarchive('other').reason, 'workspace-state-unavailable')
-  }
-  const p = readWorkspaceMutationPolicy(state(), () => { throw Error('catalog unavailable') })
-  assert.equal(p.deleteWorkspace('one', true), 'workspace-state-unavailable')
-  assert.equal(p.unarchive('ordinary').reason, 'workspace-state-unavailable')
+test('Session locks and tombstones block matching aliases only within Delta Search', () => {
+  const p = policy({ lockedSessionIds: ['protected'], deletedSessionIds: ['other'] })
+  assert.equal(p.canQuery, true)
+  assert.equal(p.canUseNativeFallback, false)
+  assert.equal(p.allowsSession('session-protected'), false)
+  assert.equal(p.allowsSession('protected'), false)
+  assert.equal(p.allowsSession('other'), false)
+  assert.equal(p.allowsSession('ordinary'), true)
 })
 
-test('orphaned relocation does not authorize destructive changes under protection', () => {
-  const protectedState = { lockedSessionIds: ['protected'], movedSessions: { protected: 'ghost' } }
-  const p = policy(rows(), protectedState)
-  assert.equal(p.deleteWorkspace('two', true), 'workspace-state-unavailable')
-  assert.equal(p.unarchive('ordinary').reason, 'workspace-state-unavailable')
-  const known = policy(rows(), { ...protectedState, movedSessions: { protected: 'one' } })
-  assert.equal(known.deleteWorkspace('one', true), 'session-locked')
-  assert.equal(known.deleteWorkspace('two', true), undefined)
-  // A missing live mapping is not a reason to silently clear a durable lock.
-  const locked = policy(rows(), { lockedWorkspaceIds: ['two'], movedSessions: { other: 'missing' } })
-  assert.equal(locked.deleteWorkspace('one', true), 'workspace-state-unavailable')
+test('locked Workspace membership and move overlays hide protected search hits', () => {
+  const p = policy({ lockedWorkspaceIds: ['/projects/one'], movedSessions: { moved: 'one' } })
+  assert.equal(p.canQuery, true)
+  assert.equal(p.canUseNativeFallback, false)
+  assert.equal(p.allowsWorkspace('one', '/projects/one'), false)
+  assert.equal(p.allowsWorkspace('two', '/projects/two'), true)
+  assert.equal(p.allowsSession('ordinary', 'one'), false)
+  assert.equal(p.allowsSession('protected'), false)
+  assert.equal(p.allowsSession('moved'), false)
+  assert.equal(p.allowsSession('other', 'two'), true)
 })
 
-test('unsafe states keep their specific lock/tombstone refusal before generic catalog failures', () => {
-  const malformed = [{ ...rows()[0], sessionIds: null }, rows()[1]]
-  const p = policy(malformed, { lockedSessionIds: ['protected'], deletedSessionIds: ['removed'] })
-  assert.equal(p.unarchive('session-protected').reason, 'session-locked')
-  assert.equal(p.unarchive('removed').reason, 'session-deleted')
-  assert.equal(p.deleteWorkspace('one', true), 'workspace-state-unavailable')
+test('missing or malformed Host membership fails closed only when protected paths require it', () => {
+  const unavailable = protect(state({ lockedWorkspaceIds: ['one'] }), () => { throw Error('missing Host snapshot') })
+  assert.equal(unavailable.canQuery, false)
+  assert.equal(unavailable.canUseNativeFallback, false)
+  assert.equal(unavailable.allowsSession('ordinary'), false)
+  assert.equal(unavailable.allowsWorkspace('two'), false)
+
+  const malformed = policy({ lockedWorkspaceIds: ['one'] }, [
+    { ...rows()[0], sessionIds: undefined }, rows()[1],
+  ])
+  assert.equal(malformed.canQuery, false)
+  assert.equal(malformed.allowsSession('other'), false)
+  const unknown = policy({ lockedWorkspaceIds: ['unknown'] })
+  assert.equal(unknown.canQuery, false)
 })
 
-test('without protected locks, orphan move history does not block otherwise valid workspace actions', () => {
-  const p = policy(rows(), { movedSessions: { ordinary: 'previously-deleted' } })
-  assert.equal(p.deleteWorkspace('two', true), undefined)
-  assert.equal(p.unarchive('other'), undefined)
+test('readiness unavailable never guesses authorization from the native Host DOM', () => {
+  const p = policy({ isSearchProtectionReady: false })
+  assert.equal(p.canQuery, false)
+  assert.equal(p.canUseNativeFallback, false)
+  assert.equal(p.allowsSession('ordinary'), false)
+  assert.equal(p.allowsWorkspace('one'), false)
 })

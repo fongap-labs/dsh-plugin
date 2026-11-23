@@ -568,3 +568,12 @@ API“是”仅表示相应官方文档或类型确有声明，不保证用户�
 此改动基于已合并的 P0-2 Host-only 边界和 P0-1 官方 Locale 只读订阅。真正删除不再挂载的 `installLiveNativePresentation`、`LIVE_PRESENTATION_CSS`、原生头像/导航操作、会话 Portal 目标、`accountUi` 旧显示代理。原生登录、导航、菜单、侧边栏和工作区保持 Harness 负责。同步清理随上述死代码变得无引用的 9 个中英文显示 Key 及类型。
 
 `installSidebarCompatibility` / `installHostSearch` 的遗留审计区域未在本次修改；不放宽源码指纹校验。当前已验证的仅为静态代码/字典与模拟宿主回归测试（以本 PR 的中央 CI 实际结果为准）；真实 Harness 安装、两版本兼容、Windows 客户端启用/停用/卸载/主题恢复均未验证。本次不构成 P0 全项验收通过。
+
+
+## 2026-11-24 P0-2/P0-4：删除退役的 Workspace 方法拦截
+
+本次删除未接入插件运行时的 `installWorkspaceMutationGuards`、`readWorkspaceMutationPolicy` 和私有 `workspaces.delete/unarchiveSession` 包装器。功能不再暗示 Delta 可以取代宿主的工作区删除权限、单工作区保护或默认工作区删除前拒绝。原生工作区变更完全归官方 Harness 管理。
+
+保留 `createSearchContentProtection` 的只读 Workspace/Session 保护：在用户明确受保护的会话、工作区和缺失 Host 数据的情况下，Delta 自有搜索结果按已知成员关系过滤，不改写宿主方法、文件系统或原生列表。旧的测试改为验证真实代码路径、别名锁定、墓碑和 fail-closed 行为。
+
+证据级别：源码/测试用例与现有 CI 为准；未验证真实 Harness 安装版本、Windows 客户端停用/卸载或第二个不同宿主版本。不得将此 PR 的合并等同于整项 P0 功能验收完成。
