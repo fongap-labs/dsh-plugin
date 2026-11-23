@@ -574,18 +574,19 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
     const snapshot = (() => { try { return readLiveAccountState?.() } catch { return undefined } })()
     const wallets = snapshot?.details?.balance
     const label = language() === 'zh'
+    const localize = (english: string, chinese: string): string => label ? chinese : english
     const balance = wallets?.status === 'ready' && Array.isArray(wallets.value) && wallets.value.length > 0
       ? wallets.value.map(item => (item.currency === 'CNY' ? '¥' : item.currency === 'USD' ? '$' : item.currency + ' ') +
         item.balance).join(' + ')
-      : label ? '暂无数据' : 'Unavailable'
+      : localize('Unavailable', '暂无数据')
     const keys = footerCard.querySelectorAll<HTMLElement>('[data-dtd-live-footer-label]')
     const values = footerCard.querySelectorAll<HTMLElement>('[data-dtd-live-footer-value]')
     if (keys.length !== 2 || values.length !== 2) return
-    keys[0]!.textContent = label ? '账户余额' : 'Account balance'
-    keys[1]!.textContent = label ? '今日消费' : "Today's spending"
+    keys[0]!.textContent = localize('Account balance', '账户余额')
+    keys[1]!.textContent = localize("Today's spending", '今日消费')
     values[0]!.textContent = balance
     // The Host has no verified account-wide daily cost capability.
-    values[1]!.textContent = label ? '暂无数据' : 'Unavailable'
+    values[1]!.textContent = localize('Unavailable', '暂无数据')
     footerCard.setAttribute('data-open', '1')
   }
   const onAccountOver = (event: Event): void => {
@@ -638,7 +639,8 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       const button = child instanceof HTMLButtonElement ? child : child.querySelector<HTMLButtonElement>('button')
       if (!button || button.hasAttribute('data-dtd-live-footer-action')) continue
       const label = ((button.getAttribute('aria-label') ?? '') + ' ' + (button.textContent ?? '')).trim()
-      if (/新版本|版本更新|下载更新|New version|Update available|download|checking|retry/i.test(label))
+      const updateTerms = ['新版本', '版本更新', '下载更新', 'New version', 'Update available', 'download', 'checking', 'retry']
+      if (updateTerms.some(term => label.toLowerCase().includes(term.toLowerCase())))
         mark(button, 'footer-update')
     }
     for (const id of ['settings', 'auth'] as const) {
@@ -650,9 +652,11 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
         button.addEventListener('click', () => activateNativeAccount(id))
         footerActions.set(id, button)
       }
-      const label = id === 'settings' ? language() === 'zh' ? '设置' : 'Settings'
-        : signedIn ? language() === 'zh' ? '退出登录' : 'Sign out'
-          : language() === 'zh' ? '登录' : 'Sign in'
+      const isChinese = language() === 'zh'
+      const localize = (english: string, chinese: string): string => isChinese ? chinese : english
+      const label = id === 'settings' ? localize('Settings', '设置')
+        : signedIn ? localize('Sign out', '退出登录')
+          : localize('Sign in', '登录')
       button.title = label
       button.setAttribute('aria-label', label)
       const state = id + ':' + String(signedIn)
@@ -715,11 +719,13 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
         // geometry. Keep first-party unpin out of Delta mode while preserving
         // the underlying Host state and official theme. If an entry was already
         // unpinned, leave More visible so it can be recovered there.
+        const unpinTerms = ['取消固定', '取消置顶', 'unpin']
         for (const row of [pluginRow, scheduleRow]) {
           if (!row) continue
           for (const button of row.querySelectorAll<HTMLButtonElement>('button')) {
             if (button === row.querySelector('button[aria-current], button[aria-describedby]')) continue
-            if (/取消固定|取消置顶|unpin/i.test(button.getAttribute('aria-label') ?? '')) mark(button, 'primary-unpin')
+            const ariaLabel = button.getAttribute('aria-label') ?? ''
+            if (unpinTerms.some(term => ariaLabel.toLowerCase().includes(term.toLowerCase()))) mark(button, 'primary-unpin')
           }
         }
         const more = nav.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')

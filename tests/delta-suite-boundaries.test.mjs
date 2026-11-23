@@ -287,7 +287,7 @@ test('Delta sidebar pins cannot unmount the scheduled-task navigation layout', (
   assert.match(client, /syncFooter\(sidebar\)/)
   assert.match(client, /data-dtd-live-footer-card/)
   assert.match(client, /readLiveAccountState/)
-  assert.ok(client.includes("values[1]!.textContent = label ? '暂无数据' : 'Unavailable'"))
+  assert.ok(client.includes("values[1]!.textContent = localize('Unavailable', '暂无数据')"))
 })
 
 test('Delta Suite contains no proxy or Vision Bridge service registration or front-end settings', () => {
