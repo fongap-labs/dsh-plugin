@@ -58,3 +58,34 @@ export function compactionReview(
     action: 'Native compaction occurred. Recheck the user constraints, technical decisions, unresolved failures and test evidence against the current Host Session and Git state; do not reconstruct missing facts from memory.',
   }
 }
+
+/** A compacted transcript is not a verified coding checkpoint. */
+export type CodingIntentEvidence = 'anchored' | 'incomplete' | 'unavailable'
+export type CodingRecoveryTransition = 'blocked' | 'reconcile' | 'diagnose' | 'continue' | 'verify'
+
+/**
+ * Fail closed only after a confirmed native compaction. An unknown/missing
+ * compaction reader is NOT evidence that compression happened. Never treat a
+ * post-summary Todo write as proof that model memory, tests or Git were valid.
+ */
+export function checkpointRecoveryGate(
+  review: ReturnType<typeof compactionReview>,
+  intent: CodingIntentEvidence, transition: CodingRecoveryTransition,
+): { transition: CodingRecoveryTransition; action: string } {
+  if (review.state !== 'review' || transition === 'blocked') {
+    return { transition, action: '' }
+  }
+  if (intent !== 'anchored') {
+    return {
+      transition: 'blocked',
+      action: 'Original user constraints are missing or truncated after native compaction. Restore them from the owning Host Session or ask the user; do not execute edits or replay completed steps.',
+    }
+  }
+  if (!review.todoUpdatedAfterSummary) {
+    return {
+      transition: 'reconcile',
+      action: 'Native Todo has not been refreshed since the compaction summary. Reconcile original user constraints, current native Todo, Git state and verification evidence before any further edit. A model summary cannot certify progress.',
+    }
+  }
+  return { transition, action: '' }
+}

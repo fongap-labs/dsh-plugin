@@ -60,7 +60,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       deltaCodeCodingWithoutCommands(createDshCodingCoreTools(ctx, settings)),
       deltaCodeRepositoryRemote(createDshRepositoryRemoteTools(
         ctx, settings, createGitHubTransport(settings.githubAccounts, ctx))),
-      deltaCodeQuality([createExecutionNextTool(resume, stats, compaction)]),
+      deltaCodeQuality([createExecutionNextTool(resume, stats, compaction, taskContext)]),
       deltaCodeSupport(stats),
     ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
     releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))

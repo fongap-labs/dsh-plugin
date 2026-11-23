@@ -222,23 +222,46 @@ describe('Code Worker native session execution metrics', () => {
     const agent = { session: {} }
     const ex = { agent, signal }
     let nativeReads = 0
+    let todoSeq = 7
     const resume = { read() {
       nativeReads++
-      return { tasks: [{ content: 'Revalidate constraint', status: 'pending' }], writeSeq: 7, invalid: false }
+      return { tasks: [{ content: 'Revalidate constraint', status: 'pending' }], writeSeq: todoSeq, invalid: false }
     }, dispose() {} }
     const marker = { read() {
       return { summarySeq: 10, summaries: 1, invalid: false }
     }, dispose() {} }
     const tool = createExecutionNextTool(resume, stats, marker)
     const result = await tool.execute({}, ex)
-    assert.equal(result.transition, 'continue')
+    assert.equal(result.transition, 'blocked',
+      'compaction with unavailable user provenance must never recommend continuing edits')
+    assert.equal(result.contextIntentEvidence, 'unavailable')
     assert.equal(result.contextReviewState, 'review')
     assert.equal(result.contextSummarySeq, 10)
     assert.equal(result.contextTodoRefreshed, false)
-    assert.match(result.contextReviewAction, /user constraints/)
+    assert.match(result.contextReviewAction, /Original user constraints/)
     assert.equal(result.deliveryConfirmed, false)
     assert.equal(nativeReads, 1)
     assert.equal(stats.read(ex).calls, 0)
+
+    const anchored = { readSources: () => ({
+      current: 'Fix the regression without pushing', inherited: [], historyIncomplete: false,
+    }) }
+    const reviewed = createExecutionNextTool(resume, stats, marker, anchored)
+    const stale = await reviewed.execute({}, ex)
+    assert.equal(stale.transition, 'reconcile')
+    assert.equal(stale.contextIntentEvidence, 'anchored')
+    assert.match(stale.nextAction, /Native Todo has not been refreshed/)
+    todoSeq = 11
+    const refreshed = await reviewed.execute({}, ex)
+    assert.equal(refreshed.contextTodoRefreshed, true)
+    assert.equal(refreshed.transition, 'continue',
+      'a refreshed Todo permits ordinary next-step advice, not delivery certification')
+    assert.equal(refreshed.deliveryConfirmed, false)
+    const clipped = createExecutionNextTool(resume, stats, marker,
+      { readSources: () => ({ current: 'do not publish', inherited: [], historyIncomplete: true }) })
+    const unreliable = await clipped.execute({}, ex)
+    assert.equal(unreliable.transition, 'blocked')
+    assert.equal(unreliable.contextIntentEvidence, 'incomplete')
     const absent = createExecutionNextTool(resume, stats).execute({}, ex)
     assert.equal((await absent).contextReviewState, 'unavailable')
   })
