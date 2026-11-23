@@ -24,26 +24,3 @@ test('generic builder retains package manifest restoration', () => {
   assert.match(source, /pack:bundles/)
   assert.match(source, /--frozen-lockfile/)
 })
-
-test('Desktop release accepts only pnpm publication metadata normalization', async () => {
-  const product = 'delta-desktop'
-  const { verifyDesktopPackageParity } = await import(`../packages/${product}/verify-release.mjs`)
-  const manifest = JSON.parse(readFileSync(
-    join(root, 'packages', product, 'package.json'), 'utf8'))
-  const zip = { ...manifest, version: '0.1.0-beta.1' }
-  const tgz = { ...zip }
-  delete tgz.publishConfig
-  const packed = value => Buffer.from(JSON.stringify(value))
-
-  assert.doesNotThrow(() => verifyDesktopPackageParity(packed(zip), packed(tgz)))
-
-  const wrongExport = { ...tgz, exports: { ...tgz.exports, './client': './wrong.js' } }
-  assert.throws(() => verifyDesktopPackageParity(packed(zip), packed(wrongExport)),
-    /package.json runtime fields differ/)
-  const wrongDsh = { ...tgz, dsh: { ...tgz.dsh, bundle: { patch: './wrong.yml' } } }
-  assert.throws(() => verifyDesktopPackageParity(packed(zip), packed(wrongDsh)),
-    /package.json runtime fields differ/)
-  const wrongVersion = { ...tgz, version: '0.1.0-beta.2' }
-  assert.throws(() => verifyDesktopPackageParity(packed(zip), packed(wrongVersion)),
-    /package.json runtime fields differ/)
-})

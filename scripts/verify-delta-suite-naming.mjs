@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const retired = ['dsh', 'delta'].join('-') + '-'
-const plugins = ['suite', 'desktop', 'code'].map(suffix => 'delta-' + suffix)
+const plugins = ['suite', 'code'].map(suffix => 'delta-' + suffix)
 const ignored = new Set(['.git', 'node_modules', 'dist', 'coverage',
   '.cache', '.next', '.pnpm-store', '.turbo'])
 

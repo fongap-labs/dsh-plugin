@@ -1,5 +1,0 @@
-# Delta Desktop experimental Root UI. Do not disable the official UI here.
-# The native application remains the safety fallback until the B2 smoke gate passes.
-- insert:
-    - id: delta-desktop
-      name: '@fongap-labs/delta-desktop'
