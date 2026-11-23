@@ -84,14 +84,37 @@ export function createGitHubToolSpecs(
       const response = await githubRequest(exec, args.repository, 'GET', encodeRepo)
       return envelope(response, { repository: response.repository, account: response.account, private: response.data.private, permissions: response.data.permissions ?? {} })
     }),
-    tool('file', 'Read one remote GitHub repository file or directory listing.', { repository: optional, path: string, ref: optional }, async (args, exec) => {
+    tool('file', 'Read a bounded page of a remote GitHub file or directory listing. Use offset and nextOffset to continue; truncated results are not complete source evidence.', {
+      repository: optional, path: string, ref: optional,
+      offset: { type: 'integer', description: 'Zero-based character offset for files or entry offset for directories; follow nextOffset to page.' },
+    }, async (args, exec) => {
+      const offset = args.offset ?? 0
+      if (!Number.isSafeInteger(offset) || offset < 0) throw new Error('invalid GitHub file offset')
       const response = await githubRequest(exec, args.repository, 'GET', (repo) =>
         encodeRepo(repo) + '/contents/' + validPath(args.path) + (args.ref ? '?ref=' + encodeURIComponent(args.ref) : ''))
       const item = response.data
-      if (Array.isArray(item)) return envelope(response, item.map((entry) => ({ name: entry.name, path: entry.path, type: entry.type })))
+      if (Array.isArray(item)) {
+        if (offset > item.length) throw new Error('GitHub directory offset exceeds entry count')
+        const end = Math.min(item.length, offset + 100)
+        return envelope(response, {
+          entries: item.slice(offset, end).map((entry: any) =>
+            ({ name: entry.name, path: entry.path, type: entry.type })),
+          offset, totalEntries: item.length, nextOffset: end < item.length ? end : null,
+          truncated: end < item.length,
+        })
+      }
       if (item.size > 262144) throw new Error('GitHub file exceeds the 256 KiB response limit')
-      const content = item.encoding === 'base64' ? Buffer.from(item.content.replace(/\s/g, ''), 'base64').toString('utf8') : undefined
-      return envelope(response, { path: item.path, sha: item.sha, type: item.type, content })
+      if (item.type !== 'file' || item.encoding !== 'base64' || typeof item.content !== 'string') {
+        throw new Error('GitHub path is not a decodable UTF-8 regular file')
+      }
+      const content = Buffer.from(item.content.replace(/\s/g, ''), 'base64').toString('utf8')
+      if (offset > content.length) throw new Error('GitHub file offset exceeds content length')
+      const end = Math.min(content.length, offset + 12_000)
+      return envelope(response, {
+        path: item.path, sha: item.sha, type: item.type,
+        content: content.slice(offset, end), offset, totalCharacters: content.length,
+        nextOffset: end < content.length ? end : null, truncated: end < content.length,
+      })
     }),
     tool('pulls', 'List remote GitHub pull requests. Does not modify the repository.', { repository: optional, state: optional }, async (args, exec) => {
       const state = args.state ?? 'open'
