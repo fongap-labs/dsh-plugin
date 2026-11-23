@@ -3,7 +3,7 @@ import { posix, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { CommandDefinition, CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
-import { defineTool, runCommand } from '@fongap-labs/shared'
+import { defineTool, runCommand, resolveInside } from '@fongap-labs/shared'
 import type { Settings } from '../../../types.js'
 import { resolveRoot, readTextSafe } from '../../../runtime.js'
 import { requireHostFs } from './host-fs.js'
@@ -118,6 +118,26 @@ async function authorizedRepo(
   }
   exec.signal.throwIfAborted()
   return cwd
+}
+
+/** Reject traversal, symlink escapes and insufficient Host capabilities for attached repository files. */
+export async function assertSessionRepositoryFile(
+  ctx: Context, root: string, relPath: string, signal: AbortSignal,
+  access: RepositoryAccess,
+): Promise<unknown> {
+  if (!safeRelativePath(relPath)) throw new Error('expected safe repository-relative file path')
+  const required = access === 'write'
+    ? ['resolve', 'contains', 'writeText']
+    : ['resolve', 'contains', 'readText']
+  const fs = requireHostFs(ctx, required as Array<'resolve' | 'contains' | 'readText' | 'writeText'>,
+    'attached repository files require native Host containment and access')
+  if (!fs) throw new Error('attached repository files require mounted native Host FS')
+  signal.throwIfAborted()
+  const parent = await fs.resolve(root, { cwd: root, signal })
+  const target = await fs.resolve(resolveInside(root, relPath), { cwd: root, signal })
+  if (!fs.contains(parent, target)) throw new Error('attached repository file escapes allowed repository')
+  signal.throwIfAborted()
+  return target
 }
 
 /** Resolve an attached repository for one operation, rechecking the exact Session, allowlist and Host boundary. */
@@ -358,8 +378,13 @@ export function createSessionRepositoryTool(
         if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 128 * 1024) {
           throw new Error('maxBytes must be 1..131072')
         }
-        requireHostFs(ctx, ['resolve', 'stat', 'processPath', 'readText'] as Array<'resolve' | 'stat' | 'processPath' | 'readText'>,
-          'attached repository file reads require native Host FS readText')
+        const target = await assertSessionRepositoryFile(ctx, cwd, args.path, exec.signal, 'read')
+        const host = requireHostFs(ctx, ['stat'], 'attached repository reads require Host file metadata')
+        const meta = await host!.stat(target, exec.signal)
+        if (meta?.type !== 'file') throw new Error('attached repository file must be a regular file')
+        if (typeof meta.size === 'number' && meta.size > maxBytes) {
+          throw new Error('attached repository file exceeds the requested read size')
+        }
         const content = await readTextSafe(ctx, exec, cwd, args.path)
         if (Buffer.byteLength(content, 'utf8') > maxBytes) {
           throw new Error('repository file exceeds the requested read size; use a narrower file or ask for a focused excerpt')
