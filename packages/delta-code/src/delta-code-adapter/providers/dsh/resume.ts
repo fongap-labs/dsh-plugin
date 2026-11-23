@@ -103,7 +103,7 @@ export function registerNativeResume(ctx: Context): NativeResumeReader {
 const UNBORN_HEAD = 'UNBORN_GIT_HEAD_VERIFIED_FAILURE'
 
 async function hostGit(ctx: Context, settings: Settings, cwd: string,
-  exec: ToolRunContext, args: string[], allowUnbornHead = false): Promise<string> {
+  exec: ToolRunContext, args: string[], isUnbornHead = false): Promise<string> {
   return retryReadOnly(async () => {
     const output = await runCommand(ctx, {
       command: settings.gitCommand, args, cwd, signal: exec.signal,
@@ -113,7 +113,7 @@ async function hostGit(ctx: Context, settings: Settings, cwd: string,
       // Only the specific Git revision error can initiate unborn-branch checks.
       // Other Host refusal, unknown exits and retry-control responses must fail
       // without issuing any additional Git command.
-      if (allowUnbornHead &&
+      if (isUnbornHead &&
           args.length === 3 && args[0] === 'rev-parse' &&
           args[1] === '--verify' && args[2] === 'HEAD' &&
           output.exitCode === 128 && !output.signal && !output.timedOut && !output.lossy &&
