@@ -87,6 +87,23 @@ describe('Delta Code declarative coding workflow policy', () => {
     }
   })
 
+  it('uses existing native LSP only when code relationships matter, without a second indexer', async () => {
+    const quick = decideCodingWorkflow({ taskKind: 'feature', scope: 'small', risk: 'low' })
+    assert.equal(quick.codeNavigation, undefined, 'simple change must keep its fast path')
+    const complex = decideCodingWorkflow({ taskKind: 'bugfix', scope: 'medium', risk: 'medium' })
+    assert.match(complex.codeNavigation.tools.join(' '), /native lsp/)
+    assert.match(complex.codeNavigation.tools.join(' '), /goToDefinition.*findReferences/)
+    assert.match(complex.codeNavigation.tools.join(' '), /missing or denied/)
+    assert.match(complex.codeNavigation.evidenceRequired.join(' '), /related tests/)
+    const readOnly = decideCodingWorkflow({ taskKind: 'research', scope: 'large', risk: 'low' })
+    assert.equal(readOnly.codeNavigation, undefined, 'ordinary research must not force code navigation')
+    const tool = createWorkflowRouteTool()
+    const routed = await tool.execute({ taskKind: 'refactor', scope: 'large', risk: 'medium' }, exec)
+    assert.deepEqual(routed.codeNavigation, decideCodingWorkflow({
+      taskKind: 'refactor', scope: 'large', risk: 'medium',
+    }).codeNavigation)
+  })
+
   it('validates milestone acceptance and dependency waves without marking native Todo completed', () => {
     const result = decideCodingWorkflow({
       taskKind: 'feature', scope: 'large', risk: 'low', nativeSubagents: true,
@@ -188,6 +205,41 @@ describe('Delta Code declarative coding workflow policy', () => {
     for (const path of ['src/a\0.ts', 'src/a\n.ts']) {
       assert.throws(() => plan([['src/ok.ts'], [path]]), /taskPaths/)
     }
+  })
+
+  it('bounds native parallel advice, protects shared CI/build config and skips low-benefit fanout', () => {
+    const many = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium', nativeSubagents: true,
+      independentTasks: 7,
+      taskPaths: Array.from({ length: 7 }, (_, index) => ['src/module-' + index + '.ts']),
+    })
+    assert.deepEqual(many.executionWaves, [[0, 1, 2], [3, 4, 5], [6]],
+      'the plugin must not advise an unbounded number of paid model workers')
+    assert.equal(many.parallelCandidate, true)
+    const config = decideCodingWorkflow({
+      taskKind: 'refactor', scope: 'large', risk: 'medium', nativeSubagents: true,
+      independentTasks: 2, taskPaths: [['package.json'], ['pnpm-lock.yaml']],
+    })
+    assert.deepEqual(config.executionWaves, [[0], [1]],
+      'shared root build and lock files are not safe to write concurrently')
+    assert.equal(config.parallelCandidate, false)
+    const small = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'medium', risk: 'low', nativeSubagents: true,
+      independentTasks: 2, taskPaths: [['src/feature-a.ts'], ['src/feature-b.ts']],
+    })
+    assert.deepEqual(small.executionWaves, [[0], [1]],
+      'two medium tasks should prefer one Agent when setup overhead can dominate')
+    const missing = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium', nativeSubagents: false,
+      independentTasks: 4, taskPaths: [['src/a'], ['src/b'], ['src/c'], ['src/d']],
+    })
+    assert.deepEqual(missing.executionWaves, [[0], [1], [2], [3]])
+    const dependent = decideCodingWorkflow({
+      taskKind: 'feature', scope: 'large', risk: 'medium', nativeSubagents: true,
+      independentTasks: 3, taskPaths: [['src/a'], ['src/b'], ['src/c']],
+      taskDependencies: [[], [0], [1]],
+    })
+    assert.deepEqual(dependent.executionWaves, [[0], [1], [2]])
   })
 
   it('checks native Host provider ownership before recommending parallel subagents', async () => {
