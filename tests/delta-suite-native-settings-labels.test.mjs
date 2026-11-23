@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
 import { patchAccountMenu, patchAccountMenuStyle, patchCurrentVersionStyle, patchHeroStyle,
-  patchSettingsRootStyle, patchDictionary, changes } from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
+  patchSettingsRootStyle, patchDictionary, patchSessionLogBackend, patchSessionLogSettings,
+  patchSidebarStyle, changes } from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/delta-suite/src/client.ts')
@@ -119,4 +120,58 @@ test('installed Delta live footer uses direct-child update ordering and semantic
     'the installed live footer and hero must use Delta tokens directly')
   assert.match(liveCss, /var\(--dtd-popup-bg\)/)
   assert.match(liveCss, /var\(--dtd-bg-hover\)/)
+})
+
+
+test('Delta disables Session Log uploads even when an old profile has enabled=true', () => {
+  const host = [
+    "export const name = 'session-log-deepseek'",
+    'export const Config = z.object({',
+    '  enabled: z.boolean().default(true).volatile(),',
+    '})',
+    'prepare: (request) => {',
+    '        if (!config.enabled.get()) return undefined',
+    '  }',
+  ].join('\n')
+  const changed = patchSessionLogBackend(host)
+  assert.match(changed, /default\(false\)/)
+  assert.match(changed, /function deltaAllowsSessionLogUpload\(\): boolean \{ return false \}/)
+  assert.match(changed, /if \(!deltaAllowsSessionLogUpload\(\)\) return undefined/)
+  assert.equal(patchSessionLogBackend(changed), changed)
+})
+
+test('Delta removes native Session Log switch registration, not just switch styling', () => {
+  const host = [
+    "import { UploadRow, UploadToast, type UploadInjected } from './UploadRow.tsx'",
+    "  ctx.effect(() => ctx.configForms.whileServed([namespace], () => ctx.slots.inject('settings.general.item', () =>",
+    "    ctx.slots.register({ name: 'settings.general.item', id: namespace, order: 90, locale, inject: face }, UploadRow))))",
+  ].join('\n')
+  const changed = patchSessionLogSettings(host)
+  assert.doesNotMatch(changed, /ctx\.slots\.inject\('settings\.general\.item'/)
+  assert.match(changed, /delta-suite:hide-session-log-preference-v1/)
+  assert.equal(patchSessionLogSettings(changed), changed)
+})
+
+test('Delta primary navigation stays pinned while workspace list scrolls', () => {
+  const host = [
+    '.logoRow { }',
+    '.panelList { }',
+    '.newSessionRow { }',
+  ].join('\n')
+  const styled = patchSidebarStyle(host)
+  assert.match(styled, /panelList \{/)
+  assert.match(styled, /position: sticky; top: 0;/)
+  assert.match(styled, /--dtd-bg-sidebar/)
+  assert.equal(patchSidebarStyle(styled), styled)
+  assert.match(source, /mark\(nav, 'pinned-nav'\)/)
+  assert.match(source, /data-dtd-live-pinned-nav="1"/)
+})
+
+test('privacy panel retains PIN controls but removes explanatory claims and badges', () => {
+  assert.match(source, /copy\.privacy\.title/)
+  assert.doesNotMatch(source, /copy\.privacy\.description/)
+  assert.doesNotMatch(source, /copy\.privacy\.statusEnforced/)
+  assert.doesNotMatch(source, /const privacyItems =/)
+  assert.match(source, /data-delta-privacy-card/)
+  assert.match(source, /dtd-pin-manage-row/)
 })
