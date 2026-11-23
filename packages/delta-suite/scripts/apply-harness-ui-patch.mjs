@@ -165,7 +165,10 @@ export function planPatches(root) {
     const file = join(locations.get(item.package), item.file)
     requireShape(existsSync(file), item.package + '/' + item.file)
     const oldText = readFileSync(file, 'utf8')
-    const newText = item.transform(oldText)
+    const usesCRLF = oldText.includes('\r\n')
+    const normalized = oldText.replaceAll('\r\n', '\n')
+    const patched = item.transform(normalized)
+    const newText = usesCRLF ? patched.replaceAll('\n', '\r\n') : patched
     return { file, oldText, newText, changed: oldText !== newText }
   })
 }
