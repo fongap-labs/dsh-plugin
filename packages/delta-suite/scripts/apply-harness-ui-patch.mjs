@@ -407,7 +407,7 @@ export function patchSessionLogBackend(source) {
     'session log initial default')
   next = replaceUnique(next,
     '        if (!config.enabled.get()) return undefined',
-    '        // ' + marker + '\\n        if (true) return undefined // never contribute dsh_session_log in Delta',
+    '        // ' + marker + '\n        if (true) return undefined // never contribute dsh_session_log in Delta',
     'disable log contribution regardless of persisted configuration')
   return next
 }
@@ -421,7 +421,7 @@ export function patchSessionLogSettings(source) {
     "import { UploadToast, type UploadInjected } from './UploadRow.tsx'",
     'native log preference import')
   next = replaceUnique(next,
-    "  ctx.effect(() => ctx.configForms.whileServed([namespace], () => ctx.slots.inject('settings.general.item', () =>\\n    ctx.slots.register({ name: 'settings.general.item', id: namespace, order: 90, locale, inject: face }, UploadRow))))",
+    "  ctx.effect(() => ctx.configForms.whileServed([namespace], () => ctx.slots.inject('settings.general.item', () =>\n    ctx.slots.register({ name: 'settings.general.item', id: namespace, order: 90, locale, inject: face }, UploadRow))))",
     "  // " + marker,
     'remove native log preference registration')
   return next
