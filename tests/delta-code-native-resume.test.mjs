@@ -205,7 +205,7 @@ describe('Delta Code Worker native session resume', () => {
   })
 
   it('fails closed if an unborn branch cannot be independently confirmed or status changes', async () => {
-    const unexpected = await fixture({ unborn: true, status: '## main\0' })
+    const unexpected = await fixture({ unborn: true, status: '## unknown branch\0' })
     try {
       unexpected.emit(TASKS)
       const actual = await unexpected.tool.execute({}, execute(unexpected.agent))
