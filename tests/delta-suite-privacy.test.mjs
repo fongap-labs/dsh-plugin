@@ -14,6 +14,47 @@ const { shouldBlockPrivacyHttpRequest, installHostPrivacyGuards } = await import
 async function* iterable(values) { yield* values }
 const collect = async stream => { const out = []; for await (const chunk of stream) out.push(chunk); return out }
 
+function makePrivacyHarness({ deepSeekModelsEnabled = true, redactionEnabled = true } = {}) {
+  let listener
+  const llm = {
+    async resolveModelInfo(_provider, model) {
+      return { id: model, inputModalities: ['text'] }
+    },
+    async listModels(provider) {
+      return provider === 'deepseek-official' || provider === 'deepseek-account'
+        ? [{ id: 'deepseek-flash', inputModalities: ['text'] }]
+        : [{ id: 'text-model', inputModalities: ['text'] }]
+    },
+    stream() {
+      return iterable([{ type: 'finish', reason: { kind: 'stop' } }])
+    },
+  }
+  const originalResolver = llm.resolveModelInfo
+  const originalListModels = llm.listModels
+  const scope = {
+    llm,
+    on(event, handler) {
+      assert.equal(event, 'llm/stream')
+      listener = handler
+      return () => { if (listener === handler) listener = undefined }
+    },
+  }
+  const ctx = {
+    inject(services, callback) {
+      assert.deepEqual(services, ['llm'])
+      callback(scope)
+    },
+  }
+  const dispose = registerPrivacyBridge(ctx, { deepSeekModelsEnabled, redactionEnabled })
+  return {
+    llm,
+    originalResolver,
+    originalListModels,
+    getListener: () => listener,
+    dispose,
+  }
+}
+
 test('Host privacy request classifier rejects encoded, traversed, and alternate path spellings', () => {
   const blocked = [
     ['/api/telemetry', 'GET'],
@@ -121,8 +162,6 @@ test('redaction masks common secrets and private contact data with reversible re
   assert.doesNotMatch(masked, /abcdefghijkl|short|sk-ant-|alice@example|415\) 555|private-material/)
   assert.match(masked, /password=⟦dtd:/)
   assert.equal(redactor.restore(masked), source)
-  assert.equal(isValidCredentialRef('VISION_API_KEY'), true)
-  assert.equal(isValidCredentialRef('vision-key'), false)
 })
 
 test('redaction checksums payment cards and date/checksum-valid resident-ID formats to limit false positives', () => {
@@ -210,7 +249,7 @@ test('disabled DeepSeek routes disappear from model catalogs and reject new requ
   assert.equal(harness.llm.listModels, harness.originalListModels)
 })
 
-test('removing the bridge preserves native model image handling and optional redaction', async () => {
+test('removing Vision Bridge preserves native model image handling and optional redaction', async () => {
   const plain = makePrivacyHarness({ redactionEnabled: false })
   const image = { type: 'image', attachment: { attachmentId: 'native-image', mediaType: 'image/png' } }
   const request = { provider: 'text-route', model: 'text-model',

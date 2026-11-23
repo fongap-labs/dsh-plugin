@@ -60,9 +60,11 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
   assert.match(registry, /for \(let index = this\.cleanups\.length - 1; index >= 0; index--\)/)
   for (const id of ['context.compaction-status', 'security.model-stream-policy',
     'security.privacy-guards', 'security.auth-cookie-pruner',
-    'discovery.session-search', 'sessions.session-operations', 'integrations.proxy-settings']) {
+    'discovery.session-search', 'sessions.session-operations', 'integrations.gateway-effort']) {
     assert.ok(composition.includes("id: '" + id + "'"), 'unregistered Host feature: ' + id)
   }
+  assert.doesNotMatch(composition, /id:\s*'integrations\.(?:proxy-settings|vision-bridge)'/,
+    'removed proxy and Vision Bridge services must not be registered')
   assert.doesNotMatch(composition, /id:\s*'integrations\.gateway-retry-guard'/,
     'Desktop must not register another gateway retry listener alongside Code Worker')
   assert.ok(composition.includes("throw new Error('Delta privacy bridge requires"),

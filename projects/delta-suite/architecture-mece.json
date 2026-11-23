@@ -89,16 +89,14 @@
     },
     {
       "id": "integrations",
-      "description": "External model and MCP connectivity; policy decisions belong to security",
+      "description": "MCP management and native model settings integration; policy decisions belong to security",
       "surfaces": [
         "left-sidebar",
         "settings"
       ],
       "capabilities": [
         "mcp-management",
-        "vision-routing",
-        "vision-credentials",
-        "network-proxy"
+        "gateway-effort-sync"
       ]
     }
   ],
@@ -127,7 +125,7 @@
         "security",
         "integrations"
       ],
-      "action": "split policy and proxy behind typed ports; retain Host authorization"
+      "action": "split policy and session projections behind typed ports; retain Host authorization"
     },
     {
       "symbol": "installSidebarCompatibility",
