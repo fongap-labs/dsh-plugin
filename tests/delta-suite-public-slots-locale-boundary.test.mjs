@@ -80,3 +80,15 @@ test('new native-view and Gateway copy uses only central dictionaries', () => {
   assert.match(client, /function language\(\): Language/)
   assert.match(client, /\/\^zh\(\?:-\|\$\)\/i/)
 })
+
+test('central Suite dictionaries contain no unreferenced leaf keys', () => {
+  const source = client + '\n' + read('packages/delta-suite/scripts/finalize-client.mjs')
+  for (const [key] of flattenCopy(zhCopy)) {
+    const leaf = key.split('.').at(-1)
+    const used = source.includes('.' + leaf) ||
+      source.includes("'" + leaf + "'") ||
+      source.includes('"' + leaf + '"') ||
+      source.includes('[' + leaf + ']')
+    assert.ok(used, 'unused Suite translation key: ' + key)
+  }
+})

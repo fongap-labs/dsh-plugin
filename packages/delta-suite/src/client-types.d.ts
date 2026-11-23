@@ -3,34 +3,24 @@ interface DeltaCopy {
   meta: { title: string; description: string }
   ui: {
     [key: string]: string
-    preference: string; theme: string; official: string; delta: string;
+    theme: string; official: string; delta: string;
     open: string; close: string; conversation: string; sidebar: string;
-    status: string; unavailable: string; recovery: string; shortcut: string;
-    personalization: string; personalizationDescription: string; enabled: string;
-    appearance: string; appearanceDescription: string; hostOwned: string;
-    integrationTitle: string; integrationSummary: string;
+    status: string; unavailable: string; shortcut: string;
+    personalization: string; enabled: string;
+    appearance: string; appearanceDescription: string; integrationTitle: string; integrationSummary: string;
     integrationSidebar: string; integrationCollapse: string;
     integrationDeletion: string; integrationRunning: string;
     integrationNative: string; integrationReasoning: string; integrationGuidance: string;
     sessionId: string; copySessionId: string; copy: string; sessionLastUpdated: string;
     modelReasoningLevels: string;
-    searchSessions: string; newConversation: string; searching: string; noResults: string;
-    copied: string; copyFailed: string; protectedDefaultWorkspace: string;
-    updateNotification: string; settings: string; signIn: string; signOut: string;
+    searchSessions: string; searching: string; noResults: string;
+    copied: string; copyFailed: string; settings: string; signIn: string; signOut: string;
     navigationPlugins: string; navigationSchedules: string; navigationSession: string;
     accountBalance: string; todaySpending: string; dataUnavailable: string;
-    signedIn: string; latestVersion: string; signedOut: string;
-    signInRequired: string; signOutFromMenu: string;
-    collapseLeftSidebar: string; expandLeftSidebar: string;
-    collapseRightSidebar: string; expandRightSidebar: string;
-    cannotDeleteSoleWorkspace: string;
     cancel: string; confirm: string; delete: string;
   }
   privacy: {
-    title: string; description: string; statusEnforced: string;
-    sessionLogBlocked: string; telemetryBlocked: string;
-    geolocationOff: string; redactionActive: string;
-  }
+    title: string; description: string; }
   sessionMenu: {
     moveSession: string; lockSession: string; unlockSession: string; deleteSession: string;
     moveTitle: string; moveDescription: string; moveEmpty: string; movedToast: string;
@@ -38,7 +28,7 @@ interface DeltaCopy {
     deleteUngrouped: string; deleteUngroupedTitle: string; deleteUngroupedDescription: string;
     deleteUngroupedLockedWarning: string; deletedUngroupedToast: string;
     unlockFirst: string;
-    setPinTitle: string; setPinDescription: string; pinLabel: string; pinConfirmLabel: string;
+    setPinTitle: string; setPinDescription: string; pinConfirmLabel: string;
     pinPlaceholder: string; pinTooShort: string; pinMismatch: string; wrongPin: string;
     lockedShieldTitle: string; lockedShieldDesc: string; unlockViewOnce: string; unlockPermanent: string;
     lockedToast: string; unlockedToast: string;
@@ -59,18 +49,16 @@ interface DeltaCopy {
     setPinDescription?: string;
   }
   searchPalette: {
-    triggerHint: string; sidebarPlaceholder: string; placeholder: string;
+    sidebarPlaceholder: string; placeholder: string;
     clear: string; close: string; searchingContent: string;
     noResults: string; noResultsHint: string; turnLabel: string;
     roleUser: string; roleAssistant: string;
     tabAll: string; tabSession: string; tabWorkspace: string;
     tabPlugin: string; tabSkill: string; tabShortcut: string; tabAction: string;
     kindSession: string; kindContent: string; kindWorkspace: string;
-    kindPlugin: string; kindSkill: string; kindCommand: string;
+    kindSkill: string; kindCommand: string;
     kindShortcut: string; kindAction: string;
-    actionNewConversation: string; actionPlugins: string;
-    actionSchedules: string; actionSettings: string;
-    actionToggleSidebar: string; actionToggleRightbar: string;
+    actionNewConversation: string; actionToggleSidebar: string; actionToggleRightbar: string;
     footerNav: string; footerOpen: string; footerTab: string; footerEsc: string;
     commandCopyLabel: string; commandCopyHint: string; commandCopied: string; commandCopyFailed: string;
     commandPickerLabel: string; commandInsertLabel: string; commandInsertHint: string; commandInserted: string; commandInsertFailed: string;
