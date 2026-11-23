@@ -20,8 +20,10 @@ import { createGitStatusTool, createGitDiffTool } from './git.js'
 import { createGitHubTools } from './github.js'
 
 /** DSH-specific factories. The feature modules never import Context or ToolDefinition. */
-export function createDshCodingCoreTools(ctx: Context, settings: Settings): ToolDefinition[] {
-  return [createMultiEditTool(ctx, settings), createProjectProfileTool(ctx, settings),
+export function createDshCodingCoreTools(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition[] {
+  return [createMultiEditTool(ctx, settings, sessionRepositories), createProjectProfileTool(ctx, settings),
     createHostProbeTool(ctx), createModernWebGuidanceTool()]
 }
 
