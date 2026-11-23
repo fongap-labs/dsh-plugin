@@ -140,6 +140,17 @@ export function createGitSyncTool(ctx: Context, settings: Settings): ToolDefinit
       const target = await git(ctx, settings, cwd, exec.signal, 'fetched HEAD',
         ['rev-parse', '--verify', 'FETCH_HEAD^{commit}'])
       if (!/^[0-9a-f]{40,64}$/i.test(target)) throw new Error('Invalid fetched commit; refusing reset')
+      // Fetch can take a long time. Recheck that no other actor changed our
+      // branch, HEAD or working tree while the network request was pending.
+      const branchAfterFetch = await git(ctx, settings, cwd, exec.signal, 'branch after fetch',
+        ['symbolic-ref', '--quiet', '--short', 'HEAD'])
+      const headAfterFetch = await git(ctx, settings, cwd, exec.signal, 'HEAD after fetch',
+        ['rev-parse', '--verify', 'HEAD'])
+      const statusAfterFetch = await gitStatus(ctx, settings, cwd, exec.signal)
+      if (branchAfterFetch !== branch || headAfterFetch !== head ||
+          statusAfterFetch.raw !== status.raw) {
+        throw new Error('Git workspace changed during fetch; refusing reset and backup')
+      }
       let backupSha = ''
       if (!status.clean) {
         const before = await stashSha(ctx, settings, cwd, exec.signal)
