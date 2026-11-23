@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
 import { patchAccountMenu, patchAccountMenuStyle, patchCurrentVersionStyle, patchHeroStyle,
   patchSettingsRootStyle, patchDictionary, patchSessionLogBackend, patchSessionLogSettings,
-  patchSidebarStyle, changes } from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
+  patchSidebarStyle, patchSessionMenuOrder, changes } from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/delta-suite/src/client.ts')
@@ -174,4 +174,47 @@ test('privacy panel retains PIN controls but removes explanatory claims and badg
   assert.doesNotMatch(source, /const privacyItems =/)
   assert.match(source, /data-delta-privacy-card/)
   assert.match(source, /dtd-pin-manage-row/)
+})
+
+
+test('native Session context menu puts rename before pin without changing handlers', () => {
+  const source = [
+    "  register('pin', 100, ['workspace/pinSession', 'workspace/unpinSession'], target =>",
+    "  register('rename', 200, ['session/rename'], target =>",
+    "  register('fork', 300, ['session/fork'], target =>",
+  ].join('\n')
+  const next = patchSessionMenuOrder(source)
+  assert.match(next, /register\('rename', 50,/)
+  assert.match(next, /register\('pin', 100,/)
+  assert.match(next, /register\('fork', 300,/)
+  assert.equal(patchSessionMenuOrder(next), next)
+  assert.throws(() => patchSessionMenuOrder('incompatible native session menu'), /contract changed/)
+  assert.ok(changes.some(item => item.package === '@deepseek-ai/dsh-client-ui-workspace'
+    && item.file === 'src/client/session-actions/context-menus.tsx'))
+})
+
+test('native menu material and all interactive semantic colors use Delta theme variables', () => {
+  const menuTokens = [
+    '--dsw-menu-surface-fill',
+    '--dsw-menu-backdrop-filter',
+    '--dsw-alias-menu-icon',
+    '--dsw-alias-interactive-bg-hover',
+    '--dsw-alias-interactive-bg-hover-danger',
+    '--dsw-alias-label-primary',
+    '--dsw-alias-label-secondary',
+    '--dsw-alias-label-tertiary',
+    '--dsw-alias-border-l1',
+    '--dsw-alias-border-l2',
+    '--dsw-alias-state-error-primary',
+    '--dsw-alias-state-idle-primary',
+    '--dsw-alias-state-success-primary',
+    '--dsw-alias-state-warn-primary',
+    '--dsw-alias-scrollbar-bg-l2',
+    '--dsw-alias-scrollbar-hover-l2',
+  ]
+  for (const key of menuTokens) {
+    assert.ok(source.includes("'" + key + "':"), 'missing Delta theme mapping for ' + key)
+  }
+  assert.match(source, /'--dsw-menu-backdrop-filter': \{ light: 'none', dark: 'none' \}/)
+  assert.match(source, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
 })
