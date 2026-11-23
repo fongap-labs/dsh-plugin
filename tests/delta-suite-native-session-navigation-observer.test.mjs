@@ -27,9 +27,9 @@ test('native session navigation method remains Host-owned', () => {
   assert.doesNotMatch(source, /navApi\.openSession\s*=|const wrappedOpen\s*=/)
   assert.match(source, /observeConfirmedMainSession\(\s*sessionsApi\.list, id => deltaFeatures\.setActiveSessionId\(id\)/)
   assert.match(source, /readConfirmedMainSessionId\(api\.list\)/)
-  assert.match(source, /deltaFeatures\.syncLockShieldOverlay\(centerCol\)/)
-  assert.match(source, /if \(selectedSid\) deltaFeatures\.setActiveSessionId\(selectedSid\)/,
-    'remaining lock-compatible DOM fallback is not dropped in this change')
+  assert.doesNotMatch(source, /deltaFeatures\.syncLockShieldOverlay\(centerCol\)/)
+  assert.doesNotMatch(source, /if \(selectedSid\) deltaFeatures\.setActiveSessionId\(selectedSid\)/,
+    'the removed native DOM observer must not be restored')
 })
 
 test('only one confirmed native mainView is eligible', () => {
