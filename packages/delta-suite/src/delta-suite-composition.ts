@@ -5,7 +5,6 @@ import { installHostSessionSearch } from './host-search.js'
 import { installHostSessionOps, readHostSearchExclusion } from './host-sessions.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
-import { installHostGatewayEffortSync } from './host-gateway-effort.js'
 import { DeltaFeatureRegistry } from './delta-suite-kernel/feature-lifecycle-registry.js'
 
 export function apply(ctx?: PrivacyHostContext): () => void {
@@ -48,13 +47,6 @@ export function apply(ctx?: PrivacyHostContext): () => void {
     install: () => installHostSessionOps(ctx, store, {
       onSessionChanged: sessionId => { invalidateSearchCache?.(sessionId) },
     }),
-  })
-  registry.register({
-    id: 'integrations.gateway-effort',
-    owner: 'integrations',
-    surfaces: ['settings'],
-    optional: true,
-    install: () => installHostGatewayEffortSync(ctx),
   })
   const instance = registry.mount(ctx, new Set<string>())
   return () => instance.dispose()

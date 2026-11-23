@@ -59,7 +59,7 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
   assert.match(registry, /Missing required Host capabilities/)
   assert.match(registry, /for \(let index = this\.cleanups\.length - 1; index >= 0; index--\)/)
   for (const id of ['context.compaction-status', 'security.privacy-guards',
-    'discovery.session-search', 'sessions.session-operations', 'integrations.gateway-effort']) {
+    'discovery.session-search', 'sessions.session-operations']) {
     assert.ok(composition.includes("id: '" + id + "'"), 'unregistered Host feature: ' + id)
   }
   assert.doesNotMatch(composition, /id:\s*'integrations\.(?:proxy-settings|vision-bridge)'/,

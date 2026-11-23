@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 关闭依赖明文 Token 的 Gateway 同步，停用原生 DOM/Workspace 私有方法接管，插件发行包不再包含 Harness 源码补丁脚本，缺公开 API 时保留宿主原生行为。
+
 - 修复: Delta Suite 自有组件移除对原生 `--dsw-*` 的样式回退，统一使用 `--dtd-*` 主题 Token，并对浅色/深色、弹层及官方 Theme API 释放路径增加检查。
 
 - 修复: Delta Suite 将侧栏导航、账号悬浮卡、搜索快捷命令及 Gateway Effort 双语文字集中到现有中英文词典，新增词条/占位符/引用一致性检查；保留官方语言资源。
