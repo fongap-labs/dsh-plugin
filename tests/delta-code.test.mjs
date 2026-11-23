@@ -283,7 +283,7 @@ describe("delta-code", () => {
     const { UserTaskContext, prepareTaskSpec } = await import(
       "../packages/delta-code/lib/delta-code-strategy/intent-contract.js");
     const task = {
-      goal: "Fix one function", taskKind: "debug", scope: "small", risk: "low",
+      goal: "Fix one function", taskKind: "bugfix", scope: "small", risk: "low",
       userQuotes: ["RETAIN-THIS-RESTRICTION"],
       proposedAcceptance: ["Verify the actual behavior"],
       firstAction: "Restore full user instructions",
@@ -302,7 +302,7 @@ describe("delta-code", () => {
     assert.equal(source.historyIncomplete, true, "continuation cannot erase truncated history");
 
     const isolated = {};
-    memory.capture(isolated, "\\u7ee7\\u7eed", true, true);
+    memory.capture(isolated, "continue", true, true);
     assert.equal(memory.readSources(isolated).historyIncomplete, true,
       "orphan continuation cannot imply a complete user task");
     memory.capture(isolated, "Fix a simple function", false, true);
