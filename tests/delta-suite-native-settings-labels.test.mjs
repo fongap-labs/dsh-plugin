@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
 import { patchAccountMenu, patchAccountMenuStyle, patchCurrentVersionStyle, patchHeroStyle,
   patchSettingsRootStyle, patchDictionary, patchSessionLogBackend, patchSessionLogSettings,
-  patchSidebarStyle, patchSessionMenuOrder, changes } from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
+  patchSidebarStyle, patchSessionMenuOrder, auditThemeTokens, changes } from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/delta-suite/src/client.ts')
@@ -217,4 +217,26 @@ test('native menu material and all interactive semantic colors use Delta theme v
   }
   assert.match(source, /'--dsw-menu-backdrop-filter': \{ light: 'none', dark: 'none' \}/)
   assert.match(source, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
+})
+
+
+test('theme coverage audit detects new upstream semantic colors without version pinning', () => {
+  const fixture = [
+    'body {',
+    '  --dsw-menu-surface-fill: white;',
+    '  --dsw-alias-label-primary: black;',
+    '  --dsw-alias-some-future-color: rebeccapurple;',
+    '}',
+  ].join('\n')
+  const report = auditThemeTokens(fixture, source)
+  assert.equal(report.official, 3)
+  assert.equal(report.mapped, 2)
+  assert.deepEqual(report.unmapped, ['--dsw-alias-some-future-color'])
+  const covered = auditThemeTokens([
+    'body {',
+    '  --dsw-menu-surface-fill: white;',
+    '  --dsw-alias-label-primary: black;',
+    '}',
+  ].join('\n'), source)
+  assert.deepEqual(covered, { official: 2, mapped: 2, unmapped: [] })
 })
