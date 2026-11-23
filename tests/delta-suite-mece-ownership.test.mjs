@@ -58,8 +58,7 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
   assert.match(registry, /DELTA_EXTENSION_SURFACES/)
   assert.match(registry, /Missing required Host capabilities/)
   assert.match(registry, /for \(let index = this\.cleanups\.length - 1; index >= 0; index--\)/)
-  for (const id of ['context.compaction-status', 'security.model-stream-policy',
-    'security.privacy-guards', 'security.auth-cookie-pruner',
+  for (const id of ['context.compaction-status', 'security.privacy-guards',
     'discovery.session-search', 'sessions.session-operations', 'integrations.gateway-effort']) {
     assert.ok(composition.includes("id: '" + id + "'"), 'unregistered Host feature: ' + id)
   }
@@ -67,6 +66,6 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
     'removed proxy and Vision Bridge services must not be registered')
   assert.doesNotMatch(composition, /id:\s*'integrations\.gateway-retry-guard'/,
     'Desktop must not register another gateway retry listener alongside Code Worker')
-  assert.ok(composition.includes("throw new Error('Delta privacy bridge requires"),
-    'configured privacy enforcement cannot be silently bypassed')
+  assert.doesNotMatch(composition, /registerPrivacyBridge|installHostAuthCookiePruner/,
+    'unsupported model and Host cookie interceptors must never be mounted')
 })

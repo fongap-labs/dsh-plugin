@@ -1,28 +1,21 @@
 /** Delta Suite composition; Cordis retains plugin lifecycle ownership. */
-import {
-  installHostAuthCookiePruner,
-  parseAuthCookieNames,
-  selectStaleAuthCookieNames,
-} from './host-auth-cookies.js'
 import { installHostPrivacyGuards } from './host-privacy.js'
 import type { PrivacyHostContext } from './host-privacy.js'
 import { installHostSessionSearch } from './host-search.js'
 import { installHostSessionOps, readHostSearchExclusion } from './host-sessions.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
-import { registerPrivacyBridge, type DeltaPrivacyConfig } from './privacy-bridge.js'
 import { installHostGatewayEffortSync } from './host-gateway-effort.js'
 import { DeltaFeatureRegistry } from './delta-suite-kernel/feature-lifecycle-registry.js'
 
-export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): () => void {
+export function apply(ctx?: PrivacyHostContext): () => void {
   // The Host retains authority for deletion, secrets, privacy and model access.
   // The registry orders extension lifecycles; it never grants privileges.
   if (!ctx || typeof ctx !== 'object') return () => {}
 
   const registry = new DeltaFeatureRegistry<PrivacyHostContext>()
   const store = createHostStateStore(ctx)
-  const legacyCtx = ctx as unknown as Parameters<typeof registerCompactionStatusProjection>[0] &
-    Parameters<typeof registerPrivacyBridge>[0]
+  const legacyCtx = ctx as unknown as Parameters<typeof registerCompactionStatusProjection>[0]
   let invalidateSearchCache: ((id: string) => void) | undefined
 
   registry.register({
@@ -34,26 +27,9 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
       ? registerCompactionStatusProjection(legacyCtx) : () => {},
   })
   registry.register({
-    id: 'security.model-stream-policy',
-    owner: 'security',
-    surfaces: ['settings'],
-    install: () => {
-      if (!config) return () => {}
-      if (typeof ctx.inject !== 'function') {
-        throw new Error('Delta privacy bridge requires the Host service injection contract')
-      }
-      return registerPrivacyBridge(legacyCtx, config)
-    },
-  })
-  registry.register({
     id: 'security.privacy-guards',
     owner: 'security',
     install: () => installHostPrivacyGuards(ctx),
-  })
-  registry.register({
-    id: 'security.auth-cookie-pruner',
-    owner: 'security',
-    install: () => installHostAuthCookiePruner(ctx),
   })
   registry.register({
     id: 'discovery.session-search',

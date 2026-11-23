@@ -448,3 +448,16 @@
 ## 2026-11-24：删除代理与视觉桥
 
 按产品裁剪要求移除 Delta Suite 自带的网络代理设置和 Vision Bridge（包括 Host 路由、模型入参桥接、状态及配置）。不改变 Harness 自有图片/附件能力，保留模型路由限制与请求脱敏。该改动在 Delta Suite 的新构建中生效，不能替代 Windows 实机验收。
+
+## 2026-11-24：隐私安全扩展边界审计（优先级 P0）
+
+适用身份：仅 `@fongap-labs/delta-suite` Cordis 插件，不修改官方 Harness 源码或独立 Delta 桌面程序。官方源码核查基线：`deepseek-ai/deepseek-harness@4b399c39a6d1479cd84ca591b4d7c88e24d38a96`。该 commit 用于 API 审计，不作运行时版本门槛。
+
+- **Host 请求方向**：旧版 `connection/request` 只观察入站本地请求，不是外发遥测防火墙；过去错误阻止 `/api/messagefeedback`、`/api/sessionfeedback` 等路由，存在损坏本地评价的风险，现不再拦截该事件。
+- **Session Log**：仅在官方 `sessionLogDeepSeek` 服务可用时注册 `registerExclusion(() => true)`。该契约在生成 `dsh_session_log` 字段前调用，清理由 Cordis 作用域托管；不能推广为阻止 Product Analytics、Session Telemetry、OTLP 或所有外发请求。异步回收触发后尚需真实 Host 实测。
+- **Session Telemetry**：`session-telemetry/record` 是公开记录流水线，不是全部 OTLP 的关闭开关；不再通过异常伪装完整网络阻断。Product Analytics、Session Telemetry 的关闭配置由宿主或用户管理，不擅改其他插件权限和配置。
+- **LLM**：官方 `llm/stream` 的 `next()` 不接受替换后的请求，Agent 构造的请求冻结；旧版 `llm.stream(masked)` 会发起另一次请求，不能当作透明请求中间件。已停止安装该 Hook，删除对 `listModels` 和 `resolveModelInfo` 的方法替换。模型发送前脱敏、DeepSeek 模型禁用均为**未启用**，无任何已交付声明。
+- **认证/定位**：不再修改 `res.writeHead`、`webServer.server`、`navigator.geolocation` 或 `navigator.permissions.query`；原生认证和权限提示由 Harness 自身控制。旧的 Cookie 剪枝策略不能作为运行时防护，纯字符串辅助函数保留但不挂载。
+- **UI 限制**：浏览器全局 DOM 安全扫描的遗留 `installSidebarCompatibility` 不再由插件入口安装。原生菜单、会话、权限恢复到宿主路径；该文件中的兼容函数暂留为不可达代码供独立治理，**不代表锁定/删除保护具备 Host 业务级统一拒绝能力**。不可通过隐藏控件声称完成保护。
+- **功能就绪**：`request_redaction=false` 和 `deepseek_model_route_toggle=false` 保留。纯本地 `privacy.ts` / `redact.ts` 不代表存在实际可改写模型请求的公开契约。日志、导出、诊断、遥测策略以分级验证报告为准。
+- **实时状态与历史数据**：没有真实 Windows 安装实例、官方 OAuth/DeepSeek 登录链路、上传队列观测、模型流式/第三方插件回归证据；此前的文档中“阻断全部上传/已强制关闭”等文字一律不得作为安全声明。停用宿主遥测配置也不会自动清空已排队的数据。

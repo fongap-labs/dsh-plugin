@@ -244,108 +244,6 @@ function redactSensitiveText(input: string): string {
     .replace(CLIENT_MOBILE_RE, '[phone]')
 }
 
-function makeGeolocationDeniedError(): GeolocationPositionError {
-  return {
-    code: 1,
-    message: 'Geolocation permission is disabled by default without explicit authorization.',
-    PERMISSION_DENIED: 1,
-    POSITION_UNAVAILABLE: 2,
-    TIMEOUT: 3,
-  } as GeolocationPositionError
-}
-
-function installClientPrivacyGuards(): () => void {
-  const restores: Array<() => void> = []
-  if (typeof navigator === 'undefined') return () => {}
-
-  const patchMethod = (target: object | undefined | null, key: string, replacement: unknown): void => {
-    if (!target || typeof target !== 'object') return
-    const hadOwn = Object.prototype.hasOwnProperty.call(target, key)
-    const origDesc = Object.getOwnPropertyDescriptor(target, key)
-    const protoDesc = !origDesc ? Object.getOwnPropertyDescriptor(Object.getPrototypeOf(target) ?? {}, key) : undefined
-    const origValue = (target as Record<string, unknown>)[key]
-    try {
-      Object.defineProperty(target, key, {
-        configurable: true,
-        writable: true,
-        enumerable: origDesc?.enumerable ?? protoDesc?.enumerable ?? true,
-        value: replacement,
-      })
-      restores.push(() => {
-        try {
-          if (hadOwn && origDesc) Object.defineProperty(target, key, origDesc)
-          else {
-            delete (target as Record<string, unknown>)[key]
-            if (!hadOwn && origValue !== undefined && key in (target as object) === false) {
-              Object.defineProperty(target, key, { configurable: true, writable: true, value: origValue })
-            }
-          }
-        } catch {}
-      })
-    } catch {
-      try {
-        (target as Record<string, unknown>)[key] = replacement
-        restores.push(() => {
-          try { (target as Record<string, unknown>)[key] = origValue } catch {}
-        })
-      } catch {}
-    }
-  }
-
-  try {
-    const geo = (navigator as unknown as { geolocation?: Geolocation }).geolocation
-    if (geo && typeof geo === 'object') {
-      const deniedAsync = (errorCallback?: PositionErrorCallback | null): void => {
-        if (typeof errorCallback !== 'function') return
-        const invoke = () => {
-          try { errorCallback(makeGeolocationDeniedError()) } catch {}
-        }
-        if (typeof queueMicrotask === 'function') queueMicrotask(invoke)
-        else scheduleTimer(invoke, 0)
-      }
-      patchMethod(geo, 'getCurrentPosition', (_success: PositionCallback, error?: PositionErrorCallback | null) => {
-        deniedAsync(error)
-      })
-      patchMethod(geo, 'watchPosition', (_success: PositionCallback, error?: PositionErrorCallback | null): number => {
-        deniedAsync(error)
-        return 0
-      })
-      patchMethod(geo, 'clearWatch', () => {})
-    }
-  } catch {}
-
-  try {
-    const permissions = (navigator as unknown as {
-      permissions?: { query?: (desc: { name?: string }) => Promise<unknown> }
-    }).permissions
-    const origQuery = permissions?.query
-    if (permissions && typeof origQuery === 'function') {
-      patchMethod(permissions, 'query', (desc: { name?: string }) => {
-        if (desc && desc.name === 'geolocation') {
-          return Promise.resolve({
-            name: 'geolocation',
-            state: 'denied',
-            status: 'denied',
-            onchange: null,
-            addEventListener: () => {},
-            removeEventListener: () => {},
-            dispatchEvent: () => false,
-          })
-        }
-        return origQuery.call(permissions, desc)
-      })
-    }
-  } catch {}
-
-  return () => {
-    for (let i = restores.length - 1; i >= 0; i--) {
-      try { restores[i]() } catch {}
-    }
-    restores.length = 0
-  }
-}
-
-
 /**
  * Installed-client presentation adapter.
  * Unlike the optional source-checkout patch, this runs in the loaded plugin.
@@ -6317,12 +6215,10 @@ window.__ModuleLoader__.load({
                 syncAppearance()
                 deltaFeatures.ensureLoaded()
                 const stopAppearance = controller.subscribe(syncAppearance)
-                const stopPrivacyGuards = installClientPrivacyGuards()
                 // DOM-less Host/test runtimes cannot mount the ZIP's DOM-based
                 // presentation, but public feature slots must still register.
-                const stopCompat = typeof document.querySelectorAll === 'function' &&
-                  typeof document.addEventListener === 'function'
-                  ? installSidebarCompatibility(controller) : () => {}
+                // Legacy DOM-based protection is deliberately not mounted.
+                // Host-side business authorization remains authoritative.
                 const stopLivePresentation = installLiveNativePresentation(controller, Boolean(livePortal))
                 // Only read Harness' published sanitized account UI snapshot.
                 // Authentication and confirmation continue through native menu actions.
@@ -6353,8 +6249,6 @@ window.__ModuleLoader__.load({
                   observer?.disconnect()
                   stopAppearance()
                   stopLivePresentation()
-                  stopCompat()
-                  stopPrivacyGuards()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
                   document.body?.removeAttribute('data-delta-ui')
