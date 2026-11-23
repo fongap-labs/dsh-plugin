@@ -15,7 +15,6 @@
     "unavailable": "A required feature is unavailable or an action failed. Disable Delta Suite to restore the official interface.",
     "shortcut": "The official layout owns shortcuts; this plugin does not override existing keys.",
     "personalization": "Personalization",
-    "enabled": "Enabled",
     "appearance": "Appearance",
     "appearanceDescription": "Switch between the Delta and official themes without changing sessions, models, or plugins.",
     "sessionId": "Session ID",

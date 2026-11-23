@@ -141,7 +141,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.match(client, /onMenuClickCapture/)
   })
   it('registers repository feature slots without a second sidebar/search adapter', () => {
-    for (const id of ['dtd-advanced-features', 'delta.mcp.add-server',
+    for (const id of ['dtd-advanced-features', 
       'delta.context.assistant-actions', 'delta.context.compaction-activity',
       'deltaContextCompactionStatus']) {
       assert.ok(client.includes(id), 'feature missing: ' + id)
@@ -160,7 +160,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     for (const dictionary of [zh, en]) {
       assert.ok(dictionary.searchPalette.tabAll)
       assert.ok(dictionary.searchPalette.tabAction)
-      for (const id of ['contextFeatures', 'mcpAddAction', 'discussTask', 'compactionCompleted']) {
+      for (const id of ['contextFeatures',  'discussTask', 'compactionCompleted']) {
         assert.equal(typeof dictionary.ui[id], 'string', id)
       }
       assert.equal(dictionary.ui.privacyVisionTitle, undefined)

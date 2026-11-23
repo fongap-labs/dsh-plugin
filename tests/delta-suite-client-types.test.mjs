@@ -10,10 +10,11 @@ const clientConfig = JSON.parse(read('../packages/delta-suite/tsconfig.client.js
 const hostConfig = JSON.parse(read('../packages/delta-suite/tsconfig.json'))
 
 test('client service contracts are types-only and excluded from the Host build', () => {
-  for (const name of ['DeltaCopy', 'ReactApi', 'ClientContext', 'SlotsApi', 'McpManagerApi']) {
+  for (const name of ['DeltaCopy', 'ReactApi', 'ClientContext', 'SlotsApi']) {
     assert.match(ambient, new RegExp('^interface ' + name + ' \\{', 'm'))
     assert.doesNotMatch(client, new RegExp('^interface ' + name + ' \\{', 'm'))
   }
+  assert.doesNotMatch(ambient, /McpConfigSnapshot|McpServices|McpManagerApi|CredentialRemoteApi/)
   assert.deepEqual(clientConfig.include, ['src/client-theme-tokens.ts', 'src/client.ts', 'src/client-types.d.ts'])
   assert.ok(hostConfig.exclude.includes('src/client.ts'))
   assert.ok(hostConfig.exclude.includes('src/client-types.d.ts'))

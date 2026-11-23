@@ -15,7 +15,6 @@
     "unavailable": "此版本缺少必要功能或操作失败。请停用 Delta Suite，以恢复官方界面。",
     "shortcut": "快捷键由官方布局管理，本插件不覆盖既有按键。",
     "personalization": "个性化",
-    "enabled": "已启用",
     "appearance": "外观",
     "appearanceDescription": "在 Delta 主题与官方主题之间切换，不影响会话、模型或插件。",
     "sessionId": "会话编号",
