@@ -12,18 +12,17 @@ test('Delta Suite leaves built-in Harness page headings in native ownership', ()
   assert.doesNotMatch(source, /\b(?:syncPageHeadings|mutatedPageHeadings)\b/)
   assert.doesNotMatch(source, /PluginManagerPage\|TaskManagerPage\|pageHeading/)
   assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
-  assert.match(source, /function installSidebarCompatibility\(/)
+  assert.doesNotMatch(source, /function installSidebarCompatibility\(/)
 })
 
 test('release integrity pin remains active for the remaining ZIP3 compatibility area', () => {
   const emitted = [
-    'function installSidebarCompatibility() {}',
     'function installHostSearch() {}',
     'data-delta-compat dtd-host-search',
     'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
   assert.throws(() => verifyApprovedZip3Client(emitted,
-    source.replace('function installSidebarCompatibility(', 'function installSidebarCompatibility(/* unreviewed */')),
-    /approved compatibility adapter changed/)
+    source + '\nfunction installSidebarCompatibility() {}\n'),
+    /retired native Sidebar DOM interception in client source/)
 })

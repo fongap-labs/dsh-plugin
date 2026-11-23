@@ -578,6 +578,14 @@ API“是”仅表示相应官方文档或类型确有声明，不保证用户�
 
 证据级别：源码/测试用例与现有 CI 为准；未验证真实 Harness 安装版本、Windows 客户端停用/卸载或第二个不同宿主版本。不得将此 PR 的合并等同于整项 P0 功能验收完成。
 
+
+## 2026-11-24 P0-2/P0-4：退役的 Sidebar DOM 接管实体删除（待验收）
+
+`installSidebarCompatibility` 与仅用于该函数的 `createFrameScheduler` 已从插件浏览器源码中删除（约 16 KB）。原生侧边栏位置、会话右键菜单顺序、默认工作区折叠、原生 Settings 文本及账户头像行为仍由 Harness 原生组件管理，Delta Suite 不使用 DOM 扫描、监听、按钮克隆或点击模拟来替代宿主公开接口。
+
+严格的 ZIP3 发布验证保留了运行中的 `installHostSearch` 完整区域 SHA-1 校验，并新增原生 Sidebar DOM 接管标识的拒绝检查；既有旧版“必须存在兼容函数”的测试已替换为已交付的 Session Hover/Trailing/Brand/Search Slot 权限边界测试。不会据此将宿主不支持的布局能力设为“已验证”。
+
+静态回归为 11 项源码所有权断言已通过；中央 Linux/Windows CI 及真实 Harness 安装/启用/停用/卸载、浅深色主题切换、两个 Host 版本兼容性仍各自独立验收。代码合并不等于安装生效，也不是完整 P0 客户端验收报告。
 ## 2026-11-24 P0-2 MCP 凭据与宿主所有权
 
 删除已实现但缺少可信官方凭据代理的 Suite 自建 MCP 配置弹窗、明文 `env`/`headers` 字段读取与设置写入入口，相关 CSS、类型和双语词条同时清理。MCP 管理继续由官方 Harness 自身的插件和设置负责。保留已验证的公开 Slot、Theme 和 Locale 接口；不接管原生账号、会话、工作区与全局 DOM。

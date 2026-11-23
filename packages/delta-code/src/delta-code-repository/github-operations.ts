@@ -122,17 +122,35 @@ export function createGitHubToolSpecs(
       const response = await githubRequest(exec, args.repository, 'GET', (repo) => encodeRepo(repo) + '/pulls?per_page=30&state=' + state)
       return envelope(response, response.data.map((pr: any) => ({ number: pr.number, title: pr.title, state: pr.state, draft: pr.draft, html_url: pr.html_url })))
     }),
-    tool('checks', 'Inspect all check runs and commit statuses for a GitHub pull request, including links to external CI workflows.', {
+    tool('checks', 'Inspect the current GitHub PR HEAD, bounded check runs and status links. Supply expectedHead for CI repair; refuses stale or changed heads instead of treating old checks as fresh evidence.', {
       repository: optional, prNumber: { type: 'integer', required: true },
+      expectedHead: { type: 'string', description: 'Optional pinned 40-character PR HEAD SHA. A mismatch blocks using stale CI results.' },
     }, async (args, exec) => {
       if (!Number.isSafeInteger(args.prNumber) || args.prNumber <= 0) throw new Error('invalid pull request number')
+      if (args.expectedHead !== undefined) validatedCommitSha(args.expectedHead, 'expectedHead')
       const pr = await githubRequest(exec, args.repository, 'GET', (repo) => encodeRepo(repo) + '/pulls/' + args.prNumber)
       const sha = pr.data.head?.sha
       if (typeof sha !== 'string' || !/^[a-f0-9]{40}$/.test(sha)) throw new Error('pull request head SHA unavailable')
+      if (args.expectedHead !== undefined && args.expectedHead !== sha) {
+        throw new Error('GitHub PR HEAD differs from expectedHead; refresh PR state before diagnosing CI')
+      }
       const checks = await githubRequest(exec, pr.repository, 'GET', (repo) => encodeRepo(repo) + '/commits/' + sha + '/check-runs?per_page=100')
       const statuses = await githubRequest(exec, pr.repository, 'GET', (repo) => encodeRepo(repo) + '/commits/' + sha + '/status?per_page=100')
+      const confirmed = await githubRequest(exec, pr.repository, 'GET', (repo) => encodeRepo(repo) + '/pulls/' + args.prNumber)
+      if (confirmed.data.head?.sha !== sha) {
+        throw new Error('GitHub PR HEAD changed during CI inspection; discard stale check evidence and retry from new HEAD')
+      }
+      // GitHub REST paginates check runs and status history. A bounded first
+      // page must never be presented as exhaustive evidence.
+      const isCheckListPartial = checks.data.total_count > 100 ||
+        (Array.isArray(checks.data.check_runs) && checks.data.check_runs.length >= 100)
+      const isStatusListPartial = Array.isArray(statuses.data.statuses) && statuses.data.statuses.length >= 100
       return envelope(pr, {
         number: args.prNumber, head: sha,
+        complete: !isCheckListPartial && !isStatusListPartial,
+        ...(isCheckListPartial || isStatusListPartial ? {
+          note: 'GitHub checks/statuses exceed a single page; do not certify all gates from this excerpt.',
+        } : {}),
         checks: (checks.data.check_runs ?? []).slice(0, 100).map((check: any) => ({
           name: check.name, status: check.status, conclusion: check.conclusion,
           url: check.html_url, summary: typeof check.output?.summary === 'string' ? check.output.summary.slice(0, 800) : '',

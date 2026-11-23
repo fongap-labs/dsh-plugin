@@ -100,7 +100,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.doesNotMatch(css, /\.dtd-context-menu(?:-item)?\b/)
     assert.match(client, /session-delete-ungrouped/)
     assert.doesNotMatch(client, /installWorkspaceMutationGuards/)
-    assert.match(client, /onMenuClickCapture/)
+    assert.doesNotMatch(client, /onMenuClickCapture/)
   })
   it('preserves TOTP, session protection and Delta-owned modal backdrops without Host chrome takeover', () => {
     for (const term of ['encodeQrMatrix', 'setup-begin', 'session-delete-ungrouped',
@@ -137,11 +137,11 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     }
     assert.match(client, /syncLockShieldOverlay/)
     assert.doesNotMatch(client, /installWorkspaceMutationGuards/)
-    assert.match(client, /hiddenDeletedRows/)
-    assert.match(client, /onMenuClickCapture/)
+    assert.doesNotMatch(client, /hiddenDeletedRows/)
+    assert.doesNotMatch(client, /onMenuClickCapture/)
   })
   it('registers repository feature slots without a second sidebar/search adapter', () => {
-    for (const id of ['dtd-advanced-features', 
+    for (const id of ['dtd-advanced-features',
       'delta.context.assistant-actions', 'delta.context.compaction-activity',
       'deltaContextCompactionStatus']) {
       assert.ok(client.includes(id), 'feature missing: ' + id)

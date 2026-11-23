@@ -128,16 +128,6 @@
       "action": "split policy and session projections behind typed ports; retain Host authorization"
     },
     {
-      "symbol": "installSidebarCompatibility",
-      "owner": "shell",
-      "cross_cuts": [
-        "sessions",
-        "discovery",
-        "security"
-      ],
-      "action": "quarantine legacy Host DOM dependencies before migrating to approved slots"
-    },
-    {
       "symbol": "installHostSearch",
       "owner": "discovery",
       "cross_cuts": [

@@ -38,7 +38,6 @@ function validEntries(version = '0.1.0-beta.2') {
       "'data-delta-integration-status'",
       "scope.slots.inject('sidebar.session.row.trailing'",
       "scope.slots.inject('conversation.input.model.label'",
-      'function installSidebarCompatibility() {}',
       'function installHostSearch() {}',
       'data-delta-compat',
       'dtd-host-search',
@@ -96,7 +95,7 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
   assert.throws(() => verifyEntries(unsafeHost, '0.1.0-beta.2', 'ZIP'), /unsafe Host patch/)
   const unsafeClient = new Map(entries)
   unsafeClient.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + '\nfunction installSidebarCompatibility() {}'))
-  assert.throws(() => verifyEntries(unsafeClient, '0.1.0-beta.2', 'ZIP'), /duplicated/)
+  assert.throws(() => verifyEntries(unsafeClient, '0.1.0-beta.2', 'ZIP'), /retired native Sidebar DOM interception/)
   const unsafeCss = new Map(entries)
   unsafeCss.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString()
     .replace('--dtd-brand:', '--dtd-unapproved-brand:')))

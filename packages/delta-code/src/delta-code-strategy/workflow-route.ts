@@ -35,6 +35,8 @@ export interface RouteResult {
   executionWaves: number[][]
   verification: string[]
   stopConditions: string[]
+  /** Complex work: use existing Host code navigation before guessing relationships. */
+  codeNavigation?: { tools: string[]; evidenceRequired: string[] }
   milestones?: Array<{ objective: string; acceptance: string; dependsOn: number[]; writePaths: string[] }>
   nativeTodoDraft?: Array<{ content: string; status: 'pending' }>
   acceptanceHints?: Array<{ task: string; criterion: string }>
@@ -115,8 +117,18 @@ export function draftNativeTodoHandoff(
   }
 }
 
+const MAX_PARALLEL_CANDIDATES_PER_WAVE = 3
+
+function sharedConfigGroup(path: string): string | undefined {
+  // Distinct root-level build/CI manifests can still share generated outputs
+  // or dependency resolution. Advisory write paths cannot prove independence.
+  return /^(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[^/]+|webpack\.config\.[^/]+|\.github\/.+)$/i.test(path)
+    ? 'workspace-build-ci' : undefined
+}
+
 function overlaps(left: string, right: string): boolean {
-  return left === right || left.startsWith(right + '/') || right.startsWith(left + '/')
+  return left === right || left.startsWith(right + '/') || right.startsWith(left + '/') ||
+    (sharedConfigGroup(left) !== undefined && sharedConfigGroup(left) === sharedConfigGroup(right))
 }
 
 /** Pure dependency-wave planning: never dispatches agents or touches a worktree. */
@@ -160,9 +172,10 @@ export function planCodingWaves(
     const earliest = prerequisites[index]!.reduce((wave, dependency) =>
       Math.max(wave, assigned[dependency]! + 1), 0)
     let waveIndex = canParallelize && writeSets ? earliest : Math.max(earliest, waves.length)
-    while (waves[waveIndex]?.some(other =>
-      writeSets && writeSets[index]!.some(path =>
-        writeSets[other]!.some(existing => overlaps(path, existing))))) {
+    while ((waves[waveIndex]?.length ?? 0) >= MAX_PARALLEL_CANDIDATES_PER_WAVE ||
+      waves[waveIndex]?.some(other =>
+        writeSets && writeSets[index]!.some(path =>
+          writeSets[other]!.some(existing => overlaps(path, existing))))) {
       waveIndex++
     }
     if (!waves[waveIndex]) waves[waveIndex] = []
@@ -205,6 +218,7 @@ export function decideCodingWorkflow(
   // was mistakenly enabled for a diagnostic or read-only workflow.
   const isParallelPermitted = profile.mode === 'planned' &&
     profile.canParallelize === true && isPlanned &&
+    (input.scope === 'large' || independentTasks >= 3) &&
     (input.taskKind === 'feature' || input.taskKind === 'refactor') &&
     independentTasks >= 2 && input.nativeSubagents === true
   const plannedPaths = milestones && milestones.every(item => item.writePaths.length > 0)
@@ -231,6 +245,20 @@ export function decideCodingWorkflow(
     executionWaves,
     verification: [...profile.verification],
     stopConditions: [...REQUIRED_WORKFLOW_STOP_CONDITIONS],
+    ...((input.scope !== 'small' || input.risk === 'high') &&
+      ['feature', 'refactor', 'bugfix', 'review'].includes(input.taskKind) ? {
+      codeNavigation: {
+        tools: [
+          'Start with existing Host search or code_workspace_map bounded queries; do not scan the entire repository.',
+          'When definitions or call sites are ambiguous and the native lsp tool is available, use its goToDefinition/findReferences/goToImplementation operations (one-based UTF-16 cursor). The native tool owns the LSP provider; do not start another indexer.',
+          'If native lsp or an authorized codegraph provider is missing or denied, use exact text search and read only relevant source; report that a relationship is inferred rather than verified.',
+        ],
+        evidenceRequired: [
+          'Identify the source definitions, actual references and related tests with file/line evidence before multi-file edits.',
+          'After editing, re-check the affected references and run focused tests against the current Git diff.',
+        ],
+      },
+    } : {}),
     ...(milestones ? { milestones, ...draftNativeTodoHandoff(milestones) } : {}),
   }
 }
@@ -268,6 +296,10 @@ export function createWorkflowRouteTool(
       executionWaves: { type: 'array', required: true, items: { type: 'array', items: { type: 'integer' } } },
       verification: { type: 'array', required: true, items: { type: 'string' } },
       stopConditions: { type: 'array', required: true, items: { type: 'string' } },
+      codeNavigation: { type: 'object', additionalProperties: false, properties: {
+        tools: { type: 'array', required: true, items: { type: 'string' } },
+        evidenceRequired: { type: 'array', required: true, items: { type: 'string' } },
+      } },
       nativeTodoDraft: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
         content: { type: 'string', required: true },
         status: { type: 'string', required: true },
@@ -286,7 +318,9 @@ export function createWorkflowRouteTool(
       return [{ type: 'text', text: [
         'Coding route: ' + value.mode,
         'Load in order (only when relevant): ' + value.skills.join(' -> '),
-        'Parallel candidate: ' + (value.parallelCandidate ? 'yes (disjoint write sets)' : 'no'),
+        'Parallel candidate: ' + (value.parallelCandidate
+          ? 'yes (bounded advisory waves; Host must check concurrency, permissions and actual writes)'
+          : 'no (use the native single-agent path)'),
         ...value.executionWaves.map((wave, index) => 'Execution wave ' + (index + 1) + ': ' +
           wave.map(task => '#' + task).join(', ')),
         ...value.milestones?.map((item, index) => 'Proposed milestone #' + index + ': ' + item.objective +
@@ -296,6 +330,8 @@ export function createWorkflowRouteTool(
           ...value.nativeTodoDraft.map((item, index) => 'Todo #' + index + ': ' + item.content + ' [pending]'),
           'Acceptance hints map by exact Todo content; delivery gate still requires real executed checks.',
         ] : []),
+        ...value.codeNavigation?.tools.map(line => 'Navigate: ' + line) ?? [],
+        ...value.codeNavigation?.evidenceRequired.map(line => 'Evidence: ' + line) ?? [],
         ...value.verification.map(line => 'Verify: ' + line),
         ...value.stopConditions.map(line => 'Stop: ' + line),
       ].join('\n') }]

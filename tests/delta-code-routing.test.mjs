@@ -40,7 +40,7 @@ test('routing is deterministic, lean for small changes and strict for higher ris
   })
   assert.equal(risky.mode, 'planned')
   assert.equal(risky.parallelCandidate, true)
-  assert.deepEqual(risky.executionWaves, [[0, 1, 2, 3]])
+  assert.deepEqual(risky.executionWaves, [[0, 1, 2], [3]])
   assert.ok(risky.skills.includes('code-subagent-delivery'))
   assert.ok(risky.skills.includes('code-review-readiness'))
   const noHost = decideCodingWorkflow({

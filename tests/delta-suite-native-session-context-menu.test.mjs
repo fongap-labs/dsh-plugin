@@ -6,48 +6,27 @@ import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/delta-suite/src/client.ts')
-const norm = source.replace(/\r\n/g, '\n')
 const theme = read('packages/delta-suite/src/theme.css')
-const begin = norm.indexOf('function installSidebarCompatibility(')
-const end = norm.indexOf('\ntype SearchTabId', begin)
-const compatibility = norm.slice(begin, end)
 const emitted = [
-  'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
   'dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
 ].join('\n')
 
-test('native session context menus retain Harness order and appearance', () => {
-  assert.ok(begin >= 0 && end > begin)
-  for (const forbidden of [
-    'setMenuNodeOrder(', 'getSessionMenuOrder(', 'sortContainerChildrenByOrder(',
-    'createSepNode(', 'syncMenus', 'syncSettingsNav', 'data-dtd-menu-order', 'dtd-injected-sep',
-  ]) {
-    assert.equal(compatibility.includes(forbidden), false, 'native menu takeover remains: ' + forbidden)
+test('Native session context menus stay Harness-owned without native Sidebar DOM interception', () => {
+  assert.match(source, /function installHostSearch\(/)
+  for (const marker of ["installSidebarCompatibility","onMenuClickCapture","sortContainerChildrenByOrder","setMenuNodeOrder(","dtd-injected-sep","syncMenus"]) {
+    assert.equal(source.includes(marker), false, 'retired native UI takeover: ' + marker)
   }
-  assert.doesNotMatch(compatibility, /dtd-menu-danger|classList\.add\(['"]dtd-menu-danger/)
-  assert.match(compatibility, /onMenuClickCapture/)
-  assert.match(compatibility, /LOCKED_MUTATION_LABELS/)
-  assert.match(compatibility, /hiddenSoleWorkspaceNodes/)
-  assert.doesNotMatch(compatibility, /openUngroupedContextMenu|closeUngroupedMenu|ungroupedMenuEl/)
-  assert.doesNotMatch(compatibility, /addEventListener\('contextmenu'|removeEventListener\('contextmenu'/)
   assert.doesNotMatch(theme, /\.dtd-context-menu(?:-item)?\b/)
-  assert.equal(theme.includes('Context & View-Options Menu Dynamic Reordering'), false)
 })
 
-test('release guard rejects unapproved session DOM mutation and CSS rule', () => {
+test('release guard rejects restoring native Sidebar interception and altered theme', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const marker = 'const sync = (): void => {\n    if (isDisposed || isSyncing) return'
-  const markerOffset = norm.indexOf(marker, begin)
-  assert.ok(begin >= 0 && end > begin && markerOffset >= begin && markerOffset < end,
-    'mutation fixture must target the pinned sidebar region')
-  const tampered = norm.slice(0, markerOffset) +
-    norm.slice(markerOffset).replace(marker,
-      marker + '\n    document.querySelector("[role=menu]")?.appendChild(document.createElement("div"))')
-  assert.notEqual(tampered, norm)
-  assert.throws(() => verifyApprovedZip3Client(emitted, tampered), /approved compatibility adapter changed/)
-  const alteredCss = theme + '\n.dtd-lock-shield { outline: 5px solid red; }'
-  assert.notEqual(alteredCss, theme)
-  assert.throws(() => verifyApprovedZip3Client(emitted.replace(JSON.stringify(theme), JSON.stringify(alteredCss)), source), /approved theme differs/)
+  assert.throws(() => verifyApprovedZip3Client(emitted,
+    source + '\nfunction installSidebarCompatibility() {}\n'),
+    /retired native Sidebar DOM interception in client source/)
+  const tamperedTheme = theme + '\n.dtd-lock-shield { outline: 5px solid red; }'
+  const tamperedClient = emitted.replace(JSON.stringify(theme), JSON.stringify(tamperedTheme))
+  assert.throws(() => verifyApprovedZip3Client(tamperedClient, source), /approved theme differs/)
 })
