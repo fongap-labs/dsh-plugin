@@ -195,3 +195,45 @@ test('new footer patches fail closed instead of pinning a Harness version', () =
   assert.equal(changes.filter(item => item.package.endsWith('ui-settings-account')).length, 2)
   assert.equal(changes.filter(item => item.package.endsWith('ui-settings-general')).length, 2)
 })
+
+
+test('Host source patch upgrades pre-patched v1 footer without duplicating account chrome', () => {
+  const oldFooter = [
+    "import { AccountAvatar } from './AccountAvatar.tsx'",
+    "function AccountMenu() {",
+    "  const [open, setOpen] = useState(false)",
+    "  // delta-suite:footer-ui-v1 account",
+    "  return <div data-delta-footer-wide={wide ? 'true' : 'false'}>",
+    "    <Menu anchor={<button",
+    '        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>',
+    "    </button>} />",
+    "    {account.loginVisible && !account.onboarding && <SignInDialog />}",
+    "  </div>",
+    "}",
+  ].join('\n')
+  const upgraded = patchAccountMenu(oldFooter)
+  assert.match(upgraded, /delta-suite:account-hover-v1/)
+  assert.match(upgraded, /deltaHoverCard/)
+  assert.match(upgraded, /hoverLabels\.missing/)
+  assert.equal(patchAccountMenu(upgraded), upgraded)
+  assert.equal((upgraded.match(/delta-suite:footer-ui-v1 account/g) ?? []).length, 1)
+
+  const oldCss = '/* delta-suite:footer-ui-v1 account-style */\n.root {}\n.anchor {}\n.trigger {}\n.avatar {}\n'
+  const css = patchAccountMenuStyle(oldCss)
+  assert.match(css, /delta-suite:account-hover-style-v1/)
+  assert.match(css, /\.deltaHoverCard \{/)
+  assert.match(css, /\.deltaHoverRow \{/)
+  assert.equal(patchAccountMenuStyle(css), css)
+})
+
+test('today spending remains explicitly unavailable until authenticated platform figures are verified', () => {
+  const script = read('packages/delta-suite/scripts/apply-harness-ui-patch.mjs')
+  assert.match(script, /today: '今日消费'/)
+  assert.match(script, /missing: '暂无数据'/)
+  assert.match(script, /<strong>\{hoverLabels\.missing\}<\/strong>/)
+  assert.doesNotMatch(script, /todaySpend\s*=\s*wallet|balanceDelta\s*=|lastBalance\s*-/)
+  assert.doesNotMatch(script, /<small className=\{css\.deltaHoverHint\}>/)
+  const copy = read('packages/delta-suite/README.md')
+  assert.ok(copy.includes('不自动使用余额下降代替消费'))
+  assert.ok(copy.includes('鉴权、统计范围及时区验收'))
+})
