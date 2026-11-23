@@ -83,3 +83,13 @@ test('navigation and palette copy uses central dictionaries without dead Gateway
   assert.match(client, /function language\(\): Language/)
   assert.match(client, /\/\^zh\(\?:-\|\$\)\/i/)
 })
+
+test('language subscription uses public Locale and never DOM observer', () => {
+  assert.match(client, /scope\.inject\(\['locale'\], localeScope =>/)
+  assert.match(client, /localeApi\.getSnapshot\(\)\?\.active/)
+  assert.match(client, /localeApi\.subscribe\(sync\)/)
+  assert.match(client, /release\(\)/)
+  assert.doesNotMatch(client, /new MutationObserver\(\(\) => controller\.syncLanguage\(\)\)/)
+  assert.doesNotMatch(client, /observer\?\.observe\(document\.documentElement/)
+  assert.doesNotMatch(client, /localeApi\.setLocale\(/)
+})
