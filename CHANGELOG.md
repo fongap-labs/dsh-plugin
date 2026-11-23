@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite P0-2 取消原始凭据请求及无效 Gateway 模型设置入口，停止宿主 DOM/Workspace 接管并从发布清单排除 Harness 源码补丁；保留官方能力回退。
+
 - 修复: Delta Suite 自有组件移除对原生 `--dsw-*` 的样式回退，统一使用 `--dtd-*` 主题 Token，并对浅色/深色、弹层及官方 Theme API 释放路径增加检查。
 
 - 修复: Delta Suite 将侧栏导航、账号悬浮卡、搜索快捷命令及 Gateway Effort 双语文字集中到现有中英文词典，新增词条/占位符/引用一致性检查；保留官方语言资源。
