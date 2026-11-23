@@ -532,3 +532,10 @@
 完成本审计矩阵并进入单独审计 PR 后，才能开始任何实现。P0 顺序：集中 i18n；官方适配/生命周期并排除明文 Token 和全局 DOM；Delta 自有 Theme/Slots；有收益的 client.ts 职责拆分。P0 的单元/模拟/真实 Host/Windows 和两版本证据独立满足前不得进入 P1。P1 独立拆分配置备份、账户、搜索/MCP/上下文与其他通用能力。禁止 Fongap 新治理、上游跟踪、独立 Desktop、代理、Vision Bridge、遥测或重复 Host 核心服务。
 
 API“是”仅表示相应官方文档或类型确有声明，不保证用户正在运行的 Harness 构建实现该接口。对外产品文案只能据 H/W 证据写已交付。
+
+
+## 2026-11-24 P0-3 Delta 自有组件色彩 Token 收敛（待验收）
+
+本改动不使用私有 Harness 样式类名或全局 DOM 接管，不改动原生右键菜单、账号控件或第三方插件的 CSS。官方 Theme API 仍负责自身声明的语义色覆盖及恢复。浅色、深色均新增 `--dtd-bg-muted` / `--dtd-qr-shadow`；MCP 管理弹窗、纠正对话框和遮罩改用 `--dtd-modal-*` / `--dtd-bg-mask`，可聚焦按钮及表单增加 `--dtd-border-focus` 焦点轮廓。
+
+静态 CSS 引用完整性、色值不泄漏、发布用 Git Blob SHA1 指纹均增加回归检查。**未完成**真实 Harness 的两种外观模式对照、Windows 多屏幕缩放和主题切换后 Portal 销毁验收；本次静态/CI 检查不等同于视觉验收。
