@@ -16,6 +16,24 @@ import type { NativeSessionRepositoryReader } from './session-repository-project
 
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
 const MAX_OUTPUT = 32 * 1024
+const DISPLAY_LIMIT = 12 * 1024
+
+/** Present a small, diagnostic excerpt without treating the omitted text as complete evidence. */
+export function excerptVerificationOutput(text: string): { output: string; excerpted: boolean } {
+  if (text.length <= DISPLAY_LIMIT) return { output: text, excerpted: false }
+  const head = text.slice(0, 3072)
+  const tail = text.slice(-3072)
+  // Preserve meaningful failures even when generic output pushes them away
+  // from both ends of a long test log.
+  const diagnostic = text.split(/\r?\n/)
+    .filter(line => /(?:##\[error\]|\bnot ok\b|AssertionError|\berror TS\d+\b|\bFAIL(?:ED)?\b|\bpanic:|\bexception:)/i.test(line))
+    .slice(0, 28).join('\n').slice(0, 4300)
+  return {
+    output: head + '\n[... verification output omitted ...]\n' +
+      (diagnostic ? '[diagnostic lines]\n' + diagnostic + '\n[... omitted ...]\n' : '') + tail,
+    excerpted: true,
+  }
+}
 
 export function redactKnownTokens(text: string, settings: Settings): string {
   let value = text
@@ -50,6 +68,7 @@ export function createVerifyTool(
       timedOut: { type: 'boolean', required: true },
       output: { type: 'string', required: true },
       truncated: { type: 'boolean', required: true },
+      outputExcerpted: { type: 'boolean', required: true },
       failureKind: { type: 'string', required: true },
       nextAction: { type: 'string', required: true },
     } }, render(_args, value) {
@@ -234,7 +253,10 @@ export async function runPreparedVerify(
     const assessment = assessProcessOutcome(result)
     const exitCode = result.exitCode ?? -1
     const combined = result.stdout + '\n' + result.stderr
+    // Trust only complete Host evidence for pass/fail. Reducing the model-visible
+    // excerpt must not mark a successful full Host check as incomplete.
     const truncated = result.lossy || combined.length > MAX_OUTPUT
+    const display = excerptVerificationOutput(redactKnownTokens(combined.slice(0, MAX_OUTPUT), settings))
     return {
       script: prepared.script,
       project: plan.project,
@@ -244,8 +266,8 @@ export async function runPreparedVerify(
       outcome: assessment.status,
       passed: assessment.status === 'succeeded' && assessment.complete && !truncated,
       timedOut: result.timedOut,
-      output: redactKnownTokens(combined.slice(0, MAX_OUTPUT), settings),
-      truncated,
+      output: display.output,
+      truncated, outputExcerpted: display.excerpted,
     }
   } finally {
     if (timer !== undefined) clearTimeout(timer)
