@@ -58,6 +58,33 @@ describe('Gateway request retry coordination', () => {
     assert.equal(gatewayRetryAfterMs(failure(1.1).message), null)
     assert.equal(gatewayRetryAfterMs(failure(242000).message + 'garbage'), null)
   })
+  it('honors explicit Gateway retryable:false even without a retry-after or with Host always mode', async () => {
+    const f = fixture()
+    try {
+      let nativeCalls = 0
+      const next = async () => { nativeCalls++; return { kind: 'retry' } }
+      for (const code of ['gateway_center_outcome_unknown', 'gateway_inference_center_rejected',
+        'gateway_failover_budget_exhausted']) {
+        const message = '503: ' + JSON.stringify({
+          message: 'terminal Gateway response',
+          details: { gateway_code: code, retryable: false },
+        })
+        assert.equal(gatewayRetryAfterMs(message), null)
+        assert.equal(await f.handler({
+          failure: { message }, retryPolicy: { mode: 'always' },
+        }, next), undefined)
+      }
+      assert.equal(nativeCalls, 0)
+      assert.deepEqual(f.waits, [])
+      // Unrelated provider errors containing "retryable":false must not change Host behavior.
+      const unrelated = '503: ' + JSON.stringify({
+        details: { gateway_code: 'not_a_gateway_error', retryable: false },
+      })
+      assert.deepEqual(await f.handler({ failure: { message: unrelated } }, next), { kind: 'retry' })
+      assert.equal(nativeCalls, 1)
+    } finally { f.dispose() }
+  })
+
   it('stops automatic replay for explicitly exhausted account quota', async () => {
     const f = fixture()
     try {
