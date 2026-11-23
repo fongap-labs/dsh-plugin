@@ -212,6 +212,9 @@ export function createWorkspaceMapTool(
         if (base.isGitRepository) {
           paths = prefixTrackedPaths(base.paths, prefix)
         } else {
+          if (args.repositoryId !== undefined) {
+            throw new Error('attached Git repository index unavailable; refusing nested repository discovery')
+          }
           if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
           const rootEntries = (await fs.listDir(rootTarget, exec.signal)) as HostWorkspaceEntry[]
