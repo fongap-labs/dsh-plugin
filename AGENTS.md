@@ -30,3 +30,7 @@ Shared documents: https://github.com/fongap-labs/action-worker/tree/main/docs
 - Do not store central secrets, tokens or cross-repository write credentials in this repository. The only repository secret allowed is `AW_DISPATCH_TOKEN`, used by the bridge.
 - Do not name self-hosted runners, runner labels or runner groups.
 - Do not add workflows that use `pull_request_target`, except the approved bridge.
+
+## Commit messages
+
+- Follow the organization’s required format for commit titles. Every non-empty Git commit body must use Chinese for its natural-language explanation; preserve technical identifiers, paths, and commands verbatim. See the [changelog conventions](https://github.com/fongap-labs/action-worker/blob/main/docs/04_CHANGELOG_CONVENTIONS.md).
