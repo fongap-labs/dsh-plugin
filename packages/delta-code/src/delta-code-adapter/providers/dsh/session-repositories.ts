@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { posix, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, resolveInside } from '@fongap-labs/shared'
 import type { Settings } from '../../../types.js'
@@ -259,14 +258,14 @@ export function createSessionRepositoryCommand(
           kind: 'success',
           text: 'Attached ' + attached.path + ' as ' + attached.id +
             (writeAuthorized(settings, attached.path) ? ' (write allowlisted).' : ' (read only).'),
-          sourceEventSeq: attached.seq as SessionSeq,
+          sourceEventSeq: attached.seq,
         }
       }
       if (input.startsWith('detach ')) {
         const id = input.slice('detach '.length).trim()
         if (!ID.test(id)) return { kind: 'error', text: 'Usage: /delta-repo detach <repository-id>' }
         const detached = detachRepository(reader, invocation.agent, id)
-        return { kind: 'success', text: 'Detached ' + detached.path + '.', sourceEventSeq: detached.seq as SessionSeq }
+        return { kind: 'success', text: 'Detached ' + detached.path + '.', sourceEventSeq: detached.seq }
       }
       return {
         kind: 'error',
