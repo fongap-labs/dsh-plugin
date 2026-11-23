@@ -257,29 +257,21 @@ test('Delta Suite no longer mounts private native DOM adapters', () => {
 test('official account and Theme services retain native control', () => {
   const client = read(base + 'client.ts')
   assert.match(client, /Native sidebar, session-menu and account chrome remain Host-owned/)
-  assert.doesNotMatch(client, /livePortal\(props\.children, anchor\) : props\.children/)
-  assert.match(client, /scope\.inject\(\['accountUi'\]/)
+  assert.doesNotMatch(client, /scope\.inject\(\['accountUi'\]/)
+  assert.doesNotMatch(client, /installLiveNativePresentation|getLiveSessionTarget|readLiveAccountState/)
   assert.match(client, /scope\.inject\(\['theme'\]/)
 })
 
-test('Delta sidebar pins cannot unmount the scheduled-task navigation layout', () => {
+test('retired native presentation has no active or dormant compatibility hooks', () => {
   const client = read(base + 'client.ts')
-  assert.match(client, /mark\(button, 'primary-unpin'\)/)
-  assert.match(client, /mark\(moreRow, 'more'\)/)
-  assert.match(client, /unmark\(moreRow, 'more'\)/)
-  assert.match(client, /data-dtd-live-primary-unpin/)
-  assert.match(client, /data-dtd-live-more/)
-  assert.match(client, /width: 16px !important/)
-  assert.match(client, /translateY\(-2px\)/)
-  assert.match(client, /syncFooter\(sidebar\)/)
-  assert.match(client, /data-dtd-live-footer-card/)
-  assert.match(client, /activeSessionId\?: string/)
-  assert.match(client, /readLiveAccountState/)
-  assert.ok(client.includes('values[1]!.textContent = uiCopy.dataUnavailable'))
-  for (const language of ['zh', 'en']) {
-    const dictionary = JSON.parse(read(`packages/delta-suite/locale/${language}.json`))
-    assert.ok(dictionary.ui.dataUnavailable?.trim(), 'missing unavailable copy: ' + language)
-  }
+  for (const legacy of [
+    'LIVE_PRESENTATION_CSS', 'data-dtd-live-footer-card',
+    'data-dtd-live-primary-unpin', 'data-dtd-live-more',
+    'installLiveNativePresentation', 'readLiveAccountState',
+    'getLiveSessionTarget', 'publishLiveSessionTarget',
+  ]) assert.equal(client.includes(legacy), false, 'retired native takeover: ' + legacy)
+  assert.match(client, /scope\.slots\.inject\('sidebar\.session\.row\.hover'/)
+  assert.match(client, /scope\.slots\.inject\('settings\.plugins\.tab'/)
 })
 
 test('Delta Suite contains no proxy or Vision Bridge service registration or front-end settings', () => {

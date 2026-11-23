@@ -28,9 +28,6 @@
     "copyFailed": "复制失败",
     "searching": "正在搜索会话…",
     "noResults": "未找到匹配的会话",
-    "settings": "设置",
-    "signIn": "登录",
-    "signOut": "退出登录",
     "cancel": "取消",
     "confirm": "确认",
     "delete": "删除",
@@ -148,13 +145,7 @@
     "mcpFormUnavailable": "当前 Profile 未提供 MCP 配置表单。请确认已加载 Harness 官方 MCP Manager 和 Settings。",
     "mcpEnabledState": "已启用",
     "mcpProbeComplete": "连接测试已完成。",
-    "mcpRestartComplete": "已发送 MCP 连接重启请求。",
-    "navigationPlugins": "插件管理",
-    "navigationSchedules": "定时任务",
-    "navigationSession": "开始对话",
-    "accountBalance": "账户余额",
-    "todaySpending": "今日消费",
-    "dataUnavailable": "暂无数据"
+    "mcpRestartComplete": "已发送 MCP 连接重启请求。"
   },
   "sessionMenu": {
     "moveSession": "移动会话",

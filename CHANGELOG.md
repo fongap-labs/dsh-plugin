@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 删除未挂载的原生 DOM 界面接管、导航/头像悬浮代理及会话 Portal 遗留代码，清理 9 个失效中英文词条；保留 Harness 原生行为与官方 Locale 订阅。
+
 - 维护: Delta Suite 将单一 Theme palette 与原生 Token 映射从大型 client.ts 提取至构建时内联模块，仍仅发布一个浏览器客户端入口。
 
 - 修复: Delta Code 新增基于 Harness Host 子进程的两阶段安全 Git 同步工具；先预览和获取远程提交，分支及工作区二次核验成功后才允许重置，脏文件需显式留存 Git stash，不再串接失败后仍可能执行的清理命令。
