@@ -16,9 +16,9 @@ const STOP = new Set(['the', 'a', 'an', 'fix', 'implement', 'improve', 'update',
 const ALIASES: Record<string, string> = {
   modal: 'dialog', sidebar: 'drawer', sidenav: 'drawer',
   responsive: 'responsive', a11y: 'accessibility', keyboard: 'accessibility',
-  '侧栏': 'drawer', '弹窗': 'dialog', '对话框': 'dialog', '表单': 'form',
-  '响应式': 'responsive', '无障碍': 'accessibility', '性能': 'performance',
-  '焦点': 'focus', '颜色': 'color', '动画': 'animation',
+  '\u4fa7\u680f': 'drawer', '\u5f39\u7a97': 'dialog', '\u5bf9\u8bdd\u6846': 'dialog', '\u8868\u5355': 'form',
+  '\u54cd\u5e94\u5f0f': 'responsive', '\u65e0\u969c\u788d': 'accessibility', '\u6027\u80fd': 'performance',
+  '\u7126\u70b9': 'focus', '\u989c\u8272': 'color', '\u52a8\u753b': 'animation',
 }
 
 /** Search only the local, audited metadata index; task text never leaves the Host. */
