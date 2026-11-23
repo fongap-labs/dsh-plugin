@@ -104,7 +104,7 @@ describe('Code Worker automatic user-task routing', () => {
     const f = fixture()
     try {
       const agent = {}
-      f.claim(agent, 'Fix CSS dialog keyboard focus')
+      f.claim(agent, 'Implement React component to fix CSS dialog keyboard focus')
       assert.match(f.render(agent), /code_modern_web_guidance/)
       assert.match(f.render(agent), /Do not run npx/)
       f.emit('tools/result', { agent, name: 'code_modern_web_guidance' },
