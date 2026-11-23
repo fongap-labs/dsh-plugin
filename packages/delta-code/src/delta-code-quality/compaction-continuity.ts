@@ -71,6 +71,7 @@ export type CodingRecoveryTransition = 'blocked' | 'reconcile' | 'diagnose' | 'c
 export function checkpointRecoveryGate(
   review: ReturnType<typeof compactionReview>,
   intent: CodingIntentEvidence, transition: CodingRecoveryTransition,
+  gitTodoReconciled = false,
 ): { transition: CodingRecoveryTransition; action: string } {
   if (review.state !== 'review' || transition === 'blocked') {
     return { transition, action: '' }
@@ -85,6 +86,12 @@ export function checkpointRecoveryGate(
     return {
       transition: 'reconcile',
       action: 'Native Todo has not been refreshed since the compaction summary. Reconcile original user constraints, current native Todo, Git state and verification evidence before any further edit. A model summary cannot certify progress.',
+    }
+  }
+  if (!gitTodoReconciled) {
+    return {
+      transition: 'reconcile',
+      action: 'Native Todo was refreshed, but no matching Host Git/Todo reconciliation is verified after compaction. Use code_resume with the prior known HEAD and current Todo checkpoint; inspect Git changes and tests before editing.',
     }
   }
   return { transition, action: '' }
