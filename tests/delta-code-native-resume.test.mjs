@@ -212,6 +212,13 @@ describe('Delta Code Worker native session resume', () => {
       assert.equal(actual.stage, 'blocked')
       assert.match(actual.blockers.join(' '), /Host Git inspection/)
     } finally { await unexpected.cleanup() }
+    const mismatched = await fixture({ unborn: true, status: '## No commits yet on other\0' })
+    try {
+      mismatched.emit(TASKS)
+      const actual = await mismatched.tool.execute({}, execute(mismatched.agent))
+      assert.equal(actual.stage, 'blocked')
+      assert.match(actual.blockers.join(' '), /Host Git inspection/)
+    } finally { await mismatched.cleanup() }
     const drift = await fixture({ unborn: true, statusAfter: '## main\0', statusAfterReadCount: 2 })
     try {
       drift.emit(TASKS)
