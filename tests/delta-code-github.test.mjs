@@ -135,9 +135,77 @@ describe('GitHub account configuration and automatic routing', () => {
       const data = JSON.parse(output.result)
       assert.equal(data.checks[0].conclusion, 'failure')
       assert.equal(data.statuses[0].context, 'CI Evidence')
-      assert.equal(requests.length, 3)
+      assert.equal(requests.length, 4)
       assert.ok(requests.every((request) => request.authorization === 'Bearer teamtest'))
       assert.doesNotMatch(JSON.stringify(output), /teamtest/)
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  it('rejects stale or racing PR heads before claiming CI evidence', async () => {
+    const config = normalizeConfig({ github: { accounts: accounts.slice(0, 1) } })
+    const tool = createGitHubTools({ get: () => undefined }, config)
+      .find(entry => entry.name === 'code_github_checks')
+    const previousFetch = globalThis.fetch
+    let headCalls = 0
+    const visited = []
+    try {
+      globalThis.fetch = async (url) => {
+        const location = String(url)
+        visited.push(location)
+        if (location.includes('/pulls/9')) {
+          headCalls++
+          return new Response(JSON.stringify({
+            head: { sha: (headCalls < 2 ? 'a' : 'b').repeat(40) },
+          }), { status: 200 })
+        }
+        if (location.includes('check-runs')) {
+          return new Response(JSON.stringify({ total_count: 1, check_runs: [{
+            name: 'test', status: 'completed', conclusion: 'success',
+          }] }), { status: 200 })
+        }
+        return new Response(JSON.stringify({ statuses: [] }), { status: 200 })
+      }
+      const exec = { signal: new AbortController().signal }
+      await assert.rejects(tool.execute({
+        repository: 'fongap-labs/delta', prNumber: 9, expectedHead: 'b'.repeat(40),
+      }, exec), /differs from expectedHead/)
+      assert.equal(visited.length, 1, 'wrong expected head must stop before CI calls')
+      headCalls = 0
+      visited.length = 0
+      await assert.rejects(tool.execute({
+        repository: 'fongap-labs/delta', prNumber: 9, expectedHead: 'a'.repeat(40),
+      }, exec), /HEAD changed during CI inspection/)
+      assert.equal(visited.filter(v => v.includes('/pulls/9')).length, 2)
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  it('reports 100-item GitHub CI pages as incomplete evidence', async () => {
+    const config = normalizeConfig({ github: { accounts: accounts.slice(0, 1) } })
+    const tool = createGitHubTools({ get: () => undefined }, config)
+      .find(entry => entry.name === 'code_github_checks')
+    const previousFetch = globalThis.fetch
+    try {
+      globalThis.fetch = async url => {
+        const path = String(url)
+        const data = path.includes('/pulls/3') ? { head: { sha: 'c'.repeat(40) } }
+          : path.includes('check-runs') ? { total_count: 101,
+              check_runs: Array.from({ length: 100 }, (_, n) => ({
+                name: 'job-' + n, status: 'completed', conclusion: 'success',
+              })) }
+          : { statuses: [] }
+        return new Response(JSON.stringify(data), { status: 200 })
+      }
+      const result = await tool.execute({
+        repository: 'fongap-labs/delta', prNumber: 3, expectedHead: 'c'.repeat(40),
+      }, { signal: new AbortController().signal })
+      const evidence = JSON.parse(result.result)
+      assert.equal(evidence.head, 'c'.repeat(40))
+      assert.equal(evidence.complete, false)
+      assert.match(evidence.note, /do not certify all gates/)
     } finally {
       globalThis.fetch = previousFetch
     }
