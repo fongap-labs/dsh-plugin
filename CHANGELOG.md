@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Code 原生多 Agent 编程协作采用有界并行波次，关联根配置和依赖锁文件不得未经协调并行修改；小规模任务优先单 Agent，原生 Host 并发与权限仍为最终依据。
+
 - 修复: Delta Suite 删除退役的 Workspace 方法包装和模拟删除拦截，保留运行中的只读搜索保护，并将 CI 测试改为验证真实调用与 Host 原生权限。
 
 - 修复: Delta Code 命令工具保持稳定注册身份；Host subprocess 暂时失联时拒绝执行，服务恢复后将调用切换到新的 Host，避免会话内 UNKNOWN_TOOL。
