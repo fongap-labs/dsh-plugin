@@ -563,7 +563,7 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       }
     } finally {
       isSyncing = false
-      observer?.takeRecords()
+      if (typeof observer?.takeRecords === 'function') observer.takeRecords()
     }
   }
   const scheduler = createFrameScheduler(sync)

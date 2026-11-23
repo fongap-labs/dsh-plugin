@@ -254,7 +254,7 @@ test('installed Delta Suite actually mounts its native presentation compatibilit
   assert.match(client, /data-dtd-live-preview/)
   assert.match(client, /data-dtd-live-hero-fish/)
   assert.match(client, /getLiveSessionTarget/)
-  assert.match(client, /if \(dead \|\| syncing\) return/,
+  assert.match(client, /if \(isDisposed \|\| isSyncing\) return/,
     'native presentation must not keep writing after disposal')
   assert.equal((client.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1)
   assert.doesNotMatch(client, /process\.env\.DSH_CLIENT_VERSION\s*===/,
@@ -271,6 +271,6 @@ test('live presentation preserves native actions and restores all owned changes'
   assert.match(client, /controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
   assert.match(client, /observer\?\.disconnect\(\)/)
   assert.match(client, /tag\.remove\(\)/)
-  assert.match(client, /if \(supportsPortal && scheduleRow && nav\)/)
+  assert.match(client, /if \(canUsePortal && scheduleRow && nav\)/)
   assert.match(client, /source instanceof HTMLElement\) mark\(source, 'session-source'\)/)
 })
