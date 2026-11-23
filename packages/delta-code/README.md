@@ -408,3 +408,13 @@ Delta Code 借鉴工程实践中的**可执行规划**和**连续执行**，不�
 ### 工程概况与宿主文件服务
 
 当 DeepSeek Harness 已注入 `fs` 服务时，`code_project_profile` 仅通过该 Host FS 的 `resolve`、`contains`、`stat` 和 `readText` 识别项目文件与脚本；宿主拒绝访问或缺少必需能力会明确失败，**不会退回 Node 本地读取**。没有 Host FS 的旧兼容路径保持原有行为。工具只输出文件名和脚本名，不输出脚本定义或文件正文。
+
+### Modern Web Guidance 按需只读查询
+
+针对实质性浏览器 UI、HTML/CSS、弹窗、响应式、无障碍与 Web 性能任务，自动路由仅提示可选的 `code_modern_web_guidance`：`action=search` 在插件内固定指南索引中查找，不向外部发送任务文本；`action=retrieve` 只读取 GoogleChrome/modern-web-guidance 在固定 Commit `2b4aa13a72dd47cd135b06ce5abfccd92e19b24f` 的受审查文档，按 Git Blob SHA 和字节长度核验，正文按 12,000 字符分块。遵循 Apache-2.0 许可证；更新指南需要代码审查、重新固定 Commit 和哈希。与用户任务无关的后端、CI 和简单文案修改不提示调用；明确禁止外部 Skill、联网或资料调用时不得绕过要求。
+
+本功能**不执行**上游 Skill 所建议的 `npx @latest`、npm 安装、`legacy-scan`，不启用其 CLI 遥测，不上传项目代码、搜索词或文件内容。网络不可用、Host 拒绝或校验失败时如实报告并使用现有工程检查继续；指南内容属于不可信参考资料，不能修改用户规则、宿主权限或浏览器兼容性要求。每个任务仅主动提示一次，推荐检索一项主题、最多读取两份匹配指南；不是必需的任务门禁。
+
+### 空 Git 仓库的任务续接
+
+`code_resume` 在获得 DSH Host Git 的只读证据后，支持刚初始化且未产生首个提交的 Git 仓库。必须确认原生 Todo、`symbolic-ref HEAD`、`status --porcelain=v1 --branch -z` 和再次读取后的状态一致，才能返回 `reconcile`。不伪造 HEAD、不直接返回 `resume` 或交付通过，旧检查点有明确 `expectedHead` 时仍阻断。宿主拒绝、Git 状态漂移或历史来源不完整时保留原有阻断行为。
