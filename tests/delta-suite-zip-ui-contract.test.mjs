@@ -107,7 +107,8 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       'installWorkspaceMutationGuards']) {
       assert.ok(client.includes(term), 'ZIP behavior missing: ' + term)
     }
-    assert.doesNotMatch(client, /syncModalChromeOverlay|data-delta-modal-open/)\n    assert.doesNotMatch(client, /installClientPrivacyGuards\(|installSidebarCompatibility\(controller\)/)
+    assert.doesNotMatch(client, /syncModalChromeOverlay|data-delta-modal-open/)
+    assert.doesNotMatch(client, /installClientPrivacyGuards\(|installSidebarCompatibility\(controller\)/)
     assert.doesNotMatch(css, /data-delta-modal-open|--dtd-chrome-overlay-mask/)
     assert.match(css, /\.dtd-search-backdrop/)
     assert.match(css, /\.dtd-dialog-backdrop/)
