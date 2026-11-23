@@ -107,7 +107,174 @@ export function patchDictionary(source, lang, key, before, after) {
 function dictionary(entries) {
   return source => entries.reduce((result, entry) => patchDictionary(result, ...entry), source)
 }
+
+/** Preserve native AccountMenu state, dialogs and callbacks; add Delta-only icons. */
+export function patchAccountMenu(source) {
+  const marker = 'delta-suite:footer-ui-v1 account'
+  if (source.includes(marker)) return source
+  let next = replaceUnique(source,
+    'IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular,',
+    'IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular, FishLogo,',
+    'AccountMenu icon imports')
+  next = replaceUnique(next,
+    '  return <div className={css.root} data-inset={signedIn && wide}>',
+    "  // " + marker + "\n  return <div className={css.root} data-inset={signedIn && wide} data-delta-footer-wide={wide ? 'true' : 'false'}>",
+    'AccountMenu root')
+  next = replaceUnique(next,
+    '          : <IconEllipsisOutlineMedium size={14} />}',
+    [
+      '          : <>',
+      '            <span className={css.deltaGuestMark}><FishLogo size={24} /></span>',
+      '            <span className={css.officialGuestMark}><IconEllipsisOutlineMedium size={14} /></span>',
+      '          </>}',
+    ].join('\n'),
+    'AccountMenu signed-out icon')
+  next = replaceUnique(next,
+    "    {account.loginVisible && !account.onboarding && <SignInDialog",
+    [
+      "    <div className={css.deltaActions} role=\"group\" aria-label={t('menu')}>",
+      "      <button type=\"button\" className={css.deltaIconButton} aria-label={t('settings')}",
+      "        title={t('settings')} aria-keyshortcuts={settingsShortcut?.aria}",
+      "        onClick={() => { setOpen(false); openSettings() }}>",
+      "        <IconSettingsOutlineRegular size={24} />",
+      "      </button>",
+      "      <button type=\"button\" className={css.deltaIconButton} aria-label={signedIn ? t('signOut') : t('signIn')}",
+      "        title={signedIn ? t('signOut') : t('signIn')} disabled={busy}",
+      "        onClick={() => { if (signedIn) void requestSignOut(); else beginSignIn() }}>",
+      "        {signedIn ? <LogoutIcon /> : <IconUserOutlineRegular size={24} />}",
+      "      </button>",
+      "    </div>",
+      "    {account.loginVisible && !account.onboarding && <SignInDialog",
+    ].join('\n'),
+    'AccountMenu native dialogs')
+  return next
+}
+
+const accountFooterCSS = [
+  '.deltaGuestMark { display: none; }',
+  '.officialGuestMark { display: inline-flex; }',
+  '.deltaActions { display: none; }',
+  ':global(html[data-delta-ui="delta"]) .root .deltaGuestMark {',
+  '  display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root .officialGuestMark { display: none; }',
+  ':global(html[data-delta-ui="delta"]) .root .label { display: none; }',
+  ':global(html[data-delta-ui="delta"]) .root .avatar {',
+  '  width: 24px; height: 24px; background: transparent;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root .avatar svg { width: 24px; height: 24px; }',
+  ':global(html[data-delta-ui="delta"]) .root[data-delta-footer-wide="true"] { display: contents; }',
+  ':global(html[data-delta-ui="delta"]) .root[data-delta-footer-wide="true"] .anchor {',
+  '  order: 0; flex: 1 1 auto; min-width: 0; width: auto; display: flex; align-items: center;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root[data-delta-footer-wide="true"] .trigger {',
+  '  box-sizing: border-box; flex: none; width: 36px; height: 36px;',
+  '  justify-content: center; padding: 6px; border: 0; background: transparent;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root[data-delta-footer-wide="true"] .deltaActions {',
+  '  order: 2; flex: none; display: flex; align-items: center; gap: 4px;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root[data-delta-footer-wide="true"] .deltaIconButton {',
+  '  display: inline-flex; align-items: center; justify-content: center; flex: none;',
+  '  width: 36px; height: 36px; box-sizing: border-box; padding: 6px;',
+  '  border: 0; border-radius: var(--dsw-radius-md); background: transparent;',
+  '  color: var(--dsw-alias-label-primary); cursor: pointer;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root .deltaIconButton svg {',
+  '  display: block; width: 24px; height: 24px;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root .deltaIconButton:disabled { opacity: .5; cursor: default; }',
+  '@media (hover: hover) {',
+  '  :global(html[data-delta-ui="delta"]) .root .deltaIconButton:not(:disabled):hover {',
+  '    background: var(--dsw-alias-interactive-bg-hover);',
+  '  }',
+  '}',
+].join('\n')
+
+export function patchAccountMenuStyle(source) {
+  const marker = 'delta-suite:footer-ui-v1 account-style'
+  if (source.includes(marker)) return source
+  requireShape(source.includes('.root {') && source.includes('.anchor {') &&
+    source.includes('.trigger {') && source.includes('.avatar {'), 'AccountMenu stylesheet')
+  return source + '\n/* ' + marker + ' */\n' + accountFooterCSS + '\n'
+}
+
+/** Reorder native updater and connection presentation without creating copies. */
+export function patchSettingsRoot(source) {
+  const marker = 'delta-suite:footer-ui-v1 settings'
+  if (source.includes(marker)) return source
+  let next = replaceUnique(source,
+    '      <div className={clsx(css.triggerRow, !wide && css.railRow)}>',
+    "      {/* " + marker + " */}\n      <div className={clsx(css.triggerRow, !wide && css.railRow)} data-delta-footer-wide={wide ? 'true' : 'false'}>",
+    'SettingsRoot trigger row')
+  next = replaceUnique(next,
+    '        <ConnectionIndicator\n',
+    '        <span data-delta-footer-connection=\"\">\n          <ConnectionIndicator\n',
+    'SettingsRoot connection indicator open')
+  next = replaceUnique(next,
+    '          onReconnect={reconnect}\n        />',
+    '          onReconnect={reconnect}\n          />\n        </span>',
+    'SettingsRoot connection indicator close')
+  next = replaceUnique(next,
+    '        <DesktopUpdateIndicator wide={wide}',
+    '        <span data-delta-footer-update=\"\">\n          <DesktopUpdateIndicator wide={wide}',
+    'SettingsRoot update open')
+  next = replaceUnique(next,
+    '          t={t} view={desktopUpdate} onOpen={openDesktopUpdate} />',
+    '          t={t} view={desktopUpdate} onOpen={openDesktopUpdate} />\n        </span>',
+    'SettingsRoot update close')
+  return next
+}
+
+const settingsFooterCSS = [
+  '.triggerRow > [data-delta-footer-update],',
+  '.triggerRow > [data-delta-footer-connection] { display: contents; }',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] {',
+  '  gap: 4px; margin: 0 0 4px; min-height: 44px; align-items: center;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] {',
+  '  order: 1; flex: none; display: flex; align-items: center;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update]:empty {',
+  '  display: none;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button {',
+  '  box-sizing: border-box; width: 36px; height: 36px; display: flex;',
+  '  justify-content: center; align-items: center; padding: 6px;',
+  '  border: 0; background: transparent; border-radius: var(--dsw-radius-md);',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button > span:nth-child(2) {',
+  '  display: none;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button span:first-child {',
+  '  width: 24px; height: 24px;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button svg {',
+  '  width: 24px; height: 24px;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-connection] {',
+  '  position: absolute; right: 0; bottom: 100%; display: flex;',
+  '}',
+  '@media (hover: hover) {',
+  '  :global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button:not(:disabled):hover {',
+  '    background: var(--dsw-alias-interactive-bg-hover);',
+  '  }',
+  '}',
+].join('\n')
+
+export function patchSettingsRootStyle(source) {
+  const marker = 'delta-suite:footer-ui-v1 settings-style'
+  if (source.includes(marker)) return source
+  requireShape(source.includes('.triggerRow {') && source.includes('.triggerRow.railRow {') &&
+    source.includes('.trigger {'), 'SettingsRoot stylesheet')
+  return source + '\n/* ' + marker + ' */\n' + settingsFooterCSS + '\n'
+}
+
 export const changes = [
+  { package: '@deepseek-ai/dsh-client-ui-settings-account', file: 'src/client/AccountMenu.tsx', transform: patchAccountMenu },
+  { package: '@deepseek-ai/dsh-client-ui-settings-account', file: 'src/client/AccountMenu.module.css', transform: patchAccountMenuStyle },
+  { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/SettingsRoot.tsx', transform: patchSettingsRoot },
+  { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/SettingsRoot.module.css', transform: patchSettingsRootStyle },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.tsx', transform: patchSidebarRoot },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.module.css', transform: patchSidebarStyle },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/locales.ts', transform: dictionary([
