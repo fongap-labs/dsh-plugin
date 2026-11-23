@@ -192,7 +192,7 @@ export function createSessionRepositoryTool(
       }
       if (action === 'inspect') {
         const status = parseGitStatus(await gitRead(ctx, settings, cwd,
-          ['status', '--porcelain=v1', '--branch', '-z'], 64 * 1024, exec))
+          ['--no-optional-locks', 'status', '--porcelain=v1', '--branch', '-z'], 64 * 1024, exec))
         return { ...base, repositories: repositories.map(r =>
           r.id === binding.id ? { ...r, verified: true } : r),
           branch: status.branch, clean: status.clean,
