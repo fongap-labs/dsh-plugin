@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { patchSidebarRoot, patchSidebarStyle, patchHeroStyle, patchDictionary, changes }
+import { patchSidebarRoot, patchSidebarStyle, patchHeroStyle, patchDictionary, changes,
+  patchAccountMenu, patchAccountMenuStyle, patchSettingsRoot, patchSettingsRootStyle }
   from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
@@ -99,7 +100,7 @@ test('dictionary updates only requested language and key, without upstream versi
   assert.match(en, /panel: 'Plugins'/)
   assert.equal(patchDictionary(en, 'zh', 'panel', '插件', '插件管理'), en)
   assert.throws(() => patchDictionary(source, 'zh', 'title', '别的标题', '插件管理'), /contract changed/)
-  assert.equal(changes.length, 7)
+  assert.equal(changes.length, 11)
 })
 
 test('native layout changes are scoped to Delta and preserve official mode', () => {
@@ -108,4 +109,74 @@ test('native layout changes are scoped to Delta and preserve official mode', () 
   assert.match(css, /sidebar-style/)
   assert.doesNotMatch(css, /:global\(html\) \.brand/)
   assert.equal(patchSidebarStyle(css), css)
+})
+
+
+test('account footer patch reuses native account state and sign-out confirmation', () => {
+  const original = [
+    "import {",
+    "  Toast, Menu, IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular,",
+    "} from '@deepseek-ai/dsh-client-ui-primitives'",
+    "function AccountMenu() {",
+    "  return <div className={css.root} data-inset={signedIn && wide}>",
+    "    <Menu anchor={<button>",
+    "       {signedIn ? <AccountAvatar />",
+    "          : <IconEllipsisOutlineMedium size={14} />}",
+    "    </button>} />",
+    "    {account.loginVisible && !account.onboarding && <SignInDialog",
+    "      start={start} cancel={cancel} />}",
+    "    {signedIn && signOutImpact !== undefined && <SignOutDialog running={signOutImpact} signOut={signOut} />}",
+    "  </div>",
+    "}",
+  ].join('\n')
+  const patched = patchAccountMenu(original)
+  assert.match(patched, /<FishLogo size=\{24\}/)
+  assert.match(patched, /AccountAvatar/)
+  assert.match(patched, /disabled=\{busy\}/)
+  assert.match(patched, /signedIn \? t\('signOut'\) : t\('signIn'\)/)
+  assert.match(patched, /if \(signedIn\) void requestSignOut\(\); else beginSignIn\(\)/)
+  assert.match(patched, /openSettings\(\)/)
+  assert.match(patched, /SignInDialog/)
+  assert.match(patched, /SignOutDialog/)
+  assert.match(patched, /Menu anchor=/, 'keep native Feedback menu available')
+  assert.equal(patchAccountMenu(patched), patched)
+  assert.throws(() => patchAccountMenu(original.replace('IconEllipsisOutlineMedium', 'UnknownIcon')), /contract changed/)
+})
+
+test('footer order is avatar then native update then settings and account action', () => {
+  const source = [
+    '      <div className={clsx(css.triggerRow, !wide && css.railRow)}>',
+    "        <ConnectionIndicator",
+    "          onReconnect={reconnect}",
+    "        />",
+    "        <DesktopUpdateIndicator wide={wide}",
+    "          t={t} view={desktopUpdate} onOpen={openDesktopUpdate} />",
+    "      </div>",
+  ].join('\n')
+  const patched = patchSettingsRoot(source)
+  assert.match(patched, /data-delta-footer-connection/)
+  assert.match(patched, /data-delta-footer-update/)
+  assert.equal((patched.match(/onOpen=\{openDesktopUpdate\}/g) ?? []).length, 1)
+  assert.equal(patchSettingsRoot(patched), patched)
+
+  const accountCSS = patchAccountMenuStyle('.root {}\n.anchor {}\n.trigger {}\n.avatar {}')
+  const settingsCSS = patchSettingsRootStyle('.triggerRow {}\n.triggerRow.railRow {}\n.trigger {}')
+  assert.match(accountCSS, /\.anchor \{[\s\S]*order: 0/)
+  assert.match(accountCSS, /\.deltaActions \{[\s\S]*order: 2/)
+  assert.match(settingsCSS, /data-delta-footer-update[^]*order: 1/)
+  assert.match(accountCSS, /width: 24px; height: 24px/)
+  assert.match(settingsCSS, /button svg \{[\s\S]*width: 24px; height: 24px/)
+  assert.match(settingsCSS, /\[data-delta-footer-update\]:empty/)
+  assert.match(settingsCSS, /data-delta-footer-connection/)
+  assert.equal(patchAccountMenuStyle(accountCSS), accountCSS)
+  assert.equal(patchSettingsRootStyle(settingsCSS), settingsCSS)
+})
+
+test('new footer patches fail closed instead of pinning a Harness version', () => {
+  for (const patch of [patchAccountMenu, patchSettingsRoot, patchAccountMenuStyle, patchSettingsRootStyle]) {
+    assert.throws(() => patch('unrelated component'), /contract changed/)
+  }
+  for (const item of changes) assert.doesNotMatch(item.file, /0[.]2[.]|2026/)
+  assert.equal(changes.filter(item => item.package.endsWith('ui-settings-account')).length, 2)
+  assert.equal(changes.filter(item => item.package.endsWith('ui-settings-general')).length, 2)
 })
