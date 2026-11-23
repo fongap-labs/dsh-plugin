@@ -100,7 +100,7 @@ test('dictionary updates only requested language and key, without upstream versi
   assert.match(en, /panel: 'Plugins'/)
   assert.equal(patchDictionary(en, 'zh', 'panel', '插件', '插件管理'), en)
   assert.throws(() => patchDictionary(source, 'zh', 'title', '别的标题', '插件管理'), /contract changed/)
-  assert.equal(changes.length, 11)
+  assert.equal(changes.length, 16)
 })
 
 test('native layout changes are scoped to Delta and preserve official mode', () => {
@@ -193,7 +193,7 @@ test('new footer patches fail closed instead of pinning a Harness version', () =
   }
   for (const item of changes) assert.doesNotMatch(item.file, /0[.]2[.]|2026/)
   assert.equal(changes.filter(item => item.package.endsWith('ui-settings-account')).length, 2)
-  assert.equal(changes.filter(item => item.package.endsWith('ui-settings-general')).length, 2)
+  assert.equal(changes.filter(item => item.package.endsWith('ui-settings-general')).length, 3)
 })
 
 
@@ -283,7 +283,7 @@ test('Delta sidebar pins cannot unmount the scheduled-task navigation layout', (
   assert.match(client, /data-dtd-live-primary-unpin/)
   assert.match(client, /data-dtd-live-more/)
   assert.match(client, /width: 16px !important/)
-  assert.match(client, /translateY\(3px\)/)
+  assert.match(client, /translateY\(-2px\)/)
   assert.match(client, /syncFooter\(sidebar\)/)
   assert.match(client, /data-dtd-live-footer-card/)
   assert.match(client, /activeSessionId\?: string/)
