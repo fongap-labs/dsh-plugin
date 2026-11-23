@@ -221,6 +221,7 @@ export function createNativeResumeTool(
         // Only recognize it using read-only Host Git evidence. A denied Git
         // command, malformed HEAD or ordinary repository failure stays blocked.
         let unbornRef = ''
+        let firstUnbornStatus = ''
         const inspectedHead = (await hostGit(ctx, settings, cwd, exec,
           ['rev-parse', '--verify', 'HEAD'], true)).trim()
         if (inspectedHead === UNBORN_HEAD) {
@@ -231,6 +232,7 @@ export function createNativeResumeTool(
             throw new Error('Cannot verify an unborn Git repository')
           }
           unbornRef = ref
+          firstUnbornStatus = status
         } else {
           head = inspectedHead
           if (!HEAD_PATTERN.test(head)) throw new Error('Host returned invalid Git HEAD')
@@ -249,6 +251,10 @@ export function createNativeResumeTool(
         if ((unbornRef || head) !== afterHead) {
           return result('blocked', 'HEAD changed during read; reconcile repository and retry.',
             state, afterHead, [], ['Git HEAD changed while inspecting'])
+        }
+        if (unbornRef && firstUnbornStatus !== before) {
+          return result('blocked', 'Unborn branch status changed during inspection; refresh repository state.',
+            state, head, [], ['Git status changed while inspecting'])
         }
         if (before !== after) {
           return result('blocked', 'Git status changed during inspection; refresh the repository state.',
