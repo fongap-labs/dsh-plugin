@@ -13,6 +13,8 @@ import { createVerifySuiteTool } from './verify-suite.js'
 import { createDeliveryGateTool } from './delivery-gate.js'
 import { createNativeResumeTool } from './resume.js'
 import { createWorkspaceMapTool } from './workspace.js'
+import { createSessionRepositoryTool } from './session-repositories.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 import { createWorktreeTool } from './worktree.js'
 import { createGitStatusTool, createGitDiffTool } from './git.js'
 import { createGitHubTools } from './github.js'
@@ -40,7 +42,10 @@ export function createDshRepositoryRemoteTools(
   return settings.githubEnabled ? createGitHubTools(ctx, settings, github) : []
 }
 
-export function createDshRepositoryCommandTools(ctx: Context, settings: Settings): ToolDefinition[] {
+export function createDshRepositoryCommandTools(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition[] {
   return [createWorkspaceMapTool(ctx, settings), createWorktreeTool(ctx, settings),
-    ...(settings.gitEnabled ? [createGitStatusTool(ctx, settings), createGitDiffTool(ctx, settings)] : [])]
+    ...(settings.gitEnabled ? [createGitStatusTool(ctx, settings), createGitDiffTool(ctx, settings),
+      ...(sessionRepositories ? [createSessionRepositoryTool(ctx, settings, sessionRepositories)] : [])] : [])]
 }

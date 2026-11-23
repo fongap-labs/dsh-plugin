@@ -82,6 +82,18 @@ node scripts/analyze-code-worker-jsonl.mjs --session /path/to/session.v4.jsonl
 
 该报告只能证明日志包含相应事件，不能证明用户约束完整、恢复正确、测试通过、任务完成或实机兼容。H14 仍须核对真实 `code_task_spec`，H15 必须核对真实 `code_execution_next` 以及工作区结果，H16 需要真正独立会话证据。单项测试最多 15 分钟；无法安全触发原生压缩就记录阻断，不允许生成无意义上下文或扩大权限。
 
+## 单会话多仓库只读专项验收（H17–H19）
+
+仅使用两个事先创建的临时 Git 仓库，位于不同的本地父目录；准备工作不计入任务执行验证。每项不超过 15 分钟，不修改业务仓库，不调整全局 Windows ACL、Shell 权限或 Git 配置。必须在运行中的真实 DSH Host 插件版本上验证。
+
+| 序号 | 操作 | 验收 |
+| --- | --- | --- |
+| H17 | 主会话位于仓库 A，将临时仓库 B 的绝对路径经用户明确配置在 `sessionRepositories.readOnlyRoots`，执行 `code_session_repositories attach/list/inspect/search` | B 获得独立 ID，仅显示自身 Git 分支和文件；主工作目录不变；记录原生成功调用事件 |
+| H18 | 移除 B 的配置授权，尝试 `inspect/search`，随后 `detach`；另试一个未授权仓库 C | 读取均被阻止且不会执行 Git；B 的旧关联可解除；不退回 Node 或借原生终端权限越界 |
+| H19 | 重新授权并关联 B，真实触发一次原生 `compact` 后恢复同一 Session；另新开一个 Session | 旧会话关联由原生事件投影恢复，新会话不继承 B；如果投影不可用则失败并如实记录，不得猜测 |
+
+上述验收不代表 Windows 跨仓库写入授权。只有真实客户端证据才能判断 Host FS 对额外路径的支持是否满足要求；缺少 Host 能力则标为阻断，不使用插件补丁绕过。
+
 ## 证据与收口
 
 逐项记录：`case_id`、`DSH 版本`、`插件 HEAD SHA`、`平台`、`步骤/输入`、`预期`、`观察结果`、`通过/失败/阻断`、`脱敏日志路径`。失败时记录 Host 返回的可公开错误码，不上传任何 Token、私密工作区内容或环境变量值。

@@ -27,6 +27,24 @@ describe('Delta Code native settings contract', () => {
     assert.match(read('src/config.ts'), /tokenEnv: Schema\.string\(\)\.required\(\)/)
     assert.doesNotMatch(read('src/config.ts'), /role\('secret'\)/)
   })
+  it('defaults repository associations to no external roots and validates explicit Host allowlists', () => {
+    assert.deepEqual(normalizeConfig({}).sessionReadOnlyRepositories, [])
+    assert.deepEqual(normalizeConfig({ sessionRepositories: {
+      readOnlyRoots: ['/authorized/repo-a', '/authorized/repo-b'],
+    } }).sessionReadOnlyRepositories, ['/authorized/repo-a', '/authorized/repo-b'])
+    for (const invalid of [
+      ['../secret'], ['local-folder'], ['/ok/../secret'], ['\\\\server\\share\\repo'],
+      ['/repo-a', '/repo-a'], Array.from({ length: 13 }, (_, n) => '/repo-' + n),
+      ['/valid', ''],
+    ]) {
+      assert.throws(() => normalizeConfig({ sessionRepositories: {
+        readOnlyRoots: invalid,
+      } }), /sessionRepositories|duplicate/)
+    }
+    const schema = read('src/config.ts')
+    assert.ok(schema.includes('readOnlyRoots: Schema.array(Schema.string()).default([])'))
+  })
+
   it('uses one shared default LSP catalog in settings and runtime', () => {
     assert.deepEqual(normalizeConfig({}).lspServers, DEFAULT_LSP_SERVERS)
     const settings = read('src/config.ts')

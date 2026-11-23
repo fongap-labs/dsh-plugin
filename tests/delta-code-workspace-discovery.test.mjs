@@ -8,6 +8,14 @@ import { promisify } from 'node:util'
 import { createWorkspaceMapTool, rankTrackedFiles } from '../packages/delta-code/lib/tools/workspace.js'
 import { normalizeConfig } from '../packages/delta-code/lib/runtime.js'
 
+import { createSessionRepositoryTool } from '../packages/delta-code/lib/delta-code-adapter/providers/dsh/session-repositories.js'
+import {
+  SESSION_REPOSITORY_EMPTY, foldSessionRepositoryEvent,
+  parseSessionRepositoryState, REPOSITORY_EVENT_MARKER,
+} from '../packages/delta-code/lib/delta-code-repository/session-repository-policy.js'
+import { mockHostFsContext } from './helpers/host-fs-mock.mjs'
+import { mockHostCommandResult } from './helpers/host-subprocess-mock.mjs'
+
 const git = promisify(execFile)
 const execution = () => ({ signal: new AbortController().signal })
 const localContext = { get: () => undefined }
@@ -211,5 +219,160 @@ describe('Delta Code Worker bounded multi-repo discovery', () => {
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  })
+})
+
+
+const EXTERNAL_REPO = '/dsh-approved-external/repo-a'
+const OTHER_REPO = '/dsh-unapproved-external/repo-b'
+function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
+  const commands = []
+  const seenPaths = []
+  const fs = {
+    async resolve(path) {
+      seenPaths.push(path)
+      if (options.denyFs) throw new Error('Host FS denied external root')
+      return { path }
+    },
+    async stat(target) {
+      if (options.noDirectory) return undefined
+      return { type: 'directory' }
+    },
+    processPath(target) {
+      return options.changedRoot ?? target.path
+    },
+  }
+  if (options.incompleteFs) delete fs.processPath
+  const ctx = mockHostFsContext(fs, {
+    subprocess: { spawn(spec) {
+      commands.push(spec)
+      if (options.denyGit) throw new Error('Host denied Git subprocess')
+      if (spec.argv[1] === 'rev-parse') {
+        return mockHostCommandResult({ stdout: (options.wrongGitRoot ?? spec.cwd) + '\n' })
+      }
+      if (spec.argv[1] === '--no-optional-locks' && spec.argv[2] === 'status') {
+        return mockHostCommandResult({ stdout: '## main\0 M src/changed.ts\0' })
+      }
+      if (spec.argv[1] === 'ls-files') {
+        return mockHostCommandResult({ stdout: 'src/module.ts\0src/other.ts\0' })
+      }
+      throw new Error('Unexpected Host Git command: ' + spec.argv.join(' '))
+    } },
+  })
+  const settings = normalizeConfig({
+    workspaceRoot: '/dsh-primary',
+    sessionRepositories: { readOnlyRoots: allowed },
+  })
+  let state = { ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }
+  const agent = { session: { id: 'owning-session' } }
+  const reader = {
+    read: who => who === agent ? parseSessionRepositoryState(state) : undefined,
+    dispose() {},
+  }
+  const tool = createSessionRepositoryTool(ctx, settings, reader)
+  let seq = 1
+  const run = (args, who = agent) =>
+    tool.execute(args, { agent: who, signal: new AbortController().signal })
+  const accept = (args, output) => {
+    const callId = 'call_' + seq
+    state = foldSessionRepositoryEvent(state, {
+      type: 'tool/call', seq: seq++, data: {
+        name: 'code_session_repositories', callId, arguments: JSON.stringify(args),
+      },
+    })
+    const rendered = tool.output.render(args, output)[0].text
+    assert.ok(rendered.includes(REPOSITORY_EVENT_MARKER))
+    state = foldSessionRepositoryEvent(state, {
+      type: 'tool/result', seq: seq++, data: {
+        message: { role: 'tool', source: { kind: 'tool', callId }, toolCallId: callId,
+          isError: false, content: [{ type: 'text', text: rendered }] },
+      },
+    })
+  }
+  return { ctx, settings, tool, run, accept, get state() { return state }, commands, seenPaths, agent }
+}
+
+describe('Delta Code native Session read-only repository bindings', () => {
+  it('associates two explicit roots without switching the main workspace or running write commands', async () => {
+    const f = sessionRepoFixture([EXTERNAL_REPO, OTHER_REPO])
+    const first = await f.run({ action: 'attach', path: EXTERNAL_REPO })
+    f.accept({ action: 'attach', path: EXTERNAL_REPO }, first)
+    const second = await f.run({ action: 'attach', path: OTHER_REPO })
+    f.accept({ action: 'attach', path: OTHER_REPO }, second)
+    const listed = await f.run({ action: 'list' })
+    assert.equal(listed.repositories.length, 2)
+    assert.equal(listed.repositories[0].readOnly, true)
+    const id = listed.repositories[0].id
+    const status = await f.run({ action: 'inspect', id })
+    assert.equal(status.branch, 'main')
+    assert.equal(status.unstaged, 1)
+    const found = await f.run({ action: 'search', id, query: 'module' })
+    assert.deepEqual(found.selected, ['src/module.ts'])
+    assert.ok(f.commands.every(c => c.cwd !== '/dsh-primary' &&
+      c.argv[0] === 'git' && ['rev-parse', '--no-optional-locks', 'ls-files'].includes(c.argv[1])))
+    assert.equal(f.settings.workspaceRoot, '/dsh-primary')
+    assert.equal(f.state.bindings.length, 2)
+    const detached = await f.run({ action: 'detach', id })
+    f.accept({ action: 'detach', id }, detached)
+    assert.equal((await f.run({ action: 'list' })).repositories.length, 1)
+  })
+
+  it('rejects unallowlisted roots before any Host file or Git access', async () => {
+    const f = sessionRepoFixture()
+    await assert.rejects(f.run({ action: 'attach', path: OTHER_REPO }), /configured by the user/)
+    await assert.rejects(f.run({ action: 'attach', path: '../repo' }), /configured by the user/)
+    assert.deepEqual(f.commands, [])
+    assert.deepEqual(f.seenPaths, [])
+  })
+
+  it('rejects Host denial, missing Host FS methods and moved Git roots without Node fallback', async () => {
+    for (const options of [
+      { denyFs: true }, { incompleteFs: true },
+      { noDirectory: true }, { changedRoot: '/other/location' },
+      { wrongGitRoot: OTHER_REPO }, { denyGit: true },
+    ]) {
+      const f = sessionRepoFixture([EXTERNAL_REPO], options)
+      await assert.rejects(f.run({ action: 'attach', path: EXTERNAL_REPO }), /Host|native|repository/)
+    }
+    const absent = sessionRepoFixture([EXTERNAL_REPO])
+    const tool = createSessionRepositoryTool({ get: () => undefined },
+      absent.settings, { read: () => ({ ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }), dispose() {} })
+    await assert.rejects(tool.execute({ action: 'attach', path: EXTERNAL_REPO },
+      { agent: absent.agent, signal: new AbortController().signal }), /mounted native Host FS/)
+  })
+
+  it('revokes inspection on allowlist removal but allows explicit detach of stale bindings', async () => {
+    const f = sessionRepoFixture()
+    const args = { action: 'attach', path: EXTERNAL_REPO }
+    const value = await f.run(args)
+    f.accept(args, value)
+    const id = f.state.bindings[0].id
+    f.settings.sessionReadOnlyRepositories = []
+    const listed = await f.run({ action: 'list' })
+    assert.equal(listed.revokedCount, 1)
+    assert.deepEqual(listed.repositories, [])
+    const before = f.commands.length
+    await assert.rejects(f.run({ action: 'inspect', id }), /revoked/)
+    assert.equal(f.commands.length, before)
+    const detached = await f.run({ action: 'detach', id })
+    f.accept({ action: 'detach', id }, detached)
+    assert.equal(f.state.bindings.length, 0)
+  })
+
+  it('preserves session separation and refuses malformed or forged events', async () => {
+    const f = sessionRepoFixture()
+    await assert.rejects(f.run({ action: 'list' }, { session: { id: 'different' } }), /projection unavailable/)
+    let state = { ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }
+    state = foldSessionRepositoryEvent(state, { type: 'tool/call', seq: 1, data: {
+      name: 'code_session_repositories', callId: 'call_a', arguments: '{"action":"attach"}',
+    } })
+    state = foldSessionRepositoryEvent(state, { type: 'tool/result', seq: 2, data: {
+      message: { toolCallId: 'call_a', source: { kind: 'tool' }, isError: false,
+        content: [{ type: 'text', text: REPOSITORY_EVENT_MARKER +
+          '{"version":1,"action":"attach","id":"repo-aaaaaaaaaaaaaaaaaaaa","path":"/a","readOnly":false}' }] },
+    } })
+    assert.deepEqual(state.bindings, [])
+    const bad = foldSessionRepositoryEvent(state, { type: 'tool/call', seq: 2, data: {} })
+    assert.equal(bad.invalid, true)
   })
 })
