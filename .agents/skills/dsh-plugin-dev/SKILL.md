@@ -1,6 +1,6 @@
 ---
 name: dsh-plugin-dev
-description: Develop, test, package, and maintain native DeepSeek Harness plugins in the fongap-labs/dsh-plugin monorepo.
+description: Develop, test, package, and maintain native DeepSeek Harness plugins in the fongap-labs/plugins monorepo.
 ---
 
 # DSH Plugin Development

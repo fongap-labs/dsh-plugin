@@ -2,7 +2,7 @@
   "schema_version": 1,
   "root": "packages",
   "artifact_name": "delta-code-release",
-  "target_repository": "fongap-labs/dsh-plugin",
+  "target_repository": "fongap-labs/plugins",
   "release_key": "delta-code",
   "release_name": "Delta Code",
   "release_notes": "",

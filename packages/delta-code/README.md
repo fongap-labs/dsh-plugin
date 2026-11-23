@@ -358,7 +358,7 @@ Harness Agent 根据任务实际语义作选择；既有中英文关键词自动
 
 ### 中央验收位置
 
-此能力目录、依赖与循环拒绝、Host 只读工具、按风险执行的专项质量流程，在 [Action Worker 中央 dsh-plugin 验收包](https://github.com/fongap-labs/action-worker/blob/main/tests/packs/dsh-plugin/delta-code-semantic-capabilities-test.mjs) 中集中维护，并在目标仓库真实中央 CI 中执行；不能仅根据测试文件存在判断验收通过。已有源仓库回归继续双跑，直至中央覆盖对账完成，不能为了集中测试减少有效断言。
+此能力目录、依赖与循环拒绝、Host 只读工具、按风险执行的专项质量流程，在 [Action Worker 中央 dsh-plugin 验收包](https://github.com/fongap-labs/action-worker/blob/main/tests/packs/plugins/delta-code-semantic-capabilities-test.mjs) 中集中维护，并在目标仓库真实中央 CI 中执行；不能仅根据测试文件存在判断验收通过。已有源仓库回归继续双跑，直至中央覆盖对账完成，不能为了集中测试减少有效断言。
 
 ### 结构化工程经验候选
 

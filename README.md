@@ -1,9 +1,9 @@
-# Delta 插件项目
+# Delta / DeepSeek Harness 共用插件
 
 文档导航：[文档索引](docs/README.md)
 
 
-本仓库是 DeepSeek Harness 插件的 monorepo，包含 **Delta Suite、Delta Desktop、Delta Code 三个相互独立的插件项目**。它们共享仓库和构建入口，但各自拥有独立包名、插件入口、运行时生命周期、功能范围和发布边界；不是三合一客户端。
+本仓库是 Delta 与 DeepSeek Harness 共用插件的 monorepo，包含 **Delta Suite、Delta Desktop、Delta Code 三个相互独立的插件项目**。它们共享仓库和构建入口，但各自拥有独立包名、插件入口、运行时生命周期、功能范围和发布边界；不是三合一客户端。
 
 ## 仓库结构
 

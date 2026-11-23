@@ -2,7 +2,7 @@
   "schema_version": 1,
   "root": "packages",
   "artifact_name": "delta-desktop-release",
-  "target_repository": "fongap-labs/dsh-plugin",
+  "target_repository": "fongap-labs/plugins",
   "release_key": "delta-desktop",
   "release_name": "Delta Desktop",
   "release_notes": "Delta Desktop 为 DeepSeek Harness 内的独立插件化 Root Shell 验证原型，不是独立 Electron 客户端。当前默认保留官方 UI 模块供回退；仅可在隔离 Profile 安装验证会话、消息与回退，尚未实现单 UI 启动、审批、附件、第三方插件兼容和内存收益。未完成 Windows 实机验收前不得宣称正式可用。",
