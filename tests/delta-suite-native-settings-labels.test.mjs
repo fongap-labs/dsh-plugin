@@ -105,3 +105,18 @@ test('chat status translation changes only task execution copy, keeping timer in
   assert.ok(changes.some(item => item.package === '@deepseek-ai/dsh-client-ui-chat'
     && item.file === 'src/client/locale.ts'))
 })
+
+test('installed Delta live footer uses direct-child update ordering and semantic palette', () => {
+  assert.match(source, /mark\(child, 'footer-update-slot'\)/)
+  assert.match(source, /data-dtd-live-footer-update-slot="1"/)
+  assert.match(source, /footerCard\.innerHTML = '<div><span data-dtd-live-footer-label><\/span><span data-dtd-live-footer-value><\/span>/)
+  assert.doesNotMatch(source, /footerCard\.innerHTML = .*<strong/)
+  assert.match(source, /data-dtd-live-footer-value\] \{[\s\S]*?font-weight: 400/)
+  assert.match(source, /data-dtd-live-hero-fish="1"\][\s\S]*?translateY\(-2px\)/)
+  const liveCss = source.slice(source.indexOf('const LIVE_PRESENTATION_CSS'),
+    source.indexOf('function installLiveNativePresentation'))
+  assert.doesNotMatch(liveCss, /var\(--dsw-/,
+    'the installed live footer and hero must use Delta tokens directly')
+  assert.match(liveCss, /var\(--dtd-popup-bg\)/)
+  assert.match(liveCss, /var\(--dtd-bg-hover\)/)
+})
