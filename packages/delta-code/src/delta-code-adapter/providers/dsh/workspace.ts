@@ -188,6 +188,9 @@ export function createWorkspaceMapTool(
           ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'read')
           : (() => { throw new Error('Session repository indexing is unavailable in this Host') })()
       const fs = requireHostFs(ctx, ['resolve', 'contains', 'listDir', 'lstat', 'processPath'], 'refusing local discovery fallback')
+      if (args.repositoryId !== undefined && !fs) {
+        throw new Error('attached repository indexing requires complete native Host FS capabilities')
+      }
       if (fs) {
         // Resolve both paths through Host FS. Derive display prefixes from
         // canonical process paths, not model-supplied absolute paths.
