@@ -36,12 +36,8 @@ export type {
   GatewaySyncWriteResult,
 } from './delta-suite-adapter/gateway-reasoning-apply.js'
 export { redactPathForUi, redactSensitiveText } from './redact.js'
-export {
-  installHostAuthCookiePruner,
-  parseAuthCookieNames,
-  selectStaleAuthCookieNames,
-} from './host-auth-cookies.js'
-export { installHostPrivacyGuards, shouldBlockPrivacyHttpRequest } from './host-privacy.js'
+export { parseAuthCookieNames, selectStaleAuthCookieNames } from './host-auth-cookies.js'
+export { installHostPrivacyGuards } from './host-privacy.js'
 export { installGatewayRetryGuard, isDeferredGatewayExhaustion } from './host-gateway-retry-guard.js'
 export {
   DELTA_SESSION_SEARCH_PATH,
