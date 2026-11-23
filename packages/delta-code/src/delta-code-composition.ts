@@ -76,6 +76,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
     // the tool was advertised at the beginning of the model step.
     let isCommandActive = true
     let commandUnmount: (() => void) | undefined
+    const registeredCommandNames = new Set<string>()
     type CommandBinding = { tool: ToolDefinition; controller: AbortController }
     const commandTargets = new Map<string, CommandBinding>()
     const injected = ctx.inject(['subprocess'], child => {
@@ -91,8 +92,8 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       if (commandUnmount) {
         // A changing definition graph needs a full plugin reconfiguration,
         // not a partial/ambiguous tool registry patch while a model is running.
-        if (incomingNames.size !== commandTargets.size ||
-            [...commandTargets.keys()].some(name => !incomingNames.has(name))) {
+        if (incomingNames.size !== registeredCommandNames.size ||
+            [...registeredCommandNames].some(name => !incomingNames.has(name))) {
           ctx.logger?.warn?.('delta-code: subprocess tool surface changed on remount; keeping tools disabled until a full plugin reload')
           return
         }
@@ -112,6 +113,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
           } as ToolDefinition)),
         }))
         commandUnmount = mountDeltaCodeFeatures(proxies, dshToolRegistrar(ctx, stats))
+        for (const name of incomingNames) registeredCommandNames.add(name)
       }
       // The Host is authoritative; never fall back to a previously mounted
       // child Context or local Node process while the service is withdrawn.
@@ -127,6 +129,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
       isCommandActive = false
       for (const binding of commandTargets.values()) binding.controller.abort()
       commandTargets.clear()
+      registeredCommandNames.clear()
       commandUnmount?.()
       commandUnmount = undefined
       const stop = (injected as { dispose?: () => Promise<void> } | null)?.dispose
