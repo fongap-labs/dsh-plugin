@@ -78,7 +78,7 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
     const injected = ctx.inject(['subprocess'], child => {
       if (!isCommandActive) return
       const commandFeatures = [
-        deltaCodeCodingCommands(createDshCodingCommandTools(child, settings)),
+        deltaCodeCodingCommands(createDshCodingCommandTools(child, settings, sessionRepositories)),
         deltaCodeQuality(createDshQualityTools(child, settings, resume, sessionRepositories)),
         deltaCodeRepositoryCommands(createDshRepositoryCommandTools(child, settings, sessionRepositories)),
       ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
