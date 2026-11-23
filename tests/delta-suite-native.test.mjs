@@ -315,39 +315,14 @@ test('Gateway preview reads Host Session selection on click, never user-entered 
   app.cleanup()
 })
 
-test('native Settings shows localized Host-unavailable errors without committing fake settings', async () => {
+test('removed network proxy and Vision Bridge have no client manager controls', () => {
   const app = harness()
-  const section = app.components.get('settings.section')
-  const controller = section.spec.inject().controller
-  const beforeProxy = app.features.getSnapshot().proxy
-  const beforeVision = app.features.getSnapshot().vision
-  const proxyInput = { mode: 'manual', httpProxy: 'http://127.0.0.1:7890',
-    httpsProxy: '', noProxy: 'localhost' }
-  const zh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.json'), 'utf8'))
-  const en = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/en.json'), 'utf8'))
   try {
-    assert.equal(await app.features.saveProxy(proxyInput), false)
-    assert.equal(await app.features.saveVision({ enabled: false }), false)
-    assert.equal(app.features.getSnapshot().proxy, beforeProxy)
-    assert.equal(app.features.getSnapshot().vision, beforeVision)
-    const tested = await app.features.testVisionEngine()
-    assert.equal(tested.ok, false)
-    assert.doesNotMatch(tested.message, /Mock.Local|succeeded/)
-    let markup = JSON.stringify(section.component({ controller }))
-    assert.ok(markup.includes(zh.networkProxy.hostUnavailable),
-      'configuration surface must show that Host proxy writes were not persisted')
-    assert.ok(markup.includes(zh.visionBridge.hostUnavailable),
-      'vision controls must show that the Host rejected saving')
-    assert.ok(markup.includes('alert'), 'failures use accessible role alerts')
-
-    app.documentElement.lang = 'en'
-    app.context.observers.forEach(notify => notify())
-    await app.features.saveProxy(proxyInput)
-    await app.features.saveVision({ enabled: false })
-    markup = JSON.stringify(section.component({ controller }))
-    assert.ok(markup.includes(en.networkProxy.hostUnavailable))
-    assert.ok(markup.includes(en.visionBridge.hostUnavailable))
-    assert.equal(app.features.getSnapshot().visionEngineReady, false)
+    const state = app.features.getSnapshot()
+    for (const id of ['proxy', 'effectiveProxy', 'proxyBusy', 'vision', 'visionEngineReady']) {
+      assert.equal(Object.prototype.hasOwnProperty.call(state, id), false)
+    }
+    for (const op of ['saveProxy', 'saveVision', 'testVisionEngine']) assert.equal(op in app.features, false)
   } finally { app.cleanup() }
 })
 

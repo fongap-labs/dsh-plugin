@@ -805,7 +805,7 @@
 }
 
 /* ============================================================================
- * 11. Session Lock Shield, Move/Delete Modals, Network Proxy & 1-Line Errors
+ * 11. Session Lock Shield, Move/Delete Modals, 1-Line Errors
  * ============================================================================ */
 .dtd-lock-shield {
   position: absolute;
@@ -1036,7 +1036,7 @@
   cursor: not-allowed;
 }
 
-/* Proxy & PIN Settings rows inside .dtd-page */
+/* PIN settings rows inside .dtd-page */
 .dtd-form-stack {
   display: flex;
   flex-direction: column;

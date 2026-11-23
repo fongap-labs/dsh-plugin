@@ -1,31 +1,10 @@
 /**
  * Host-local state persistence for @fongap-labs/delta-suite.
  * Stores hashed session-lock PIN (scrypt), locked/moved/deleted session state,
- * and network proxy configuration in the active profile directory.
+ * in the active profile directory.
  * Never exports secret hashes to the Client and keeps zero static node:* imports
  * to stay compatible with `tsconfig.json` `"types": []`.
  */
-
-export type ProxyMode = 'system' | 'direct' | 'manual'
-
-export interface ProxySettings {
-  mode: ProxyMode
-  httpProxy: string
-  httpsProxy: string
-  noProxy: string
-}
-
-export type VisionBridgeMode = 'auto' | 'paste-to-path' | 'instant-transcribe'
-
-export interface VisionBridgeSettings {
-  enabled: boolean
-  mode: VisionBridgeMode
-  provider: string // 'auto' | 'openai-compat' | 'gemini' | 'modlens'
-  customEndpoint: string
-  customApiKey: string
-  customModel: string
-  autoWrapModels: boolean
-}
 
 export interface PinHashRecord {
   salt: string
@@ -42,8 +21,6 @@ export interface DeltaHostState {
   // Private durable ownership proof for a native archive Delta initiated.
   // Legacy states omit this; never guess ownership from lockedSessionIds.
   nativeArchiveOwnedSessionIds?: string[]
-  proxy: ProxySettings
-  vision: VisionBridgeSettings
 }
 
 export type SessionLockMode = 'totp' | 'pin' | 'none'
@@ -55,33 +32,10 @@ export interface PublicDeltaHostState {
   lockedWorkspaceIds: string[]
   movedSessions: Record<string, string>
   deletedSessionIds: string[]
-  proxy: ProxySettings
-  vision: VisionBridgeSettings
 }
 
 export function loadNodeModule<T = any>(specifier: string): Promise<T> {
   return (Function('m', 'return import(m)') as (m: string) => Promise<T>)(specifier)
-}
-
-export function defaultProxySettings(): ProxySettings {
-  return {
-    mode: 'system',
-    httpProxy: '',
-    httpsProxy: '',
-    noProxy: '',
-  }
-}
-
-export function defaultVisionSettings(): VisionBridgeSettings {
-  return {
-    enabled: true,
-    mode: 'auto',
-    provider: 'auto',
-    customEndpoint: '',
-    customApiKey: '',
-    customModel: '',
-    autoWrapModels: true,
-  }
 }
 
 // Persisted session grouping is a string-keyed JSON dictionary. Exclude
@@ -123,30 +77,6 @@ export function normalizeDeltaState(raw: unknown): DeltaHostState {
     : undefined
   const totpSecret = typeof obj.totpSecret === 'string' ? normalizeBase32Secret(obj.totpSecret) : undefined
 
-  const rawProxy = obj.proxy && typeof obj.proxy === 'object' ? (obj.proxy as Record<string, unknown>) : {}
-  const mode: ProxyMode = rawProxy.mode === 'direct' || rawProxy.mode === 'manual' ? rawProxy.mode : 'system'
-  const proxy: ProxySettings = {
-    mode,
-    httpProxy: typeof rawProxy.httpProxy === 'string' ? rawProxy.httpProxy.trim() : '',
-    httpsProxy: typeof rawProxy.httpsProxy === 'string' ? rawProxy.httpsProxy.trim() : '',
-    noProxy: typeof rawProxy.noProxy === 'string' ? rawProxy.noProxy.trim() : '',
-  }
-
-  const rawVision = obj.vision && typeof obj.vision === 'object' ? (obj.vision as Record<string, unknown>) : {}
-  const visionMode: VisionBridgeMode =
-    rawVision.mode === 'paste-to-path' || rawVision.mode === 'instant-transcribe'
-      ? rawVision.mode
-      : 'auto'
-  const vision: VisionBridgeSettings = {
-    enabled: typeof rawVision.enabled === 'boolean' ? rawVision.enabled : true,
-    mode: visionMode,
-    provider: typeof rawVision.provider === 'string' && rawVision.provider.trim() ? rawVision.provider.trim() : 'auto',
-    customEndpoint: typeof rawVision.customEndpoint === 'string' ? rawVision.customEndpoint.trim() : '',
-    customApiKey: typeof rawVision.customApiKey === 'string' ? rawVision.customApiKey.trim() : '',
-    customModel: typeof rawVision.customModel === 'string' ? rawVision.customModel.trim() : '',
-    autoWrapModels: typeof rawVision.autoWrapModels === 'boolean' ? rawVision.autoWrapModels : true,
-  }
-
   return {
     ...(pinHash ? { pinHash } : {}),
     ...(totpSecret ? { totpSecret } : {}),
@@ -155,8 +85,6 @@ export function normalizeDeltaState(raw: unknown): DeltaHostState {
     movedSessions: moved,
     deletedSessionIds: deleted,
     ...(owned.length > 0 ? { nativeArchiveOwnedSessionIds: owned } : {}),
-    proxy,
-    vision,
   }
 }
 
@@ -169,11 +97,6 @@ export function toPublicHostState(state: DeltaHostState): PublicDeltaHostState {
     lockedWorkspaceIds: [...state.lockedWorkspaceIds],
     movedSessions: { ...state.movedSessions },
     deletedSessionIds: [...state.deletedSessionIds],
-    proxy: { ...state.proxy },
-    vision: {
-      ...state.vision,
-      customApiKey: state.vision.customApiKey ? '********' : '',
-    },
   }
 }
 
@@ -458,8 +381,6 @@ export function createHostStateStore(ctx: { get?(name: string): unknown }): Host
         deletedSessionIds: [...cur.deletedSessionIds],
         ...(cur.nativeArchiveOwnedSessionIds
           ? { nativeArchiveOwnedSessionIds: [...cur.nativeArchiveOwnedSessionIds] } : {}),
-        proxy: { ...cur.proxy },
-        vision: { ...cur.vision },
         ...(cur.pinHash ? { pinHash: { ...cur.pinHash } } : {}),
       }))
       await write(mutated)

@@ -50,8 +50,6 @@ export {
   scoreAndExtractSessionHit,
 } from './host-search.js'
 export type { HostSearchResponsePayload, HostSessionSearchHit, SessionTextBlock } from './host-search.js'
-export { DELTA_PROXY_PATH, installHostProxyManager, parseWindowsProxyServer, validateProxyUrl } from './host-proxy.js'
-export type { EffectiveProxyState } from './host-proxy.js'
 export {
   DELTA_SESSION_DELETE_PATH,
   DELTA_SESSION_DELETE_UNGROUPED_PATH,
@@ -74,29 +72,8 @@ export {
 } from './host-state.js'
 export type {
   DeltaHostState,
-  ProxyMode,
-  ProxySettings,
   PublicDeltaHostState,
   SessionLockMode,
 } from './host-state.js'
-
-export {
-  DELTA_VISION_CONFIG_PATH,
-  DELTA_VISION_PASTE_PATH,
-  DELTA_VISION_RECOGNIZE_PATH,
-  DELTA_VISION_STATUS_PATH,
-  detectImageMime,
-  formatEvidenceBlock,
-  installHostVisionOps,
-  parseStructuredOutput,
-  parseYamlProfile,
-  readImageFile,
-  recognizeImage,
-  registerVisionTools,
-  resolveVisionAccount,
-  savePastedImage,
-} from './host-vision.js'
-export type { VisionAccount, VisionEvidence } from './host-vision.js'
-export type { VisionBridgeMode, VisionBridgeSettings } from './host-state.js'
 
 export { apply } from './delta-suite-composition.js'

@@ -444,3 +444,7 @@
 - 删除 `data-dtd-nav-tail` 的主题规则。公开能力缺失时继续保留 Harness 原生 UI；sidebar 搜索位置/间距等能力仍为未交付，不改变 `feature-readiness.json` 的 `false` 状态。
 - 为避免削弱现有保护，本次保留客户端锁定、墓碑、受限命令和 sole-workspace 菜单的 DOM 呈现/事件守卫，以及当前 Host 插件业务调用路径上的策略校验。它们均是过渡性插件路径，不构成 Host 原生授权边界；工作区删除前置钩子缺失时不能宣称已实现默认工作区保护。
 - ZIP3 客户端区域和主题哈希继续精确校验。该源码回退不替代 Windows Harness 真实交互验收；Issue #333 保持开放。
+
+## 2026-11-24：删除代理与视觉桥
+
+按产品裁剪要求移除 Delta Suite 自带的网络代理设置和 Vision Bridge（包括 Host 路由、模型入参桥接、状态及配置）。不改变 Harness 自有图片/附件能力，保留模型路由限制与请求脱敏。该改动在 Delta Suite 的新构建中生效，不能替代 Windows 实机验收。

@@ -274,3 +274,43 @@ test('live presentation preserves native actions and restores all owned changes'
   assert.match(client, /if \(canUsePortal && scheduleRow && nav\)/)
   assert.match(client, /source instanceof HTMLElement\) mark\(source, 'session-source'\)/)
 })
+
+test('Delta sidebar pins cannot unmount the scheduled-task navigation layout', () => {
+  const client = read(base + 'client.ts')
+  assert.match(client, /mark\(button, 'primary-unpin'\)/)
+  assert.match(client, /mark\(moreRow, 'more'\)/)
+  assert.match(client, /unmark\(moreRow, 'more'\)/)
+  assert.match(client, /data-dtd-live-primary-unpin/)
+  assert.match(client, /data-dtd-live-more/)
+  assert.match(client, /width: 16px !important/)
+  assert.match(client, /translateY\(3px\)/)
+  assert.match(client, /syncFooter\(sidebar\)/)
+  assert.match(client, /data-dtd-live-footer-card/)
+  assert.match(client, /readLiveAccountState/)
+  assert.ok(client.includes("values[1]!.textContent = label ? '暂无数据' : 'Unavailable'"))
+})
+
+test('Delta Suite contains no proxy or Vision Bridge service registration or front-end settings', () => {
+  const composition = read('packages/delta-suite/src/delta-suite-composition.ts')
+  const main = read('packages/delta-suite/src/index.ts')
+  const client = read(base + 'client.ts')
+  const zh = JSON.parse(read('packages/delta-suite/locale/zh.json'))
+  const en = JSON.parse(read('packages/delta-suite/locale/en.json'))
+  for (const removed of ['installHostProxyManager', 'installHostVisionOps', 'integrations.proxy-settings', 'integrations.vision-bridge']) {
+    assert.equal(composition.includes(removed), false, removed)
+    assert.equal(main.includes(removed), false, removed)
+  }
+  for (const removed of ['saveProxy(', 'saveVision(', 'testVisionEngine(', 'data-delta-proxy-card',
+    'data-delta-vision-card', 'PrivacyVisionSettings', 'copy.networkProxy', 'copy.visionBridge']) {
+    assert.equal(client.includes(removed), false, removed)
+  }
+  for (const copy of [en, zh]) {
+    assert.equal('networkProxy' in copy, false)
+    assert.equal('visionBridge' in copy, false)
+    assert.equal(Object.keys(copy.ui).some(x => x.startsWith('vision')), false)
+  }
+  const policy = read('packages/delta-suite/src/privacy-bridge.ts')
+  assert.match(policy, /redactModelRequest/)
+  assert.match(policy, /deepSeekModelsEnabled/)
+  assert.equal(policy.includes('requestVisionDescription'), false)
+})

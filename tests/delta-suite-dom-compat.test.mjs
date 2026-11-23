@@ -342,22 +342,16 @@ test('native turn error rows and details remain Harness-owned', () => {
   }
 })
 
-test('Workspace TOTP and Host Vision stay localized without private client composer capture', () => {
+test('Workspace TOTP remains localized and the retired Vision Bridge stays absent', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/delta-suite/locale/en.json', import.meta.url)), 'utf8'))
   const zh = JSON.parse(readFileSync(fileURLToPath(new URL('../packages/delta-suite/locale/zh.json', import.meta.url)), 'utf8'))
-  const host = readFileSync(fileURLToPath(new URL('../packages/delta-suite/src/host-vision.ts', import.meta.url)), 'utf8')
   assert.equal(en.workspaceMenu.lockWorkspace, 'Lock workspace')
   assert.equal(zh.workspaceMenu.lockWorkspace, '\u9501\u5b9a\u5de5\u4f5c\u533a')
-  assert.ok(en.visionBridge.title && zh.visionBridge.title)
+  assert.equal('visionBridge' in en, false)
+  assert.equal('visionBridge' in zh, false)
+  assert.equal('networkProxy' in en, false)
+  assert.equal('networkProxy' in zh, false)
   assert.doesNotMatch(source, /installClientVisionBridge|stopVisionBridge|insertComposerText|resolveWriteTarget/)
-  assert.doesNotMatch(source, /data-composer-input|HTML(?:Input|TextArea)Element\.prototype/)
-  assert.doesNotMatch(source, /document\.execCommand\(['"`]insertText/)
-  assert.doesNotMatch(source, /(?:document|window)\.addEventListener\(['"`](?:paste|drop)['"`]/)
-  assert.equal(readiness.required.vision_bridge, false)
-  assert.equal(readiness.required.vision_bridge_admission_adapter, false)
   assert.match(source, /isWorkspaceLocked/)
-  assert.match(host, /installHostVisionOps/)
-  assert.match(host, /resolveVisionAccount/)
-  // Source-level tests never claim an unverified Windows Host acceptance.
   assert.equal(readiness.required.workspace_initial_collapse, false)
 })

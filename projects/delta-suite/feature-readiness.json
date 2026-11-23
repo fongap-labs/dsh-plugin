@@ -20,9 +20,6 @@
     "deepseek_account_route_label_preference": true,
     "deepseek_model_route_toggle": false,
     "request_redaction": false,
-    "vision_bridge": false,
-    "vision_bridge_admission_adapter": false,
-    "generic_vision_protocols": false,
     "mcp_server_management": false
   },
   "note": "Public API review baseline: deepseek-ai/deepseek-harness@2e39e70496aa02986ca6a820c5d497e816b69d7e (master, 2026-11-18; documentation only, no runtime version pin). Confirmed public contracts cover native_personalization, theme_tokens, brand_slots, generic_model_label_preference and deepseek_account_route_label_preference through conversation.input.model.label; account display uses only declared provider id/name metadata and an independent preference, never credential material. The generic model label shows only the model name supplied by the public slot and follows its separate user preference; no credential fields are read. Sidebar ordering/search placement, workspace initial collapse/delete guard, full hover-card layout and RunningStatus copy remain false because no suitable public contract exists. Runtime capability detection remains version-agnostic; DOM takeover, private Store access and method interception are retired. The Delta-owned Settings and installed-bundle configuration now show the unverified four native UI contracts as native fallback; the original false readiness bits remain unchanged. Upstream Harness ModelCatalog/ModelSelect own adapter-advertised reasoning choices; this does not verify Gateway metadata propagation or installed Host compatibility. Source tests do not prove Host compatibility or Windows acceptance.",

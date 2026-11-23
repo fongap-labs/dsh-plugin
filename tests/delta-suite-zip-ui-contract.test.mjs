@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '587e37e22d478ac7f4d5d9c9b82f173baecf0613')
+    assert.equal(sha, 'faf0d256ad12abc27482ee190aa403b087ee914a')
   })
   it('does not style native Host inputs, hero, guide cards or global token scales', () => {
     assert.doesNotMatch(css, /\[class[*~^$|]?=/)
