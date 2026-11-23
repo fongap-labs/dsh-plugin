@@ -54,7 +54,7 @@ export async function inspectProject(cwd: string, root: string): Promise<Project
 
 /** DSH FS is authoritative when mounted; do not switch to local Node reads on refusal. */
 export async function inspectProjectWithHost(
-  ctx: Context, exec: { signal: AbortSignal }, cwd: string, root: string,
+  ctx: Context, exec: { signal: AbortSignal; repositoryId?: string }, cwd: string, root: string,
 ): Promise<ProjectProfile> {
   const fs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'readText'], 'refusing local profile fallback')
   if (!fs) return inspectProject(cwd, root)
