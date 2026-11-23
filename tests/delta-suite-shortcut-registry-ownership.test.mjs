@@ -36,9 +36,10 @@ test('Host ShortcutsService registry dispatch/invoke stays unmodified and uninvo
 
 test('ZIP3 client review pin rejects reintroducing private shortcut method overrides', () => {
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
-  const anchor = '  let observer: MutationObserver | undefined\n  const frameScheduler = createFrameScheduler(() => sync())'
+  const anchor = '// Unknown Host commands stay in Harness native shortcut handling.'
   assert.ok(normalized.includes(anchor))
-  const modified = normalized.replace(anchor, '  getShortcutsService().registry.dispatch = () => {}\n' + anchor)
+  const modified = normalized.replace(anchor,
+    anchor + '\n  getShortcutsService().registry.dispatch = () => {}')
   assert.notEqual(modified, normalized)
   assert.throws(() => verifyApprovedZip3Client(emitted, modified), /approved compatibility adapter changed/)
 })
