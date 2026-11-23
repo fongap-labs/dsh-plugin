@@ -6,6 +6,8 @@
 
 - 维护: 将 Delta 与 Harness 共用插件仓库更名为 plugins，统一三个产品的 Release 目标、工作区名称和操作文档；保留原有发布目录及历史记录。
 
+- 维护: 明确非空 Git 提交正文必须使用中文。
+
 - 维护 [breaking]: 将 Delta Suite、Delta Desktop、Delta Code 的源码目录、包名、Cordis 标识和发行资产统一为 delta-*，不再提供旧名称兼容入口；原有安装需先卸载再安装新包。
 
 - 维护: 统一智能体规则入口并整理相关文档引用。
