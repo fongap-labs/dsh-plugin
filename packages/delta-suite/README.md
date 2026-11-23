@@ -32,7 +32,7 @@
 
 当前源码的**下一安装测试候选版本为 `0.1.0-beta.2`**。只在全部代码和中央 CI 门禁通过后，由操作者打开 [Action Worker · 手动发布应用](https://github.com/fongap-labs/action-worker/actions/workflows/release-app.yml)，选择 **Run workflow**，填入：
 
-- `source_repository`：`fongap-labs/dsh-plugin`
+- `source_repository`：`fongap-labs/plugins`
 - `requested_version`：`0.1.0-beta.2`
 - `product`：`delta-suite`
 

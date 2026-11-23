@@ -1,6 +1,6 @@
 # Delta Desktop (B2 prototype)
 
-`@fongap-labs/delta-desktop` is an **independent DeepSeek Harness plugin** maintained as a sibling of `delta-suite` and `delta-code` in the `fongap-labs/dsh-plugin` monorepo. It is not an Electron application.
+`@fongap-labs/delta-desktop` is an **independent DeepSeek Harness plugin** maintained as a sibling of `delta-suite` and `delta-code` in the `fongap-labs/plugins` monorepo. It is not an Electron application.
 
 - Own package manifest, Host and Client entry points, Cordis ID, configs and lifecycle.
 - No imports, dependencies or runtime calls to Suite or Code. A pure lifecycle utility has been **copied from Suite** under the MIT license and is independently maintained.
