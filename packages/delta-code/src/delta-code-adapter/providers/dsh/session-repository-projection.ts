@@ -1,6 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import {
-  SESSION_REPOSITORY_EMPTY, foldSessionRepositoryEvent, parseSessionRepositoryState,
+  SESSION_REPOSITORY_EMPTY, foldSessionRepositoryEvent, parseSessionRepositoryState, parseSessionRepositoryView,
   type SessionRepositoryState,
 } from '../../../delta-code-repository/session-repository-policy.js'
 
@@ -31,10 +31,11 @@ export function registerNativeSessionRepositories(ctx: Context): NativeSessionRe
   }
   const definition = {
     key: 'deltaCodeSessionRepositories',
-    stateVersion: 1,
+    stateVersion: 2,
     stateSchema: { parse: parseSessionRepositoryState },
     init: () => ({ ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }),
     apply: foldSessionRepositoryEvent,
+    wire: { viewSchema: { parse: parseSessionRepositoryView }, view: state => state.bindings, summary: false },
   }
   const injection = ctx.inject(['sessionProjections'], child => {
     if (!isActive) return
