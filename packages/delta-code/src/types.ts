@@ -26,6 +26,8 @@ export interface CodeWorkerConfig {
   enabled?: boolean
   autoRouting?: boolean
   workspaceRoot?: string
+  /** Paths explicitly selected by the user in Plugin settings; no implicit discovery. */
+  sessionRepositories?: { readOnlyRoots?: string[] }
   git?: {
     enabled?: boolean
     command?: string
@@ -52,6 +54,7 @@ export interface Settings {
   enabled: boolean
   autoRoutingEnabled: boolean
   workspaceRoot: string
+  sessionReadOnlyRepositories: string[]
   gitEnabled: boolean
   gitCommand: string
   allowWorktreeWrites: boolean
