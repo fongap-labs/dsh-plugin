@@ -238,7 +238,13 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
     },
     async stat(target) {
       if (options.noDirectory) return undefined
+      if (/\.(?:ts|tsx|js|json)$/.test(target.path)) {
+        return { type: 'file', size: Buffer.byteLength(options.fileContent ?? 'export const value = 1') }
+      }
       return { type: 'directory' }
+    },
+    contains(parent, target) {
+      return target.path === parent.path || target.path.startsWith(parent.path + '/')
     },
     async readText(target) { return options.fileContent ?? 'export const value = 1\\n' },
     async writeText(target, content) { writes.push({ path: target.path, content }) },
