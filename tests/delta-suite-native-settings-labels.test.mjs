@@ -198,6 +198,14 @@ test('native menu material and all interactive semantic colors use Delta theme v
     '--dsw-menu-surface-fill',
     '--dsw-menu-backdrop-filter',
     '--dsw-alias-menu-icon',
+    '--dsw-hovercard-bg',
+    '--dsw-alias-hovercard-bg',
+    '--dsw-alias-hovercard-label-primary',
+    '--dsw-alias-hovercard-label-secondary',
+    '--dsw-alias-hovercard-label-tertiary',
+    '--dsw-alias-hovercard-state-done',
+    '--dsw-alias-hovercard-state-error',
+    '--dsw-alias-bg-layer-1',
     '--dsw-alias-interactive-bg-hover',
     '--dsw-alias-interactive-bg-hover-danger',
     '--dsw-alias-label-primary',
@@ -217,6 +225,11 @@ test('native menu material and all interactive semantic colors use Delta theme v
   }
   assert.match(source, /'--dsw-menu-backdrop-filter': \{ light: 'none', dark: 'none' \}/)
   assert.match(source, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
+  assert.match(source, /'--dsw-alias-hovercard-bg': DELTA_PALETTE\.popupBg/)
+  assert.match(source, /'--dsw-alias-hovercard-label-primary': DELTA_PALETTE\.labelPrimary/)
+  assert.match(source, /'--dsw-alias-hovercard-label-secondary': DELTA_PALETTE\.labelSecondary/)
+  assert.match(source, /'--dsw-alias-hovercard-label-tertiary': DELTA_PALETTE\.labelMuted/)
+  assert.match(source, /'--dsw-alias-bg-layer-1': DELTA_PALETTE\.surface/)
 })
 
 
