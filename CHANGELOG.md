@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Suite 提供不绑定 Harness 版本的原生界面源码构建补丁，按包身份和结构检测导航、首页图标及中英文标题，结构变化时明确停止。
+
 - 维护 [breaking]: 删除 Delta Desktop 实验插件、源码和发布清单，清理构建及测试入口，保留 Delta Suite 与 Delta Code。
 
 - 维护: 配合 Action Worker 将中央插件测试包目录从 `tests/packs/dsh-plugin/` 更名为 `tests/packs/plugins/`，保留现有回归测试与发布工作流的执行边界。

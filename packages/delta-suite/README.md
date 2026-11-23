@@ -6,6 +6,23 @@
 - 插件配置条目：`delta-suite`
 - 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
 
+## Harness 原生界面适配（按结构检测，不绑定版本）
+
+仅运行 `delta-suite` 插件时，Harness 原生侧栏和空白首页的整体布局仍由宿主管理。需要将原生「新会话」移动到「定时任务」下方、折叠品牌占位、改变 Hero 图标顺序和宿主页面标题时，**必须在 Delta/Harness 客户端源码构建前应用补丁**。补丁不能修改用户设备上已安装的 Harness 二进制，也不会随 npm 插件加载自动修改宿主源码。
+
+维护在 `scripts/apply-harness-ui-patch.mjs`，根据 Harness 包的 **package.json 身份 + 源码关键结构**定位目标；不比较版本号、Tag、Commit，也不固定安装路径。只修改原生 Sidebar、Hero、插件管理和定时任务界面所需的 7 个文件。改动严格限定在 Delta 模式的 CSS；中文与英文页面标签从宿主词典源头修改，保留原生按钮、React 事件、权限和快捷键。预览徽标仅在 Delta 模式隐藏，鲸鱼仍为原生 SVG 动画。
+
+使用方式（`<checkout>` 指已经检出的 Harness/Delta 源码根目录，而非 `app.asar`）：
+
+```sh
+node packages/delta-suite/scripts/apply-harness-ui-patch.mjs --root <checkout> --check
+node packages/delta-suite/scripts/apply-harness-ui-patch.mjs --root <checkout> --apply
+```
+
+先 `--check`，确认所有锚点可匹配，再 `--apply`。脚本在**所有目标检查成功后**才开始写入，可重复执行；如果上游改名、搬迁或改变 JSX/CSS/文案结构，会明确报错并停止，不猜测并不悄悄跳过。完成后由客户端本身的类型检查、UI 测试和 Windows 实机截图验收。当前补丁不自动为尚未具备源码构建流水线的 Delta 仓库接入构建；发布 npm 插件并不等于此布局已经在最终客户端生效。
+
+预期宽侧栏顺序为 **插件管理 → 定时任务 → 开始对话 → 更多**，新会话实际处理器原样保留；窄侧栏/Windows 标题栏沿用原生创建入口。任务页面标题按「定时任务」执行，与页面用途保持一致。
+
 ## Gateway Reasoning Effort（公开模型目录兼容）
 
 本套件的 `decodeGatewayReasoningCatalog`、`toHarnessReasoningEfforts`、`mapGatewayReasoningChoice` 和 `previewGatewayReasoningSync` 仍为无网络副作用的纯接口。另有 Harness 官方 Models 页面底部的 **Gateway 推理等级同步** 扩展区域：用户仅指定 Provider 设置命名空间，点击「读取当前会话并预览 Gateway」后，界面从 Harness 公开的 per-Session `modelDirectories` 获取当前 Provider/模型/Effort，再，插件 Host 侧才使用已配置的 Gateway HTTPS 地址和当前 Host Credential 请求 `/models`，返回等级差异；勾选明确批准后，才通过 Host `settings.mutate` 的版本化配置写入修改该模型。浏览器不接触或持久化 API Key，服务不在启动时主动刷新或探测；当前 Off 在原生适配器中仍不受支持。Gateway 模型的可选等级属于当前访问 Key 的请求范围，`native_confirmed` 不等于所有物理节点承诺。`Default` 不发送思考字段，显式 `Off` 的 Gateway 协议意图是 `none`（OpenAI 兼容）或 `thinking.type=disabled`（Anthropic）；但当前 Harness `llm-pi-ai` 把 Off 序列化为省略字段，因此 `toHarnessReasoningEfforts` **不向原生模型菜单声明 Off**。这两种语义不可混同。详见 [Gateway Effort 契约](../../docs/DELTA_SUITE_GATEWAY_REASONING.md)。
