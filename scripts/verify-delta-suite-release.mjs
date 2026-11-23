@@ -175,7 +175,7 @@ export function hasUnsafeHostPatch(source) {
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
 // Reviewed 2026-11-19: keep only Delta-owned CSS and published Theme API tokens.
 // Pin the reviewed Delta design-system token update; retain strict Git blob verification.
-const ZIP3_THEME_BLOB = '06dd0c3c8934064cf994bdd3622199d34a08abe7'
+const ZIP3_THEME_BLOB = '1bc86d3be948e39269a334e69da2d950811a9ec3'
 // Reject renewed private Host styling even if an emitted asset digest is edited.
 // Reading an official Theme API token from a Delta-owned component is allowed;
 // declaring Host --dsw-* variables in injected global CSS is not.
