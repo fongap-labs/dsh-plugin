@@ -35,6 +35,8 @@ export interface RouteResult {
   executionWaves: number[][]
   verification: string[]
   stopConditions: string[]
+  /** Complex work: use existing Host code navigation before guessing relationships. */
+  codeNavigation?: { tools: string[]; evidenceRequired: string[] }
   milestones?: Array<{ objective: string; acceptance: string; dependsOn: number[]; writePaths: string[] }>
   nativeTodoDraft?: Array<{ content: string; status: 'pending' }>
   acceptanceHints?: Array<{ task: string; criterion: string }>
@@ -231,6 +233,20 @@ export function decideCodingWorkflow(
     executionWaves,
     verification: [...profile.verification],
     stopConditions: [...REQUIRED_WORKFLOW_STOP_CONDITIONS],
+    ...((input.scope !== 'small' || input.risk === 'high') &&
+      ['feature', 'refactor', 'bugfix', 'review'].includes(input.taskKind) ? {
+      codeNavigation: {
+        tools: [
+          'Start with existing Host search or code_workspace_map bounded queries; do not scan the entire repository.',
+          'When definitions or call sites are ambiguous and the native lsp tool is available, use its goToDefinition/findReferences/goToImplementation operations (one-based UTF-16 cursor). The native tool owns the LSP provider; do not start another indexer.',
+          'If native lsp or an authorized codegraph provider is missing or denied, use exact text search and read only relevant source; report that a relationship is inferred rather than verified.',
+        ],
+        evidenceRequired: [
+          'Identify the source definitions, actual references and related tests with file/line evidence before multi-file edits.',
+          'After editing, re-check the affected references and run focused tests against the current Git diff.',
+        ],
+      },
+    } : {}),
     ...(milestones ? { milestones, ...draftNativeTodoHandoff(milestones) } : {}),
   }
 }
@@ -268,6 +284,10 @@ export function createWorkflowRouteTool(
       executionWaves: { type: 'array', required: true, items: { type: 'array', items: { type: 'integer' } } },
       verification: { type: 'array', required: true, items: { type: 'string' } },
       stopConditions: { type: 'array', required: true, items: { type: 'string' } },
+      codeNavigation: { type: 'object', additionalProperties: false, properties: {
+        tools: { type: 'array', required: true, items: { type: 'string' } },
+        evidenceRequired: { type: 'array', required: true, items: { type: 'string' } },
+      } },
       nativeTodoDraft: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
         content: { type: 'string', required: true },
         status: { type: 'string', required: true },
@@ -296,6 +316,8 @@ export function createWorkflowRouteTool(
           ...value.nativeTodoDraft.map((item, index) => 'Todo #' + index + ': ' + item.content + ' [pending]'),
           'Acceptance hints map by exact Todo content; delivery gate still requires real executed checks.',
         ] : []),
+        ...value.codeNavigation?.tools.map(line => 'Navigate: ' + line) ?? [],
+        ...value.codeNavigation?.evidenceRequired.map(line => 'Evidence: ' + line) ?? [],
         ...value.verification.map(line => 'Verify: ' + line),
         ...value.stopConditions.map(line => 'Stop: ' + line),
       ].join('\n') }]
