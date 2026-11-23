@@ -527,12 +527,12 @@ export function planPatches(root) {
  * they can all be rewritten safely or block launching the client.
  */
 export function auditThemeTokens(hostStylesheet, deltaClientSource) {
-  const official = [...new Set([...hostStylesheet.matchAll(/^\\s*(--dsw-(?:alias|specific|menu)-[\\w-]+)\\s*:/gm)]
+  const official = [...new Set([...hostStylesheet.matchAll(/^\s*(--dsw-(?:alias|specific|menu)-[\w-]+)\s*:/gm)]
     .map(match => match[1]))].sort()
   const begin = deltaClientSource.indexOf('const TOKENS:')
   const end = deltaClientSource.indexOf('function language()', begin)
   requireShape(begin >= 0 && end > begin, 'Delta Theme API overrides dictionary')
-  const names = new Set([...deltaClientSource.slice(begin, end).matchAll(/'(--dsw-[\\w-]+)':/g)]
+  const names = new Set([...deltaClientSource.slice(begin, end).matchAll(/'(--dsw-[\w-]+)':/g)]
     .map(match => match[1]))
   return {
     official: official.length,
@@ -555,7 +555,7 @@ function main() {
     const audit = auditThemeTokens(readFileSync(upstreamTheme, 'utf8'), deltaClient)
     process.stdout.write('[delta-suite theme] ' + audit.mapped + '/' + audit.official +
       ' native semantic color tokens covered' + (audit.unmapped.length ? '; new roles: ' +
-      audit.unmapped.join(', ') : '') + '\\n')
+      audit.unmapped.join(', ') : '') + '\n')
   }
   // All targets are validated before the first write.
   if (write) for (const item of plan) if (item.changed) writeFileSync(item.file, item.newText)
