@@ -25,7 +25,7 @@ function hostOutput(stdout, exitCode = 0, stderr = '') {
   }
 }
 
-async function fixture({ status = '## main\0', statusAfter, deny = false, drift = false, mounted = true, allowGit = true, transientOnce = false, returnedFailure, unborn = false } = {}) {
+async function fixture({ status = '## main\0', statusAfter, statusAfterReadCount = 1, deny = false, drift = false, mounted = true, allowGit = true, transientOnce = false, returnedFailure, unborn = false } = {}) {
   const workspace = await mkdtemp(join(tmpdir(), 'dsh-native-resume-'))
   const commands = []
   const agent = { session: { id: 'session-one' } }
@@ -71,7 +71,7 @@ async function fixture({ status = '## main\0', statusAfter, deny = false, drift 
         if (spec.argv[1] === 'status') {
           statusReads++
           const initial = unborn && status === '## main\0' ? '## No commits yet on main\0' : status
-          return hostOutput(statusReads > 1 && statusAfter !== undefined ? statusAfter : initial)
+          return hostOutput(statusReads > statusAfterReadCount && statusAfter !== undefined ? statusAfter : initial)
         }
         throw new Error('Unexpected Git args')
       },
@@ -212,7 +212,7 @@ describe('Delta Code Worker native session resume', () => {
       assert.equal(actual.stage, 'blocked')
       assert.match(actual.blockers.join(' '), /Host Git inspection/)
     } finally { await unexpected.cleanup() }
-    const drift = await fixture({ unborn: true, statusAfter: '## main\0' })
+    const drift = await fixture({ unborn: true, statusAfter: '## main\0', statusAfterReadCount: 2 })
     try {
       drift.emit(TASKS)
       const actual = await drift.tool.execute({}, execute(drift.agent))
