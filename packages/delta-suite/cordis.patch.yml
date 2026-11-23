@@ -2,9 +2,7 @@
 - insert:
     - id: delta-suite
       name: '@fongap-labs/delta-suite'
-      config:
-        deepSeekModelsEnabled: true
-        redactionEnabled: true
+      config: {}
     # Install the official backend on the Profile layer so all agent presets
     # receive the same pre-step pressure and context-overflow checks.
     - id: delta-global-compaction
