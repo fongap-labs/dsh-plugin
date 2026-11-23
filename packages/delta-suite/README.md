@@ -156,3 +156,7 @@ pnpm link:dev delta-suite
 - 当前仓库 `main` 合并不代表用户已安装新的 Beta 包；必须按既有人工发布流程生成、安装并在隔离 Profile 中启用更新后的 Delta Suite 包，才能验证插件主题与悬浮卡修改。
 - 原生会话菜单项的排序变更在 `scripts/apply-harness-ui-patch.mjs` 中，使用 `--check` 核对宿主源码结构后由客户端构建入口应用；仅更新普通插件无法重排该原生菜单。
 - 针对会话信息卡新增 Light/Dark 双主题文字对比度单测（最低 4.5:1），覆盖标题、路径/时间与状态文字；CI 不能替代 Windows 客户端视觉检查。
+
+## P0-3 自有 UI 配色修订（2026-11-24）
+
+Delta 自有弹窗、搜索、MCP 和助手辅助组件只消费 `--dtd-*` 语义 Token，不在缺省链路回退到 Harness `--dsw-*`。浅色/深色颜色、弹窗、按钮与官方 Theme API override/dispose 添加静态回归检查。此修改不控制宿主第三方组件或原生菜单，也不能替代真实 Windows 的主题切换、对比度和回退验收。

@@ -293,3 +293,23 @@ test('native session hover card uses accessible Delta colors in light and dark m
     }
   }
 })
+
+test('Delta owned feature CSS uses defined Delta tokens without native fallbacks', () => {
+  const css = read('packages/delta-suite/src/feature-extras.css')
+  const defined = new Set([...theme.matchAll(/(--dtd-[a-z0-9-]+)\s*:/g)].map(x => x[1]))
+  assert.doesNotMatch(css, /--dsw-[a-z0-9-]+/)
+  assert.doesNotMatch(css, /color:\s*inherit\s*;/)
+  const used = new Set([...css.matchAll(/var\((--dtd-[a-z0-9-]+)/g)].map(x => x[1]))
+  assert.ok(used.size >= 12)
+  for (const key of used) assert.ok(defined.has(key), 'undefined owned token ' + key)
+})
+
+test('Delta colors remain scoped and use public reversible Theme API', () => {
+  assert.match(theme, /:root\[data-delta-ui="delta"\]/)
+  assert.match(theme, /data-ds-dark-theme/)
+  assert.match(source, /activeTheme\.overrideTokens\(DELTA_SUITE_OWNER, TOKENS\)/)
+  assert.match(source, /ownedLayer\?\.\(\)/)
+  assert.doesNotMatch(theme, /\[role=["'](?:menu|menuitem|tooltip|listbox)["']\]/)
+  const css = read('packages/delta-suite/src/feature-extras.css')
+  assert.doesNotMatch(css, /\[class[*~^$|]?=/)
+})
