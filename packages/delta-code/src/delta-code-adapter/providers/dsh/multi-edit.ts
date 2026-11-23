@@ -7,15 +7,20 @@ import { TOOL_PREFIX, resolveRoot, readTextSafe, writeTextSafe, validateWriteTar
 import { lookupDshHostFs } from './host-adapter.js'
 import type { HostFsCapabilities } from './host-fs.js'
 import type { GuardedWriteIntent } from '../../../runtime.js'
+import { resolveSessionRepositoryRoot } from './session-repositories.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 import { planTextEdit, applyTextEdit, assertEditableText } from '../../../delta-code-coding/edit-transform.js'
 import { shouldPreflightMultiEdit, canCompensateMultiEdit } from '../../../delta-code-coding/multi-edit-policy.js'
 
-export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createMultiEditTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: `${TOOL_PREFIX}multi_edit`,
     description:
-      'Apply workspace edits with per-edit results (not a filesystem transaction). Multi-file batches are preflight-validated by default, so invalid later edits cannot trigger earlier writes. Set preflight=false only for explicit legacy best-effort behavior. Compensation remains opt-in and requires guarded-intent Host FS. dryRun does not write.',
+      'Apply edits with per-edit results (not a filesystem transaction). By default paths are relative to the primary workspace. Set repositoryId to target one attached Session repository; that repository must also be explicitly listed in sessionRepositories.writeRoots and authorized by native Host FS. Multi-file batches are preflight-validated by default. Compensation remains opt-in and requires guarded-intent Host FS. dryRun does not write.',
     parameters: {
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID. When set, all edit paths are relative to that repository and its write allowlist is rechecked.' },
       edits: {
         type: 'array',
         required: true,
@@ -90,7 +95,11 @@ export function createMultiEditTool(ctx: Context, settings: Settings): ToolDefin
       },
     },
     async execute(args, exec) {
-      const root = await resolveRoot(ctx, exec, settings)
+      const root = args.repositoryId === undefined
+        ? await resolveRoot(ctx, exec, settings)
+        : sessionRepositories
+          ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'write')
+          : (() => { throw new Error('Session repository editing is unavailable in this Host') })()
       const results: EditResult[] = []
       let applied = 0
       const edits = Array.isArray(args.edits) ? args.edits : []
