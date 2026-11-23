@@ -103,6 +103,7 @@ async function authorizedRepo(
   access: RepositoryAccess = 'read',
 ): Promise<string> {
   exec.signal.throwIfAborted()
+  if (!settings.gitEnabled) throw new Error('native Git support is disabled')
   const required = access === 'write'
     ? ['resolve', 'contains', 'stat', 'processPath', 'writeText']
     : ['resolve', 'contains', 'stat', 'processPath']
