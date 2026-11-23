@@ -42,7 +42,7 @@ describe('Delta Code native settings contract', () => {
       } }), /sessionRepositories|duplicate/)
     }
     const schema = read('src/config.ts')
-    assert.match(schema, /readOnlyRoots: Schema\\.array\\(Schema\\.string\\(\\)\\)\\.default\\(\\[\\]\\)/)
+    assert.ok(schema.includes('readOnlyRoots: Schema.array(Schema.string()).default([])'))
   })
 
   it('uses one shared default LSP catalog in settings and runtime', () => {
