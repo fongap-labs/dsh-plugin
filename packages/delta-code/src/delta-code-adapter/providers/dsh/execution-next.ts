@@ -59,10 +59,10 @@ export function createExecutionNextTool(
       const intentEvidence: CodingIntentEvidence = sources?.historyIncomplete ? 'incomplete'
         : sources?.current.trim() ? 'anchored' : 'unavailable'
       const decision = decideExecutionTransition(state, stats.readLastObservation(exec.agent))
-      const gitTodoReconciled = review.state === 'review' &&
+      const isGitTodoReconciled = review.state === 'review' &&
         review.todoUpdatedAfterSummary &&
         (state?.writeSeq ?? -1) === stats.readReconciledTodoSeq(exec.agent)
-      const gate = checkpointRecoveryGate(review, intentEvidence, decision.transition, gitTodoReconciled)
+      const gate = checkpointRecoveryGate(review, intentEvidence, decision.transition, isGitTodoReconciled)
       return {
         ...decision,
         transition: gate.transition,
@@ -70,7 +70,7 @@ export function createExecutionNextTool(
         contextReviewState: review.state,
         contextSummarySeq: review.lastSummarySeq,
         contextTodoRefreshed: review.todoUpdatedAfterSummary,
-        contextGitReconciled: gitTodoReconciled,
+        contextGitReconciled: isGitTodoReconciled,
         contextReviewAction: [review.action, gate.action].filter(Boolean).join(' '),
         contextIntentEvidence: intentEvidence,
       }
