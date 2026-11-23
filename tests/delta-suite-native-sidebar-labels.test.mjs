@@ -8,7 +8,7 @@ const read = p => readFileSync(fileURLToPath(new URL('../' + p, import.meta.url)
 const source = read('packages/delta-suite/src/client.ts')
 const theme = read('packages/delta-suite/src/theme.css')
 
-test('legacy sidebar navigation rewrites stay removed; new adapter owns its isolated Delta-only labels', () => {
+test('native sidebar labels stay fully Host-owned without runtime DOM adapters', () => {
   for (const removed of ['replaceButtonText', 'setButtonLabel', 'mutatedNavButtons']) {
     assert.equal(source.includes(removed), false, 'legacy text mutation remains: ' + removed)
   }
@@ -16,8 +16,8 @@ test('legacy sidebar navigation rewrites stay removed; new adapter owns its isol
   assert.doesNotMatch(source, /target\.style\.setProperty\('display', 'none', 'important'\)/)
   assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
   assert.match(source, /function installSidebarCompatibility\(/)
-  assert.match(source, /function installLiveNativePresentation\(/)
-  assert.match(source, /if \(controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
+  assert.doesNotMatch(source, /function installLiveNativePresentation\(/)
+  assert.doesNotMatch(source, /if \(controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
   assert.doesNotMatch(source, /scope\.slots\.inject\('sidebar\.session\.action'/)
   assert.doesNotMatch(source, /const stopLivePresentation = installLiveNativePresentation\(/)
 })

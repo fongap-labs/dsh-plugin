@@ -108,21 +108,13 @@ test('chat status translation changes only task execution copy, keeping timer in
     && item.file === 'src/client/locale.ts'))
 })
 
-test('installed Delta live footer uses direct-child update ordering and semantic palette', () => {
-  assert.match(source, /mark\(child, 'footer-update-slot'\)/)
-  assert.match(source, /data-dtd-live-footer-update-slot="1"/)
-  assert.match(source, /footerCard\.innerHTML = '<div><span data-dtd-live-footer-label><\/span><span data-dtd-live-footer-value><\/span>/)
-  assert.doesNotMatch(source, /footerCard\.innerHTML = .*<strong/)
-  assert.match(source, /data-dtd-live-footer-value\] \{[\s\S]*?font-weight: 400/)
-  assert.match(source, /data-dtd-live-hero-fish="1"\][\s\S]*?translateY\(-2px\)/)
-  const liveCss = source.slice(source.indexOf('const LIVE_PRESENTATION_CSS'),
-    source.indexOf('function installLiveNativePresentation'))
-  assert.doesNotMatch(liveCss, /var\(--dsw-/,
-    'the installed live footer and hero must use Delta tokens directly')
-  assert.match(liveCss, /var\(--dtd-popup-bg\)/)
-  assert.match(liveCss, /var\(--dtd-bg-hover\)/)
+test('runtime leaves native account footer and hero markup unchanged', () => {
+  for (const removed of ['LIVE_PRESENTATION_CSS', 'installLiveNativePresentation',
+    'footerCard.innerHTML', 'data-dtd-live-footer-update-slot',
+    'data-dtd-live-hero-fish']) {
+    assert.equal(source.includes(removed), false, 'retired DOM takeover remains: ' + removed)
+  }
 })
-
 
 test('Delta disables Session Log uploads even when an old profile has enabled=true', () => {
   const host = [
@@ -153,19 +145,12 @@ test('Delta removes native Session Log switch registration, not just switch styl
   assert.equal(patchSessionLogSettings(changed), changed)
 })
 
-test('Delta primary navigation stays pinned while workspace list scrolls', () => {
-  const host = [
-    '.logoRow { }',
-    '.panelList { }',
-    '.newSessionRow { }',
-  ].join('\n')
-  const styled = patchSidebarStyle(host)
-  assert.match(styled, /panelList \{/)
-  assert.match(styled, /position: sticky; top: 0;/)
-  assert.match(styled, /--dtd-bg-sidebar/)
-  assert.equal(patchSidebarStyle(styled), styled)
-  assert.match(source, /mark\(nav, 'pinned-nav'\)/)
-  assert.match(source, /data-dtd-live-pinned-nav="1"/)
+test('native navigation placement remains under Harness ownership', () => {
+  assert.doesNotMatch(source, /mark\(nav, 'pinned-nav'\)/)
+  assert.doesNotMatch(source, /data-dtd-live-pinned-nav/)
+  assert.doesNotMatch(source, /installLiveNativePresentation/)
+  const pkg = JSON.parse(read('packages/delta-suite/package.json'))
+  assert.equal(pkg.files.includes('scripts/apply-harness-ui-patch.mjs'), false)
 })
 
 test('privacy panel retains PIN controls but removes explanatory claims and badges', () => {

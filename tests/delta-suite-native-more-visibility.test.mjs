@@ -17,18 +17,15 @@ const emitted = (style = css) => [
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
 ].join('\n')
 
-test('Delta hides More only when both principal panels are present, and restores the native fallback', () => {
-  assert.match(source, /mark\(moreRow, 'more'\)/)
-  assert.match(source, /unmark\(moreRow, 'more'\)/)
-  assert.match(source, /mark\(button, 'primary-unpin'\)/)
-  assert.match(source, /data-dtd-live-more/)
-  assert.doesNotMatch(source, /hiddenMoreElements|legacy More visibility is reviewed separately/)
-  assert.doesNotMatch(source, /(?:rawText|aria)\s*===\s*['"]More['"]/)
-  assert.doesNotMatch(css, /nav\s*>\s*:has\(button:is\(\[aria-label="(?:More|\\0066F4\\00591A)"\]/)
+test('native More stays Host-owned; Delta does not rearrange the sidebar DOM', () => {
+  for (const retired of [
+    "mark(moreRow, 'more')", "unmark(moreRow, 'more')",
+    "mark(button, 'primary-unpin')", 'data-dtd-live-more',
+    'installLiveNativePresentation',
+  ]) assert.equal(source.includes(retired), false, 'Host More takeover: ' + retired)
+  assert.doesNotMatch(css, /\[class\*="wtg9ga_moreMenu"\]/)
   assert.match(css, /6\.2 Navigation Rows: Harness retains the native More action/)
-  assert.doesNotMatch(css, /\[class\*="wtg9ga_moreMenu"\]/, 'Host More popup styling is native-owned')
   assert.match(source, /function installSidebarCompatibility\(/)
-  assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
 })
 
 test('release guard accepts reviewed More restoration and rejects unreviewed client/theme changes', () => {

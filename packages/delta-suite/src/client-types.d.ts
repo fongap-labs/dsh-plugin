@@ -16,9 +16,6 @@ interface DeltaCopy {
     modelReasoningLevels: string;
     searchSessions: string;  searching: string; noResults: string;
     copied: string; copyFailed: string; 
-     settings: string; signIn: string; signOut: string;
-    navigationPlugins: string; navigationSchedules: string; navigationSession: string;
-    accountBalance: string; todaySpending: string; dataUnavailable: string;
       
      
      

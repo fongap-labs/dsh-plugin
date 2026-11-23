@@ -141,5 +141,15 @@
     "host_theme_api": "public overrideTokens",
     "real_harness": "not verified",
     "windows_client": "not verified"
+  },
+  "p0_native_dom_cleanup": {
+    "as_of": "2026-11-24",
+    "status": "code-implemented-awaiting-central-ci",
+    "scope": "remove unmounted native presentation, account footer DOM projection, session Portal and nine dead zh/en keys",
+    "host_locale": "official read-only Locale snapshot subscription retained",
+    "host_navigation": "native behavior retained; unsupported layout override not claimed",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }

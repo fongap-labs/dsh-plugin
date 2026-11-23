@@ -561,3 +561,10 @@ API“是”仅表示相应官方文档或类型确有声明，不保证用户�
 移除 Suite 两份自有词典各 52 个无代码引用的叶子 Key（41 个 `ui`、1 个 `sessionMenu`、5 个 `privacy`、5 个 `searchPalette`），同时删除已显式声明但不再使用的类型。不存在新增翻译体系；全部官方 Harness 语言、系统语言偏好以及第三方翻译保持不变。
 
 废弃的隐私/遥测“已强制禁用”文本只是旧声明，删除它们不表示 Host 已经关闭遥测。自动测试新增每个词条的源码字段引用检查，与已有 Key/占位符对称检查配合执行。待 CI 和实机核验。
+
+
+## 2026-11-24 P0-4：删除未挂载的原生 DOM 接管（待实机验收）
+
+此改动基于已合并的 P0-2 Host-only 边界和 P0-1 官方 Locale 只读订阅。真正删除不再挂载的 `installLiveNativePresentation`、`LIVE_PRESENTATION_CSS`、原生头像/导航操作、会话 Portal 目标、`accountUi` 旧显示代理。原生登录、导航、菜单、侧边栏和工作区保持 Harness 负责。同步清理随上述死代码变得无引用的 9 个中英文显示 Key 及类型。
+
+`installSidebarCompatibility` / `installHostSearch` 的遗留审计区域未在本次修改；不放宽源码指纹校验。当前已验证的仅为静态代码/字典与模拟宿主回归测试（以本 PR 的中央 CI 实际结果为准）；真实 Harness 安装、两版本兼容、Windows 客户端启用/停用/卸载/主题恢复均未验证。本次不构成 P0 全项验收通过。
