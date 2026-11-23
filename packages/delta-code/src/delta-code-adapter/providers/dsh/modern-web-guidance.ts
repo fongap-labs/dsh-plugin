@@ -22,14 +22,16 @@ const ALIASES: Record<string, string> = {
 }
 
 /** Search only the local, audited metadata index; task text never leaves the Host. */
-export function findModernWebGuides(query: string): readonly ModernWebGuide[] {
+export function findModernWebGuides(
+  query: string, catalog: readonly ModernWebGuide[] = MODERN_WEB_GUIDES,
+): readonly ModernWebGuide[] {
   const source = query.normalize('NFKC').toLowerCase().trim().slice(0, 160)
   if (!source) return []
   const words = source.match(/[\p{L}\p{N}]+/gu) ?? []
   const terms = [...new Set(words.map(word => ALIASES[word] ?? word).filter(word =>
     word.length > 1 && !STOP.has(word)))].slice(0, 8)
   if (!terms.length) return []
-  return MODERN_WEB_GUIDES.map(guide => {
+  return catalog.map(guide => {
     const id = guide.id.replace(/-/g, ' ')
     const path = guide.path.replace(/[-/]/g, ' ')
     const score = terms.reduce((total, term) =>
@@ -79,11 +81,14 @@ async function readPinnedGuide(fetcher: ModernWebGuidanceFetcher, guide: ModernW
   return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
 }
 
-const cached = new Map<string, string>()
-/** Fixed-revision document access, without any externally executed script. */
+/** Fixed-revision document access, without any externally executed script.
+ * Catalog injection is restricted to deterministic unit tests; production uses the pinned manifest.
+ */
 export function createModernWebGuidanceTool(
   fetcher: ModernWebGuidanceFetcher = fetch,
+  catalog: readonly ModernWebGuide[] = MODERN_WEB_GUIDES,
 ): ToolDefinition {
+  const cached = new Map<string, string>()
   return defineTool({
     name: 'code_modern_web_guidance',
     description: 'Search a locally pinned Modern Web Guidance index, or retrieve an exact audited browser/CSS/accessibility guide by ID. Read-only, no npm, no telemetry, no arbitrary URLs. Optional for relevant Web UI tasks, not backend/CI work.',
@@ -116,14 +121,14 @@ export function createModernWebGuidanceTool(
         if (typeof args.query !== 'string' || !args.query.trim() || args.query.length > 160) {
           throw new Error('Supply a bounded search topic')
         }
-        const matches = findModernWebGuides(args.query)
+        const matches = findModernWebGuides(args.query, catalog)
         return { action: 'search', matches: matches.map(g => ({ id: g.id, path: g.path })),
           guideId: '', source: '', content: '', hasMore: false, nextOffset: 0 }
       }
       if (args.action !== 'retrieve' || typeof args.guideId !== 'string') {
         throw new Error('Unsupported Modern Web Guidance request')
       }
-      const guide = MODERN_WEB_GUIDES.find(entry => entry.id === args.guideId)
+      const guide = catalog.find(entry => entry.id === args.guideId)
       if (!guide) throw new Error('Guide ID is not in the pinned reviewed index')
       const offset = args.offset ?? 0
       if (!Number.isSafeInteger(offset) || offset < 0 || offset > MAX_BYTES) {
