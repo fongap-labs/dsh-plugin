@@ -264,13 +264,20 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
     sessionRepositories: { readOnlyRoots: allowed },
   })
   let state = { ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }
-  const agent = { session: { id: 'owning-session' } }
+  let seq = 1
+  const agent = { session: {
+    id: 'owning-session',
+    append(type, data) {
+      const eventSeq = seq++
+      state = foldSessionRepositoryEvent(state, { type, seq: eventSeq, data })
+      return { seq: eventSeq }
+    },
+  } }
   const reader = {
     read: who => who === agent ? parseSessionRepositoryState(state) : undefined,
     dispose() {},
   }
   const tool = createSessionRepositoryTool(ctx, settings, reader)
-  let seq = 1
   const run = (args, who = agent) =>
     tool.execute(args, { agent: who, signal: new AbortController().signal })
   const accept = (args, output) => {
@@ -281,14 +288,11 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
         name: 'code_session_repositories', callId, arguments: JSON.stringify(args),
       },
     })
-    const binding = args.action === 'attach'
-      ? output.repositories.find(repo => !previous.bindings.some(item => item.id === repo.id))
-      : previous.bindings.find(repo => repo.id === args.id)
-    assert.ok(binding, 'successful attach/detach must identify the affected repository')
-    state = foldSessionRepositoryEvent(state, {
-      type: 'delta-code/repository-binding', seq: seq++,
-      data: { version: 1, action: args.action, id: binding.id, path: binding.path },
-    })
+    if (args.action === 'attach') {
+      assert.ok(output.repositories.some(repo => !previous.bindings.some(item => item.id === repo.id)))
+    } else if (args.action === 'detach') {
+      assert.ok(previous.bindings.some(repo => repo.id === args.id))
+    }
     const rendered = tool.output.render(args, output)[0].text
     state = foldSessionRepositoryEvent(state, {
       type: 'tool/result', seq: seq++, data: {
