@@ -1,5 +1,5 @@
 import type { Context } from '@deepseek-ai/cordis'
-import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
+import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import type { Settings } from './types.js'
 import { mountDeltaCodeFeatures } from './delta-code-kernel/feature.js'
 import { dshToolRegistrar } from './delta-code-adapter/providers/dsh/tool-registration.js'
@@ -70,11 +70,14 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
     releases.push(mountDeltaCodeFeatures(coreFeatures, dshToolRegistrar(ctx, stats)))
     releases.push(registerNativeToolStats(ctx, stats))
 
-    // Cordis independently mounts/unmounts this group when subprocess becomes
-    // available or changes. The child Context owns subprocess access; the
-    // parent Context retains the already-injected tool registration service.
+    // Keep the tool names registered after the first authorized Host mount.
+    // Native agents can hold tool snapshots across a transient subprocess service
+    // remount. Removing and re-registering them causes UNKNOWN_TOOL even though
+    // the tool was advertised at the beginning of the model step.
     let isCommandActive = true
-    const commandDisposers = new Set<() => void>()
+    let commandUnmount: (() => void) | undefined
+    type CommandBinding = { tool: ToolDefinition; controller: AbortController }
+    const commandTargets = new Map<string, CommandBinding>()
     const injected = ctx.inject(['subprocess'], child => {
       if (!isCommandActive) return
       const commandFeatures = [
@@ -82,17 +85,50 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
         deltaCodeQuality(createDshQualityTools(child, settings, resume, sessionRepositories)),
         deltaCodeRepositoryCommands(createDshRepositoryCommandTools(child, settings, sessionRepositories)),
       ] satisfies Array<import('./delta-code-kernel/feature.js').DeltaCodeFeature<ToolDefinition>>
-      const unmount = mountDeltaCodeFeatures(commandFeatures, dshToolRegistrar(ctx, stats))
-      commandDisposers.add(unmount)
+      const definitions = commandFeatures.flatMap(feature => [...(feature.tools ?? [])])
+      const controller = new AbortController()
+      const incomingNames = new Set(definitions.map(tool => tool.name))
+      if (commandUnmount) {
+        // A changing definition graph needs a full plugin reconfiguration,
+        // not a partial/ambiguous tool registry patch while a model is running.
+        if (incomingNames.size !== commandTargets.size ||
+            [...commandTargets.keys()].some(name => !incomingNames.has(name))) {
+          ctx.logger?.warn?.('delta-code: subprocess tool surface changed on remount; keeping tools disabled until a full plugin reload')
+          return
+        }
+      } else {
+        const proxies = commandFeatures.map(feature => ({
+          ...feature,
+          tools: feature.tools?.map(tool => ({
+            ...tool,
+            async execute(args: any, exec: ToolRunContext) {
+              const binding = commandTargets.get(tool.name)
+              if (!binding || binding.controller.signal.aborted) {
+                throw new Error('DSH Host subprocess is unavailable for ' + tool.name + '; reconnect the Host service')
+              }
+              const signal = AbortSignal.any([exec.signal, binding.controller.signal])
+              return binding.tool.execute(args, { ...exec, signal })
+            },
+          } as ToolDefinition)),
+        }))
+        commandUnmount = mountDeltaCodeFeatures(proxies, dshToolRegistrar(ctx, stats))
+      }
+      // The Host is authoritative; never fall back to a previously mounted
+      // child Context or local Node process while the service is withdrawn.
+      for (const tool of definitions) commandTargets.set(tool.name, { tool, controller })
       return () => {
-        commandDisposers.delete(unmount)
-        unmount()
+        controller.abort()
+        for (const tool of definitions) {
+          if (commandTargets.get(tool.name)?.controller === controller) commandTargets.delete(tool.name)
+        }
       }
     })
     releases.push(() => {
       isCommandActive = false
-      for (const unmount of commandDisposers) unmount()
-      commandDisposers.clear()
+      for (const binding of commandTargets.values()) binding.controller.abort()
+      commandTargets.clear()
+      commandUnmount?.()
+      commandUnmount = undefined
       const stop = (injected as { dispose?: () => Promise<void> } | null)?.dispose
       if (typeof stop === 'function') void Promise.resolve(stop.call(injected)).catch(() => {
         ctx.logger?.warn?.('delta-code: subprocess injector disposal failed')
