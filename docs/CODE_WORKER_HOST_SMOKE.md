@@ -23,7 +23,7 @@
 ```sh
 node scripts/code-worker-host-preflight.mjs \
   --dsh /absolute/path/to/dsh-cli/bin.js \
-  --plugin-dir /absolute/path/to/dsh-plugin/packages/delta-code \
+  --plugin-dir /absolute/path/to/plugins/packages/delta-code \
   --profile sdk
 ```
 

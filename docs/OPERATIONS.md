@@ -16,7 +16,7 @@ projects/<plugin>/release.manifest.json
 
 1. 将变更合并到本仓库 `main`，并确保该提交具有中央 CI 通过证据。
 2. 在 Action Worker 的 `release-app.yml` 中选择：
-   - `source_repository`: `fongap-labs/dsh-plugin`
+   - `source_repository`: `fongap-labs/plugins`
    - `requested_version`: `X.Y.Z` 或 `X.Y.Z-beta.N`
    - `product`: 对应的 `projects/<plugin>` 目录名
 3. Action Worker 从当前默认分支提交读取发布清单，验证来源和 CI 证据，再按清单选择 Runner Profile。
