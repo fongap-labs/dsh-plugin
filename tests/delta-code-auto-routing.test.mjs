@@ -100,6 +100,27 @@ describe('Code Worker automatic user-task routing', () => {
     assert.equal(routeCodingTask(log + '\n请设计 API 架构方案'), 'code-writing-plans')
     assert.equal(routeCodingTask(log + '\n请修复 GitHub CI 红叉'), 'code-ci-repair')
   })
+  it('suggests pinned web guidance only once for relevant web tasks and honors opt-outs', () => {
+    const f = fixture()
+    try {
+      const agent = {}
+      f.claim(agent, 'Fix CSS dialog keyboard focus')
+      assert.match(f.render(agent), /code_modern_web_guidance/)
+      assert.match(f.render(agent), /Do not run npx/)
+      f.emit('tools/result', { agent, name: 'code_modern_web_guidance' },
+        { isError: false, value: { action: 'search', matches: [] } })
+      assert.doesNotMatch(f.render(agent), /use action=search/)
+      f.claim(agent, '继续')
+      assert.doesNotMatch(f.render(agent), /use action=search/)
+      f.claim(agent, 'Fix Rust backend build')
+      assert.doesNotMatch(f.render(agent), /code_modern_web_guidance/)
+      f.claim(agent, 'Fix HTML dialog but do not use GitHub Skills')
+      assert.doesNotMatch(f.render(agent), /code_modern_web_guidance/)
+      f.claim(agent, '修复 HTML 弹窗焦点')
+      assert.match(f.render(agent), /code_modern_web_guidance/)
+    } finally { f.dispose() }
+  })
+
   it('adds only lightweight guidance to fast changes', () => {
     const f = fixture()
     try {
