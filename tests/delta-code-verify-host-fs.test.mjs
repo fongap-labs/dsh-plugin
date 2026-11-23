@@ -1,4 +1,5 @@
 import { describe, it } from 'node:test'
+import { excerptVerificationOutput } from '../packages/delta-code/lib/delta-code-adapter/providers/dsh/verify.js'
 import assert from 'node:assert/strict'
 import { join, resolve, sep } from 'node:path'
 import { createVerifyTool } from '../packages/delta-code/lib/tools/verify.js'
@@ -209,5 +210,22 @@ describe('Code Worker verification through DSH Host FS', () => {
       /verification cancelled/,
     )
     assert.equal(host.spawns.length, 0)
+  })
+})
+
+describe('Delta Code bounded verification output', () => {
+  it('keeps concrete failures from the middle of a long log while reporting omitted output', () => {
+    const raw = 'start\n' + 'noise x'.repeat(1800) + '\nnot ok 7 - true failed test\n' +
+      'AssertionError: actual did not match expected\n' + 'noise y'.repeat(1800) + '\nexit 1'
+    const view = excerptVerificationOutput(raw)
+    assert.equal(view.excerpted, true)
+    assert.ok(view.output.length <= 12 * 1024)
+    assert.match(view.output, /not ok 7 - true failed test/)
+    assert.match(view.output, /AssertionError/)
+    assert.match(view.output, /verification output omitted/)
+    assert.match(view.output, /exit 1/)
+  })
+  it('returns small output exactly, without extra compression or dropped lines', () => {
+    assert.deepEqual(excerptVerificationOutput('pass\nok'), { output: 'pass\nok', excerpted: false })
   })
 })
