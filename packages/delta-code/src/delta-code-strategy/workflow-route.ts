@@ -115,8 +115,18 @@ export function draftNativeTodoHandoff(
   }
 }
 
+const MAX_PARALLEL_CANDIDATES_PER_WAVE = 3
+
+function sharedConfigGroup(path: string): string | undefined {
+  // Distinct root-level build/CI manifests can still share generated outputs
+  // or dependency resolution. Advisory write paths cannot prove independence.
+  return /^(?:package(?:-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|tsconfig(?:\.[^/]+)?\.json|vite\.config\.[^/]+|webpack\.config\.[^/]+|\.github\/.+)$/i.test(path)
+    ? 'workspace-build-ci' : undefined
+}
+
 function overlaps(left: string, right: string): boolean {
-  return left === right || left.startsWith(right + '/') || right.startsWith(left + '/')
+  return left === right || left.startsWith(right + '/') || right.startsWith(left + '/') ||
+    (sharedConfigGroup(left) !== undefined && sharedConfigGroup(left) === sharedConfigGroup(right))
 }
 
 /** Pure dependency-wave planning: never dispatches agents or touches a worktree. */
@@ -160,9 +170,10 @@ export function planCodingWaves(
     const earliest = prerequisites[index]!.reduce((wave, dependency) =>
       Math.max(wave, assigned[dependency]! + 1), 0)
     let waveIndex = canParallelize && writeSets ? earliest : Math.max(earliest, waves.length)
-    while (waves[waveIndex]?.some(other =>
-      writeSets && writeSets[index]!.some(path =>
-        writeSets[other]!.some(existing => overlaps(path, existing))))) {
+    while ((waves[waveIndex]?.length ?? 0) >= MAX_PARALLEL_CANDIDATES_PER_WAVE ||
+      waves[waveIndex]?.some(other =>
+        writeSets && writeSets[index]!.some(path =>
+          writeSets[other]!.some(existing => overlaps(path, existing))))) {
       waveIndex++
     }
     if (!waves[waveIndex]) waves[waveIndex] = []
@@ -205,6 +216,7 @@ export function decideCodingWorkflow(
   // was mistakenly enabled for a diagnostic or read-only workflow.
   const isParallelPermitted = profile.mode === 'planned' &&
     profile.canParallelize === true && isPlanned &&
+    (input.scope === 'large' || independentTasks >= 3) &&
     (input.taskKind === 'feature' || input.taskKind === 'refactor') &&
     independentTasks >= 2 && input.nativeSubagents === true
   const plannedPaths = milestones && milestones.every(item => item.writePaths.length > 0)
@@ -286,7 +298,9 @@ export function createWorkflowRouteTool(
       return [{ type: 'text', text: [
         'Coding route: ' + value.mode,
         'Load in order (only when relevant): ' + value.skills.join(' -> '),
-        'Parallel candidate: ' + (value.parallelCandidate ? 'yes (disjoint write sets)' : 'no'),
+        'Parallel candidate: ' + (value.parallelCandidate
+          ? 'yes (bounded advisory waves; Host must check concurrency, permissions and actual writes)'
+          : 'no (use the native single-agent path)'),
         ...value.executionWaves.map((wave, index) => 'Execution wave ' + (index + 1) + ': ' +
           wave.map(task => '#' + task).join(', ')),
         ...value.milestones?.map((item, index) => 'Proposed milestone #' + index + ': ' + item.objective +
