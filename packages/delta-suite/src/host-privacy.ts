@@ -10,8 +10,7 @@
 export interface PrivacyHostContext {
   get?(serviceName: string): unknown
   on?(event: string, listener: (...args: any[]) => unknown): () => void
-  inject?(deps: string[], callback: (scope: any) =>
-    void | (() => void | Promise<void>)): void | (() => void | Promise<void>)
+  inject?(deps: string[], callback: (scope: any) => void | (() => void)): () => void
 }
 
 interface SessionLogScope {
