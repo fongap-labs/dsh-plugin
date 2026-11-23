@@ -6197,7 +6197,7 @@ window.__ModuleLoader__.load({
                 // presentation, but public feature slots must still register.
                 // Legacy DOM-based protection is deliberately not mounted.
                 // Host-side business authorization remains authoritative.
-                const stopLivePresentation = installLiveNativePresentation(controller, Boolean(livePortal))
+                // Native sidebar, session-menu and account chrome remain Host-owned.
                 // Only read Harness' published sanitized account UI snapshot.
                 // Authentication and confirmation continue through native menu actions.
                 try {
@@ -6226,7 +6226,6 @@ window.__ModuleLoader__.load({
                 return () => {
                   observer?.disconnect()
                   stopAppearance()
-                  stopLivePresentation()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
                   document.body?.removeAttribute('data-delta-ui')
@@ -6286,11 +6285,6 @@ window.__ModuleLoader__.load({
 
               // Contribute only to Harness' published Models-footer Slot.
               // Without the official Models plugin/Slot the native page stays intact.
-              scope.slots.inject('settings.models.footer', () => scope.slots.register({
-                name: 'settings.models.footer',
-                id: 'delta.gateway.effort-sync',
-                order: 120,
-              }, GatewayEffortFooter))
 
               // Current session provider/model/Effort is public, Host-authoritative.
               // Older Hosts lacking modelDirectories keep all native surfaces.
@@ -6389,16 +6383,6 @@ window.__ModuleLoader__.load({
               registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
               registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
 
-              if (livePortal) {
-                scope.slots.inject('sidebar.session.action', () => scope.slots.register({
-                  name: 'sidebar.session.action', id: 'delta.live.session-placement', order: 900,
-                }, (props: { children?: unknown; wide?: boolean }) => {
-                  const anchor = React.useSyncExternalStore(subscribeLiveSessionTarget, getLiveSessionTarget)
-                  const view = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-                  return view.mode === 'delta' && props.wide && anchor && livePortal
-                    ? livePortal(props.children, anchor) : props.children
-                }))
-              }
 
               // The published inline trailing Slot renders status without owning
               // native Session rows. If an older Host lacks it, retain native UI.
@@ -6426,23 +6410,7 @@ window.__ModuleLoader__.load({
                 workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
                   'delta-suite: workspaces reference')
 
-                workspaceScope.effect(() => installWorkspaceMutationGuards(
-                  workspaces, readNative, deltaFeatures.getSnapshot,
-                  () => controller.getSnapshot().mode === 'delta',
-                  (reason, lockId) => {
-                    if (reason === 'workspace-guard-disposed') return
-                    if (reason === 'session-locked' && lockId) {
-                      deltaFeatures.openUnlockPinDialog(lockId)
-                      return
-                    }
-                    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                    showDeltaToast(reason === 'sole-workspace-protected'
-                      ? copy.ui.cannotDeleteSoleWorkspace
-                      : reason === 'protected-default-workspace'
-                        ? copy.ui.protectedDefaultWorkspace
-                        : copy.workspaceMenu?.unlockFirst ?? copy.sessionMenu.unlockFirst)
-                  },
-                ), 'delta-suite: workspace mutation compatibility guards')
+                // Host owns native Workspace mutation permissions and UI.
               })
 
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {

@@ -234,45 +234,32 @@ test('today spending remains explicitly unavailable until authenticated platform
   assert.doesNotMatch(script, /todaySpend\s*=\s*wallet|balanceDelta\s*=|lastBalance\s*-/)
   assert.doesNotMatch(script, /<small className=\{css\.deltaHoverHint\}>/)
   const copy = read('packages/delta-suite/README.md')
-  assert.ok(copy.includes('不自动使用余额下降代替消费'))
-  assert.ok(copy.includes('鉴权、统计范围及时区验收'))
+  assert.ok(copy.includes('不缓存/传递原始 Token'))
+  assert.ok(copy.includes('登录/退出、账户授权'))
+  const pkg = JSON.parse(read('packages/delta-suite/package.json'))
+  assert.equal(pkg.files.some(file => file.includes('apply-harness-ui-patch')), false,
+    'legacy account patch must not ship in the plugin')
 })
 
 
-test('installed Delta Suite actually mounts its native presentation compatibility', () => {
+test('Delta Suite no longer mounts private native DOM adapters', () => {
   const client = read(base + 'client.ts')
-  assert.match(client, /const stopLivePresentation = installLiveNativePresentation\(controller, Boolean\(livePortal\)\)/)
-  assert.match(client, /stopLivePresentation\(\)/, 'unload must dispose the adapter')
-  assert.match(client, /document\.documentElement\.setAttribute\('data-delta-ui', 'delta'\)/)
-  assert.match(client, /scope\.slots\.inject\('sidebar\.session\.action'/,
-    'native New Session placement must preserve the Host HOC')
-  assert.match(client, /livePortal\(props\.children, anchor\)/,
-    'do not proxy New Session clicks or copy its action')
-  assert.match(client, /view\.mode === 'delta' && props\.wide && anchor/,
-    'do not alter official theme or collapsed sidebar actions')
-  assert.match(client, /data-dtd-live-logo-row/)
-  assert.match(client, /data-dtd-live-preview/)
-  assert.match(client, /data-dtd-live-hero-fish/)
-  assert.match(client, /getLiveSessionTarget/)
-  assert.match(client, /if \(isDisposed \|\| isSyncing\) return/,
-    'native presentation must not keep writing after disposal')
+  assert.doesNotMatch(client, /const stopLivePresentation = installLiveNativePresentation\(/)
+  assert.doesNotMatch(client, /stopLivePresentation\(\)/)
+  assert.doesNotMatch(client, /scope\.slots\.inject\('sidebar\.session\.action'/)
+  assert.doesNotMatch(client, /workspaceScope\.effect\(\(\) => installWorkspaceMutationGuards\(/)
+  assert.doesNotMatch(client, /scope\.slots\.inject\('settings\.models\.footer'/)
+  assert.match(client, /scope\.slots\.inject\('sidebar\.session\.row\.hover'/)
+  assert.match(client, /scope\.slots\.inject\('settings\.plugins\.tab'/)
   assert.equal((client.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1)
-  assert.doesNotMatch(client, /process\.env\.DSH_CLIENT_VERSION\s*===/,
-    'do not bind UI compatibility to a Harness build version')
 })
 
-test('live presentation preserves native actions and restores all owned changes', () => {
+test('official account and Theme services retain native control', () => {
   const client = read(base + 'client.ts')
-  assert.match(client, /const labelChanges = new Map/)
-  assert.match(client, /const ariaChanges = new Map/)
-  assert.match(client, /labelChanges\.clear\(\)/)
-  assert.match(client, /ariaChanges\.clear\(\)/)
-  assert.match(client, /publishLiveSessionTarget\(null\)/)
-  assert.match(client, /controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
-  assert.match(client, /observer\?\.disconnect\(\)/)
-  assert.match(client, /tag\.remove\(\)/)
-  assert.match(client, /if \(canUsePortal && scheduleRow && nav\)/)
-  assert.match(client, /source instanceof HTMLElement\) mark\(source, 'session-source'\)/)
+  assert.match(client, /Native sidebar, session-menu and account chrome remain Host-owned/)
+  assert.doesNotMatch(client, /livePortal\(props\.children, anchor\) : props\.children/)
+  assert.match(client, /scope\.inject\(\['accountUi'\]/)
+  assert.match(client, /scope\.inject\(\['theme'\]/)
 })
 
 test('Delta sidebar pins cannot unmount the scheduled-task navigation layout', () => {
@@ -317,4 +304,27 @@ test('Delta Suite contains no proxy or Vision Bridge service registration or fro
   const policy = read('packages/delta-suite/src/privacy-bridge.ts')
   assert.doesNotMatch(policy, /redactModelRequest|Object\.defineProperty|listModels\(/)
   assert.equal(policy.includes('requestVisionDescription'), false)
+})
+
+test('Gateway credential integration is unavailable rather than reading raw Tokens', () => {
+  const host = read('packages/delta-suite/src/host-gateway-effort.ts')
+  const composition = read('packages/delta-suite/src/delta-suite-composition.ts')
+  const client = read('packages/delta-suite/src/client.ts')
+  assert.doesNotMatch(host, /credentials\.resolve\s*\(/)
+  assert.doesNotMatch(host, /credential\??\.value/)
+  assert.doesNotMatch(host, /authorization\s*:/i)
+  assert.doesNotMatch(composition, /installHostGatewayEffortSync\s*\(/)
+  assert.doesNotMatch(client, /scope\.slots\.inject\('settings\.models\.footer'/)
+  assert.match(host, /return \(\) => \{\}/)
+})
+
+test('published Suite excludes Host-source patching and active native DOM takeover', () => {
+  const pkg = JSON.parse(read('packages/delta-suite/package.json'))
+  const client = read(base + 'client.ts')
+  assert.ok(!pkg.files.some(file => file.includes('apply-harness-ui-patch')))
+  assert.doesNotMatch(client, /const stopLivePresentation = installLiveNativePresentation\(/)
+  assert.doesNotMatch(client, /workspaceScope\.effect\(\(\) => installWorkspaceMutationGuards\(/)
+  assert.doesNotMatch(client, /scope\.slots\.inject\('sidebar\.session\.action'/)
+  assert.match(client, /scope\.slots\.inject\('sidebar\.session\.row\.hover'/)
+  assert.match(client, /scope\.inject\(\['theme'\]/)
 })

@@ -6,41 +6,17 @@
 - 插件配置条目：`delta-suite`
 - 源码版本仅保留 `0.0.0` 占位；真实发行版本由 Action Worker 手动发布时指定。
 
-## Harness 原生界面适配（按结构检测，不绑定版本）
+## 原生 Harness 公开接口边界（P0-2）
 
-### 已安装插件的运行时兼容层
+Delta Suite 仅使用官方公开的 Cordis Service、Slots、Theme、Settings 等能力。原生侧栏布局、头像菜单、Session 右键既有菜单、Workspace 删除授权、模型请求和全部原生语言均由 Harness 保留。
 
-独立打包/安装 `delta-suite` 后，新版 Client 会在 **Delta 模式**挂载受限的布局兼容层（`installLiveNativePresentation`）。它会在识别到当前 Harness 实际渲染的侧栏结构时隐藏顶部品牌和无用占位、在空白首页隐藏预览版并将鲸鱼显示到标题右侧、把「插件/自动化任务」导航标签改为「插件管理/定时任务」，并通过**已公开的 `sidebar.session.action` HOC + React Portal**，将原生「开始对话」按钮移动到定时任务下方，保留原生点击处理器、访问权限和快捷键。
+- **不挂载原生界面 DOM 扫描/迁移**：不再启用 `installLiveNativePresentation`，不将原生会话按钮通过 Portal 移至私人选择器，也不包装 Workspace 私有方法。无法公开实现的原生侧栏重排、原生右键菜单排序、宿主文案替换均保持原生表现，并记录能力缺口。
+- **不修改 Harness 源码**：插件发布包不包含 `apply-harness-ui-patch.mjs`，不修改 `app.asar`、全局语言配置或宿主翻译资源。仓库历史脚本不得用于 Delta Suite 插件发行或运行时注入。
+- **Gateway Effort 自动同步禁用**：尚未确认官方提供无需读取原始凭据的请求代理接口，故停用 Gateway HTTP `/models` 探测和写入界面；不调用 `credentials.resolve`，不缓存/传递原始 Token。现有无网络纯函数仅供单元验证，不代表已启用功能。
+- **保持原生安全行为**：登录/退出、账户授权、真实 Session 操作及模型选择继续由 Harness 自身控制。官方 Session Log 的排除仅依赖 `sessionLogDeepSeek.registerExclusion`，不代表关闭其他遥测。
+- **能力缺失降级**：公开接口无法提供时不接管、不显示成功或无效开关；不据此宣布真实客户端已经验收。
 
-运行时以 UI 语义和控件形状检测为准，不读取或比较 Harness 版本号；识别不到可用的导航结构、React Portal 不可用或当前为官方主题时保留原生界面。所有受控文字、ARIA 和节点标记必须在停用插件或切换主题时恢复，不移植或修改 Session 创建业务逻辑。此运行时层与前述 **源码构建阶段补丁**是两个入口：已安装的官方 Harness 不会自行执行仓库中的 `scripts/apply-harness-ui-patch.mjs`。即使 PR 已合并，也必须发布新版插件，用户重新安装/启用并重启，运行时代码才会进入客户端。
-
-已将侧栏底部三图标和余额悬浮卡加入运行时兼容层，但均须安装最新插件并通过 Windows 客户端实测验证，不能把静态测试等同于界面完成。新增运行时 DOM 兼容是对原有“不接管宿主 DOM”规则的**显式且限域的例外**，必须继续评估性能、无障碍和上游改动带来的风险，优先迁移至正式 API。
-
-
-仅执行仓库内 **源码补丁脚本** 时，Harness 原生侧栏和空白首页仍由宿主管理；这一段描述的是离线客户端构建阶段，不是新版插件中的运行时兼容层。需要将原生「新会话」移动到「定时任务」下方、折叠品牌占位、改变 Hero 图标顺序和宿主页面标题时，**必须在 Delta/Harness 客户端源码构建前应用补丁**。补丁不能修改用户设备上已安装的 Harness 二进制，也不会随 npm 插件加载自动修改宿主源码。
-
-维护在 `scripts/apply-harness-ui-patch.mjs`，根据 Harness 包的 **package.json 身份 + 源码关键结构**定位目标；不比较版本号、Tag、Commit，也不固定安装路径。修改原生 Sidebar、Hero、插件管理、定时任务、账号底部布局、通用设置版本行、会话状态词典与 Session Log 宿主服务及设置注册共 16 个文件。改动严格限定在 Delta 模式的 CSS；中文与英文页面标签从宿主词典源头修改，保留原生按钮、React 事件、权限和快捷键。预览徽标仅在 Delta 模式隐藏，鲸鱼仍为原生 SVG 动画。
-
-使用方式（`<checkout>` 指已经检出的 Harness/Delta 源码根目录，而非 `app.asar`）：
-
-```sh
-node packages/delta-suite/scripts/apply-harness-ui-patch.mjs --root <checkout> --check
-node packages/delta-suite/scripts/apply-harness-ui-patch.mjs --root <checkout> --apply
-```
-
-先 `--check`，确认所有锚点可匹配，再 `--apply`。脚本在**所有目标检查成功后**才开始写入，可重复执行；如果上游改名、搬迁或改变 JSX/CSS/文案结构，会明确报错并停止，不猜测并不悄悄跳过。完成后由客户端本身的类型检查、UI 测试和 Windows 实机截图验收。当前补丁不自动为尚未具备源码构建流水线的 Delta 仓库接入构建；发布 npm 插件并不等于此布局已经在最终客户端生效。
-
-宽侧栏底部采用一行图标布局：左侧为原生账号头像（无登录时为 24px 鲸鱼），右侧按顺序显示**有可用更新时的原生更新通知 → 设置 → 登录／退出登录**，所有图标视觉尺寸为 24px；源码构建补丁下，Delta 宽侧栏头像点击不再弹出账号菜单，仅悬停展示余额卡；设置与登录／退出通过独立按钮触发并保留原生运行任务检查及确认对话框。切换到官方主题或窄侧栏仍保留原生账号菜单。连接状态提示仍由宿主管理；窄侧栏保留原生菜单。新增布局仅在 Delta 主题启用后生效；额外图标借助原生菜单转发完成操作，不复制登录或更新业务状态，宿主结构无法识别时保留原行为。
-
-登录后的账号头像支持鼠标悬停和键盘聚焦悬浮卡片，余额复用宿主 `getBalance` 的已脱敏钱包数据及原生货币格式化函数，不读取或保存账号 token；不额外读取凭据，也不发起新的余额接口请求，仅展示原生账号服务提供的当前快照。悬浮卡片的「今日消费」以 DeepSeek 平台 `/api/v0/usage/by_api_key/cost` 作为**候选官网口径**，要求 Host 端只读访问已授权账号、验证覆盖全部 API Key、与官网用量页一致的时区及 `[start,end)` 自然日区间、币种和金额字段，并以真实账号数据做对账验收。**目前尚无受验收的消费接口**，卡片继续显示“暂无数据／Unavailable”；接口不可用、鉴权失败或证据不完整时**不自动使用余额下降代替消费**，也不使用推测 Token 消耗或伪造 0 元。如未来需要余额差额，必须另列「余额净减少（估算）」，仅在完整零点基线且没有充值等干扰时显示；不得标注为官网消费。待 Host 接口通过实际鉴权、统计范围及时区验收后，才允许接入真实消费展示。用户仍可通过现有账号设置页进入平台用量页面。未登录、不在 Delta 模式或打开原生账号菜单时不显示卡片；已打过上一版底部布局补丁的源码支持增量应用悬浮功能。
-
-预期宽侧栏顺序为 **插件管理 → 定时任务 → 开始对话**（仅在两项均存在时隐藏“更多”；原生未固定项目仍保留恢复入口），新会话实际处理器原样保留；窄侧栏/Windows 标题栏沿用原生创建入口。任务页面标题按「定时任务」执行，与页面用途保持一致。
-
-## Gateway Reasoning Effort（公开模型目录兼容）
-
-本套件的 `decodeGatewayReasoningCatalog`、`toHarnessReasoningEfforts`、`mapGatewayReasoningChoice` 和 `previewGatewayReasoningSync` 仍为无网络副作用的纯接口。另有 Harness 官方 Models 页面底部的 **Gateway 推理等级同步** 扩展区域：用户仅指定 Provider 设置命名空间，点击「读取当前会话并预览 Gateway」后，界面从 Harness 公开的 per-Session `modelDirectories` 获取当前 Provider/模型/Effort，再，插件 Host 侧才使用已配置的 Gateway HTTPS 地址和当前 Host Credential 请求 `/models`，返回等级差异；勾选明确批准后，才通过 Host `settings.mutate` 的版本化配置写入修改该模型。浏览器不接触或持久化 API Key，服务不在启动时主动刷新或探测；当前 Off 在原生适配器中仍不受支持。Gateway 模型的可选等级属于当前访问 Key 的请求范围，`native_confirmed` 不等于所有物理节点承诺。`Default` 不发送思考字段，显式 `Off` 的 Gateway 协议意图是 `none`（OpenAI 兼容）或 `thinking.type=disabled`（Anthropic）；但当前 Harness `llm-pi-ai` 把 Off 序列化为省略字段，因此 `toHarnessReasoningEfforts` **不向原生模型菜单声明 Off**。这两种语义不可混同。详见 [Gateway Effort 契约](../../docs/DELTA_SUITE_GATEWAY_REASONING.md)。
-
-只有 Harness 已经公开的原生模型目录与 Effort 选择器负责真实用户选择和持久化；Delta 的模型标签仅提示 Host 已声明的等级，没有模型网络探测、凭据读取、菜单替换或自动配置写入。**目前不意味着模型目录自动从 Gateway 同步至 Harness，也不表示 #280 完成。**
+对应检查位于 `tests/delta-suite-boundaries.test.mjs`。上述为代码静态整改，实际运行仍须使用官方 Harness 构建、Windows 和不同宿主版本验收。
 
 ## Delta Suite 配置入口（仅适用于已安装新构建）
 
@@ -133,6 +109,10 @@ pnpm link:dev delta-suite
 ## 交付口径
 
 2026-11-12 的 ZIP 导入记录只说明历史源码合入，不构成功能验收证据。是否交付必须同时满足 `feature-readiness.json` 对应能力为 `true`、Central CI 通过，以及所需 Windows 真实宿主验收完成。
+
+## 历史实现记录（已被 P0-2 的公开 API 边界取代）
+
+以下为此前兼容补丁的历史说明，不代表当前插件允许执行它们；新的产品交付判断以本页“原生 Harness 公开接口边界”为准。
 
 ## 2026-11-24 Delta 原生界面适配增量
 

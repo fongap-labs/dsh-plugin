@@ -18,7 +18,8 @@ test('legacy sidebar navigation rewrites stay removed; new adapter owns its isol
   assert.match(source, /function installSidebarCompatibility\(/)
   assert.match(source, /function installLiveNativePresentation\(/)
   assert.match(source, /if \(controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
-  assert.match(source, /scope\.slots\.inject\('sidebar\.session\.action'/)
+  assert.doesNotMatch(source, /scope\.slots\.inject\('sidebar\.session\.action'/)
+  assert.doesNotMatch(source, /const stopLivePresentation = installLiveNativePresentation\(/)
 })
 
 test('ZIP3 checksum still rejects unreviewed native navigation mutation', () => {

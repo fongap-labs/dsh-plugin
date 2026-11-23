@@ -22,7 +22,7 @@
     "request_redaction": false,
     "mcp_server_management": false
   },
-  "note": "Public API review baseline: deepseek-ai/deepseek-harness@2e39e70496aa02986ca6a820c5d497e816b69d7e (master, 2026-11-18; documentation only, no runtime version pin). Confirmed public contracts cover native_personalization, theme_tokens, brand_slots, generic_model_label_preference and deepseek_account_route_label_preference through conversation.input.model.label; account display uses only declared provider id/name metadata and an independent preference, never credential material. The generic model label shows only the model name supplied by the public slot and follows its separate user preference; no credential fields are read. Sidebar ordering/search placement, workspace initial collapse/delete guard, full hover-card layout and RunningStatus copy remain false because no suitable public contract exists. Runtime capability detection remains version-agnostic; DOM takeover, private Store access and method interception are retired. The Delta-owned Settings and installed-bundle configuration now show the unverified four native UI contracts as native fallback; the original false readiness bits remain unchanged. Upstream Harness ModelCatalog/ModelSelect own adapter-advertised reasoning choices; this does not verify Gateway metadata propagation or installed Host compatibility. Source tests do not prove Host compatibility or Windows acceptance. 2026-11-24 privacy audit: legacy Host inbound telemetry/feedback route blocking, model service wrappers, browser geolocation API overrides, HTTP response cookie interception, and runtime DOM privacy scanner are retired. Official sessionLogDeepSeek.registerExclusion is retained but not Windows-verified. Product Analytics/Session Telemetry/OTLP are not claimed disabled. Local search redaction exists but export, model pre-send redaction and diagnostics still require validated Host/Windows evidence. 2026-11-24 stage-one static audit: full 31-row matrix appended to packages/delta-suite/COMPATIBILITY.md. Current client.ts still contains global Host DOM manipulation and native menu click synthesis; release bundle still ships a source patch script, and host-gateway-effort resolves raw credentials. These fail new user hard boundaries. Therefore no P0 delivery claim or P1 authorization. Only static API review completed, no real Harness or Windows acceptance. Earlier note claiming native DOM takeover retired is historically scoped and not a statement about all current client.ts paths.",
+  "note": "Public API review baseline: deepseek-ai/deepseek-harness@2e39e70496aa02986ca6a820c5d497e816b69d7e (master, 2026-11-18; documentation only, no runtime version pin). Confirmed public contracts cover native_personalization, theme_tokens, brand_slots, generic_model_label_preference and deepseek_account_route_label_preference through conversation.input.model.label; account display uses only declared provider id/name metadata and an independent preference, never credential material. The generic model label shows only the model name supplied by the public slot and follows its separate user preference; no credential fields are read. Sidebar ordering/search placement, workspace initial collapse/delete guard, full hover-card layout and RunningStatus copy remain false because no suitable public contract exists. Runtime capability detection remains version-agnostic; DOM takeover, private Store access and method interception are retired. The Delta-owned Settings and installed-bundle configuration now show the unverified four native UI contracts as native fallback; the original false readiness bits remain unchanged. Upstream Harness ModelCatalog/ModelSelect own adapter-advertised reasoning choices; this does not verify Gateway metadata propagation or installed Host compatibility. Source tests do not prove Host compatibility or Windows acceptance. 2026-11-24 privacy audit: legacy Host inbound telemetry/feedback route blocking, model service wrappers, browser geolocation API overrides, HTTP response cookie interception, and runtime DOM privacy scanner are retired. Official sessionLogDeepSeek.registerExclusion is retained but not Windows-verified. Product Analytics/Session Telemetry/OTLP are not claimed disabled. Local search redaction exists but export, model pre-send redaction and diagnostics still require validated Host/Windows evidence. 2026-11-24 stage-one static audit: full 31-row matrix appended to packages/delta-suite/COMPATIBILITY.md. Current client.ts still contains global Host DOM manipulation and native menu click synthesis; release bundle still ships a source patch script, and host-gateway-effort resolves raw credentials. These fail new user hard boundaries. Therefore no P0 delivery claim or P1 authorization. Only static API review completed, no real Harness or Windows acceptance. Earlier note claiming native DOM takeover retired is historically scoped and not a statement about all current client.ts paths. 2026-11-24 P0-2 code safety patch: Gateway credential resolution and its Host route mounting removed, native DOM presentation/workspace method wrappers no longer mounted, and the Harness source patch is excluded from the package. Do not treat the remaining dead compatibility code, any previous README claims or static tests as client acceptance. Further P0-2 cleanup, CI and real Host/Windows verification remain required.",
   "verification": {
     "native_client": "tests/delta-suite-native.test.mjs",
     "account_route_label": "tests/delta-suite-account-route-label-preference.test.mjs",
@@ -67,5 +67,23 @@
     "status": "feature-extras has no native dsw fallbacks",
     "evidence": "tests/delta-suite-native-settings-labels.test.mjs",
     "host_and_windows": "not verified"
+  },
+  "p0_2_boundary_progress": {
+    "as_of": "2026-11-24",
+    "stage": "in-progress-not-host-verified",
+    "statically_disabled": [
+      "gateway-credential-resolve",
+      "gateway-models-footer-slot",
+      "native-live-sidebar-presentation-mount",
+      "native-session-action-dom-reparent",
+      "native-workspace-mutation-method-wrap",
+      "package-harness-source-patch"
+    ],
+    "verification": "tests/delta-suite-boundaries.test.mjs",
+    "host_api_missing": [
+      "credential-free-gateway-request-proxy",
+      "native-menu-reorder",
+      "native-sidebar-layout"
+    ]
   }
 }
