@@ -386,6 +386,8 @@ const LIVE_PRESENTATION_CSS = String.raw`
   position: sticky; top: 0; z-index: 8;
   background: var(--dtd-bg-sidebar); isolation: isolate;
 }
+/* The host upload guard must be active; do not expose a misleading on/off toggle. */
+:root[data-delta-ui="delta"] [data-dtd-live-sessionlog-row="1"] { display: none !important; }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-title="1"] { order: 0; }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-fish="1"] {
   order: 1; align-self: center; width: 16px !important; height: 12px !important;
@@ -723,6 +725,19 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
         }
       }
       if (sidebar) syncFooter(sidebar)
+      // Exact native preference ownership check: hide only the ineffective Session Log
+      // toggle, never unrelated security settings or all general-setting switches.
+      const logTitles = ['在使用官方模型 API 时上传 Session Log',
+        'Upload Session Log when using the official model API']
+      for (const control of document.querySelectorAll<HTMLElement>('[role="switch"]')) {
+        let row = control.parentElement
+        for (let level = 0; level < 3 && row instanceof HTMLElement; level++, row = row.parentElement) {
+          const title = Array.from(row.children).some(child => child instanceof HTMLElement &&
+            (logTitles.includes(child.textContent?.trim() ?? '') ||
+             Array.from(child.children).some(inner => logTitles.includes(inner.textContent?.trim() ?? ''))))
+          if (title) { mark(row, 'sessionlog-row'); break }
+        }
+      }
       let scheduleRow: HTMLElement | undefined
       let pluginRow: HTMLElement | undefined
       if (nav) for (const button of nav.querySelectorAll<HTMLButtonElement>('button[aria-label]')) {
