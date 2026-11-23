@@ -1142,3 +1142,69 @@
 }
 
 /* Host menus and Ungrouped context actions retain their native styling. */
+
+
+/* Delta presentation adapter: only nodes that the verified host-shape
+ * detector marks are affected. No CSS-module/private Host class selectors. */
+:root[data-delta-ui="delta"] [data-dtd-presentation-brand="1"] {
+  display: none !important;
+}
+:root[data-delta-ui="delta"][data-windows-titlebar] [data-dtd-presentation-logo-row="1"] {
+  height: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important; /* keep the native fixed-position titlebar toggle */
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-hero-line="1"] {
+  column-gap: 7px !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-hero-title="1"] {
+  order: 0;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-hero-fish="1"] {
+  order: 1; /* after the headline, in place of the removed preview badge */
+  align-self: center;
+  transform: translateY(0);
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-hero-preview="1"] {
+  display: none !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-session-source="1"] {
+  display: none !important; /* portal retains the single native React button */
+  margin: 0 !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-session-target="1"] {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  margin: 0 0 4px;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-session-target="1"] button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 38px;
+  min-height: 38px;
+  border: 0;
+  border-radius: var(--dsw-radius-md, 12px);
+  padding: 8px 12px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-session-target="1"] button:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-session-target="1"] button > span:first-child {
+  flex: 0 1 auto;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-session-target="1"] button > span:first-child > span {
+  justify-content: flex-start;
+  gap: 8px;
+}
+:root[data-delta-ui="delta"] [data-dtd-presentation-session-target="1"] button > span[aria-hidden="true"] {
+  display: none;
+}
