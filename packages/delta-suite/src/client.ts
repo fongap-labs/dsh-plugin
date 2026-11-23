@@ -381,10 +381,17 @@ const LIVE_PRESENTATION_CSS = String.raw`
   overflow: visible !important;
 }
 :root[data-delta-ui="delta"] [data-dtd-live-preview="1"] { display: none !important; }
+/* Keep primary navigation above the workspace/session scroller. */
+:root[data-delta-ui="delta"] [data-dtd-live-pinned-nav="1"] {
+  position: sticky; top: 0; z-index: 8;
+  background: var(--dtd-bg-sidebar); isolation: isolate;
+}
+/* The host upload guard must be active; do not expose a misleading on/off toggle. */
+:root[data-delta-ui="delta"] [data-dtd-live-sessionlog-row="1"] { display: none !important; }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-title="1"] { order: 0; }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-fish="1"] {
   order: 1; align-self: center; width: 16px !important; height: 12px !important;
-  flex: 0 0 16px !important; transform: translateY(3px);
+  flex: 0 0 16px !important; transform: translateY(-2px);
 }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-fish="1"] svg {
   width: 16px !important; height: auto !important; max-width: 16px !important;
@@ -406,7 +413,7 @@ const LIVE_PRESENTATION_CSS = String.raw`
   display: flex; flex: 1 1 auto; min-width: 0; order: 0;
 }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-trigger="1"] {
-  box-sizing: border-box; display: flex; width: 36px !important;
+  box-sizing: border-box; color: var(--dtd-fg-primary); display: flex; width: 36px !important;
   height: 36px !important; min-height: 36px !important;
   align-items: center; justify-content: center; padding: 6px !important;
   border: 0 !important; gap: 0 !important; background: transparent !important;
@@ -426,9 +433,15 @@ const LIVE_PRESENTATION_CSS = String.raw`
   background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2023.16%2017.04%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M22.9168%201.43018C22.6713%201.31018%2022.5658%201.53918%2022.4223%201.65519C22.3733%201.69269%2022.3318%201.74169%2022.2903%201.78669C21.9317%202.1697%2021.5127%202.42121%2020.9657%202.39121C20.1657%202.34621%2019.4827%202.59771%2018.8787%203.20973C18.7502%202.45521%2018.3236%202.0047%2017.6746%201.71569C17.3351%201.56568%2016.9916%201.41518%2016.7536%201.08867C16.5876%200.856163%2016.5421%200.597155%2016.4591%200.341647C16.4061%200.187643%2016.3536%200.0301382%2016.1761%200.00363739C15.9836%20-0.0263635%2015.9081%200.135141%2015.8326%200.270145C15.5306%200.822162%2015.4136%201.43018%2015.4251%202.0462C15.4516%203.43174%2016.0366%204.53527%2017.1991%205.3203C17.3311%205.4103%2017.3651%205.5003%2017.3236%205.63181C17.2441%205.90231%2017.1501%206.16482%2017.0671%206.43533C17.0141%206.60784%2016.9351%206.64584%2016.7501%206.57033C16.1121%206.30383%2015.5611%205.90931%2015.074%205.4328C14.2475%204.63328%2013.5%203.75075%2012.568%203.05973C12.349%202.89822%2012.13%202.74822%2011.9034%202.60522C10.9524%201.68169%2012.028%200.923165%2012.277%200.833162C12.5375%200.739159%2012.3675%200.41615%2011.5259%200.42015C10.6844%200.42365%209.91439%200.705658%208.93286%201.08117C8.78935%201.13767%208.63835%201.17867%208.48384%201.21267C7.59332%201.04367%206.66829%201.00617%205.70226%201.11517C3.88321%201.31768%202.43016%202.1777%201.36213%203.64575C0.0790928%205.4103%20-0.222916%207.41536%200.146595%209.50642C0.535106%2011.7105%201.66014%2013.535%203.38869%2014.9616C5.18125%2016.4406%207.24581%2017.1657%209.60138%2017.0266C11.0319%2016.9441%2012.6245%2016.7526%2014.421%2015.2321C14.874%2015.4576%2015.3496%2015.5476%2016.1381%2015.6151C16.7456%2015.6716%2017.3306%2015.5851%2017.7836%2015.4911C18.4931%2015.3411%2018.4441%2014.6841%2018.1876%2014.5636C16.1081%2013.595%2016.5646%2013.9891%2016.1496%2013.67C17.2061%2012.42%2018.8202%2010.1979%2019.3182%207.17235C19.3672%206.83834%2019.4297%206.36783%2019.4222%206.09732C19.4182%205.93231%2019.4562%205.86831%2019.6447%205.84931C20.1657%205.78931%2020.6712%205.64681%2021.1357%205.3913C22.4833%204.65528%2023.0268%203.44624%2023.1548%201.9972C23.1738%201.77569%2023.1508%201.54668%2022.9168%201.43018ZM11.1749%2014.4736C9.15936%2012.889%208.18184%2012.3675%207.77832%2012.39C7.40081%2012.4125%207.46881%2012.8445%207.55182%2013.126C7.63882%2013.404%207.75182%2013.5955%207.91033%2013.8396C8.01983%2014.0011%208.09533%2014.2411%207.80083%2014.4216C7.15181%2014.8231%206.02327%2014.2866%205.97027%2014.2601C4.65673%2013.4865%203.5587%2012.4655%202.78467%2011.069C2.03715%209.72493%201.60314%208.28289%201.53164%206.74384C1.51264%206.37233%201.62214%206.24082%201.99215%206.17332C2.47916%206.08332%202.98118%206.06432%203.46769%206.13582C5.52476%206.43633%207.27581%207.35586%208.74385%208.8129C9.58188%209.64243%2010.2159%2010.634%2010.8689%2011.6025C11.5634%2012.631%2012.3105%2013.611%2013.262%2014.4146C13.598%2014.6961%2013.866%2014.9101%2014.1225%2015.0681C13.349%2015.1546%2012.058%2015.1731%2011.1749%2014.4746L11.1749%2014.4736ZM12.141%208.25988C12.141%208.09488%2012.273%207.96338%2012.439%207.96338C12.4765%207.96338%2012.5105%207.97088%2012.541%207.98188C12.5825%207.99688%2012.6205%208.01938%2012.6505%208.05338C12.7035%208.10588%2012.7335%208.18088%2012.7335%208.25988C12.7335%208.42489%2012.6015%208.55639%2012.4355%208.55639C12.2695%208.55639%2012.141%208.42489%2012.141%208.25988ZM15.1415%209.79893C14.949%209.87793%2014.7565%209.94544%2014.5715%209.95294C14.2845%209.96794%2013.9715%209.85143%2013.8015%209.70893C13.5375%209.48742%2013.3485%209.36342%2013.2695%208.97691C13.2355%208.8119%2013.2545%208.55639%2013.2845%208.40989C13.3525%208.09438%2013.277%207.89187%2013.0545%207.70787C12.8735%207.55786%2012.643%207.51636%2012.39%207.51636C12.2955%207.51636%2012.209%207.47486%2012.1445%207.44136C12.039%207.38886%2011.9519%207.25735%2012.035%207.09585C12.0615%207.04335%2012.19%206.91584%2012.22%206.89334C12.5635%206.69784%2012.9595%206.76184%2013.326%206.90834C13.6655%207.04735%2013.9225%207.30236%2014.292%207.66287C14.6695%208.09838%2014.7375%208.21838%2014.9525%208.54539C15.1225%208.8009%2015.277%209.06341%2015.3831%209.36392C15.4471%209.55142%2015.3641%209.70493%2015.1415%209.79893Z%22%2F%3E%3C%2Fsvg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2023.16%2017.04%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M22.9168%201.43018C22.6713%201.31018%2022.5658%201.53918%2022.4223%201.65519C22.3733%201.69269%2022.3318%201.74169%2022.2903%201.78669C21.9317%202.1697%2021.5127%202.42121%2020.9657%202.39121C20.1657%202.34621%2019.4827%202.59771%2018.8787%203.20973C18.7502%202.45521%2018.3236%202.0047%2017.6746%201.71569C17.3351%201.56568%2016.9916%201.41518%2016.7536%201.08867C16.5876%200.856163%2016.5421%200.597155%2016.4591%200.341647C16.4061%200.187643%2016.3536%200.0301382%2016.1761%200.00363739C15.9836%20-0.0263635%2015.9081%200.135141%2015.8326%200.270145C15.5306%200.822162%2015.4136%201.43018%2015.4251%202.0462C15.4516%203.43174%2016.0366%204.53527%2017.1991%205.3203C17.3311%205.4103%2017.3651%205.5003%2017.3236%205.63181C17.2441%205.90231%2017.1501%206.16482%2017.0671%206.43533C17.0141%206.60784%2016.9351%206.64584%2016.7501%206.57033C16.1121%206.30383%2015.5611%205.90931%2015.074%205.4328C14.2475%204.63328%2013.5%203.75075%2012.568%203.05973C12.349%202.89822%2012.13%202.74822%2011.9034%202.60522C10.9524%201.68169%2012.028%200.923165%2012.277%200.833162C12.5375%200.739159%2012.3675%200.41615%2011.5259%200.42015C10.6844%200.42365%209.91439%200.705658%208.93286%201.08117C8.78935%201.13767%208.63835%201.17867%208.48384%201.21267C7.59332%201.04367%206.66829%201.00617%205.70226%201.11517C3.88321%201.31768%202.43016%202.1777%201.36213%203.64575C0.0790928%205.4103%20-0.222916%207.41536%200.146595%209.50642C0.535106%2011.7105%201.66014%2013.535%203.38869%2014.9616C5.18125%2016.4406%207.24581%2017.1657%209.60138%2017.0266C11.0319%2016.9441%2012.6245%2016.7526%2014.421%2015.2321C14.874%2015.4576%2015.3496%2015.5476%2016.1381%2015.6151C16.7456%2015.6716%2017.3306%2015.5851%2017.7836%2015.4911C18.4931%2015.3411%2018.4441%2014.6841%2018.1876%2014.5636C16.1081%2013.595%2016.5646%2013.9891%2016.1496%2013.67C17.2061%2012.42%2018.8202%2010.1979%2019.3182%207.17235C19.3672%206.83834%2019.4297%206.36783%2019.4222%206.09732C19.4182%205.93231%2019.4562%205.86831%2019.6447%205.84931C20.1657%205.78931%2020.6712%205.64681%2021.1357%205.3913C22.4833%204.65528%2023.0268%203.44624%2023.1548%201.9972C23.1738%201.77569%2023.1508%201.54668%2022.9168%201.43018ZM11.1749%2014.4736C9.15936%2012.889%208.18184%2012.3675%207.77832%2012.39C7.40081%2012.4125%207.46881%2012.8445%207.55182%2013.126C7.63882%2013.404%207.75182%2013.5955%207.91033%2013.8396C8.01983%2014.0011%208.09533%2014.2411%207.80083%2014.4216C7.15181%2014.8231%206.02327%2014.2866%205.97027%2014.2601C4.65673%2013.4865%203.5587%2012.4655%202.78467%2011.069C2.03715%209.72493%201.60314%208.28289%201.53164%206.74384C1.51264%206.37233%201.62214%206.24082%201.99215%206.17332C2.47916%206.08332%202.98118%206.06432%203.46769%206.13582C5.52476%206.43633%207.27581%207.35586%208.74385%208.8129C9.58188%209.64243%2010.2159%2010.634%2010.8689%2011.6025C11.5634%2012.631%2012.3105%2013.611%2013.262%2014.4146C13.598%2014.6961%2013.866%2014.9101%2014.1225%2015.0681C13.349%2015.1546%2012.058%2015.1731%2011.1749%2014.4746L11.1749%2014.4736ZM12.141%208.25988C12.141%208.09488%2012.273%207.96338%2012.439%207.96338C12.4765%207.96338%2012.5105%207.97088%2012.541%207.98188C12.5825%207.99688%2012.6205%208.01938%2012.6505%208.05338C12.7035%208.10588%2012.7335%208.18088%2012.7335%208.25988C12.7335%208.42489%2012.6015%208.55639%2012.4355%208.55639C12.2695%208.55639%2012.141%208.42489%2012.141%208.25988ZM15.1415%209.79893C14.949%209.87793%2014.7565%209.94544%2014.5715%209.95294C14.2845%209.96794%2013.9715%209.85143%2013.8015%209.70893C13.5375%209.48742%2013.3485%209.36342%2013.2695%208.97691C13.2355%208.8119%2013.2545%208.55639%2013.2845%208.40989C13.3525%208.09438%2013.277%207.89187%2013.0545%207.70787C12.8735%207.55786%2012.643%207.51636%2012.39%207.51636C12.2955%207.51636%2012.209%207.47486%2012.1445%207.44136C12.039%207.38886%2011.9519%207.25735%2012.035%207.09585C12.0615%207.04335%2012.19%206.91584%2012.22%206.89334C12.5635%206.69784%2012.9595%206.76184%2013.326%206.90834C13.6655%207.04735%2013.9225%207.30236%2014.292%207.66287C14.6695%208.09838%2014.7375%208.21838%2014.9525%208.54539C15.1225%208.8009%2015.277%209.06341%2015.3831%209.36392C15.4471%209.55142%2015.3641%209.70493%2015.1415%209.79893Z%22%2F%3E%3C%2Fsvg%3E") center / contain no-repeat;
 }
+:root[data-delta-ui="delta"] [data-dtd-live-footer-update-slot="1"] {
+  order: 1; flex: none; display: flex; justify-content: center; align-items: center;
+  min-width: 36px !important; min-height: 36px !important;
+}
 :root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"] {
-  order: 1; flex: none; width: 36px !important; min-width: 36px !important;
+  box-sizing: border-box; flex: none; width: 36px !important; min-width: 36px !important;
   height: 36px !important; min-height: 36px !important; padding: 6px !important;
+  color: var(--dtd-brand); background: transparent !important; border: 0 !important;
+  border-radius: var(--dtd-radius-md) !important;
 }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"] svg {
   width: 24px !important; height: 24px !important;
@@ -436,32 +449,41 @@ const LIVE_PRESENTATION_CSS = String.raw`
 :root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"] > span:not(:first-child) {
   display: none !important;
 }
+:root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"]:hover {
+  background: var(--dtd-bg-hover) !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"]:focus-visible {
+  outline: 2px solid var(--dtd-border-focus); outline-offset: 2px;
+}
 :root[data-delta-ui="delta"] [data-dtd-live-footer-action] {
   order: 2; flex: none; width: 36px; height: 36px;
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 6px; color: inherit; background: transparent; cursor: pointer;
-  border: 0; border-radius: 12px;
+  padding: 6px; color: var(--dtd-fg-primary); background: transparent; cursor: pointer;
+  border: 0; border-radius: var(--dtd-radius-md);
 }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-action="auth"] { order: 3; }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-action] svg { width: 24px; height: 24px; display: block; }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-action]:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: var(--dtd-bg-hover);
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-action]:focus-visible {
+  outline: 2px solid var(--dtd-border-focus); outline-offset: 2px;
 }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"] {
   display: none; position: absolute; z-index: 60; bottom: calc(100% + 6px);
   left: 4px; width: min(250px, calc(100vw - 32px)); box-sizing: border-box;
   flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px;
-  box-shadow: var(--dsw-elevation-prominent, 0 6px 22px #0002);
-  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-overlay, white));
-  color: var(--dsw-alias-label-primary); pointer-events: none;
+  box-shadow: var(--dtd-popup-shadow); border: 1px solid var(--dtd-popup-border);
+  background: var(--dtd-popup-bg); color: var(--dtd-popup-fg); pointer-events: none;
 }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"][data-open="1"] { display: flex; }
 :root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"] > div {
   display: flex; justify-content: space-between; gap: 8px; align-items: center;
   font-size: 12px;
 }
-:root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"] strong {
-  font-size: 13px; font-variant-numeric: tabular-nums; text-align: right;
+:root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"] [data-dtd-live-footer-value] {
+  font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums;
+  text-align: right; overflow-wrap: anywhere; min-width: 0; max-width: 70%;
 }
 
 :root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] {
@@ -481,7 +503,7 @@ const LIVE_PRESENTATION_CSS = String.raw`
 }
 :root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button > span[aria-hidden="true"] { display: none; }
 :root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: var(--dtd-bg-hover);
 }
 :root[data-delta-ui="delta"] [data-dtd-live-session-source="1"] { display: none !important; margin: 0 !important; }
 `
@@ -640,8 +662,13 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       if (!button || button.hasAttribute('data-dtd-live-footer-action')) continue
       const label = ((button.getAttribute('aria-label') ?? '') + ' ' + (button.textContent ?? '')).trim()
       const updateTerms = ['新版本', '版本更新', '下载更新', 'New version', 'Update available', 'download', 'checking', 'retry']
-      if (updateTerms.some(term => label.toLowerCase().includes(term.toLowerCase())))
+      if (updateTerms.some(term => label.toLowerCase().includes(term.toLowerCase()))) {
         mark(button, 'footer-update')
+        // Flex order must be applied to the native direct child, not just its nested button.
+        if (child instanceof HTMLElement) mark(child, 'footer-update-slot')
+      } else if (child instanceof HTMLElement) {
+        unmark(child, 'footer-update-slot')
+      }
     }
     for (const id of ['settings', 'auth'] as const) {
       let button = footerActions.get(id)
@@ -670,8 +697,8 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       footerCard = document.createElement('div')
       footerCard.setAttribute('data-dtd-live-footer-card', '1')
       footerCard.setAttribute('role', 'tooltip')
-      footerCard.innerHTML = '<div><span data-dtd-live-footer-label></span><strong data-dtd-live-footer-value></strong></div>' +
-        '<div><span data-dtd-live-footer-label></span><strong data-dtd-live-footer-value></strong></div>'
+      footerCard.innerHTML = '<div><span data-dtd-live-footer-label></span><span data-dtd-live-footer-value></span></div>' +
+        '<div><span data-dtd-live-footer-label></span><span data-dtd-live-footer-value></span></div>'
     }
     if (footerCard.parentElement !== row) row.appendChild(footerCard)
   }
@@ -684,6 +711,7 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
       const lang = language()
       const scroll = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
       const nav = scroll?.querySelector<HTMLElement>('nav')
+      if (nav) mark(nav, 'pinned-nav')
       const sidebar = scroll?.parentElement?.parentElement
       if (sidebar) {
         const row = Array.from(sidebar.children).find(node =>
@@ -697,6 +725,19 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
         }
       }
       if (sidebar) syncFooter(sidebar)
+      // Exact native preference ownership check: hide only the ineffective Session Log
+      // toggle, never unrelated security settings or all general-setting switches.
+      const logTitles = ['在使用官方模型 API 时上传 Session Log',
+        'Upload Session Log when using the official model API']
+      for (const control of document.querySelectorAll<HTMLElement>('[role="switch"]')) {
+        let row = control.parentElement
+        for (let level = 0; level < 3 && row instanceof HTMLElement; level++, row = row.parentElement) {
+          const title = Array.from(row.children).some(child => child instanceof HTMLElement &&
+            (logTitles.includes(child.textContent?.trim() ?? '') ||
+             Array.from(child.children).some(inner => logTitles.includes(inner.textContent?.trim() ?? ''))))
+          if (title) { mark(row, 'sessionlog-row'); break }
+        }
+      }
       let scheduleRow: HTMLElement | undefined
       let pluginRow: HTMLElement | undefined
       if (nav) for (const button of nav.querySelectorAll<HTMLButtonElement>('button[aria-label]')) {
@@ -829,6 +870,11 @@ const DELTA_PALETTE = {
   brandSoft: { light: '#EAF3F4', dark: '#1C3B40' },
   brandSoftStrong: { light: '#DCEBEC', dark: '#1C3B40' },
   brandBorder: { light: '#9AC9CE', dark: '#357079' },
+  labelPrimary: { light: '#18181B', dark: '#FAFAFA' },
+  labelSecondary: { light: '#52525B', dark: '#D4D4D8' },
+  labelMuted: { light: '#71717A', dark: '#A1A1AA' },
+  hoverSurface: { light: '#EEF0F2', dark: 'rgba(255, 255, 255, 0.08)' },
+  surfaceBorder: { light: '#E5E9EB', dark: 'rgba(255, 255, 255, 0.12)' },
   invertedInk: { light: '#FFFFFF', dark: '#0E1A1C' },
   canvas: { light: '#FFFFFF', dark: '#121316' },
   surface: { light: '#FFFFFF', dark: '#1C1E22' },
@@ -849,6 +895,11 @@ const TOKENS: Record<string, { light: string; dark: string }> = {
   '--dsw-alias-button-info-hover': DELTA_PALETTE.brandHover,
   '--dsw-alias-button-ghost-active-fill': DELTA_PALETTE.brandSoft,
   '--dsw-alias-button-ghost-active-border': DELTA_PALETTE.brandBorder,
+  '--dsw-alias-label-primary': DELTA_PALETTE.labelPrimary,
+  '--dsw-alias-label-secondary': DELTA_PALETTE.labelSecondary,
+  '--dsw-alias-label-tertiary': DELTA_PALETTE.labelMuted,
+  '--dsw-alias-label-caption': DELTA_PALETTE.labelMuted,
+  '--dsw-alias-interactive-bg-hover': DELTA_PALETTE.hoverSurface,
   '--dsw-alias-label-primary-inverted': DELTA_PALETTE.invertedInk,
   '--dsw-alias-label-primary-foreground': DELTA_PALETTE.invertedInk,
   '--dsw-alias-label-primary-bluish': { light: '#10373C', dark: '#E4F4F6' },
@@ -859,9 +910,125 @@ const TOKENS: Record<string, { light: string; dark: string }> = {
   '--dsw-alias-link': DELTA_PALETTE.brand,
   '--dsw-alias-bg-base': DELTA_PALETTE.canvas,
   '--dsw-alias-bg-layer-1': DELTA_PALETTE.surface,
+  '--dsw-alias-bg-layer-2': DELTA_PALETTE.surface,
   '--dsw-alias-bg-overlay': DELTA_PALETTE.popupBg,
+  '--dsw-alias-state-error-primary': { light: '#B91C1C', dark: '#F87171' },
+  '--dsw-alias-state-idle-primary': DELTA_PALETTE.labelMuted,
+  '--dsw-alias-state-success-primary': { light: '#167D56', dark: '#4FD1A0' },
+  '--dsw-alias-state-warn-primary': { light: '#B7791F', dark: '#F0BC60' },
+  '--dsw-alias-scrollbar-bg-l2': { light: '#C4CDD1', dark: '#465156' },
+  '--dsw-alias-scrollbar-hover-l2': { light: '#9AAAB1', dark: '#5F7077' },
+  // Shared native chrome: settings, cards, inputs, panels, hover surfaces and markdown.
+  // Semantic diagnostics (syntax highlighting, diffs, success/warning colors) remain distinct.
+  '--dsw-alias-bg-document-preview': { light: '#F6F8F9', dark: '#24272B' },
+  '--dsw-alias-bg-layer-3': DELTA_PALETTE.surface,
+  '--dsw-alias-bg-mask-1': { light: 'rgba(0, 0, 0, 0.24)', dark: 'rgba(0, 0, 0, 0.48)' },
+  '--dsw-alias-bg-mask-2': { light: 'rgba(0, 0, 0, 0.12)', dark: 'rgba(0, 0, 0, 0.28)' },
+  '--dsw-alias-bg-mask-3': { light: 'rgba(0, 0, 0, 0.48)', dark: 'rgba(0, 0, 0, 0.64)' },
+  '--dsw-alias-bg-multi-select': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-bg-skeleton': { light: '#EEF0F2', dark: '#292D30' },
+  '--dsw-alias-border-inverted': { light: 'rgba(255, 255, 255, 0.5)', dark: 'rgba(0, 0, 0, 0.5)' },
+  '--dsw-alias-border-inverted2': { light: 'rgba(255, 255, 255, 0.25)', dark: 'rgba(0, 0, 0, 0.25)' },
+  '--dsw-alias-border-l2-darkmode-thin': DELTA_PALETTE.surfaceBorder,
+  '--dsw-alias-border-l3': DELTA_PALETTE.surfaceBorder,
+  '--dsw-alias-border-l4': { light: '#CCD6DA', dark: '#566168' },
+  '--dsw-alias-border-selected': DELTA_PALETTE.brandBorder,
+  '--dsw-alias-button-contrast-fill': DELTA_PALETTE.labelPrimary,
+  '--dsw-alias-button-elevated-fill': DELTA_PALETTE.surface,
+  '--dsw-alias-button-floating-fill': DELTA_PALETTE.surface,
+  '--dsw-alias-button-floating-hover': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-button-ghost-active-hover': DELTA_PALETTE.brandSoftStrong,
+  '--dsw-alias-button-primary-dimmed': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-button-tool-bar-fill': { light: 'rgba(40, 111, 120, 0.18)', dark: 'rgba(96, 180, 191, 0.18)' },
+  '--dsw-alias-button-tool-bar-hover': { light: 'rgba(40, 111, 120, 0.26)', dark: 'rgba(96, 180, 191, 0.26)' },
+  '--dsw-alias-card-fill': DELTA_PALETTE.surface,
+  '--dsw-alias-card-fill-hover': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-card-tile-fill': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-hovercard-bg': DELTA_PALETTE.popupBg,
+  '--dsw-alias-hovercard-label-primary': DELTA_PALETTE.labelPrimary,
+  '--dsw-alias-hovercard-label-secondary': DELTA_PALETTE.labelSecondary,
+  '--dsw-alias-hovercard-label-tertiary': DELTA_PALETTE.labelMuted,
+  '--dsw-alias-hovercard-state-done': DELTA_PALETTE.brand,
+  '--dsw-alias-hovercard-state-error': { light: '#B91C1C', dark: '#F87171' },
+  '--dsw-alias-interactive-bg-active': DELTA_PALETTE.brandSoftStrong,
+  '--dsw-alias-interactive-bg-hover-accent': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-interactive-bg-hover-solid': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-label-dimmed': DELTA_PALETTE.labelMuted,
+  '--dsw-alias-label-document-preview': DELTA_PALETTE.labelSecondary,
+  '--dsw-alias-label-on-color': DELTA_PALETTE.invertedInk,
+  '--dsw-alias-label-primary-dimmed': DELTA_PALETTE.labelSecondary,
+  '--dsw-alias-label-shimmer': DELTA_PALETTE.labelMuted,
+  '--dsw-alias-markdown-citation': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-markdown-code-block-banner': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-markdown-code-block': { light: '#F5F7F8', dark: '#20282B' },
+  '--dsw-alias-markdown-code-segment-selected': DELTA_PALETTE.surface,
+  '--dsw-alias-markdown-code-segment-unselected': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-markdown-inline-code': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-markdown-placeholder': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-markdown-tag': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-scrollbar-bg-l1': { light: '#CED7DC', dark: '#465156' },
+  '--dsw-alias-scrollbar-hover-l1': { light: '#9AAAB1', dark: '#5F7077' },
+  '--dsw-alias-switch-thumb': DELTA_PALETTE.surface,
+  '--dsw-alias-toast-action': DELTA_PALETTE.brand,
+  '--dsw-alias-tooltip-label': DELTA_PALETTE.labelPrimary,
+  '--dsw-alias-trajectory-accent': DELTA_PALETTE.brand,
+  '--dsw-alias-turn-trigger-bg': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-turn-trigger-bg-hover': DELTA_PALETTE.brandSoft,
+  '--dsw-specific-file-upload-track': DELTA_PALETTE.brandSoft,
+  '--dsw-specific-guide-hero': DELTA_PALETTE.hoverSurface,
+  '--dsw-specific-input-major': DELTA_PALETTE.surface,
+  '--dsw-specific-login-input': DELTA_PALETTE.surface,
+  '--dsw-specific-selector': DELTA_PALETTE.hoverSurface,
+  '--dsw-specific-sidebar-nav-item-active': DELTA_PALETTE.brandSoftStrong,
+  '--dsw-specific-sidebar-right-flash': DELTA_PALETTE.brand,
+  '--dsw-specific-tip': DELTA_PALETTE.brandSoft,
+  // Content and platform-specific palette retain their categorical meaning.
+  '--dsw-alias-bg-mask-photo': { light: 'rgba(0, 0, 0, 0.88)', dark: 'rgba(0, 0, 0, 0.88)' },
+  '--dsw-alias-bg-mask-drop': { light: 'rgba(255, 255, 255, 0.7)', dark: 'rgba(255, 255, 255, 0.22)' },
+  '--dsw-alias-button-tool-bar-fill-invisible': { light: 'rgba(40, 111, 120, 0.10)', dark: 'rgba(96, 180, 191, 0.10)' },
+  '--dsw-alias-chart-messages': DELTA_PALETTE.brand,
+  '--dsw-alias-chart-system': DELTA_PALETTE.labelMuted,
+  '--dsw-alias-chart-tools': { light: '#7952A3', dark: '#C2A4E8' },
+  '--dsw-alias-code-diff-added': { light: 'rgba(24, 128, 75, 0.10)', dark: 'rgba(74, 193, 120, 0.16)' },
+  '--dsw-alias-code-diff-deleted': { light: 'rgba(185, 28, 28, 0.10)', dark: 'rgba(248, 113, 113, 0.16)' },
+  '--dsw-alias-file-diff-added-bg': { light: '#E6F4E7', dark: '#1B392B' },
+  '--dsw-alias-file-diff-added-gutter': { light: '#EDF7ED', dark: '#234532' },
+  '--dsw-alias-file-diff-added-marker': { light: '#18804B', dark: '#4AC178' },
+  '--dsw-alias-file-diff-deleted-bg': { light: '#FCE6E2', dark: '#46282A' },
+  '--dsw-alias-file-diff-deleted-gutter': { light: '#FDECE9', dark: '#553135' },
+  '--dsw-alias-file-diff-deleted-marker': { light: '#BA2723', dark: '#F87171' },
+  '--dsw-alias-illustration-background': DELTA_PALETTE.brandSoft,
+  '--dsw-alias-illustration-backing': DELTA_PALETTE.brandBorder,
+  '--dsw-alias-illustration-detail': DELTA_PALETTE.brandBorder,
+  '--dsw-alias-illustration-inset': DELTA_PALETTE.surface,
+  '--dsw-alias-illustration-shadow': DELTA_PALETTE.surface,
+  '--dsw-alias-illustration-surface': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-json-tree-hover': DELTA_PALETTE.hoverSurface,
+  '--dsw-alias-json-tree-icon': DELTA_PALETTE.labelSecondary,
+  '--dsw-alias-json-tree-keyword': { light: '#5641A4', dark: '#C4B0FF' },
+  '--dsw-alias-json-tree-number': { light: '#5641A4', dark: '#C4B0FF' },
+  '--dsw-alias-json-tree-property': { light: '#7952A3', dark: '#D2A5F0' },
+  '--dsw-alias-json-tree-punctuation': DELTA_PALETTE.labelPrimary,
+  '--dsw-alias-json-tree-string': { light: '#A3312E', dark: '#F0A0A0' },
+  '--dsw-alias-state-done-primary': DELTA_PALETTE.brand,
+  '--dsw-alias-state-error-secondary': { light: '#DC5656', dark: '#F89A9A' },
+  '--dsw-alias-state-success-secondary': { light: '#299467', dark: '#7AE0B5' },
+  '--dsw-alias-state-success-tertiary': { light: '#E4F4EC', dark: '#204233' },
+  '--dsw-alias-state-warn-label': { light: '#8A5E15', dark: '#F0BC60' },
+  '--dsw-alias-state-warn-secondary': { light: '#D39B38', dark: '#F3CF86' },
+  '--dsw-alias-state-warn-tertiary': { light: '#FFF4D9', dark: '#443822' },
+  '--dsw-specific-sidebar-glass-collapsed-fill': { light: 'transparent', dark: 'rgba(24, 26, 30, 0.22)' },
+  '--dsw-specific-sidebar-glass-collapsed-hover': DELTA_PALETTE.hoverSurface,
+  '--dsw-specific-sidebar-glass-fill': { light: 'rgba(242, 244, 246, 0.72)', dark: 'rgba(24, 26, 30, 0.55)' },
+  '--dsw-specific-sidebar-glass-hover': { light: 'rgba(238, 240, 242, 0.85)', dark: 'rgba(96, 180, 191, 0.10)' },
+  '--dsw-specific-sidebar-tint': { light: 'rgba(40, 111, 120, 0.06)', dark: 'rgba(96, 180, 191, 0.06)' },
+  '--dsw-specific-sidebar-wash-bottom': { light: 'rgba(40, 111, 120, 0.05)', dark: 'rgba(96, 180, 191, 0.06)' },
+  '--dsw-specific-sidebar-wash-bottom-clear': { light: 'rgba(40, 111, 120, 0)', dark: 'rgba(96, 180, 191, 0)' },
+  '--dsw-specific-sidebar-wash-top': { light: 'rgba(40, 111, 120, 0.08)', dark: 'rgba(96, 180, 191, 0.08)' },
+  '--dsw-specific-sidebar-wash-top-clear': { light: 'rgba(40, 111, 120, 0)', dark: 'rgba(96, 180, 191, 0)' },
   '--dsw-alias-bg-document-selection': { light: 'rgba(40, 111, 120, 0.22)', dark: 'rgba(96, 180, 191, 0.28)' },
-  '--dsw-alias-border-l1': { light: '#E5E9EB', dark: '#31363B' },
+  '--dsw-alias-border-l1': DELTA_PALETTE.surfaceBorder,
+  '--dsw-alias-border-l2': DELTA_PALETTE.surfaceBorder,
   '--dsw-specific-sidebar-fill': DELTA_PALETTE.sidebarBg,
   '--dsw-specific-sidebar-nav-item-active-accent': DELTA_PALETTE.brandSoftStrong,
   '--dsw-specific-bubble': DELTA_PALETTE.bubbleBg,
@@ -871,6 +1038,9 @@ const TOKENS: Record<string, { light: string; dark: string }> = {
   '--dsw-alias-focus-stroke': DELTA_PALETTE.brand,
   '--dsw-alias-border-focus': DELTA_PALETTE.brand,
   '--dsw-menu-surface-fill': DELTA_PALETTE.popupBg,
+  '--dsw-menu-backdrop-filter': { light: 'none', dark: 'none' },
+  '--dsw-alias-menu-icon': DELTA_PALETTE.labelSecondary,
+  '--dsw-alias-interactive-bg-hover-danger': { light: '#FDECEC', dark: '#482729' },
   '--dsw-specific-menu': DELTA_PALETTE.popupBg,
   '--dsw-hovercard-bg': DELTA_PALETTE.popupBg,
   '--dsw-alias-tooltip-bg': DELTA_PALETTE.popupBg,
@@ -6058,12 +6228,6 @@ window.__ModuleLoader__.load({
       deltaFeatures.ensureLoaded()
       const { state, copy } = useCopy(controller)
       const fSnap = React.useSyncExternalStore(deltaFeatures.subscribe, deltaFeatures.getSnapshot)
-      const privacyItems = [
-        copy.privacy.sessionLogBlocked,
-        copy.privacy.telemetryBlocked,
-        copy.privacy.geolocationOff,
-        copy.privacy.redactionActive,
-      ]
       // These four feature contracts are not verified in the installed Host.
       // Present a truthful native fallback, never a simulated success or
       // a live capability claim inferred from the Host version or DOM.
@@ -6103,14 +6267,7 @@ window.__ModuleLoader__.load({
 
         el('div', { className: 'dtd-privacy-card', 'data-delta-privacy-card': '' },
           el('div', { className: 'dtd-privacy-header' },
-            el('strong', null, copy.privacy.title),
-            el('span', { className: 'dtd-privacy-badge' }, copy.privacy.statusEnforced)),
-          el('p', null, copy.privacy.description),
-          el('ul', { className: 'dtd-privacy-list' },
-            privacyItems.map((itemText, idx) =>
-              el('li', { key: idx, className: 'dtd-privacy-item' },
-                el('span', { className: 'dtd-privacy-dot', 'aria-hidden': true }),
-                el('span', null, itemText)))),
+            el('strong', null, copy.privacy.title)),
           el('div', { className: 'dtd-pin-manage-row' },
             el('span', null, `${copy.sessionMenu.pinSettingsTitle}: ${fSnap.hasPin ? copy.sessionMenu.pinSetStatus : copy.sessionMenu.pinUnsetStatus}`),
             fSnap.hasPin ? el('button', {
