@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 新增基于 Harness Host 子进程的两阶段安全 Git 同步工具；先预览和获取远程提交，分支及工作区二次核验成功后才允许重置，脏文件需显式留存 Git stash，不再串接失败后仍可能执行的清理命令。
+
+- 修复: Delta Code 网关重试协调尊重带有有效网关错误码的 `retryable:false`，无 Retry-After 时也停止自动重试，并加入免费模型故障形态的回归测试。
+
 - 修复: 清理 Delta Suite 中英文词典各 52 条未使用文案及类型，包括失效隐私状态声明，并以 CI 检查禁止继续新增孤儿 Key。
 
 - 修复: Delta Suite 使用官方 LocaleRuntime 的只读快照与订阅更新 Suite 语言，停用时释放监听器，避免全局语言属性观察器，非中文回退英文。

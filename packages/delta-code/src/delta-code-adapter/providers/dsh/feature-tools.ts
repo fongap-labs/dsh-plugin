@@ -17,6 +17,7 @@ import { createSessionRepositoryTool } from './session-repositories.js'
 import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 import { createWorktreeTool } from './worktree.js'
 import { createGitStatusTool, createGitDiffTool } from './git.js'
+import { createGitSyncTool } from './git-sync.js'
 import { createGitHubTools } from './github.js'
 
 /** DSH-specific factories. The feature modules never import Context or ToolDefinition. */
@@ -52,5 +53,6 @@ export function createDshRepositoryCommandTools(
 ): ToolDefinition[] {
   return [createWorkspaceMapTool(ctx, settings, sessionRepositories), createWorktreeTool(ctx, settings),
     ...(settings.gitEnabled ? [createGitStatusTool(ctx, settings, sessionRepositories), createGitDiffTool(ctx, settings, sessionRepositories),
+      createGitSyncTool(ctx, settings),
       ...(sessionRepositories ? [createSessionRepositoryTool(ctx, settings, sessionRepositories)] : [])] : [])]
 }

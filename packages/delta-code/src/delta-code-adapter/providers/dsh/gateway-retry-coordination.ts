@@ -30,7 +30,7 @@ const GATEWAY_EXHAUSTED_CODES = new Set([
   'gateway_no_dispatchable_node',
 ])
 
-type GatewayRetryHint = { retryAfterMs: number; suppressAutomaticReplay: boolean }
+type GatewayRetryHint = { retryAfterMs: number | null; suppressAutomaticReplay: boolean }
 
 /** Only accept a Gateway-owned error contract, never an arbitrary phrase. */
 function gatewayRetryHint(message: unknown): GatewayRetryHint | null {
@@ -41,8 +41,16 @@ function gatewayRetryHint(message: unknown): GatewayRetryHint | null {
     const body = JSON.parse(match[1]!) as Record<string, unknown>
     const details = (body.details ?? (body.error && typeof body.error === 'object'
       ? (body.error as Record<string, unknown>).details : undefined)) as Record<string, unknown> | undefined
-    if (!details || !GATEWAY_EXHAUSTED_CODES.has(String(details.gateway_code ?? ''))) return null
-    if (details.retryable === false) return null
+    // A structured Gateway refusal is authoritative even when no Retry-After
+    // exists. Never let the stock Host policy replay an explicitly terminal
+    // response (as seen in the free-model session).
+    if (!details || typeof details.gateway_code !== 'string' ||
+        !/^gateway_[a-z0-9_]+$/.test(details.gateway_code)) return null
+    const gatewayCode = details.gateway_code
+    if (details.retryable === false) {
+      return { retryAfterMs: null, suppressAutomaticReplay: true }
+    }
+    if (!GATEWAY_EXHAUSTED_CODES.has(gatewayCode)) return null
     const value = details.retry_after_ms
     if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0 || value > 86_400_000) return null
     // Gateway #402 marks mixed timeout/rate-limit exhaustion with a long
@@ -98,12 +106,18 @@ export function registerGatewayRetryCoordinator(
   const wait = internals.wait ?? waitWithAbort
   let isActive = true
   const unbind = runtime.on('agent/request-error', async (event, next) => {
-    if (!isActive || !isEnabled() || event?.retryPolicy?.mode === 'always') return next()
+    if (!isActive || !isEnabled()) return next()
+    const hint = gatewayRetryHint(event?.failure?.message)
+    // Gateway retryable:false outranks an unconditional Host retry policy.
+    if (hint?.suppressAutomaticReplay && hint.retryAfterMs === null) {
+      runtime.logger?.info?.('delta-code: Gateway declared failure non-retryable; stopping automatic replay')
+      return undefined
+    }
+    if (event?.retryPolicy?.mode === 'always') return next()
     if (isAccountQuotaExhausted(event?.failure?.message)) {
       runtime.logger?.info?.('delta-code: account quota is exhausted; stopping automatic replay')
       return undefined
     }
-    const hint = gatewayRetryHint(event?.failure?.message)
     if (!hint) return next()
     if (event.signal?.aborted) return undefined
     // Mirror the Gateway's explicit no-immediate-replay decision even when
@@ -113,6 +127,7 @@ export function registerGatewayRetryCoordinator(
       return undefined
     }
     const hintMs = hint.retryAfterMs
+    if (hintMs === null) return next()
     const nativeMaximum = event.retryPolicy?.maxDelayMs
     const maximum = typeof nativeMaximum === 'number' && Number.isFinite(nativeMaximum) && nativeMaximum > 0
       ? nativeMaximum
