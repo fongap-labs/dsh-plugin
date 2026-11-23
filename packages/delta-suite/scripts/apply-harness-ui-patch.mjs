@@ -147,13 +147,27 @@ export function patchAccountMenu(source) {
       "    {account.loginVisible && !account.onboarding && <SignInDialog",
     ].join('\n'),
     'AccountMenu native dialogs')
-  return next
+  return patchAccountHover(next)
 }
 
+function patchAccountHover(source) {
+  if (source.includes('delta-suite:account-hover-v1')) return source
+  let next = source
+  next = replaceUnique(next, "import { AccountAvatar } from './AccountAvatar.tsx'", "import { AccountAvatar } from './AccountAvatar.tsx'\nimport { formatBalance } from './formatBalance.ts'", "account existing formatter")
+  next = replaceUnique(next, "  const [open, setOpen] = useState(false)", "  const [open, setOpen] = useState(false)\n  // delta-suite:account-hover-v1\n  const [deltaHover, setDeltaHover] = useState(false)\n  const hoverAccount = useRef<typeof account.view>(undefined)\n  const hoverAccountDetails = (): void => {\n    if (!signedIn || !wide || document.documentElement.dataset.deltaUi !== 'delta') return\n    setDeltaHover(true)\n    if (hoverAccount.current !== account.view) {\n      hoverAccount.current = account.view\n      void refreshAccount().catch(() => undefined)\n    }\n  }\n  const hoverLabels = t('signIn') === '登录'\n    ? { balance: '账户余额', today: '今日消费', missing: '暂无数据', usage: '查看用量' }\n    : { balance: 'Account balance', today: 'Today spending', missing: 'Unavailable', usage: 'View usage' }", "account hover state")
+  next = replaceUnique(next, "        aria-haspopup=\"menu\" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>", "        aria-haspopup=\"menu\" aria-expanded={open} onMouseEnter={hoverAccountDetails} onMouseLeave={() => { setDeltaHover(false) }} onFocus={hoverAccountDetails} onBlur={() => { setDeltaHover(false) }} onClick={() => { setDeltaHover(false); setOpen(value => !value) }}>", "native avatar hover event")
+  next = replaceUnique(next, "    {account.loginVisible && !account.onboarding && <SignInDialog", "    {signedIn && wide && deltaHover && !open && (\n      <div className={css.deltaHoverCard} role=\"tooltip\">\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.balance}</span>\n          <strong>{account.details?.balance?.status === 'ready' && account.details.balance.value.length > 0\n            ? account.details.balance.value.map(wallet => formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')).join(' + ')\n            : hoverLabels.missing}</strong>\n        </div>\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.today}</span>\n          <strong>{hoverLabels.missing}</strong>\n        </div>\n        {account.view?.links.usageUrl && <small className={css.deltaHoverHint}>{hoverLabels.usage}</small>}\n      </div>\n    )}\n    {account.loginVisible && !account.onboarding && <SignInDialog", "account hover card")
+  return next
+}
 const accountFooterCSS = [
   '.deltaGuestMark { display: none; }',
   '.officialGuestMark { display: inline-flex; }',
   '.deltaActions { display: none; }',
+  '.deltaHoverCard { display: none; }',
+  ':global(html[data-delta-ui="delta"]) .root .deltaHoverCard { display: flex; position: absolute; bottom: calc(100% + 8px); left: 8px; z-index: 20; flex-direction: column; gap: 10px; box-sizing: border-box; width: 240px; padding: 14px 16px; border-radius: 12px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); box-shadow: var(--dsw-elevation-prominent); pointer-events: none; }',
+  ':global(html[data-delta-ui="delta"]) .root .deltaHoverRow { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 12px; line-height: 20px; }',
+  ':global(html[data-delta-ui="delta"]) .root .deltaHoverRow strong { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }',
+  ':global(html[data-delta-ui="delta"]) .root .deltaHoverHint { font-size: 11px; color: var(--dsw-alias-label-tertiary); }',
   ':global(html[data-delta-ui="delta"]) .root .deltaGuestMark {',
   '  display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center;',
   '}',

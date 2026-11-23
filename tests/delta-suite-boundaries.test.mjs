@@ -117,9 +117,12 @@ test('account footer patch reuses native account state and sign-out confirmation
     "import {",
     "  Toast, Menu, IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular,",
     "} from '@deepseek-ai/dsh-client-ui-primitives'",
+    "import { AccountAvatar } from './AccountAvatar.tsx'",
     "function AccountMenu() {",
+    "  const [open, setOpen] = useState(false)",
     "  return <div className={css.root} data-inset={signedIn && wide}>",
     "    <Menu anchor={<button>",
+    '        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>',
     "       {signedIn ? <AccountAvatar />",
     "          : <IconEllipsisOutlineMedium size={14} />}",
     "    </button>} />",
@@ -139,6 +142,15 @@ test('account footer patch reuses native account state and sign-out confirmation
   assert.match(patched, /SignInDialog/)
   assert.match(patched, /SignOutDialog/)
   assert.match(patched, /Menu anchor=/, 'keep native Feedback menu available')
+  assert.match(patched, /<div className=\{css\.deltaHoverCard\} role="tooltip">/)
+  assert.match(patched, /deltaHover && !open/)
+  assert.match(patched, /account\.details\.balance\.value\.map/)
+  assert.match(patched, /formatBalance\(wallet\.balance/)
+  assert.match(patched, /hoverLabels\.today/)
+  assert.match(patched, /hoverLabels\.missing/, 'never manufacture a daily cost or zero balance')
+  assert.match(patched, /refreshAccount\(\)\.catch/, 'reuse Host refresh with no extra credential transport')
+  assert.match(patched, /onMouseLeave=/)
+  assert.match(patched, /onBlur=/)
   assert.equal(patchAccountMenu(patched), patched)
   assert.throws(() => patchAccountMenu(original.replace('IconEllipsisOutlineMedium', 'UnknownIcon')), /contract changed/)
 })
@@ -165,6 +177,9 @@ test('footer order is avatar then native update then settings and account action
   assert.match(accountCSS, /\.deltaActions \{[\s\S]*order: 2/)
   assert.match(settingsCSS, /data-delta-footer-update[^]*order: 1/)
   assert.match(accountCSS, /width: 24px; height: 24px/)
+  assert.match(accountCSS, /deltaHoverCard/)
+  assert.match(accountCSS, /pointer-events: none/)
+  assert.match(accountCSS, /data-delta-ui="delta"/)
   assert.match(settingsCSS, /button svg \{[\s\S]*width: 24px; height: 24px/)
   assert.match(settingsCSS, /\[data-delta-footer-update\]:empty/)
   assert.match(settingsCSS, /data-delta-footer-connection/)
