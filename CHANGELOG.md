@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Code 免费 Skill 候选 PR 创建后的续接提示与 Action Worker 已上线的 CI 事件驱动晋级机制保持一致，禁止 Agent 在中央 CI 等待期间重复手动发起可信目录晋级 PR，并加入回归约束。
+
 - 修复: Delta Suite 清理自建 MCP 凭据编辑器、env/header 读取、配置写入、原生插件菜单覆盖及废弃样式、类型和中英双语文案；MCP 配置恢复 Harness 原生所有权，增加安全边界回归测试。
 
 - 修复: 删除 Delta Suite 未挂载的原生侧边栏 DOM 兼容函数和帧调度器，转为严格校验仅通过公开 Search Slot 扩展，禁止重新引入菜单点击/原生节点接管。
