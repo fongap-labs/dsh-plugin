@@ -1,6 +1,6 @@
 # Delta Code · 真实 DSH 宿主验收
 
-> 适用对象：`packages/dsh-delta-code` 当前 `main`。每次验收必须记录实际插件 HEAD SHA 与 DSH 发行版本；本清单是**待执行的真实宿主验收步骤**，不是已通过的测试报告。
+> 适用对象：`packages/delta-code` 当前 `main`。每次验收必须记录实际插件 HEAD SHA 与 DSH 发行版本；本清单是**待执行的真实宿主验收步骤**，不是已通过的测试报告。
 
 ## 环境与前置条件
 
@@ -9,7 +9,7 @@
 3. 在本仓库运行 `pnpm install --frozen-lockfile && pnpm build`，随后以 DSH 官方插件管理通道安装：
 
    ```sh
-   dsh plugin --profile <已存在的隔离Profile> add link:/absolute/path/to/packages/dsh-delta-code
+   dsh plugin --profile <已存在的隔离Profile> add link:/absolute/path/to/packages/delta-code
    ```
 
    注：替换路径与 Profile；不得向真实工作区安装未经验证的测试版。
@@ -23,7 +23,7 @@
 ```sh
 node scripts/code-worker-host-preflight.mjs \
   --dsh /absolute/path/to/dsh-cli/bin.js \
-  --plugin-dir /absolute/path/to/dsh-plugin/packages/dsh-delta-code \
+  --plugin-dir /absolute/path/to/dsh-plugin/packages/delta-code \
   --profile sdk
 ```
 

@@ -17,7 +17,7 @@
 
 ## 本次实现
 
-`packages/dsh-delta-suite/src/delta-suite-adapter/gateway-reasoning.ts` 提供三项纯函数：
+`packages/delta-suite/src/delta-suite-adapter/gateway-reasoning.ts` 提供三项纯函数：
 
 - `decodeGatewayReasoningCatalog(value)`：仅解析调用方已经获取的 `/v1/models` 完整 JSON 结果。拒绝非列表、无等级、矛盾的驼峰/下划线能力声明、非法线路值与重复模型项。不会自行发送请求、读取 Key 或跨账户缓存。
 - `toHarnessReasoningEfforts(model)`：生成可在当前官方 `llm-pi-ai` 模型配置中**明确审核后**采用的安全等级声明。仅输出 Gateway 已声明的 Low/Medium/High/Max；**始终省略 `off`**，因为当前 Host 适配器无法把这个选择转成 Gateway 可区分的显式关闭请求。它不凭空生成 High/Max，也不修改配置。

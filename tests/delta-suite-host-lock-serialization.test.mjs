@@ -11,7 +11,7 @@ const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'delta-host-lock-'))
 let ops, state
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-    file('packages/dsh-delta-suite/tsconfig.json'), '--outDir', dir], { stdio: 'pipe' })
+    file('packages/delta-suite/tsconfig.json'), '--outDir', dir], { stdio: 'pipe' })
   await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({ type: 'module' }))
   ops = await import(pathToFileURL(path.join(dir, 'host-sessions.js')).href)
   state = await import(pathToFileURL(path.join(dir, 'host-state.js')).href)

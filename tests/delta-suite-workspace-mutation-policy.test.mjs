@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm'
 import { stripTypeScriptTypes } from 'node:module'
 
 const source = readFileSync(fileURLToPath(
-  new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
 const begin = source.indexOf('type WorkspaceMutationBlock =')
 const end = source.indexOf('// Keep this one compatibility adapter lifecycle-owned', begin)
 assert.ok(begin >= 0 && end > begin, 'workspace policy source must remain testable')

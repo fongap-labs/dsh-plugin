@@ -1,6 +1,6 @@
 # ZIP-first UI integration contract
 
-UI authority: user-provided `dsh-delta-suite(3).zip` from 2026-11-12.
+UI authority: user-provided `delta-suite(3).zip` from 2026-11-12.
 The ZIP3 archive is the historical visual reference, not permission to restyle undocumented Host controls. As of 2026-11-19, Host-private global form, search, hero and guide selectors and `--dsw-*` stylesheet declarations were retired. Delta-owned `.dtd-*` rules remain, and Host theme tokens are provided only through the published `theme.overrideTokens` service. The contract test and release guard pin the reviewed resulting CSS SHA, not the unmodified historical ZIP blob.
 ZIP controls sidebar, search field, Ctrl/Cmd+K, 7 SearchPalette tabs, modal chrome,
 TOTP/session dialogs and the existing personalization appearance.

@@ -81,10 +81,10 @@ phase_end
 # resolve the shared types instead of failing with an unresolved module.
 SHARED_TSCONFIG=packages/shared/tsconfig.json
 HOST_TSCONFIGS=(
-  packages/dsh-delta-code/tsconfig.json
-  packages/dsh-delta-suite/tsconfig.json
+  packages/delta-code/tsconfig.json
+  packages/delta-suite/tsconfig.json
 )
-CLIENT_TSCONFIG=packages/dsh-delta-suite/tsconfig.client.json
+CLIENT_TSCONFIG=packages/delta-suite/tsconfig.client.json
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"

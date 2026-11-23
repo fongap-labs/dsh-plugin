@@ -7,7 +7,7 @@ import { createContext, Script } from 'node:vm'
 import { pathToFileURL } from 'node:url'
 import { readZip, readTgz } from './verify-delta-suite-release.mjs'
 
-const PACKAGE = '@fongap-labs/dsh-delta-code'
+const PACKAGE = '@fongap-labs/delta-code'
 const REQUIRED = ['package.json', 'lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'icon.svg']
 
 function ensure(ok, reason) {
@@ -21,7 +21,7 @@ export function verifyCodeClient(source, expectedId) {
   })
   const seed = new Script('const NAME = "previous-plugin"; const ROW_KEY = "previous-row";')
   seed.runInContext(context)
-  const script = new Script(source, { filename: 'dsh-delta-code/client.js' })
+  const script = new Script(source, { filename: 'delta-code/client.js' })
   // The same client must survive both a shared global scope and a reload.
   script.runInContext(context, { timeout: 1000 })
   script.runInContext(context, { timeout: 1000 })
@@ -45,8 +45,8 @@ export function verifyCodeEntries(entries, version, format) {
 
 export function verifyCodeRelease(zipPath, tgzPath, version) {
   ensure(/^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/.test(version), 'version')
-  ensure(basename(zipPath) === 'fongap-labs-dsh-delta-code.zip', 'ZIP asset name')
-  ensure(basename(tgzPath) === 'fongap-labs-dsh-delta-code.tgz', 'TGZ asset name')
+  ensure(basename(zipPath) === 'fongap-labs-delta-code.zip', 'ZIP asset name')
+  ensure(basename(tgzPath) === 'fongap-labs-delta-code.tgz', 'TGZ asset name')
   const zip = readZip(readFileSync(zipPath))
   const tgz = readTgz(readFileSync(tgzPath))
   verifyCodeEntries(zip, version, 'ZIP')

@@ -6,7 +6,7 @@ import { gunzipSync, inflateRawSync } from 'node:zlib'
 import { basename } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-const packageName = '@fongap-labs/dsh-delta-suite'
+const packageName = '@fongap-labs/delta-suite'
 const required = ['package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/host-capabilities.js',
   'lib/delta-suite-adapter/host-capability-contract.js', 'lib/client.js',
   'locale/en.json', 'locale/zh.json', 'icon.svg']
@@ -276,7 +276,7 @@ function checkedRegion(source, { begin, end, sha1 }) {
 }
 
 export function verifyApprovedZip3Client(client, sourceText = readFileSync(
-  new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url), 'utf8'
+  new URL('../packages/delta-suite/src/client.ts', import.meta.url), 'utf8'
 )) {
   const source = sourceText.replace(/\r\n/g, '\n')
   for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
@@ -349,7 +349,7 @@ export function verifyEntries(entries, version, format) {
   ensure(manifest.dsh?.client?.platform === 'web', format + ' client platform')
   ensure(manifest.exports?.['./client'] === './lib/client.js', format + ' client export')
   const patch = entries.get('cordis.patch.yml').toString()
-  ensure(patch.includes('id: dsh-delta-suite') && patch.includes(packageName), format + ' patch')
+  ensure(patch.includes('id: delta-suite') && patch.includes(packageName), format + ' patch')
   const host = entries.get('lib/index.js').toString()
   ensure(host.includes('negotiateHostCapabilities') && host.includes('DELTA_HOST_CONTRACT_VERSION'), format + ' Host capability contract')
   // The legacy module is a re-export shim after the adapter split. Validate
@@ -383,7 +383,7 @@ export function verifyEntries(entries, version, format) {
   }
   // The installed bundle's detail page dispatches keyed by package name.
   // A stale build with the wrong key silently shows no configuration.
-  ensure(/scope\.slots\.inject\('plugins\.bundle\.config',\s*\(\)\s*=>\s*scope\.slots\.register\(\{\s*name:\s*'plugins\.bundle\.config',\s*key:\s*'@fongap-labs\/dsh-delta-suite'/.test(client),
+  ensure(/scope\.slots\.inject\('plugins\.bundle\.config',\s*\(\)\s*=>\s*scope\.slots\.register\(\{\s*name:\s*'plugins\.bundle\.config',\s*key:\s*'@fongap-labs\/delta-suite'/.test(client),
     format + ' installed bundle config package-key binding')
   ensure(client.includes('data-delta-ui'), format + ' appearance lifecycle')
   verifyApprovedZip3Client(client)
@@ -407,8 +407,8 @@ export function verifyEntries(entries, version, format) {
 }
 export function verifyRelease(zipPath, tgzPath, version) {
   ensure(/^\d+\.\d+\.\d+(?:-beta\.[1-9]\d*)?$/.test(version), 'version syntax')
-  ensure(basename(zipPath) === 'fongap-labs-dsh-delta-suite.zip', 'ZIP name')
-  ensure(basename(tgzPath) === 'fongap-labs-dsh-delta-suite.tgz', 'TGZ name')
+  ensure(basename(zipPath) === 'fongap-labs-delta-suite.zip', 'ZIP name')
+  ensure(basename(tgzPath) === 'fongap-labs-delta-suite.tgz', 'TGZ name')
   verifyEntries(readZip(readFileSync(zipPath)), version, 'ZIP')
   verifyEntries(readTgz(readFileSync(tgzPath)), version, 'TGZ')
 }

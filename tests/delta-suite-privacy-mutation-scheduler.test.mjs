@@ -6,7 +6,7 @@ import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
 
 const source = readFileSync(fileURLToPath(
-  new URL('../packages/dsh-delta-suite/src/client.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
 
 const extract = (begin, end) => {
   const start = source.indexOf(begin)

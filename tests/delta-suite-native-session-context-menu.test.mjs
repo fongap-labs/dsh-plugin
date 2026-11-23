@@ -5,9 +5,9 @@ import { fileURLToPath } from 'node:url'
 import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const source = read('packages/dsh-delta-suite/src/client.ts')
+const source = read('packages/delta-suite/src/client.ts')
 const norm = source.replace(/\r\n/g, '\n')
-const theme = read('packages/dsh-delta-suite/src/theme.css')
+const theme = read('packages/delta-suite/src/theme.css')
 const begin = norm.indexOf('function installSidebarCompatibility(')
 const end = norm.indexOf('\ntype SearchTabId', begin)
 const compatibility = norm.slice(begin, end)

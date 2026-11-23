@@ -7,14 +7,14 @@ const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.met
 const licenses = [
   'LICENSE',
   'packages/shared/LICENSE',
-  'packages/dsh-delta-code/LICENSE',
-  'packages/dsh-delta-suite/LICENSE',
+  'packages/delta-code/LICENSE',
+  'packages/delta-suite/LICENSE',
 ]
 const manifests = [
   'package.json',
   'packages/shared/package.json',
-  'packages/dsh-delta-code/package.json',
-  'packages/dsh-delta-suite/package.json',
+  'packages/delta-code/package.json',
+  'packages/delta-suite/package.json',
 ]
 
 test('repository and workspace packages consistently declare MIT', () => {
