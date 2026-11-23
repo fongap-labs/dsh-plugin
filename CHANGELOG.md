@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: Delta Suite 将单一 Theme palette 与原生 Token 映射从大型 client.ts 提取至构建时内联模块，仍仅发布一个浏览器客户端入口。
+
 - 修复: Delta Code 新增基于 Harness Host 子进程的两阶段安全 Git 同步工具；先预览和获取远程提交，分支及工作区二次核验成功后才允许重置，脏文件需显式留存 Git stash，不再串接失败后仍可能执行的清理命令。
 
 - 修复: Delta Code 网关重试协调尊重带有有效网关错误码的 `retryable:false`，无 Retry-After 时也停止自动重试，并加入免费模型故障形态的回归测试。

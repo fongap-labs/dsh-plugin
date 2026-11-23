@@ -14,7 +14,7 @@ test('client service contracts are types-only and excluded from the Host build',
     assert.match(ambient, new RegExp('^interface ' + name + ' \\{', 'm'))
     assert.doesNotMatch(client, new RegExp('^interface ' + name + ' \\{', 'm'))
   }
-  assert.deepEqual(clientConfig.include, ['src/client.ts', 'src/client-types.d.ts'])
+  assert.deepEqual(clientConfig.include, ['src/client-theme-tokens.ts', 'src/client.ts', 'src/client-types.d.ts'])
   assert.ok(hostConfig.exclude.includes('src/client.ts'))
   assert.ok(hostConfig.exclude.includes('src/client-types.d.ts'))
   assert.doesNotMatch(ambient, /^(?:const|let|function|class|import|export)\s/m)

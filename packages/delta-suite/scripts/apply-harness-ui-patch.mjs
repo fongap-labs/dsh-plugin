@@ -530,7 +530,8 @@ export function auditThemeTokens(hostStylesheet, deltaClientSource) {
   const official = [...new Set([...hostStylesheet.matchAll(/^\s*(--dsw-(?:alias|specific|menu)-[\w-]+)\s*:/gm)]
     .map(match => match[1]))].sort()
   const begin = deltaClientSource.indexOf('const TOKENS:')
-  const end = deltaClientSource.indexOf('function language()', begin)
+  const nativeEnd = deltaClientSource.indexOf('function language()', begin)
+  const end = nativeEnd > begin ? nativeEnd : deltaClientSource.length
   requireShape(begin >= 0 && end > begin, 'Delta Theme API overrides dictionary')
   const names = new Set([...deltaClientSource.slice(begin, end).matchAll(/'(--dsw-[\w-]+)':/g)]
     .map(match => match[1]))
@@ -551,7 +552,7 @@ function main() {
   const plan = planPatches(resolve(root))
   const upstreamTheme = join(resolve(root), 'packages/client/ui-theme/src/styles/design-platform.css')
   if (existsSync(upstreamTheme)) {
-    const deltaClient = readFileSync(fileURLToPath(new URL('../src/client.ts', import.meta.url)), 'utf8')
+    const deltaClient = readFileSync(fileURLToPath(new URL('../src/client-theme-tokens.ts', import.meta.url)), 'utf8')
     const audit = auditThemeTokens(readFileSync(upstreamTheme, 'utf8'), deltaClient)
     process.stdout.write('[delta-suite theme] ' + audit.mapped + '/' + audit.official +
       ' native semantic color tokens covered' + (audit.unmapped.length ? '; new roles: ' +
