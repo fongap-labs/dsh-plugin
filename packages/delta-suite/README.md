@@ -144,3 +144,8 @@ Delta 自有弹窗、搜索、MCP 和助手辅助组件只消费 `--dtd-*` 语�
 ## P0-1 未使用词条清理（2026-11-24）
 
 现有 zh/en 词典按当前 Suite 客户端及构建脚本引用检查，删除 52 个双方均未使用的旧 Key，更新 DeltaCopy 类型，并将 Key/占位符/静态引用检查纳入既有测试。此检查不限制 Harness 的语言列表，不修改其词典；当前仍需真实 Host 非中文语言切换验证。
+
+
+## P0-4 Theme palette 模块边界（2026-11-24）
+
+将 Delta Suite 的 Theme Token 定义移入 `src/client-theme-tokens.ts`，`tsconfig.client.json` 在同一类型检查单元内编译，再由 `finalize-client.mjs` 将该产物内联到唯一的 `lib/client.js` 并删除中间文件。不新增运行时模块、私有 Host API、原生源码补丁、语言系统或其他独立入口。正式发布物继续使用公开 Theme API 并保持撤销注册能力；Windows/双版本客户端验收仍需单独进行。

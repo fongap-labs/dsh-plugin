@@ -9,6 +9,7 @@ import { patchAccountMenu, patchAccountMenuStyle, patchCurrentVersionStyle, patc
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
 const source = read('packages/delta-suite/src/client.ts')
+const palette = read('packages/delta-suite/src/client-theme-tokens.ts')
 const normalizedSource = source.replace(/\r\n/g, '\n')
 const theme = read('packages/delta-suite/src/theme.css')
 const begin = normalizedSource.indexOf('function installSidebarCompatibility(')
@@ -221,15 +222,15 @@ test('native menu material and all interactive semantic colors use Delta theme v
     '--dsw-alias-scrollbar-hover-l2',
   ]
   for (const key of menuTokens) {
-    assert.ok(source.includes("'" + key + "':"), 'missing Delta theme mapping for ' + key)
+    assert.ok(palette.includes("'" + key + "':"), 'missing Delta theme mapping for ' + key)
   }
-  assert.match(source, /'--dsw-menu-backdrop-filter': \{ light: 'none', dark: 'none' \}/)
-  assert.match(source, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
-  assert.match(source, /'--dsw-alias-hovercard-bg': DELTA_PALETTE\.popupBg/)
-  assert.match(source, /'--dsw-alias-hovercard-label-primary': DELTA_PALETTE\.labelPrimary/)
-  assert.match(source, /'--dsw-alias-hovercard-label-secondary': DELTA_PALETTE\.labelSecondary/)
-  assert.match(source, /'--dsw-alias-hovercard-label-tertiary': DELTA_PALETTE\.labelMuted/)
-  assert.match(source, /'--dsw-alias-bg-layer-1': DELTA_PALETTE\.surface/)
+  assert.match(palette, /'--dsw-menu-backdrop-filter': \{ light: 'none', dark: 'none' \}/)
+  assert.match(palette, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
+  assert.match(palette, /'--dsw-alias-hovercard-bg': DELTA_PALETTE\.popupBg/)
+  assert.match(palette, /'--dsw-alias-hovercard-label-primary': DELTA_PALETTE\.labelPrimary/)
+  assert.match(palette, /'--dsw-alias-hovercard-label-secondary': DELTA_PALETTE\.labelSecondary/)
+  assert.match(palette, /'--dsw-alias-hovercard-label-tertiary': DELTA_PALETTE\.labelMuted/)
+  assert.match(palette, /'--dsw-alias-bg-layer-1': DELTA_PALETTE\.surface/)
 })
 
 
@@ -241,7 +242,7 @@ test('theme coverage audit detects new upstream semantic colors without version 
     '  --dsw-alias-some-future-color: rebeccapurple;',
     '}',
   ].join('\n')
-  const report = auditThemeTokens(fixture, source)
+  const report = auditThemeTokens(fixture, palette)
   assert.equal(report.official, 3)
   assert.equal(report.mapped, 2)
   assert.deepEqual(report.unmapped, ['--dsw-alias-some-future-color'])
@@ -250,7 +251,7 @@ test('theme coverage audit detects new upstream semantic colors without version 
     '  --dsw-menu-surface-fill: white;',
     '  --dsw-alias-label-primary: black;',
     '}',
-  ].join('\n'), source)
+  ].join('\n'), palette)
   assert.deepEqual(covered, { official: 2, mapped: 2, unmapped: [] })
 })
 
@@ -263,12 +264,12 @@ test('native session hover card uses accessible Delta colors in light and dark m
     '--dsw-alias-hovercard-label-tertiary': 'labelMuted',
   }
   for (const [token, role] of Object.entries(mapping)) {
-    assert.ok(source.includes("'" + token + "': DELTA_PALETTE." + role),
+    assert.ok(palette.includes("'" + token + "': DELTA_PALETTE." + role),
       'missing native hover-card palette mapping for ' + token)
   }
 
   const colors = role => {
-    const row = source.split('\n').find(line => line.trim().startsWith(role + ': { light:'))
+    const row = palette.split('\n').find(line => line.trim().startsWith(role + ': { light:'))
     assert.ok(row, 'missing two-mode color role ' + role)
     const hex = row.match(/#[a-fA-F0-9]{6}\b/g)
     assert.equal(hex?.length, 2, 'expected explicit light/dark colors for ' + role)
@@ -292,6 +293,27 @@ test('native session hover card uses accessible Delta colors in light and dark m
         'native session hover-card text contrast below 4.5:1 for ' + role + ' in ' + scheme)
     }
   }
+})
+
+test('extracted native palette keeps the same public browser entry and Theme override', () => {
+  assert.match(palette, /const DELTA_PALETTE =/)
+  assert.match(palette, /const TOKENS: Record<string,/)
+  assert.doesNotMatch(source, /const DELTA_PALETTE =/)
+  assert.doesNotMatch(source, /const TOKENS: Record<string,/)
+  assert.match(source, /activeTheme\.overrideTokens\(DELTA_SUITE_OWNER, TOKENS\)/)
+  assert.match(source, /window\.__ModuleLoader__\.load\(\{/)
+  assert.doesNotMatch(palette, /^\s*(?:import|export)\s/m)
+})
+
+test('build concatenates the compiled palette in one client without second module', () => {
+  const tsconfig = JSON.parse(read('packages/delta-suite/tsconfig.client.json'))
+  const finalizer = read('packages/delta-suite/scripts/finalize-client.mjs')
+  assert.ok(tsconfig.include.includes('src/client-theme-tokens.ts'))
+  assert.ok(tsconfig.include.includes('src/client.ts'))
+  assert.match(finalizer, /lib\/client-theme-tokens\.js/)
+  assert.match(finalizer, /paletteSource \+ '\\n' \+ source/)
+  assert.match(finalizer, /unlinkSync\(palettePath\)/)
+  assert.match(palette, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
 })
 
 test('Delta owned feature CSS uses defined Delta tokens without native fallbacks', () => {

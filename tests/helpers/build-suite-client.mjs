@@ -24,6 +24,8 @@ export function buildDesktopClientFixture() {
       '--outDir', temp,
     ], { stdio: 'pipe' })
     let source = readFileSync(join(temp, 'client.js'), 'utf8')
+    const paletteSource = readFileSync(join(temp, 'client-theme-tokens.js'), 'utf8')
+    if (!/\bconst TOKENS\s*=/.test(paletteSource)) throw new Error('Compiled Theme palette missing')
     const dictionaries = Object.fromEntries(['zh', 'en'].map(lang => [
       lang, JSON.parse(readFileSync(fixture('packages/delta-suite/locale/' + lang + '.json'), 'utf8')),
     ]))
@@ -43,7 +45,7 @@ export function buildDesktopClientFixture() {
     if (!source.includes('window.__ModuleLoader__.load({')) {
       throw new Error('Fixture client registration missing')
     }
-    return ';(() => {\n' + source + '\n})();\n'
+    return ';(() => {\n' + paletteSource + '\n' + source + '\n})();\n'
   } finally {
     rmSync(temp, { recursive: true, force: true })
   }
