@@ -76,11 +76,21 @@ const heroCSS = [
   ":global(html[data-delta-ui='delta']) .previewBadge { display: none; }",
 ].join('\n')
 
+
+function ensureHeroV2Style(source) {
+  if (source.includes('delta-suite:hero-align-v2')) return source
+  return source + '\\n/* delta-suite:hero-align-v2 */\\n' + [
+    ":global(html[data-delta-ui='delta']) .fishHitbox { transform: translateY(-4px); }",
+    ":global(html[data-delta-ui='delta']) .fish { color: var(--dtd-fg-primary); }",
+    ":global(html[data-delta-ui='delta']) .headline { color: var(--dtd-fg-primary); }",
+  ].join('\\n') + '\\n'
+}
+
 export function patchHeroStyle(source) {
-  if (source.includes(MARK + ' hero-style')) return source
+  if (source.includes(MARK + ' hero-style')) return ensureHeroV2Style(source)
   requireShape(source.includes('.titleGroup {') && source.includes('.fishHitbox {') &&
     source.includes('.previewBadge {'), 'hero stylesheet')
-  return source + '\n/* ' + MARK + ' hero-style */\n' + heroCSS + '\n'
+  return ensureHeroV2Style(source + '\n/* ' + MARK + ' hero-style */\n' + heroCSS + '\n')
 }
 
 export function patchDictionary(source, lang, key, before, after) {
@@ -111,7 +121,7 @@ function dictionary(entries) {
 /** Preserve native AccountMenu state, dialogs and callbacks; add Delta-only icons. */
 export function patchAccountMenu(source) {
   const marker = 'delta-suite:footer-ui-v1 account'
-  if (source.includes(marker)) return patchAccountHover(source)
+  if (source.includes(marker)) return patchAccountMenuV2(patchAccountHover(source))
   let next = replaceUnique(source,
     'IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular,',
     'IconEllipsisOutlineMedium, IconPaperPlaneOutlineRegular, IconSettingsOutlineRegular, IconUserOutlineRegular, FishLogo,',
@@ -147,7 +157,7 @@ export function patchAccountMenu(source) {
       "    {account.loginVisible && !account.onboarding && <SignInDialog",
     ].join('\n'),
     'AccountMenu native dialogs')
-  return patchAccountHover(next)
+  return patchAccountMenuV2(patchAccountHover(next))
 }
 
 function patchAccountHover(source) {
@@ -159,6 +169,31 @@ function patchAccountHover(source) {
   next = replaceUnique(next, "    {account.loginVisible && !account.onboarding && <SignInDialog", "    {signedIn && wide && deltaHover && !open && (\n      <div className={css.deltaHoverCard} role=\"tooltip\">\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.balance}</span>\n          <strong>{account.details?.balance?.status === 'ready' && account.details.balance.value.length > 0\n            ? account.details.balance.value.map(wallet => formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')).join(' + ')\n            : hoverLabels.missing}</strong>\n        </div>\n        <div className={css.deltaHoverRow}>\n          <span>{hoverLabels.today}</span>\n          <strong>{hoverLabels.missing}</strong>\n        </div>\n      </div>\n    )}\n    {account.loginVisible && !account.onboarding && <SignInDialog", "account hover card")
   return next
 }
+
+/** Reconcile the v1 avatar hover patch without installing any private DOM event interception. */
+function patchAccountMenuV2(source) {
+  const marker = 'delta-suite:account-click-disabled-v2'
+  if (source.includes(marker)) return source
+  let next = replaceUnique(source,
+    '  const hoverLabels = t(\'signIn\') === \'登录\'',
+    '  // ' + marker + '\n  const hoverLabels = t(\'signIn\') === \'登录\'',
+    'AccountMenu v2 marker')
+  next = replaceUnique(next,
+    'aria-haspopup="menu" aria-expanded={open} onMouseEnter={hoverAccountDetails}',
+    "aria-haspopup={document.documentElement.dataset.deltaUi === 'delta' && wide ? undefined : 'menu'} aria-expanded={document.documentElement.dataset.deltaUi === 'delta' && wide ? undefined : open} onMouseEnter={hoverAccountDetails}",
+    'AccountMenu menu semantics')
+  next = replaceUnique(next,
+    'onClick={() => { setDeltaHover(false); setOpen(value => !value) }}>',
+    "onClick={() => { setDeltaHover(false); if (document.documentElement.dataset.deltaUi !== 'delta' || !wide) setOpen(value => !value) }}>",
+    'AccountMenu no Delta avatar click menu')
+  const valueStart = '<strong>'
+  const valueEnd = '</strong>'
+  requireShape(next.split(valueStart).length === 3 && next.split(valueEnd).length === 3,
+    'AccountMenu two balance and spending values')
+  return next.replaceAll(valueStart, '<span className={css.deltaHoverValue}>')
+    .replaceAll(valueEnd, '</span>')
+}
+
 const accountFooterCSS = [
   '.deltaGuestMark { display: none; }',
   '.officialGuestMark { display: inline-flex; }',
@@ -214,12 +249,42 @@ function ensureAccountHoverStyle(source) {
   return source + '\n/* delta-suite:account-hover-style-v1 */\n' + hoverLines.join('\n') + '\n'
 }
 
+
+/** Delta-only footer component overrides; keep the original menu usable in official mode. */
+const footerV2Css = [
+  ':global(html[data-delta-ui="delta"]) .root .deltaHoverCard {',
+  '  color: var(--dtd-popup-fg); background: var(--dtd-popup-bg);',
+  '  box-shadow: var(--dtd-popup-shadow); border: 1px solid var(--dtd-popup-border);',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root .deltaHoverRow { color: var(--dtd-fg-primary); }',
+  ':global(html[data-delta-ui="delta"]) .root .deltaHoverValue {',
+  '  min-width: 0; max-width: 70%; font-size: 12px; font-weight: 400;',
+  '  font-variant-numeric: tabular-nums; overflow-wrap: anywhere; text-align: right;',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root .deltaIconButton {',
+  '  color: var(--dtd-fg-primary); border-radius: var(--dtd-radius-md);',
+  '}',
+  ':global(html[data-delta-ui="delta"]) .root .deltaIconButton:focus-visible {',
+  '  outline: 2px solid var(--dtd-border-focus); outline-offset: 2px;',
+  '}',
+  '@media (hover: hover) {',
+  '  :global(html[data-delta-ui="delta"]) .root .deltaIconButton:not(:disabled):hover {',
+  '    background: var(--dtd-bg-hover);',
+  '  }',
+  '}',
+].join('\\n')
+
+function ensureFooterV2Style(source) {
+  if (source.includes('delta-suite:footer-style-v2')) return source
+  return source + '\\n/* delta-suite:footer-style-v2 */\\n' + footerV2Css + '\\n'
+}
+
 export function patchAccountMenuStyle(source) {
   const marker = 'delta-suite:footer-ui-v1 account-style'
-  if (source.includes(marker)) return ensureAccountHoverStyle(source)
+  if (source.includes(marker)) return ensureFooterV2Style(ensureAccountHoverStyle(source))
   requireShape(source.includes('.root {') && source.includes('.anchor {') &&
     source.includes('.trigger {') && source.includes('.avatar {'), 'AccountMenu stylesheet')
-  return ensureAccountHoverStyle(source + '\n/* ' + marker + ' */\n' + accountFooterCSS + '\n')
+  return ensureFooterV2Style(ensureAccountHoverStyle(source + '\n/* ' + marker + ' */\n' + accountFooterCSS + '\n'))
 }
 
 /** Reorder native updater and connection presentation without creating copies. */
@@ -285,12 +350,47 @@ const settingsFooterCSS = [
   '}',
 ].join('\n')
 
+
+function ensureSettingsFooterV2Style(source) {
+  if (source.includes('delta-suite:settings-footer-v2')) return source
+  return source + '\\n/* delta-suite:settings-footer-v2 */\\n' + [
+    ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] {',
+    '  color: var(--dtd-fg-primary);',
+    '}',
+    ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button {',
+    '  width: 36px; height: 36px; color: var(--dtd-brand); background: transparent;',
+    '  border: 0; border-radius: var(--dtd-radius-md);',
+    '}',
+    ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button > span:first-child {',
+    '  display: grid; place-items: center; width: 24px; height: 24px;',
+    '}',
+    ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button svg {',
+    '  width: 24px; height: 24px;',
+    '}',
+    ':global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button:focus-visible {',
+    '  outline: 2px solid var(--dtd-border-focus); outline-offset: 2px;',
+    '}',
+    '@media (hover: hover) {',
+    '  :global(html[data-delta-ui="delta"]) .triggerRow[data-delta-footer-wide="true"] > [data-delta-footer-update] button:not([aria-disabled="true"]):hover {',
+    '    background: var(--dtd-bg-hover);',
+    '  }',
+    '}',
+  ].join('\\n') + '\\n'
+}
+
+export function patchCurrentVersionStyle(source) {
+  const marker = 'delta-suite:hide-general-version-v1'
+  if (source.includes(marker)) return source
+  requireShape(source.includes('.row {'), 'native General current version stylesheet')
+  return source + '\\n/* ' + marker + ' */\\n:global(html[data-delta-ui="delta"]) .row { display: none; }\\n'
+}
+
 export function patchSettingsRootStyle(source) {
   const marker = 'delta-suite:footer-ui-v1 settings-style'
-  if (source.includes(marker)) return source
+  if (source.includes(marker)) return ensureSettingsFooterV2Style(source)
   requireShape(source.includes('.triggerRow {') && source.includes('.triggerRow.railRow {') &&
     source.includes('.trigger {'), 'SettingsRoot stylesheet')
-  return source + '\n/* ' + marker + ' */\n' + settingsFooterCSS + '\n'
+  return ensureSettingsFooterV2Style(source + '\n/* ' + marker + ' */\n' + settingsFooterCSS + '\n')
 }
 
 export const changes = [
@@ -298,6 +398,7 @@ export const changes = [
   { package: '@deepseek-ai/dsh-client-ui-settings-account', file: 'src/client/AccountMenu.module.css', transform: patchAccountMenuStyle },
   { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/SettingsRoot.tsx', transform: patchSettingsRoot },
   { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/SettingsRoot.module.css', transform: patchSettingsRootStyle },
+  { package: '@deepseek-ai/dsh-client-ui-settings-general', file: 'src/client/CurrentVersionRow.module.css', transform: patchCurrentVersionStyle },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.tsx', transform: patchSidebarRoot },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/SidebarRoot.module.css', transform: patchSidebarStyle },
   { package: '@deepseek-ai/dsh-client-ui-sidebar', file: 'src/client/locales.ts', transform: dictionary([
@@ -307,6 +408,12 @@ export const changes = [
     ['en', 'session.new.label', 'New session', 'Start Conversation'],
   ]) },
   { package: '@deepseek-ai/dsh-client-ui-conversation', file: 'src/client/skeleton/HeroShell.module.css', transform: patchHeroStyle },
+  { package: '@deepseek-ai/dsh-client-ui-chat', file: 'src/client/locale.ts', transform: dictionary([
+    ['zh', 'chat.deepDiving', '深度求索中', '任务执行中'],
+    ['zh', 'chat.deepDivingFor', '深度求索中，用时 {duration} ···', '任务执行中，用时 {duration} ···'],
+    ['en', 'chat.deepDiving', 'Deep diving', 'Task in progress'],
+    ['en', 'chat.deepDivingFor', 'Deep diving for {duration} ···', 'Task in progress for {duration} ···'],
+  ]) },
   { package: '@deepseek-ai/dsh-client-ui-plugin-manager', file: 'src/client/locales.ts', transform: dictionary([
     ['zh', 'panel', '插件', '插件管理'],
     ['zh', 'title', '插件', '插件管理'],
