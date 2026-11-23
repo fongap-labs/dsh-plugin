@@ -7,7 +7,7 @@ import { TOOL_PREFIX, resolveRoot, readTextSafe, writeTextSafe, validateWriteTar
 import { lookupDshHostFs } from './host-adapter.js'
 import type { HostFsCapabilities } from './host-fs.js'
 import type { GuardedWriteIntent } from '../../../runtime.js'
-import { resolveSessionRepositoryRoot } from './session-repositories.js'
+import { resolveSessionRepositoryRoot, assertSessionRepositoryFile } from './session-repositories.js'
 import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 import { planTextEdit, applyTextEdit, assertEditableText } from '../../../delta-code-coding/edit-transform.js'
 import { shouldPreflightMultiEdit, canCompensateMultiEdit } from '../../../delta-code-coding/multi-edit-policy.js'
@@ -100,6 +100,11 @@ export function createMultiEditTool(
         : sessionRepositories
           ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'write')
           : (() => { throw new Error('Session repository editing is unavailable in this Host') })()
+      const assertAttached = async (relPath: string): Promise<void> => {
+        if (args.repositoryId !== undefined) {
+          await assertSessionRepositoryFile(ctx, root, relPath, exec.signal, 'write')
+        }
+      }
       const results: EditResult[] = []
       let applied = 0
       const edits = Array.isArray(args.edits) ? args.edits : []
@@ -141,6 +146,7 @@ export function createMultiEditTool(
           const path = typeof edit?.path === 'string' ? edit.path : ''
           try {
             if (exec.signal.aborted) throw new Error('operation cancelled')
+            await assertAttached(path)
             const target = resolveInside(root, path)
             if (targets.has(target)) throw new Error('duplicate edit target in preflight batch')
             targets.add(target)
@@ -235,6 +241,7 @@ export function createMultiEditTool(
             try {
               // The exact version returned by OUR write is mandatory.
               // Never fetch a newer version and treat it as permission to restore.
+              await assertAttached(entry.path)
               const restoredOutcome = await writeTextSafe(ctx, exec, root, entry.path, entry.original, settings,
                 { kind: 'replaceIfVersion', version: entry.version })
               const restoredVersion = (restoredOutcome as { version?: unknown } | null)?.version
@@ -274,6 +281,7 @@ export function createMultiEditTool(
               const current = await readTextSafe(ctx, exec, root, item.path)
               if (current !== item.original) throw new Error('file changed after preflight')
             }
+            await assertAttached(item.path)
             isWriteAttempted = true
             const outcome = await writeTextSafe(ctx, exec, root, item.path, item.content, settings, item.pinnedIntent)
             // A guarded Host acknowledgment is not sufficient when the final
@@ -330,6 +338,7 @@ export function createMultiEditTool(
           if (!edit || typeof edit !== 'object' || Array.isArray(edit) || typeof edit.path !== 'string') {
             throw new Error('edit must be an object with a string path')
           }
+          await assertAttached(rel)
           const plan = planTextEdit(edit, false)
           if (!plan) {
             results.push({ path: rel, action: 'skipped', ok: false, note: 'missing content or find/replace' })
