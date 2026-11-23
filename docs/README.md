@@ -10,10 +10,7 @@
 
 ## Delta 产品设计
 
-- [模块职责](DELTA%5FSUITE%5FMECE_ARCHITECTURE.md)
-- [DOM 所有权](DELTA%5FSUITE%5FDOM_OWNERSHIP.md)
-- [网关推理](DELTA%5FSUITE%5FGATEWAY_REASONING.md)
-- [ZIP 界面](DELTA%5FSUITE%5FZIP_UI.md)
+设计文档按主题维护在本目录，可从 [docs 文件列表](.) 浏览。
 
 ## 专项验证与包文档
 
