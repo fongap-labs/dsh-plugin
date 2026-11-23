@@ -10,6 +10,8 @@ import { requireHostFs } from './host-fs.js'
 import { lookupDshHostFs } from './host-adapter.js'
 import type { HostFs } from './host-fs.js'
 import { DEFAULT_LIMIT, MAX_LIMIT, boundedDirectories, assertRepositoryCapacity, prefixTrackedPaths, parseBatchQueries, workspaceMapResult } from '../../../delta-code-repository/workspace-policy.js'
+import { resolveSessionRepositoryRoot } from './session-repositories.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 
 /** Refuse a symbolic-link .git marker; accept both directory repos and linked worktree files. */
 async function hasGitMarker(directory: string): Promise<boolean> {
@@ -134,15 +136,18 @@ async function discoverHostRepositories(
 }
 
 /** Read only tracked paths; scan at most one level when the workspace is a multi-repo parent. */
-export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createWorkspaceMapTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: 'code_workspace_map',
-    description: 'Return a compact ranked map of tracked Git paths. Use queries to search up to 8 terms from one fresh index read; otherwise use legacy query. Never caches paths across calls. Discovers only immediate child repositories.',
+    description: 'Return a compact ranked map of tracked Git paths. By default uses the primary workspace; set repositoryId to inspect one attached Session repository, which must remain allowlisted and Host-authorized. Use queries to search up to 8 terms from one fresh index read; never caches paths across calls. Primary-workspace discovery scans only immediate child repositories.',
     parameters: {
       query: { type: 'string', description: 'Optional single search; cannot be combined with queries.' },
       queries: { type: 'array', description: 'Optional 1..8 distinct searches sharing one fresh Git enumeration; results are capped at 250 paths total.',
         items: { type: 'string' } },
-      cwd: { type: 'string', description: 'Optional workspace-relative or authorized absolute subdirectory or task worktree. When provided, only this directory is indexed.' },
+      cwd: { type: 'string', description: 'Optional subdirectory relative to the selected workspace or attached repository.' },
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID from code_session_repositories list.' },
       limit: { type: 'integer', description: 'Maximum paths, 1..250; defaults to 100.' },
     },
     output: {
@@ -177,8 +182,15 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         throw new Error('limit must be an integer between 1 and 250')
       }
       const queries = parseBatchQueries(args.queries, args.query)
-      const root = await resolveRoot(ctx, exec, settings)
+      const root = args.repositoryId === undefined
+        ? await resolveRoot(ctx, exec, settings)
+        : sessionRepositories
+          ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'read')
+          : (() => { throw new Error('Session repository indexing is unavailable in this Host') })()
       const fs = requireHostFs(ctx, ['resolve', 'contains', 'listDir', 'lstat', 'processPath'], 'refusing local discovery fallback')
+      if (args.repositoryId !== undefined && !fs) {
+        throw new Error('attached repository indexing requires complete native Host FS capabilities')
+      }
       if (fs) {
         // Resolve both paths through Host FS. Derive display prefixes from
         // canonical process paths, not model-supplied absolute paths.
@@ -200,6 +212,9 @@ export function createWorkspaceMapTool(ctx: Context, settings: Settings): ToolDe
         if (base.isGitRepository) {
           paths = prefixTrackedPaths(base.paths, prefix)
         } else {
+          if (args.repositoryId !== undefined) {
+            throw new Error('attached Git repository index unavailable; refusing nested repository discovery')
+          }
           if (args.cwd) throw new Error('specified Git repository could not be indexed; check cwd and Host permission')
           const rootTarget = await fs.resolve(root, { cwd: root, signal: exec.signal })
           const rootEntries = (await fs.listDir(rootTarget, exec.signal)) as HostWorkspaceEntry[]

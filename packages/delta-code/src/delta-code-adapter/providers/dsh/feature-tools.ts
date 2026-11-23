@@ -20,19 +20,24 @@ import { createGitStatusTool, createGitDiffTool } from './git.js'
 import { createGitHubTools } from './github.js'
 
 /** DSH-specific factories. The feature modules never import Context or ToolDefinition. */
-export function createDshCodingCoreTools(ctx: Context, settings: Settings): ToolDefinition[] {
-  return [createMultiEditTool(ctx, settings), createProjectProfileTool(ctx, settings),
+export function createDshCodingCoreTools(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition[] {
+  return [createMultiEditTool(ctx, settings, sessionRepositories), createProjectProfileTool(ctx, settings, sessionRepositories),
     createHostProbeTool(ctx), createModernWebGuidanceTool()]
 }
 
-export function createDshCodingCommandTools(ctx: Context, settings: Settings): ToolDefinition[] {
-  return [createLspProbeTool(ctx, settings)]
+export function createDshCodingCommandTools(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition[] {
+  return [createLspProbeTool(ctx, settings, sessionRepositories)]
 }
 
 export function createDshQualityTools(
   ctx: Context, settings: Settings, resume: NativeResumeReader,
+  sessionRepositories?: NativeSessionRepositoryReader,
 ): ToolDefinition[] {
-  return [createVerifyTool(ctx, settings), createVerifySuiteTool(ctx, settings),
+  return [createVerifyTool(ctx, settings, sessionRepositories), createVerifySuiteTool(ctx, settings, sessionRepositories),
     createDeliveryGateTool(ctx, settings, resume), createNativeResumeTool(ctx, settings, resume)]
 }
 
@@ -45,7 +50,7 @@ export function createDshRepositoryRemoteTools(
 export function createDshRepositoryCommandTools(
   ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
 ): ToolDefinition[] {
-  return [createWorkspaceMapTool(ctx, settings), createWorktreeTool(ctx, settings),
-    ...(settings.gitEnabled ? [createGitStatusTool(ctx, settings), createGitDiffTool(ctx, settings),
+  return [createWorkspaceMapTool(ctx, settings, sessionRepositories), createWorktreeTool(ctx, settings),
+    ...(settings.gitEnabled ? [createGitStatusTool(ctx, settings, sessionRepositories), createGitDiffTool(ctx, settings, sessionRepositories),
       ...(sessionRepositories ? [createSessionRepositoryTool(ctx, settings, sessionRepositories)] : [])] : [])]
 }

@@ -19,6 +19,7 @@ interface Draft {
   autoRouting: boolean
   workspaceRoot: string
   readOnlyRepositoryRoots: string
+  writeRepositoryRoots: string
   gitEnabled: boolean
   gitCommand: string
   githubEnabled: boolean
@@ -78,6 +79,8 @@ function readDraft(value: any): Draft {
     workspaceRoot: value?.workspaceRoot ?? '',
     readOnlyRepositoryRoots: Array.isArray(value?.sessionRepositories?.readOnlyRoots)
       ? value.sessionRepositories.readOnlyRoots.join('\n') : '',
+    writeRepositoryRoots: Array.isArray(value?.sessionRepositories?.writeRoots)
+      ? value.sessionRepositories.writeRoots.join('\n') : '',
     gitEnabled: git.enabled !== false, gitCommand: git.command ?? 'git',
     githubEnabled: github.enabled !== false, githubAllowWrites: github.allowWrites === true,
     allowWorktreeWrites: execution.allowWorktreeWrites === true,
@@ -121,10 +124,18 @@ function validation(draft: Draft, value: any): string | undefined {
     }
   }
   const roots = draft.readOnlyRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
-  if (roots.length > 12 || new Set(roots.map(value => value.toLowerCase())).size !== roots.length ||
-      roots.some(value => value.length > 1024 || !/^(?:\/|[A-Za-z]:[\\/])/.test(value) ||
-        value.startsWith('\\\\') || value.split(/[\\/]/).includes('..') || /[\u0000-\u001f\u007f]/.test(value))) {
-    return 'Read-only repositories require at most 12 distinct safe absolute paths.'
+  const writes = draft.writeRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
+  const rootKey = (value: string) => /^[A-Za-z]:[\\/]/.test(value)
+    ? value.replace(/\\/g, '/').toLowerCase() : value.replace(/\\/g, '/')
+  const validRoots = (values: string[]) => values.length <= 12 &&
+    new Set(values.map(rootKey)).size === values.length &&
+    values.every(value => value.length <= 1024 && /^(?:\/(?!\/)|[A-Za-z]:[\\/])/.test(value) &&
+      !value.startsWith('\\\\') && !value.split(/[\\/]/).includes('..') && !/[\u0000-\u001f\u007f]/.test(value))
+  if (!validRoots(roots)) return 'Read-only repositories require at most 12 distinct safe absolute paths.'
+  if (!validRoots(writes)) return 'Writable repositories require at most 12 distinct safe absolute paths.'
+  const readKeys = new Set(roots.map(rootKey))
+  if (writes.some(value => !readKeys.has(rootKey(value)))) {
+    return 'Every writable repository must also appear in the read-only allowlist.'
   }
   if (!draft.gitCommand.trim()) return 'Git 命令不能为空。'
   for (const server of draft.servers) {
@@ -151,6 +162,10 @@ function operations(draft: Draft, value: any): Op[] {
   if (draft.readOnlyRepositoryRoots !== original.readOnlyRepositoryRoots) {
     set(['sessionRepositories', 'readOnlyRoots'],
       draft.readOnlyRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
+  }
+  if (draft.writeRepositoryRoots !== original.writeRepositoryRoots) {
+    set(['sessionRepositories', 'writeRoots'],
+      draft.writeRepositoryRoots.split(/\r?\n/).map(value => value.trim()).filter(Boolean))
   }
   const current = value?.github?.accounts ?? []
   const seen = new Set(draft.accounts.filter(a => a.sourceIndex >= 0).map(a => a.sourceIndex))
@@ -372,15 +387,21 @@ function installClient(require: (id: string) => unknown) {
           toggle(t('启用 Git', 'Enable Git'), draft.gitEnabled, v => patch({ gitEnabled: v })),
           field(t('Git 可执行文件', 'Git command'), draft.gitCommand, v => patch({ gitCommand: v })),
         )),
-      section(t('会话仓库关联（只读）', 'Session repositories (read only)'),
+      section(t('会话仓库授权', 'Session repository access'),
         h('label', { style: { display: 'grid', gap: '5px', fontSize: '13px' } },
-          h('span', null, t('允许关联的本地 Git 仓库（每行一个绝对路径）',
-            'Allowlisted Git repositories (one absolute path per line)')),
+          h('span', null, t('允许关联的本地 Git 仓库（只读白名单，每行一个绝对路径）',
+            'Allowed local Git repositories (read allowlist, one absolute path per line)')),
           h('textarea', { style: inputStyle, rows: 3, disabled,
             value: draft.readOnlyRepositoryRoots,
             onChange: (e: any) => patch({ readOnlyRepositoryRoots: e.target.value }) })),
-        hint(t('默认不允许外部仓库。路径清单不会自动授予宿主读写权限；Agent 仍须通过 Host 验证，只能只读关联。',
-          'Empty by default. Allowlisting never grants Host access or write privileges; the Host must independently authorize read-only inspection.'))),
+        h('label', { style: { display: 'grid', gap: '5px', fontSize: '13px', marginTop: '10px' } },
+          h('span', null, t('允许修改的仓库（可写白名单，必须同时出现在只读白名单中）',
+            'Repositories allowed to be edited (write allowlist; each must also be in the read allowlist)')),
+          h('textarea', { style: inputStyle, rows: 3, disabled,
+            value: draft.writeRepositoryRoots,
+            onChange: (e: any) => patch({ writeRepositoryRoots: e.target.value }) })),
+        hint(t('两个白名单默认均为空。只读白名单不会授予 Host 权限；可写白名单也不会绕过 Host 写入授权。关联状态按当前设置实时重新校验。',
+          'Both allowlists are empty by default. Neither grants Host access; the write list never bypasses Host write authorization. Current settings are rechecked on every operation.'))),
       section(t('执行与写入权限', 'Execution & write permissions'),
         toggle(t('允许创建 Worktree', 'Allow worktree writes'), draft.allowWorktreeWrites, v => patch({ allowWorktreeWrites: v })),
         toggle(t('允许执行项目脚本', 'Allow project commands'), draft.allowCommands, v => patch({ allowCommands: v })),
@@ -422,7 +443,7 @@ function installClient(require: (id: string) => unknown) {
     )
   }
   return {
-    inject: ['slots', 'configForms', 'remote', 'remote.credentials'],
+    inject: ['slots', 'configForms', 'remote', 'remote.credentials', 'remote.commands', 'sessions'],
     apply(ctx: any) {
       // The plugin row's Cordis config namespace is its patch id, not its
       // package name. The Settings section uses the same revision-fenced form.
@@ -435,6 +456,116 @@ function installClient(require: (id: string) => unknown) {
           state: snapshot, mutate: (ops: Op[], revision?: number) => form.mutate(ops, revision),
         }, credentials })
       }
+      function SessionRepositoriesSection(props: any) {
+        const sessionId = props.sessionId
+        const [settings, setSettings] = React.useState(() => form.getSnapshot().value ?? {})
+        const [repositories, setRepositories] = React.useState<any[]>([])
+        const [busy, setBusy] = React.useState('')
+        const [notice, setNotice] = React.useState('')
+        React.useEffect(() => form.subscribe(() => setSettings(form.getSnapshot().value ?? {})), [])
+        React.useEffect(() => {
+          let isActive = true
+          let currentFace: any
+          let stop = () => {}
+          const connect = () => {
+            if (!isActive) return
+            const next = ctx.sessions.binding(sessionId)?.session?.projections?.faceOf?.('deltaCodeSessionRepositories')
+            if (!next || next === currentFace) return
+            stop()
+            currentFace = next
+            const update = () => {
+              if (isActive) {
+                const value = currentFace.getSnapshot()
+                setRepositories(Array.isArray(value) ? value : [])
+              }
+            }
+            update()
+            stop = currentFace.subscribe(update)
+          }
+          connect()
+          void ctx.sessions.refreshProjections(sessionId).then(connect).catch((error: unknown) => {
+            if (isActive) setNotice(String(error))
+          })
+          return () => { isActive = false; stop() }
+        }, [sessionId])
+        const roots = Array.isArray(settings?.sessionRepositories?.readOnlyRoots)
+          ? settings.sessionRepositories.readOnlyRoots.filter((value: unknown) => typeof value === 'string') : []
+        const writeRoots = Array.isArray(settings?.sessionRepositories?.writeRoots)
+          ? settings.sessionRepositories.writeRoots.filter((value: unknown) => typeof value === 'string') : []
+        const pathKey = (value: string) => /^[A-Za-z]:[\\/]/.test(value)
+          ? value.replace(/\\/g, '/').toLowerCase() : value.replace(/\\/g, '/')
+        const isWriteAllowed = (value: string) => writeRoots.some((root: string) => pathKey(root) === pathKey(value))
+        const execute = async (action: 'attach' | 'detach', value: string) => {
+          const key = action + ':' + value
+          setBusy(key)
+          setNotice('')
+          try {
+            const line = action === 'attach'
+              ? '/delta-repo attach ' + JSON.stringify(value)
+              : '/delta-repo detach ' + value
+            const response = await ctx.remote.commands.execute(sessionId, line, [])
+            if (!response.ok) throw new Error(response.error.message || response.error.code)
+            if (!response.value) throw new Error('Unknown Delta Code repository command.')
+            if (response.value.result.kind === 'error') throw new Error(response.value.result.text)
+            setNotice(response.value.result.text || (action === 'attach' ? 'Repository attached.' : 'Repository detached.'))
+            await ctx.sessions.refreshProjections(sessionId)
+          } catch (error) {
+            setNotice(error instanceof Error ? error.message : String(error))
+          } finally {
+            setBusy('')
+          }
+        }
+        const attachedFor = (root: string) => repositories.find(repo => pathKey(repo.path) === pathKey(root))
+        const rows = roots.map((root: string) => {
+          const attached = attachedFor(root)
+          const name = root.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || root
+          const writable = isWriteAllowed(root)
+          const action = attached ? 'detach' : 'attach'
+          const key = action + ':' + (attached?.id ?? root)
+          return h('div', { key: root, 'data-session-panel-row': '' },
+            h('button', {
+              type: 'button', 'data-row-part': 'body', disabled: busy !== '',
+              title: root, 'aria-label': name + (attached ? ', detach repository' : ', attach repository'),
+              onClick: () => { void execute(action, attached?.id ?? root) },
+            },
+              h('span', { 'data-row-part': 'icon', 'aria-hidden': 'true' }, '▣'),
+              h('span', { 'data-row-part': 'lines' },
+                h('span', { 'data-row-part': 'content' }, name),
+                h('span', { 'data-row-part': 'detail', title: root }, root))),
+            h('span', { 'data-row-part': 'trailing' }, attached
+              ? (writable ? t('已关联 · 可写', 'Attached · writable') : t('已关联 · 只读', 'Attached · read only'))
+              : (writable ? t('未关联 · 可写', 'Not attached · writable') : t('未关联 · 只读', 'Not attached · read only'))),
+            busy === key && h('span', { 'data-row-part': 'menu', 'aria-hidden': 'true' }, '…'))
+        })
+        const revoked = repositories.filter(repo => !roots.some((root: string) => pathKey(root) === pathKey(repo.path)))
+        const revokedRows = revoked.map(repo => h('div', { key: repo.id, 'data-session-panel-row': '' },
+          h('button', {
+            type: 'button', 'data-row-part': 'body', disabled: busy !== '',
+            title: repo.path, 'aria-label': repo.path + ', revoked access, detach repository',
+            onClick: () => { void execute('detach', repo.id) },
+          },
+            h('span', { 'data-row-part': 'icon', 'aria-hidden': 'true' }, '▣'),
+            h('span', { 'data-row-part': 'lines' },
+              h('span', { 'data-row-part': 'content' }, repo.path.split(/[\\/]/).pop() || repo.path),
+              h('span', { 'data-row-part': 'detail' }, repo.path))),
+          h('span', { 'data-row-part': 'trailing' }, t('授权已撤销', 'Access revoked'))))
+        return h('div', { style: { display: 'grid', gap: '5px', padding: '2px 0 8px' } },
+          h('p', { style: { fontSize: '12px', opacity: 0.72, lineHeight: 1.45, margin: '0 0 5px' } },
+            t('只显示设置中明确允许的本地仓库。可写权限还要求单独加入可写白名单，并由 Host 授权。',
+              'Only explicitly allowlisted local repositories appear. Writes also require the separate write allowlist and Host authorization.')),
+          ...rows,
+          ...revokedRows,
+          roots.length === 0 && h('p', { style: { fontSize: '12px', opacity: 0.72, margin: '4px 0' } },
+            t('尚未配置仓库。请先在 Delta Code 设置中添加只读路径白名单。',
+              'No repositories configured. Add read-only roots in Delta Code settings first.')),
+          notice && h('p', { role: 'status', style: { fontSize: '12px', overflowWrap: 'anywhere', margin: '4px 0' } }, notice))
+      }
+      ctx.effect(() => ctx.slots.inject('conversation.session.panel.section', () => ctx.slots.register({
+        name: 'conversation.session.panel.section',
+        id: 'delta-code.repositories',
+        order: 275,
+        label: () => t('关联仓库', 'Repositories'),
+      }, SessionRepositoriesSection)), 'delta-code: session repositories section')
       // settings.section is shared by native Settings and the Plugins page.
       // Do not register plugins.row.config as well, which would hide this page
       // in the plugin manager and create two competing configuration surfaces.

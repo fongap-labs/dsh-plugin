@@ -9,7 +9,7 @@ export const DEFAULT_GUIDANCE = [
   'For coding work, choose procedures by user intent and actual repository evidence, not just keyword route hints. For unfamiliar or multi-domain work, inspect the read-only code_capabilities directory and use only relevant scenarios; load Skill bodies through the native Host provider when needed. This neither grants permissions nor runs another model.',
   'For high-risk fixes, consider code-quality-strength and code-diagnostic-readiness. Claim mutation or runtime evidence only when the approved project runner actually executed. Submit reusable experience through the existing governed Skill admission process.',
   'Use DSH native Git tools where available; code_git_status/code_git_diff are optional for Git worktrees, never prerequisites for ordinary code edits.',
-  'For cross-repository work, code_session_repositories can associate only absolute Git roots already authorized in the user-controlled sessionRepositories.readOnlyRoots Plugin setting. An association is read-only context, never a Host permission grant. Inspect each selected repository separately, do not change the main working directory, and never assume cross-repository writes, clone, PR or merge are allowed.',
+  'For cross-repository work, code_session_repositories attaches only roots explicitly listed in sessionRepositories.readOnlyRoots. Read attached files with code_session_repositories action=read. code_multi_edit may target repositoryId only when that root is also explicitly listed in sessionRepositories.writeRoots and the native Host independently grants write access. Use the repository ID returned by list; paths remain relative to that repository. Never switch the main working directory or infer permissions from attachment.',
   'Locate the actual implementation and running UI component before editing. Search narrowly with native Host tools; in large Git workspaces use code_workspace_map for tracked paths. Never start with unbounded **/* glob or enumerate build-output trees.',
   'If a Code Worker tool fails due to missing Host services or permission rejection, do not retry identical arguments. Switch to the permitted native Host file search or ask for the right repository; never bypass Host approval or read a giant file index.',
   'Run `code_verify` only when explicitly enabled; report test failures instead of claiming success.',
@@ -111,21 +111,32 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
   const execution = cfg.execution && typeof cfg.execution === 'object' ? cfg.execution : {}
   const github = cfg.github && typeof cfg.github === 'object' ? cfg.github : {}
   const accounts = validateGitHubAccounts(github.accounts)
-  const rawReadOnly = cfg.sessionRepositories?.readOnlyRoots ?? []
-  if (!Array.isArray(rawReadOnly) || rawReadOnly.length > 12) {
-    throw new Error('sessionRepositories.readOnlyRoots must have at most 12 paths')
+  const normalizeRepositoryRoots = (raw: unknown, field: string): string[] => {
+    if (!Array.isArray(raw) || raw.length > 12) throw new Error(field + ' must have at most 12 paths')
+    const roots = raw.map(path => {
+      if (typeof path !== 'string' || !path.trim() || path.length > 1024 ||
+          /[\u0000-\u001f\u007f]/u.test(path) ||
+          !(/^(?:\/(?!\/)|[A-Za-z]:[\\/])/.test(path)) ||
+          path.split(/[\\/]/).some(part => part === '..')) {
+        throw new Error(field + ' requires safe absolute local directory paths')
+      }
+      return path.trim()
+    })
+    const key = (value: string) => /^[A-Za-z]:[\\/]/.test(value)
+      ? value.replace(/\\/g, '/').toLowerCase() : value
+    if (new Set(roots.map(key)).size !== roots.length) throw new Error('duplicate repository root in ' + field)
+    return roots
   }
-  const sessionReadOnlyRepositories = rawReadOnly.map(path => {
-    if (typeof path !== 'string' || !path.trim() || path.length > 1024 ||
-        /[\u0000-\u001f\u007f]/u.test(path) ||
-        !/^(?:\/(?!\/)|[A-Za-z]:[\\/])/.test(path) ||
-        path.split(/[\\/]/).some(part => part === '..')) {
-      throw new Error('sessionRepositories.readOnlyRoots requires safe absolute local directory paths')
-    }
-    return path.trim()
-  })
-  if (new Set(sessionReadOnlyRepositories.map(x => /^[A-Za-z]:[\\/]/.test(x) ? x.toLowerCase() : x)).size !==
-      sessionReadOnlyRepositories.length) throw new Error('duplicate read-only repository root')
+  const sessionReadOnlyRepositories = normalizeRepositoryRoots(
+    cfg.sessionRepositories?.readOnlyRoots ?? [], 'sessionRepositories.readOnlyRoots')
+  const sessionWriteRepositories = normalizeRepositoryRoots(
+    cfg.sessionRepositories?.writeRoots ?? [], 'sessionRepositories.writeRoots')
+  const readOnlyKeys = new Set(sessionReadOnlyRepositories.map(value =>
+    /^[A-Za-z]:[\\/]/.test(value) ? value.replace(/\\/g, '/').toLowerCase() : value))
+  if (sessionWriteRepositories.some(value => !readOnlyKeys.has(
+    /^[A-Za-z]:[\\/]/.test(value) ? value.replace(/\\/g, '/').toLowerCase() : value))) {
+    throw new Error('sessionRepositories.writeRoots must be a subset of readOnlyRoots')
+  }
   const fsWriteContract = execution.fsWriteContract ?? 'legacy-overwrite'
   if (fsWriteContract !== 'legacy-overwrite' && fsWriteContract !== 'native-unguarded' &&
       fsWriteContract !== 'guarded-intent') {
@@ -138,6 +149,7 @@ export function normalizeConfig(config: CodeWorkerConfig | undefined): Settings 
     autoRoutingEnabled: cfg.autoRouting !== false,
     workspaceRoot: typeof cfg.workspaceRoot === 'string' ? cfg.workspaceRoot.trim() : '',
     sessionReadOnlyRepositories,
+    sessionWriteRepositories,
     gitEnabled: git.enabled !== false,
     gitCommand:
       typeof git.command === 'string' && git.command.trim() !== '' ? git.command.trim() : 'git',

@@ -9,6 +9,8 @@ import { requireHostFs } from './host-fs.js'
 import { lookupDshHostFs } from './host-adapter.js'
 import { assertGitExit } from '../../../delta-code-repository/git-execution.js'
 import { parseGitStatus } from '../../../delta-code-repository/git-status-policy.js'
+import { resolveSessionRepositoryRoot } from './session-repositories.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 export { parseGitStatus } from '../../../delta-code-repository/git-status-policy.js'
 
 
@@ -53,13 +55,16 @@ async function resolveDiffPath(
   return ':(literal)' + relativePath
 }
 
-export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createGitStatusTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: `${TOOL_PREFIX}git_status`,
     description:
-      'Run `git status --porcelain=v1 --branch` in the workspace and return a parsed summary of branch, staged, unstaged and untracked entries.',
+      'Run read-only `git status --porcelain=v1 --branch` in the primary workspace, or set repositoryId to inspect one attached Session repository. Attached repositories are reauthorized through Host FS and Git for every call.',
     parameters: {
-      cwd: { type: 'string', description: 'Optional subdirectory inside the workspace to run git in.' },
+      cwd: { type: 'string', description: 'Optional subdirectory inside the selected workspace or repository.' },
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID from code_session_repositories list.' },
     },
     output: {
       schema: {
@@ -94,11 +99,17 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
       },
     },
     async execute(args, exec) {
-      const root = await resolveRoot(ctx, exec, settings)
+      const root = args.repositoryId === undefined
+        ? await resolveRoot(ctx, exec, settings)
+        : sessionRepositories
+          ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'read')
+          : (() => { throw new Error('Session repository Git inspection is unavailable in this Host') })()
       const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
       const result = await runCommand(ctx, {
         command: settings.gitCommand,
-        args: ['status', '--porcelain=v1', '--branch', '-z'],
+        args: args.repositoryId === undefined
+          ? ['status', '--porcelain=v1', '--branch', '-z']
+          : ['--no-optional-locks', 'status', '--porcelain=v1', '--branch', '-z'],
         cwd,
         signal: exec.signal,
         timeoutMs: 30_000,
@@ -112,14 +123,17 @@ export function createGitStatusTool(ctx: Context, settings: Settings): ToolDefin
   })
 }
 
-export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createGitDiffTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: `${TOOL_PREFIX}git_diff`,
     description:
-      'Return a `git diff` for the workspace. Set `staged` to true for `--cached`, and `path` to limit to one file.',
+      'Return a read-only `git diff` for the primary workspace, or set repositoryId to inspect an attached Session repository. Attached repositories are reauthorized through Host FS and Git for every call.',
     parameters: {
-      cwd: { type: 'string', description: 'Optional subdirectory inside the workspace.' },
-      path: { type: 'string', description: 'Optional path to diff, relative to the workspace.' },
+      cwd: { type: 'string', description: 'Optional subdirectory inside the selected workspace or repository.' },
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID from code_session_repositories list.' },
+      path: { type: 'string', description: 'Optional path to diff, relative to the selected workspace or repository.' },
       staged: { type: 'boolean', description: 'Diff staged (cached) changes.' },
     },
     output: {
@@ -137,9 +151,14 @@ export function createGitDiffTool(ctx: Context, settings: Settings): ToolDefinit
       },
     },
     async execute(args, exec) {
-      const root = await resolveRoot(ctx, exec, settings)
+      const root = args.repositoryId === undefined
+        ? await resolveRoot(ctx, exec, settings)
+        : sessionRepositories
+          ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'read')
+          : (() => { throw new Error('Session repository Git diff is unavailable in this Host') })()
       const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
-      const gitArgs = ['diff', '--no-color']
+      const gitArgs = args.repositoryId === undefined
+        ? ['diff', '--no-color'] : ['--no-optional-locks', 'diff', '--no-color']
       if (args.staged) gitArgs.push('--cached')
       if (args.path) {
         const pathspec = await resolveDiffPath(ctx, root, args.cwd, args.path, exec.signal)

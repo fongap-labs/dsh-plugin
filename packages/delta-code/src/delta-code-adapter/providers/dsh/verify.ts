@@ -11,6 +11,8 @@ import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { classifyVerificationEvidence, verificationNextAction } from '../../../delta-code-quality/failure-policy.js'
 import { assessProcessOutcome } from '../../contracts/process-outcome.js'
 import { requireHostFs } from './host-fs.js'
+import { resolveSessionRepositoryRoot } from './session-repositories.js'
+import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
 
 const PROJECTS = new Set(['auto', 'node', 'rust', 'python', 'go'])
 const MAX_OUTPUT = 32 * 1024
@@ -24,13 +26,16 @@ export function redactKnownTokens(text: string, settings: Settings): string {
   return value.replace(/\b(?:github_pat_[a-zA-Z0-9_]{12,}|gh[pousr]_[a-zA-Z0-9]{20,})\b/g, '[REDACTED]')
 }
 
-export function createVerifyTool(ctx: Context, settings: Settings): ToolDefinition {
+export function createVerifyTool(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition {
   return defineTool({
     name: 'code_verify',
     description: 'Run an allowlisted test/typecheck/build/lint/check for Node, Rust, Python or Go in the Host subprocess. Disabled unless execution.allowCommands=true; returns bounded evidence.',
     parameters: {
       script: { type: 'string', required: true, description: 'Allowlisted script or declared Node variant (test:unit).' },
-      cwd: { type: 'string', description: 'Optional relative workspace subdirectory.' },
+      cwd: { type: 'string', description: 'Optional relative subdirectory inside the selected repository.' },
+      repositoryId: { type: 'string', description: 'Optional attached Session repository ID; requires sessionRepositories.writeRoots and native Host write permission.' },
       project: { type: 'string', enum: ['auto', 'node', 'rust', 'python', 'go'], description: 'Project type; auto requires exactly one manifest type.' },
       timeoutMs: { type: 'integer', description: 'Host subprocess timeout in ms, 10000..600000; default 120000.' },
     },
@@ -52,7 +57,7 @@ export function createVerifyTool(ctx: Context, settings: Settings): ToolDefiniti
     } },
     async execute(args, exec) {
       if (!isAllowedVerificationScript(args.script)) throw new Error('script is not allowlisted')
-      const prepared = await prepareVerify(ctx, settings, exec, { ...args, script: args.script })
+      const prepared = await prepareVerify(ctx, settings, exec, { ...args, script: args.script }, undefined, sessionRepositories)
       const evidence = await runPreparedVerify(ctx, settings, exec, prepared)
       const failureKind = classifyVerificationEvidence(evidence)
       return { ...evidence, failureKind, nextAction: verificationNextAction(failureKind) }
@@ -83,8 +88,9 @@ export interface PreparedVerification {
 /** All Host-mounted metadata reads use DSH Host FS; no local filesystem fallback. */
 export async function prepareVerify(
   ctx: Context, settings: Settings, exec: ToolRunContext,
-  args: { script: VerificationScript; cwd?: string; project?: VerificationProject; timeoutMs?: number },
+  args: { script: VerificationScript; cwd?: string; project?: VerificationProject; timeoutMs?: number; repositoryId?: string },
   reuseProbe?: VerificationProjectProbe,
+  sessionRepositories?: NativeSessionRepositoryReader,
 ): Promise<PreparedVerification> {
   const checkCancelled = () => {
     if (exec.signal.aborted) throw new Error('verification cancelled')
@@ -99,11 +105,18 @@ export async function prepareVerify(
   }
   const project = args.project ?? 'auto'
   if (typeof project !== 'string' || !PROJECTS.has(project)) throw new Error('project type is not allowlisted')
-  const root = await resolveRoot(ctx, exec, settings)
+  const root = args.repositoryId === undefined
+    ? await resolveRoot(ctx, exec, settings)
+    : sessionRepositories
+      ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'write')
+      : (() => { throw new Error('Session repository verification is unavailable in this Host') })()
   const cwd = args.cwd ? resolveInside(root, args.cwd) : root
   let canonicalCwd = cwd
   let hostPackage: unknown
   const hostFs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'readText'], 'refusing local verification fallback')
+  if (args.repositoryId !== undefined && !hostFs) {
+    throw new Error('attached repository verification requires native Host FS read capabilities')
+  }
   // Reuse only immutable project metadata within the same suite. A changed
   // mount/root/cwd is never a cache hit and cannot authorize a different Host.
   if (reuseProbe && (
