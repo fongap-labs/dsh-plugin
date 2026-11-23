@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: 清理 52 个未被 Delta Suite 当前代码引用的遗留翻译 Key，保持 zh/en 对齐，并在现有国际化回归测试中阻止新增未使用词条。
+
 - 修复: Delta Suite 自有 MCP、会话纠正弹窗和 QR 设置块统一使用浅色/深色语义 Token，补充焦点可见性及缺失的 muted 背景色，并保留严格主题指纹与无宿主 CSS 接管门禁。
 
 - 修复: Delta Suite 关闭依赖明文 Token 的 Gateway 同步，停用原生 DOM/Workspace 私有方法接管，插件发行包不再包含 Harness 源码补丁脚本，缺公开 API 时保留宿主原生行为。

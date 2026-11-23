@@ -95,5 +95,12 @@
     "native_menu": "Host owned; no private selector mutation",
     "real_harness": "unverified",
     "windows_client": "unverified"
+  },
+  "p0_1_dictionary_progress": {
+    "as_of": "2026-11-24",
+    "active_leaf_keys_per_language": 284,
+    "unused_keys_removed_per_language": 52,
+    "verification": "tests/delta-suite-public-slots-locale-boundary.test.mjs",
+    "status": "static checks; Host locale switch not verified"
   }
 }
