@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Release build script for dsh-plugin (per-plugin).
-  Called by per-plugin wrapper scripts in packages/<pkg>/build-release.ps1.
+  Called by per-plugin wrapper scripts in packages/<pkg>/build-plugin-release.ps1.
 
 .DESCRIPTION
   Invoked with:

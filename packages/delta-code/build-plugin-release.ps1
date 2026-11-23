@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Per-plugin release build wrapper for delta-code.
-  Called by Action Worker via projects/delta-code/release.manifest.json.
+  Optional PowerShell entry; the current portable release manifest uses build-release.mjs.
 #>
 
 param(
