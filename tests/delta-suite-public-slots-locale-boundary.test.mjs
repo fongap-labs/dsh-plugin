@@ -70,9 +70,11 @@ test('navigation and palette copy uses central dictionaries without dead Gateway
   assert.equal('gatewayEffort' in zhCopy, false)
   assert.equal('gatewayEffort' in enCopy, false)
   assert.doesNotMatch(client, /\bsay\(\s*'[^'\n]+'\s*,\s*'[^'\n]+'/)
-  for (const name of ['navigationPlugins', 'navigationSchedules', 'navigationSession',
-    'accountBalance', 'todaySpending', 'dataUnavailable']) {
-    assert.ok(client.includes('.' + name), 'unused account or nav key ' + name)
+  for (const name of ['settings', 'signIn', 'signOut', 'navigationPlugins',
+    'navigationSchedules', 'navigationSession', 'accountBalance', 'todaySpending',
+    'dataUnavailable']) {
+    assert.equal(name in zhCopy.ui, false, 'retired native chrome copy: ' + name)
+    assert.equal(name in enCopy.ui, false, 'retired native chrome copy: ' + name)
   }
   for (const name of ['globalCommandSearch', 'workspaceFiles', 'builtInBrowser',
     'archivedBadge', 'builtinPlan', 'builtinGoal', 'builtinCompact',

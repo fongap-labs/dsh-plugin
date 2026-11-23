@@ -28,9 +28,6 @@
     "copyFailed": "Unable to copy",
     "searching": "Searching sessions…",
     "noResults": "No matching sessions",
-    "settings": "Settings",
-    "signIn": "Sign in",
-    "signOut": "Sign out",
     "cancel": "Cancel",
     "confirm": "Confirm",
     "delete": "Delete",
@@ -148,13 +145,7 @@
     "mcpFormUnavailable": "This Profile does not expose the MCP settings form. Check that the official Harness MCP Manager and Settings are loaded.",
     "mcpEnabledState": "Enabled",
     "mcpProbeComplete": "Connection test completed.",
-    "mcpRestartComplete": "MCP connection restart requested.",
-    "navigationPlugins": "Plugin Manager",
-    "navigationSchedules": "Scheduled Tasks",
-    "navigationSession": "Start Conversation",
-    "accountBalance": "Account balance",
-    "todaySpending": "Today's spending",
-    "dataUnavailable": "Unavailable"
+    "mcpRestartComplete": "MCP connection restart requested."
   },
   "sessionMenu": {
     "moveSession": "Move session",
