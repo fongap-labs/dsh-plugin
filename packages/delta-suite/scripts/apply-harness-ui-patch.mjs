@@ -84,9 +84,12 @@ export function patchHeroStyle(source) {
 }
 
 export function patchDictionary(source, lang, key, before, after) {
-  const declaration = 'export const ' + lang + ' = {'
+  const declaration = 'export const ' + lang
   const begin = source.indexOf(declaration)
-  requireShape(begin >= 0, 'missing dictionary ' + lang)
+  const lineEnd = source.indexOf('\n', begin)
+  const firstLine = begin >= 0 ? source.slice(begin, lineEnd < 0 ? undefined : lineEnd) : ''
+  requireShape(begin >= 0 && firstLine.includes('= {') &&
+    source.indexOf(declaration, begin + declaration.length) < 0, 'missing/ambiguous dictionary ' + lang)
   const following = source.indexOf('\nexport const ', begin + declaration.length)
   const end = following < 0 ? source.length : following
   const part = source.slice(begin, end)

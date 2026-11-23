@@ -55,11 +55,11 @@ test('hero keeps native fish but moves it after the title and removes preview', 
 
 test('dictionary updates only requested language and key, without upstream version pins', () => {
   const source = [
-    'export const zh = {',
+    'export const zh: Record<ScheduledKey, string> = {',
     "  panel: '插件',",
     "  title: '插件',",
     '}',
-    'export const en = {',
+    'export const en: Record<ScheduledKey, string> = {',
     "  panel: 'Plugins',",
     "  title: 'Plugins',",
     '}',
