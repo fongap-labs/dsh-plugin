@@ -2870,235 +2870,6 @@ function createClientFeatureManager(): ClientFeatureManager {
 const deltaFeatures = createClientFeatureManager()
 
 
-
-/**
- * Narrow Delta presentation adapter for the published Harness 0.2 sidebar and
- * blank Conversation shell. It keeps native navigation handlers and the native
- * New Session component; no session creation is reproduced here.
- *
- * This is deliberately opt-in to Delta mode. When the expected host shape is
- * absent, the native component stays in its original place.
- */
-const nativeSessionTargetListeners = new Set<() => void>()
-let nativeSessionTarget: HTMLElement | null = null
-function setNativeSessionTarget(target: HTMLElement | null): void {
-  if (nativeSessionTarget === target) return
-  nativeSessionTarget = target
-  for (const listener of nativeSessionTargetListeners) listener()
-}
-function subscribeNativeSessionTarget(listener: () => void): () => void {
-  nativeSessionTargetListeners.add(listener)
-  return () => { nativeSessionTargetListeners.delete(listener) }
-}
-function readNativeSessionTarget(): HTMLElement | null { return nativeSessionTarget }
-
-function installNativePresentation(controller: DeltaController): () => void {
-  type Word = 'plugin' | 'schedule' | 'session'
-  const words: Record<Language, Record<Word, { before: readonly string[]; after: string }>> = {
-    zh: {
-      plugin: { before: ['插件', '插件管理'], after: '插件管理' },
-      schedule: { before: ['自动化任务', '定时任务'], after: '定时任务' },
-      session: { before: ['新会话', '新建会话', '开始对话'], after: '开始对话' },
-    },
-    en: {
-      plugin: { before: ['Plugins', 'Plugin Manager'], after: 'Plugin Manager' },
-      schedule: { before: ['Automation tasks', 'Automation Tasks', 'Scheduled Tasks'], after: 'Scheduled Tasks' },
-      session: { before: ['New session', 'New Session', 'Start Conversation'], after: 'Start Conversation' },
-    },
-  }
-  const changedText = new Map<HTMLElement, { original: string; replacement: string }>()
-  const changedAria = new Map<HTMLElement, { original: string | null; replacement: string }>()
-  const marked = new Set<HTMLElement>()
-  let anchor: HTMLElement | null = null
-  let stopped = false
-  let syncing = false
-  let observer: MutationObserver | undefined
-
-  const mark = (element: HTMLElement, name: string): void => {
-    const attr = 'data-dtd-' + name
-    if (element.getAttribute(attr) === '1') return
-    element.setAttribute(attr, '1')
-    marked.add(element)
-  }
-  const updateText = (element: HTMLElement, key: Word, locale: Language): void => {
-    if (element.children.length !== 0) return
-    const current = element.textContent?.trim() ?? ''
-    const word = words[locale][key]
-    const allowed = [...words.zh[key].before, ...words.en[key].before]
-    if (!allowed.includes(current) || current === word.after) return
-    const prior = changedText.get(element)
-    if (!prior) changedText.set(element, { original: element.textContent ?? '', replacement: word.after })
-    else prior.replacement = word.after
-    element.textContent = word.after
-  }
-  const updateAria = (element: HTMLElement, key: Word, locale: Language): void => {
-    const current = element.getAttribute('aria-label')?.trim() ?? ''
-    const word = words[locale][key]
-    const allowed = [...words.zh[key].before, ...words.en[key].before]
-    if (!allowed.includes(current) || current === word.after) return
-    const prior = changedAria.get(element)
-    if (!prior) changedAria.set(element, { original: element.getAttribute('aria-label'), replacement: word.after })
-    else prior.replacement = word.after
-    element.setAttribute('aria-label', word.after)
-  }
-  const restoreCopy = (): void => {
-    for (const [element, entry] of changedText) {
-      if (element.textContent === entry.replacement) element.textContent = entry.original
-    }
-    for (const [element, entry] of changedAria) {
-      if (element.getAttribute('aria-label') === entry.replacement) {
-        if (entry.original === null) element.removeAttribute('aria-label')
-        else element.setAttribute('aria-label', entry.original)
-      }
-    }
-    changedText.clear()
-    changedAria.clear()
-  }
-  const clearMarks = (): void => {
-    for (const element of marked) {
-      for (const attr of Array.from(element.attributes)) {
-        if (attr.name.startsWith('data-dtd-presentation-')) element.removeAttribute(attr.name)
-      }
-    }
-    marked.clear()
-  }
-  // The new Session action is a native React child moved by its public HOC
-  // slot into this adapter-owned portal target, not a cloned/proxy button.
-  const sync = (): void => {
-    if (stopped || syncing) return
-    syncing = true
-    try {
-      const enabled = controller.getSnapshot().mode === 'delta'
-      if (!enabled) {
-        setNativeSessionTarget(null)
-        anchor?.remove()
-        anchor = null
-        clearMarks()
-        restoreCopy()
-        return
-      }
-      const locale: Language = language()
-      const viewport = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
-      const sidebar = viewport?.parentElement?.parentElement
-      const nav = viewport?.querySelector<HTMLElement>('nav')
-      const buttons = nav
-        ? Array.from(nav.querySelectorAll<HTMLButtonElement>('button[aria-label]'))
-        : []
-      const classify = (value: string): Word | undefined => {
-        for (const key of ['plugin', 'schedule'] as const) {
-          if (words.zh[key].before.includes(value) || words.en[key].before.includes(value)) return key
-        }
-        return undefined
-      }
-      const scheduleButton = buttons.find(button => classify(button.getAttribute('aria-label') ?? '') === 'schedule')
-      for (const button of buttons) {
-        const kind = classify(button.getAttribute('aria-label') ?? '')
-        if (!kind) continue
-        updateAria(button, kind, locale)
-        for (const child of button.querySelectorAll<HTMLElement>('span')) {
-          if (child.children.length === 0) updateText(child, kind, locale)
-        }
-      }
-
-      if (sidebar) {
-        const logoRow = Array.from(sidebar.children).find(child =>
-          child.hasAttribute('data-window-drag') && child.querySelector('[data-sidebar-toggle]'))
-        if (logoRow instanceof HTMLElement) {
-          mark(logoRow, 'presentation-logo-row')
-          const brand = Array.from(logoRow.children).find(child =>
-            !child.hasAttribute('data-sidebar-toggle') && !child.querySelector('[data-sidebar-toggle]'))
-          if (brand instanceof HTMLElement) mark(brand, 'presentation-brand')
-        }
-      }
-
-      const headlines = document.querySelectorAll<HTMLElement>('[data-conversation-scroll] span')
-      for (const heading of headlines) {
-        const title = heading.textContent?.trim()
-        if (heading.children.length || (title !== '探索未至之境' && title !== 'Into the Unknown')) continue
-        const titleGroup = heading.parentElement
-        const fish = titleGroup?.previousElementSibling
-        const line = titleGroup?.parentElement
-        if (!(titleGroup instanceof HTMLElement) || !(fish instanceof HTMLElement) ||
-            !(line instanceof HTMLElement) || !fish.querySelector('svg')) continue
-        mark(line, 'presentation-hero-line')
-        mark(titleGroup, 'presentation-hero-title')
-        mark(fish, 'presentation-hero-fish')
-        const badge = heading.nextElementSibling
-        if (badge instanceof HTMLElement &&
-            ['预览版', 'Preview'].includes((badge.textContent ?? '').trim())) mark(badge, 'presentation-hero-preview')
-      }
-
-      // Titles are page headings, never the list entries or modal controls.
-      for (const heading of document.querySelectorAll<HTMLElement>('h1, h2, [role="heading"][aria-level="1"]')) {
-        if (heading.closest('nav, [role="dialog"]')) continue
-        const value = heading.textContent?.trim() ?? ''
-        const kind = classify(value)
-        if (kind) updateText(heading, kind, locale)
-      }
-
-      const nativeRow = sidebar && Array.from(sidebar.children).find(child =>
-        child !== viewport?.parentElement && !child.hasAttribute('data-window-drag') &&
-        child.querySelector('button[aria-label="新建会话"], button[aria-label="New session"], button[aria-label="New Session"], button[aria-label="开始对话"], button[aria-label="Start Conversation"]'))
-      const validSchedule = scheduleButton && nav && nav.contains(scheduleButton)
-      let scheduleRow: Element | null = validSchedule ? scheduleButton : null
-      while (scheduleRow && scheduleRow.parentElement !== nav) scheduleRow = scheduleRow.parentElement
-      if (scheduleRow?.parentElement === nav && nativeRow instanceof HTMLElement) {
-        if (!anchor || !anchor.isConnected || anchor.parentElement !== nav) {
-          anchor?.remove()
-          anchor = document.createElement('div')
-          anchor.setAttribute('data-dtd-presentation-session-target', '1')
-        }
-        if (anchor.previousElementSibling !== scheduleRow) scheduleRow.after(anchor)
-        mark(nativeRow, 'presentation-session-source')
-        setNativeSessionTarget(anchor)
-      } else {
-        setNativeSessionTarget(null)
-        anchor?.remove()
-        anchor = null
-      }
-      if (anchor) {
-        for (const button of anchor.querySelectorAll<HTMLElement>('button[aria-label]')) {
-          updateAria(button, 'session', locale)
-          for (const child of button.querySelectorAll<HTMLElement>('span')) {
-            if (!child.children.length) updateText(child, 'session', locale)
-          }
-        }
-      }
-    } finally {
-      observer?.takeRecords()
-      syncing = false
-    }
-  }
-  const scheduler = createFrameScheduler(sync)
-  const onChange = (): void => scheduler.schedule()
-  const stopController = controller.subscribe(onChange)
-  observer = typeof MutationObserver === 'function'
-    ? new MutationObserver(records => {
-      // The streaming transcript is not part of sidebar or hero presentation.
-      if (records.some(record => {
-        const node = record.target.nodeType === 3 ? record.target.parentElement : record.target
-        return !(node instanceof Element) || !node.closest('[data-chat-flow], [data-chat-turn]')
-      })) scheduler.schedule()
-    })
-    : undefined
-  observer?.observe(document.body ?? document.documentElement, {
-    subtree: true, childList: true, characterData: true, attributes: true,
-    attributeFilter: ['aria-label', 'class', 'data-sidebar-scrollport'],
-  })
-  sync()
-  return () => {
-    stopped = true
-    scheduler.cancel()
-    observer?.disconnect()
-    stopController()
-    setNativeSessionTarget(null)
-    anchor?.remove()
-    anchor = null
-    clearMarks()
-    restoreCopy()
-  }
-}
-
 /**
  * Transitional presentation safeguards for Delta lock and privacy state.
  * Harness retains native layout, navigation order, and menu ownership; these
@@ -4869,11 +4640,6 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
-    let portal: ((children: unknown, target: Element) => unknown) | undefined
-    try {
-      const dom = require('react-dom') as { createPortal?: (children: unknown, target: Element) => unknown }
-      if (typeof dom?.createPortal === 'function') portal = dom.createPortal
-    } catch { /* A Host without the React portal module keeps native positioning. */ }
     let gatewayDirectories: GatewayModelDirectoriesApi | undefined
     const gatewayDirectoryListeners = new Set<() => void>()
     const subscribeGatewayDirectories = (listener: () => void): (() => void) => {
@@ -6532,8 +6298,6 @@ window.__ModuleLoader__.load({
                 const stopCompat = typeof document.querySelectorAll === 'function' &&
                   typeof document.addEventListener === 'function'
                   ? installSidebarCompatibility(controller) : () => {}
-                const stopNativePresentation = typeof document.querySelectorAll === 'function'
-                  ? installNativePresentation(controller) : () => {}
                 // Host Vision tools remain available; native paste/drop belongs to Harness.
 
                 // Harness owns built-in Slots and Locale services.
@@ -6545,7 +6309,6 @@ window.__ModuleLoader__.load({
                   observer?.disconnect()
                   stopAppearance()
                   stopCompat()
-                  stopNativePresentation()
                   stopPrivacyGuards()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')
@@ -6720,19 +6483,6 @@ window.__ModuleLoader__.load({
                   }
                 })
               }
-              // Move the Host's actual New Session control into the global
-              // navigation list through its declared HOC, preserving handlers,
-              // permissions, shortcuts, and lifecycle. Never synthesize a click.
-              if (portal) scope.slots.inject('sidebar.session.action', () => scope.slots.register({
-                name: 'sidebar.session.action',
-                id: 'delta.sidebar.session-position',
-                order: -100,
-              }, (props: { children?: unknown; wide: boolean }) => {
-                const target = React.useSyncExternalStore(subscribeNativeSessionTarget, readNativeSessionTarget)
-                const state = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
-                return props.wide && state.mode === 'delta' && target && portal
-                  ? portal(props.children, target) : props.children
-              }))
               registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
               registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
 
