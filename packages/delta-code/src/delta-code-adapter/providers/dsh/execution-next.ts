@@ -2,7 +2,8 @@ import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import { defineTool } from '@fongap-labs/shared'
 import type { NativeResumeReader } from '../../../delta-code-quality/resume-policy.js'
 import { decideExecutionTransition } from '../../../delta-code-quality/execution-convergence.js'
-import { compactionReview, type NativeCompactionReader } from '../../../delta-code-quality/compaction-continuity.js'
+import { compactionReview, checkpointRecoveryGate, type NativeCompactionReader, type CodingIntentEvidence } from '../../../delta-code-quality/compaction-continuity.js'
+import type { UserTaskContext } from '../../../delta-code-strategy/intent-contract.js'
 import type { ExecutionStats } from '../../../delta-code-support/execution-stats.js'
 
 /**
@@ -11,6 +12,7 @@ import type { ExecutionStats } from '../../../delta-code-support/execution-stats
  */
 export function createExecutionNextTool(
   resume: NativeResumeReader, stats: ExecutionStats, compaction?: NativeCompactionReader,
+  taskContext?: Pick<UserTaskContext, 'readSources'>,
 ): ToolDefinition {
   return defineTool({
     name: 'code_execution_next',
@@ -26,6 +28,7 @@ export function createExecutionNextTool(
       contextSummarySeq: { type: 'integer', required: true },
       contextTodoRefreshed: { type: 'boolean', required: true },
       contextReviewAction: { type: 'string', required: true },
+      contextIntentEvidence: { type: 'string', required: true },
     } }, render(_args, result) {
       return [{ type: 'text', text: [
         'Execution transition: ' + result.transition,
@@ -34,6 +37,7 @@ export function createExecutionNextTool(
         ...result.remaining.slice(0, 8).map(item => 'Pending: ' + item),
         ...(result.contextReviewState !== 'none' ? [
           'Compaction context review: ' + result.contextReviewState,
+          'User intent evidence: ' + result.contextIntentEvidence,
           ...(result.contextReviewAction ? [result.contextReviewAction] : []),
         ] : []),
         'Advisory only; never an independent test result, Host authorization or delivery certificate.',
@@ -48,13 +52,21 @@ export function createExecutionNextTool(
       let marker
       try { marker = compaction?.read(exec.agent) } catch { marker = undefined }
       const review = compactionReview(marker, state?.writeSeq ?? -1)
+      let sources: ReturnType<UserTaskContext['readSources']>
+      try { sources = taskContext?.readSources(exec.agent) } catch { sources = undefined }
+      const intentEvidence: CodingIntentEvidence = sources?.historyIncomplete ? 'incomplete'
+        : sources?.current.trim() ? 'anchored' : 'unavailable'
       const decision = decideExecutionTransition(state, stats.readLastObservation(exec.agent))
+      const gate = checkpointRecoveryGate(review, intentEvidence, decision.transition)
       return {
         ...decision,
+        transition: gate.transition,
+        nextAction: gate.action || decision.nextAction,
         contextReviewState: review.state,
         contextSummarySeq: review.lastSummarySeq,
         contextTodoRefreshed: review.todoUpdatedAfterSummary,
-        contextReviewAction: review.action,
+        contextReviewAction: [review.action, gate.action].filter(Boolean).join(' '),
+        contextIntentEvidence: intentEvidence,
       }
     },
   })

@@ -30,15 +30,21 @@ export class UserTaskContext {
     const next = text.slice(-16_384)
     if (!next.trim()) return
     const prior = this.current.get(agent)
+    const isTruncated = text.length > 16_384
     if (!continuation || !prior) {
-      this.current.set(agent, { latest: next, inherited: [], historyIncomplete: false })
+      // A clipped first message, or a continuation without its preceding
+      // native user turn, is not complete authorization or task evidence.
+      this.current.set(agent, {
+        latest: next, inherited: [],
+        historyIncomplete: isTruncated || (continuation && !prior),
+      })
     } else if (!CONTINUE.test(text.trim())) {
       // User amendments are evidence, not permission to disregard prior rules.
       const previous = [...prior.inherited, prior.latest]
       this.current.set(agent, {
         latest: next,
         inherited: previous.slice(-4),
-        historyIncomplete: prior.historyIncomplete || previous.length > 4,
+        historyIncomplete: prior.historyIncomplete || isTruncated || previous.length > 4,
       })
     }
   }

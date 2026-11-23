@@ -415,6 +415,12 @@ Delta Code 借鉴工程实践中的**可执行规划**和**连续执行**，不�
 
 本功能**不执行**上游 Skill 所建议的 `npx @latest`、npm 安装、`legacy-scan`，不启用其 CLI 遥测，不上传项目代码、搜索词或文件内容。网络不可用、Host 拒绝或校验失败时如实报告并使用现有工程检查继续；指南内容属于不可信参考资料，不能修改用户规则、宿主权限或浏览器兼容性要求。每个任务仅主动提示一次，推荐检索一项主题、最多读取两份匹配指南；不是必需的任务门禁。
 
+### Coding Checkpoint 与上下文压缩恢复
+
+保留 Harness 原生 CompactionEngine、`compaction/summary` 日志、Todo 投影与 Git 权限，不新建压缩服务或第二份任务数据库。`code_execution_next` 输出 `contextIntentEvidence`（`anchored` / `incomplete` / `unavailable`），并结合原生摘要水位和 Todo 写入事件次序建议下一步：压缩后缺少完整原始用户来源时返回 `blocked`；用户来源已锚定但原生 Todo 尚未更新时返回 `reconcile`。原生 Todo 已更新仅表示可继续检查，**不表示**用户约束、代码差异、测试或交付已被自动验证。
+
+当单条用户消息被截断到最后 16,384 字符时，或宿主在无此前任务来源的情况下收到“继续”，`code_task_spec.sourceHistoryComplete=false`、`readyForPlanning=false`。只能从真实 Host 会话恢复用户原文，或请用户确认缺失要求；不能依靠模型摘要猜测、跳过禁令或重复写入。缺少原生压缩水位时不得伪称已发生或已验证压缩。真正的 Coding 专用摘要后端需另行进行真实 Harness 接口兼容性与任务结果对照后再决定。
+
 ### 空 Git 仓库的任务续接
 
 `code_resume` 在获得 DSH Host Git 的只读证据后，支持刚初始化且未产生首个提交的 Git 仓库。必须确认原生 Todo、`symbolic-ref HEAD`、`status --porcelain=v1 --branch -z` 和再次读取后的状态一致，才能返回 `reconcile`。不伪造 HEAD、不直接返回 `resume` 或交付通过，旧检查点有明确 `expectedHead` 时仍阻断。宿主拒绝、Git 状态漂移或历史来源不完整时保留原有阻断行为。
