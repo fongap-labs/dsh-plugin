@@ -286,6 +286,7 @@ test('Delta sidebar pins cannot unmount the scheduled-task navigation layout', (
   assert.match(client, /translateY\(3px\)/)
   assert.match(client, /syncFooter\(sidebar\)/)
   assert.match(client, /data-dtd-live-footer-card/)
+  assert.match(client, /activeSessionId\?: string/)
   assert.match(client, /readLiveAccountState/)
   assert.ok(client.includes("values[1]!.textContent = localize('Unavailable', '暂无数据')"))
 })

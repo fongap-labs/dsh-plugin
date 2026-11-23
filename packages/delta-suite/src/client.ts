@@ -1155,6 +1155,7 @@ interface ClientFeatureSnapshot {
   deletedSessionIds: readonly string[]
   tempUnlockedIds: readonly string[]
   tempUnlockedWorkspaceIds: readonly string[]
+  activeSessionId?: string
   revision: number
 }
 
