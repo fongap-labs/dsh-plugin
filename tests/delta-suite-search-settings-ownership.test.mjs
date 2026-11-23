@@ -9,7 +9,6 @@ const source = read('packages/delta-suite/src/client.ts')
 const normalized = source.replace(/\r\n/g, '\n')
 const theme = read('packages/delta-suite/src/theme.css')
 const emitted = [
-  'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
   'data-delta-compat dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',

@@ -29,13 +29,15 @@ test('MECE feature taxonomy contains exactly one owner for each declared capabil
 test('legacy entrypoints map to one owner and all cross-cut dependencies are classified', () => {
   const owners = new Set(taxonomy.owners.map(x => x.id))
   for (const hotspot of taxonomy.legacy_hotspots) {
-    assert.ok(client.includes(hotspot.symbol), 'untraced legacy hotspot: ' + hotspot.symbol)
+    assert.ok(client.includes(hotspot.symbol), 'untraced live hotspot: ' + hotspot.symbol)
     assert.ok(owners.has(hotspot.owner), 'unknown owner: ' + hotspot.owner)
     assert.ok(hotspot.cross_cuts.every(x => owners.has(x) && x !== hotspot.owner))
     assert.ok(hotspot.action.length > 12, 'migration requirement missing: ' + hotspot.symbol)
   }
   assert.equal(new Set(taxonomy.legacy_hotspots.map(x => x.symbol)).size,
     taxonomy.legacy_hotspots.length)
+  assert.equal(taxonomy.legacy_hotspots.some(x => x.symbol === 'installSidebarCompatibility'), false)
+  assert.doesNotMatch(client, /function installSidebarCompatibility\(/)
 })
 
 test('Host remains responsible for privileged effects and extensions remain constrained', () => {

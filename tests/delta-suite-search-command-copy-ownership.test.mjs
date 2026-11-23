@@ -13,7 +13,6 @@ const searchEnd = normalized.indexOf('\nwindow.__ModuleLoader__.load(', searchSt
 const search = searchStart >= 0 && searchEnd > searchStart
   ? normalized.slice(searchStart, searchEnd) : ''
 const emitted = [
-  'function installSidebarCompatibility() {}',
   'function installHostSearch() {}',
   'data-delta-compat dtd-host-search',
   'const OWNED_CSS = ' + JSON.stringify(theme) + ';',

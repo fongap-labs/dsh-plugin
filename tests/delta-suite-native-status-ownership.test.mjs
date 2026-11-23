@@ -14,18 +14,17 @@ test('Delta Suite does not scan or rewrite Harness native running status text no
   ]) assert.equal(source.includes(removed), false, removed)
   assert.doesNotMatch(source, /data-delta-compat-status/,
     'legacy native status marker must not return')
-  assert.match(source, /function installSidebarCompatibility\(/)
+  assert.doesNotMatch(source, /function installSidebarCompatibility\(/)
 })
 
 test('approved ZIP3 region hash is updated without disabling review protection', () => {
   const emitted = [
-    'function installSidebarCompatibility() {}',
     'function installHostSearch() {}',
     'dtd-host-search',
     'const OWNED_CSS = ' + JSON.stringify(theme) + ';',
   ].join('\n')
   assert.doesNotThrow(() => verifyApprovedZip3Client(emitted, source))
   assert.throws(() => verifyApprovedZip3Client(emitted,
-    source.replace('function installSidebarCompatibility(', 'function installSidebarCompatibility(/* unexpected */')),
-    /approved compatibility adapter changed/)
+    source + '\nfunction installSidebarCompatibility() {}\n'),
+    /retired native Sidebar DOM interception in client source/)
 })

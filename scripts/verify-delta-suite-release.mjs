@@ -258,11 +258,6 @@ const RETIRED_UNGROUPED_CONTEXT_CAPTURE = /\b(?:document|window)\.(?:addEventLis
 // Reviewed 2026-11-19: preserve Host/third-party visibility when releasing native privacy markers.
 const ZIP3_COMPAT_REGIONS = [
   {
-    begin: 'function installSidebarCompatibility(',
-    end: '\ntype SearchTabId',
-    sha1: '10ee7129d3c9ce78985420fe213e5207b029d206',
-  },
-  {
     begin: 'function installHostSearch(',
     end: '\nwindow.__ModuleLoader__.load(',
     sha1: 'd60a21ab054aeed20a026e0fa864f04b87f83a98',
@@ -283,6 +278,8 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   new URL('../packages/delta-suite/src/client.ts', import.meta.url), 'utf8'
 )) {
   const source = sourceText.replace(/\r\n/g, '\n')
+  ensure(!/\binstallSidebarCompatibility\b|\bonMenuClickCapture\b/.test(source),
+    'retired native Sidebar DOM interception in client source')
   for (const region of ZIP3_COMPAT_REGIONS) checkedRegion(source, region)
   ensure(!RETIRED_UNGROUPED_CONTEXT_MARKERS.some(marker => source.includes(marker)) &&
     !RETIRED_UNGROUPED_CONTEXT_CAPTURE.test(source),
@@ -318,10 +315,12 @@ export function verifyApprovedZip3Client(client, sourceText = readFileSync(
   const blob = createHash('sha1').update('blob ' + bytes.length + '\0').update(bytes).digest('hex')
   ensure(blob === ZIP3_THEME_BLOB, 'ZIP3 approved theme differs')
 
-  for (const name of ['installSidebarCompatibility', 'installHostSearch']) {
+  for (const name of ['installHostSearch']) {
     ensure((client.match(new RegExp('function ' + name + '\\(', 'g')) ?? []).length === 1,
       'ZIP3 emitted adapter registration missing or duplicated: ' + name)
   }
+  ensure(!/\binstallSidebarCompatibility\b|\bonMenuClickCapture\b/.test(client),
+    'retired native Sidebar DOM interception in emitted client')
   ensure(!LEGACY_VISION_COMPOSER_TAKEOVER.some(pattern => pattern.test(client)),
     'retired Vision composer takeover in emitted client')
   ensure(!RETIRED_NATIVE_LOCK_ROW_BADGES.some(marker => client.includes(marker)),
