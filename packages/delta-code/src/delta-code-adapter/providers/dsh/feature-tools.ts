@@ -23,12 +23,14 @@ import { createGitHubTools } from './github.js'
 export function createDshCodingCoreTools(
   ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
 ): ToolDefinition[] {
-  return [createMultiEditTool(ctx, settings, sessionRepositories), createProjectProfileTool(ctx, settings),
+  return [createMultiEditTool(ctx, settings, sessionRepositories), createProjectProfileTool(ctx, settings, sessionRepositories),
     createHostProbeTool(ctx), createModernWebGuidanceTool()]
 }
 
-export function createDshCodingCommandTools(ctx: Context, settings: Settings): ToolDefinition[] {
-  return [createLspProbeTool(ctx, settings)]
+export function createDshCodingCommandTools(
+  ctx: Context, settings: Settings, sessionRepositories?: NativeSessionRepositoryReader,
+): ToolDefinition[] {
+  return [createLspProbeTool(ctx, settings, sessionRepositories)]
 }
 
 export function createDshQualityTools(
