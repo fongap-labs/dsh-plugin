@@ -29,7 +29,7 @@ test('native session navigation method remains Host-owned', () => {
   assert.match(source, /readConfirmedMainSessionId\(api\.list\)/)
   assert.doesNotMatch(source, /deltaFeatures\.syncLockShieldOverlay\(centerCol\)/)
   assert.doesNotMatch(source, /if \(selectedSid\) deltaFeatures\.setActiveSessionId\(selectedSid\)/,
-    'the removed native DOM observer must not be restored')
+    'native Sidebar DOM fallback must remain retired')
 })
 
 test('only one confirmed native mainView is eligible', () => {

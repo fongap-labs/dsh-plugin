@@ -8,14 +8,16 @@ const source = readFileSync(fileURLToPath(
 const extract = (begin, end) => {
   const start = source.indexOf(begin)
   const stop = source.indexOf(end, start + begin.length)
-  assert.ok(start >= 0 && stop > start, 'live Search implementation must remain')
+  assert.ok(start >= 0 && stop > start, 'actual runtime implementation must exist')
   return source.slice(start, stop)
 }
 
-test('no native Sidebar privacy mutation observer or hidden-row injection is installed', () => {
-  assert.doesNotMatch(source, /const CHAT_CONTENT_SELECTOR =|shouldSyncPrivacyMutations/)
-  assert.doesNotMatch(source, /hidePrivacyNode|hiddenSoleWorkspaceNodes/)
-  assert.doesNotMatch(source, /function installSidebarCompatibility\(/)
+test('retired native Sidebar privacy mutation scheduler and scanners stay absent', () => {
+  for (const symbol of [
+    'createFrameScheduler', 'installSidebarCompatibility', 'shouldSyncPrivacyMutations',
+    'syncPrivacyDom', 'hiddenPrivacyCmdNodes', 'hiddenSoleWorkspaceNodes',
+    'CHAT_CONTENT_SELECTOR', 'GUARDED_CONTROL_SELECTOR',
+  ]) assert.equal(source.includes(symbol), false, 'obsolete native DOM watcher remains: ' + symbol)
   assert.match(source, /function installHostSearch\(/)
 })
 
