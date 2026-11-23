@@ -17,7 +17,11 @@ const emitted = (style = css) => [
   'const OWNED_CSS = ' + JSON.stringify(style) + ';',
 ].join('\n')
 
-test('Harness More remains visible; Delta does not hide the native navigation action', () => {
+test('Delta hides More only when both principal panels are present, and restores the native fallback', () => {
+  assert.match(source, /mark\(moreRow, 'more'\)/)
+  assert.match(source, /unmark\(moreRow, 'more'\)/)
+  assert.match(source, /mark\(button, 'primary-unpin'\)/)
+  assert.match(source, /data-dtd-live-more/)
   assert.doesNotMatch(source, /hiddenMoreElements|legacy More visibility is reviewed separately/)
   assert.doesNotMatch(source, /(?:rawText|aria)\s*===\s*['"]More['"]/)
   assert.doesNotMatch(css, /nav\s*>\s*:has\(button:is\(\[aria-label="(?:More|\\0066F4\\00591A)"\]/)

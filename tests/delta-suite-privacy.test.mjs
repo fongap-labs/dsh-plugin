@@ -8,12 +8,52 @@ execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p'
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const built = relative => pathToFileURL(fixture(`packages/delta-suite/lib/${relative}`)).href
 const { createSensitiveRedactor, redactModelRequest, restoreStream } = await import(built('privacy.js'))
-const { isValidCredentialRef, requestVisionDescription } = await import(built('vision-protocol.js'))
 const { registerPrivacyBridge } = await import(built('privacy-bridge.js'))
 const { shouldBlockPrivacyHttpRequest, installHostPrivacyGuards } = await import(built('host-privacy.js'))
 
 async function* iterable(values) { yield* values }
 const collect = async stream => { const out = []; for await (const chunk of stream) out.push(chunk); return out }
+
+function makePrivacyHarness({ deepSeekModelsEnabled = true, redactionEnabled = true } = {}) {
+  let listener
+  const llm = {
+    async resolveModelInfo(_provider, model) {
+      return { id: model, inputModalities: ['text'] }
+    },
+    async listModels(provider) {
+      return provider === 'deepseek-official' || provider === 'deepseek-account'
+        ? [{ id: 'deepseek-flash', inputModalities: ['text'] }]
+        : [{ id: 'text-model', inputModalities: ['text'] }]
+    },
+    stream() {
+      return iterable([{ type: 'finish', reason: { kind: 'stop' } }])
+    },
+  }
+  const originalResolver = llm.resolveModelInfo
+  const originalListModels = llm.listModels
+  const scope = {
+    llm,
+    on(event, handler) {
+      assert.equal(event, 'llm/stream')
+      listener = handler
+      return () => { if (listener === handler) listener = undefined }
+    },
+  }
+  const ctx = {
+    inject(services, callback) {
+      assert.deepEqual(services, ['llm'])
+      callback(scope)
+    },
+  }
+  const dispose = registerPrivacyBridge(ctx, { deepSeekModelsEnabled, redactionEnabled })
+  return {
+    llm,
+    originalResolver,
+    originalListModels,
+    getListener: () => listener,
+    dispose,
+  }
+}
 
 test('Host privacy request classifier rejects encoded, traversed, and alternate path spellings', () => {
   const blocked = [
@@ -122,8 +162,6 @@ test('redaction masks common secrets and private contact data with reversible re
   assert.doesNotMatch(masked, /abcdefghijkl|short|sk-ant-|alice@example|415\) 555|private-material/)
   assert.match(masked, /password=⟦dtd:/)
   assert.equal(redactor.restore(masked), source)
-  assert.equal(isValidCredentialRef('VISION_API_KEY'), true)
-  assert.equal(isValidCredentialRef('vision-key'), false)
 })
 
 test('redaction checksums payment cards and date/checksum-valid resident-ID formats to limit false positives', () => {
@@ -193,87 +231,8 @@ test('stream restoration handles markers split across text and tool argument chu
   assert.doesNotMatch(JSON.stringify(toolChunks), /tool-stream-secret/)
 })
 
-test('generic vision transport emits OpenAI-compatible, Anthropic Messages, and Ollama payloads', async () => {
-  const cases = [
-    { protocol: 'openai', baseURL: 'https://vision.example/v1', path: '/v1/chat/completions', inspect: body => body.messages[0].content[1].image_url.url.endsWith('AQID') },
-    { protocol: 'anthropic', baseURL: 'https://vision.example', path: '/v1/messages', inspect: body => body.messages[0].content[1].source.data === 'AQID' },
-    { protocol: 'ollama', baseURL: 'http://localhost:11434', path: '/api/chat', inspect: body => body.messages[0].images[0] === 'AQID' },
-  ]
-  for (const item of cases) {
-    let captured
-    const fetcher = async (url, init) => {
-      captured = { url, init, body: JSON.parse(init.body) }
-      const result = item.protocol === 'anthropic'
-        ? { content: [{ type: 'text', text: 'A concise image description.' }] }
-        : item.protocol === 'ollama'
-          ? { message: { content: 'A concise image description.' } }
-          : { choices: [{ message: { content: 'A concise image description.' } }] }
-      return new Response(JSON.stringify(result), { status: 200, headers: { 'content-type': 'application/json' } })
-    }
-    const description = await requestVisionDescription({ protocol: item.protocol, baseURL: item.baseURL, model: 'vision-model', maxTokens: 256 },
-      { mediaType: 'image/png', data: new Uint8Array([1, 2, 3]) }, 'Describe this', 'test-secret-key', fetcher)
-    assert.equal(description, 'A concise image description.')
-    assert.ok(captured.url.endsWith(item.path))
-    assert.equal(captured.init.redirect, 'error')
-    assert.equal(item.inspect(captured.body), true)
-    if (item.protocol === 'anthropic') assert.equal(captured.init.headers['x-api-key'], 'test-secret-key')
-    else assert.equal(captured.init.headers.authorization, 'Bearer test-secret-key')
-  }
-})
-
-test('vision transport rejects unsafe URLs, missing models, and oversized images without exposing request data', async () => {
-  const image = { mediaType: 'image/jpeg', data: new Uint8Array([1]) }
-  const config = { protocol: 'openai', baseURL: 'https://user:password@vision.example/v1', model: 'vision', maxTokens: 128 }
-  await assert.rejects(requestVisionDescription(config, image, 'secret prompt', undefined, async () => { throw new Error('must not call') }), /invalid endpoint/)
-  await assert.rejects(requestVisionDescription({ ...config, baseURL: 'https://vision.example/v1', model: '' }, image, '', undefined), /missing model/)
-  await assert.rejects(requestVisionDescription({ ...config, baseURL: 'https://vision.example/v1' },
-    { ...image, data: new Uint8Array(12 * 1024 * 1024 + 1) }, '', undefined), /image size/)
-})
-
-function makeVisionHarness({ visionFailure = false, redactionEnabled = true, visionEnabled = true,
-  deepSeekModelsEnabled = true } = {}) {
-  let listener
-  const calls = []
-  const warnings = []
-  const llm = {
-    async resolveModelInfo(_provider, model) { return { id: model, inputModalities: ['text'] } },
-    async listModels(provider) {
-      if (provider === 'deepseek-official' || provider === 'deepseek-account') {
-        return [{ id: 'deepseek-flash', inputModalities: ['text'] }]
-      }
-      return provider === 'vision' ? [{ id: 'vision-model', inputModalities: ['text', 'image'] }]
-        : [{ id: 'text-model', inputModalities: ['text'] }]
-    },
-    stream(options) {
-      calls.push(options)
-      return (async function* () {
-        if (options.provider === 'vision') {
-          if (visionFailure) throw new Error('private endpoint or image data must not appear in the UI')
-          yield { type: 'text-delta', index: 0, text: 'A diagram with two boxes.' }
-          yield { type: 'finish', reason: { kind: 'stop' } }
-          return
-        }
-        const targetText = JSON.stringify(options)
-        const marker = targetText.match(/⟦dtd:[^⟧]+⟧/)?.[0]
-        assert.ok(marker, 'the original secret is masked before text-model egress')
-        yield { type: 'text-delta', index: 0, text: 'Restored: ' + marker.slice(0, 8) }
-        yield { type: 'text-delta', index: 0, text: marker.slice(8) }
-        yield { type: 'finish', reason: { kind: 'stop' } }
-      })()
-    },
-  }
-  const originalResolver = llm.resolveModelInfo
-  const originalListModels = llm.listModels
-  const scope = { llm, on(event, handler) { assert.equal(event, 'llm/stream'); listener = handler } }
-  const ctx = { inject(_services, callback) { callback(scope) }, logger: { warn(message) { warnings.push(message) } } }
-  const config = { deepSeekModelsEnabled, redactionEnabled, visionEnabled, visionSource: 'existing', visionProvider: 'vision', visionModel: 'vision-model',
-    visionProtocol: 'openai', visionBaseURL: '', visionCustomModel: '', visionCredentialRef: '' }
-  const dispose = registerPrivacyBridge(ctx, config)
-  return { llm, originalResolver, originalListModels, listener, calls, warnings, dispose, getListener: () => listener }
-}
-
 test('disabled DeepSeek routes disappear from model catalogs and reject new requests, then restore on unload', async () => {
-  const harness = makeVisionHarness({ deepSeekModelsEnabled: false })
+  const harness = makePrivacyHarness({ deepSeekModelsEnabled: false })
   assert.deepEqual(await harness.llm.listModels('deepseek-official'), [])
   assert.deepEqual(await harness.llm.listModels('deepseek-account'), [])
   assert.deepEqual(await harness.llm.listModels('text-route'), [{ id: 'text-model', inputModalities: ['text'] }])
@@ -290,66 +249,16 @@ test('disabled DeepSeek routes disappear from model catalogs and reject new requ
   assert.equal(harness.llm.listModels, harness.originalListModels)
 })
 
-test('configured bridge advertises image admission temporarily and sends only descriptions to a text model', async () => {
-  const harness = makeVisionHarness()
-  const originalResolver = harness.originalResolver
-  const resolved = await harness.llm.resolveModelInfo('text-route', 'text-model')
-  assert.deepEqual(resolved.inputModalities, ['text', 'image'])
-  const attachment = { attachmentId: 'img-1', mediaType: 'image/png' }
-  const request = { provider: 'text-route', model: 'text-model', messages: [{ role: 'user', content: [
-    { type: 'text', text: 'Inspect this; password=ultra-secret-value' },
-    { type: 'image', attachment },
-  ] }] }
-  const emitted = await collect(harness.getListener()(request, () => iterable([{ type: 'finish', reason: { kind: 'stop' } }])))
-  const targetRequest = harness.calls.find(call => call.provider === 'text-route')
-  assert.ok(targetRequest)
-  assert.equal(JSON.stringify(targetRequest).includes('ultra-secret-value'), false)
-  assert.equal(targetRequest.messages[0].content.some(block => block.type === 'image'), false)
-  assert.match(JSON.stringify(targetRequest), /A diagram with two boxes/)
-  assert.match(emitted.map(chunk => chunk.text ?? '').join(''), /Restored: ultra-secret-value/)
-  assert.deepEqual(emitted.at(-1).reason, { kind: 'stop' })
-  harness.dispose()
-  assert.equal(harness.llm.resolveModelInfo, originalResolver, 'the public resolver wrapper is removed on unload')
-})
-
-test('vision bridge fails closed without dispatching the original image to the text model', async () => {
-  const harness = makeVisionHarness({ visionFailure: true })
-  const request = { provider: 'text-route', model: 'text-model', messages: [{ role: 'user', content: [
-    { type: 'text', text: 'Describe this picture.' },
-    { type: 'image', attachment: { attachmentId: 'img-2', mediaType: 'image/png' } },
-  ] }] }
-  const emitted = await collect(harness.getListener()(request, () => iterable([{ type: 'finish', reason: { kind: 'stop' } }])))
-  assert.equal(harness.calls.some(call => call.provider === 'text-route'), false)
-  assert.equal(emitted.at(-1).reason.failure.code, 'DELTA_VISION_BRIDGE_FAILED')
-  assert.doesNotMatch(emitted.at(-1).reason.failure.message, /private endpoint|image data/)
-  assert.match(harness.warnings[0], /image was withheld/)
-  harness.dispose()
-})
-
-test('disabled redaction preserves request text and disabled vision bridge refuses unsupported images', async () => {
-  const unredacted = makeVisionHarness({ redactionEnabled: false })
-  const textRequest = { provider: 'text-route', model: 'text-model', messages: [{ role: 'user', content: [
-    { type: 'text', text: 'password=literal-demo-value' },
-  ] }] }
-  let nextCalled = false
-  const next = iterable([{ type: 'text-delta', index: 0, text: 'ok' }, { type: 'finish', reason: { kind: 'stop' } }])
-  await collect(unredacted.getListener()(textRequest, () => { nextCalled = true; return next }))
-  assert.equal(nextCalled, true)
-  assert.equal(unredacted.calls.length, 0)
-  assert.equal(textRequest.messages[0].content[0].text, 'password=literal-demo-value')
-  unredacted.dispose()
-
-  const noVision = makeVisionHarness({ visionEnabled: false })
-  const imageRequest = { provider: 'text-route', model: 'text-model', messages: [{ role: 'user', content: [
-    { type: 'image', attachment: { attachmentId: 'img-3', mediaType: 'image/png' } },
-  ] }] }
-  let imageNextCalled = false
-  const result = await collect(noVision.getListener()(imageRequest, () => {
-    imageNextCalled = true
-    return iterable([{ type: 'finish', reason: { kind: 'stop' } }])
-  }))
-  assert.equal(imageNextCalled, false)
-  assert.equal(noVision.calls.length, 0)
-  assert.equal(result.at(-1).reason.failure.code, 'DELTA_VISION_BRIDGE_FAILED')
-  noVision.dispose()
+test('removing Vision Bridge preserves native model image handling and optional redaction', async () => {
+  const plain = makePrivacyHarness({ redactionEnabled: false })
+  const image = { type: 'image', attachment: { attachmentId: 'native-image', mediaType: 'image/png' } }
+  const request = { provider: 'text-route', model: 'text-model',
+    messages: [{ role: 'user', content: [image, { type: 'text', text: 'password=example' }] }] }
+  let called = false
+  await collect(plain.getListener()(request, () => { called = true; return iterable([{ type: 'finish' }]) }))
+  assert.equal(called, true)
+  assert.equal(request.messages[0].content[0], image)
+  const model = await plain.llm.resolveModelInfo('text-route', 'text-model')
+  assert.deepEqual(model.inputModalities, ['text'])
+  plain.dispose()
 })

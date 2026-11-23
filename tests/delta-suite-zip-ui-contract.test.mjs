@@ -19,7 +19,7 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '587e37e22d478ac7f4d5d9c9b82f173baecf0613')
+    assert.equal(sha, 'faf0d256ad12abc27482ee190aa403b087ee914a')
   })
   it('does not style native Host inputs, hero, guide cards or global token scales', () => {
     assert.doesNotMatch(css, /\[class[*~^$|]?=/)
@@ -112,13 +112,13 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
     assert.match(css, /\.dtd-search-backdrop/)
     assert.match(css, /\.dtd-dialog-backdrop/)
   })
-  it('leaves native image paste and drop to Harness while retaining Host Vision modules', () => {
+  it('leaves native image paste and drop to Harness and removes Vision Bridge modules', () => {
     assert.doesNotMatch(client, /installClientVisionBridge|stopVisionBridge|data-composer-input/)
     assert.doesNotMatch(client, /document\.execCommand\(['"`]insertText/)
-    assert.doesNotMatch(client, /(?:document|window)\.addEventListener\(['"`](?:paste|drop)['"`]/)
-    const hostVision = file('src/host-vision.ts')
-    assert.match(hostVision, /installHostVisionOps/)
-    assert.match(hostVision, /registerVisionTools/)
+    assert.doesNotMatch(client, /(?:document|window)\.addEventListener\(['"`](?:paste|drop)['"`]\)/)
+    assert.throws(() => file('src/host-vision.ts'), { code: 'ENOENT' })
+    assert.throws(() => file('src/vision-protocol.ts'), { code: 'ENOENT' })
+    assert.doesNotMatch(file('src/index.ts'), /host-vision|vision-protocol|registerVisionTools/)
   })
   it('registers a non-interactive protection indicator through the published Session trailing Slot', () => {
     assert.match(client, /scope\.slots\.inject\('sidebar\.session\.row\.trailing'/)
@@ -155,14 +155,17 @@ describe('Authoritative ZIP3 Desktop UI and additive feature integration', () =>
       assert.match(dictionary.sessionMenu.movedToast, /Delta/)
     }
   })
-  it('retains ZIP translations but adds main-only context, MCP and Vision labels', () => {
+  it('retains ZIP translations and context labels while removing proxy and Vision Bridge settings', () => {
     for (const dictionary of [zh, en]) {
       assert.ok(dictionary.searchPalette.tabAll)
       assert.ok(dictionary.searchPalette.tabAction)
-      for (const id of ['contextFeatures', 'mcpAddAction', 'privacyVisionTitle',
-        'visionSave', 'discussTask', 'compactionCompleted']) {
+      for (const id of ['contextFeatures', 'mcpAddAction', 'discussTask', 'compactionCompleted']) {
         assert.equal(typeof dictionary.ui[id], 'string', id)
       }
+      assert.equal(dictionary.ui.privacyVisionTitle, undefined)
+      assert.equal(dictionary.ui.visionSave, undefined)
+      assert.equal(dictionary.networkProxy, undefined)
     }
   })
+
 })

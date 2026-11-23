@@ -172,7 +172,7 @@ export function hasUnsafeHostPatch(source) {
 // Reviewed 2026-11-19: retired active native menu/tooltip/listbox/hover CSS takeover; keep Delta-owned overlays.
 // Transitional protection DOM and Host command guards remain outside native layout ownership.
 // Reviewed 2026-11-19: keep only Delta-owned CSS and published Theme API tokens.
-const ZIP3_THEME_BLOB = '587e37e22d478ac7f4d5d9c9b82f173baecf0613'
+const ZIP3_THEME_BLOB = 'faf0d256ad12abc27482ee190aa403b087ee914a'
 // Reject renewed private Host styling even if an emitted asset digest is edited.
 // Reading an official Theme API token from a Delta-owned component is allowed;
 // declaring Host --dsw-* variables in injected global CSS is not.

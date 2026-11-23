@@ -6,10 +6,8 @@ import {
 } from './host-auth-cookies.js'
 import { installHostPrivacyGuards } from './host-privacy.js'
 import type { PrivacyHostContext } from './host-privacy.js'
-import { installHostProxyManager } from './host-proxy.js'
 import { installHostSessionSearch } from './host-search.js'
 import { installHostSessionOps, readHostSearchExclusion } from './host-sessions.js'
-import { installHostVisionOps } from './host-vision.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
 import { registerPrivacyBridge, type DeltaPrivacyConfig } from './privacy-bridge.js'
@@ -82,25 +80,6 @@ export function apply(ctx?: PrivacyHostContext, config?: DeltaPrivacyConfig): ()
     optional: true,
     install: () => installHostGatewayEffortSync(ctx),
   })
-  registry.register({
-    id: 'integrations.vision-bridge',
-    owner: 'integrations',
-    surfaces: ['settings'],
-    optional: true,
-    install: () => installHostVisionOps(ctx, store),
-  })
-
-  // Gateway retry coordination belongs to Delta Code Worker; avoid a second Host listener.
-  registry.register({
-    id: 'integrations.proxy-settings',
-    owner: 'integrations',
-    surfaces: ['settings'],
-    install: () => {
-      const proxyMgr = installHostProxyManager(ctx, store)
-      return () => { void proxyMgr.dispose() }
-    },
-  })
-
   const instance = registry.mount(ctx, new Set<string>())
   return () => instance.dispose()
 }

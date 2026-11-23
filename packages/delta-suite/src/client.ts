@@ -2,20 +2,6 @@
  * Delta Suite browser module. It only registers its lazy factory while loading.
  * Layout/session ownership always remains with the official UI plugins.
  */
-let deltaSettingsForm: McpConfigForm | undefined
-let deltaCredentialRemote: CredentialRemoteApi | undefined
-let deltaSettingsVersion = 0
-const deltaSettingsListeners = new Set<() => void>()
-function publishDeltaSettings(): void {
-  deltaSettingsVersion++
-  deltaSettingsListeners.forEach(listener => listener())
-}
-function useDeltaSettingsVersion(React: ReactApi): number {
-  return React.useSyncExternalStore(listener => {
-    deltaSettingsListeners.add(listener)
-    return () => deltaSettingsListeners.delete(listener)
-  }, () => deltaSettingsVersion)
-}
 interface McpDraft {
   name: string
   transport: 'stdio' | 'streamable-http'
@@ -366,6 +352,11 @@ function installClientPrivacyGuards(): () => void {
  * It confines DOM interaction to recognized native controls and restores every
  * owned label/marker when Delta mode is disabled or the plugin unmounts.
  */
+// Only the Host's sanitized account UI projection is read; no token is exposed.
+let readLiveAccountState: (() => {
+  view?: { status?: string }
+  details?: { balance?: { status: string; value?: readonly { currency: string; balance: string }[] } }
+}) | undefined
 const liveSessionTargetListeners = new Set<() => void>()
 let liveSessionTarget: HTMLElement | null = null
 function publishLiveSessionTarget(next: HTMLElement | null): void {
@@ -392,8 +383,87 @@ const LIVE_PRESENTATION_CSS = String.raw`
 :root[data-delta-ui="delta"] [data-dtd-live-preview="1"] { display: none !important; }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-title="1"] { order: 0; }
 :root[data-delta-ui="delta"] [data-dtd-live-hero-fish="1"] {
-  order: 1; align-self: center; transform: translateY(2px);
+  order: 1; align-self: center; width: 16px !important; height: 12px !important;
+  flex: 0 0 16px !important; transform: translateY(3px);
 }
+:root[data-delta-ui="delta"] [data-dtd-live-hero-fish="1"] svg {
+  width: 16px !important; height: auto !important; max-width: 16px !important;
+}
+/* Delta pins are presentation-fixed. Hiding the Host unpin control avoids
+ * silently removing a required navigation entry and reverting its layout. */
+:root[data-delta-ui="delta"] [data-dtd-live-primary-unpin="1"],
+:root[data-delta-ui="delta"] [data-dtd-live-more="1"] {
+  display: none !important; height: 0 !important; min-height: 0 !important;
+  margin: 0 !important; padding: 0 !important;
+}
+
+/* One-row native account footer: no account operations or credentials copied. */
+:root[data-delta-ui="delta"] [data-dtd-live-footer-row="1"] {
+  display: flex !important; position: relative; align-items: center;
+  gap: 4px; min-height: 44px; padding: 0 6px;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-avatar="1"] {
+  display: flex; flex: 1 1 auto; min-width: 0; order: 0;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-trigger="1"] {
+  box-sizing: border-box; display: flex; width: 36px !important;
+  height: 36px !important; min-height: 36px !important;
+  align-items: center; justify-content: center; padding: 6px !important;
+  border: 0 !important; gap: 0 !important; background: transparent !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-trigger="1"] > span:not([data-avatar-status]) {
+  display: none !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-trigger="1"] [data-avatar-status],
+:root[data-delta-ui="delta"] [data-dtd-live-footer-trigger="1"] [data-avatar-status] img {
+  box-sizing: border-box; width: 24px !important; height: 24px !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-trigger="1"][data-signed-out="true"] > svg {
+  display: none !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-trigger="1"][data-signed-out="true"]::before {
+  content: ""; display: block; width: 24px; height: 24px; flex: none;
+  background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2023.16%2017.04%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M22.9168%201.43018C22.6713%201.31018%2022.5658%201.53918%2022.4223%201.65519C22.3733%201.69269%2022.3318%201.74169%2022.2903%201.78669C21.9317%202.1697%2021.5127%202.42121%2020.9657%202.39121C20.1657%202.34621%2019.4827%202.59771%2018.8787%203.20973C18.7502%202.45521%2018.3236%202.0047%2017.6746%201.71569C17.3351%201.56568%2016.9916%201.41518%2016.7536%201.08867C16.5876%200.856163%2016.5421%200.597155%2016.4591%200.341647C16.4061%200.187643%2016.3536%200.0301382%2016.1761%200.00363739C15.9836%20-0.0263635%2015.9081%200.135141%2015.8326%200.270145C15.5306%200.822162%2015.4136%201.43018%2015.4251%202.0462C15.4516%203.43174%2016.0366%204.53527%2017.1991%205.3203C17.3311%205.4103%2017.3651%205.5003%2017.3236%205.63181C17.2441%205.90231%2017.1501%206.16482%2017.0671%206.43533C17.0141%206.60784%2016.9351%206.64584%2016.7501%206.57033C16.1121%206.30383%2015.5611%205.90931%2015.074%205.4328C14.2475%204.63328%2013.5%203.75075%2012.568%203.05973C12.349%202.89822%2012.13%202.74822%2011.9034%202.60522C10.9524%201.68169%2012.028%200.923165%2012.277%200.833162C12.5375%200.739159%2012.3675%200.41615%2011.5259%200.42015C10.6844%200.42365%209.91439%200.705658%208.93286%201.08117C8.78935%201.13767%208.63835%201.17867%208.48384%201.21267C7.59332%201.04367%206.66829%201.00617%205.70226%201.11517C3.88321%201.31768%202.43016%202.1777%201.36213%203.64575C0.0790928%205.4103%20-0.222916%207.41536%200.146595%209.50642C0.535106%2011.7105%201.66014%2013.535%203.38869%2014.9616C5.18125%2016.4406%207.24581%2017.1657%209.60138%2017.0266C11.0319%2016.9441%2012.6245%2016.7526%2014.421%2015.2321C14.874%2015.4576%2015.3496%2015.5476%2016.1381%2015.6151C16.7456%2015.6716%2017.3306%2015.5851%2017.7836%2015.4911C18.4931%2015.3411%2018.4441%2014.6841%2018.1876%2014.5636C16.1081%2013.595%2016.5646%2013.9891%2016.1496%2013.67C17.2061%2012.42%2018.8202%2010.1979%2019.3182%207.17235C19.3672%206.83834%2019.4297%206.36783%2019.4222%206.09732C19.4182%205.93231%2019.4562%205.86831%2019.6447%205.84931C20.1657%205.78931%2020.6712%205.64681%2021.1357%205.3913C22.4833%204.65528%2023.0268%203.44624%2023.1548%201.9972C23.1738%201.77569%2023.1508%201.54668%2022.9168%201.43018ZM11.1749%2014.4736C9.15936%2012.889%208.18184%2012.3675%207.77832%2012.39C7.40081%2012.4125%207.46881%2012.8445%207.55182%2013.126C7.63882%2013.404%207.75182%2013.5955%207.91033%2013.8396C8.01983%2014.0011%208.09533%2014.2411%207.80083%2014.4216C7.15181%2014.8231%206.02327%2014.2866%205.97027%2014.2601C4.65673%2013.4865%203.5587%2012.4655%202.78467%2011.069C2.03715%209.72493%201.60314%208.28289%201.53164%206.74384C1.51264%206.37233%201.62214%206.24082%201.99215%206.17332C2.47916%206.08332%202.98118%206.06432%203.46769%206.13582C5.52476%206.43633%207.27581%207.35586%208.74385%208.8129C9.58188%209.64243%2010.2159%2010.634%2010.8689%2011.6025C11.5634%2012.631%2012.3105%2013.611%2013.262%2014.4146C13.598%2014.6961%2013.866%2014.9101%2014.1225%2015.0681C13.349%2015.1546%2012.058%2015.1731%2011.1749%2014.4746L11.1749%2014.4736ZM12.141%208.25988C12.141%208.09488%2012.273%207.96338%2012.439%207.96338C12.4765%207.96338%2012.5105%207.97088%2012.541%207.98188C12.5825%207.99688%2012.6205%208.01938%2012.6505%208.05338C12.7035%208.10588%2012.7335%208.18088%2012.7335%208.25988C12.7335%208.42489%2012.6015%208.55639%2012.4355%208.55639C12.2695%208.55639%2012.141%208.42489%2012.141%208.25988ZM15.1415%209.79893C14.949%209.87793%2014.7565%209.94544%2014.5715%209.95294C14.2845%209.96794%2013.9715%209.85143%2013.8015%209.70893C13.5375%209.48742%2013.3485%209.36342%2013.2695%208.97691C13.2355%208.8119%2013.2545%208.55639%2013.2845%208.40989C13.3525%208.09438%2013.277%207.89187%2013.0545%207.70787C12.8735%207.55786%2012.643%207.51636%2012.39%207.51636C12.2955%207.51636%2012.209%207.47486%2012.1445%207.44136C12.039%207.38886%2011.9519%207.25735%2012.035%207.09585C12.0615%207.04335%2012.19%206.91584%2012.22%206.89334C12.5635%206.69784%2012.9595%206.76184%2013.326%206.90834C13.6655%207.04735%2013.9225%207.30236%2014.292%207.66287C14.6695%208.09838%2014.7375%208.21838%2014.9525%208.54539C15.1225%208.8009%2015.277%209.06341%2015.3831%209.36392C15.4471%209.55142%2015.3641%209.70493%2015.1415%209.79893Z%22%2F%3E%3C%2Fsvg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2023.16%2017.04%22%3E%3Cpath%20fill%3D%22black%22%20d%3D%22M22.9168%201.43018C22.6713%201.31018%2022.5658%201.53918%2022.4223%201.65519C22.3733%201.69269%2022.3318%201.74169%2022.2903%201.78669C21.9317%202.1697%2021.5127%202.42121%2020.9657%202.39121C20.1657%202.34621%2019.4827%202.59771%2018.8787%203.20973C18.7502%202.45521%2018.3236%202.0047%2017.6746%201.71569C17.3351%201.56568%2016.9916%201.41518%2016.7536%201.08867C16.5876%200.856163%2016.5421%200.597155%2016.4591%200.341647C16.4061%200.187643%2016.3536%200.0301382%2016.1761%200.00363739C15.9836%20-0.0263635%2015.9081%200.135141%2015.8326%200.270145C15.5306%200.822162%2015.4136%201.43018%2015.4251%202.0462C15.4516%203.43174%2016.0366%204.53527%2017.1991%205.3203C17.3311%205.4103%2017.3651%205.5003%2017.3236%205.63181C17.2441%205.90231%2017.1501%206.16482%2017.0671%206.43533C17.0141%206.60784%2016.9351%206.64584%2016.7501%206.57033C16.1121%206.30383%2015.5611%205.90931%2015.074%205.4328C14.2475%204.63328%2013.5%203.75075%2012.568%203.05973C12.349%202.89822%2012.13%202.74822%2011.9034%202.60522C10.9524%201.68169%2012.028%200.923165%2012.277%200.833162C12.5375%200.739159%2012.3675%200.41615%2011.5259%200.42015C10.6844%200.42365%209.91439%200.705658%208.93286%201.08117C8.78935%201.13767%208.63835%201.17867%208.48384%201.21267C7.59332%201.04367%206.66829%201.00617%205.70226%201.11517C3.88321%201.31768%202.43016%202.1777%201.36213%203.64575C0.0790928%205.4103%20-0.222916%207.41536%200.146595%209.50642C0.535106%2011.7105%201.66014%2013.535%203.38869%2014.9616C5.18125%2016.4406%207.24581%2017.1657%209.60138%2017.0266C11.0319%2016.9441%2012.6245%2016.7526%2014.421%2015.2321C14.874%2015.4576%2015.3496%2015.5476%2016.1381%2015.6151C16.7456%2015.6716%2017.3306%2015.5851%2017.7836%2015.4911C18.4931%2015.3411%2018.4441%2014.6841%2018.1876%2014.5636C16.1081%2013.595%2016.5646%2013.9891%2016.1496%2013.67C17.2061%2012.42%2018.8202%2010.1979%2019.3182%207.17235C19.3672%206.83834%2019.4297%206.36783%2019.4222%206.09732C19.4182%205.93231%2019.4562%205.86831%2019.6447%205.84931C20.1657%205.78931%2020.6712%205.64681%2021.1357%205.3913C22.4833%204.65528%2023.0268%203.44624%2023.1548%201.9972C23.1738%201.77569%2023.1508%201.54668%2022.9168%201.43018ZM11.1749%2014.4736C9.15936%2012.889%208.18184%2012.3675%207.77832%2012.39C7.40081%2012.4125%207.46881%2012.8445%207.55182%2013.126C7.63882%2013.404%207.75182%2013.5955%207.91033%2013.8396C8.01983%2014.0011%208.09533%2014.2411%207.80083%2014.4216C7.15181%2014.8231%206.02327%2014.2866%205.97027%2014.2601C4.65673%2013.4865%203.5587%2012.4655%202.78467%2011.069C2.03715%209.72493%201.60314%208.28289%201.53164%206.74384C1.51264%206.37233%201.62214%206.24082%201.99215%206.17332C2.47916%206.08332%202.98118%206.06432%203.46769%206.13582C5.52476%206.43633%207.27581%207.35586%208.74385%208.8129C9.58188%209.64243%2010.2159%2010.634%2010.8689%2011.6025C11.5634%2012.631%2012.3105%2013.611%2013.262%2014.4146C13.598%2014.6961%2013.866%2014.9101%2014.1225%2015.0681C13.349%2015.1546%2012.058%2015.1731%2011.1749%2014.4746L11.1749%2014.4736ZM12.141%208.25988C12.141%208.09488%2012.273%207.96338%2012.439%207.96338C12.4765%207.96338%2012.5105%207.97088%2012.541%207.98188C12.5825%207.99688%2012.6205%208.01938%2012.6505%208.05338C12.7035%208.10588%2012.7335%208.18088%2012.7335%208.25988C12.7335%208.42489%2012.6015%208.55639%2012.4355%208.55639C12.2695%208.55639%2012.141%208.42489%2012.141%208.25988ZM15.1415%209.79893C14.949%209.87793%2014.7565%209.94544%2014.5715%209.95294C14.2845%209.96794%2013.9715%209.85143%2013.8015%209.70893C13.5375%209.48742%2013.3485%209.36342%2013.2695%208.97691C13.2355%208.8119%2013.2545%208.55639%2013.2845%208.40989C13.3525%208.09438%2013.277%207.89187%2013.0545%207.70787C12.8735%207.55786%2012.643%207.51636%2012.39%207.51636C12.2955%207.51636%2012.209%207.47486%2012.1445%207.44136C12.039%207.38886%2011.9519%207.25735%2012.035%207.09585C12.0615%207.04335%2012.19%206.91584%2012.22%206.89334C12.5635%206.69784%2012.9595%206.76184%2013.326%206.90834C13.6655%207.04735%2013.9225%207.30236%2014.292%207.66287C14.6695%208.09838%2014.7375%208.21838%2014.9525%208.54539C15.1225%208.8009%2015.277%209.06341%2015.3831%209.36392C15.4471%209.55142%2015.3641%209.70493%2015.1415%209.79893Z%22%2F%3E%3C%2Fsvg%3E") center / contain no-repeat;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"] {
+  order: 1; flex: none; width: 36px !important; min-width: 36px !important;
+  height: 36px !important; min-height: 36px !important; padding: 6px !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"] svg {
+  width: 24px !important; height: 24px !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-update="1"] > span:not(:first-child) {
+  display: none !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-action] {
+  order: 2; flex: none; width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px; color: inherit; background: transparent; cursor: pointer;
+  border: 0; border-radius: 12px;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-action="auth"] { order: 3; }
+:root[data-delta-ui="delta"] [data-dtd-live-footer-action] svg { width: 24px; height: 24px; display: block; }
+:root[data-delta-ui="delta"] [data-dtd-live-footer-action]:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"] {
+  display: none; position: absolute; z-index: 60; bottom: calc(100% + 6px);
+  left: 4px; width: min(250px, calc(100vw - 32px)); box-sizing: border-box;
+  flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 12px;
+  box-shadow: var(--dsw-elevation-prominent, 0 6px 22px #0002);
+  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-overlay, white));
+  color: var(--dsw-alias-label-primary); pointer-events: none;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"][data-open="1"] { display: flex; }
+:root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"] > div {
+  display: flex; justify-content: space-between; gap: 8px; align-items: center;
+  font-size: 12px;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-footer-card="1"] strong {
+  font-size: 13px; font-variant-numeric: tabular-nums; text-align: right;
+}
+
 :root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] {
   display: flex; align-items: center; width: auto; margin: 0 4px;
   min-width: 0; min-height: 36px;
@@ -437,6 +507,9 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
     if (node.getAttribute(name) !== '1') node.setAttribute(name, '1')
     marks.add(node)
   }
+  const unmark = (node: HTMLElement, key: string): void => {
+    node.removeAttribute('data-dtd-live-' + key)
+  }
   const wording: Record<'zh' | 'en', { plugins: string; schedules: string; session: string }> = {
     zh: { plugins: '插件管理', schedules: '定时任务', session: '开始对话' },
     en: { plugins: 'Plugin Manager', schedules: 'Scheduled Tasks', session: 'Start Conversation' },
@@ -462,6 +535,8 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
     node.setAttribute('aria-label', text)
   }
   const rollback = (): void => {
+    // Full cleanup includes detached native footer controls.
+    clearFooter()
     publishLiveSessionTarget(null)
     target?.remove()
     target = null
@@ -480,6 +555,127 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
     labelChanges.clear()
     ariaChanges.clear()
   }
+
+  let footerTrigger: HTMLButtonElement | null = null
+  let footerCard: HTMLElement | null = null
+  const footerActions = new Map<'settings' | 'auth', HTMLButtonElement>()
+  const actionIcon = (id: 'settings' | 'auth', isSignedIn: boolean): string => {
+    const path = id === 'settings'
+      ? '<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/><path d="M19.4 15.5a8.5 8.5 0 0 0 .1-7l1.8-1.4-2-3.4-2.2.9A8.6 8.6 0 0 0 14 3L13.6 1h-4L9 3a8.6 8.6 0 0 0-3.1 1.6l-2.2-.9-2 3.4L3.5 8.5a8.5 8.5 0 0 0-.1 7l-1.8 1.4 2 3.4 2.2-.9A8.6 8.6 0 0 0 9 21l.6 2h4l.4-2a8.6 8.6 0 0 0 3.1-1.6l2.2.9 2-3.4z" transform="translate(2 2) scale(.83)"/>'
+      : isSignedIn
+        ? '<path d="M10 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/><path d="m16 17 5-5-5-5M21 12H9"/>'
+        : '<circle cx="12" cy="8" r="4"/><path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2"/>'
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + path + '</svg>'
+  }
+  const dismissHover = (): void => { footerCard?.removeAttribute('data-open') }
+  const showHover = (): void => {
+    if (controller.getSnapshot().mode !== 'delta' || footerTrigger?.getAttribute('data-signed-out') !== 'false' ||
+        !footerCard?.isConnected || footerTrigger?.getAttribute('aria-expanded') === 'true') return
+    const snapshot = (() => { try { return readLiveAccountState?.() } catch { return undefined } })()
+    const wallets = snapshot?.details?.balance
+    const label = language() === 'zh'
+    const localize = (english: string, chinese: string): string => label ? chinese : english
+    const balance = wallets?.status === 'ready' && Array.isArray(wallets.value) && wallets.value.length > 0
+      ? wallets.value.map(item => (item.currency === 'CNY' ? '¥' : item.currency === 'USD' ? '$' : item.currency + ' ') +
+        item.balance).join(' + ')
+      : localize('Unavailable', '暂无数据')
+    const keys = footerCard.querySelectorAll<HTMLElement>('[data-dtd-live-footer-label]')
+    const values = footerCard.querySelectorAll<HTMLElement>('[data-dtd-live-footer-value]')
+    if (keys.length !== 2 || values.length !== 2) return
+    keys[0]!.textContent = localize('Account balance', '账户余额')
+    keys[1]!.textContent = localize("Today's spending", '今日消费')
+    values[0]!.textContent = balance
+    // The Host has no verified account-wide daily cost capability.
+    values[1]!.textContent = localize('Unavailable', '暂无数据')
+    footerCard.setAttribute('data-open', '1')
+  }
+  const onAccountOver = (event: Event): void => {
+    if (footerTrigger?.contains(event.target as Node)) showHover()
+  }
+  const onAccountOut = (event: Event): void => {
+    if (footerTrigger?.contains(event.target as Node) &&
+        !footerTrigger.contains((event as MouseEvent).relatedTarget as Node | null)) dismissHover()
+  }
+  document.addEventListener('pointerover', onAccountOver)
+  document.addEventListener('pointerout', onAccountOut)
+  document.addEventListener('focusin', onAccountOver)
+  document.addEventListener('focusout', onAccountOut)
+
+  const activateNativeAccount = (action: 'settings' | 'auth'): void => {
+    const trigger = footerTrigger
+    if (!trigger?.isConnected || controller.getSnapshot().mode !== 'delta') return
+    const isSignedIn = trigger.getAttribute('data-signed-out') === 'false'
+    const labels = action === 'settings' ? ['设置', 'Settings'] :
+      isSignedIn ? ['退出登录', 'Sign out', 'Sign Out'] : ['登录', 'Sign in', 'Sign In']
+    dismissHover()
+    if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click()
+    // Keep all authentication, running-task checks and confirmation dialogs
+    // in Harness' native menu. If it changes shape, leave that menu open.
+    requestAnimationFrame(() => {
+      const candidates = Array.from(document.querySelectorAll<HTMLElement>('[role="menu"] [role="menuitem"]'))
+      const target = candidates.find(item => labels.some(label => (item.textContent?.trim() ?? '').startsWith(label)))
+      target?.click()
+    })
+  }
+  const clearFooter = (): void => {
+    footerTrigger = null
+    dismissHover()
+    for (const button of footerActions.values()) button.remove()
+    footerCard?.remove()
+  }
+  const syncFooter = (sidebar: HTMLElement): void => {
+    const trigger = sidebar.querySelector<HTMLButtonElement>('button[data-signed-out][aria-haspopup="menu"]')
+    const account = trigger?.closest<HTMLElement>('[data-inset]')
+    const row = account?.parentElement
+    if (!trigger || !account || !row || !sidebar.contains(row)) { clearFooter(); return }
+    const isSignedIn = trigger.getAttribute('data-signed-out') === 'false'
+    if (!isSignedIn) dismissHover()
+    footerTrigger = trigger
+    mark(row, 'footer-row')
+    mark(account, 'footer-avatar')
+    mark(trigger, 'footer-trigger')
+    for (const child of Array.from(row.children)) {
+      if (child === account) continue
+      const button = child instanceof HTMLButtonElement ? child : child.querySelector<HTMLButtonElement>('button')
+      if (!button || button.hasAttribute('data-dtd-live-footer-action')) continue
+      const label = ((button.getAttribute('aria-label') ?? '') + ' ' + (button.textContent ?? '')).trim()
+      const updateTerms = ['新版本', '版本更新', '下载更新', 'New version', 'Update available', 'download', 'checking', 'retry']
+      if (updateTerms.some(term => label.toLowerCase().includes(term.toLowerCase())))
+        mark(button, 'footer-update')
+    }
+    for (const id of ['settings', 'auth'] as const) {
+      let button = footerActions.get(id)
+      if (!button) {
+        button = document.createElement('button')
+        button.type = 'button'
+        button.setAttribute('data-dtd-live-footer-action', id)
+        button.addEventListener('click', () => activateNativeAccount(id))
+        footerActions.set(id, button)
+      }
+      const isChinese = language() === 'zh'
+      const localize = (english: string, chinese: string): string => isChinese ? chinese : english
+      const label = id === 'settings' ? localize('Settings', '设置')
+        : isSignedIn ? localize('Sign out', '退出登录')
+          : localize('Sign in', '登录')
+      button.title = label
+      button.setAttribute('aria-label', label)
+      const state = id + ':' + String(isSignedIn)
+      if (button.dataset.iconState !== state) {
+        button.innerHTML = actionIcon(id, isSignedIn)
+        button.dataset.iconState = state
+      }
+      if (button.parentElement !== row) row.appendChild(button)
+    }
+    if (!footerCard) {
+      footerCard = document.createElement('div')
+      footerCard.setAttribute('data-dtd-live-footer-card', '1')
+      footerCard.setAttribute('role', 'tooltip')
+      footerCard.innerHTML = '<div><span data-dtd-live-footer-label></span><strong data-dtd-live-footer-value></strong></div>' +
+        '<div><span data-dtd-live-footer-label></span><strong data-dtd-live-footer-value></strong></div>'
+    }
+    if (footerCard.parentElement !== row) row.appendChild(footerCard)
+  }
+
   const sync = (): void => {
     if (isDisposed || isSyncing) return
     isSyncing = true
@@ -500,7 +696,9 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
           }
         }
       }
+      if (sidebar) syncFooter(sidebar)
       let scheduleRow: HTMLElement | undefined
+      let pluginRow: HTMLElement | undefined
       if (nav) for (const button of nav.querySelectorAll<HTMLButtonElement>('button[aria-label]')) {
         const category = kind(button.getAttribute('aria-label')?.trim() ?? '')
         if (category !== 'plugins' && category !== 'schedules') continue
@@ -509,10 +707,35 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
           const found = kind(span.textContent?.trim() ?? '')
           if (found === category) updateCopy(span, wording[lang][category])
         }
-        if (category === 'schedules') {
-          let row: HTMLElement = button
-          while (row.parentElement && row.parentElement !== nav) row = row.parentElement
-          if (row.parentElement === nav) scheduleRow = row
+        let row: HTMLElement = button
+        while (row.parentElement && row.parentElement !== nav) row = row.parentElement
+        if (row.parentElement === nav) {
+          if (category === 'schedules') scheduleRow = row
+          else if (category === 'plugins') pluginRow = row
+        }
+      }
+      if (nav) {
+        // Host unpin moves its row into More and invalidates the Delta navigation
+        // geometry. Keep first-party unpin out of Delta mode while preserving
+        // the underlying Host state and official theme. If an entry was already
+        // unpinned, leave More visible so it can be recovered there.
+        const unpinTerms = ['取消固定', '取消置顶', 'unpin']
+        for (const row of [pluginRow, scheduleRow]) {
+          if (!row) continue
+          for (const button of row.querySelectorAll<HTMLButtonElement>('button')) {
+            if (button === row.querySelector('button[aria-current], button[aria-describedby]')) continue
+            const ariaLabel = button.getAttribute('aria-label') ?? ''
+            if (unpinTerms.some(term => ariaLabel.toLowerCase().includes(term.toLowerCase()))) mark(button, 'primary-unpin')
+          }
+        }
+        const more = nav.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')
+        if (more) {
+          let moreRow: HTMLElement = more
+          while (moreRow.parentElement && moreRow.parentElement !== nav) moreRow = moreRow.parentElement
+          if (moreRow.parentElement === nav) {
+            if (scheduleRow && pluginRow) mark(moreRow, 'more')
+            else unmark(moreRow, 'more')
+          }
         }
       }
       if (canUsePortal && scheduleRow && nav) {
@@ -578,13 +801,17 @@ function installLiveNativePresentation(controller: DeltaController, canUsePortal
     })) scheduler.schedule()
   }) : undefined
   observer?.observe(document.body, { childList: true, characterData: true, attributes: true, subtree: true,
-    attributeFilter: ['aria-label', 'data-sidebar-scrollport'] })
+    attributeFilter: ['aria-label', 'data-sidebar-scrollport', 'data-signed-out'] })
   sync()
   return () => {
     isDisposed = true
     scheduler.cancel()
     observer?.disconnect()
     unsubscribe()
+    document.removeEventListener('pointerover', onAccountOver)
+    document.removeEventListener('pointerout', onAccountOut)
+    document.removeEventListener('focusin', onAccountOver)
+    document.removeEventListener('focusout', onAccountOut)
     rollback()
     tag.remove()
   }
@@ -918,20 +1145,6 @@ function createSearchIconSvg(): SVGElement {
   return svg
 }
 
-type ClientProxyMode = 'system' | 'direct' | 'manual'
-interface ClientProxyConfig {
-  mode: ClientProxyMode
-  httpProxy: string
-  httpsProxy: string
-  noProxy: string
-}
-interface ClientEffectiveProxy {
-  mode: ClientProxyMode
-  source: 'system-env' | 'system-registry' | 'direct' | 'manual'
-  httpProxy?: string
-  httpsProxy?: string
-  noProxy: string
-}
 interface ClientFeatureSnapshot {
   isSearchProtectionReady: boolean
   hasPin: boolean
@@ -942,23 +1155,7 @@ interface ClientFeatureSnapshot {
   deletedSessionIds: readonly string[]
   tempUnlockedIds: readonly string[]
   tempUnlockedWorkspaceIds: readonly string[]
-  proxy: ClientProxyConfig
-  effectiveProxy?: ClientEffectiveProxy
-  proxyBusy: boolean
-  proxyError?: string
-  visionError?: string
   activeSessionId?: string
-  vision: {
-    enabled: boolean
-    mode: 'auto' | 'paste-to-path' | 'instant-transcribe'
-    provider: string
-    customEndpoint: string
-    customApiKey: string
-    customModel: string
-    autoWrapModels: boolean
-  }
-  visionEngineReady?: boolean
-  visionEngineAccount?: { provider: string; model: string; source: string } | null
   revision: number
 }
 
@@ -1342,9 +1539,6 @@ interface ClientFeatureManager {
   hasSessionsApi(): boolean
   getUngroupedSessionIds(isIncludingArchived?: boolean): string[]
   refreshState(): Promise<void>
-  saveProxy(next: ClientProxyConfig): Promise<boolean>
-  saveVision(next: Partial<ClientFeatureSnapshot['vision']>): Promise<boolean>
-  testVisionEngine(): Promise<{ ok: boolean; message: string }>
   beginTotpSetup(): Promise<{ ok: boolean; setupToken?: string; secret?: string; otpauthUri?: string; error?: string }>
   confirmTotpSetup(sessionId: string, setupToken: string, code: string): Promise<{ ok: boolean; error?: string }>
   confirmTotpSetupWorkspace(workspaceId: string, setupToken: string, code: string): Promise<{ ok: boolean; error?: string }>
@@ -1684,19 +1878,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     deletedSessionIds: Object.freeze([]),
     tempUnlockedIds: Object.freeze([]),
     tempUnlockedWorkspaceIds: Object.freeze([]),
-    proxy: Object.freeze({ mode: 'system', httpProxy: '', httpsProxy: '', noProxy: '' }),
-    proxyBusy: false,
-    vision: Object.freeze({
-      enabled: true,
-      mode: 'auto' as const,
-      provider: 'auto',
-      customEndpoint: '',
-      customApiKey: '',
-      customModel: '',
-      autoWrapModels: true,
-    }),
-    visionEngineReady: undefined,
-    visionEngineAccount: null,
     revision: 0,
   })
   const listeners = new Set<() => void>()
@@ -1714,14 +1895,6 @@ function createClientFeatureManager(): ClientFeatureManager {
   let hasSyncedStateFromHost = false
   let refreshInFlight: Promise<void> | undefined
   let lastRefreshAttemptAt = 0
-  // Serialize configuration writes: the Host must observe the user's chosen
-  // order, and older refreshes must not overwrite a newer confirmed write.
-  let proxyMutationRevision = 0
-  let visionMutationRevision = 0
-  let pendingProxyWrites = 0
-  let pendingVisionWrites = 0
-  let proxyWriteTail: Promise<void> = Promise.resolve()
-  let visionWriteTail: Promise<void> = Promise.resolve()
   let dialogBackdrop: HTMLElement | undefined
   let shieldEl: HTMLElement | undefined
   let shieldSessionId: string | undefined
@@ -1774,8 +1947,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     lockedWorkspaceIds?: string[]
     movedSessions?: Record<string, string>
     deletedSessionIds?: string[]
-    proxy?: ClientProxyConfig
-    vision?: any
   }): void => {
     // A partial response is not evidence that previously durable locks vanished.
     // Preserve the prior membership, but revoke mutation/search readiness.
@@ -1804,8 +1975,6 @@ function createClientFeatureManager(): ClientFeatureManager {
       deletedSessionIds: stableIds(state.deletedSessionIds, deleted),
       tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => locked.includes(id))),
       tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => lockedWorkspaces.includes(id))),
-      ...(payload.proxy ? { proxy: Object.freeze({ ...payload.proxy }) } : {}),
-      ...(payload.vision ? { vision: Object.freeze({ ...state.vision, ...payload.vision }) } : {}),
     })
     notifyDataApis()
   }
@@ -1834,69 +2003,20 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
 
   const refreshState = async (): Promise<void> => {
-    if (!canCallHostHttp()) {
-      revokeHostConfirmation()
-      publish({ visionEngineReady: false, visionEngineAccount: null })
-      return
-    }
+    if (!canCallHostHttp()) { revokeHostConfirmation(); return }
     if (refreshInFlight) return refreshInFlight
     lastRefreshAttemptAt = Date.now()
-    const proxyReadRevision = proxyMutationRevision
-    const visionReadRevision = visionMutationRevision
-    const proxyReadDuringWrite = pendingProxyWrites > 0
-    const visionReadDuringWrite = pendingVisionWrites > 0
-    const canUseProxyRead = (): boolean => !proxyReadDuringWrite &&
-      proxyReadRevision === proxyMutationRevision && pendingProxyWrites === 0
-    const canUseVisionRead = (): boolean => !visionReadDuringWrite &&
-      visionReadRevision === visionMutationRevision && pendingVisionWrites === 0
     refreshInFlight = (async () => {
       try {
-        const [stRes, pxRes, vsRes] = await Promise.all([
-          fetch('/api/delta-suite/state', { credentials: 'same-origin' }).catch(() => null),
-          fetch('/api/delta-suite/proxy', { credentials: 'same-origin' }).catch(() => null),
-          fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' }).catch(() => null),
-        ])
-        if (stRes?.ok) {
-          const stData = (await stRes.json().catch(() => null)) as { state?: any } | null
-          if (isConfirmedLockState(stData?.state)) {
-            hasSyncedStateFromHost = true
-            const payload = { ...stData!.state }
-            // GET may have started before the user's POST and returned stale
-            // Proxy/Vision settings. Durable Session protection is independent.
-            if (!canUseProxyRead()) delete payload.proxy
-            if (!canUseVisionRead()) delete payload.vision
-            applyHostStatePayload(payload)
-          } else revokeHostConfirmation()
+        const response = await fetch('/api/delta-suite/state', { credentials: 'same-origin' })
+        if (!response.ok) { revokeHostConfirmation(); return }
+        const body = await response.json().catch(() => null) as { state?: unknown } | null
+        if (isConfirmedLockState(body?.state)) {
+          hasSyncedStateFromHost = true
+          applyHostStatePayload(body!.state as Parameters<typeof applyHostStatePayload>[0])
         } else revokeHostConfirmation()
-        if (pxRes?.ok && canUseProxyRead()) {
-          const pxData = (await pxRes.json().catch(() => null)) as { proxy?: ClientProxyConfig; effective?: ClientEffectiveProxy } | null
-          if (pxData?.proxy && canUseProxyRead()) {
-            publish({
-              proxy: Object.freeze({ ...pxData.proxy }),
-              ...(pxData.effective ? { effectiveProxy: Object.freeze({ ...pxData.effective }) } : {}),
-              proxyError: undefined,
-            })
-          }
-        }
-        if (!canUseVisionRead()) {
-          // An in-flight write owns this field; discard older GET status.
-        } else if (vsRes && vsRes.ok) {
-          const vsData = (await vsRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
-          if (canUseVisionRead()) publish({
-            visionEngineReady: vsData?.ok === true && vsData?.engineReady === true,
-            visionEngineAccount: vsData?.ok === true ? (vsData.account ?? null) : null,
-          })
-        } else {
-          // A previously healthy vision channel is not proof of current availability.
-          if (canUseVisionRead()) publish({ visionEngineReady: false, visionEngineAccount: null })
-        }
-      } catch {
-        revokeHostConfirmation()
-        if (canUseVisionRead()) publish({ visionEngineReady: false, visionEngineAccount: null })
-      }
-      finally {
-        refreshInFlight = undefined
-      }
+      } catch { revokeHostConfirmation() }
+      finally { refreshInFlight = undefined }
     })()
     return refreshInFlight
   }
@@ -1905,145 +2025,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (hasSyncedStateFromHost || refreshInFlight) return
     if (Date.now() - lastRefreshAttemptAt < 1200) return
     void refreshState()
-  }
-
-  const saveProxy = (next: ClientProxyConfig): Promise<boolean> => {
-    const request: ClientProxyConfig = { ...next }
-    const revision = ++proxyMutationRevision
-    pendingProxyWrites += 1
-    publish({ proxyBusy: true, proxyError: undefined })
-    const result = proxyWriteTail.then(async (): Promise<boolean> => {
-      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-      if (!canCallHostHttp()) {
-        if (revision === proxyMutationRevision) publish({ proxyError: copy.networkProxy.hostUnavailable })
-        return false
-      }
-      const res = await postHostJson('/api/delta-suite/proxy', { ...request })
-      const proxy = res.data?.proxy
-      const effective = res.data?.effective
-      if (!res.ok || res.data?.ok !== true ||
-          !proxy || proxy.mode !== request.mode || typeof proxy.httpProxy !== 'string' ||
-          typeof proxy.httpsProxy !== 'string' || typeof proxy.noProxy !== 'string' ||
-          !effective || effective.mode !== request.mode ||
-          !['system-env', 'system-registry', 'direct', 'manual'].includes(effective.source)) {
-        const reason = res.data?.reason
-        const errMsg = reason === 'socks' ? copy.networkProxy.socksUnsupported
-          : res.status === 400 && res.data?.error === 'INVALID_PROXY_URL'
-            ? copy.networkProxy.invalidUrl : copy.networkProxy.hostUnavailable
-        if (revision === proxyMutationRevision) publish({ proxyError: errMsg })
-        return false
-      }
-      // Each acknowledgement is durable, even if a later queued write fails.
-      // Newer requests execute only after this POST finishes on the Host.
-      publish({
-        proxy: Object.freeze({ ...proxy }),
-        effectiveProxy: Object.freeze({ ...effective }),
-        ...(revision === proxyMutationRevision ? { proxyError: undefined } : {}),
-      })
-      if (revision === proxyMutationRevision) showDeltaToast(copy.networkProxy.savedToast)
-      return true
-    }).catch(() => {
-      if (revision === proxyMutationRevision) {
-        const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-        publish({ proxyError: copy.networkProxy.hostUnavailable })
-      }
-      return false
-    }).finally(() => {
-      pendingProxyWrites -= 1
-      if (pendingProxyWrites === 0) publish({ proxyBusy: false })
-    })
-    proxyWriteTail = result.then(() => undefined)
-    return result
-  }
-
-  const saveVision = (next: Partial<ClientFeatureSnapshot['vision']>): Promise<boolean> => {
-    const request = { ...next }
-    const revision = ++visionMutationRevision
-    pendingVisionWrites += 1
-    const result = visionWriteTail.then(async (): Promise<boolean> => {
-      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-      if (!canCallHostHttp()) {
-        if (revision === visionMutationRevision) publish({ visionError: copy.visionBridge.hostUnavailable })
-        return false
-      }
-      const res = await postHostJson('/api/delta-suite/vision/config', request)
-      const confirmed = res.data?.vision
-      if (res.ok && res.data?.ok === true &&
-          confirmed && typeof confirmed.enabled === 'boolean' &&
-          ['auto', 'paste-to-path', 'instant-transcribe'].includes(confirmed.mode) &&
-          typeof confirmed.provider === 'string' &&
-          typeof confirmed.customEndpoint === 'string' &&
-          typeof confirmed.customModel === 'string' &&
-          Object.entries(request).every(([key, value]) =>
-            key === 'customApiKey' || (confirmed as Record<string, unknown>)[key] === value)) {
-        publish({
-          vision: Object.freeze({ ...state.vision, ...confirmed }),
-          ...(revision === visionMutationRevision ? { visionError: undefined } : {}),
-        })
-        if (revision === visionMutationRevision) {
-          void (async () => {
-            try {
-              const vRes = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
-              const vData = (await vRes.json().catch(() => null)) as { ok?: boolean; engineReady?: boolean; account?: any } | null
-              if (revision !== visionMutationRevision) return
-              if (vRes.ok && vData?.ok === true) {
-                publish({
-                  visionEngineReady: vData.engineReady === true,
-                  visionEngineAccount: vData.account ?? null,
-                })
-              } else publish({ visionEngineReady: false, visionEngineAccount: null })
-            } catch {
-              if (revision === visionMutationRevision && pendingVisionWrites === 0) {
-                publish({ visionEngineReady: false, visionEngineAccount: null })
-              }
-            }
-          })()
-        }
-        return true
-      }
-      if (revision === visionMutationRevision) publish({ visionError: copy.visionBridge.hostUnavailable })
-      return false
-    }).catch(() => {
-      if (revision === visionMutationRevision) {
-        const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-        publish({ visionError: copy.visionBridge.hostUnavailable })
-      }
-      return false
-    }).finally(() => { pendingVisionWrites -= 1 })
-    visionWriteTail = result.then(() => undefined)
-    return result
-  }
-
-  const testVisionEngine = async (): Promise<{ ok: boolean; message: string }> => {
-    const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-    if (!canCallHostHttp()) {
-      publish({ visionEngineReady: false, visionEngineAccount: null })
-      return { ok: false, message: copy.visionBridge.testFailed.replace('{error}', copy.visionBridge.hostUnavailable) }
-    }
-    try {
-      const res = await fetch('/api/delta-suite/vision/status', { credentials: 'same-origin' })
-      const data = await res.json().catch(() => null)
-      if (res.ok && data?.ok === true && data?.engineReady === true) {
-        const modelName = data.account?.model || 'Omni'
-        publish({
-          visionEngineReady: true,
-          visionEngineAccount: data.account ?? null,
-        })
-        return { ok: true, message: copy.visionBridge.testSuccess.replace('{model}', modelName) }
-      }
-      const err = data?.error || copy.visionBridge.notReady
-      publish({
-        visionEngineReady: false,
-        visionEngineAccount: null,
-      })
-      return { ok: false, message: copy.visionBridge.testFailed.replace('{error}', err) }
-    } catch (err: any) {
-      publish({
-        visionEngineReady: false,
-        visionEngineAccount: null,
-      })
-      return { ok: false, message: copy.visionBridge.testFailed.replace('{error}', err?.message || String(err)) }
-    }
   }
 
   // Lock operations require the complete public Host state, never a locally
@@ -3059,9 +3040,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     hasSessionsApi: () => Boolean(sessionsApi),
     getUngroupedSessionIds,
     refreshState,
-    saveProxy,
-    saveVision,
-    testVisionEngine,
     beginTotpSetup,
     confirmTotpSetup,
     confirmTotpSetupWorkspace,
@@ -5471,167 +5449,7 @@ window.__ModuleLoader__.load({
           prefs.showModelInfo, value => updateFeaturePreference('showModelInfo', value)),
         preferenceRow(copy.ui.inputOptimization, copy.ui.inputOptimizationDescription,
           prefs.inputOptimization, value => updateFeaturePreference('inputOptimization', value)),
-        el(PrivacyVisionSettings, {}))
-    }
-    interface PrivacyVisionDraft {
-      deepSeekModelsEnabled: boolean; redactionEnabled: boolean; visionEnabled: boolean; visionSource: 'existing' | 'custom';
-      visionProvider: string; visionModel: string; visionProtocol: 'openai' | 'anthropic' | 'ollama';
-      visionBaseURL: string; visionCustomModel: string; visionCredentialRef: string;
-    }
-    const PRIVACY_VISION_DEFAULTS: PrivacyVisionDraft = {
-      deepSeekModelsEnabled: true, redactionEnabled: true, visionEnabled: true, visionSource: 'existing',
-      visionProvider: '', visionModel: '', visionProtocol: 'openai', visionBaseURL: '',
-      visionCustomModel: '', visionCredentialRef: 'DELTA_VISION_API_KEY',
-    }
-    function PrivacyVisionSettings(): unknown {
-      const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-      const version = useDeltaSettingsVersion(React)
-      const form = deltaSettingsForm
-      const snapshot = form?.getSnapshot()
-      const stored = snapshot?.value && typeof snapshot.value === 'object'
-        ? snapshot.value as Record<string, unknown> : {}
-      const [draft, setDraft] = React.useState<PrivacyVisionDraft>({
-        deepSeekModelsEnabled: stored.deepSeekModelsEnabled !== false,
-        redactionEnabled: stored.redactionEnabled !== false,
-        visionEnabled: stored.visionEnabled !== false,
-        visionSource: stored.visionSource === 'custom' ? 'custom' : 'existing',
-        visionProvider: typeof stored.visionProvider === 'string' ? stored.visionProvider : '',
-        visionModel: typeof stored.visionModel === 'string' ? stored.visionModel : '',
-        visionProtocol: stored.visionProtocol === 'anthropic' || stored.visionProtocol === 'ollama'
-          ? stored.visionProtocol : 'openai',
-        visionBaseURL: typeof stored.visionBaseURL === 'string' ? stored.visionBaseURL : '',
-        visionCustomModel: typeof stored.visionCustomModel === 'string' ? stored.visionCustomModel : '',
-        visionCredentialRef: typeof stored.visionCredentialRef === 'string' ? stored.visionCredentialRef : 'DELTA_VISION_API_KEY',
-      })
-      const [dirty, setDirty] = React.useState(false)
-      const [keyDraft, setKeyDraft] = React.useState('')
-      const [status, setStatus] = React.useState('')
-      const [busy, setBusy] = React.useState(false)
-      React.useEffect(() => {
-        if (dirty) return
-        const value = form?.getSnapshot().value
-        const values = value && typeof value === 'object' ? value as Record<string, unknown> : {}
-        setDraft({
-          deepSeekModelsEnabled: values.deepSeekModelsEnabled !== false,
-          redactionEnabled: values.redactionEnabled !== false,
-          visionEnabled: values.visionEnabled !== false,
-          visionSource: values.visionSource === 'custom' ? 'custom' : 'existing',
-          visionProvider: typeof values.visionProvider === 'string' ? values.visionProvider : '',
-          visionModel: typeof values.visionModel === 'string' ? values.visionModel : '',
-          visionProtocol: values.visionProtocol === 'anthropic' || values.visionProtocol === 'ollama'
-            ? values.visionProtocol : 'openai',
-          visionBaseURL: typeof values.visionBaseURL === 'string' ? values.visionBaseURL : '',
-          visionCustomModel: typeof values.visionCustomModel === 'string' ? values.visionCustomModel : '',
-          visionCredentialRef: typeof values.visionCredentialRef === 'string' ? values.visionCredentialRef : 'DELTA_VISION_API_KEY',
-        })
-      }, [version, dirty])
-
-      const change = <K extends keyof PrivacyVisionDraft>(key: K, value: PrivacyVisionDraft[K]): void => {
-        setDraft(current => ({ ...current, [key]: value }))
-        setDirty(true)
-      }
-      const save = async (): Promise<void> => {
-        if (!form || snapshot?.writable === false || busy) return
-        if (draft.visionSource === 'custom') {
-          try {
-            const endpoint = new URL(draft.visionBaseURL)
-            if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
-              throw new Error('invalid URL')
-            }
-          } catch { setStatus(copy.ui.visionFailed); return }
-          if (!draft.visionCustomModel.trim() || (draft.visionCredentialRef.trim() &&
-              !/^[A-Za-z_][A-Za-z0-9_]*$/.test(draft.visionCredentialRef.trim()))) {
-            setStatus(copy.ui.visionFailed); return
-          }
-        }
-        setBusy(true); setStatus('')
-        try {
-          const operations = Object.entries(draft).map(([path, value]) => ({ op: 'set' as const, path: [path], value }))
-          const result = await form.mutate(operations, snapshot?.revision)
-          if (result === false || (result && typeof result === 'object' && (result as any).ok === false)) {
-            setStatus(copy.ui.visionFailed); return
-          }
-          if (keyDraft) {
-            const ref = draft.visionCredentialRef.trim()
-            const remote = deltaCredentialRemote
-            if (!ref || !remote?.set) { setStatus(copy.ui.visionMissingForm); return }
-            const credentialResult = await remote.set({ ref, value: keyDraft })
-            if (credentialResult && typeof credentialResult === 'object' && (credentialResult as any).ok === false) {
-              setStatus(copy.ui.visionFailed); return
-            }
-            setKeyDraft('')
-            setStatus(copy.ui.visionKeySaved)
-          } else setStatus(copy.ui.visionSaved)
-          setDirty(false)
-        } catch { setStatus(copy.ui.visionFailed) }
-        finally { setBusy(false) }
-      }
-      const restore = async (): Promise<void> => {
-        if (!form || !snapshot || snapshot.writable === false || busy) return
-        setBusy(true); setStatus('')
-        try {
-          const fields = Object.keys(PRIVACY_VISION_DEFAULTS)
-          const result = await form.mutate(fields.map(path => ({ op: 'unset' as const, path: [path] })), snapshot.revision)
-          if (result === false || (result && typeof result === 'object' && (result as any).ok === false)) throw new Error('rejected')
-          setDirty(false); setStatus(copy.ui.visionSaved)
-        } catch { setStatus(copy.ui.visionFailed) }
-        finally { setBusy(false) }
-      }
-      const clearCredential = async (): Promise<void> => {
-        const ref = draft.visionCredentialRef.trim()
-        if (!ref || !deltaCredentialRemote?.unset || busy) { setStatus(copy.ui.visionMissingForm); return }
-        setBusy(true); setStatus('')
-        try {
-          const result = await deltaCredentialRemote.unset({ ref })
-          if (result && typeof result === 'object' && (result as any).ok === false) throw new Error('rejected')
-          setStatus(copy.ui.visionSaved)
-        } catch { setStatus(copy.ui.visionFailed) }
-        finally { setBusy(false) }
-      }
-      const textField = (label: string, key: 'visionProvider' | 'visionModel' | 'visionBaseURL' | 'visionCustomModel' | 'visionCredentialRef', type = 'text'): unknown =>
-        el('label', { className: 'dtd-privacy-field' }, label,
-          el('input', { type, value: draft[key], spellCheck: false, onChange: (event: any) => change(key, event.target.value) }))
-      if (!form) return el('section', { className: 'dtd-privacy-settings', 'aria-label': copy.ui.privacyVisionTitle },
-        el('h4', null, copy.ui.privacyVisionTitle), el('p', null, copy.ui.visionMissingForm))
-      return el('section', { className: 'dtd-privacy-settings', 'aria-label': copy.ui.privacyVisionTitle },
-        el('h4', null, copy.ui.privacyVisionTitle),
-        el('h4', null, copy.ui.modelRoutesTitle),
-        preferenceRow(copy.ui.deepSeekModelsEnabled, copy.ui.deepSeekModelsEnabledDescription, draft.deepSeekModelsEnabled,
-          value => change('deepSeekModelsEnabled', value)),
-        preferenceRow(copy.ui.redactionEnabled, copy.ui.redactionDescription, draft.redactionEnabled,
-          value => change('redactionEnabled', value)),
-        preferenceRow(copy.ui.visionEnabled, copy.ui.visionEnabledDescription, draft.visionEnabled,
-          value => change('visionEnabled', value)),
-        el('label', { className: 'dtd-privacy-field' }, copy.ui.visionSource,
-          el('select', { value: draft.visionSource, onChange: (event: any) => change('visionSource', event.target.value) },
-            el('option', { value: 'existing' }, copy.ui.visionExisting),
-            el('option', { value: 'custom' }, copy.ui.visionCustom))),
-        draft.visionSource === 'existing' ? el('div', { className: 'dtd-privacy-grid' },
-          textField(copy.ui.visionProvider, 'visionProvider'), textField(copy.ui.visionModel, 'visionModel'))
-          : el('div', null,
-            el('label', { className: 'dtd-privacy-field' }, copy.ui.visionProtocol,
-              el('select', { value: draft.visionProtocol, onChange: (event: any) => change('visionProtocol', event.target.value) },
-                el('option', { value: 'openai' }, 'OpenAI-compatible'),
-                el('option', { value: 'anthropic' }, 'Anthropic Messages'),
-                el('option', { value: 'ollama' }, 'Ollama'))),
-            el('div', { className: 'dtd-privacy-grid' },
-              textField(copy.ui.visionBaseURL, 'visionBaseURL', 'url'),
-              textField(copy.ui.visionCustomModel, 'visionCustomModel')),
-            textField(copy.ui.visionCredentialRef, 'visionCredentialRef'),
-            el('label', { className: 'dtd-privacy-field' }, copy.ui.visionCredentialPlaceholder,
-              el('input', { type: 'password', autoComplete: 'new-password', value: keyDraft,
-                onChange: (event: any) => setKeyDraft(event.target.value) })),
-            el('p', { className: 'dtd-privacy-note' }, copy.ui.visionCredentialHint),
-            el('button', { type: 'button', className: 'dtd-mcp-button', disabled: busy,
-              onClick: () => void clearCredential() }, copy.ui.visionClearCredential)),
-        el('p', { className: 'dtd-privacy-note' }, copy.ui.visionAdmissionHint),
-        el('div', { className: 'dtd-privacy-actions' },
-          el('button', { type: 'button', className: 'dtd-mcp-button is-primary', disabled: busy || snapshot?.writable === false,
-            onClick: () => void save() }, copy.ui.visionSave),
-          el('button', { type: 'button', className: 'dtd-mcp-button', disabled: busy || snapshot?.writable === false,
-            onClick: () => void restore() }, copy.ui.visionRestore)),
-        status ? el('p', { role: 'status', className: 'dtd-privacy-status' }, status) : null,
-        snapshot?.writable === false ? el('p', { className: 'dtd-privacy-note' }, copy.ui.visionMissingForm) : null)
+        null)
     }
     function ModelLabelExtension(props: AssistantSlotProps & {
       provider?: { id?: string; name?: string }
@@ -6240,39 +6058,6 @@ window.__ModuleLoader__.load({
       deltaFeatures.ensureLoaded()
       const { state, copy } = useCopy(controller)
       const fSnap = React.useSyncExternalStore(deltaFeatures.subscribe, deltaFeatures.getSnapshot)
-      const [draftHttp, setDraftHttp] = React.useState<string | null>(null)
-      const [draftHttps, setDraftHttps] = React.useState<string | null>(null)
-      const [draftNo, setDraftNo] = React.useState<string | null>(null)
-      const [manualModeActive, setManualModeActive] = React.useState<ClientProxyMode | null>(null)
-      const [draftVisionEndpoint, setDraftVisionEndpoint] = React.useState<string | null>(null)
-      const [draftVisionKey, setDraftVisionKey] = React.useState<string | null>(null)
-      const [draftVisionModel, setDraftVisionModel] = React.useState<string | null>(null)
-
-      const activeMode = manualModeActive ?? fSnap.proxy.mode
-      const httpVal = draftHttp ?? fSnap.proxy.httpProxy
-      const httpsVal = draftHttps ?? fSnap.proxy.httpsProxy
-      const noVal = draftNo ?? fSnap.proxy.noProxy
-
-      const eff = fSnap.effectiveProxy
-      const effUrl = eff?.httpsProxy || eff?.httpProxy || ''
-      const effText = !eff || eff.source === 'direct'
-        ? copy.networkProxy.statusDirect
-        : eff.source === 'manual'
-          ? copy.networkProxy.statusManual.replace('{proxy}', effUrl)
-          : eff.source === 'system-env'
-            ? copy.networkProxy.statusSystemEnv.replace('{proxy}', effUrl)
-            : copy.networkProxy.statusSystemReg.replace('{proxy}', effUrl)
-
-      const selectProxyMode = (mode: ClientProxyMode): void => {
-        setManualModeActive(mode)
-        if (mode !== 'manual') {
-          void deltaFeatures.saveProxy({ mode, httpProxy: httpVal, httpsProxy: httpsVal, noProxy: noVal }).then(() => {
-            // The Host, not the uncommitted button press, owns the active mode.
-            setManualModeActive(null)
-          })
-        }
-      }
-
       const privacyItems = [
         copy.privacy.sessionLogBlocked,
         copy.privacy.telemetryBlocked,
@@ -6315,161 +6100,6 @@ window.__ModuleLoader__.load({
                 el('span', { className: 'dtd-integration-native' }, copy.ui.integrationNative)))),
           el('p', { className: 'dtd-integration-reasoning' }, copy.ui.integrationReasoning),
           el('p', { className: 'dtd-integration-guidance' }, copy.ui.integrationGuidance)),
-
-        el('div', { className: 'dtd-form-stack', 'data-delta-proxy-card': '' },
-          el('div', { className: 'dtd-preference-row', style: { padding: 0, border: 'none', background: 'transparent' } },
-            el('div', { className: 'dtd-preference-copy' },
-              el('strong', null, copy.networkProxy.title),
-              el('p', null, copy.networkProxy.description)),
-            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.networkProxy.modeLabel },
-              (['system', 'direct', 'manual'] as const).map(pm =>
-                el('button', {
-                  key: pm,
-                  type: 'button',
-                  'aria-pressed': activeMode === pm,
-                  className: activeMode === pm ? 'dtd-active' : '',
-                  disabled: fSnap.proxyBusy,
-                  onClick: () => selectProxyMode(pm),
-                }, pm === 'system' ? copy.networkProxy.modeSystem : pm === 'direct' ? copy.networkProxy.modeDirect : copy.networkProxy.modeManual)))),
-          activeMode === 'manual' ? el('div', { className: 'dtd-form-field' },
-            el('label', null, copy.networkProxy.httpProxyLabel),
-            el('input', {
-              type: 'text',
-              className: 'dtd-form-input',
-              placeholder: copy.networkProxy.httpProxyPlaceholder,
-              value: httpVal,
-              onChange: (e: any) => setDraftHttp(String(e?.target?.value ?? '')),
-            }),
-            el('label', null, copy.networkProxy.httpsProxyLabel),
-            el('input', {
-              type: 'text',
-              className: 'dtd-form-input',
-              placeholder: copy.networkProxy.httpsProxyPlaceholder,
-              value: httpsVal,
-              onChange: (e: any) => setDraftHttps(String(e?.target?.value ?? '')),
-            }),
-            el('label', null, copy.networkProxy.noProxyLabel),
-            el('input', {
-              type: 'text',
-              className: 'dtd-form-input',
-              placeholder: copy.networkProxy.noProxyPlaceholder,
-              value: noVal,
-              onChange: (e: any) => setDraftNo(String(e?.target?.value ?? '')),
-            }),
-            el('div', { className: 'dtd-dialog-actions' },
-              el('button', {
-                type: 'button',
-                className: 'dtd-btn-primary',
-                disabled: fSnap.proxyBusy,
-                onClick: () => {
-                  void deltaFeatures.saveProxy({
-                    mode: 'manual',
-                    httpProxy: httpVal,
-                    httpsProxy: httpsVal,
-                    noProxy: noVal,
-                  }).then(ok => {
-                    if (ok) {
-                      setDraftHttp(null); setDraftHttps(null); setDraftNo(null); setManualModeActive(null)
-                    }
-                  })
-                },
-              }, copy.networkProxy.save))) : null,
-          fSnap.proxyError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.proxyError) : null,
-          el('p', { className: 'dtd-current', role: 'status' }, `${copy.networkProxy.statusLabel}: ${effText}`),
-          el('p', { className: 'dtd-current' }, copy.networkProxy.note)),
-
-        el('div', { className: 'dtd-form-stack', 'data-delta-vision-card': '' },
-          fSnap.visionError ? el('p', { role: 'alert', className: 'dtd-error' }, fSnap.visionError) : null,
-          el('div', { className: 'dtd-preference-row', style: { padding: 0, border: 'none', background: 'transparent' } },
-            el('div', { className: 'dtd-preference-copy' },
-              el('strong', null, copy.visionBridge.title),
-              el('p', null, copy.visionBridge.description)),
-            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.enable },
-              ([true, false] as const).map(en =>
-                el('button', {
-                  key: String(en),
-                  type: 'button',
-                  'aria-pressed': fSnap.vision.enabled === en,
-                  className: fSnap.vision.enabled === en ? 'dtd-active' : '',
-                  onClick: () => { void deltaFeatures.saveVision({ enabled: en }) },
-                }, en ? copy.ui.enabled : (language() === 'zh' ? '\u5df2\u505c\u7528' : 'Disabled'))))),
-          fSnap.vision.enabled ? el('div', { className: 'dtd-form-field' },
-            el('label', null, copy.visionBridge.mode),
-            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.mode },
-              (['auto', 'paste-to-path', 'instant-transcribe'] as const).map(vm =>
-                el('button', {
-                  key: vm,
-                  type: 'button',
-                  'aria-pressed': fSnap.vision.mode === vm,
-                  className: fSnap.vision.mode === vm ? 'dtd-active' : '',
-                  onClick: () => { void deltaFeatures.saveVision({ mode: vm }) },
-                }, vm === 'auto' ? (language() === 'zh' ? '\u667a\u80fd\u6a21\u5f0f' : 'Auto') : vm === 'paste-to-path' ? (language() === 'zh' ? '\u7c98\u8d34\u8f6c\u8def\u5f84' : 'Paste to Path') : (language() === 'zh' ? '\u5373\u65f6\u8f6c\u5199' : 'Instant Transcribe')))),
-            el('label', null, copy.visionBridge.engine),
-            el('div', { className: 'dtd-segment', role: 'group', 'aria-label': copy.visionBridge.engine },
-              (['auto', 'openai-compat', 'gemini'] as const).map(pe =>
-                el('button', {
-                  key: pe,
-                  type: 'button',
-                  'aria-pressed': fSnap.vision.provider === pe,
-                  className: fSnap.vision.provider === pe ? 'dtd-active' : '',
-                  onClick: () => { void deltaFeatures.saveVision({ provider: pe }) },
-                }, pe === 'auto' ? copy.visionBridge.engineAuto : pe === 'openai-compat' ? copy.visionBridge.engineCustom : copy.visionBridge.engineGemini))),
-            fSnap.vision.provider === 'openai-compat' || fSnap.vision.provider === 'gemini' ? el('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' } },
-              el('label', null, copy.visionBridge.customEndpoint),
-              el('input', {
-                type: 'text',
-                className: 'dtd-form-input',
-                placeholder: fSnap.vision.provider === 'gemini' ? 'https://generativelanguage.googleapis.com' : 'https://api.openai.com/v1',
-                value: draftVisionEndpoint ?? fSnap.vision.customEndpoint,
-                onChange: (e: any) => setDraftVisionEndpoint(String(e?.target?.value ?? '')),
-                onBlur: () => {
-                  if (draftVisionEndpoint !== null) {
-                    void deltaFeatures.saveVision({ customEndpoint: draftVisionEndpoint })
-                    setDraftVisionEndpoint(null)
-                  }
-                },
-              }),
-              el('label', null, copy.visionBridge.customApiKey),
-              el('input', {
-                type: 'password',
-                className: 'dtd-form-input',
-                placeholder: fSnap.vision.provider === 'gemini' ? 'AIza...' : 'sk-...',
-                value: draftVisionKey ?? fSnap.vision.customApiKey,
-                onChange: (e: any) => setDraftVisionKey(String(e?.target?.value ?? '')),
-                onBlur: () => {
-                  if (draftVisionKey !== null) {
-                    void deltaFeatures.saveVision({ customApiKey: draftVisionKey })
-                    setDraftVisionKey(null)
-                  }
-                },
-              }),
-              el('label', null, copy.visionBridge.customModel),
-              el('input', {
-                type: 'text',
-                className: 'dtd-form-input',
-                placeholder: fSnap.vision.provider === 'gemini' ? 'gemini-1.5-flash' : 'qwen-vl-max / gpt-4o',
-                value: draftVisionModel ?? fSnap.vision.customModel,
-                onChange: (e: any) => setDraftVisionModel(String(e?.target?.value ?? '')),
-                onBlur: () => {
-                  if (draftVisionModel !== null) {
-                    void deltaFeatures.saveVision({ customModel: draftVisionModel })
-                    setDraftVisionModel(null)
-                  }
-                },
-              })) : null,
-            el('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' } },
-              el('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } },
-                el('span', { className: 'dtd-privacy-dot', style: { background: fSnap.visionEngineReady ? '#10b981' : '#f59e0b' } }),
-                el('span', null, fSnap.visionEngineReady ? `${copy.visionBridge.ready} (${fSnap.visionEngineAccount?.model || 'Omni'})` : copy.visionBridge.notReady)),
-              el('button', {
-                type: 'button',
-                className: 'dtd-btn-secondary',
-                onClick: () => {
-                  void deltaFeatures.testVisionEngine().then(res => {
-                    showDeltaToast(res.message)
-                  })
-                },
-              }, copy.visionBridge.testBtn))) : null),
 
         el('div', { className: 'dtd-privacy-card', 'data-delta-privacy-card': '' },
           el('div', { className: 'dtd-privacy-header' },
@@ -6537,7 +6167,25 @@ window.__ModuleLoader__.load({
                   typeof document.addEventListener === 'function'
                   ? installSidebarCompatibility(controller) : () => {}
                 const stopLivePresentation = installLiveNativePresentation(controller, Boolean(livePortal))
-                // Host Vision tools remain available; native paste/drop belongs to Harness.
+                // Only read Harness' published sanitized account UI snapshot.
+                // Authentication and confirmation continue through native menu actions.
+                try {
+                  scope.inject(['accountUi'], accountScope => {
+                    const service = (accountScope as unknown as {
+                      accountUi?: { getSnapshot(): {
+                        view?: { status?: string }
+                        details?: { balance?: { status: string; value?: readonly { currency: string; balance: string }[] } }
+                      } }
+                    }).accountUi
+                    if (!service || typeof service.getSnapshot !== 'function') return
+                    accountScope.effect(() => {
+                      const reader = () => service.getSnapshot()
+                      readLiveAccountState = reader
+                      return () => { if (readLiveAccountState === reader) readLiveAccountState = undefined }
+                    }, 'delta-suite: authenticated account balance projection')
+                  })
+                } catch { /* no native account UI service keeps balances unavailable */ }
+                // Harness owns native image input and model capabilities.
 
                 // Harness owns built-in Slots and Locale services.
                 // Delta contributes only through declared public slots and its own copy.
@@ -6651,20 +6299,6 @@ window.__ModuleLoader__.load({
 
               try { scope.inject(['configForms', 'remote'], mcpScope => {
                 const candidate = mcpScope as ClientContext
-                mcpScope.effect(() => {
-                  const form = candidate.configForms?.get('delta-suite')
-                  const credentials = candidate.remote?.credentials
-                  deltaSettingsForm = form
-                  deltaCredentialRemote = credentials
-                  const stop = form?.subscribe(publishDeltaSettings)
-                  publishDeltaSettings()
-                  return () => {
-                    stop?.()
-                    if (deltaSettingsForm === form) deltaSettingsForm = undefined
-                    if (deltaCredentialRemote === credentials) deltaCredentialRemote = undefined
-                    publishDeltaSettings()
-                  }
-                }, 'delta-suite: vision settings contract')
                 mcpScope.effect(() => {
                   const services: McpServices = {
                     form: candidate.configForms?.get('mcp-manager') ?? candidate.configForms?.get('mcp'),
