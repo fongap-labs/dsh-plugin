@@ -107,7 +107,9 @@ export function createGitStatusTool(
       const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
       const result = await runCommand(ctx, {
         command: settings.gitCommand,
-        args: ['--no-optional-locks', 'status', '--porcelain=v1', '--branch', '-z'],
+        args: args.repositoryId === undefined
+          ? ['status', '--porcelain=v1', '--branch', '-z']
+          : ['--no-optional-locks', 'status', '--porcelain=v1', '--branch', '-z'],
         cwd,
         signal: exec.signal,
         timeoutMs: 30_000,
@@ -155,7 +157,8 @@ export function createGitDiffTool(
           ? await resolveSessionRepositoryRoot(ctx, settings, sessionRepositories, exec, args.repositoryId, 'read')
           : (() => { throw new Error('Session repository Git diff is unavailable in this Host') })()
       const cwd = await resolveAuthorizedGitCwd(ctx, root, args.cwd, exec)
-      const gitArgs = ['--no-optional-locks', 'diff', '--no-color']
+      const gitArgs = args.repositoryId === undefined
+        ? ['diff', '--no-color'] : ['--no-optional-locks', 'diff', '--no-color']
       if (args.staged) gitArgs.push('--cached')
       if (args.path) {
         const pathspec = await resolveDiffPath(ctx, root, args.cwd, args.path, exec.signal)
