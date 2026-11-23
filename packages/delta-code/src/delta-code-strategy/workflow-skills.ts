@@ -80,6 +80,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Give each implementer a fresh-context brief: exact behavior delta, allowed files, acceptance tests, dependencies and recovery anchors. Dispatch only ready tasks in the current wave; do not pass entire chat histories.',
       'Use fresh-context reviewers separate from the implementation when native dispatch permits. Review spec/acceptance compliance first, then correctness, security and maintainability.',
       'Treat implementer claims as hypotheses; require changed-file and test evidence. If the reviewer finds a concrete issue, return it with a reproduction or invariant and re-review the correction.',
+      'After each native wave, compare actual changed paths with declared write scopes and revalidate affected imports, shared configuration, acceptance evidence and current Git HEAD before releasing dependent tasks. Do not count a child task as delivered merely because the child reported success.',
       'Do not run simultaneous writers on overlapping files or the same worktree. Stop if context, permissions or cancellation cannot be reliably isolated.',
       'Resume by checking Host task evidence and latest repository state rather than replaying completed work. Integrate each verified wave, then run branch-wide checks and independent review.',
     ],
@@ -91,6 +92,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
     instructions: [
       'Parallelize only work with genuinely independent dependencies and disjoint write sets. Good candidates are separate bug investigations or read-only research.',
       'Dispatch bounded native subagent tasks with exact goals and expected evidence. Prefer read-only exploration before parallel implementation.',
+      'For parallel coding, use no more than three independently reviewable candidate tasks in one advisory wave; actual Host concurrency/quota remains authoritative. Treat distinct root build/lock/CI files as coupled, and serialize unverified shared configuration edits. Medium two-task fanout should default to one Agent when setup and review overhead is likely larger than gains.',
       'If Host dispatch is absent, execute sequentially. Never invent task tools, launch external agents without user authorization or share a mutable worktree with concurrent writers.',
       'Track findings via the Host task facility when available; reconcile contradictions and run integration tests after merging results.',
       'Measure actual speed benefit against extra context and review costs; one capable agent is often faster for tightly coupled changes.',
