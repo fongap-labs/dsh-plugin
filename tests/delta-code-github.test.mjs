@@ -68,8 +68,8 @@ describe('GitHub account configuration and automatic routing', () => {
     assert.match(source, /Do not manually submit a duplicate promotion/)
     assert.doesNotMatch(source, /then independently re-audit and promote using code_github_skill_promote_pr/)
     const readme = readFileSync(new URL('../packages/delta-code/README.md', import.meta.url), 'utf8')
-    assert.match(readme, /Action Worker 的既有 GitHub 事件续接/)
-    assert.doesNotMatch(readme, /两步操作由原生 Agent 在活动会话中继续/)
+    assert.match(readme, /Action Worker \u7684\u65e2\u6709 GitHub \u4e8b\u4ef6\u7eed\u63a5/)
+    assert.doesNotMatch(readme, /\u4e24\u6b65\u64cd\u4f5c\u7531\u539f\u751f Agent \u5728\u6d3b\u52a8\u4f1a\u8bdd\u4e2d\u7ee7\u7eed/)
   })
   it('fails closed before any network request for unmatched owners or unauthorized writes', async () => {
     const config = normalizeConfig({ github: { accounts } })
