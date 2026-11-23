@@ -88,9 +88,9 @@ async function authorizedRepo(
 ): Promise<string> {
   exec.signal.throwIfAborted()
   const required = access === 'write'
-    ? ['resolve', 'stat', 'processPath', 'writeText']
-    : ['resolve', 'stat', 'processPath']
-  const fs = requireHostFs(ctx, required as Array<'resolve' | 'stat' | 'processPath' | 'writeText'>,
+    ? ['resolve', 'contains', 'stat', 'processPath', 'writeText']
+    : ['resolve', 'contains', 'stat', 'processPath']
+  const fs = requireHostFs(ctx, required as Array<'resolve' | 'contains' | 'stat' | 'processPath' | 'writeText'>,
     'session repositories require native Host filesystem authorization')
   if (!fs) throw new Error('session repositories require mounted native Host FS')
   if (!safePath(path) || !authorized(settings, path)) {
@@ -242,14 +242,14 @@ export function createSessionRepositoryCommand(
           kind: 'success',
           text: 'Attached ' + attached.path + ' as ' + attached.id +
             (writeAuthorized(settings, attached.path) ? ' (write allowlisted).' : ' (read only).'),
-          sourceEventSeq: attached.seq as never,
+          sourceEventSeq: attached.seq as SessionSeq,
         }
       }
       if (input.startsWith('detach ')) {
         const id = input.slice('detach '.length).trim()
         if (!ID.test(id)) return { kind: 'error', text: 'Usage: /delta-repo detach <repository-id>' }
         const detached = detachRepository(reader, invocation.agent, id)
-        return { kind: 'success', text: 'Detached ' + detached.path + '.', sourceEventSeq: detached.seq as never }
+        return { kind: 'success', text: 'Detached ' + detached.path + '.', sourceEventSeq: detached.seq as SessionSeq }
       }
       return {
         kind: 'error',
