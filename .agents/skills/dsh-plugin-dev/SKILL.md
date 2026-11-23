@@ -7,12 +7,12 @@ description: Develop, test, package, and maintain native DeepSeek Harness plugin
 
 ## Required reading
 
-1. `AGENTS.md` and `CLAUDE.md`
+1. `AGENTS.md`
 2. `README.md`
 3. `docs/ARCHITECTURE.md`
 4. `docs/DEVELOPMENT.md`
 5. `docs/OPERATIONS.md` before changing release metadata
-6. Action Worker shared governance and integration documents referenced by `CLAUDE.md`
+6. Action Worker shared governance and integration documents referenced by `AGENTS.md`
 
 ## Workspace layout
 
