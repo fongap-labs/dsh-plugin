@@ -240,3 +240,43 @@ test('theme coverage audit detects new upstream semantic colors without version 
   ].join('\n'), source)
   assert.deepEqual(covered, { official: 2, mapped: 2, unmapped: [] })
 })
+
+
+test('native session hover card uses accessible Delta colors in light and dark modes', () => {
+  const mapping = {
+    '--dsw-alias-hovercard-bg': 'popupBg',
+    '--dsw-alias-hovercard-label-primary': 'labelPrimary',
+    '--dsw-alias-hovercard-label-secondary': 'labelSecondary',
+    '--dsw-alias-hovercard-label-tertiary': 'labelMuted',
+  }
+  for (const [token, role] of Object.entries(mapping)) {
+    assert.ok(source.includes("'" + token + "': DELTA_PALETTE." + role),
+      'missing native hover-card palette mapping for ' + token)
+  }
+
+  const colors = role => {
+    const row = source.split('\n').find(line => line.trim().startsWith(role + ': { light:'))
+    assert.ok(row, 'missing two-mode color role ' + role)
+    const hex = row.match(/#[a-fA-F0-9]{6}\b/g)
+    assert.equal(hex?.length, 2, 'expected explicit light/dark colors for ' + role)
+    return { light: hex[0], dark: hex[1] }
+  }
+  const brightness = hex => {
+    const channels = [1, 3, 5].map(index =>
+      Number.parseInt(hex.slice(index, index + 2), 16) / 255)
+      .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722
+  }
+  const contrast = (a, b) => {
+    const values = [brightness(a), brightness(b)].sort((x, y) => y - x)
+    return (values[0] + 0.05) / (values[1] + 0.05)
+  }
+  const bg = colors('popupBg')
+  for (const role of ['labelPrimary', 'labelSecondary', 'labelMuted']) {
+    const fg = colors(role)
+    for (const scheme of ['light', 'dark']) {
+      assert.ok(contrast(fg[scheme], bg[scheme]) >= 4.5,
+        'native session hover-card text contrast below 4.5:1 for ' + role + ' in ' + scheme)
+    }
+  }
+})
