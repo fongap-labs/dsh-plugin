@@ -8,7 +8,8 @@ import { promisify } from 'node:util'
 import { createWorkspaceMapTool, rankTrackedFiles } from '../packages/delta-code/lib/tools/workspace.js'
 import { normalizeConfig } from '../packages/delta-code/lib/runtime.js'
 
-import { createSessionRepositoryTool } from '../packages/delta-code/lib/delta-code-adapter/providers/dsh/session-repositories.js'
+import { createSessionRepositoryTool, createSessionRepositoryCommand } from '../packages/delta-code/lib/delta-code-adapter/providers/dsh/session-repositories.js'
+import { createMultiEditTool } from '../packages/delta-code/lib/tools/multi-edit.js'
 import {
   SESSION_REPOSITORY_EMPTY, foldSessionRepositoryEvent,
   parseSessionRepositoryState, REPOSITORY_EVENT_MARKER,
@@ -228,6 +229,7 @@ const OTHER_REPO = '/dsh-unapproved-external/repo-b'
 function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
   const commands = []
   const seenPaths = []
+  const writes = []
   const fs = {
     async resolve(path) {
       seenPaths.push(path)
@@ -238,6 +240,8 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
       if (options.noDirectory) return undefined
       return { type: 'directory' }
     },
+    async readText(target) { return options.fileContent ?? 'export const value = 1\\n' },
+    async writeText(target, content) { writes.push({ path: target.path, content }) },
     processPath(target) {
       return options.changedRoot ?? target.path
     },
@@ -301,7 +305,7 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
       },
     })
   }
-  return { ctx, settings, tool, run, accept, get state() { return state }, commands, seenPaths, agent }
+  return { ctx, settings, tool, run, accept, reader, get state() { return state }, commands, seenPaths, writes, agent }
 }
 
 describe('Delta Code native Session read-only repository bindings', () => {
