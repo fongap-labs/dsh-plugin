@@ -152,8 +152,8 @@ export function createGitSyncTool(ctx: Context, settings: Settings): ToolDefinit
       }
       try {
         await git(ctx, settings, cwd, exec.signal, 'reset', ['reset', '--hard', target])
-        // A separate command starts only after a confirmed successful reset.
-        await git(ctx, settings, cwd, exec.signal, 'clean', ['clean', '-fd'])
+        // The stash already captured untracked paths. Never run git clean -fd:
+        // files created concurrently could be deleted without a backup.
         const finalHead = await git(ctx, settings, cwd, exec.signal, 'final HEAD',
           ['rev-parse', '--verify', 'HEAD'])
         const finalStatus = await gitStatus(ctx, settings, cwd, exec.signal)
