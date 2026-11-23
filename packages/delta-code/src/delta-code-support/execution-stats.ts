@@ -13,6 +13,16 @@ import type { ExecutionObservation } from '../delta-code-quality/execution-conve
 const MAX_SIGNATURES = 64
 const MAX_FINGERPRINT_BYTES = 16 * 1024
 const MUTATION_TOOLS = new Set(['code_multi_edit', 'code_github_commit_file', 'code_github_branch', 'code_github_create_pr', 'code_git_worktree', 'code_git_sync'])
+/**
+ * A native result event exposes only its tool name. If it may have written to
+ * the worktree, the prior Git/Todo checkpoint and verification become stale.
+ * Never inspect/persist native shell arguments to guess whether it was read-only.
+ */
+const NATIVE_POTENTIAL_WRITERS = new Set([
+  'pwsh', 'powershell', 'bash', 'shell', 'terminal', 'command', 'exec',
+  'apply_patch', 'patch', 'edit', 'edit_file', 'write', 'write_file',
+  'fs_write', 'file_write', 'git',
+])
 
 interface ToolCounters {
   name: string
@@ -221,6 +231,12 @@ export class ExecutionStats {
     const outcome = rawOutcome && typeof rawOutcome === 'object'
       ? rawOutcome as { isError?: unknown } : undefined
     const isError = outcome?.isError === true
+    if (NATIVE_POTENTIAL_WRITERS.has(execution.name.toLowerCase())) {
+      // Exit status alone cannot prove the command was read-only or that no
+      // partial mutation occurred before failure/cancellation.
+      state.reconciledTodoSeq = -1
+      state.lastObservation = { kind: 'mutation' }
+    }
     state.nativeResults++
     if (isError) state.nativeErrors++
     if (outcome?.isError !== true && outcome?.isError !== false) state.nativeUnconfirmed++

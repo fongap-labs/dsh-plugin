@@ -61,6 +61,30 @@ describe('Code Worker native session execution metrics', () => {
     assert.equal(stats.read(execution({})).nativeResults, 0)
   })
 
+  it('invalidates a Git/Todo recovery checkpoint after native shell writes, not ordinary read tools', async () => {
+    const stats = new ExecutionStats()
+    const session = {}
+    const agent = { session }
+    const resume = stats.wrap({ name: 'code_resume',
+      execute: async () => ({ stage: 'resume', head: 'a'.repeat(40), sourceSeq: 13 }) })
+    await resume.execute({}, { agent, signal })
+    assert.equal(stats.readReconciledTodoSeq(agent), 13)
+    stats.observeNativeResult({ agent, name: 'read' }, { isError: false })
+    assert.equal(stats.readReconciledTodoSeq(agent), 13, 'ordinary reads do not stale a checkpoint')
+    stats.observeNativeResult({ agent, name: 'pwsh', arguments: { command: 'do not persist' } },
+      { isError: true })
+    assert.equal(stats.readReconciledTodoSeq(agent), -1)
+    assert.deepEqual(stats.readLastObservation(agent), { kind: 'mutation' },
+      'a failed shell can still have modified files before failure')
+    assert.equal(JSON.stringify(stats.read({ agent, signal })).includes('do not persist'), false)
+    await resume.execute({}, { agent, signal })
+    assert.equal(stats.readReconciledTodoSeq(agent), 13)
+    stats.observeNativeResult({ agent, name: 'apply_patch' }, { isError: false })
+    assert.equal(stats.readReconciledTodoSeq(agent), -1)
+    assert.equal(stats.readReconciledTodoSeq({ session: {} }), -1,
+      'session evidence must never cross sessions')
+  })
+
   it('distinguishes thrown errors, failed results and repeated failed requests', async () => {
     const stats = new ExecutionStats()
     const session = {}

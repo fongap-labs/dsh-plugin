@@ -4,6 +4,8 @@
 
 - 新增: Delta Code 复杂编程任务按需使用 Harness 原生 LSP 定义、引用与实现查询；保留简单任务快速路径，缺少专业插件时降级至授权文本检索，并明确区分证据与推测。
 
+- 修复: Delta Code 在 Harness 原生终端、补丁或文件写入工具返回后作废旧 Coding/Git/Todo 恢复检查点和验证状态，避免压缩续接误用已过期证据；原生只读工具不会触发重复恢复。
+
 - 修复: Delta Suite 删除退役的 Workspace 方法包装和模拟删除拦截，保留运行中的只读搜索保护，并将 CI 测试改为验证真实调用与 Host 原生权限。
 
 - 修复: Delta Code 命令工具保持稳定注册身份；Host subprocess 暂时失联时拒绝执行，服务恢复后将调用切换到新的 Host，避免会话内 UNKNOWN_TOOL。
