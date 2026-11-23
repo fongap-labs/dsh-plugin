@@ -496,7 +496,7 @@ const LIVE_PRESENTATION_CSS = String.raw`
 }
 :root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button > span[aria-hidden="true"] { display: none; }
 :root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: var(--dtd-bg-hover);
 }
 :root[data-delta-ui="delta"] [data-dtd-live-session-source="1"] { display: none !important; margin: 0 !important; }
 `
