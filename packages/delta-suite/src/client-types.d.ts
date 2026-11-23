@@ -172,7 +172,7 @@ interface ClientContext {
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
   inject(services: string[], callback: (scope: ClientContext) => void): void
   effect(callback: () => void | (() => void), label?: string): void
-  locale?: { subscribe?: (listener: () => void) => (() => void) }
+  locale?: { getSnapshot(): { active: string }; subscribe(listener: () => void): () => void }
 }
 interface AddPluginActionProps { onDismiss?(): void }
 interface ReactRootApi {

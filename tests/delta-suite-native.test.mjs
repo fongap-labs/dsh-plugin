@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -37,6 +37,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
   } }
   const context = {
     observers: [],
+    localeListeners: [],
     window: { __ModuleLoader__: { load(entry) { registration = entry } } },
     document: { documentElement, head, createElement(name) { return { name, dataset: {}, textContent: '', parentNode: null } } },
     navigator: { language: 'en-US' },
@@ -62,17 +63,28 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
       useSyncExternalStore(_subscribe, get) { return get() },
     }
   })
+  const nativeLocale = localeService === undefined ? {
+    getSnapshot() { return { active: documentElement.lang } },
+    subscribe(callback) {
+      context.localeListeners.push(callback)
+      return () => { context.localeListeners = context.localeListeners.filter(item => item !== callback) }
+    },
+  } : localeService
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
       assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess',
         'sessions,resources,sidebarRightTabs,sidebarRight', 'configForms,remote',
-        'modelDirectories'].includes(names.join(',')))
+        'modelDirectories', 'locale'].includes(names.join(',')))
       // Optional model directories may be absent on older Hosts.
       if (names.join(',') === 'modelDirectories' && !modelDirectories) return
+      if (names.join(',') === 'locale' && !nativeLocale) return
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
-        if (property === 'locale') throw new Error('cannot get property "locale" without inject')
+        if (property === 'locale') {
+          if (names.join(',') !== 'locale') throw new Error('cannot get property "locale" without inject')
+          return nativeLocale
+        }
         return Reflect.get(target, property)
       } }))
     },
@@ -203,7 +215,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(hover.component({ sessionId: 'abc' }), null, 'theme change does not authorize a cold session identity')
   assert.match(app.stored, /"mode":"delta"/)
   app.documentElement.lang = 'en'
-  app.context.observers.forEach(notify => notify())
+  app.context.localeListeners.forEach(notify => notify())
   assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
     'language changes must preserve the ZIP settings surface')
   assert.equal(entry.spec.label(), 'Delta Suite')
@@ -303,7 +315,7 @@ test('Settings identifies unsupported Host contracts without claiming native tak
   assert.equal((markup.match(/dtd-integration-native/g) ?? []).length, 4)
 
   app.documentElement.lang = 'en'
-  app.context.observers.forEach(notify => notify())
+  app.context.localeListeners.forEach(notify => notify())
   markup = serialized()
   assert.ok(markup.includes(en.integrationTitle))
   assert.ok(markup.includes(en.integrationReasoning))
@@ -416,7 +428,7 @@ test('published Session hover renders public catalog time and no record details'
     assert.match(rendered, /\u6700\u8fd1\u66f4\u65b0/)
     assert.doesNotMatch(rendered, /hiddenField|private value/)
     app.documentElement.lang = 'en'
-    app.context.observers.forEach(notify => notify())
+    app.context.localeListeners.forEach(notify => notify())
     rendered = JSON.stringify(hover.component({ sessionId: 'session-one' }))
     assert.match(rendered, /Last updated/)
     records = { 'session-one': { id: 'wrong', updatedAt: '2026-11-18T10:20:00.000Z' } }
@@ -780,4 +792,24 @@ test('ZIP personalization keeps its layout and includes only a collapsed feature
   controller.setMode('official')
   assert.equal(app.layers.size, 0)
   app.cleanup()
+})
+
+test('Host Locale snapshot updates Suite language and unsubscribes on unload', () => {
+  let active = 'ja'
+  let notify
+  let disposed = 0
+  const localeService = {
+    getSnapshot() { return { active } },
+    subscribe(fn) { notify = fn; return () => { disposed++; notify = undefined } },
+  }
+  const app = harness({ localeService })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  assert.equal(controller.getSnapshot().language, 'en')
+  active = 'zh-Hans'; notify()
+  assert.equal(controller.getSnapshot().language, 'zh')
+  active = 'fr'; notify()
+  assert.equal(controller.getSnapshot().language, 'en')
+  app.cleanup()
+  assert.equal(disposed, 1)
+  assert.equal(notify, undefined)
 })
