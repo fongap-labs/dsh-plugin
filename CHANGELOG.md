@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 统一智能体规则入口并整理相关文档引用。
+
 - 维护: 统一 Delta Suite 中英文界面用词和操作提示，为 Delta Desktop 原型补充随宿主语言切换的简体中文标签，并优化 Delta Code、Delta Suite 与 Delta Desktop 插件介绍；不修改宿主服务、模型路由或公开接口。
 
 - 修复: Delta Code 区分公开 Skill 单任务临时参考与可信目录长期准入的发现路径，并增加无原生 Skill Provider 的加载/卸载回归，防止临时调用被长期准入规则误禁。
