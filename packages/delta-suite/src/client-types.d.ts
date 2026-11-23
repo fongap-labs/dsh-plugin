@@ -163,47 +163,9 @@ interface ClientContext {
   uiWorkspace?: SearchNavigationApi
   resources?: ResourceProviderApi
   sidebarRightTabs?: SidebarRightTabsApi
-  configForms?: ConfigFormsApi
-  remote?: { mcpManager?: McpManagerApi; credentials?: CredentialRemoteApi }
   slots: SlotsApi
   /** Cordis child injection waits for optional UI capabilities without blocking the parent. */
   inject(services: string[], callback: (scope: ClientContext) => void): void
   effect(callback: () => void | (() => void), label?: string): void
   locale?: { getSnapshot(): { active: string }; subscribe(listener: () => void): () => void }
 }
-interface AddPluginActionProps { onDismiss?(): void }
-interface ReactRootApi {
-  createRoot(container: Element): { render(children: unknown): void; unmount(): void }
-}
-interface MenuItemButtonApi {
-  MenuItemButton(props: { icon?: unknown; disabled?: boolean; onSelect?: () => void; children?: unknown }): unknown
-}
-interface McpConfigSnapshot {
-  status?: 'loading' | 'ready' | 'unavailable' | string
-  value?: unknown
-  base?: unknown
-  user?: unknown
-  revision?: number
-  writable?: boolean
-}
-interface McpConfigForm {
-  getSnapshot(): McpConfigSnapshot
-  subscribe(listener: () => void): () => void
-  mutate(ops: readonly { op: 'set' | 'unset'; path: (string | number)[]; value?: unknown }[], expectedRevision?: number): Promise<boolean | unknown>
-}
-interface ConfigFormsApi { get(namespace: string): McpConfigForm | undefined }
-interface CredentialRemoteApi {
-  set?(request: { ref: string; value: string }): Promise<unknown>
-  unset?(request: { ref: string }): Promise<unknown>
-}
-interface McpManagedServer {
-  name: string
-  configured: boolean
-  status?: { state?: string; reason?: string; [key: string]: unknown }
-}
-interface McpManagerApi {
-  watch?(signal: AbortSignal): AsyncIterable<readonly McpManagedServer[]>
-  probe?(name: string, signal: AbortSignal): Promise<unknown>
-  restart?(name: string): Promise<unknown>
-}
-interface McpServices { form?: McpConfigForm; manager?: McpManagerApi }

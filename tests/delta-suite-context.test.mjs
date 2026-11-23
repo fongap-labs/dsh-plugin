@@ -253,145 +253,16 @@ function findSwitch(tree, label) {
 }
 const turn = () => new Promise(resolve => setTimeout(resolve, 0))
 
-function openMcpDialog(app) {
-  const action = app.components.get('plugins.add.actions:delta.mcp.add-server')
-  assert.ok(action, 'MCP entry is contributed to the official Add plugin menu')
-  const menuItem = action.component({ onDismiss() {} })
-  menuItem.props.onSelect()
-  const rendered = app.dialogRoots.at(-1)?.rendered
-  assert.ok(rendered)
-  return () => app.render('mcp-dialog', rendered.type, rendered.props)
-}
-
-test('MCP manager entry follows the built-in install action and handles missing Host services', () => {
-  const app = makeHarness()
-  const action = app.components.get('plugins.add.actions:delta.mcp.add-server')
-  assert.ok(action, 'MCP slot missing; registered: ' + [...app.components.keys()].join(', ') + '; diagnostic: ' + app.diagnosticMessages.join(' | '))
-  assert.equal(action.spec.order, -100)
-  let dismissed = false
-  const menuItem = action.component({ onDismiss() { dismissed = true } })
-  menuItem.props.onSelect()
-  assert.equal(dismissed, true)
-  const rendered = app.dialogRoots[0].rendered
-  const dialog = app.render('mcp-unavailable', rendered.type, rendered.props)
-  assert.match(textOf(dialog), /does not expose the MCP settings form/i)
-})
-
-test('MCP settings use the current Desktop entry id and retain a custom Profile fallback', () => {
-  const snapshot = { status: 'ready', revision: 1, writable: true,
-    value: { servers: {} }, base: { servers: {} }, user: { servers: {} } }
-  const desktop = makeHarness({ mcpSnapshot: snapshot })
-  const desktopTree = openMcpDialog(desktop)()
-  assert.ok(findButton(desktopTree, 'Add server'))
-  assert.deepEqual(desktop.mcpFormQueries, ['mcp-manager'])
-
-  const custom = makeHarness({ mcpSnapshot: snapshot, mcpNamespace: 'mcp' })
-  const customTree = openMcpDialog(custom)()
-  assert.ok(findButton(customTree, 'Add server'))
-  assert.deepEqual(custom.mcpFormQueries, ['mcp-manager', 'mcp'])
-})
-
-test('MCP server form writes one revision-fenced server path and preserves failures', async () => {
-  const snapshot = { status: 'ready', revision: 7, writable: true,
-    value: { servers: {} }, base: { servers: {} }, user: { servers: {} } }
-  const app = makeHarness({ mcpSnapshot: snapshot })
-  let tree = openMcpDialog(app)()
-  findButton(tree, 'Add server').props.onClick()
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  findField(tree, 'Server name').props.onChange({ currentTarget: { value: 'docs_server' } })
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  findField(tree, 'Executable command').props.onChange({ currentTarget: { value: 'npx' } })
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  findField(tree, 'Command arguments').props.onChange({ currentTarget: { value: '-y\n@acme/docs-mcp' } })
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  findField(tree, 'Environment variables').props.onChange({ currentTarget: { value: 'TOKEN=${credential:DOCS_TOKEN}' } })
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  findElement(tree, 'form').props.onSubmit({ preventDefault() {} })
-  await turn()
-  assert.equal(app.mcpMutations.length, 1)
-  assert.equal(app.mcpMutations[0].revision, 7)
-  assert.equal(JSON.stringify(app.mcpMutations[0].ops), JSON.stringify([{ op: 'set', path: ['servers', 'docs_server'], value: {
-    transport: 'stdio', enabled: true, command: 'npx', args: ['-y', '@acme/docs-mcp'], env: { TOKEN: '${credential:DOCS_TOKEN}' },
-  } }]))
-
-  const http = makeHarness({ mcpSnapshot: snapshot })
-  tree = openMcpDialog(http)()
-  findButton(tree, 'Add server').props.onClick()
-  tree = http.render('mcp-dialog', http.dialogRoots[0].rendered.type, http.dialogRoots[0].rendered.props)
-  findField(tree, 'Transport').props.onChange({ currentTarget: { value: 'streamable-http' } })
-  tree = http.render('mcp-dialog', http.dialogRoots[0].rendered.type, http.dialogRoots[0].rendered.props)
-  findField(tree, 'Server name').props.onChange({ currentTarget: { value: 'remote_docs' } })
-  tree = http.render('mcp-dialog', http.dialogRoots[0].rendered.type, http.dialogRoots[0].rendered.props)
-  findField(tree, 'Service URL').props.onChange({ currentTarget: { value: 'https://mcp.example.com/mcp' } })
-  tree = http.render('mcp-dialog', http.dialogRoots[0].rendered.type, http.dialogRoots[0].rendered.props)
-  findField(tree, 'Request headers').props.onChange({ currentTarget: { value: 'Authorization=Bearer ${credential:REMOTE_TOKEN}' } })
-  tree = http.render('mcp-dialog', http.dialogRoots[0].rendered.type, http.dialogRoots[0].rendered.props)
-  findElement(tree, 'form').props.onSubmit({ preventDefault() {} })
-  await turn()
-  assert.equal(JSON.stringify(http.mcpMutations[0].ops), JSON.stringify([{ op: 'set', path: ['servers', 'remote_docs'], value: {
-    transport: 'streamable-http', enabled: true, url: 'https://mcp.example.com/mcp',
-    headers: { Authorization: 'Bearer ${credential:REMOTE_TOKEN}' },
-  } }]))
-
-  const failing = makeHarness({ mcpSnapshot: snapshot, mcpMutate: async () => false })
-  tree = openMcpDialog(failing)()
-  findButton(tree, 'Add server').props.onClick()
-  tree = failing.render('mcp-dialog', failing.dialogRoots[0].rendered.type, failing.dialogRoots[0].rendered.props)
-  findField(tree, 'Server name').props.onChange({ currentTarget: { value: 'bad_write' } })
-  tree = failing.render('mcp-dialog', failing.dialogRoots[0].rendered.type, failing.dialogRoots[0].rendered.props)
-  findField(tree, 'Executable command').props.onChange({ currentTarget: { value: 'npx' } })
-  tree = failing.render('mcp-dialog', failing.dialogRoots[0].rendered.type, failing.dialogRoots[0].rendered.props)
-  findElement(tree, 'form').props.onSubmit({ preventDefault() {} })
-  await turn()
-  tree = failing.render('mcp-dialog', failing.dialogRoots[0].rendered.type, failing.dialogRoots[0].rendered.props)
-  assert.match(textOf(tree), /Save failed and configuration was not changed/i)
-})
-
-test('MCP list observes live status and exposes probe and restart actions', async () => {
-  const snapshot = { status: 'ready', revision: 2, writable: true,
-    value: { servers: { docs: { transport: 'stdio', command: 'npx', args: [], env: {}, enabled: true } } },
-    base: { servers: {} }, user: { servers: { docs: { transport: 'stdio', command: 'npx', args: [], env: {}, enabled: true } } } }
-  const calls = []
-  const manager = {
-    async *watch() { yield [{ name: 'docs', configured: true, status: { state: 'connected' } }] },
-    async probe(name) { calls.push(['probe', name]); return {} },
-    async restart(name) { calls.push(['restart', name]); return {} },
-  }
-  const app = makeHarness({ mcpSnapshot: snapshot, mcpManager: manager })
-  let tree = openMcpDialog(app)()
-  await turn()
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  assert.match(textOf(tree), /Connected/)
-  await findButton(tree, 'Test connection').props.onClick()
-  await turn()
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  assert.deepEqual(calls, [['probe', 'docs']])
-  assert.match(textOf(tree), /Connection test completed/)
-  await findButton(tree, 'Restart connection').props.onClick()
-  await turn()
-  assert.deepEqual(calls, [['probe', 'docs'], ['restart', 'docs']])
-})
-
-test('MCP enablement changes only one field and inherited removal requires confirmation', async () => {
-  const snapshot = { status: 'ready', revision: 5, writable: true,
-    value: { servers: { inherited: { transport: 'stdio', command: 'npx', args: [], env: {}, enabled: true } } },
-    base: { servers: { inherited: { transport: 'stdio', command: 'npx', args: [], env: {}, enabled: true } } },
-    user: { servers: { inherited: { transport: 'stdio', command: 'npx', args: [], env: {}, enabled: true } } } }
-  const app = makeHarness({ mcpSnapshot: snapshot })
-  let tree = openMcpDialog(app)()
-  await findButton(tree, 'Enabled').props.onClick()
-  await turn()
-  assert.equal(JSON.stringify(app.mcpMutations[0].ops), JSON.stringify([
-    { op: 'set', path: ['servers', 'inherited', 'enabled'], value: false },
-  ]))
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  findButton(tree, 'Restore inherited configuration').props.onClick()
-  tree = app.render('mcp-dialog', app.dialogRoots[0].rendered.type, app.dialogRoots[0].rendered.props)
-  findButton(tree, 'Confirm removal').props.onClick()
-  await turn()
-  assert.equal(JSON.stringify(app.mcpMutations[1].ops), JSON.stringify([
-    { op: 'unset', path: ['servers', 'inherited'] },
-  ]))
+test('Harness keeps native MCP actions and secrets when Suite mounts', () => {
+  const app = makeHarness({
+    mcpSnapshot: { status: 'ready', value: { servers: { privateServer: {
+      env: { API_KEY: 'host-only' }, headers: { Authorization: 'host-only' },
+    } } } },
+  })
+  assert.equal([...app.components.keys()].some(key => key.startsWith('plugins.add.actions:')), false)
+  assert.deepEqual(app.mcpFormQueries, [])
+  assert.deepEqual(app.mcpMutations, [])
+  assert.equal(app.dialogRoots.length, 0)
 })
 
 test('the package enables the official automatic compaction backend at Profile level', () => {

@@ -108,3 +108,18 @@ test('Suite locale dictionaries contain no unused leaf key', () => {
     assert.ok(used(key), 'unused Suite locale key: ' + name)
   }
 })
+
+test('MCP credentials stay native: Suite publishes no credential editor, service or styles', () => {
+  const types = read('packages/delta-suite/src/client-types.d.ts')
+  const css = read('packages/delta-suite/src/feature-extras.css')
+  for (const pattern of [
+    /McpManagementDialog/, /pairsText\(/, /entry\.env/, /entry\.headers/,
+    /scope\.slots\.inject\('plugins\.add\.actions'/,
+    /scope\.inject\(\['configForms', 'remote'\]/,
+  ]) assert.doesNotMatch(client, pattern)
+  assert.doesNotMatch(types, /McpConfigSnapshot|McpServices|CredentialRemoteApi/)
+  assert.doesNotMatch(css, /\.dtd-mcp-/, 'retired MCP credential editor must not ship CSS')
+  for (const dictionary of [zhCopy, enCopy]) {
+    assert.equal(Object.keys(dictionary.ui).some(key => /^mcp[A-Z]/.test(key)), false)
+  }
+})

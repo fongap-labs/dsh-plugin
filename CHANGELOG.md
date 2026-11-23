@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 修复: Delta Suite 清理自建 MCP 凭据编辑器、env/header 读取、配置写入、原生插件菜单覆盖及废弃样式、类型和中英双语文案；MCP 配置恢复 Harness 原生所有权，增加安全边界回归测试。
+
 - 修复: 删除 Delta Suite 未挂载的原生侧边栏 DOM 兼容函数和帧调度器，转为严格校验仅通过公开 Search Slot 扩展，禁止重新引入菜单点击/原生节点接管。
 
 - 修复: Delta Code GitHub PR/CI 诊断支持锁定期望 HEAD，检查期间 HEAD 发生变化则拒绝过期结果，分页不完整时明确报告证据不足。

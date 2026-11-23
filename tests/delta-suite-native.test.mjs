@@ -153,7 +153,7 @@ test('web boot stays active while waiting for UI services or when React is unava
 })
 test('appearance and Settings mount when undeclared locale access is rejected', () => {
   const app = harness()
-  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config', 'conversation.input.model.label', 'plugins.add.actions', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.trailing', 'sidebar.session.row.hover'])
+  assert.deepEqual(app.slots, ['settings.section', 'settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config', 'conversation.input.model.label', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.session.row.trailing', 'sidebar.session.row.hover'])
   assert.equal(app.components.has('settings.models.footer'), false,
     'unverified Gateway discovery must not register a Models footer')
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')

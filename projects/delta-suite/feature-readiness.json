@@ -173,5 +173,16 @@
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"
+  },
+  "p0_mcp_secret_boundary": {
+    "as_of": "2026-11-24",
+    "stage": "code-and-CI-pending",
+    "credential_config": "Host-owned; Suite editor removed",
+    "MCP_config_write": "no injected configForms or credential writes",
+    "MCP_runtime_status": "Host native UI only",
+    "tests": "automated source, locale and native-slot boundary tests",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }
