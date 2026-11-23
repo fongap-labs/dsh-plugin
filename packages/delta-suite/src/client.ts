@@ -416,15 +416,15 @@ const LIVE_PRESENTATION_CSS = String.raw`
 :root[data-delta-ui="delta"] [data-dtd-live-session-source="1"] { display: none !important; margin: 0 !important; }
 `
 
-function installLiveNativePresentation(controller: DeltaController, supportsPortal: boolean): () => void {
+function installLiveNativePresentation(controller: DeltaController, canUsePortal: boolean): () => void {
   if (typeof document === 'undefined' || !document.body) return () => {}
   const labelChanges = new Map<HTMLElement, { original: string; current: string }>()
   const ariaChanges = new Map<HTMLElement, { original: string | null; current: string }>()
   const marks = new Set<HTMLElement>()
   let target: HTMLElement | null = null
   let observer: MutationObserver | undefined
-  let dead = false
-  let syncing = false
+  let isDisposed = false
+  let isSyncing = false
   const tag = document.createElement('style')
   tag.dataset.deltaLivePresentation = ''
   tag.textContent = LIVE_PRESENTATION_CSS
@@ -479,8 +479,8 @@ function installLiveNativePresentation(controller: DeltaController, supportsPort
     ariaChanges.clear()
   }
   const sync = (): void => {
-    if (dead || syncing) return
-    syncing = true
+    if (isDisposed || isSyncing) return
+    isSyncing = true
     try {
       if (controller.getSnapshot().mode !== 'delta') { rollback(); return }
       const lang = language()
@@ -513,7 +513,7 @@ function installLiveNativePresentation(controller: DeltaController, supportsPort
           if (row.parentElement === nav) scheduleRow = row
         }
       }
-      if (supportsPortal && scheduleRow && nav) {
+      if (canUsePortal && scheduleRow && nav) {
         if (!target || target.parentElement !== nav) {
           target?.remove()
           target = document.createElement('div')
@@ -562,7 +562,7 @@ function installLiveNativePresentation(controller: DeltaController, supportsPort
         if (category === 'plugins' || category === 'schedules') updateCopy(heading, wording[lang][category])
       }
     } finally {
-      syncing = false
+      isSyncing = false
       observer?.takeRecords()
     }
   }
@@ -579,7 +579,7 @@ function installLiveNativePresentation(controller: DeltaController, supportsPort
     attributeFilter: ['aria-label', 'data-sidebar-scrollport'] })
   sync()
   return () => {
-    dead = true
+    isDisposed = true
     scheduler.cancel()
     observer?.disconnect()
     unsubscribe()
