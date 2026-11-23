@@ -114,6 +114,9 @@ export async function prepareVerify(
   let canonicalCwd = cwd
   let hostPackage: unknown
   const hostFs = requireHostFs(ctx, ['resolve', 'contains', 'stat', 'readText'], 'refusing local verification fallback')
+  if (args.repositoryId !== undefined && !hostFs) {
+    throw new Error('attached repository verification requires native Host FS read capabilities')
+  }
   // Reuse only immutable project metadata within the same suite. A changed
   // mount/root/cwd is never a cache hit and cannot authorize a different Host.
   if (reuseProbe && (
