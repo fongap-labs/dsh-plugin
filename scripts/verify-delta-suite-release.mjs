@@ -121,7 +121,7 @@ export function hasUnsafeHostPatch(source) {
 }
 
 // ZIP3 pins the audited transition adapter and author-provided theme exactly.
-// Reviewed 2026-11-23: the two client region pins are recomputed after verified name-only dsh-delta- to delta- substitution.
+// Reviewed 2026-11-23: region digests regenerated after an audited package-identity-only rename.
 // Unavailable native sidebar layout features must stay on the Harness fallback.
 // Reviewed 2026-11-18: removed native running-status DOM text rewriting.
 // Reviewed 2026-11-18: removed native page heading DOM text rewriting.
