@@ -1,14 +1,5 @@
 name: CI
 
-# Source-side CI trigger. Action Worker resolves a release by the source repository's own CI run for
-# the released commit (`gh run list --workflow ci.yml`), and the documented integration shape for a
-# business repository is this thin dispatcher: it runs no change code, checks out nothing, and only
-# asks Action Worker to run central CI for the commit that just landed on the default branch.
-#
-#   push to main -> central CI for that exact commit -> CI Evidence status
-#
-# Same shape as the audited workflow in the other business repositories; the pinned actions policy
-# does not apply because this file references no action.
 on:
   push:
     branches: [main]
