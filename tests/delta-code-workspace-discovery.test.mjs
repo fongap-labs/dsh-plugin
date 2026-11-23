@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { createWorkspaceMapTool, rankTrackedFiles } from '../packages/delta-code/lib/tools/workspace.js'
@@ -224,17 +224,18 @@ describe('Delta Code Worker bounded multi-repo discovery', () => {
 })
 
 
-const EXTERNAL_REPO = '/dsh-approved-external/repo-a'
-const OTHER_REPO = '/dsh-unapproved-external/repo-b'
+const EXTERNAL_REPO = resolve('/dsh-approved-external/repo-a')
+const OTHER_REPO = resolve('/dsh-unapproved-external/repo-b')
+const PRIMARY_REPO = resolve('/dsh-primary')
 function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
   const commands = []
   const seenPaths = []
   const writes = []
   const fs = {
-    async resolve(path) {
+    async resolve(path, params = {}) {
       seenPaths.push(path)
       if (options.denyFs) throw new Error('Host FS denied external root')
-      return { path }
+      return { path: /^([A-Za-z]:[\\/]|\/)/.test(path) ? path : join(params.cwd ?? PRIMARY_REPO, path) }
     },
     async stat(target) {
       if (options.noDirectory) return undefined
@@ -244,7 +245,9 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
       return { type: 'directory' }
     },
     contains(parent, target) {
-      return target.path === parent.path || target.path.startsWith(parent.path + '/')
+      const separator = parent.path.includes('\\') ? '\\' : '/'
+      const base = parent.path.replace(/[\\/]+$/, '')
+      return target.path === parent.path || target.path.startsWith(base + separator)
     },
     async readText(target) { return options.fileContent ?? 'export const value = 1\\n' },
     async writeText(target, content) { writes.push({ path: target.path, content }) },
@@ -270,7 +273,7 @@ function sessionRepoFixture(allowed = [EXTERNAL_REPO], options = {}) {
     } },
   })
   const settings = normalizeConfig({
-    workspaceRoot: '/dsh-primary',
+    workspaceRoot: PRIMARY_REPO,
     sessionRepositories: { readOnlyRoots: allowed, writeRoots: options.writeRoots ?? [] },
   })
   let state = { ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }
@@ -336,9 +339,9 @@ describe('Delta Code native Session read-only repository bindings', () => {
     assert.equal(status.unstaged, 1)
     const found = await f.run({ action: 'search', id, query: 'module' })
     assert.deepEqual(found.selected, ['src/module.ts'])
-    assert.ok(f.commands.every(c => c.cwd !== '/dsh-primary' &&
+    assert.ok(f.commands.every(c => c.cwd !== PRIMARY_REPO &&
       c.argv[0] === 'git' && ['rev-parse', '--no-optional-locks', 'ls-files'].includes(c.argv[1])))
-    assert.equal(f.settings.workspaceRoot, '/dsh-primary')
+    assert.equal(f.settings.workspaceRoot, PRIMARY_REPO)
     assert.equal(f.state.bindings.length, 2)
     const detached = await f.run({ action: 'detach', id })
     f.accept({ action: 'detach', id }, detached)
@@ -408,7 +411,7 @@ describe('Delta Code native Session read-only repository bindings', () => {
     ] }, { agent: f.agent, signal: new AbortController().signal })
     assert.equal(result.applied, 1)
     assert.deepEqual(f.writes, [{
-      path: EXTERNAL_REPO + '/src/new.ts', content: 'export const created = true',
+      path: join(EXTERNAL_REPO, 'src/new.ts'), content: 'export const created = true',
     }])
     const readOnly = sessionRepoFixture([EXTERNAL_REPO])
     const readOnlyArgs = { action: 'attach', path: EXTERNAL_REPO }
