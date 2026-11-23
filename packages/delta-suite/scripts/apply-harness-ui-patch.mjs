@@ -104,7 +104,7 @@ export function patchDictionary(source, lang, key, before, after) {
   const end = following < 0 ? source.length : following
   const part = source.slice(begin, end)
   const keyPattern = key.replaceAll('.', '\\.')
-  const line = new RegExp("(^[ \\t]*['\"]?" + keyPattern + "['\"]?[ \\t]*:[ \\t]*')([^'\"\n]*)(['\"][^\n]*$)", 'm')
+  const line = new RegExp("(^[ \\t]*['\"]?" + keyPattern + "['\"]?[ \\t]*:[ \\t]*')([^'\"\\n]*)(['\"][^\\n]*$)", 'm')
   const found = part.match(line)
   requireShape(found && found.index !== undefined, lang + '.' + key + ' entry')
   requireShape(found[2] === before || found[2] === after, lang + '.' + key + ' value')
