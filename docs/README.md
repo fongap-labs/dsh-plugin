@@ -8,12 +8,12 @@
 - [开发指南](DEVELOPMENT.md)：本地开发、构建与验证
 - [运维指南](OPERATIONS.md)：发布、维护与日常操作
 
-## Delta Suite 设计
+## Delta 产品设计
 
-- [模块职责](DELTA_SUITE_MECE_ARCHITECTURE.md)
-- [DOM 所有权](DELTA_SUITE_DOM_OWNERSHIP.md)
-- [网关推理](DELTA_SUITE_GATEWAY_REASONING.md)
-- [ZIP 界面](DELTA_SUITE_ZIP_UI.md)
+- [模块职责](DELTA%5FSUITE%5FMECE_ARCHITECTURE.md)
+- [DOM 所有权](DELTA%5FSUITE%5FDOM_OWNERSHIP.md)
+- [网关推理](DELTA%5FSUITE%5FGATEWAY_REASONING.md)
+- [ZIP 界面](DELTA%5FSUITE%5FZIP_UI.md)
 
 ## 专项验证与包文档
 
