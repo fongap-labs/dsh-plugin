@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护 [breaking]: 删除 Delta Desktop 实验插件、源码和发布清单，清理构建及测试入口，保留 Delta Suite 与 Delta Code。
+
 - 维护: 配合 Action Worker 将中央插件测试包目录从 `tests/packs/dsh-plugin/` 更名为 `tests/packs/plugins/`，保留现有回归测试与发布工作流的执行边界。
 
 - 维护: 将 Delta 与 Harness 共用插件仓库更名为 plugins，统一三个产品的 Release 目标、工作区名称和操作文档；保留原有发布目录及历史记录。
