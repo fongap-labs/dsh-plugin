@@ -29,6 +29,9 @@ export const Config: Schema<Record<string, unknown>> = Schema.object({
   enabled: Schema.boolean().default(true).volatile(),
   autoRouting: Schema.boolean().default(true).volatile(),
   workspaceRoot: Schema.string().default('').volatile(),
+  sessionRepositories: Schema.object({
+    readOnlyRoots: Schema.array(Schema.string()).default([]),
+  }).volatile(),
   git: Schema.object({
     enabled: Schema.boolean().default(true),
     command: Schema.string().default('git'),
