@@ -22,8 +22,9 @@ const safePath = (value: unknown): value is string =>
   typeof value === 'string' && value.length >= 2 && value.length <= 1024 &&
   !/[\u0000-\u001f\u007f]/u.test(value)
 const samePath = (a: string, b: string): boolean =>
-  (win32.isAbsolute(a) || win32.isAbsolute(b))
-    ? win32.normalize(a).toLowerCase() === win32.normalize(b).toLowerCase()
+  /^[A-Za-z]:[\\/]/.test(a) || /^[A-Za-z]:[\\/]/.test(b)
+    ? /^[A-Za-z]:[\\/]/.test(a) && /^[A-Za-z]:[\\/]/.test(b) &&
+      win32.normalize(a).toLowerCase() === win32.normalize(b).toLowerCase()
     : posix.normalize(a) === posix.normalize(b)
 const safeRelativePath = (value: unknown): value is string =>
   typeof value === 'string' && value.length > 0 && value.length <= 1024 &&
