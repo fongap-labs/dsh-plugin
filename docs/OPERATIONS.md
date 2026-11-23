@@ -40,9 +40,9 @@ Action Worker 负责 SBOM、哈希、来源证明和最终 Release 资产校验�
 
 ## 4. 许可证
 
-根目录 `LICENSE` 和根目录 `package.json.license` 定义仓库默认许可证，目前为 Apache-2.0。
+根目录 `LICENSE` 和根目录 `package.json.license` 定义仓库默认许可证，目前为 MIT。
 
-每个包必须显式声明自己的 SPDX 许可证表达式，并携带自己的 `packages/<name>/LICENSE`。默认继续使用 Apache-2.0；只有在确有需要时才为单个插件选择其他许可证。
+每个包必须显式声明自己的 SPDX 许可证表达式，并携带自己的 `packages/<name>/LICENSE`。默认继续使用 MIT；只有在确有需要时才为单个插件选择其他许可证。
 
 若插件使用不同许可证，必须同时更新：
 
@@ -67,7 +67,7 @@ CI 检查包许可证与发布清单一致，并确保 Bundle 包含对应许可
 3. 修复源码并走正常 PR、中央 CI 和新版本发布。
 4. 不覆盖或重写已发布的 tag、Release 资产和来源证明。
 
-重构后的 Delta Suite（Delta Suite）使用 Apache-2.0 许可证，发布清单位于 `projects/delta-suite/release.manifest.json`。历史 MIT 版本已发布的许可与 Tag 保持原状，不再提供旧独立网页 `/dsh-ui-delta/app`；新版本须由人工选择未使用过的发行版本。
+当前 Delta Suite 使用 MIT 许可证，发布清单位于 `projects/delta-suite/release.manifest.json`。所有历史发行的既有许可与 Tag 保持原状，不再提供旧独立网页 `/dsh-ui-delta/app`；新版本须由人工选择未使用过的发行版本。
 
 ## 7. 仓库更名后的验收
 
