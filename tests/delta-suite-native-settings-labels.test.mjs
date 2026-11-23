@@ -50,10 +50,10 @@ test('Delta account footer suppresses click menu but preserves hover and native 
     '    {account.loginVisible && !account.onboarding && <SignInDialog',
   ].join('\n')
   const patched = patchAccountMenu(fixture)
-  assert.match(patched, /dataset\\.deltaUi !== 'delta' \\|\\| !wide/)
-  assert.match(patched, /onMouseEnter=\\{hoverAccountDetails\\}/)
-  assert.match(patched, /setOpen\\(value => !value\\)/, 'official and narrow mode retains the native menu')
-  assert.match(patched, /className=\\{css\\.deltaHoverValue\\}/)
+  assert.match(patched, /dataset\.deltaUi !== 'delta' \|\| !wide/)
+  assert.match(patched, /onMouseEnter=\{hoverAccountDetails\}/)
+  assert.match(patched, /setOpen\(value => !value\)/, 'official and narrow mode retains the native menu')
+  assert.match(patched, /className=\{css\.deltaHoverValue\}/)
   assert.doesNotMatch(patched, /<strong>/)
   assert.equal(patchAccountMenu(patched), patched, 'upgrade is idempotent')
 })
@@ -70,13 +70,13 @@ test('native Delta footer, hero and version CSS use scoped Delta tokens and rema
   assert.equal(patchSettingsRootStyle(updater), updater)
 
   const hero = patchHeroStyle('.titleGroup { }\n.fishHitbox { }\n.previewBadge { }\n')
-  assert.match(hero, /translateY\\(-4px\\)/)
+  assert.match(hero, /translateY\(-4px\)/)
   assert.match(hero, /--dtd-fg-primary/)
   assert.equal(patchHeroStyle(hero), hero)
 
   const version = patchCurrentVersionStyle('.row { padding: 16px; }')
-  assert.match(version, /html\\[data-delta-ui="delta"\\]/)
-  assert.match(version, /\\.row \\{ display: none; \\}/)
+  assert.match(version, /html\[data-delta-ui="delta"\]/)
+  assert.match(version, /\.row \{ display: none; \}/)
   assert.equal(patchCurrentVersionStyle(version), version)
 })
 
@@ -98,8 +98,8 @@ test('chat status translation changes only task execution copy, keeping timer in
     ['en', 'chat.deepDivingFor', 'Deep diving for {duration} ···', 'Task in progress for {duration} ···'],
   ]
   for (const entry of pairs) locale = patchDictionary(locale, ...entry)
-  assert.match(locale, /任务执行中，用时 \\{duration\\}/)
-  assert.match(locale, /Task in progress for \\{duration\\}/)
+  assert.match(locale, /任务执行中，用时 \{duration\}/)
+  assert.match(locale, /Task in progress for \{duration\}/)
   for (const entry of pairs) assert.equal(patchDictionary(locale, ...entry), locale)
   assert.ok(changes.some(item => item.file === 'src/client/CurrentVersionRow.module.css'))
   assert.ok(changes.some(item => item.package === '@deepseek-ai/dsh-client-ui-chat'
