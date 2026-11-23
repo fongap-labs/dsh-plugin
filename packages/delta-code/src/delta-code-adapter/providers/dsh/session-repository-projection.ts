@@ -35,7 +35,7 @@ export function registerNativeSessionRepositories(ctx: Context): NativeSessionRe
     stateSchema: { parse: parseSessionRepositoryState },
     init: () => ({ ...SESSION_REPOSITORY_EMPTY, bindings: [], pending: [] }),
     apply: foldSessionRepositoryEvent,
-    wire: { viewSchema: { parse: parseSessionRepositoryView }, view: state => state.bindings, summary: false },
+    wire: { viewSchema: { parse: parseSessionRepositoryView }, view: (state: SessionRepositoryState) => state.bindings, summary: false },
   }
   const injection = ctx.inject(['sessionProjections'], child => {
     if (!isActive) return

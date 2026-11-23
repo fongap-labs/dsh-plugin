@@ -101,7 +101,11 @@ export function mountDeltaCode(ctx: Context, settings: Settings): () => void {
     let isRepositoryCommandActive = true
     const repositoryCommandInjection = ctx.inject(['commands', 'subprocess'], child => {
       if (!isRepositoryCommandActive) return
-      return child.commands.register(createSessionRepositoryCommand(child, settings, sessionRepositories))
+      const service = (child as unknown as {
+        commands?: { register(definition: ReturnType<typeof createSessionRepositoryCommand>): () => void }
+      }).commands
+      if (typeof service?.register !== 'function') return
+      return service.register(createSessionRepositoryCommand(child, settings, sessionRepositories))
     })
     releases.push(() => {
       isRepositoryCommandActive = false

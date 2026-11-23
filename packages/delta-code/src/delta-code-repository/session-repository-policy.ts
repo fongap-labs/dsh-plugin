@@ -1,19 +1,6 @@
-import type { SessionProjectionSummaryExcluded } from '@deepseek-ai/dsh-session-projection/types'
-
 /** Session-scoped, read-only repository associations replayed from DSH tool events.
  * Never treat model arguments as a permission grant or rely on a second database.
  */
-declare module '@deepseek-ai/dsh-session/types' {
-  interface SessionEventMap {
-    'delta-code/repository-binding': {
-      version: 1
-      action: 'attach' | 'detach'
-      id: string
-      path: string
-    }
-  }
-}
-
 export interface RepositoryBinding {
   id: string
   path: string
@@ -24,15 +11,6 @@ interface PendingBinding {
   action: 'attach' | 'detach'
   id: string
 }
-export type SessionRepositoryProjectionView =
-  SessionProjectionSummaryExcluded<readonly RepositoryBinding[]>
-
-declare module '@deepseek-ai/dsh-session-projection/types' {
-  interface SessionProjectionMap {
-    deltaCodeSessionRepositories: SessionRepositoryProjectionView
-  }
-}
-
 export interface SessionRepositoryState {
   bindings: RepositoryBinding[]
   pending: PendingBinding[]

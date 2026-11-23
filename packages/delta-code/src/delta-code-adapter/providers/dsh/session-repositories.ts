@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 import { posix, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import type { CommandDefinition, CommandInvocation, CommandResult } from '@deepseek-ai/dsh-commands'
 import type { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand, resolveInside } from '@fongap-labs/shared'
@@ -15,6 +14,23 @@ import {
   type RepositoryBinding, type SessionRepositoryState,
 } from '../../../delta-code-repository/session-repository-policy.js'
 import type { NativeSessionRepositoryReader } from './session-repository-projection.js'
+
+/** The Host command registry is discovered at runtime; keep client-independent wire types local. */
+interface CommandInvocation {
+  readonly agent: unknown
+  readonly rawInput: string
+  readonly signal: AbortSignal
+}
+type CommandResult =
+  | { readonly kind: 'success'; readonly text?: string; readonly sourceEventSeq?: number }
+  | { readonly kind: 'error'; readonly text: string }
+export interface CommandDefinition {
+  readonly name: string
+  readonly description: string
+  readonly input: { readonly hint: string }
+  readonly recordInput: boolean
+  readonly handler: (invocation: CommandInvocation) => Promise<CommandResult>
+}
 
 type Action = 'attach' | 'detach' | 'list' | 'inspect' | 'search' | 'read'
 type RepositoryAccess = 'read' | 'write'
@@ -330,6 +346,7 @@ export function createSessionRepositoryTool(
       }
       if (action === 'list') return base
       if (action === 'attach') {
+        if (typeof args.path !== 'string') throw new Error('attach requires an exact repository path configured by the user')
         const attached = await attachRepository(ctx, settings, reader, exec.agent, args.path, exec.signal)
         const next = currentState(reader, exec.agent)
         return {
@@ -339,6 +356,7 @@ export function createSessionRepositoryTool(
         }
       }
       if (action === 'detach') {
+        if (typeof args.id !== 'string') throw new Error('expected attached repository ID')
         const detached = detachRepository(reader, exec.agent, args.id)
         const next = currentState(reader, exec.agent)
         return { ...base, repositories: viewBindings(settings, next.bindings), event: 'Detached ' + detached.path + '.' }
