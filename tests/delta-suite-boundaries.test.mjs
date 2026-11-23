@@ -237,3 +237,40 @@ test('today spending remains explicitly unavailable until authenticated platform
   assert.ok(copy.includes('不自动使用余额下降代替消费'))
   assert.ok(copy.includes('鉴权、统计范围及时区验收'))
 })
+
+
+test('installed Delta Suite actually mounts its native presentation compatibility', () => {
+  const client = read(base + 'client.ts')
+  assert.match(client, /const stopLivePresentation = installLiveNativePresentation\(controller, Boolean\(livePortal\)\)/)
+  assert.match(client, /stopLivePresentation\(\)/, 'unload must dispose the adapter')
+  assert.match(client, /document\.documentElement\.setAttribute\('data-delta-ui', 'delta'\)/)
+  assert.match(client, /scope\.slots\.inject\('sidebar\.session\.action'/,
+    'native New Session placement must preserve the Host HOC')
+  assert.match(client, /livePortal\(props\.children, anchor\)/,
+    'do not proxy New Session clicks or copy its action')
+  assert.match(client, /view\.mode === 'delta' && props\.wide && anchor/,
+    'do not alter official theme or collapsed sidebar actions')
+  assert.match(client, /data-dtd-live-logo-row/)
+  assert.match(client, /data-dtd-live-preview/)
+  assert.match(client, /data-dtd-live-hero-fish/)
+  assert.match(client, /getLiveSessionTarget/)
+  assert.match(client, /if \(isDisposed \|\| isSyncing\) return/,
+    'native presentation must not keep writing after disposal')
+  assert.equal((client.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1)
+  assert.doesNotMatch(client, /process\.env\.DSH_CLIENT_VERSION\s*===/,
+    'do not bind UI compatibility to a Harness build version')
+})
+
+test('live presentation preserves native actions and restores all owned changes', () => {
+  const client = read(base + 'client.ts')
+  assert.match(client, /const labelChanges = new Map/)
+  assert.match(client, /const ariaChanges = new Map/)
+  assert.match(client, /labelChanges\.clear\(\)/)
+  assert.match(client, /ariaChanges\.clear\(\)/)
+  assert.match(client, /publishLiveSessionTarget\(null\)/)
+  assert.match(client, /controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
+  assert.match(client, /observer\?\.disconnect\(\)/)
+  assert.match(client, /tag\.remove\(\)/)
+  assert.match(client, /if \(canUsePortal && scheduleRow && nav\)/)
+  assert.match(client, /source instanceof HTMLElement\) mark\(source, 'session-source'\)/)
+})

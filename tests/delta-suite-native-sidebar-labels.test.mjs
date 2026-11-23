@@ -8,7 +8,7 @@ const read = p => readFileSync(fileURLToPath(new URL('../' + p, import.meta.url)
 const source = read('packages/delta-suite/src/client.ts')
 const theme = read('packages/delta-suite/src/theme.css')
 
-test('native sidebar navigation labels and accessibility text are not rewritten', () => {
+test('legacy sidebar navigation rewrites stay removed; new adapter owns its isolated Delta-only labels', () => {
   for (const removed of ['replaceButtonText', 'setButtonLabel', 'mutatedNavButtons']) {
     assert.equal(source.includes(removed), false, 'legacy text mutation remains: ' + removed)
   }
@@ -16,6 +16,9 @@ test('native sidebar navigation labels and accessibility text are not rewritten'
   assert.doesNotMatch(source, /target\.style\.setProperty\('display', 'none', 'important'\)/)
   assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)
   assert.match(source, /function installSidebarCompatibility\(/)
+  assert.match(source, /function installLiveNativePresentation\(/)
+  assert.match(source, /if \(controller\.getSnapshot\(\)\.mode !== 'delta'\) \{ rollback\(\); return \}/)
+  assert.match(source, /scope\.slots\.inject\('sidebar\.session\.action'/)
 })
 
 test('ZIP3 checksum still rejects unreviewed native navigation mutation', () => {

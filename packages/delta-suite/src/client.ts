@@ -359,6 +359,237 @@ function installClientPrivacyGuards(): () => void {
   }
 }
 
+
+/**
+ * Installed-client presentation adapter.
+ * Unlike the optional source-checkout patch, this runs in the loaded plugin.
+ * It confines DOM interaction to recognized native controls and restores every
+ * owned label/marker when Delta mode is disabled or the plugin unmounts.
+ */
+const liveSessionTargetListeners = new Set<() => void>()
+let liveSessionTarget: HTMLElement | null = null
+function publishLiveSessionTarget(next: HTMLElement | null): void {
+  if (liveSessionTarget === next) return
+  liveSessionTarget = next
+  for (const listener of liveSessionTargetListeners) listener()
+}
+function subscribeLiveSessionTarget(listener: () => void): () => void {
+  liveSessionTargetListeners.add(listener)
+  return () => { liveSessionTargetListeners.delete(listener) }
+}
+function getLiveSessionTarget(): HTMLElement | null { return liveSessionTarget }
+
+const LIVE_PRESENTATION_CSS = String.raw`
+:root[data-delta-ui="delta"] [data-dtd-live-brand="1"] { display: none !important; }
+:root[data-delta-ui="delta"][data-windows-titlebar] [data-dtd-live-logo-row="1"] {
+  height: 0 !important; min-height: 0 !important; margin: 0 !important;
+  padding: 0 !important; overflow: visible !important;
+}
+:root[data-delta-ui="delta"]:not([data-windows-titlebar]) [data-dtd-live-logo-row="1"] {
+  height: 28px !important; min-height: 28px !important; padding: 0 !important;
+  overflow: visible !important;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-preview="1"] { display: none !important; }
+:root[data-delta-ui="delta"] [data-dtd-live-hero-title="1"] { order: 0; }
+:root[data-delta-ui="delta"] [data-dtd-live-hero-fish="1"] {
+  order: 1; align-self: center; transform: translateY(2px);
+}
+:root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] {
+  display: flex; align-items: center; width: auto; margin: 0 4px;
+  min-width: 0; min-height: 36px;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] [data-slot="sidebar.session.action"] { display: contents; }
+:root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button {
+  width: 100%; height: 36px; min-height: 36px;
+  display: flex; justify-content: flex-start; align-items: center; padding: 8px 12px;
+  background: transparent; border: 0; border-radius: 12px; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button > span:first-child,
+:root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button > span:first-child > span {
+  justify-content: flex-start; text-align: left;
+}
+:root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button > span[aria-hidden="true"] { display: none; }
+:root[data-delta-ui="delta"] [data-dtd-live-session-target="1"] button:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+:root[data-delta-ui="delta"] [data-dtd-live-session-source="1"] { display: none !important; margin: 0 !important; }
+`
+
+function installLiveNativePresentation(controller: DeltaController, canUsePortal: boolean): () => void {
+  if (typeof document === 'undefined' || !document.body ||
+      typeof document.querySelector !== 'function' ||
+      typeof document.querySelectorAll !== 'function') return () => {}
+  const labelChanges = new Map<HTMLElement, { original: string; current: string }>()
+  const ariaChanges = new Map<HTMLElement, { original: string | null; current: string }>()
+  const marks = new Set<HTMLElement>()
+  let target: HTMLElement | null = null
+  let observer: MutationObserver | undefined
+  let isDisposed = false
+  let isSyncing = false
+  const tag = document.createElement('style')
+  tag.dataset.deltaLivePresentation = ''
+  tag.textContent = LIVE_PRESENTATION_CSS
+  document.head.appendChild(tag)
+
+  const mark = (node: HTMLElement, key: string): void => {
+    const name = 'data-dtd-live-' + key
+    if (node.getAttribute(name) !== '1') node.setAttribute(name, '1')
+    marks.add(node)
+  }
+  const wording: Record<'zh' | 'en', { plugins: string; schedules: string; session: string }> = {
+    zh: { plugins: '插件管理', schedules: '定时任务', session: '开始对话' },
+    en: { plugins: 'Plugin Manager', schedules: 'Scheduled Tasks', session: 'Start Conversation' },
+  }
+  const kind = (value: string): 'plugins' | 'schedules' | 'session' | undefined => {
+    if (['插件', '插件管理', 'Plugins', 'Plugin Manager'].includes(value)) return 'plugins'
+    if (['自动化任务', '定时任务', 'Automation tasks', 'Automation Tasks', 'Scheduled Tasks'].includes(value)) return 'schedules'
+    if (['新会话', '新建会话', '开始对话', 'New session', 'New Session', 'Start Conversation'].includes(value)) return 'session'
+    return undefined
+  }
+  const updateCopy = (node: HTMLElement, text: string): void => {
+    if (node.children.length !== 0 || node.textContent?.trim() === text) return
+    const previous = labelChanges.get(node)
+    if (!previous) labelChanges.set(node, { original: node.textContent ?? '', current: text })
+    else previous.current = text
+    node.textContent = text
+  }
+  const updateAria = (node: HTMLElement, text: string): void => {
+    if (node.getAttribute('aria-label') === text) return
+    const previous = ariaChanges.get(node)
+    if (!previous) ariaChanges.set(node, { original: node.getAttribute('aria-label'), current: text })
+    else previous.current = text
+    node.setAttribute('aria-label', text)
+  }
+  const rollback = (): void => {
+    publishLiveSessionTarget(null)
+    target?.remove()
+    target = null
+    for (const node of marks) for (const attribute of Array.from(node.attributes)) {
+      if (attribute.name.startsWith('data-dtd-live-')) node.removeAttribute(attribute.name)
+    }
+    marks.clear()
+    for (const [node, entry] of labelChanges) {
+      if (node.textContent === entry.current) node.textContent = entry.original
+    }
+    for (const [node, entry] of ariaChanges) {
+      if (node.getAttribute('aria-label') !== entry.current) continue
+      if (entry.original === null) node.removeAttribute('aria-label')
+      else node.setAttribute('aria-label', entry.original)
+    }
+    labelChanges.clear()
+    ariaChanges.clear()
+  }
+  const sync = (): void => {
+    if (isDisposed || isSyncing) return
+    isSyncing = true
+    try {
+      if (controller.getSnapshot().mode !== 'delta') { rollback(); return }
+      const lang = language()
+      const scroll = document.querySelector<HTMLElement>('[data-sidebar-scrollport]')
+      const nav = scroll?.querySelector<HTMLElement>('nav')
+      const sidebar = scroll?.parentElement?.parentElement
+      if (sidebar) {
+        const row = Array.from(sidebar.children).find(node =>
+          node.hasAttribute('data-window-drag') && node.querySelector('[data-sidebar-toggle]'))
+        if (row instanceof HTMLElement) {
+          mark(row, 'logo-row')
+          for (const child of Array.from(row.children)) {
+            if (child instanceof HTMLElement && !child.hasAttribute('data-sidebar-toggle') &&
+                !child.querySelector('[data-sidebar-toggle]')) mark(child, 'brand')
+          }
+        }
+      }
+      let scheduleRow: HTMLElement | undefined
+      if (nav) for (const button of nav.querySelectorAll<HTMLButtonElement>('button[aria-label]')) {
+        const category = kind(button.getAttribute('aria-label')?.trim() ?? '')
+        if (category !== 'plugins' && category !== 'schedules') continue
+        updateAria(button, wording[lang][category])
+        for (const span of button.querySelectorAll<HTMLElement>('span')) {
+          const found = kind(span.textContent?.trim() ?? '')
+          if (found === category) updateCopy(span, wording[lang][category])
+        }
+        if (category === 'schedules') {
+          let row: HTMLElement = button
+          while (row.parentElement && row.parentElement !== nav) row = row.parentElement
+          if (row.parentElement === nav) scheduleRow = row
+        }
+      }
+      if (canUsePortal && scheduleRow && nav) {
+        if (!target || target.parentElement !== nav) {
+          target?.remove()
+          target = document.createElement('div')
+          mark(target, 'session-target')
+        }
+        if (target.previousElementSibling !== scheduleRow) scheduleRow.after(target)
+        publishLiveSessionTarget(target)
+        if (sidebar) {
+          const source = Array.from(sidebar.children).find(node =>
+            node instanceof HTMLElement &&
+            node !== scroll?.parentElement &&
+            !node.hasAttribute('data-window-drag') &&
+            (node.querySelector('button[aria-label="新建会话"], button[aria-label="New session"], button[aria-label="New Session"], button[aria-label="开始对话"], button[aria-label="Start Conversation"]') ||
+             node.hasAttribute('data-dtd-live-session-source')))
+          if (source instanceof HTMLElement) mark(source, 'session-source')
+        }
+      } else if (target) {
+        publishLiveSessionTarget(null)
+        target.remove()
+        target = null
+        for (const node of marks) node.removeAttribute('data-dtd-live-session-source')
+      }
+      if (target) for (const button of target.querySelectorAll<HTMLButtonElement>('button[aria-label]')) {
+        if (kind(button.getAttribute('aria-label')?.trim() ?? '') !== 'session') continue
+        updateAria(button, wording[lang].session)
+        for (const span of button.querySelectorAll<HTMLElement>('span')) {
+          if (kind(span.textContent?.trim() ?? '') === 'session') updateCopy(span, wording[lang].session)
+        }
+      }
+      // Only default blank-session hero; never rewrite custom session headings.
+      for (const title of document.querySelectorAll<HTMLElement>('[data-conversation-scroll] span')) {
+        if (title.children.length || !['探索未至之境', 'Into the Unknown'].includes(title.textContent?.trim() ?? '')) continue
+        const group = title.parentElement
+        const fish = group?.previousElementSibling
+        if (!(group instanceof HTMLElement) || !(fish instanceof HTMLElement) || !fish.querySelector('svg')) continue
+        mark(group, 'hero-title')
+        mark(fish, 'hero-fish')
+        const preview = title.nextElementSibling
+        if (preview instanceof HTMLElement && ['预览版', 'Preview'].includes(preview.textContent?.trim() ?? ''))
+          mark(preview, 'preview')
+      }
+      // Page headings are changed only on a direct, exact match.
+      for (const heading of document.querySelectorAll<HTMLElement>('h1, h2, [role="heading"]')) {
+        if (heading.closest('nav, [role="dialog"]') || heading.children.length) continue
+        const category = kind(heading.textContent?.trim() ?? '')
+        if (category === 'plugins' || category === 'schedules') updateCopy(heading, wording[lang][category])
+      }
+    } finally {
+      isSyncing = false
+      if (typeof observer?.takeRecords === 'function') observer.takeRecords()
+    }
+  }
+  const scheduler = createFrameScheduler(sync)
+  const refresh = (): void => scheduler.schedule()
+  const unsubscribe = controller.subscribe(refresh)
+  observer = typeof MutationObserver === 'function' ? new MutationObserver(records => {
+    if (records.some(record => {
+      const el = record.target.nodeType === 3 ? record.target.parentElement : record.target
+      return !(el instanceof Element) || !el.closest('[data-chat-flow], [data-chat-turn]')
+    })) scheduler.schedule()
+  }) : undefined
+  observer?.observe(document.body, { childList: true, characterData: true, attributes: true, subtree: true,
+    attributeFilter: ['aria-label', 'data-sidebar-scrollport'] })
+  sync()
+  return () => {
+    isDisposed = true
+    scheduler.cancel()
+    observer?.disconnect()
+    unsubscribe()
+    rollback()
+    tag.remove()
+  }
+}
+
 // The release builder replaces both markers with data from locale/*.json and src/theme.css.
 const DICTIONARIES = '__DELTA_SUITE_LOCALES__' as unknown as Record<Language, DeltaCopy>
 const OWNED_CSS = '__DELTA_SUITE_STYLE__'
@@ -4640,6 +4871,13 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    // Optional React portal preserves the Host New Session event handler while
+    // placing the native element under the public sidebar navigation.
+    let livePortal: ((children: unknown, target: Element) => unknown) | undefined
+    try {
+      const dom = require('react-dom') as { createPortal?: (children: unknown, target: Element) => unknown }
+      if (typeof dom?.createPortal === 'function') livePortal = dom.createPortal
+    } catch { /* Host without a React DOM module retains original placement. */ }
     let gatewayDirectories: GatewayModelDirectoriesApi | undefined
     const gatewayDirectoryListeners = new Set<() => void>()
     const subscribeGatewayDirectories = (listener: () => void): (() => void) => {
@@ -6298,6 +6536,7 @@ window.__ModuleLoader__.load({
                 const stopCompat = typeof document.querySelectorAll === 'function' &&
                   typeof document.addEventListener === 'function'
                   ? installSidebarCompatibility(controller) : () => {}
+                const stopLivePresentation = installLiveNativePresentation(controller, Boolean(livePortal))
                 // Host Vision tools remain available; native paste/drop belongs to Harness.
 
                 // Harness owns built-in Slots and Locale services.
@@ -6308,6 +6547,7 @@ window.__ModuleLoader__.load({
                 return () => {
                   observer?.disconnect()
                   stopAppearance()
+                  stopLivePresentation()
                   stopCompat()
                   stopPrivacyGuards()
                   clearDeltaToasts()
@@ -6485,6 +6725,17 @@ window.__ModuleLoader__.load({
               }
               registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
               registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
+
+              if (livePortal) {
+                scope.slots.inject('sidebar.session.action', () => scope.slots.register({
+                  name: 'sidebar.session.action', id: 'delta.live.session-placement', order: 900,
+                }, (props: { children?: unknown; wide?: boolean }) => {
+                  const anchor = React.useSyncExternalStore(subscribeLiveSessionTarget, getLiveSessionTarget)
+                  const view = React.useSyncExternalStore(controller.subscribe, controller.getSnapshot)
+                  return view.mode === 'delta' && props.wide && anchor && livePortal
+                    ? livePortal(props.children, anchor) : props.children
+                }))
+              }
 
               // The published inline trailing Slot renders status without owning
               // native Session rows. If an older Host lacks it, retain native UI.
