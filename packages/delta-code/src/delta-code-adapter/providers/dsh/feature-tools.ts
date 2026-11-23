@@ -6,6 +6,7 @@ import type { DeltaGitHubTransport } from '../../contracts/github.js'
 import { createMultiEditTool } from './multi-edit.js'
 import { createProjectProfileTool } from './profile.js'
 import { createHostProbeTool } from './host-probe.js'
+import { createModernWebGuidanceTool } from './modern-web-guidance.js'
 import { createLspProbeTool } from './lsp.js'
 import { createVerifyTool } from './verify.js'
 import { createVerifySuiteTool } from './verify-suite.js'
@@ -19,7 +20,7 @@ import { createGitHubTools } from './github.js'
 /** DSH-specific factories. The feature modules never import Context or ToolDefinition. */
 export function createDshCodingCoreTools(ctx: Context, settings: Settings): ToolDefinition[] {
   return [createMultiEditTool(ctx, settings), createProjectProfileTool(ctx, settings),
-    createHostProbeTool(ctx)]
+    createHostProbeTool(ctx), createModernWebGuidanceTool()]
 }
 
 export function createDshCodingCommandTools(ctx: Context, settings: Settings): ToolDefinition[] {

@@ -105,7 +105,7 @@ export const WORKFLOW_SKILLS: readonly WorkflowSkill[] = [
       'Run the new test before changing production code; verify it fails for the expected reason. An environment or import failure is not a useful red test.',
       'Make the minimum implementation change to satisfy the test, run it again and record the result; then refactor without expanding scope.',
       'Add boundary, error and backward-compatibility cases that matter for the change. Do not inflate coverage with vacuous assertions.',
-      'Use existing test runner/Host terminal or code_verify for declared Node scripts and project-scoped Rust, Go and Python checks. If execution is unavailable or dependencies are missing, state tests are unrun or failed.',
+      'Use existing test runner/Host terminal or code_verify for declared Node scripts and project-scoped Rust, Go and Python checks. Delta Code execution.allowCommands controls only Delta tools; a code_verify refusal does not authorize switching to a native Host shell. Use native terminal only with its own explicit Host authorization and within the user task scope; never bypass a denied permission. If execution is unavailable or dependencies are missing, report tests as unrun.',
       'Review source and test diffs together. Green focused tests are not a substitute for integration and CI gates.',
     ],
   },

@@ -8,6 +8,7 @@ import { chooseTaskResources, taskResourceGuidance, type TaskResource, type Task
 import { SkillOutcomeFeedback } from '../../../delta-code-strategy/skill-outcome-feedback.js'
 import { verificationEvidenceStatus } from '../../../delta-code-quality/failure-policy.js'
 import { FREE_ONLY_TOOL_GUIDANCE } from '../../../delta-code-strategy/free-skill-policy.js'
+import { shouldSuggestModernWebGuidance } from '../../../delta-code-strategy/modern-web-task-policy.js'
 import type { UserTaskContext } from '../../../delta-code-strategy/intent-contract.js'
 import type { ExecutionStats } from '../../../delta-code-support/execution-stats.js'
 import { hasNativeTodoGateCandidate, type NativeResumeReader } from '../../../delta-code-quality/resume-policy.js'
@@ -58,6 +59,8 @@ export function registerAutomaticCodingRouter(
   const routed = new WeakMap<object, CodingRoute>()
   const specialists = new WeakMap<object, readonly string[]>()
   const externalSkillOptOuts = new WeakSet<object>()
+  const modernWebTasks = new WeakSet<object>()
+  const modernWebAttempts = new WeakSet<object>()
   const resources = new WeakMap<object, readonly TaskResource[]>()
   const quality = new WeakMap<object, SkillOutcomeFeedback>()
   const observedGateSeq = new WeakMap<object, number>()
@@ -86,6 +89,12 @@ export function registerAutomaticCodingRouter(
       if (!settings().autoRoutingEnabled) return
       if (isExternalSkillOptOut(text)) externalSkillOptOuts.add(agent)
       else if (!continuation) externalSkillOptOuts.delete(agent)
+      if (!continuation) {
+        modernWebAttempts.delete(agent)
+        if (!externalSkillOptOuts.has(agent) && shouldSuggestModernWebGuidance(text)) {
+          modernWebTasks.add(agent)
+        } else modernWebTasks.delete(agent)
+      }
       if (next) routed.set(agent, next)
       else routed.delete(agent)
       const needed = chooseTaskResources(text, policy.resourceRules)
@@ -107,7 +116,7 @@ export function registerAutomaticCodingRouter(
     if (typeof unsubscribe === 'function') disposers.push(unsubscribe)
     const clear = runtime.on('agent/disposed', (payload) => {
       const { agent } = payload as UserClaim
-      if (agent) { routed.delete(agent); specialists.delete(agent); externalSkillOptOuts.delete(agent); resources.delete(agent); quality.delete(agent); observedGateSeq.delete(agent); repeatBaseline.delete(agent); repeatNotice.delete(agent); taskContext?.remove(agent) }
+      if (agent) { routed.delete(agent); specialists.delete(agent); externalSkillOptOuts.delete(agent); resources.delete(agent); quality.delete(agent); modernWebTasks.delete(agent); modernWebAttempts.delete(agent); observedGateSeq.delete(agent); repeatBaseline.delete(agent); repeatNotice.delete(agent); taskContext?.remove(agent) }
     })
     if (typeof clear === 'function') disposers.push(clear)
 
@@ -116,6 +125,7 @@ export function registerAutomaticCodingRouter(
       const exec = rawExecution as { agent?: object; name?: string } | undefined
       const outcome = rawOutcome as { isError?: boolean; value?: unknown } | undefined
       if (!exec?.agent || !outcome) return
+      if (exec.name === 'code_modern_web_guidance') modernWebAttempts.add(exec.agent)
       const tracker = quality.get(exec.agent)
       if (!tracker) return
       const value = outcome.value
@@ -187,6 +197,10 @@ export function registerAutomaticCodingRouter(
         const optOutGuidance = skipExternalSkills
           ? ['External GitHub Skills are disabled by the user for this task. Do not discover, recommend or invoke them.']
           : []
+        const modernWebGuidance = !skipExternalSkills &&
+          modernWebTasks.has(context.agent) && !modernWebAttempts.has(context.agent)
+          ? ['For a nontrivial Web UI, CSS or browser API task only: if code_modern_web_guidance is mounted, use action=search with a concise topic and retrieve up to two relevant pinned guide IDs. The search is local; retrieval is read-only and optional. Do not run npx, install packages or forward user code/search text to an external server. If unavailable or blocked, continue without it; do not repeat failed requests.']
+          : []
         if (route === 'code-fast-change') {
           return [
             '# Code Worker: minimal fast change',
@@ -195,6 +209,7 @@ export function registerAutomaticCodingRouter(
             'Locate the actual file or running UI component first. Use narrow Host search; avoid unbounded **/* glob and generated build trees.',
             FREE_ONLY_TOOL_GUIDANCE,
             ...optOutGuidance,
+            ...modernWebGuidance,
             ...repeatGuidance,
             ...(!skipExternalSkills && specialists.get(context.agent)?.length ? [
               'Load approved matching specialist Skill ' + specialists.get(context.agent)!.join(', ') +
@@ -212,6 +227,7 @@ export function registerAutomaticCodingRouter(
           'For substantial work, form one concise intent contract before planning. If code_task_spec is mounted, call it with verbatim userQuotes from current or inherited user messages and inspect quoteEvidence provenance. When code_task_spec reports readyForPlanning=false, reconcile its exact potentialConflicts and/or incomplete Host history before planning or editing. Newer user instructions may supersede earlier ones, but never override Host permissions or mandatory repository checks. Keep acceptance proposed, unknowns explicit and first action bounded. Do not rerun per step. Native Todo is the only task ledger; never invent source facts, permissions or test results.',
           FREE_ONLY_TOOL_GUIDANCE,
           ...optOutGuidance,
+          ...modernWebGuidance,
           ...repeatGuidance,
           ...(route === 'code-feature-delivery' ? [
             'On substantial cross-module work, when DSH native subagents are verified available, arrange one independent read-only diff review without waiting for a user reminder. Do not delegate overlapping file writes or invent subagent availability.',

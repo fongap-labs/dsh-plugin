@@ -39,6 +39,8 @@ describe('Code Worker automatic user-task routing', () => {
   it('selects minimal workflows for coding requests in Chinese and English', () => {
     assert.equal(routeCodingTask('PR #76 CI红叉，定位并修复'), 'code-ci-repair')
     assert.equal(routeCodingTask('Fix CI failure in GitHub Actions'), 'code-ci-repair')
+    assert.equal(routeCodingTask('Fix CSS dialog keyboard focus'), 'code-root-cause-debugging')
+    assert.equal(routeCodingTask('\u4fee\u590d HTML \u5f39\u7a97\u7126\u70b9'), 'code-root-cause-debugging')
     assert.equal(routeCodingTask('修复 Python 程序崩溃的 bug'), 'code-root-cause-debugging')
     assert.equal(routeCodingTask('请审查这个 Rust PR 的代码'), 'code-review-readiness')
     assert.equal(routeCodingTask('设计 API 架构方案'), 'code-writing-plans')
@@ -100,6 +102,27 @@ describe('Code Worker automatic user-task routing', () => {
     assert.equal(routeCodingTask(log + '\n请设计 API 架构方案'), 'code-writing-plans')
     assert.equal(routeCodingTask(log + '\n请修复 GitHub CI 红叉'), 'code-ci-repair')
   })
+  it('suggests pinned web guidance only once for relevant web tasks and honors opt-outs', () => {
+    const f = fixture()
+    try {
+      const agent = {}
+      f.claim(agent, 'Implement React component to fix CSS dialog keyboard focus')
+      assert.match(f.render(agent), /code_modern_web_guidance/)
+      assert.match(f.render(agent), /Do not run npx/)
+      f.emit('tools/result', { agent, name: 'code_modern_web_guidance' },
+        { isError: false, value: { action: 'search', matches: [] } })
+      assert.doesNotMatch(f.render(agent), /use action=search/)
+      f.claim(agent, '继续')
+      assert.doesNotMatch(f.render(agent), /use action=search/)
+      f.claim(agent, 'Fix Rust backend build')
+      assert.doesNotMatch(f.render(agent), /code_modern_web_guidance/)
+      f.claim(agent, 'Fix HTML dialog but do not use GitHub Skills')
+      assert.doesNotMatch(f.render(agent), /code_modern_web_guidance/)
+      f.claim(agent, '\u4fee\u590d React \u7ec4\u4ef6 HTML \u5f39\u7a97\u7126\u70b9')
+      assert.match(f.render(agent), /code_modern_web_guidance/)
+    } finally { f.dispose() }
+  })
+
   it('adds only lightweight guidance to fast changes', () => {
     const f = fixture()
     try {
