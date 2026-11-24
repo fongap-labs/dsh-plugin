@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 新增: Delta Suite 基于 Harness 原生用户消息提供按需任务意图复述；只读风险问题免打扰，尊重用户拒绝与确认指令，不增加模型、权限或持久状态。
+
 - 修复: Delta Code 免费 Skill 候选 PR 创建后的续接提示与 Action Worker 已上线的 CI 事件驱动晋级机制保持一致，禁止 Agent 在中央 CI 等待期间重复手动发起可信目录晋级 PR，并加入回归约束。
 
 - 修复: Delta Suite 清理自建 MCP 凭据编辑器、env/header 读取、配置写入、原生插件菜单覆盖及废弃样式、类型和中英双语文案；MCP 配置恢复 Harness 原生所有权，增加安全边界回归测试。
