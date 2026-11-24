@@ -3,10 +3,10 @@
  */
 function registerClientFeatureGroup(install: (track: (release: unknown) => void) => void): () => void {
   const releases: Array<() => void> = []
-  let disposed = false
+  let isDisposed = false
   const dispose = (): void => {
-    if (disposed) return
-    disposed = true
+    if (isDisposed) return
+    isDisposed = true
     for (let index = releases.length - 1; index >= 0; index--) {
       try { releases[index]() } catch { /* continue releasing sibling registrations */ }
     }
