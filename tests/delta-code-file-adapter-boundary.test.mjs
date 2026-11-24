@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import * as legacy from '../packages/delta-code/lib/runtime.js'
 import * as adapter from '../packages/delta-code/lib/delta-code-adapter/workspace-files.js'
 
@@ -38,11 +38,16 @@ describe('Delta Code file adapter boundary', () => {
 describe('Delta Code internal file port routing', () => {
   it('compiled DSH adapters no longer obtain file authority through runtime facades', () => {
     const base = new URL('../packages/delta-code/lib/delta-code-adapter/providers/dsh/', import.meta.url)
-    for (const name of ['lsp', 'resume', 'delivery-gate', 'multi-edit', 'profile', 'session-repositories']) {
+    for (const name of ['lsp', 'resume', 'delivery-gate', 'multi-edit', 'profile', 'session-repositories',
+      'git', 'git-sync', 'github', 'verify', 'workspace', 'worktree']) {
       const source = readFileSync(new URL(name + '.js', base), 'utf8')
       assert.match(source, /from ['"]\.\.\/\.\.\/workspace-files\.js['"]/)
+    }
+    const fileAuthority = new RegExp('\\b(?:' + exportedFunctions.join('|') + ')\\b')
+    for (const name of readdirSync(base).filter(file => file.endsWith('.js'))) {
+      const source = readFileSync(new URL(name, base), 'utf8')
       for (const match of source.matchAll(/import\s*\{([^}]*)\}\s*from ['"][^'"]*\/runtime\.js['"]/g)) {
-        assert.doesNotMatch(match[1], /\b(?:resolveRoot|readTextSafe|writeTextSafe|validateWriteTargetSafe)\b/)
+        assert.doesNotMatch(match[1], fileAuthority, name + ' imports file authority through runtime')
       }
     }
   })
