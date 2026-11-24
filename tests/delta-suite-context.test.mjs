@@ -18,7 +18,7 @@ const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusP
 function makeHarness({ draft = 'Please explain the request clearly.', pressure, mainRunning = true,
   compactionStatus, command = async () => ({ matched: true }), persistedStorage = new Map(),
   mcpSnapshot, mcpNamespace = 'mcp-manager', mcpManager, mcpMutate = async () => true, deltaSettingsSnapshot,
-  deltaSettingsMutate = async () => true, credentialsRemote } = {}) {
+  deltaSettingsMutate = async () => true, credentialsRemote, missingAssistantMethod } = {}) {
   let registration
   let nextSessionId = 0
   const components = new Map()
@@ -124,6 +124,10 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     sidebarRightTabs: { register(definition) { tabs.push(definition); return () => {} } },
     sidebarRight: { openResource(address) { opened.push(address) }, closeRightbar() {} },
     slots: slotService,
+  }
+  if (missingAssistantMethod) {
+    const [service, method] = missingAssistantMethod.split('.')
+    delete services[service][method]
   }
   const mcpForm = mcpSnapshot ? {
     getSnapshot() { return mcpSnapshot },
@@ -633,4 +637,19 @@ test('assistant resource validates association and revokes its retained referenc
   assert.equal(app.refCounts.get('assistant-1'), 0)
   assert.equal((await iterator.next()).done, true)
   await assert.rejects(provider.open(address, { signal }).next(), /protected or invalid resource/)
+})
+
+
+test('incomplete public Assistant services do not mount a partial surface or block personalization', () => {
+  for (const missingAssistantMethod of [
+    'sessions.create', 'sessions.retain', 'resources.register',
+    'sidebarRightTabs.register', 'sidebarRight.openResource',
+  ]) {
+    const app = makeHarness({ missingAssistantMethod })
+    assert.equal(app.resources.length, 0, missingAssistantMethod)
+    assert.equal(app.tabs.length, 0, missingAssistantMethod)
+    assert.equal(app.components.has('conversation.input.left:delta.context.assistant-actions'), false, missingAssistantMethod)
+    assert.ok(app.components.has('settings.section:delta.personalization'), missingAssistantMethod)
+    app.effects.reverse().forEach(cleanup => cleanup())
+  }
 })

@@ -86,3 +86,29 @@ test('Host feature access declarations cover every mounted descriptor and its ac
     assert.ok(access.authorization.startsWith('Host '))
   }
 })
+
+
+test('Browser registration requirements match the three declared optional groups', () => {
+  const access = taxonomy.browser_feature_access
+  assert.deepEqual(Object.keys(access).sort(), ['context.assistant-surface', 'discovery.search-palette', 'sessions.context-menus'])
+  const assistant = access['context.assistant-surface']
+  for (const method of assistant.activation_requires) {
+    const pattern = 'typeof capabilities.' + method.split('.').join('?.') + " !== 'function'"
+    assert.ok(client.includes(pattern), 'missing Assistant prerequisite: ' + method)
+  }
+  assert.match(client, /try \{ contextMenus = searchScope\.get\?\.\('contextMenus'\) as typeof contextMenus \}\s*catch/)
+  assert.match(client, /typeof contextMenus\.register === 'function'/)
+  for (const [method, expression] of [
+    ['uiWorkspace.openSession', 'navApi.openSession'],
+    ['uiWorkspace.startSession', 'navApi.startSession'],
+    ['slots.inject', 'searchScope.slots?.inject'],
+    ['slots.register', 'searchScope.slots?.register'],
+  ]) {
+    assert.ok(access['discovery.search-palette'].activation_requires.includes(method))
+    assert.ok(client.includes('typeof ' + expression + " === 'function'"))
+  }
+  for (const definition of Object.values(access)) {
+    assert.ok(taxonomy.owners.some(owner => owner.id === definition.owner))
+    assert.ok(definition.authorization.startsWith('Host '))
+  }
+})

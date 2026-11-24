@@ -183,7 +183,10 @@ test('service-backed Search Palette uses public composer Slot without native sid
     },
   }
   const ctx = {
-    get(name) { return name === 'conversation' ? hostConversation : name === 'uiSession' ? hostUiSession : name === 'workspaces' ? hostWorkspaces : undefined },
+    get(name) {
+      if (name === 'contextMenus') throw new Error('optional contextMenus service unavailable')
+      return name === 'conversation' ? hostConversation : name === 'uiSession' ? hostUiSession : name === 'workspaces' ? hostWorkspaces : undefined
+    },
     theme: { overrideTokens() { return () => {} } },
     layout: { toggleSidebar() {}, selectPanel(id) { actions.push(['panel', id]) } },
     sessions: hostSessions,
