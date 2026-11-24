@@ -5,7 +5,7 @@
 export type TaskIntentMode = 'skip' | 'evaluate' | 'restate' | 'change' | 'wait'
 
 const CONTINUE = /^(?:\u7ee7\u7eed|\u63a5\u7740|\u63a5\u4e0b\u6765|\u518d\u7ee7\u7eed|continue|proceed|go on|keep going)/iu
-const CONTINUE_ONLY = /^(?:\u7ee7\u7eed(?:\u63a8\u8fdb|\u6267\u884c|\u5b8c\u6210|\u5904\u7406|\u4efb\u52a1\u94fe|\u4efb\u52a1|\u4e0b\u53bb|\u505a)?|\u63a5\u7740(?:\u505a|\u6765)?|\u63a5\u4e0b\u6765|\u518d\u7ee7\u7eed|continue|proceed|go on|keep going)[\s,，。.!！]*$/iu
+const CONTINUE_ONLY = /^(?:\u7ee7\u7eed(?:\u63a8\u8fdb(?:\u4efb\u52a1\u94fe)?|\u6267\u884c|\u5b8c\u6210|\u5904\u7406|\u4efb\u52a1\u94fe|\u4efb\u52a1|\u4e0b\u53bb|\u505a)?|\u63a5\u7740(?:\u505a|\u6765)?|\u63a5\u4e0b\u6765|\u518d\u7ee7\u7eed|continue|proceed|go on|keep going)[\s,，。.!！]*$/iu
 const DO_NOT_RESTATE = /(?:\u4e0d\u7528|\u65e0\u9700|\u4e0d\u5fc5|\u4e0d\u8981|\u7981\u6b62)(?:\u518d)?(?:\u590d\u8ff0|\u91cd\u8ff0|\u603b\u7ed3\u6211\u7684\u8981\u6c42)|\b(?:do not|don't|no need to)\s+(?:restate|repeat back|summarize my instructions)\b/iu
 const ASK_RESTATEMENT = /(?:\u8bf7|\u5148|\u5e2e\u6211|\u9700\u8981)(?:\u7b80\u8981)?(?:\u590d\u8ff0|\u91cd\u8ff0)(?:\u4e00\u4e0b|\u6211\u7684|\u6307\u4ee4|\u9700\u6c42|\u4efb\u52a1|\u8981\u6c42|\u7406\u89e3)?|\b(?:restate|repeat back)\s+(?:my|the|this)\s+(?:task|request|instructions|requirements)\b/iu
 const AWAIT_CONFIRMATION = /(?:\u7b49\u6211\u786e\u8ba4|\u5f85\u6211\u786e\u8ba4|\u6211\u786e\u8ba4\u540e|\u786e\u8ba4\u540e\u518d|\u672a\u7ecf\u6211\u786e\u8ba4\u4e0d\u8981)|\b(?:wait for (?:my )?(?:confirmation|approval)|do not proceed until i (?:confirm|approve))\b/iu
