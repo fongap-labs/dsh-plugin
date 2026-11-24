@@ -236,7 +236,8 @@
       "runtime_entry": "packages/delta-suite/lib/client.js",
       "allowed_runtime_imports": [],
       "public_functions": [
-        "registerClientFeatureGroup"
+        "registerClientFeatureGroup",
+        "createClientBindingLifetime"
       ]
     }
   }

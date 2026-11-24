@@ -26,7 +26,7 @@ const { readConfirmedMainSessionId, observeConfirmedMainSession } = vm.runInNewC
 
 test('native session navigation method remains Host-owned', () => {
   assert.doesNotMatch(source, /navApi\.openSession\s*=|const wrappedOpen\s*=/)
-  assert.match(source, /observeConfirmedMainSession\(\s*sessionsApi\.list, id => deltaFeatures\.setActiveSessionId\(id\)/)
+  assert.match(source, /observeConfirmedMainSession\(\s*sessionsApi\.list, id => \{\s*if \(binding\.isCurrent\(\)\) deltaFeatures\.setActiveSessionId\(id\)/)
   assert.match(source, /readConfirmedMainSessionId\(api\.list\)/)
   assert.doesNotMatch(source, /deltaFeatures\.syncLockShieldOverlay\(centerCol\)/)
   assert.doesNotMatch(source, /if \(selectedSid\) deltaFeatures\.setActiveSessionId\(selectedSid\)/,
@@ -114,5 +114,56 @@ test('menu group and service bindings each have a Cordis-owned lifetime', () => 
   assert.match(source, /searchScope\.effect\(\(\) => \{\s*try \{\s*return registerClientFeatureGroup\(track => \{/)
   assert.equal((source.match(/track\(scope\.slots\.register\(\{ name: 'contextMenu\.icon'/g) ?? []).length, 4)
   assert.equal((source.match(/track\(registerMenu\(\{/g) ?? []).length, 4)
-  assert.match(source, /searchScope\.effect\(\(\) => \(\) => \{\s*try \{ deltaFeatures\.setSessionsApi\(undefined\) \}\s*finally \{ deltaFeatures\.setNavigationApi\(undefined\) \}/)
+  assert.match(source, /searchScope\.effect\(\(\) => registerClientFeatureGroup\(track => \{\s*const binding = bindSessionReferences\(/)
+  assert.match(source, /try \{ deltaFeatures\.setSessionsApi\(undefined\) \}\s*finally \{ deltaFeatures\.setNavigationApi\(undefined\) \}/)
+  assert.match(source, /track\(binding\.dispose\)/)
+})
+
+
+const createClientBindingLifetime = vm.runInNewContext(lifecycle + '\ncreateClientBindingLifetime')
+
+test('old Host scope cleanup cannot clear a new binding, even with the same service object', () => {
+  const bind = createClientBindingLifetime()
+  const service = {}
+  let current
+  let clears = 0
+  const mount = () => bind(() => { current = service }, () => { current = undefined; clears++ })
+  const old = mount()
+  const next = mount()
+  assert.equal(old.isCurrent(), false)
+  old.dispose()
+  old.dispose()
+  assert.equal(current, service)
+  assert.equal(next.isCurrent(), true)
+  assert.equal(clears, 0)
+  next.dispose()
+  next.dispose()
+  assert.equal(current, undefined)
+  assert.equal(clears, 1)
+})
+
+test('failed Host binding rolls back only its own generation and preserves original error', () => {
+  const bind = createClientBindingLifetime()
+  let current
+  const prior = bind(() => { current = 'prior' }, () => { current = undefined })
+  assert.throws(() => bind(() => {
+    current = 'partial'
+    throw new Error('binding failed')
+  }, () => { current = undefined; throw new Error('release failed') }), /binding failed/)
+  assert.equal(current, undefined)
+  assert.equal(prior.isCurrent(), false)
+  const next = bind(() => { current = 'next' }, () => { current = undefined })
+  prior.dispose()
+  assert.equal(current, 'next')
+  next.dispose()
+  assert.equal(current, undefined)
+})
+
+test('public workspace membership ignores callbacks retained by a superseded subscription', () => {
+  assert.match(source, /const binding = \+\+workspaceMembershipBinding/)
+  assert.match(source, /workspacesApi === api && binding === workspaceMembershipBinding/)
+  assert.match(source, /workspaceScope\.effect\(\(\) => bindWorkspaceReferences\(/)
+  for (const name of ['bindThemeReference', 'bindLayoutReference', 'bindRightReference']) {
+    assert.ok(source.includes('.effect(() => ' + name + '('))
+  }
 })
