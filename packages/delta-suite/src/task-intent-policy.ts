@@ -11,6 +11,9 @@ const ASK_RESTATEMENT = /(?:\u8bf7|\u5148|\u5e2e\u6211|\u9700\u8981)(?:\u7b80\u8
 const AWAIT_CONFIRMATION = /(?:\u7b49\u6211\u786e\u8ba4|\u5f85\u6211\u786e\u8ba4|\u6211\u786e\u8ba4\u540e|\u786e\u8ba4\u540e\u518d|\u672a\u7ecf\u6211\u786e\u8ba4\u4e0d\u8981)|\b(?:wait for (?:my )?(?:confirmation|approval)|do not proceed until i (?:confirm|approve))\b/iu
 const AMENDMENT = /^(?:\u6539\u4e3a|\u6539\u6210|\u8c03\u6574\u4e3a|\u8865\u5145|\u8fd8\u8981|\u518d\u52a0|\u4e0d\u662f|\u53d6\u6d88\u4e0a\u9762|\u9664\u4e86\u4e0a\u9762|instead\b|change (?:it|that|the)\b|also\b|except\b|revise\b|update (?:the|that)\b)/iu
 const MATERIAL_SCOPE = /(?:\u5168\u9762|\u5b8c\u6574|\u7cfb\u7edf\u6027|\u7aef\u5230\u7aef|\u591a\u9636\u6bb5|\u591a\u90e8\u95e8|\u591a\u4ed3\u5e93|\u5927\u89c4\u6a21|\u6574\u4f53\u91cd\u6784|\u957f\u671f\u89c4\u5212)|\b(?:end.to.end|multi.stage|cross.team|cross.repository|architecture migration|full implementation|comprehensive review)\b/iu
+// A short, read-only explanation of a dangerous operation is not an instruction to perform it.
+const READ_ONLY_RISK_QUESTION = /^(?:please\s+)?(?:explain why|describe why|why (?:is|are|does)|what (?:is|are)|\u8bf7?(?:\u89e3\u91ca|\u8bf4\u660e)(?:\u4e00\u4e0b)?(?:\u4e3a\u4ec0\u4e48|\u4e3a\u4f55)|\u4e3a\u4ec0\u4e48|\u4e3a\u4f55)/iu
+const DESTRUCTIVE_FOLLOW_UP = /(?:\b(?:then|afterwards|also)\s+(?:delete|drop|force[ -]push|purge|reset|rewrite)\b|(?:\u7136\u540e|\u63a5\u7740|\u540c\u65f6|\u968f\u540e).{0,16}(?:\u5220\u9664|\u6e05\u7a7a|\u91cd\u5efa|\u5f3a\u63a8|\u91cd\u5199))/iu
 const MATERIAL_RISK = /(?:\u6c38\u4e45\u5220\u9664|\u5f7b\u5e95\u6e05\u7a7a|\u4e0d\u53ef\u6062\u590d|\u5f3a\u5236\u63a8\u9001|\u5220\u9664\u751f\u4ea7|\u91cd\u5efa\u4e3b\u5206\u652f)|\b(?:irreversible|force.push|drop (?:the )?(?:production )?database|purge (?:all|production)|reset --hard|rewrite (?:git )?history)\b/iu
 const CONSTRAINT = /(?:\u5fc5\u987b|\u4e0d\u5f97|\u7981\u6b62|\u4e0d\u80fd|\u4ec5\u9650|\u8981\u6c42|\u4fdd\u7559|\u540c\u65f6|\u7b26\u5408|\u5f53\u4e14\u4ec5\u5f53)|\b(?:must|shall|never|without|only if|do not|keep|preserve|required)\b/giu
 const DELIVERABLE = /(?:\u62a5\u544a|\u6f14\u793a\u6587\u7a3f|\u57f9\u8bad|\u65b9\u6848|\u9a8c\u6536|\u6d41\u7a0b|\u5b9e\u65bd|\u4e2d\u82f1\u6587|\u4ee3\u7801|\u4fee\u590d|\u6d4b\u8bd5)|\b(?:report|presentation|implementation|migration|acceptance|workflow|testing|code changes|refactor)\b/giu
@@ -32,7 +35,9 @@ export function decideTaskIntentMode(message: string, hasPreviousTask = false): 
   const count = occurrences(bounded, NUMBERED_LINE)
   const constraints = occurrences(bounded, CONSTRAINT)
   const deliverables = occurrences(bounded, DELIVERABLE)
-  if (MATERIAL_RISK.test(bounded) || count >= 3 ||
+  const explanatoryOnly = bounded.length <= 240 && !bounded.includes('\n') &&
+    READ_ONLY_RISK_QUESTION.test(bounded) && !DESTRUCTIVE_FOLLOW_UP.test(bounded)
+  if ((MATERIAL_RISK.test(bounded) && !explanatoryOnly) || count >= 3 ||
     (MATERIAL_SCOPE.test(bounded) && (constraints >= 1 || deliverables >= 1)) ||
     (bounded.length >= 240 && constraints >= 2 && deliverables >= 1) ||
     (bounded.length >= 700 && (constraints >= 1 || deliverables >= 2))) return 'restate'
