@@ -701,7 +701,18 @@ function createClientFeatureManager(): ClientFeatureManager {
       (value.hasPin || (value.lockedSessionIds?.length === 0 && value.lockedWorkspaceIds?.length === 0))
   }
 
-  const beginTotpSetup = async (): Promise<{
+  // Serialize complete state operations, including validation and publication.
+  // The queue does not grant authority or retry failed operations.
+  let hostOperationTail: Promise<void> = Promise.resolve()
+  const serializeHostOperation = <Args extends unknown[], Result>(
+    operation: (...args: Args) => Promise<Result>,
+  ): ((...args: Args) => Promise<Result>) => (...args) => {
+    const result = hostOperationTail.then(() => operation(...args))
+    hostOperationTail = result.then(() => {}, () => {})
+    return result
+  }
+
+  const beginTotpSetup = serializeHostOperation(async (): Promise<{
     ok: boolean
     setupToken?: string
     secret?: string
@@ -722,9 +733,9 @@ function createClientFeatureManager(): ClientFeatureManager {
       secret: String(res.data.secret),
       otpauthUri: String(res.data.otpauthUri),
     }
-  }
+  })
 
-  const confirmTotpSetup = async (
+  const confirmTotpSetup = serializeHostOperation(async (
     sessionId: string,
     setupToken: string,
     code: string,
@@ -751,9 +762,9 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
     notifyDataApis()
     return { ok: true }
-  }
+  })
 
-  const confirmTotpSetupWorkspace = async (
+  const confirmTotpSetupWorkspace = serializeHostOperation(async (
     workspaceId: string,
     setupToken: string,
     code: string,
@@ -780,9 +791,9 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
     notifyDataApis()
     return { ok: true }
-  }
+  })
 
-  const lockSession = async (sessionId: string, _newPin?: string): Promise<{ ok: boolean; error?: string }> => {
+  const lockSession = serializeHostOperation(async (sessionId: string, _newPin?: string): Promise<{ ok: boolean; error?: string }> => {
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
     const res = await postHostJson('/api/delta-suite/session-lock', {
@@ -801,9 +812,9 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
     notifyDataApis()
     return { ok: true }
-  }
+  })
 
-  const lockWorkspace = async (workspaceId: string): Promise<{ ok: boolean; error?: string }> => {
+  const lockWorkspace = serializeHostOperation(async (workspaceId: string): Promise<{ ok: boolean; error?: string }> => {
     if (!canCallHostHttp()) return { ok: false, error: 'LOCK_UNAVAILABLE' }
 
     const res = await postHostJson('/api/delta-suite/session-lock', {
@@ -822,10 +833,10 @@ function createClientFeatureManager(): ClientFeatureManager {
     })
     notifyDataApis()
     return { ok: true }
-  }
+  })
 
 
-  const verifyOrUnlockSession = async (sessionId: string, code: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }> => {
+  const verifyOrUnlockSession = serializeHostOperation(async (sessionId: string, code: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
@@ -851,9 +862,9 @@ function createClientFeatureManager(): ClientFeatureManager {
       publish({ tempUnlockedIds: Object.freeze([...state.tempUnlockedIds, sessionId]) })
     }
     return { ok: true }
-  }
+  })
 
-  const verifyOrUnlockWorkspace = async (workspaceId: string, code: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }> => {
+  const verifyOrUnlockWorkspace = serializeHostOperation(async (workspaceId: string, code: string, isPermanent: boolean): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
@@ -879,9 +890,9 @@ function createClientFeatureManager(): ClientFeatureManager {
       publish({ tempUnlockedWorkspaceIds: Object.freeze([...(state.tempUnlockedWorkspaceIds ?? []), workspaceId]) })
     }
     return { ok: true }
-  }
+  })
 
-  const clearPin = async (code: string): Promise<{ ok: boolean; error?: string }> => {
+  const clearPin = serializeHostOperation(async (code: string): Promise<{ ok: boolean; error?: string }> => {
     const trimmed = code.trim()
     if (state.lockMode !== 'pin' && !/^\d{6}$/.test(trimmed)) {
       return { ok: false, error: 'TOTP_6_DIGITS_REQUIRED' }
@@ -909,7 +920,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     // restored/pending outcome. Never retry it through Client Workspace APIs.
     notifyDataApis()
     return { ok: true }
-  }
+  })
 
   const findWorkspaceCwdForSession = (sessionId: string): string | undefined => {
     const wsItems = readNativeWorkspaceSnapshot?.().items ?? []
@@ -919,7 +930,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     return typeof sess?.cwd === 'string' && sess.cwd.trim() ? sess.cwd : undefined
   }
 
-  const moveSession = async (sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }> => {
+  const moveSession = serializeHostOperation(async (sessionId: string, targetWorkspaceId: string): Promise<{ ok: boolean; error?: string }> => {
     if (state.deletedSessionIds.includes(sessionId)) return { ok: false, error: 'SESSION_DELETED' }
     if (!canCallHostHttp()) return { ok: false, error: 'MOVE_UNAVAILABLE' }
     let targetWs: WorkspaceSnapshot['items'][number] | undefined
@@ -944,7 +955,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     applyHostStatePayload(confirmedState)
     return { ok: true }
-  }
+  })
 
   const refreshSessionsAfterDelete = async (): Promise<void> => {
     // The public refresh operation publishes a Host-owned catalog. Never patch its store.
@@ -953,7 +964,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
   }
 
-  const deleteSession = async (sessionId: string): Promise<{ ok: boolean; error?: string }> => {
+  const deleteSession = serializeHostOperation(async (sessionId: string): Promise<{ ok: boolean; error?: string }> => {
     if (state.lockedSessionIds.includes(sessionId) || isSessionInLockedWorkspace(sessionId)) {
       return { ok: false, error: 'SESSION_LOCKED' }
     }
@@ -976,7 +987,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     }
     await refreshSessionsAfterDelete()
     return { ok: true }
-  }
+  })
 
   const getUngroupedSessionIds = (isIncludingArchived = false): string[] => {
     const wsSnap = readNativeWorkspaceSnapshot?.()
@@ -1000,7 +1011,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     return out
   }
 
-  const deleteUngroupedSessions = async (sessionIds: string[]): Promise<{ ok: boolean; error?: string; deletedIds?: string[] }> => {
+  const deleteUngroupedSessions = serializeHostOperation(async (sessionIds: string[]): Promise<{ ok: boolean; error?: string; deletedIds?: string[] }> => {
     const targets = [...new Set(sessionIds.filter(Boolean))]
     if (targets.length === 0) return { ok: true, deletedIds: [] }
     const eligible = targets.filter(id => !state.lockedSessionIds.includes(id) && !isSessionInLockedWorkspace(id))
@@ -1031,7 +1042,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     return deletedIds.length === targets.length
       ? { ok: true, deletedIds }
       : { ok: false, error: 'PARTIAL_DELETE', deletedIds }
-  }
+  })
 
   const closeDialog = (): void => {
     dialogBackdrop?.remove()
