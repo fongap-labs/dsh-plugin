@@ -301,5 +301,56 @@
       "authorization": "Host operation and existing protection checks"
     }
   },
-  "host_feature_access_scope": "Host composition activation prerequisites only; service and authorization declarations are descriptive and do not grant authority. Security and session installers retain operation-level checks and deferred service injection. Browser features are not yet covered."
+  "host_feature_access_scope": "Host composition activation prerequisites only; service and authorization declarations are descriptive and do not grant authority. Security and session installers retain operation-level checks and deferred service injection. Browser registration groups are separately scoped in browser_feature_access.",
+  "browser_feature_access": {
+    "context.assistant-surface": {
+      "owner": "context",
+      "activation_requires": [
+        "sessions.create",
+        "sessions.retain",
+        "sessions.list.getSnapshot",
+        "resources.register",
+        "sidebarRightTabs.register",
+        "sidebarRight.openResource",
+        "slots.inject",
+        "slots.register",
+        "effect"
+      ],
+      "access": "Host-owned assistant session, resource, prompt and UI contributions",
+      "fallback": "skip-optional-surface",
+      "authorization": "Host session and prompt access plus current content protection"
+    },
+    "sessions.context-menus": {
+      "owner": "sessions",
+      "activation_requires": [
+        "contextMenus.register"
+      ],
+      "inherited_requires": [
+        "sessions.list.getSnapshot",
+        "uiWorkspace",
+        "slots.register",
+        "effect"
+      ],
+      "access": "register public session and workspace menu actions",
+      "fallback": "native-menus-preserved",
+      "authorization": "Host operation and existing protection checks"
+    },
+    "discovery.search-palette": {
+      "owner": "discovery",
+      "activation_requires": [
+        "uiWorkspace.openSession",
+        "uiWorkspace.startSession",
+        "slots.inject",
+        "slots.register"
+      ],
+      "inherited_requires": [
+        "sessions.list.getSnapshot",
+        "effect"
+      ],
+      "access": "read protected search results and request Host navigation",
+      "fallback": "native-search-preserved; independent catalog/protection observer remains bound",
+      "authorization": "Host query, navigation and existing protection checks"
+    }
+  },
+  "browser_feature_access_scope": "Three optional browser registration groups only. Requirements are public method checks at the existing Cordis injection boundary, not permission grants; other Browser features, operation-level checks and legacy search fallback remain governed by their existing code."
 }

@@ -3998,8 +3998,15 @@ window.__ModuleLoader__.load({
               // Harness retains MCP credential configuration, editing and native plugin actions.
               try { scope.inject(['sessions', 'resources', 'sidebarRightTabs', 'sidebarRight'], assistantScope => {
                 const capabilities = assistantScope as ClientContext & AssistantServices
-                if (!capabilities.sessions || !capabilities.resources ||
-                    !capabilities.sidebarRightTabs || !capabilities.sidebarRight) return
+                if (typeof capabilities.sessions?.create !== 'function' ||
+                    typeof capabilities.sessions?.retain !== 'function' ||
+                    typeof capabilities.sessions?.list?.getSnapshot !== 'function' ||
+                    typeof capabilities.resources?.register !== 'function' ||
+                    typeof capabilities.sidebarRightTabs?.register !== 'function' ||
+                    typeof capabilities.sidebarRight?.openResource !== 'function' ||
+                    typeof capabilities.slots?.inject !== 'function' ||
+                    typeof capabilities.slots?.register !== 'function' ||
+                    typeof capabilities.effect !== 'function') return
                 assistantScope.effect(() => registerAssistantSurface(capabilities),
                   'delta-suite: context assistant and compaction activity')
               }) } catch { /* optional context services do not block the ZIP UI */ }
@@ -4092,7 +4099,7 @@ window.__ModuleLoader__.load({
                 }), 'delta-suite: session and navigation service lifetime')
 
                 // Register Move, PIN Lock, Delete actions natively in DSH contextMenus when supported
-                const contextMenus = searchScope.get?.('contextMenus') as {
+                let contextMenus: {
                   register?: (spec: {
                     id: string
                     target: 'session' | 'workspace'
@@ -4101,6 +4108,8 @@ window.__ModuleLoader__.load({
                     resolve: (t: any) => unknown[]
                   }) => () => void
                 } | undefined
+                try { contextMenus = searchScope.get?.('contextMenus') as typeof contextMenus }
+                catch { /* optional menu service must not prevent Search registration */ }
                 if (contextMenus && typeof contextMenus.register === 'function') {
                   try {
                     const iconMov = () => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
@@ -4207,10 +4216,16 @@ window.__ModuleLoader__.load({
                   } catch {}
                 }
 
-                searchScope.effect(() => {
-                  try { return installHostSearch(controller, sessionsApi, navApi, searchScope, React) }
-                  catch { /* optional search installation must not own Host references */ }
-                }, 'delta-suite: public-slot service-backed search palette')
+                // A usable navigation port is required by the palette, not by the
+                // independent catalog/protection observer. Keep the latter bound.
+                if (typeof navApi.openSession === 'function' && typeof navApi.startSession === 'function' &&
+                    typeof searchScope.slots?.inject === 'function' &&
+                    typeof searchScope.slots?.register === 'function') {
+                  searchScope.effect(() => {
+                    try { return installHostSearch(controller, sessionsApi, navApi, searchScope, React) }
+                    catch { /* optional search installation must not own Host references */ }
+                  }, 'delta-suite: public-slot service-backed search palette')
+                }
               })
 
               scope.inject(['theme'], themeScope => {

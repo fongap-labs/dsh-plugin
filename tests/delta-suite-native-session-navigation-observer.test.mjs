@@ -25,7 +25,11 @@ const { readConfirmedMainSessionId, observeConfirmedMainSession } = vm.runInNewC
 )
 
 test('native session navigation method remains Host-owned', () => {
-  assert.doesNotMatch(source, /navApi\.openSession\s*=|const wrappedOpen\s*=/)
+  // Reject assignment, not the public capability check using strict equality.
+  const nativeNavigationAssignment = /navApi\.openSession\s*=(?!=)|const wrappedOpen\s*=/
+  assert.match('navApi.openSession = wrapped', nativeNavigationAssignment)
+  assert.doesNotMatch("typeof navApi.openSession === 'function'", nativeNavigationAssignment)
+  assert.doesNotMatch(source, nativeNavigationAssignment)
   assert.match(source, /observeConfirmedMainSession\(\s*sessionsApi\.list, id => \{\s*if \(binding\.isCurrent\(\)\) deltaFeatures\.setActiveSessionId\(id\)/)
   assert.match(source, /readConfirmedMainSessionId\(api\.list\)/)
   assert.doesNotMatch(source, /deltaFeatures\.syncLockShieldOverlay\(centerCol\)/)
