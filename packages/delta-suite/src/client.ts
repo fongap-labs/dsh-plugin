@@ -542,6 +542,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   let sessionsApi: SearchSessionsApi | undefined
   let navigationApi: SearchNavigationApi | undefined
   let hasSyncedStateFromHost = false
+  let hostStateConfirmation = 0
   let refreshInFlight: Promise<void> | undefined
   let lastRefreshAttemptAt = 0
   let dialogBackdrop: HTMLElement | undefined
@@ -604,6 +605,9 @@ function createClientFeatureManager(): ClientFeatureManager {
       if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
       return
     }
+    // A confirmed mutation or refresh supersedes any older in-flight read.
+    hostStateConfirmation += 1
+    hasSyncedStateFromHost = true
     const locked = payload.lockedSessionIds!
     const lockedWorkspaces = Array.isArray(payload.lockedWorkspaceIds) ? payload.lockedWorkspaceIds : []
     const deleted = Array.isArray(payload.deletedSessionIds) ? payload.deletedSessionIds : []
@@ -648,6 +652,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   // Preserve the last confirmed lock membership while revoking authorization.
   // Reset the sync flag so ensureLoaded may retry after transient Host failures.
   const revokeHostConfirmation = (): void => {
+    hostStateConfirmation += 1
     hasSyncedStateFromHost = false
     if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
   }
@@ -656,18 +661,20 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (!canCallHostHttp()) { revokeHostConfirmation(); return }
     if (refreshInFlight) return refreshInFlight
     lastRefreshAttemptAt = Date.now()
+    const confirmation = hostStateConfirmation
+    const isCurrent = (): boolean => confirmation === hostStateConfirmation
     refreshInFlight = (async () => {
       try {
         const response = await fetch('/api/delta-suite/state', { credentials: 'same-origin' })
+        if (!isCurrent()) return
         if (!response.ok) { revokeHostConfirmation(); return }
         const body = await response.json().catch(() => null) as { state?: unknown } | null
+        if (!isCurrent()) return
         if (isConfirmedLockState(body?.state)) {
-          hasSyncedStateFromHost = true
           applyHostStatePayload(body!.state as Parameters<typeof applyHostStatePayload>[0])
         } else revokeHostConfirmation()
-      } catch { revokeHostConfirmation() }
-      finally { refreshInFlight = undefined }
-    })()
+      } catch { if (isCurrent()) revokeHostConfirmation() }
+    })().finally(() => { refreshInFlight = undefined })
     return refreshInFlight
   }
 
