@@ -59,10 +59,10 @@ interface SessionOpsHostContext {
 // through registration must not leave a partially installed API.
 function registerRouteGroup(install: (track: (stop: () => void) => void) => void): () => void {
   const stops: Array<() => void> = []
-  let disposed = false
+  let isDisposed = false
   const cleanup = (): void => {
-    if (disposed) return
-    disposed = true
+    if (isDisposed) return
+    isDisposed = true
     for (let index = stops.length - 1; index >= 0; index--) {
       try { stops[index]() } catch { /* release the remaining routes */ }
     }
@@ -70,7 +70,7 @@ function registerRouteGroup(install: (track: (stop: () => void) => void) => void
   }
   try {
     install(stop => {
-      if (disposed) { stop(); return }
+      if (isDisposed) { stop(); return }
       stops.push(stop)
     })
     return cleanup
