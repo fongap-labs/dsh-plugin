@@ -79,6 +79,11 @@ GitHub 仓库名称固定为 `fongap-labs/plugins`，Delta 和 DeepSeek Harness 
 - **发布门禁**：稳定版在正式 Tag 生效前必须完成 npm 发布及验证；`-beta.N` 只作为 GitHub 预发布，不进入 npm 正式发布分支；版本和证据验证失败时一律保持失败状态。
 - **验收边界**：只能通过中央 CI、只读清单核对和不执行生产发布的预检确认迁移成功，不得通过创建测试版 Release、冒险发布 npm 包或覆盖既有 Tag 来探测链路。
 
-## 8. 中央 CI 通知入口
+## 8. 中央 CI 通知入口与治理边界
 
-本仓库只保留与 Action Worker 模板逐字一致的 `.github/workflows/notify-action-worker.yml`。PR 事件通知中央治理，main push 唤醒 Intake，由中央重新核实默认分支 SHA、安排 CI、主分支写入审计及签名证据；不再并行派发 `run-central-ci-ref`。旧 `ci.yml` 的仓库内手动入口已退役；中央 Intake 自动对账，必要时由维护者在 Action Worker 的 Intake 工作流手动发起对账。通知成功不等于 CI 通过，必须核查同一 main SHA 的 `CI Evidence` 与 `Main Write Guard`。不修改中央 Runner、执行清单、测试、授权或 required check。
+- `.github/workflows/notify-action-worker.yml`：PR 事件通知中央治理，main push 唤醒 Intake。中央重新读取默认分支 SHA，安排 CI 对账、写入审计和后续任务。
+- `.github/workflows/ci.yml`：main push 及维护者手动触发向中央提交 `run-central-ci-ref`。当前中央工程归属规则将两份标准桥均视为必需，禁止单方面删除；不得新增第三份派发入口。
+- 两份桥均须与 Action Worker 对应模板逐字一致，不运行项目测试、不保存中央执行权限。重复请求由中央按仓库及完整 SHA 的并发组和 Intake 签名状态对账处理；不得仅凭通知成功判断 CI 通过。
+- 排查主分支时必须核查同一 SHA 的 `CI Evidence` 和 `Main Write Guard`；PR 以中央 `validate-merge` 为强制门禁。中央允许的重复入口迁移需先建立正式的替换合同与回归测试，再验证真实 main 证据，不在本仓库绕过 `required-workflow-deleted` 检查。
+
+参考 [中央接入规范](https://github.com/fongap-labs/action-worker/blob/main/docs/05_INTEGRATION_GUIDE.md)、[中央工程归属](https://github.com/fongap-labs/action-worker/blob/main/policies/engineering-ownership.json)。
