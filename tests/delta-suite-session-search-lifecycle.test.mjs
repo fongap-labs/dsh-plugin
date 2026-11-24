@@ -162,9 +162,14 @@ test('new protection during an observation suppresses text, title and cache writ
     const pending = state.request('http://localhost/?q=Session')
     await started
     protection = { ...emptyProtection, lockedSessionIds: ['1'] }
-    resolveLease(makeLease(released))
+    let eventReads = 0
+    const lease = makeLease(released)
+    const events = lease.events
+    Object.defineProperty(lease, 'events', { get() { eventReads++; return events } })
+    resolveLease(lease)
     assert.deepEqual((await (await pending).json()).items, [])
     assert.deepEqual(released, ['symbol'])
+    assert.equal(eventReads, 0, 'protection is rechecked before even reading observation events')
     protection = emptyProtection
     assert.equal((await (await state.request()).json()).items.length, 1)
     assert.equal(state.observations, 2, 'no corpus was cached for the protected observation')
@@ -198,5 +203,42 @@ test('a failing exclusion callback cannot leak a matching title or body', async 
     const payload = await (await state.request('http://localhost/?q=Session')).json()
     assert.deepEqual(payload.items, [])
     assert.equal(state.observations, 0)
+  } finally { stop() }
+})
+
+
+test('read-only Host query adapter preserves catalog precedence, workspace scope and legacy lease release', async () => {
+  const released = []
+  const state = harness(async () => ({ events: makeLease([]).events, dispose() { released.push('legacy') } }))
+  const originalGet = state.ctx.get
+  const query = originalGet('sessionQuery')
+  query.listSessions = async () => [{ header: { id: 'primary', title: 'Primary', workspaceId: 'target', updatedAt: 3 } }]
+  let persistenceReads = 0
+  state.ctx.get = name => {
+    if (name === 'sessions') return { list: () => [
+      { id: 'primary', title: 'Duplicate', workspaceId: 'target', updatedAt: 99 },
+      { id: 'live', title: 'Live', workspaceId: 'target', updatedAt: 2 },
+      { id: 'outside', title: 'Outside', workspaceId: 'other', updatedAt: 4 },
+    ] }
+    if (name === 'sessionPersistence') return { list: async () => {
+      persistenceReads++
+      return [{ id: 'fallback', title: 'Fallback', workspaceId: 'target', updatedAt: 1 }]
+    } }
+    return originalGet(name)
+  }
+  const stop = installHostSessionSearch(state.ctx)
+  try {
+    const url = 'http://localhost/?q=needle&workspaceId=target'
+    const first = await (await state.request(url)).json()
+    assert.deepEqual(first.items.map(hit => [hit.sessionId, hit.title]), [['primary', 'Primary'], ['live', 'Live']])
+    assert.equal(persistenceReads, 0)
+    assert.deepEqual(released, ['legacy', 'legacy'])
+    query.listSessions = async () => { throw new Error('not available') }
+    const fallbackGet = state.ctx.get
+    state.ctx.get = name => name === 'sessions' ? undefined : fallbackGet(name)
+    const second = await (await state.request(url)).json()
+    assert.deepEqual(second.items.map(hit => hit.sessionId), ['fallback'])
+    assert.equal(persistenceReads, 1)
+    assert.deepEqual(released, ['legacy', 'legacy', 'legacy'])
   } finally { stop() }
 })

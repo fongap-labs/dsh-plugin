@@ -221,6 +221,14 @@
       "public_functions": [
         "createSearchContentProtection"
       ]
+    },
+    "host_session_query": {
+      "owner": "discovery",
+      "path": "packages/delta-suite/src/delta-suite-adapter/session-query-port.ts",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createHostSessionQueryPort"
+      ]
     }
   }
 }
