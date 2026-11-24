@@ -394,7 +394,11 @@ export function verifyEntries(entries, version, format) {
     !client.includes('__DELTA_SUITE_LOCALES__'), format + ' build markers')
   for (const lang of ['en', 'zh']) {
     const locale = JSON.parse(entries.get('locale/' + lang + '.json').toString())
-    ensure(locale.meta?.title && locale.ui?.newConversation, format + ' locale ' + lang)
+    // Validate active user-facing translations, not retired locale keys.
+    ensure(typeof locale.meta?.title === 'string' && locale.meta.title.trim().length > 0 &&
+      typeof locale.ui?.theme === 'string' && locale.ui.theme.trim().length > 0 &&
+      typeof locale.ui?.unavailable === 'string' && locale.ui.unavailable.trim().length > 0,
+      format + ' locale ' + lang)
     // The beta used for real-client acceptance must carry an actionable,
     // localized fallback rather than implying unsupported Host ownership.
     for (const key of [
