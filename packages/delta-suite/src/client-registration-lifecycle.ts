@@ -25,3 +25,25 @@ function registerClientFeatureGroup(install: (track: (release: unknown) => void)
     throw error
   }
 }
+
+/** Give each public service binding its own generation, even for the same service object. */
+function createClientBindingLifetime() {
+  let generation = 0
+  return (install: () => void, clear: () => void) => {
+    const token = ++generation
+    let isActive = true
+    const isCurrent = (): boolean => isActive && token === generation
+    const dispose = (): void => {
+      if (!isActive) return
+      const shouldClear = isCurrent()
+      isActive = false
+      if (shouldClear) clear()
+    }
+    try { install() }
+    catch (error) {
+      try { dispose() } catch { /* preserve the installation error */ }
+      throw error
+    }
+    return { isCurrent, dispose }
+  }
+}

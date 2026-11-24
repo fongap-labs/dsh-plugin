@@ -559,6 +559,7 @@ function createClientFeatureManager(): ClientFeatureManager {
   }
   let contentProtectionRevision = 0
   let stopNativeContentMembership: (() => void) | undefined
+  let workspaceMembershipBinding = 0
   const invalidateContentProtection = (): void => {
     contentProtectionRevision += 1
     for (const listener of [...contentProtectionListeners]) {
@@ -1621,6 +1622,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     }),
     getWorkspaces: () => readDeltaWorkspaceSnapshot()?.items ?? [],
     setWorkspacesApi: (api, readNative) => {
+      const binding = ++workspaceMembershipBinding
       try { stopNativeContentMembership?.() } catch {}
       stopNativeContentMembership = undefined
       workspacesApi = api
@@ -1628,7 +1630,7 @@ function createClientFeatureManager(): ClientFeatureManager {
       if (api) {
         try {
           stopNativeContentMembership = api.list.subscribe?.(() => {
-            if (workspacesApi === api && state.lockedWorkspaceIds.length > 0) invalidateContentProtection()
+            if (workspacesApi === api && binding === workspaceMembershipBinding && state.lockedWorkspaceIds.length > 0) invalidateContentProtection()
           })
         } catch {}
       }
@@ -3184,6 +3186,8 @@ window.__ModuleLoader__.load({
       return { inject: [], apply() {} }
     }
     const el = React.createElement
+    const bindWorkspaceReferences = createClientBindingLifetime()
+    const bindSessionReferences = createClientBindingLifetime()
     const ASSISTANT_TAB_ID = DELTA_SUITE_OWNER
     const ASSISTANT_TAB_KIND = 'delta-context-assistant'
     const ASSISTANT_PROTOCOL = 'dtdelta'
@@ -3862,6 +3866,9 @@ window.__ModuleLoader__.load({
                 bindLayout(layout: LayoutApi | undefined): void
                 bindSidebarRight(sidebarRight: SidebarRightApi | undefined): void
               }
+              const bindThemeReference = createClientBindingLifetime()
+              const bindLayoutReference = createClientBindingLifetime()
+              const bindRightReference = createClientBindingLifetime()
               scope.effect(() => {
                 const tag = document.createElement('style')
                 tag.dataset.plugin = DELTA_SUITE_OWNER
@@ -4048,35 +4055,41 @@ window.__ModuleLoader__.load({
               // Guard Host workspace mutations, register session move/lock/delete menus, and project durable session changes.
               scope.inject(['workspaces'], workspaceScope => {
                 const workspaces = workspaceScope.workspaces
-                if (!workspaces) return
+                if (!workspaces || typeof workspaces.list?.getSnapshot !== 'function') return
 
                 // Native WorkspaceBrowser and third-party subscribers keep Host ownership.
                 const nativeSnapshot = workspaces.list.getSnapshot
                 const readNative = () => nativeSnapshot.call(workspaces.list)
-                deltaFeatures.setWorkspacesApi(workspaces, readNative)
-                workspaceScope.effect(() => () => deltaFeatures.setWorkspacesApi(undefined),
-                  'delta-suite: workspaces reference')
+                workspaceScope.effect(() => bindWorkspaceReferences(
+                  () => deltaFeatures.setWorkspacesApi(workspaces, readNative),
+                  () => deltaFeatures.setWorkspacesApi(undefined),
+                ).dispose, 'delta-suite: workspaces reference')
 
                 // Host owns native Workspace mutation permissions and UI.
               })
 
               scope.inject(['sessions', 'uiWorkspace'], searchScope => {
-                if (!searchScope.sessions || !searchScope.uiWorkspace) return
+                if (!searchScope.sessions || typeof searchScope.sessions.list?.getSnapshot !== 'function' ||
+                    !searchScope.uiWorkspace) return
                 const sessionsApi = searchScope.sessions
                 const navApi = searchScope.uiWorkspace
 
                 // Native navigation stays intact. Observe confirmed mainView retention
                 // rather than recording the target of a possibly rejected navigation.
                 // Host Session catalogs are authoritative; Delta filters its own UI only.
-                deltaFeatures.setSessionsApi(sessionsApi)
-                deltaFeatures.setNavigationApi(navApi)
-                searchScope.effect(() => () => {
-                  try { deltaFeatures.setSessionsApi(undefined) }
-                  finally { deltaFeatures.setNavigationApi(undefined) }
-                }, 'delta-suite: session and navigation service lifetime')
-                searchScope.effect(() => observeConfirmedMainSession(
-                  sessionsApi.list, id => deltaFeatures.setActiveSessionId(id),
-                ), 'delta-suite: confirmed mainView session observer')
+                searchScope.effect(() => registerClientFeatureGroup(track => {
+                  const binding = bindSessionReferences(() => {
+                    deltaFeatures.setSessionsApi(sessionsApi)
+                    deltaFeatures.setNavigationApi(navApi)
+                  }, () => {
+                    try { deltaFeatures.setSessionsApi(undefined) }
+                    finally { deltaFeatures.setNavigationApi(undefined) }
+                  })
+                  track(binding.dispose)
+                  track(observeConfirmedMainSession(sessionsApi.list, id => {
+                    if (binding.isCurrent()) deltaFeatures.setActiveSessionId(id)
+                  }))
+                }), 'delta-suite: session and navigation service lifetime')
 
                 // Register Move, PIN Lock, Delete actions natively in DSH contextMenus when supported
                 const contextMenus = searchScope.get?.('contextMenus') as {
@@ -4201,20 +4214,23 @@ window.__ModuleLoader__.load({
               })
 
               scope.inject(['theme'], themeScope => {
-                controller.bindTheme(themeScope.theme)
-                themeScope.effect(() => () => controller.bindTheme(undefined),
-                  'delta-suite: theme service lifetime')
+                themeScope.effect(() => bindThemeReference(
+                  () => controller.bindTheme(themeScope.theme),
+                  () => controller.bindTheme(undefined),
+                ).dispose, 'delta-suite: theme service lifetime')
               })
               scope.inject(['layout'], layoutScope => {
-                controller.bindLayout(layoutScope.layout)
-                layoutScope.effect(() => () => controller.bindLayout(undefined),
-                  'delta-suite: layout service lifetime')
+                layoutScope.effect(() => bindLayoutReference(
+                  () => controller.bindLayout(layoutScope.layout),
+                  () => controller.bindLayout(undefined),
+                ).dispose, 'delta-suite: layout service lifetime')
               })
               try {
                 scope.inject(['sidebarRight'], rightScope => {
-                  controller.bindSidebarRight(rightScope.sidebarRight)
-                  rightScope.effect(() => () => controller.bindSidebarRight(undefined),
-                    'delta-suite: right sidebar service lifetime')
+                  rightScope.effect(() => bindRightReference(
+                    () => controller.bindSidebarRight(rightScope.sidebarRight),
+                    () => controller.bindSidebarRight(undefined),
+                  ).dispose, 'delta-suite: right sidebar service lifetime')
                 })
               } catch { /* sidebarRight service is optional */ }
             } catch (error) {
