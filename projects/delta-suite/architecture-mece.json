@@ -191,6 +191,18 @@
       "public_functions": [
         "encodeQrMatrix"
       ]
+    },
+    "session_search_projection": {
+      "owner": "discovery",
+      "path": "packages/delta-suite/src/delta-suite-discovery/session-search-projection.ts",
+      "compatibility_entry": "packages/delta-suite/src/host-search.ts",
+      "allowed_runtime_imports": [
+        "../redact.js"
+      ],
+      "public_functions": [
+        "extractConversationBlocks",
+        "scoreAndExtractSessionHit"
+      ]
     }
   }
 }
