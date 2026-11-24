@@ -194,7 +194,7 @@ async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<
   if (!reader) throw new Error('public GitHub discovery response has no body')
   const chunks: Uint8Array[] = []
   let size = 0
-  let completed = false
+  let isCompleted = false
   const cancel = () => { void reader.cancel().catch(() => {}) }
   signal.addEventListener('abort', cancel, { once: true })
   if (signal.aborted) cancel()
@@ -203,7 +203,7 @@ async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<
       signal.throwIfAborted()
       const part = await reader.read()
       signal.throwIfAborted()
-      if (part.done) { completed = true; break }
+      if (part.done) { isCompleted = true; break }
       size += part.value.byteLength
       if (size > maxBytes) {
         throw new Error('public GitHub discovery response exceeds size budget')
@@ -212,7 +212,7 @@ async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<
     }
   } finally {
     signal.removeEventListener('abort', cancel)
-    if (!completed && !signal.aborted) cancel()
+    if (!isCompleted && !signal.aborted) cancel()
     reader.releaseLock()
   }
   const bytes = new Uint8Array(size)
@@ -255,7 +255,7 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
   const bytes: Uint8Array[] = []
   let total = 0
   let isTruncated = false
-  let completed = false
+  let isCompleted = false
   const cancel = () => { void reader.cancel().catch(() => {}) }
   signal.addEventListener('abort', cancel, { once: true })
   if (signal.aborted) cancel()
@@ -264,7 +264,7 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
       signal.throwIfAborted()
       const next = await reader.read()
       signal.throwIfAborted()
-      if (next.done) { completed = true; break }
+      if (next.done) { isCompleted = true; break }
       const available = MAX_JOB_LOG_BYTES - total
       if (next.value.byteLength > available) {
         if (available > 0) bytes.push(next.value.subarray(0, available))
@@ -277,7 +277,7 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
     }
   } finally {
     signal.removeEventListener('abort', cancel)
-    if (!completed && !signal.aborted) cancel()
+    if (!isCompleted && !signal.aborted) cancel()
     reader.releaseLock()
   }
   const buffer = new Uint8Array(total)
