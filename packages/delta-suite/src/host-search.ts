@@ -8,10 +8,12 @@
  *   before matching or returning snippets.
  */
 import { extractConversationBlocks, scoreAndExtractSessionHit } from './delta-suite-discovery/session-search-projection.js'
-import type { HostSessionSearchHit, SessionTextBlock, SessionSummary, SessionEventLike } from './delta-suite-discovery/session-search-projection.js'
+import type { HostSessionSearchHit, SessionTextBlock, SessionSummary } from './delta-suite-discovery/session-search-projection.js'
 
 export { extractConversationBlocks, scoreAndExtractSessionHit } from './delta-suite-discovery/session-search-projection.js'
 export type { HostSessionSearchHit, SessionTextBlock } from './delta-suite-discovery/session-search-projection.js'
+
+import { createHostSessionQueryPort } from './delta-suite-adapter/session-query-port.js'
 
 export const DELTA_SESSION_SEARCH_PATH = '/api/delta-suite/session-search'
 
@@ -38,26 +40,6 @@ interface CachedCorpus {
 interface SearchHostContext {
   get?(serviceName: string): unknown
   inject?(deps: string[], callback: (scope: any) => void | (() => void)): () => void
-}
-
-interface ObservationLeaseLike {
-  events?: SessionEventLike[]
-  header?: { title?: string; updatedAt?: number; workspaceId?: string }
-  dispose?(): void
-  [key: symbol]: (() => void) | undefined
-}
-
-const SYMBOL_DISPOSE = (Symbol as unknown as { dispose?: symbol }).dispose
-
-function toTimestampMs(raw: unknown): number {
-  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-  if (typeof raw === 'string' && raw.trim()) {
-    const parsed = Date.parse(raw)
-    if (Number.isFinite(parsed)) return parsed
-    const num = Number(raw)
-    if (Number.isFinite(num)) return num
-  }
-  return 0
 }
 
 function readJsonParam(rawUrl: string): { q: string; limit: number; workspaceId?: string } {
@@ -110,6 +92,7 @@ export function installHostSessionSearch(
     registerInvalidator?: (fn: (sessionId: string) => void) => void
   },
 ): () => void {
+  const queryPort = createHostSessionQueryPort(ctx)
   const corpusCache = new Map<string, CachedCorpus>()
   let isDisposed = false
   options?.registerInvalidator?.((sessionId: string) => {
@@ -151,19 +134,10 @@ export function installHostSessionSearch(
       return cached.blocks
     }
 
-    const sessionQuery = ctx.get?.('sessionQuery') as {
-      observeSession?: (id: string, opts?: { projectionMode?: string }) => Promise<ObservationLeaseLike>
-    } | undefined
-    if (!sessionQuery || typeof sessionQuery.observeSession !== 'function') {
-      return []
-    }
-
-    let lease: ObservationLeaseLike | undefined
-    try {
-      lease = await sessionQuery.observeSession(summary.sessionId, { projectionMode: 'none' })
+    return (await queryPort.withObservation(summary.sessionId, readEvents => {
       // A protection change during observation must not extract or cache text.
       if (isExcluded(summary.sessionId)) return []
-      const blocks = extractConversationBlocks(lease?.events)
+      const blocks = extractConversationBlocks(readEvents())
       if (corpusCache.size >= MAX_CORPUS_ENTRIES) {
         const oldestKey = corpusCache.keys().next().value
         if (oldestKey !== undefined) corpusCache.delete(oldestKey)
@@ -175,97 +149,7 @@ export function installHostSessionSearch(
         blocks,
       })
       return blocks
-    } catch {
-      return []
-    } finally {
-      // SessionQuery's observation lease uses Symbol.dispose; call one disposer only.
-      try {
-        const release = SYMBOL_DISPOSE && lease ? lease[SYMBOL_DISPOSE] : undefined
-        if (typeof release === 'function') release.call(lease)
-        else lease?.dispose?.()
-      } catch {}
-    }
-  }
-
-  const listSummaries = async (workspaceFilter?: string): Promise<SessionSummary[]> => {
-    const byId = new Map<string, SessionSummary>()
-    const sessionQuery = ctx.get?.('sessionQuery') as {
-      listSessions?: () => Promise<Array<{ header?: { id?: string; title?: string; workspaceId?: string; updatedAt?: number; createdAt?: number } }>>
-    } | undefined
-    if (sessionQuery && typeof sessionQuery.listSessions === 'function') {
-      try {
-        const records = await sessionQuery.listSessions()
-        for (const rec of records ?? []) {
-          const h = rec?.header
-          if (!h?.id) continue
-          if (workspaceFilter && h.workspaceId !== workspaceFilter) continue
-          byId.set(h.id, {
-            sessionId: h.id,
-            title: typeof h.title === 'string' && h.title.trim() ? h.title.trim() : h.id,
-            workspaceId: h.workspaceId,
-            updatedAt: toTimestampMs(h.updatedAt ?? h.createdAt),
-          })
-        }
-      } catch {
-        // Fallback below
-      }
-    }
-
-    const sessions = ctx.get?.('sessions') as {
-      list?: () => Array<{
-        id?: string
-        sessionId?: string
-        title?: string
-        workspaceId?: string
-        updatedAt?: number | string
-        header?: { id?: string; title?: string; workspaceId?: string; updatedAt?: number | string }
-      }>
-    } | undefined
-    if (sessions && typeof sessions.list === 'function') {
-      try {
-        for (const s of sessions.list() ?? []) {
-          const id = s.id ?? s.sessionId ?? s.header?.id
-          if (!id) continue
-          const ws = s.workspaceId ?? s.header?.workspaceId
-          if (workspaceFilter && ws !== workspaceFilter) continue
-          if (!byId.has(id)) {
-            const title = s.title ?? s.header?.title ?? id
-            byId.set(id, {
-              sessionId: id,
-              title: typeof title === 'string' && title.trim() ? title.trim() : id,
-              workspaceId: ws,
-              updatedAt: toTimestampMs(s.updatedAt ?? s.header?.updatedAt),
-            })
-          }
-        }
-      } catch {
-        // Ignore unavailable live sessions
-      }
-    }
-
-    const sessionPersistence = ctx.get?.('sessionPersistence') as {
-      list?: () => Promise<Array<{ id?: string; title?: string; workspaceId?: string; updatedAt?: number | string }>>
-    } | undefined
-    if (byId.size === 0 && sessionPersistence && typeof sessionPersistence.list === 'function') {
-      try {
-        for (const item of await sessionPersistence.list()) {
-          if (!item?.id) continue
-          if (workspaceFilter && item.workspaceId !== workspaceFilter) continue
-          byId.set(item.id, {
-            sessionId: item.id,
-            title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : item.id,
-            workspaceId: item.workspaceId,
-            updatedAt: toTimestampMs(item.updatedAt),
-          })
-        }
-      } catch {
-        // Ignore unavailable persistence list
-      }
-    }
-
-    return [...byId.values()]
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .slice(0, MAX_SCAN_SESSIONS)
+    })) ?? []
   }
 
   const executeQuery = async (rawUrl: string): Promise<HostSearchResponsePayload> => {
@@ -283,7 +167,7 @@ export function installHostSessionSearch(
     if (isDisposed) return empty()
     filterCurrent(empty())
     const startMs = Date.now()
-    const summaries = await listSummaries(workspaceId)
+    const summaries = await queryPort.listSummaries(workspaceId, MAX_SCAN_SESSIONS)
     if (isDisposed) return empty()
     const hits: HostSessionSearchHit[] = []
     let isTruncated = false
