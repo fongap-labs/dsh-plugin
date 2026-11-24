@@ -20,6 +20,7 @@
     "src/client-totp-qr.ts",
     "src/client-workspace-projection.ts",
     "src/client-search-protection.ts",
+    "src/client-registration-lifecycle.ts",
     "src/client.ts",
     "src/client-types.d.ts"
   ]
