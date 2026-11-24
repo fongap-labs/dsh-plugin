@@ -19,7 +19,7 @@ describe('Delta Code GitHub Actions raw job log diagnostics', () => {
     try {
       globalThis.fetch = async (url, options) => {
         const uri = String(url)
-        seen.push({ uri, authorization: options.headers?.Authorization, redirect: options.redirect })
+        seen.push({ uri, authorization: options.headers?.Authorization, redirect: options.redirect, credentials: options.credentials, referrerPolicy: options.referrerPolicy })
         if (uri.endsWith('/actions/jobs/42/logs')) {
           return new Response(null, { status: 302,
             headers: { location: 'https://pipelines.actions.githubusercontent.com/job42?sig=abc' } })
@@ -46,6 +46,8 @@ describe('Delta Code GitHub Actions raw job log diagnostics', () => {
       assert.equal(seen[0].redirect, 'manual')
       assert.equal(seen[1].authorization, undefined)
       assert.equal(seen[1].redirect, 'error')
+      assert.equal(seen[1].credentials, 'omit')
+      assert.equal(seen[1].referrerPolicy, 'no-referrer')
     } finally {
       globalThis.fetch = oldFetch
       if (oldToken === undefined) delete process.env[ACCOUNT.tokenEnv]

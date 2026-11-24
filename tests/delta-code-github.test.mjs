@@ -288,3 +288,63 @@ describe('GitHub account configuration and automatic routing', () => {
         .request(input), /service is incomplete/)
     } finally { delete process.env[name] }
   })
+
+
+describe('GitHub transport enforces repository scope before credential access', () => {
+  it('rejects mismatched owners, paths, traversal and unscoped searches without resolving a secret', async () => {
+    const { createGitHubTransport } = await import('../packages/delta-code/lib/delta-code-adapter/providers/github/api.js')
+    let resolved = 0, fetched = 0
+    const transport = createGitHubTransport([{ owner: 'secure', tokenEnv: 'TEST_SCOPE_TOKEN' }], {
+      get: () => ({ resolve: async () => { resolved++; return { value: 'fixture-token' } } }),
+    })
+    const oldFetch = globalThis.fetch
+    try {
+      globalThis.fetch = async () => { fetched++; return new Response('{}') }
+      const input = { repository: 'secure/repo', account: 'secure', method: 'GET',
+        path: '/repos/secure/repo', signal: new AbortController().signal }
+      for (const patch of [
+        { repository: 'other/repo', path: '/repos/other/repo' },
+        { repository: 'secure/..' },
+        { path: '/repos/secure/another' },
+        { path: '/repos/secure/repo2' },
+        { path: '/repos/secure/repo/%2e%2e/another' },
+        { path: '/repos/secure/repo/contents/%2e%2e%2fsecret' },
+        { path: '/user' },
+        { path: '/users/other' },
+        { path: '/users/secure', method: 'POST' },
+        { path: '/search/code?per_page=20&q=' + encodeURIComponent('repo:other/repo filename:SKILL.md test') },
+        { path: '/search/code?per_page=20&q=' + encodeURIComponent('repo:secure/repo filename:SKILL.md test repo:other/repo') },
+        { path: '/search/code?per_page=20&q=' + encodeURIComponent('repo:secure/repo filename:SKILL.md test'), method: 'POST' },
+      ]) await assert.rejects(transport.request({ ...input, ...patch }), /GitHub/)
+      await assert.rejects(transport.jobLogs({ ...input, repository: 'other/repo', jobId: 1 }), /owner/)
+      const aborted = new AbortController()
+      aborted.abort()
+      await assert.rejects(transport.request({ ...input, signal: aborted.signal }))
+      assert.equal(resolved, 0)
+      assert.equal(fetched, 0)
+    } finally { globalThis.fetch = oldFetch }
+  })
+
+  it('preserves repository operations and bounded read-only Skill discovery', async () => {
+    const { createGitHubTransport } = await import('../packages/delta-code/lib/delta-code-adapter/providers/github/api.js')
+    const requests = []
+    const transport = createGitHubTransport([{ owner: 'secure', tokenEnv: 'TEST_SCOPE_TOKEN' }], {
+      get: () => ({ resolve: async () => ({ value: 'fixture-token' }) }),
+    })
+    const oldFetch = globalThis.fetch
+    try {
+      globalThis.fetch = async (url, options) => {
+        requests.push([String(url), options.method])
+        return new Response('{}')
+      }
+      const input = { repository: 'SECURE/Repo', account: 'secure', method: 'GET',
+        signal: new AbortController().signal }
+      const paths = ['/repos/SECURE/Repo', '/repos/secure/repo/contents/dir/file%20name?ref=main',
+        '/users/secure', '/search/code?per_page=20&q=' + encodeURIComponent('repo:SECURE/Repo filename:SKILL.md test skills')]
+      for (const path of paths) await transport.request({ ...input, path })
+      await transport.request({ ...input, method: 'POST', path: '/repos/secure/repo/git/trees', data: { tree: [] } })
+      assert.equal(requests.length, 5)
+      assert.ok(requests.every(([url]) => new URL(url).origin === 'https://api.github.com'))
+    } finally { globalThis.fetch = oldFetch }
+  })
+})

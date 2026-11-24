@@ -2,6 +2,7 @@
 import { GitHubApiFailure, GitHubWriteUncertain } from '../../contracts/github.js'
 import type { DeltaGitHubRequest, DeltaGitHubResponse, DeltaGitHubTransport, DeltaGitHubJobLogsRequest, DeltaGitHubJobLogsResponse } from '../../contracts/github.js'
 import type { GitHubAccountConfig } from '../../../types.js'
+import { isValidGitHubRepository } from '../../../delta-code-repository/github-policy.js'
 
 const API = 'https://api.github.com'
 
@@ -32,7 +33,7 @@ async function credentialForRequest(host: GitHubCredentialHost | undefined, ref:
 async function assertNativeGitHubOwner(
   account: string, repository: string, token: string, signal: AbortSignal,
 ): Promise<void> {
-  if (account !== 'native') return
+  if (account.toLowerCase() !== 'native') return
   let identity: Response
   try {
     identity = await fetch(API + '/user', {
@@ -56,14 +57,61 @@ async function assertNativeGitHubOwner(
   }
 }
 
-async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, host?: GitHubCredentialHost): Promise<DeltaGitHubResponse> {
-  const { repository, account, method, path, data, signal } = input
-  const token = await credentialForRequest(host, tokenEnv, account)
-  await assertNativeGitHubOwner(account, repository, token, signal)
-  const url = API + path
-  if (!url.startsWith(API + '/') || !new URL(url).hostname.endsWith('github.com')) {
+
+/** Validate the selected identity before resolving any raw credential. */
+function assertRepositoryBinding(repository: string, account: string): void {
+  if (typeof repository !== 'string' || !isValidGitHubRepository(repository)) {
+    throw new Error('invalid GitHub repository binding')
+  }
+  const owner = repository.split('/')[0]!.toLowerCase()
+  if (account.toLowerCase() !== 'native' && account.toLowerCase() !== owner) {
+    throw new Error('GitHub credential owner does not match repository owner')
+  }
+}
+
+/** The HTTP boundary accepts repository-scoped API paths and two bounded,
+ * read-only discovery routes. Feature code cannot select a different target. */
+function scopedGitHubApiUrl(repository: string, method: string, path: string): string {
+  if (typeof path !== 'string' || !path.startsWith('/') || /[\\#\x00-\x20\x7f]/.test(path)) {
     throw new Error('invalid GitHub API URL')
   }
+  const endpoint = new URL(API + path)
+  if (endpoint.origin !== API || endpoint.username || endpoint.password || endpoint.hash) {
+    throw new Error('invalid GitHub API URL')
+  }
+  const rawPath = path.split('?')[0]!
+  // Reject traversal even if the WHATWG URL parser already normalized it.
+  let decoded: string
+  try { decoded = decodeURIComponent(rawPath) }
+  catch { throw new Error('invalid GitHub API path encoding') }
+  if (/[\\\x00-\x1f\x7f]/.test(decoded) || decoded.split('/').some(part => part === '.' || part === '..')) {
+    throw new Error('invalid GitHub API path traversal')
+  }
+  const repo = '/repos/' + repository.toLowerCase()
+  const target = endpoint.pathname.toLowerCase()
+  if (target === repo || target.startsWith(repo + '/')) return endpoint.toString()
+  if (method === 'GET') {
+    const ownerPath = '/users/' + repository.split('/')[0]!.toLowerCase()
+    if (target === ownerPath && !endpoint.search) return endpoint.toString()
+    const q = endpoint.searchParams.get('q') ?? ''
+    const prefix = 'repo:' + repository + ' filename:SKILL.md '
+    if (endpoint.pathname === '/search/code' &&
+        endpoint.searchParams.size === 2 && endpoint.searchParams.get('per_page') === '20' &&
+        q.slice(0, prefix.length).toLowerCase() === prefix.toLowerCase() &&
+        /^[\p{L}\p{N}_ .+\-]{2,100}$/u.test(q.slice(prefix.length))) {
+      return endpoint.toString()
+    }
+  }
+  throw new Error('GitHub API path is outside the selected repository scope')
+}
+
+async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, host?: GitHubCredentialHost): Promise<DeltaGitHubResponse> {
+  const { repository, account, method, path, data, signal } = input
+  assertRepositoryBinding(repository, account)
+  const url = scopedGitHubApiUrl(repository, method, path)
+  signal.throwIfAborted()
+  const token = await credentialForRequest(host, tokenEnv, account)
+  await assertNativeGitHubOwner(account, repository, token, signal)
   let response: Response
   try {
     response = await fetch(url, {
@@ -243,6 +291,8 @@ async function requestGitHubJobLogs(
 ): Promise<DeltaGitHubJobLogsResponse> {
   const { repository, account, jobId, signal } = input
   if (!Number.isSafeInteger(jobId) || jobId <= 0) throw new Error('invalid GitHub job ID')
+  assertRepositoryBinding(repository, account)
+  signal.throwIfAborted()
   const token = await credentialForRequest(host, tokenEnv, account)
   await assertNativeGitHubOwner(account, repository, token, signal)
   const path = repository.split('/').map(encodeURIComponent).join('/')
@@ -264,7 +314,7 @@ async function requestGitHubJobLogs(
     if (!location) throw new Error('GitHub Actions log redirect is missing')
     const signedUrl = allowedLogRedirect(location)
     // Never forward GitHub credentials or cookies to the storage endpoint.
-    logResponse = await fetch(signedUrl, { method: 'GET', signal, redirect: 'error' })
+    logResponse = await fetch(signedUrl, { method: 'GET', signal, redirect: 'error', credentials: 'omit', referrerPolicy: 'no-referrer' })
     if (!logResponse.ok) throw new Error('GitHub Actions log download failed with HTTP ' + logResponse.status)
   }
   const bounded = await boundedLogExcerpt(logResponse, signal, token)
