@@ -1,123 +1,20 @@
-# Delta Suite 宿主 DOM 接管清单
+# Delta Suite 宿主界面与操作所有权
 
-> 当前边界以架构治理、安全规范和就绪清单为准；以下记录为分阶段核查证据。 见 [架构治理](ARCHITECTURE_GOVERNANCE.md)。
+本文件是当前边界，不是阶段日志。完整 Issue #333 历史审计见 [固定提交原文](https://github.com/fongap-labs/plugins/blob/ed772aa0cecb0e4d20ed80f88418f49c19e995d6/docs/DELTA_SUITE_DOM_OWNERSHIP.md)，历史缺口以当前源码和就绪状态重新核对。
 
-本清单追踪 Issue #333 的现有兼容路径，并区分**已审计的公开 Slot**与**尚无公开 API 证据的 DOM 操作**。这不是功能已交付清单；功能就绪状态仍由 `projects/delta-suite/feature-readiness.json` 决定。来源为 `packages/delta-suite/src/client.ts` 与现有 Slot 注册；未获证据的 Host API 一律视为不可用。
+| 对象 | 现行所有权 |
+| --- | --- |
+| 侧栏布局、固定导航、账号、原生菜单、默认折叠、原生悬浮卡与全局语言 | Harness 原生组件；无公开契约不重排、不隐藏、不模拟点击 |
+| 品牌、个性设置、模型标签、公开 Session 悬浮/Trailing 插槽 | Suite 在公开 Slot 中贡献自有 UI；不改写宿主私有 DOM |
+| 主题和 Locale | 官方 Theme/Locale Service；主题覆盖可撤销，Suite 自有词典独立 |
+| Search Palette | 公开输入 Slot 与只读会话查询/导航；不替换原生搜索及布局 |
+| 会话锁、墓碑、工作区保护 | Host 权限优先；Suite 安全域统一保护判断，Host 操作域执行已授权调用 |
+| 原生归档与恢复 | 通过公开 Host Service；缺少 Delta 原生归档归属证明不取消归档，客户端不执行补偿写入 |
+| 工作区删除、重命名、全局模型和原生会话执行 | Host 权威；不包装私有方法、不写私有 workspace.json、不接管模型运行时 |
+| 凭据、代理、Vision Bridge | 凭据归宿主；代理与 Vision Bridge 已移除 |
 
-| 接管对象 | 已确认公开接口或缺口 | 当前处理及回退 | 第三方插件影响 | 验收条件 |
-| --- | --- | --- | --- | --- |
-| 工作区首次折叠 | 未确认公开的初始折叠/展开写入接口；私有 `dsh.workspace.view.v5` 不是协议 | **本次退役**私有读取和 `row.click()`；沿用原生展开状态 | 不主动变更其他插件共享的原生列表状态 | 静态回归与 ZIP3 完整性校验；Windows 新装、启停和升级后状态不被 Delta 强改 |
-| 已退役的兼容属性 CSS | `data-delta-compat` 的根节点属性写入已经退役，当前客户端无该属性写入；纯属性选择器无法激活 | **本轮清理**主题内 65 个 `data-delta-compat` 选择器分支，其中 11 条纯死规则；保留 `data-delta-ui="delta"` 生效分支与 Delta 自有样式，不重新引入历史布局标记 | 不依赖旧属性触发宿主菜单、侧栏或导航重排，现行 Delta 自有组件保持样式 | CI 校验源码无属性写入、主题无该属性及实际 ZIP3 样式指纹；Windows 实机启停、升级和第三方插件共存验证 |
-| 宿主原生输入框、预览标题、右栏指南和全局 CSS 令牌 | 公开 Theme API `overrideTokens` 支持经过注册的主题令牌；无公开的原生组件私有类、全局表单覆盖或右栏指南布局 Slot | **本轮移除** `theme.css` 对原生按钮、搜索输入、表单聚焦/悬浮、预览标题/徽章、右栏指南及全局选择/焦点样式的接管；不再注入 `--dsw-*` CSS 变量声明，保留官方 Theme API 令牌和 `.dtd-*` 自有样式 | 宿主原生控件和第三方插件输入、标题及指南恢复自己的 CSS 层叠；Delta 品牌与搜索组件仍由自身渲染 | 单测拒绝恢复任何宿主 `class` 私有选择器、全局 `button/input` 或 CSS 变量写入；中央 Linux/Windows、Security、ZIP/TGZ 产物主题哈希校验；真实 Windows Harness 启停、搜索输入、原生预览和第三方共存待验收 |
-| 侧栏搜索位置与导航顺序 | 已确认 `conversation.input.left` 公开 Slot；原生侧栏搜索定位没有可验证的公开 Slot | **本轮退役** `installHostSearch` 私有 DOM 定位、节点插入和观察；Search Palette 经 `conversation.input.left` 官方入口打开，检索仍使用 `sessions`/`navigation` 服务；原生搜索保持可用 | 保持 Harness 和第三方侧栏控件完整，公开 Slot 缺失时不伪造宿主入口 | 静态和 CI 权限、卸载及搜索回归；Windows 实机原生搜索和插件共存验证 |
-| 新会话按钮镜像 | 未确认公开的原生按钮挂载/触发接口 | **已退役**按钮克隆、合成点击及原生控件隐藏 CSS；沿用 Harness 原生入口 | 不再转发模拟点击，不隐藏原生控件 | 源码和 CSS 回归、ZIP3 完整性验证及 Windows 原生创建会话实测 |
-| 宿主侧栏展开控件和品牌行 | 公开 `sidebar.brand.mark/name` 允许 Delta 声明式贡献品牌内容；原生开关按钮、Logo 行及 Windows 菜单起点没有可证明的布局接管权限 | **本轮退役** Delta 模式下将 `[data-sidebar-*toggle/opener]` 等原生按钮移到屏幕外，以及 `wtg9ga_*` / `SidebarRoot_*` 品牌行的高度归零、隐藏和 `--dsh-windows-menu-start` 私有覆盖；仅保留 Delta 自有 `.dtd-brand-*` Slot 样式 | 原生开关与第三方插槽恢复原有显示、键盘与指针交互；Delta 不再阻断折叠/展开入口 | CI 源码/发行主题指纹及防回退检查；Windows Harness 左右侧栏展开/折叠、品牌展示、设置页和第三方插件共存实测 |
-| 宿主侧栏列表、滚动与渐隐提示 | 未确认可覆写 Harness 原生 `data-sidebar-list-area`、原生会话行、滚动容器和渐隐装饰的公开 Slot；这些属性及私有类名不是布局契约 | **本轮退役**会话行高/hover/时间文字重写、原生工作区列表排序及 flex/overflow 覆写、滚动条和 scrollFade 隐藏、原生伪元素和边框归零；保留 Delta 自有列表/搜索滚动条、受保护会话墓碑与锁屏 CSS | 恢复 Harness 与第三方扩展的原生滚动、渐隐提示、列表几何及键盘导航行为 | DOM、ZIP3 实际主题指纹与发行禁止回退测试；Windows Harness 大量会话/工作区、滚动条、第三方样式和停用恢复验证 |
-| 侧栏分隔条与弹性宽度 | 未确认公开的布局尺寸、分隔条拖动及折叠控件接管接口 | **已退役** `syncElasticLayout`、私有三栏网格/CSS 变量、分隔条捕获事件、伪造边缘折叠按钮和宽度写入；Harness 原生布局和拖动为权威；历史宽度键不再读取也不擅自删除 | 不阻断第三方指针事件、不重写宿主宽度和位置 | 源码/样式和发布哈希回归；Windows 实机验证拖动、折叠、双侧栏共存和禁用恢复 |
-| “未分组”右键操作 | 未确认 Harness 原生未分组行有批量删除菜单的公开扩展接口；私有 `[data-row-key="workspace:"]` 不是权限契约 | **本轮退役**全局右键 capture、阻断原生菜单与 Delta 浮动删除菜单；Host 删除接口及锁定、墓碑数据保持不变；无公开入口时不伪造该 UI | 原生和第三方右键菜单不再被抢占；批量删除 UI 尚未交付 | CI/ZIP3 防回退验证，Windows 实机右键、锁定删除与第三方菜单共存测试 |
-| Host 原生会话授权的工作区成员校验 | 已有公开 `workspace/session-unarchiving` 拒绝事件和 `workspaceRegistry.list()`；未发现对应的公开 `workspace.before-delete` 前置拒绝事件 | **本轮加固** Host Session Ops 在有工作区锁时拒绝重复物理路径、空白工作区或成员 ID，以及无有效目标的持久迁移；Host 逻辑移动在任何锁状态下都拒绝重复路径和异常成员；保留既有权限和删除墓碑数据 | 原生取消归档、受保护内容搜索及删除/移动遇到不可信 Host 快照统一保守拒绝，不通过私有 registry 绕行 | Host 原生事件、搜索过滤、删除/移动和无锁路径的测试，Central CI 和 Windows Harness 实机验收 |
-| 工作区删除保护的快照完整性 | 当前公开工作区列表仅提供读取快照，尚未验证 Host 级 `workspace.before-delete` 拒绝事件；客户端包装不是服务端 ACL | **本轮加固**：原生列表出现重复路径/ID、缺失会话成员、空 ID/路径时拒绝删除及取消归档；存在锁定时，迁移记录指向不存在的目标也拒绝。保留原工作区方法兼容包装与受保护状态，未迁移为正式服务授权 | 避免损坏或过期的宿主工作区数据被当成安全放行证据；兼容适配器仍不能阻止绕过它的其他调用方 | 可执行单元测试验证正常放行、锁定/墓碑拒绝、异常快照 fail-closed；另须 Windows 实机验收和公开 Host 前置事件验证 |
-| 原生弹窗、Tooltip、菜单和 Listbox 样式 | 未找到公开的全局原生弹窗、Tooltip、Listbox 样式接管接口；`role`、私有 `_surface_`/`_list_` 与导航类不是 Delta 扩展 Slot | **本轮退役**针对原生 `role=menu/tooltip/listbox`、原生浮层/Backing/Spinner 和设置导航的背景、圆角、悬浮态、层级与指针行为覆盖；保留 `.dtd-tooltip`、`.dtd-toast`、`.dtd-host-search-results`、`.dtd-host-search-result` 和 `.dtd-spinner` 自有样式 | Harness 和第三方插件浮层恢复原生配色、层级、可访问性与交互规则 | DOM/ZIP3 发行实际 CSS 禁止回退、主题哈希和真实 Windows Harness 多插件菜单/悬浮层验收 |
-| 原生菜单与工作区安全 | `workspaces` 服务用于授权命令；未确认原生菜单 DOM 所有权 | **已退役**原生菜单项删除、布局覆写、危险颜色 `data-danger` / `dtd-menu-danger` 注入及通用分隔线 CSS；保留 `onMenuClickCapture` 锁定操作防护、单工作区删除保护与服务层 ACL；其他隐私 DOM 隐藏后续审计 | Harness 和第三方插件决定菜单危险态和分隔线，Delta 自有删除菜单可自行着色 | CI 验证原生 DOM 不添加危险颜色标记；Windows 权限拒绝、第三方菜单及停用回退实测 |
-| 会话悬浮卡 | 上游 `sidebar.session.row.hover` 为仅在宿主卡片打开时挂载的公开 `list` Slot；不能替换整个原生悬浮卡 | **本轮交付** 通过公开 Slot 显示权限确认后会话的简短 ID 和显式复制按钮；不查询宿主 DOM、不读取工作区绝对路径、不保留/绑定 Session；冷状态、锁定、墓碑、继承锁及官方模式下返回 `null`；复制点击前重验权限与版本 | Harness 继续负责悬浮卡布局、标题、路径、相对时间与运行状态；第三方 Slot 可共存；`session_hover_card_layout` 仍未就绪 | 原生 Slot 生命周期、权限撤销/旧按钮、复制防冒泡和路径排除测试；真实 Windows 插件启停/第三方共存验收仍需执行 |
-| 原生运行状态与设置导航文案 | 未确认公开的原生文案替换能力 | 历次审计已退役状态和部分导航文本 DOM 改写；继续保持原生文案 | 原生与第三方文案不应被覆盖 | 中英文切换及第三方设置栏目正常 |
-| 模态窗口拖动与外观 | 未确认公开的 Harness 原生 Dialog Chrome / 拖动接管 API | **已退役** `syncModalPanel`、`onModalPointerDown`、双击复位、私有 `AnXs9G_*` 选择器和原生遮罩/面板覆写；Harness 保有原生窗口定位及拖动；**本轮同步退役** `syncModalChromeOverlay`、全局 `data-delta-modal-open` 与宿主 `--dsw-specific-sidebar-fill` 弹窗期改写，Delta 自有 `.dtd-dialog-*`/`.dtd-search-*` 遮罩和权限保护保留 | 不向宿主或第三方 Dialog 注册私有拖动监听，停用 Delta 不留下位置变量 | ZIP3 源码/样式回归；Windows 实机打开设置及第三方 Dialog，验证拖动、遮罩、关闭和停用恢复 |
-| 原生会话/工作区锁徽章 | 上游 `deepseek-ai/deepseek-harness@2e39e704` 的 `packages/client/ui-workspace/src/client/contract/slots.ts` 已发布 `sidebar.session.row.trailing`（非交互、内联、16px 槽位）；**工作区行**仍无已验证专用状态槽位 | 原生 DOM 锁徽章及私有类写入保持退役；本次通过公开会话 trailing Slot 按 Host 已确认状态显示 Delta 自有小锁图标，状态切换/停用自动释放；工作区行仍交还原生，真正 ACL 仍由 Host 层执行 | 不改动原生 Session/Workspace 节点结构、菜单、布局、第三方 Slot；公开 Slot 缺失时保持原生 | CI 验证 Slot 生命周期、锁定/解锁、继承工作区锁、墓碑及官方模式；Windows 实机锁定、删除、插件停用、第三方 Slot 共存验收 |
-| 隐私与受保护会话显示 | 服务侧安全授权为权威；DOM 隐藏不是安全边界，且没有公开的原生设置行或未分组容器控制接口 | **本轮退役**原生 Settings 行的文本/私有类名隐藏，以及空“未分组”容器的 DOM 隐藏；原生 UI 由 Harness 管理。继续保留受保护会话、删除墓碑、受限命令和单工作区删除的兼容防护，待独立证明服务层控制后才能迁移 | 不再隐藏原生设置项和第三方设置行；不影响原生分组状态 | CI 防回退、锁定/删除/2FA 权限回归；Windows 设置页、分组、停用恢复和第三方插件实测 |
-| 原生中心列、聊天标题、Composer 与轨迹布局 | 未确认公开的中心布局/Composer 宽度或 Header 几何覆盖 API；私有哈希类和 `--dsh-*` 内部变量不是公开协议 | **本轮退役** `mP3x-q_centerCol`、`an3WzG_*`、`F07MqG_dock`、`eciBTa_*` 和 `Wd4N7W_*` 的 CSS 几何接管与废弃 `--dtd-center-gutter`；保留 Delta 自有锁屏、隐私兼容过滤和设置组件 | Harness 与第三方 Header Slot、Composer 布局和轨迹控件恢复本身的尺寸、顺序、宽度与滚动行为 | ZIP3 实际 emitted CSS 哈希与禁止回退测试；Windows Harness 实机中心列、标题、输入和轨迹验收 |
-| 原生失败回合错误行 | 未确认公开的错误详情布局扩展接口 | **本轮退役**私有类名扫描、折叠属性、点击/键盘切换和对应 CSS；错误内容与详情布局交还 Harness | 不拦截错误行事件，也不隐藏或截断原生错误详情 | 源码所有权回归；Windows 检查错误详情完整显示、点击与键盘交互保持原生 |
-| Vision 粘贴/拖放与识别 | 未确认公开的 Composer/File 插入或上传授权接口；原生输入框内部 DOM 和 React setter 不是协议 | **本轮退役** `installClientVisionBridge`、全局 capture `paste`/`drop`、`execCommand('insertText')`、私有输入选择器与 setter 写入；保留独立的 `installHostVisionOps`、Vision 工具和既有用户配置，不自动提交图片或接管原生输入 | 保持 Harness 及第三方插件的粘贴、拖放、输入法事件原样工作；缺少公开接口时客户端 Vision 仍标记未就绪 | 源码与发行 ZIP/TGZ 防回退测试；Windows 实机粘贴/拖放、启停、跨插件共存与 Host 工具验证 |
-| 品牌、主题、独立设置 | 已确认 `sidebar.brand.mark/name`、Theme API、`settings.section` | 保留官方 Slot/Service 与生命周期 disposer，停用恢复原生 | 按官方优先级共存 | Slot 卸载、主题释放、设置恢复及 Windows 实机验证 |
+Suite 安全判断缺少可信身份、工作区成员或保护状态时不得展示受保护内容、执行未授权修改或伪造成功。停用必须释放自有注册及订阅，不能撤销宿主和其他插件的独立贡献。
 
-## 2026-11-19 保守恢复宿主原生隐藏状态
+新增功能须以公开 API 和生命周期证据为前提，缺失即降级。原生布局等未交付能力以 [feature-readiness.json](../projects/delta-suite/feature-readiness.json) 为准。真实 Windows、不同 Host 版本与第三方共存仍须单独验证。
 
-兼容层仍包含原生 DOM 保护（待官方 Host 操作前置拒绝接口替代），但它不再假设自己拥有原生行的既有可见性。每次 Delta 首次隐藏节点时保存原先的 `hidden` 和 `aria-hidden`；工作区数量切换、墓碑恢复或插件卸载只撤销 Delta 本次持有的标记及受控写入。之前已隐藏的原生菜单与第三方节点保持隐藏；后续第三方改写的 ARIA 状态不会被无条件删除。带有旧标记却不属于本次激活追踪集合的节点，不由 Delta 解除隐藏。
-
-这只缩小临时 DOM 兼容层的所有权边界，**不等于**官方 Host 授权、最终观察器退役或真实 Windows 实机验收完成。仍需上游操作拒绝接口及锁定/墓碑的正式投影能力。
-
-## 2026-11-19 设置页宿主兼容性报告
-
-Delta 自有个性设置页及 `plugins.bundle.config` 的同一设置视图现直接列出四类**未验证具备可用官方扩展接口**的原生功能：侧栏搜索和导航重排、工作区首次折叠、工作区删除业务前置守卫、原生聊天运行文案覆盖。每项显示“原生保留”，同时提供升级正式 Harness 接口和实机重新验证的操作说明。切换到官方主题、英文或中文界面时报告仍可访问，不修改宿主导航、会话、设置与模型控件。
-
-报告是**源码公开 API 审计而非已安装 Host 的运行时能力探测**；不会把 Cordis 已注册的 Delta Slot 误报为 Host 已支持整套原生布局；`projects/delta-suite/feature-readiness.json` 相应布尔值保持 `false`。既有 `DELTA_HOST_CONTRACT_VERSION = 1` 的显式声明协商协议保留，但当前未找到上游可核实的 Host 运行时能力 Manifest，因此不得虚构该服务、直接调用私有 Store 或自动宣布支持。
-
-上游 `deepseek-ai/deepseek-harness` 的 `packages/api/session-controller/src/catalog.ts` 已将模型精确路由的 `reasoning.efforts/defaultEffort` 投影给 ModelCatalog；`packages/client/ui-model-selection/src/client/ModelSelect.tsx` 使用原生 Effort 菜单并区分 `undefined`（提供方默认）与适配器声明的显式 `off`。因此 Delta 当前仅展示原生所有权说明，**不会**复制 Effort 菜单、自动探测 `/v1/models` 或向网关构造未经许可的请求。Gateway 元数据实际流入当前安装 Harness 适配器、默认/显式 Off 传输的端到端验证仍属于 #280，不能据此关闭该 Issue。
-
-## 2026-11-19 原生会话文件操作的所有权约束
-
-在临时宿主 DOM 保护完全退役之前，服务层先收紧高风险副作用：`host-sessions.ts` 接受用户传入的 `sourceCwd` 仅作为 SessionPersistence 定位提示，且只有符合当前会话 ID 别名目录、原生日志文件名模式、真实路径包含于受信任 Sessions 根目录内的文件才能进入物理删除候选。宿主 `listGenerations` 的结果亦必须满足相同归属检查，不能仅凭返回的 `sessionId` 字段删除其他 Session 目录。
-
-`/api/delta-suite/open-folder` 不再是任意路径启动入口：只有宿主公开 `workspaceRegistry.list()` 返回的完整、无重复、稳定清单里存在的精确工作区路径，且路径是规范化的本地绝对目录，才尝试调用系统文件管理器。缺失或不一致的 Host 目录视图保持拒绝，不通过私有 Store、浏览器 DOM 或客户端字符串作为授权依据。
-
-这些改动保障了文件操作的归属边界，但**不是**原生 `workspace/delete` 或 Session 改名等操作的统一业务前置拒绝接口；#333 的残余 DOM 捕获仍需官方权限接口替换和真实 Windows Harness 实机验收，不做纯 Harness A/B 对照。
-
-## 2026-11-19 模型步骤授权由正式 Host 事件执行
-
-宿主上游 `deepseek-ai/deepseek-harness` 的 `packages/api/session-controller/src/archived-session-gate.ts` 已使用公开 Cordis `agent/pre-step` waterfall 阻止被归档会话的模型执行；该事件允许返回 `{ kind: 'reject' }`，并要求只有允许执行时才委托 `next()`。Delta Suite 在其 Host 服务层注册同一正式事件，读取**已持久化**的锁、工作区成员与会话删除墓碑，沿公开 Session header / parentSession 检查子代理来源。锁定或墓碑命中、公开成员清单不可确认、祖先缺失/循环及保护状态读取失败一律拒绝本次模型步骤，不调用下游处理器；明确允许时完整透传 `next()` 的原生决定。停用插件会释放事件注册。
-
-该门禁不依赖 DOM、原生文案、私有 Service 或额外轮询，也不与 Delta 写操作队列互相等待。即便原生 `workspaceRegistry.archiveSession` 因会话已经活动而拒绝，**新的后续模型步骤**仍被阻止；已经开始的模型请求不能被此门禁追回。它不是完整的原生 `session/prompt` 提交前授权，因此现有客户端隐私遮罩、原生删除操作兼容拦截仍保留至官方前置接口验证完成。不能据此声称已退役全部 DOM 防护，也不能以中央 Windows CI 代替真实 Windows Harness 验收。
-
-## 2026-11-19 活跃会话锁定的宿主原生归档与停止
-
-Harness 上游 `packages/workspace/workspace/src/index.ts` 的 `WorkspaceRegistry.archiveSession(sessionId, { stopActivity: true })` 是正式公开的操作：**先完成原生归档持久化**，再通过 `workspace/session-stop` 事件要求 Agent、子代理、任务及日程等各自的宿主所有者停止活动。此前 Delta 调用默认空选项，宿主可以因当前会话仍有运行工作而拒绝归档。Delta 现在对直接会话锁定和 TOTP 初次设置锁定共用 `stopActivity: true`；调用前已完成本地锁状态持久化，宿主归档确认才报告 `archived: true`，锁定流程不会自行改写原生记录。
-
-若宿主缺少归档接口、归档写入失败或返回的归档成员清单无法确认，响应仍保留 `archived: false`，锁状态不会回滚；已发布的 `agent/pre-step` 门禁继续拒绝后续受保护会话的模型步骤。已经发往模型的请求不能仅凭 pre-step 门禁回收，此时原生 `stopActivity` 路径能按宿主语义请求结束运行中的任务。该改动不会安装 Host patch、不接管 Composer DOM、也不替代消息提交前的正式授权检查和 Windows Harness 实机验收。
-
-## 2026-11-19 会话原生文件删除只处理已验证日志
-
-原有 `purgeSessionArtifacts` 虽在 #450 中检查了候选目录归属和真实路径边界，仍会通过递归 `rm` 删除会话目录中的**全部**内容。一个受信任的会话目录也可能包含其他插件的附件、备份、元数据或未来 Harness 新增的文件；这些文件不应因删除当前 Session 的原生日志而被无条件删除。
-
-现在对候选文件再次验证目标 Session 的原始/`session-` 别名目录、`session*.jsonl`（含 `.zst` / `.zstd`）文件名、真实路径根目录包含关系和常规文件类型；只有符合全部条件的日志才能移除。不再对整个 Session 目录进行递归删除，仅在目录已经为空时通过 `rmdir` 收尾。未知 sidecar、子目录、符号链接及其他 Session 日志保留。删除墓碑仍先于物理清理持久化，且启动恢复和批量删除共用这条路径。
-
-这属于数据安全修复，**不代表** Harness 的原生 Session/Workspace 删除授权接口已覆盖或 #333 已完成；真实 Windows Harness 插件启停、升级和第三方共存验收仍未完成。
-
-## 2026-11-19 原生会话归档撤销按创建者归属
-
-原先锁定/解锁流程在看到原生 `archivedSessionIds` 时，无法区分用户此前主动归档与 Delta 锁定时创建的归档，导致“解锁会话”或“解绑二次验证”可能取消**并非 Delta 拥有的原生归档**。新的私有持久化字段 `nativeArchiveOwnedSessionIds` 仅在原生目录确认为未归档、Delta 调用官方 `archiveSession(..., {stopActivity:true})` 成功、且宿主归档成员状态可确认后写入；它不进入客户端公开状态与设置视图。正常解锁或解绑只有看到此持久化归属，才能调用原生 `unarchiveSession` 并在成功后清除归属。删除墓碑同步清理归属记录。
-
-旧状态文件缺少归属证明，采取保守恢复：**解除 Delta 锁，但不主动取消旧的原生归档**；不能由 `lockedSessionIds` 倒推创建权。遇到崩溃、归档状态不可确认或归属记录写入失败，也不会凭猜测解除其他所有者的归档。该修复不改变原生归档服务的创建、停止运行或 Host 工作区接口；它不是会话提交前权限拒绝接口的替代，仍须实机 Windows 验收。
-
-## 2026-11-19 模型步骤祖先链身份完整性
-
-`agent/pre-step` 的官方子代理门禁会通过当前会话的 `parentSession` 从公开 Session 仓库读取父 Header。之前只检查查询是否返回对象，而没有验证返回的 Header `id` 是否对应请求的父会话标识。如果宿主重挂载、缓存错误或测试适配器返回另一条未锁定会话，可能沿错误祖先链继续并误判为可执行。
-
-现在每次父查询后校验 Header 的规范会话身份（允许同一 Session 的原始/`session-` 别名），拒绝不匹配的 Header、非法 ID 和别名形式的递归循环。未取得可信父 Header 或链长度超限时一律在本次模型步骤返回拒绝，不调用 Host `next()`；真实且未受保护的独立父链仍保持官方原始决策。该变更仅完善已经接入的服务层门禁，不能替代消息提交前授权事件，也不允许以此移除剩余原生 DOM 安全兼容保护。
-
-## 2026-11-20 宿主工作区数据写入回归正式 Service 所有权
-
-删除 Session 的旧代码曾直接读取并重写 `DSH_HOME/storages/workspace.json`，同时调用 `workspaceRegistry.headers/sessionPaths/missingSessionPaths/invalidSessionPaths` 等宿主**私有索引**的 `delete()`，以及回退访问私有 `entities` Map。直接文件替换不通过 Harness 的工作区写入队列，可能覆盖并发更新、第三方插件状态或未来宿主存储格式。
-
-现统一通过已验证的 **公开** `WorkspaceRegistry.unpinSession(sessionId)` 和 `WorkspaceEntity.detachSession(sessionId)` 处理每个原始/`session-` 会话别名。宿主负责持久化、序列化和修订索引；Delta 不再编写或覆盖 `workspace.json`，也不触碰私有成员 Map。删除墓碑仍由 Delta 先持久化，再尝试取消活跃会话、清理已验证的原生日志、取消原生置顶并解除可见工作区成员关联。清理时绝不调用 `unarchiveSession`，避免使墓碑中的会话重新显露。
-
-如果官方工作区列表服务尚未加载或失效，删除墓碑与模型执行/内容过滤保护保持生效，注册表解绑等公开服务重新就绪后会通过现有挂载与启动逻辑重放；没有任何向宿主私有存储或内部 Map 回退的隐藏路径。由于 Harness 目前没有经验证的原生工作区删除前置授权及会话完全移除接口，**原生残留归档元数据不能通过私有写入强行清除**；该限制及真实 Windows 客户端验收仍属 #333 未完成范围。
-
-## 2026-11-20 Host Session 标识入口一致性
-
-锁定、二次验证初始化与验证/解锁原先只对传入 Session ID 做字符串裁剪；删除入口也只排除路径分隔符，未拒绝 `__proto__`、`constructor`、`toString` 等原型属性键。模型步骤门禁和逻辑迁移已使用 `isSafeSessionMapKey`，新增 Host API 写入口现统一按此契约拒绝非法 Session ID，**在任何持久状态写入、原生归档或文件清理之前返回 400**。批量删除遇到非法成员会拒绝整个批次，且失败的 2FA 初始化不会消耗待确认配置。工作区 ID/路径不借用 Session ID 约束，以免误拒绝 Harness 允许的完整路径标识。
-
-本修复仅限制非法输入，不改变旧用户本地持久记录、公开 Host 工作区数据或原生 UI。原生删除/重命名前置拦截缺口、未退役的 DOM 隐私兼容层和真实 Windows Harness 验收仍属于 #333，不能由 CI 绿灯推定已完成。
-
-## 2026-11-20 原生归档统一交还 Host
-
-客户端此前在加载锁定状态、Workspace Service 重新注入、锁定成功回调时通过公开 `workspaces.archiveSession()` 再次写入原生归档，在永久解锁和解绑 2FA 后又直接调用 `workspaces.unarchiveSession()`。这种客户端侧补偿无法读取服务端私有 `nativeArchiveOwnedSessionIds` 归属证明，即使 Host 路由已在 #454 收紧归属校验，也可能重复归档或撤销用户、宿主及第三方插件独立创建的归档。
-
-现在移除客户端归档重试、待执行归档映射、解锁/解绑二次撤销及重挂载补偿；由 `installHostSessionOps` 在正式 Host 边界统一处理持久化、原生 `archiveSession({ stopActivity: true })`、归属确认、授权解锁与补偿重放。客户端仅消费 Host 确认的锁定和恢复结果，保留原生 UI/锁定视觉与 `workspace/session-unarchiving` 正式拒绝事件；失败时不自行伪造本地权限成功。回归测试验证刷新、锁定、解锁、解绑和工作区重新注入均不产生客户端原生归档写入。
-
-这是 Session 操作所有权清理，不代表 Harness 已发布通用 `session/prompt` 或 `workspace.before-delete` 钩子；真实 Windows Harness 验收与第三方共存验证仍未完成。
-
-## 2026-11-20 官方 Session 悬浮扩展的公开时间元数据
-
-`sidebar.session.row.hover` 允许插件增加自己的装饰内容，但不允许替换 Harness 原生悬浮卡布局。Suite 只对官方 `sessions.list.getSnapshot().byId` 中与当前 Session ID 严格匹配、且经锁定/工作区保护和删除墓碑检查后仍可见的记录，展示公开 `updatedAt` 最近更新时间。时间无效、疑似秒级的歧义值、服务缺失或快照不可用时直接省略；绝不读取会话目录的路径或打开 Session 的私有字段。中英文标签独立本地化，Host 原生悬浮卡和其他插件的贡献保留。回归覆盖锁定、工作区锁、删除、目录缺失及身份不一致。
-
-后续修复：客户端经 `sessions.list.subscribe` 订阅官方目录，`useSyncExternalStore` 采用单个原始数值选择器（拒绝、允许无时间、允许且有时间），仅所选会话的时间或可见权限改变才需 React 重新渲染。目录从普通工作区变更到已锁工作区，即使更新时间保持不变，也会立即撤销 Delta 自有会话编号与复制功能；陈旧复制回调会重新验证当前目录和锁定权限。宿主目录不可用时安全降级，注入/停用/同一服务重复挂载均正确释放旧订阅并拒绝过期事件，不修改宿主原始列表或其他插件。
-
-这一改动仅补充公开悬浮区域的元数据；#190 要求的原生悬浮卡完整排版、导航重排、默认工作区折叠和运行状态文案覆盖仍需要上游正式接口及 Windows 实机验收，不能把 `feature-readiness.json` 的完整能力置为 `true`。
-
-## 迁移纪律
-
-- 有公开且可验证的 Slot/Provider，先新增隔离的声明式能力与测试，再移除相应 DOM 路径。
-- 无公开接口时保留 Harness 原生，不通过字符串选择器、私有 Store 或合成点击伪装功能实现。
-- 已退役“工作区首次折叠”“新会话按钮镜像”“原生搜索输入代理”“服务搜索私有 DOM 挂载”“私有弹性三栏/分隔条/边缘折叠接管”“原生悬浮卡 DOM/CSS 接管”“宿主原生模态窗口 DOM/拖动接管”及“原生失败回合错误行折叠”；Search Palette 使用 `conversation.input.left` 官方 Slot，但宿主布局、宽度、折叠与拖动仍由 Harness 控制。原生设置行及空“未分组”视觉隐藏、Vision 全局粘贴/拖放和私有输入 setter 接管也已退役，其余隐私 DOM 兼容路径尚待处理，主题中的原生样式覆盖已集中退役，**#333 和 Windows 实机验收仍未完成**。
-- 上游公开接口依据：`deepseek-ai/deepseek-harness@39163dd30f703a79079e2d2446545cff3c453738` 的 `packages/client/ui-sidebar/src/client/contract/slots.ts` 及 `SidebarRoot.tsx`；仅作设计参考，不锁定运行版本。
-- 保留插件单体、官方 UI 所有权、停止/卸载回退与第三方插件兼容性；不添加独立客户端、Host Patch 或 A/B 对照测试。
-- 真实 Windows Harness 安装、升级、停用恢复、第三方插件共存、长会话稳定性需要独立验证；Central Windows CI 不能替代实机验收。
+参见 [架构治理](ARCHITECTURE_GOVERNANCE.md)、[安全边界](SECURITY.md)、[Suite 兼容性](../packages/delta-suite/COMPATIBILITY.md)。
