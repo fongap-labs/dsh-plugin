@@ -154,3 +154,33 @@ describe('Delta Code GitHub Actions raw job log diagnostics', () => {
     }
   })
 })
+
+
+it('aborting a pending log stream rejects partial evidence and releases the reader', async () => {
+  const oldFetch = globalThis.fetch
+  const oldToken = process.env[ACCOUNT.tokenEnv]
+  process.env[ACCOUNT.tokenEnv] = 'test-log-token'
+  const controller = new AbortController()
+  let cancelled = 0, started
+  const pulling = new Promise(resolve => { started = resolve })
+  const stream = new ReadableStream({
+    pull() { started() },
+    cancel() { cancelled++ },
+  })
+  try {
+    globalThis.fetch = async () => new Response(stream)
+    const pending = jobTool().execute({ repository: 'fongap-labs/action-worker', jobId: 50 },
+      { signal: controller.signal })
+    const rejected = assert.rejects(pending, /cancelled by fixture/)
+    await pulling
+    await new Promise(resolve => setImmediate(resolve))
+    controller.abort(new Error('cancelled by fixture'))
+    await rejected
+    assert.equal(cancelled, 1)
+    assert.equal(stream.locked, false)
+  } finally {
+    globalThis.fetch = oldFetch
+    if (oldToken === undefined) delete process.env[ACCOUNT.tokenEnv]
+    else process.env[ACCOUNT.tokenEnv] = oldToken
+  }
+})

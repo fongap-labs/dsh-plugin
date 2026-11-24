@@ -137,7 +137,7 @@ export function createApprovedGitHubSkillProvider(
       const readPinned = async (path: string, sha: string, maximum: number): Promise<string> => {
         const url = 'https://raw.githubusercontent.com/' + approved.owner + '/' + approved.repository +
           '/' + approved.commit + '/' + path
-        const response = await fetcher(url, { signal, redirect: 'error' })
+        const response = await fetcher(url, { signal, redirect: 'error', credentials: 'omit', referrerPolicy: 'no-referrer' })
         signal?.throwIfAborted()
         if (!response.ok) throw new Error('Pinned GitHub Skill could not be loaded: HTTP ' + response.status)
         if (Number(response.headers.get('content-length') ?? '0') > maximum) {

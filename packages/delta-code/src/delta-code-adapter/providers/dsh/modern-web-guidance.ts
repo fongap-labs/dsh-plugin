@@ -46,7 +46,7 @@ export function findModernWebGuides(
 async function readPinnedGuide(fetcher: ModernWebGuidanceFetcher, guide: ModernWebGuide,
   signal: AbortSignal): Promise<string> {
   const url = ROOT + MODERN_WEB_GUIDANCE_REVISION + '/' + guide.path
-  const response = await fetcher(url, { signal, redirect: 'error' })
+  const response = await fetcher(url, { signal, redirect: 'error', credentials: 'omit', referrerPolicy: 'no-referrer' })
   signal.throwIfAborted()
   if (!response.ok) throw new Error('Pinned web guidance unavailable: HTTP ' + response.status)
   if (Number(response.headers.get('content-length') ?? 0) > MAX_BYTES) {
