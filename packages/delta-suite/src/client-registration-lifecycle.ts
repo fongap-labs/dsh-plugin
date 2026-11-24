@@ -1,0 +1,27 @@
+/** Synchronous rollback for a group of public browser registrations.
+ * Cordis owns the group lifetime; this helper owns only returned disposers.
+ */
+function registerClientFeatureGroup(install: (track: (release: unknown) => void) => void): () => void {
+  const releases: Array<() => void> = []
+  let disposed = false
+  const dispose = (): void => {
+    if (disposed) return
+    disposed = true
+    for (let index = releases.length - 1; index >= 0; index--) {
+      try { releases[index]() } catch { /* continue releasing sibling registrations */ }
+    }
+    releases.length = 0
+  }
+  const track = (release: unknown): void => {
+    // Older public Slot APIs may not return a disposer. Their registrations
+    // remain Cordis-owned; do not invent a private removal mechanism.
+    if (typeof release === 'function') releases.push(release as () => void)
+  }
+  try {
+    install(track)
+    return dispose
+  } catch (error) {
+    dispose()
+    throw error
+  }
+}

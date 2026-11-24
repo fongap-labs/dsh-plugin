@@ -32,3 +32,7 @@
 ## 客户端会话投影与保护边界
 
 `src/client-workspace-projection.ts` 由 Sessions 域维护只读工作区快照投影及引用稳定性；`src/client-search-protection.ts` 由 Security 域维护 Suite Search 的只读保护判断，缺失可信成员快照时保持失败关闭。二者不调用 Host 服务、不修改宿主数据；`createClientFeatureManager` 通过显式快照参数调用，保留状态发布、授权请求和 UI 生命周期。浏览器构建仍按同一清单合并为唯一 `lib/client.js`。本阶段不宣称管理器全部拆分完成。
+
+## 客户端功能注册生命周期
+
+`src/client-registration-lifecycle.ts` 由 Shell 域维护同步的公共注册组清理：已获得的释放函数逆序执行，单项释放异常不阻断其他释放，重复停用无副作用。会话菜单及图标使用同一个 Cordis effect；注册失败立即回滚已返回的释放函数。无公开释放函数的旧版 Slot 仍由 Host/Cordis 所有，不使用私有 DOM 或 API 补偿。会话及导航引用的生命周期独立于可选搜索安装，不因搜索释放异常而跳过 Host 引用清理。该辅助函数不是第二个功能注册器，不接管 Cordis 调度。

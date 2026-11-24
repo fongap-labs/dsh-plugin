@@ -4070,6 +4070,10 @@ window.__ModuleLoader__.load({
                 // Host Session catalogs are authoritative; Delta filters its own UI only.
                 deltaFeatures.setSessionsApi(sessionsApi)
                 deltaFeatures.setNavigationApi(navApi)
+                searchScope.effect(() => () => {
+                  try { deltaFeatures.setSessionsApi(undefined) }
+                  finally { deltaFeatures.setNavigationApi(undefined) }
+                }, 'delta-suite: session and navigation service lifetime')
                 searchScope.effect(() => observeConfirmedMainSession(
                   sessionsApi.list, id => deltaFeatures.setActiveSessionId(id),
                 ), 'delta-suite: confirmed mainView session observer')
@@ -4098,106 +4102,101 @@ window.__ModuleLoader__.load({
                       el('path', { d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
                       el('path', { d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' }))
 
-                    const iconStops = [
-                      scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.move', key: 'delta.session.move' }, iconMov),
-                      scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.lock', key: 'delta.session.lock' }, () => iconLock(false)),
-                      scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.unlock', key: 'delta.session.unlock' }, () => iconLock(true)),
-                      scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.delete', key: 'delta.session.delete' }, iconTrash),
-                    ]
-                    const menuStops = [
-                      contextMenus.register({
-                        id: 'session.delta.move',
-                        target: 'session',
-                        order: 400,
-                        resolve: (t) => [{
-                          id: 'delta-move',
-                          label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.moveSession,
-                          icon: { key: 'delta.session.move' },
-                          run: () => deltaFeatures.openMoveDialog(t.sessionId, t.displayTitle),
-                        }],
-                      }),
-                      contextMenus.register({
-                        id: 'session.delta.lock',
-                        target: 'session',
-                        order: 580,
-                        resolve: (t) => {
-                          const locked = deltaFeatures.isLocked(t.sessionId)
-                          const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                          return [{
-                            id: 'delta-lock',
-                            label: locked ? copy.sessionMenu.unlockSession : copy.sessionMenu.lockSession,
-                            icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
-                            afterContent: true,
-                            run: () => {
-                              if (locked) {
-                                deltaFeatures.openUnlockPinDialog(t.sessionId)
-                              } else if (deltaFeatures.getSnapshot().hasPin) {
-                                void deltaFeatures.lockSession(t.sessionId).then(res => {
-                                  if (res.ok) showDeltaToast(copy.sessionMenu.lockedToast)
-                                })
-                              } else {
-                                deltaFeatures.openSetPinDialog(t.sessionId, t.displayTitle)
-                              }
+                    const registerMenu = contextMenus.register.bind(contextMenus)
+                    searchScope.effect(() => {
+                      try {
+                        return registerClientFeatureGroup(track => {
+                          track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.move', key: 'delta.session.move' }, iconMov))
+                          track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.lock', key: 'delta.session.lock' }, () => iconLock(false)))
+                          track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.unlock', key: 'delta.session.unlock' }, () => iconLock(true)))
+                          track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.delete', key: 'delta.session.delete' }, iconTrash))
+                          track(registerMenu({
+                            id: 'session.delta.move',
+                            target: 'session',
+                            order: 400,
+                            resolve: (t) => [{
+                              id: 'delta-move',
+                              label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.moveSession,
+                              icon: { key: 'delta.session.move' },
+                              run: () => deltaFeatures.openMoveDialog(t.sessionId, t.displayTitle),
+                            }],
+                          }))
+                          track(registerMenu({
+                            id: 'session.delta.lock',
+                            target: 'session',
+                            order: 580,
+                            resolve: (t) => {
+                              const locked = deltaFeatures.isLocked(t.sessionId)
+                              const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+                              return [{
+                                id: 'delta-lock',
+                                label: locked ? copy.sessionMenu.unlockSession : copy.sessionMenu.lockSession,
+                                icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
+                                afterContent: true,
+                                run: () => {
+                                  if (locked) {
+                                    deltaFeatures.openUnlockPinDialog(t.sessionId)
+                                  } else if (deltaFeatures.getSnapshot().hasPin) {
+                                    void deltaFeatures.lockSession(t.sessionId).then(res => {
+                                      if (res.ok) showDeltaToast(copy.sessionMenu.lockedToast)
+                                    })
+                                  } else {
+                                    deltaFeatures.openSetPinDialog(t.sessionId, t.displayTitle)
+                                  }
+                                },
+                              }]
                             },
-                          }]
-                        },
-                      }),
-                      contextMenus.register({
-                        id: 'session.delta.delete',
-                        target: 'session',
-                        order: 650,
-                        resolve: (t) => [{
-                          id: 'delta-delete',
-                          label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.deleteSession,
-                          icon: { key: 'delta.session.delete' },
-                          danger: true,
-                          separatorBefore: true,
-                          afterContent: true,
-                          run: () => deltaFeatures.openDeleteDialog(t.sessionId, t.displayTitle),
-                        }],
-                      }),
-                      contextMenus.register({
-                        id: 'workspace.delta.lock',
-                        target: 'workspace',
-                        order: 250,
-                        resolve: (t: any) => {
-                          const wsId = t?.workspaceId ?? t?.id ?? ''
-                          const wsPath = t?.path ?? ''
-                          const locked = deltaFeatures.isWorkspaceLocked(wsId || wsPath)
-                          const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                          return [{
-                            id: 'delta-workspace-lock',
-                            label: locked ? copy.workspaceMenu.unlockWorkspace : copy.workspaceMenu.lockWorkspace,
-                            icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
-                            run: () => {
-                              if (locked) {
-                                deltaFeatures.openUnlockWorkspaceDialog(wsId || wsPath)
-                              } else if (deltaFeatures.getSnapshot().hasPin) {
-                                void deltaFeatures.lockWorkspace(wsId || wsPath).then(res => {
-                                  if (res.ok) showDeltaToast(copy.workspaceMenu.lockedToast)
-                                })
-                              } else {
-                                deltaFeatures.openSetPinWorkspaceDialog(wsId || wsPath, t?.displayTitle ?? t?.title)
-                              }
+                          }))
+                          track(registerMenu({
+                            id: 'session.delta.delete',
+                            target: 'session',
+                            order: 650,
+                            resolve: (t) => [{
+                              id: 'delta-delete',
+                              label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.deleteSession,
+                              icon: { key: 'delta.session.delete' },
+                              danger: true,
+                              separatorBefore: true,
+                              afterContent: true,
+                              run: () => deltaFeatures.openDeleteDialog(t.sessionId, t.displayTitle),
+                            }],
+                          }))
+                          track(registerMenu({
+                            id: 'workspace.delta.lock',
+                            target: 'workspace',
+                            order: 250,
+                            resolve: (t: any) => {
+                              const wsId = t?.workspaceId ?? t?.id ?? ''
+                              const wsPath = t?.path ?? ''
+                              const locked = deltaFeatures.isWorkspaceLocked(wsId || wsPath)
+                              const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+                              return [{
+                                id: 'delta-workspace-lock',
+                                label: locked ? copy.workspaceMenu.unlockWorkspace : copy.workspaceMenu.lockWorkspace,
+                                icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
+                                run: () => {
+                                  if (locked) {
+                                    deltaFeatures.openUnlockWorkspaceDialog(wsId || wsPath)
+                                  } else if (deltaFeatures.getSnapshot().hasPin) {
+                                    void deltaFeatures.lockWorkspace(wsId || wsPath).then(res => {
+                                      if (res.ok) showDeltaToast(copy.workspaceMenu.lockedToast)
+                                    })
+                                  } else {
+                                    deltaFeatures.openSetPinWorkspaceDialog(wsId || wsPath, t?.displayTitle ?? t?.title)
+                                  }
+                                },
+                              }]
                             },
-                          }]
-                        },
-                      }),
-                    ]
-                    searchScope.effect(() => () => {
-                      for (const s of menuStops) { try { s?.() } catch {} }
-                      for (const s of iconStops) { try { if (typeof s === 'function') (s as () => void)() } catch {} }
+                          }))
+                        })
+                      } catch { /* optional menu group rolled back; native menus remain */ }
                     }, 'delta-suite: session move/lock/delete menus')
                   } catch {}
                 }
 
                 searchScope.effect(() => {
-                  const stopSearch = installHostSearch(controller, sessionsApi, navApi, searchScope, React)
-                  return () => {
-                    stopSearch()
-                    deltaFeatures.setSessionsApi(undefined)
-                    deltaFeatures.setNavigationApi(undefined)
-                  }
+                  try { return installHostSearch(controller, sessionsApi, navApi, searchScope, React) }
+                  catch { /* optional search installation must not own Host references */ }
                 }, 'delta-suite: public-slot service-backed search palette')
               })
 

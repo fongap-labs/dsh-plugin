@@ -302,6 +302,7 @@ test('build concatenates the compiled palette and feature helpers in one client 
   assert.ok(helpers.includes('src/client-totp-qr.ts'))
   assert.ok(helpers.includes('src/client-workspace-projection.ts'))
   assert.ok(helpers.includes('src/client-search-protection.ts'))
+  assert.ok(helpers.includes('src/client-registration-lifecycle.ts'))
   assert.ok(tsconfig.include.includes('src/client.ts'))
   assert.equal(new Set(helpers).size, helpers.length)
   assert.match(palette, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)

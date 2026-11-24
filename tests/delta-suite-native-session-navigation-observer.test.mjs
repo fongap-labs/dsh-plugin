@@ -10,11 +10,12 @@ import vm from 'node:vm'
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
 const source = readFileSync(file('packages/delta-suite/src/client.ts'), 'utf8')
 const compileDir = mkdtempSync(join(tmpdir(), 'delta-native-main-session-'))
-let compiled
+let compiled, lifecycle
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
     file('packages/delta-suite/tsconfig.client.json'), '--outDir', compileDir], { stdio: 'pipe' })
   compiled = readFileSync(join(compileDir, 'client.js'), 'utf8')
+  lifecycle = readFileSync(join(compileDir, 'client-registration-lifecycle.js'), 'utf8')
 } finally { rmSync(compileDir, { recursive: true, force: true }) }
 const begin = compiled.indexOf('function readConfirmedMainSessionId(')
 const end = compiled.indexOf('function createClientFeatureManager(', begin)
@@ -79,4 +80,39 @@ test('missing or failed subscription still permits initial read-only confirmatio
     assert.deepEqual(observed, ['main'])
     dispose()
   }
+})
+
+
+const registerClientFeatureGroup = vm.runInNewContext(lifecycle + '\nregisterClientFeatureGroup')
+
+test('client feature registration rolls back partial public menu installation in reverse order', () => {
+  const events = []
+  assert.throws(() => registerClientFeatureGroup(track => {
+    track(() => events.push('icon'))
+    track(() => { events.push('menu'); throw new Error('cleanup failure') })
+    throw new Error('unsupported menu')
+  }), /unsupported menu/)
+  assert.deepEqual(events, ['menu', 'icon'])
+})
+
+test('client group cleanup is idempotent, isolated and supports remount', () => {
+  const events = []
+  const mount = () => registerClientFeatureGroup(track => {
+    track(undefined) // Some older public Slot implementations return no disposer.
+    track(() => events.push('icon'))
+    track(() => { events.push('menu'); throw new Error('cleanup failure') })
+  })
+  const first = mount()
+  first()
+  first()
+  assert.deepEqual(events, ['menu', 'icon'])
+  mount()()
+  assert.deepEqual(events, ['menu', 'icon', 'menu', 'icon'])
+})
+
+test('menu group and service bindings each have a Cordis-owned lifetime', () => {
+  assert.match(source, /searchScope\.effect\(\(\) => \{\s*try \{\s*return registerClientFeatureGroup\(track => \{/)
+  assert.equal((source.match(/track\(scope\.slots\.register\(\{ name: 'contextMenu\.icon'/g) ?? []).length, 4)
+  assert.equal((source.match(/track\(registerMenu\(\{/g) ?? []).length, 4)
+  assert.match(source, /searchScope\.effect\(\(\) => \(\) => \{\s*try \{ deltaFeatures\.setSessionsApi\(undefined\) \}\s*finally \{ deltaFeatures\.setNavigationApi\(undefined\) \}/)
 })

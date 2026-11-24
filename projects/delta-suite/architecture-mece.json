@@ -229,6 +229,15 @@
       "public_functions": [
         "createHostSessionQueryPort"
       ]
+    },
+    "client_registration_lifecycle": {
+      "owner": "shell",
+      "path": "packages/delta-suite/src/client-registration-lifecycle.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "registerClientFeatureGroup"
+      ]
     }
   }
 }

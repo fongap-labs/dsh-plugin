@@ -19,6 +19,7 @@
     "src/client-context-projection.ts",
     "src/client-totp-qr.ts",
     "src/client-workspace-projection.ts",
-    "src/client-search-protection.ts"
+    "src/client-search-protection.ts",
+    "src/client-registration-lifecycle.ts"
   ]
 }
