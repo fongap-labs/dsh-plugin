@@ -698,3 +698,80 @@ test('Host transport failure does not patch native Workspace methods and Suite S
   assert.equal(await host.delete('b'), 'native')
   assert.deepEqual(calls, ['b', 'b', 'b'])
 })
+
+
+test('older state reads cannot restore a deleted session or revoke a newer confirmation', async () => {
+  for (const lateResult of ['old-body', 'http-failure', 'transport-failure']) {
+    const f = fixture()
+    await f.manager.refreshState()
+    let bodyStarted
+    const readingBody = new Promise(resolve => { bodyStarted = resolve })
+    let finishRead, rejectRead
+    const deferred = new Promise((resolve, reject) => { finishRead = resolve; rejectRead = reject })
+    f.env.fetch = async (path, options) => {
+      if (options?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ({ ok: true, state: f.state(['target']) }) }
+      }
+      if (lateResult === 'old-body') return { ok: true, status: 200, json: () => { bodyStarted(); return deferred } }
+      return deferred
+    }
+    const pending = f.manager.refreshState()
+    if (lateResult === 'old-body') await readingBody
+    assert.equal((await f.manager.deleteSession('target')).ok, true)
+    const confirmed = f.manager.getSnapshot()
+    assert.equal(confirmed.isSearchProtectionReady, true)
+    assert.equal(f.manager.isDeleted('target'), true)
+    if (lateResult === 'old-body') finishRead({ state: f.state([]) })
+    else if (lateResult === 'http-failure') finishRead({ ok: false, status: 500 })
+    else rejectRead(new Error('old read failed'))
+    await pending
+    assert.equal(f.manager.getSnapshot(), confirmed, lateResult)
+    assert.equal(f.manager.readSearchProtection().allowsSession('target'), false, lateResult)
+    // A subsequent, current authoritative read is still accepted.
+    f.env.fetch = async () => ({ ok: true, status: 200, json: async () => ({ state: f.state(['target', 'other']) }) })
+    await f.manager.refreshState()
+    assert.equal(f.manager.isDeleted('target'), true)
+    assert.equal(f.manager.isDeleted('other'), true)
+  }
+})
+
+test('late unlocked snapshot cannot overwrite a newly confirmed session lock', async () => {
+  const f = fixture({ initial: { hasPin: true } })
+  await f.manager.refreshState()
+  let finishRead, bodyStarted
+  const readingBody = new Promise(resolve => { bodyStarted = resolve })
+  const delayed = new Promise(resolve => { finishRead = resolve })
+  f.env.fetch = async (path, options) => options?.method === 'POST'
+    ? { ok: true, status: 200, json: async () => ({ ok: true, state: { ...f.state([]), lockedSessionIds: ['target'] } }) }
+    : { ok: true, status: 200, json: () => { bodyStarted(); return delayed } }
+  const pending = f.manager.refreshState()
+  await readingBody
+  assert.equal((await f.manager.lockSession('target')).ok, true)
+  finishRead({ state: f.state([]) })
+  await pending
+  assert.equal(f.manager.isProtectedView('target'), true)
+  assert.equal(f.manager.readSearchProtection().allowsSession('target'), false)
+})
+
+test('transport loss invalidates a pending read and a synchronous fetch failure permits retry', async () => {
+  const f = fixture()
+  await f.manager.refreshState()
+  const originalFetch = f.env.fetch
+  let finishRead
+  f.env.fetch = () => new Promise(resolve => { finishRead = resolve })
+  const pending = f.manager.refreshState()
+  const location = f.env.window.location
+  f.env.window.location = undefined
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, false)
+  finishRead({ ok: true, status: 200, json: async () => ({ state: f.state([]) }) })
+  await pending
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, false)
+  f.env.window.location = location
+  f.env.fetch = () => { throw new Error('sync transport failure') }
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, false)
+  f.env.fetch = originalFetch
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
+})
