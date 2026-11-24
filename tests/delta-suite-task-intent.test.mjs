@@ -56,12 +56,21 @@ describe('Delta Suite universal task intent policy', () => {
 
   it('does not restate ordinary questions just because they are long or technical', () => {
     assert.equal(decideTaskIntentMode('What is a TypeScript interface?'), 'evaluate')
-    assert.equal(decideTaskIntentMode('Explain why DROP DATABASE is dangerous'), 'restate')
+    assert.equal(decideTaskIntentMode('Explain why DROP DATABASE is dangerous'), 'evaluate')
+    assert.equal(decideTaskIntentMode('Please explain why rewriting git history is dangerous'), 'evaluate')
+    assert.equal(decideTaskIntentMode('Explain why DROP DATABASE is dangerous; then drop database'), 'restate')
+    assert.equal(decideTaskIntentMode('Delete the production database'), 'restate')
     assert.equal(decideTaskIntentMode('Hello'), 'evaluate')
     assert.equal(decideTaskIntentMode('a'.repeat(900)), 'evaluate')
     assert.equal(decideTaskIntentMode(''), 'skip')
   })
 
+  it('distinguishes read-only risk questions from consequential instructions', () => {
+    assert.equal(decideTaskIntentMode('\u89e3\u91ca\u4e3a\u4ec0\u4e48\u91cd\u5199 git \u5386\u53f2\u5f88\u5371\u9669'), 'evaluate')
+    assert.equal(decideTaskIntentMode('Why is force-push risky?'), 'evaluate')
+    assert.equal(decideTaskIntentMode('\u89e3\u91ca\u4e3a\u4ec0\u4e48\u91cd\u5199 git \u5386\u53f2\u5f88\u5371\u9669\uff0c\u7136\u540e\u5f3a\u63a8\u4e3b\u5206\u652f'), 'restate')
+    assert.equal(decideTaskIntentMode('Force-push and rewrite git history'), 'restate')
+  })
   it('honors explicit restatement, user-approved wait and opt-out', () => {
     assert.equal(decideTaskIntentMode('Please restate my instructions'), 'restate')
     assert.equal(decideTaskIntentMode('Please restate my task, wait for my confirmation'), 'wait')
