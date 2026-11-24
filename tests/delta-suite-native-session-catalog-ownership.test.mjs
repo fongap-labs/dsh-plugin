@@ -775,3 +775,65 @@ test('transport loss invalidates a pending read and a synchronous fetch failure 
   await f.manager.refreshState()
   assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
 })
+
+
+test('session writes wait for earlier confirmed state and recheck protection before posting', async () => {
+  const f = fixture({ initial: { hasPin: true } })
+  await f.manager.refreshState()
+  const posts = []
+  let finishLock, bodyStarted
+  const body = new Promise(resolve => { finishLock = resolve })
+  const reading = new Promise(resolve => { bodyStarted = resolve })
+  f.env.fetch = async (path, options) => {
+    posts.push([path, JSON.parse(options.body)])
+    if (path.endsWith('/session-lock')) return {
+      ok: true, status: 200, json: () => { bodyStarted(); return body },
+    }
+    throw new Error('protected deletion must not reach Host')
+  }
+  const lock = f.manager.lockSession('target')
+  await reading
+  const deletion = f.manager.deleteSession('target')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(posts.length, 1, 'a second write must not start while confirmation is pending')
+  finishLock({ ok: true, state: { ...f.state([]), lockedSessionIds: ['target'] } })
+  assert.equal((await lock).ok, true)
+  assert.equal((await deletion).error, 'SESSION_LOCKED')
+  assert.equal(posts.length, 1)
+  assert.equal(f.manager.isLocked('target'), true)
+  assert.equal(f.manager.isDeleted('target'), false)
+})
+
+test('independent locks publish in invocation order and a transport failure does not poison the queue', async () => {
+  const f = fixture({ initial: { hasPin: true } })
+  await f.manager.refreshState()
+  const posts = []
+  let finishFirst, firstStarted
+  const firstBody = new Promise(resolve => { finishFirst = resolve })
+  const readingFirst = new Promise(resolve => { firstStarted = resolve })
+  f.env.fetch = async (path, options) => {
+    const request = JSON.parse(options.body)
+    posts.push(request.sessionId)
+    if (request.sessionId === 'target') return {
+      ok: true, status: 200, json: () => { firstStarted(); return firstBody },
+    }
+    if (request.sessionId === 'other') throw new Error('network unavailable')
+    return { ok: true, status: 200, json: async () => ({
+      ok: true, state: { ...f.state([]), lockedSessionIds: ['target', 'locked'] },
+    }) }
+  }
+  const first = f.manager.lockSession('target')
+  await readingFirst
+  const failed = f.manager.lockSession('other')
+  const last = f.manager.lockSession('locked')
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(posts, ['target'])
+  finishFirst({ ok: true, state: { ...f.state([]), lockedSessionIds: ['target'] } })
+  assert.equal((await first).ok, true)
+  assert.equal((await failed).ok, false)
+  assert.equal((await last).ok, true)
+  assert.deepEqual(posts, ['target', 'other', 'locked'])
+  assert.equal(f.manager.isLocked('target'), true)
+  assert.equal(f.manager.isLocked('locked'), true)
+  assert.equal(f.manager.isLocked('other'), false)
+})
