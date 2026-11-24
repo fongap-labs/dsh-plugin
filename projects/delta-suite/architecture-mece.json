@@ -203,6 +203,24 @@
         "extractConversationBlocks",
         "scoreAndExtractSessionHit"
       ]
+    },
+    "client_workspace_projection": {
+      "owner": "sessions",
+      "path": "packages/delta-suite/src/client-workspace-projection.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createWorkspaceCompatibilityProjection"
+      ]
+    },
+    "client_search_protection": {
+      "owner": "security",
+      "path": "packages/delta-suite/src/client-search-protection.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createSearchContentProtection"
+      ]
     }
   }
 }

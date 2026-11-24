@@ -8,11 +8,11 @@ import { stripTypeScriptTypes } from 'node:module'
 // Test the live, read-only Search policy. Native Workspace mutations are Host-owned.
 const source = readFileSync(fileURLToPath(
   new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
-const begin = source.indexOf('type WorkspaceProtectionState =')
-const end = source.indexOf('function createClientFeatureManager()', begin)
-assert.ok(begin >= 0 && end > begin, 'read-only search protection must be available')
+const protection = readFileSync(fileURLToPath(
+  new URL('../packages/delta-suite/src/client-search-protection.ts', import.meta.url)), 'utf8')
+assert.match(protection, /function createSearchContentProtection\(/)
 const compiled = stripTypeScriptTypes(
-  source.slice(begin, end) + '\nthis.policy = createSearchContentProtection', { mode: 'strip' })
+  protection + '\nthis.policy = createSearchContentProtection', { mode: 'strip' })
 const context = {}
 runInNewContext(compiled, context, { timeout: 1000 })
 const protect = context.policy
@@ -36,9 +36,9 @@ test('ordinary search uses native results without rewriting Workspace operations
   assert.equal(p.canUseNativeFallback, true)
   assert.equal(p.allowsWorkspace('one', '/projects/one'), true)
   assert.equal(p.allowsSession('ordinary', 'one'), true)
-  assert.doesNotMatch(source, /function installWorkspaceMutationGuards\(/)
-  assert.doesNotMatch(source, /workspaces\.delete\s*=|workspaces\.unarchiveSession\s*=/)
-  assert.doesNotMatch(source, /function readWorkspaceMutationPolicy\(/)
+  assert.doesNotMatch(source + protection, /function installWorkspaceMutationGuards\(/)
+  assert.doesNotMatch(source + protection, /workspaces\.delete\s*=|workspaces\.unarchiveSession\s*=/)
+  assert.doesNotMatch(source + protection, /function readWorkspaceMutationPolicy\(/)
 })
 
 test('Session locks and tombstones block matching aliases only within Delta Search', () => {
