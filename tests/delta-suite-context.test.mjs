@@ -44,7 +44,13 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   let nextReady
   const hookEffects = new Map()
   const root = { lang: 'en', setAttribute() {}, removeAttribute() {}, getAttribute() { return undefined } }
-  const body = { appendChild(node) { node.parentNode = body }, removeChild(node) { node.parentNode = null } }
+  const bodyAttributes = new Map()
+  const body = {
+    appendChild(node) { node.parentNode = body }, removeChild(node) { node.parentNode = null },
+    setAttribute(name, value) { bodyAttributes.set(name, String(value)) },
+    removeAttribute(name) { bodyAttributes.delete(name) },
+    getAttribute(name) { return bodyAttributes.get(name) ?? null },
+  }
   const document = {
     documentElement: root,
     body,
