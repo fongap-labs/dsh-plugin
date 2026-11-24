@@ -50,6 +50,9 @@ describe('Delta Code approved GitHub Skills', () => {
     }
     const urls = []
     const fetcher = async (url, options) => {
+      assert.equal(options.credentials, 'omit')
+      assert.equal(options.referrerPolicy, 'no-referrer')
+      assert.equal(options.headers, undefined)
       urls.push({ url, redirect: options.redirect })
       return new Response(body, { status: 200 })
     }

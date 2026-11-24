@@ -319,3 +319,39 @@ describe('Delta Code public GitHub Skill discovery (no credentials)', () => {
     }
   })
 })
+
+
+it('releases public response bodies on cancellation, oversized headers and stream limits', async () => {
+  const transport = createGitHubTransport([], { get() { throw Error('must not resolve credentials') } })
+  const oldFetch = globalThis.fetch
+  const path = '/users/alpha'
+  try {
+    for (const mode of ['abort', 'header', 'stream', 'http']) {
+      let cancelled = 0, started
+      const pulling = new Promise(resolve => { started = resolve })
+      const controller = new AbortController()
+      const stream = new ReadableStream({
+        pull(sink) {
+          if (mode === 'stream') sink.enqueue(new Uint8Array(1_000_001))
+          started()
+        },
+        cancel() { cancelled++ },
+      })
+      globalThis.fetch = async () => new Response(stream, {
+        status: mode === 'http' ? 403 : 200,
+        headers: mode === 'header' ? { 'content-length': '1000001' } : {},
+      })
+      const pending = transport.publicRead(path, controller.signal)
+      const rejected = assert.rejects(pending, mode === 'abort' ? /cancelled by fixture/ :
+        mode === 'http' ? /GitHub API 403/ : /exceeds size budget/)
+      if (mode === 'abort') {
+        await pulling
+        await new Promise(resolve => setImmediate(resolve))
+        controller.abort(new Error('cancelled by fixture'))
+      }
+      await rejected
+      assert.equal(cancelled, 1, mode)
+      assert.equal(stream.locked, false, mode)
+    }
+  } finally { globalThis.fetch = oldFetch }
+})

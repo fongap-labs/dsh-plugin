@@ -141,6 +141,11 @@ async function requestGitHubApi(input: DeltaGitHubRequest, tokenEnv: string, hos
  * GitHub's REST code search requires authentication; use public repository
  * search, then verify SKILL.md paths in pinned public Git trees instead.
  */
+/** Cancel without waiting on a remote stream's cancellation implementation. */
+function cancelUnreadGitHubBody(response: Response): void {
+  void response.body?.cancel().catch(() => {})
+}
+
 async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<unknown> {
   if (typeof path !== 'string' || !path.startsWith('/')) throw new Error('invalid public GitHub discovery path')
   const endpoint = new URL(API + path)
@@ -174,29 +179,40 @@ async function publicGitHubMetadata(path: string, signal: AbortSignal): Promise<
     },
     signal,
   })
-  if (!response.ok) throw new GitHubApiFailure(response.status, 'public-skill-discovery', 'GET')
+  if (signal.aborted || !response.ok) {
+    cancelUnreadGitHubBody(response)
+    signal.throwIfAborted()
+    throw new GitHubApiFailure(response.status, 'public-skill-discovery', 'GET')
+  }
   const maxBytes = 1_000_000
   const hintedLength = Number(response.headers.get('content-length'))
   if (Number.isFinite(hintedLength) && hintedLength > maxBytes) {
+    cancelUnreadGitHubBody(response)
     throw new Error('public GitHub discovery response exceeds size budget')
   }
   const reader = response.body?.getReader()
   if (!reader) throw new Error('public GitHub discovery response has no body')
   const chunks: Uint8Array[] = []
   let size = 0
+  let completed = false
+  const cancel = () => { void reader.cancel().catch(() => {}) }
+  signal.addEventListener('abort', cancel, { once: true })
+  if (signal.aborted) cancel()
   try {
     while (true) {
       signal.throwIfAborted()
       const part = await reader.read()
-      if (part.done) break
+      signal.throwIfAborted()
+      if (part.done) { completed = true; break }
       size += part.value.byteLength
       if (size > maxBytes) {
-        await reader.cancel()
         throw new Error('public GitHub discovery response exceeds size budget')
       }
       chunks.push(part.value)
     }
   } finally {
+    signal.removeEventListener('abort', cancel)
+    if (!completed && !signal.aborted) cancel()
     reader.releaseLock()
   }
   const bytes = new Uint8Array(size)
@@ -239,23 +255,29 @@ async function boundedLogExcerpt(response: Response, signal: AbortSignal, token:
   const bytes: Uint8Array[] = []
   let total = 0
   let isTruncated = false
+  let completed = false
+  const cancel = () => { void reader.cancel().catch(() => {}) }
+  signal.addEventListener('abort', cancel, { once: true })
+  if (signal.aborted) cancel()
   try {
     while (true) {
       signal.throwIfAborted()
       const next = await reader.read()
-      if (next.done) break
+      signal.throwIfAborted()
+      if (next.done) { completed = true; break }
       const available = MAX_JOB_LOG_BYTES - total
       if (next.value.byteLength > available) {
         if (available > 0) bytes.push(next.value.subarray(0, available))
         total += Math.max(0, available)
         isTruncated = true
-        await reader.cancel()
         break
       }
       bytes.push(next.value)
       total += next.value.byteLength
     }
   } finally {
+    signal.removeEventListener('abort', cancel)
+    if (!completed && !signal.aborted) cancel()
     reader.releaseLock()
   }
   const buffer = new Uint8Array(total)
@@ -307,15 +329,24 @@ async function requestGitHubJobLogs(
     signal,
     redirect: 'manual',
   })
-  if (response.status !== 302 && !response.ok) throw new GitHubApiFailure(response.status, repository, 'GET')
+  if (signal.aborted || (response.status !== 302 && !response.ok)) {
+    cancelUnreadGitHubBody(response)
+    signal.throwIfAborted()
+    throw new GitHubApiFailure(response.status, repository, 'GET')
+  }
   let logResponse = response
   if (response.status === 302) {
+    cancelUnreadGitHubBody(response)
     const location = response.headers.get('location')
     if (!location) throw new Error('GitHub Actions log redirect is missing')
     const signedUrl = allowedLogRedirect(location)
     // Never forward GitHub credentials or cookies to the storage endpoint.
     logResponse = await fetch(signedUrl, { method: 'GET', signal, redirect: 'error', credentials: 'omit', referrerPolicy: 'no-referrer' })
-    if (!logResponse.ok) throw new Error('GitHub Actions log download failed with HTTP ' + logResponse.status)
+    if (signal.aborted || !logResponse.ok) {
+      cancelUnreadGitHubBody(logResponse)
+      signal.throwIfAborted()
+      throw new Error('GitHub Actions log download failed with HTTP ' + logResponse.status)
+    }
   }
   const bounded = await boundedLogExcerpt(logResponse, signal, token)
   return { repository, account, ...bounded }
