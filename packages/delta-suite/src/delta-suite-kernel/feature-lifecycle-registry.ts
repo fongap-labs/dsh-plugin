@@ -23,7 +23,7 @@ export interface DeltaSuiteFeature<C> {
   owner: DeltaFeatureOwner
   /** UI declaration only. Does not grant Host permissions. */
   surfaces?: readonly DeltaExtensionSurface[]
-  /** Versioned Host capabilities required before activation. */
+  /** Adapter-confirmed activation prerequisites; never an authorization grant. */
   requires?: readonly string[]
   /** Optional features may fail or be absent without preventing Shell startup. */
   optional?: boolean

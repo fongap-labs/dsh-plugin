@@ -1,24 +1,27 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 const temp = mkdtempSync(join(tmpdir(), 'dtd-feature-registry-'))
-let Registry
+let Registry, readHostContextActivationCapabilities
 try {
   execFileSync(process.execPath, [
     fixture('node_modules/typescript/bin/tsc'),
     fixture('packages/delta-suite/src/feature-registry.ts'),
+    fixture('packages/delta-suite/src/host-capabilities.ts'),
     '--target', 'ES2022', '--module', 'node16', '--moduleResolution', 'node16',
     '--outDir', temp, '--strict', '--skipLibCheck',
   ], { stdio: 'pipe' })
   writeFileSync(join(temp, 'package.json'), '{"type":"module"}\n')
   const compiled = await import(pathToFileURL(join(temp, 'feature-registry.js')).href)
   Registry = compiled.DeltaFeatureRegistry
+  const adapter = await import(pathToFileURL(join(temp, 'host-capabilities.js')).href)
+  readHostContextActivationCapabilities = adapter.readHostContextActivationCapabilities
 } finally {
   rmSync(temp, { recursive: true, force: true })
 }
@@ -83,4 +86,41 @@ test('required startup exception rolls back all earlier extensions even when dis
     install: () => { throw new Error('required feature failed') } })
   assert.throws(() => registry.mount({}, new Set()), /required feature failed/)
   assert.deepEqual(called, ['dispose-security'])
+})
+
+
+test('activation prerequisites use only public registration methods, not Host version or claimed permissions', () => {
+  const ctx = {
+    version: '999', capabilities: ['host-context.inject', 'host-context.on'],
+    get() { throw new Error('must not probe services at startup') },
+  }
+  assert.deepEqual([...readHostContextActivationCapabilities(ctx)], [])
+  assert.deepEqual([...readHostContextActivationCapabilities({ ...ctx, inject() {} })], ['host-context.inject'])
+  assert.deepEqual([...readHostContextActivationCapabilities({ ...ctx, inject() {}, on() {} })],
+    ['host-context.inject', 'host-context.on'])
+  assert.deepEqual([...readHostContextActivationCapabilities({
+    get inject() { throw new Error('missing') }, on() {},
+  })], ['host-context.on'])
+})
+
+test('actual Host feature prerequisites skip optional context features without disabling protection installers', () => {
+  const manifest = JSON.parse(readFileSync(fixture('projects/delta-suite/architecture-mece.json'), 'utf8'))
+  for (const [ctx, expectedSkipped] of [
+    [{}, ['context.compaction-status', 'context.task-intent']],
+    [{ inject() {} }, ['context.task-intent']],
+    [{ inject() {}, on() {} }, []],
+  ]) {
+    const registry = new Registry()
+    for (const [id, definition] of Object.entries(manifest.host_feature_access)) {
+      registry.register({ id, owner: manifest.host_feature_registration[id],
+        optional: id.startsWith('context.'), requires: definition.activation_requires,
+        install: () => () => {} })
+    }
+    const runtime = registry.mount(ctx, readHostContextActivationCapabilities(ctx))
+    assert.deepEqual(runtime.skipped, expectedSkipped)
+    for (const id of ['security.privacy-guards', 'discovery.session-search', 'sessions.session-operations']) {
+      assert.ok(runtime.mounted.includes(id))
+    }
+    runtime.dispose()
+  }
 })

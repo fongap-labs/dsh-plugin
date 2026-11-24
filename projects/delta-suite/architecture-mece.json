@@ -240,5 +240,66 @@
         "createClientBindingLifetime"
       ]
     }
-  }
+  },
+  "host_feature_access": {
+    "context.compaction-status": {
+      "activation_requires": [
+        "host-context.inject"
+      ],
+      "access": "read-only-projection",
+      "host_services": [
+        "sessionProjections"
+      ],
+      "fallback": "skip-optional-feature",
+      "authorization": "Host projection registration"
+    },
+    "context.task-intent": {
+      "activation_requires": [
+        "host-context.inject",
+        "host-context.on"
+      ],
+      "access": "read-user-claim-and-contribute-prompt",
+      "host_services": [
+        "systemPrompt"
+      ],
+      "fallback": "skip-optional-feature",
+      "authorization": "Host event and prompt scope"
+    },
+    "security.privacy-guards": {
+      "activation_requires": [],
+      "access": "register-log-exclusion",
+      "host_services": [
+        "sessionLogDeepSeek"
+      ],
+      "fallback": "installer-checks-public-service",
+      "authorization": "Host exclusion registration"
+    },
+    "discovery.session-search": {
+      "activation_requires": [],
+      "access": "read-session-content-and-protection-state",
+      "host_services": [
+        "connection",
+        "sessionQuery",
+        "sessions",
+        "sessionPersistence",
+        "workspaceRegistry"
+      ],
+      "fallback": "installer-checks-public-service",
+      "authorization": "Host query and existing protection checks"
+    },
+    "sessions.session-operations": {
+      "activation_requires": [],
+      "access": "protected-session-operations-and-state",
+      "host_services": [
+        "connection",
+        "webServer",
+        "workspaceRegistry",
+        "sessions",
+        "sessionPersistence"
+      ],
+      "fallback": "per-operation-fail-closed",
+      "authorization": "Host operation and existing protection checks"
+    }
+  },
+  "host_feature_access_scope": "Host composition activation prerequisites only; service and authorization declarations are descriptive and do not grant authority. Security and session installers retain operation-level checks and deferred service injection. Browser features are not yet covered."
 }

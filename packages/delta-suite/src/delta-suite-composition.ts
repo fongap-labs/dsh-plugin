@@ -8,6 +8,7 @@ import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
 import { installHostTaskIntent } from './host-task-intent.js'
 import { DeltaFeatureRegistry } from './delta-suite-kernel/feature-lifecycle-registry.js'
+import { readHostContextActivationCapabilities } from './delta-suite-adapter/host-capability-contract.js'
 
 export function apply(ctx?: PrivacyHostContext): () => void {
   // The Host retains authority for deletion, secrets, privacy and model access.
@@ -22,25 +23,28 @@ export function apply(ctx?: PrivacyHostContext): () => void {
   registry.register({
     id: 'context.compaction-status',
     owner: 'context',
+    requires: ['host-context.inject'],
     surfaces: ['right-sidebar'],
     optional: true,
-    install: () => typeof ctx.inject === 'function'
-      ? registerCompactionStatusProjection(legacyCtx) : () => {},
+    install: () => registerCompactionStatusProjection(legacyCtx),
   })
   registry.register({
     id: 'context.task-intent',
     owner: 'context',
+    requires: ['host-context.inject', 'host-context.on'],
     optional: true,
     install: () => installHostTaskIntent(ctx),
   })
   registry.register({
     id: 'security.privacy-guards',
     owner: 'security',
+    requires: [],
     install: () => installHostPrivacyGuards(ctx),
   })
   registry.register({
     id: 'discovery.session-search',
     owner: 'discovery',
+    requires: [],
     surfaces: ['left-sidebar'],
     install: () => installHostSessionSearch(ctx, {
       prepareExclusion: () => store.read(),
@@ -51,11 +55,12 @@ export function apply(ctx?: PrivacyHostContext): () => void {
   registry.register({
     id: 'sessions.session-operations',
     owner: 'sessions',
+    requires: [],
     surfaces: ['left-sidebar'],
     install: () => installHostSessionOps(ctx, store, {
       onSessionChanged: sessionId => { invalidateSearchCache?.(sessionId) },
     }),
   })
-  const instance = registry.mount(ctx, new Set<string>())
+  const instance = registry.mount(ctx, readHostContextActivationCapabilities(ctx))
   return () => instance.dispose()
 }

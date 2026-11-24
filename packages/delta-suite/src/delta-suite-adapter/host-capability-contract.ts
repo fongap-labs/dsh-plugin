@@ -56,3 +56,15 @@ export function negotiateHostCapabilities(
     reason: missing.length === 0 ? 'ready' : 'missing-capabilities',
   }
 }
+
+/**
+ * Public Cordis registration prerequisites, not service permissions.
+ * Services may be injected after boot; do not resolve them here or infer
+ * support for the separate versioned Host capability manifest.
+ */
+export function readHostContextActivationCapabilities(ctx: { inject?: unknown; on?: unknown }): ReadonlySet<string> {
+  const available = new Set<string>()
+  try { if (typeof ctx.inject === 'function') available.add('host-context.inject') } catch {}
+  try { if (typeof ctx.on === 'function') available.add('host-context.on') } catch {}
+  return available
+}

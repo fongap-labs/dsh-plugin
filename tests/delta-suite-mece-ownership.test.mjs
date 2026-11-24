@@ -56,7 +56,7 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
   const registry = file('../packages/delta-suite/src/delta-suite-kernel/feature-lifecycle-registry.ts')
   assert.match(host, /export \{ apply \} from '\.\/delta-suite-composition\.js'/)
   assert.match(composition, /new DeltaFeatureRegistry<PrivacyHostContext>/)
-  assert.match(composition, /registry\.mount\(ctx, new Set<string>\(\)\)/)
+  assert.match(composition, /registry\.mount\(ctx, readHostContextActivationCapabilities\(ctx\)\)/)
   assert.match(registry, /DELTA_EXTENSION_SURFACES/)
   assert.match(registry, /Missing required Host capabilities/)
   assert.match(registry, /for \(let index = this\.cleanups\.length - 1; index >= 0; index--\)/)
@@ -70,4 +70,19 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
     'Desktop must not register another gateway retry listener alongside Code Worker')
   assert.doesNotMatch(composition, /registerPrivacyBridge|installHostAuthCookiePruner/,
     'unsupported model and Host cookie interceptors must never be mounted')
+})
+
+
+test('Host feature access declarations cover every mounted descriptor and its activation requirements', () => {
+  const composition = file('../packages/delta-suite/src/delta-suite-composition.ts')
+  const entries = [...composition.matchAll(/registry\.register\(\{\s*id: '([^']+)',\s*owner: '([^']+)',\s*requires: \[([^\]]*)\]/g)]
+  assert.deepEqual(entries.map(entry => entry[1]).sort(), Object.keys(taxonomy.host_feature_registration).sort())
+  assert.deepEqual(Object.keys(taxonomy.host_feature_access).sort(), Object.keys(taxonomy.host_feature_registration).sort())
+  for (const [, id, owner, requires] of entries) {
+    const access = taxonomy.host_feature_access[id]
+    assert.equal(owner, taxonomy.host_feature_registration[id])
+    assert.deepEqual([...requires.matchAll(/'([^']+)'/g)].map(match => match[1]), access.activation_requires)
+    assert.ok(access.host_services.length > 0)
+    assert.ok(access.authorization.startsWith('Host '))
+  }
 })
