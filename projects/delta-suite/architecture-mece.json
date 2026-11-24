@@ -350,7 +350,68 @@
       "access": "read protected search results and request Host navigation",
       "fallback": "native-search-preserved; independent catalog/protection observer remains bound",
       "authorization": "Host query, navigation and existing protection checks"
+    },
+    "shell.public-slots": {
+      "owner": "shell",
+      "activation_requires": [
+        "slots.inject",
+        "slots.register",
+        "effect",
+        "inject"
+      ],
+      "access": "register Delta-owned settings, model label, brand and style contributions",
+      "fallback": "skip-unsupported-slot; preserve other independent slots",
+      "authorization": "Host public slot registration"
+    },
+    "sessions.row-decoration": {
+      "owner": "sessions",
+      "activation_requires": [
+        "slots.inject",
+        "slots.register"
+      ],
+      "access": "display protected session indicators and authorized identity",
+      "fallback": "native-row-preserved",
+      "authorization": "Host catalog and existing protection checks"
+    },
+    "sessions.workspace-catalog": {
+      "owner": "sessions",
+      "activation_requires": [
+        "workspaces.list.getSnapshot",
+        "effect"
+      ],
+      "access": "read native workspace catalog",
+      "fallback": "skip-unsupported-service",
+      "authorization": "Host catalog access"
+    },
+    "sessions.session-catalog": {
+      "owner": "sessions",
+      "activation_requires": [
+        "sessions.list.getSnapshot",
+        "uiWorkspace",
+        "effect"
+      ],
+      "access": "observe confirmed session catalog and navigation references",
+      "fallback": "skip-unsupported-service",
+      "authorization": "Host catalog and existing protection checks"
+    },
+    "shell.theme": {
+      "owner": "shell",
+      "activation_requires": [
+        "effect"
+      ],
+      "access": "contribute own theme tokens using overrideTokens when available",
+      "fallback": "no palette; report unavailable if Delta mode requested",
+      "authorization": "Host theme contribution"
+    },
+    "shell.layout": {
+      "owner": "shell",
+      "activation_requires": [
+        "effect"
+      ],
+      "access": "invoke available public layout actions with per-action checks",
+      "fallback": "unsupported action fails without affecting other features",
+      "authorization": "Host layout action"
     }
   },
-  "browser_feature_access_scope": "Three optional browser registration groups only. Requirements are public method checks at the existing Cordis injection boundary, not permission grants; other Browser features, operation-level checks and legacy search fallback remain governed by their existing code."
+  "browser_feature_access_scope": "Nine browser registration groups, covering public slot contributions, session/workspace catalogs, theme/layout and the previously declared assistant, menus and search. Requirements describe public registration prerequisites, not permission grants. Right-sidebar, locale, and other operation-level checks remain governed by their existing code; actual slot/service availability is Host-owned."
 }

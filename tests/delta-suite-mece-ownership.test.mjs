@@ -88,9 +88,11 @@ test('Host feature access declarations cover every mounted descriptor and its ac
 })
 
 
-test('Browser registration requirements match the three declared optional groups', () => {
+test('Browser registration requirements match declared public groups', () => {
   const access = taxonomy.browser_feature_access
-  assert.deepEqual(Object.keys(access).sort(), ['context.assistant-surface', 'discovery.search-palette', 'sessions.context-menus'])
+  assert.deepEqual(Object.keys(access).sort(), ['context.assistant-surface', 'discovery.search-palette', 'sessions.context-menus',
+    'sessions.row-decoration', 'sessions.session-catalog', 'sessions.workspace-catalog', 'shell.layout',
+    'shell.public-slots', 'shell.theme'])
   const assistant = access['context.assistant-surface']
   for (const method of assistant.activation_requires) {
     const pattern = 'typeof capabilities.' + method.split('.').join('?.') + " !== 'function'"
@@ -110,5 +112,19 @@ test('Browser registration requirements match the three declared optional groups
   for (const definition of Object.values(access)) {
     assert.ok(taxonomy.owners.some(owner => owner.id === definition.owner))
     assert.ok(definition.authorization.startsWith('Host '))
+  }
+})
+
+
+test('independent browser services and optional slots have isolated registration boundaries', () => {
+  for (const name of ['workspaces', 'sessions', 'theme', 'layout']) {
+    assert.ok(client.includes("try { scope.inject(['" + name + "'"), name)
+  }
+  for (const name of ['settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config',
+    'conversation.input.model.label', 'sidebar.session.row.trailing', 'sidebar.session.row.hover']) {
+    assert.ok(client.includes("try { scope.slots.inject('" + name + "'"), name)
+  }
+  for (const scope of ['workspaceScope', 'searchScope', 'themeScope', 'layoutScope']) {
+    assert.ok(client.includes('typeof ' + scope + ".effect !== 'function'"), scope)
   }
 })

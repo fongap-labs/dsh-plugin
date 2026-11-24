@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -73,6 +73,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
   const ctx = {
     inject(services, callback) {
       const names = Array.from(services)
+      if (names.join(',') === unavailableService) throw new Error('unsupported Host service')
       assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess',
         'sessions,resources,sidebarRightTabs,sidebarRight', 'configForms,remote',
         'modelDirectories', 'locale'].includes(names.join(',')))
@@ -100,6 +101,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     slots: {
       inject(name, register) {
         slots.push(name)
+        if (name === unavailableSlot) throw new Error('unsupported Host Slot')
         const dispose = register()
         if (typeof dispose === 'function') effects.push(dispose)
       },
@@ -812,4 +814,31 @@ test('Host Locale snapshot updates Suite language and unsubscribes on unload', (
   app.cleanup()
   assert.equal(disposed, 1)
   assert.equal(notify, undefined)
+})
+
+
+test('unsupported optional Host service does not prevent later independent registrations', () => {
+  for (const unavailableService of ['workspaces', 'sessions,uiWorkspace', 'theme', 'layout']) {
+    const app = harness({ unavailableService })
+    const controller = app.components.get('settings.section').spec.inject().controller
+    assert.ok(app.components.has('conversation.input.model.label'), unavailableService)
+    assert.equal(controller.toggleSidebarSafe(), unavailableService !== 'layout', unavailableService)
+    assert.equal(app.layers.size, unavailableService === 'theme' ? 0 : 1, unavailableService)
+    app.cleanup()
+    assert.equal(app.components.size, 0)
+  }
+})
+
+test('missing optional Slot leaves other public entrypoints and services usable', () => {
+  for (const unavailableSlot of ['settings.section.icon', 'settings.plugins.tab', 'plugins.bundle.config',
+    'conversation.input.model.label', 'sidebar.brand.mark', 'sidebar.session.row.trailing']) {
+    const app = harness({ unavailableSlot })
+    const controller = app.components.get('settings.section').spec.inject().controller
+    assert.equal(app.components.has(unavailableSlot), false, unavailableSlot)
+    assert.ok(app.components.has('sidebar.session.row.hover'), unavailableSlot)
+    assert.equal(app.layers.size, 1, unavailableSlot)
+    assert.equal(controller.toggleSidebarSafe(), true, unavailableSlot)
+    app.cleanup()
+    assert.equal(app.components.size, 0)
+  }
 })

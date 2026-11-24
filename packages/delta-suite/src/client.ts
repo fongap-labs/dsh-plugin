@@ -3878,6 +3878,10 @@ window.__ModuleLoader__.load({
         try {
           ctx.inject(['slots'], (scope) => {
             try {
+              if (typeof scope.slots?.inject !== 'function' || typeof scope.slots?.register !== 'function' ||
+                  typeof scope.effect !== 'function' || typeof scope.inject !== 'function') {
+                throw new Error('Host Slots registration is incomplete')
+              }
               const controller = createController() as DeltaController & {
                 syncLanguage(): void
                 bindTheme(theme: ThemeApi | undefined): void
@@ -3961,46 +3965,46 @@ window.__ModuleLoader__.load({
               for (const feature of settingsModules) {
                 // Keep the public Settings section visible under an explicit
                 // Suite name in both Delta and Official theme modes.
-                scope.slots.inject('settings.section', () => scope.slots.register({
+                try { scope.slots.inject('settings.section', () => scope.slots.register({
                   name: 'settings.section',
                   id: feature.id,
                   order: feature.order,
                   label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title,
                   inject: () => ({ controller }),
-                }, feature.content))
-                scope.slots.inject('settings.section.icon', () => scope.slots.register({
+                }, feature.content)) } catch { /* unsupported optional Host surface */ }
+                try { scope.slots.inject('settings.section.icon', () => scope.slots.register({
                   name: 'settings.section.icon',
                   id: feature.id,
                   order: feature.order,
-                }, feature.icon))
+                }, feature.icon)) } catch { /* unsupported optional Host surface */ }
                 // Also expose the same form through the public Plugins tab,
                 // without modifying any native Settings DOM or controls.
-                scope.slots.inject('settings.plugins.tab', () => scope.slots.register({
+                try { scope.slots.inject('settings.plugins.tab', () => scope.slots.register({
                   name: 'settings.plugins.tab',
                   id: 'delta.suite.configuration',
                   order: 70,
                   label: () => (DICTIONARIES[language()] ?? DICTIONARIES.en).meta.title,
                   inject: () => ({ controller }),
-                }, feature.content))
+                }, feature.content)) } catch { /* unsupported optional Host surface */ }
               }
 
               // Harness' Installed plugins bundle detail is a separate public,
               // keyed seat from Settings. Show the same live Suite configuration
               // in the installed bundle rather than relying on Settings navigation.
               // The key must be the npm package name, not the Cordis row ID.
-              scope.slots.inject('plugins.bundle.config', () => scope.slots.register({
+              try { scope.slots.inject('plugins.bundle.config', () => scope.slots.register({
                 name: 'plugins.bundle.config',
                 key: '@fongap-labs/delta-suite',
               }, ({ view }: { view?: 'page' | 'summary' }) => view === 'summary'
-                ? null : el(PersonalizationSection, { controller })))
+                ? null : el(PersonalizationSection, { controller }))) } catch { /* unsupported optional Host surface */ }
 
               // The input model label is a public, independent preference surface.
               // Do not gate it on optional sessions, resources or sidebarRight
               // services: the native model picker must still work without them.
-              scope.slots.inject('conversation.input.model.label', () => scope.slots.register({
+              try { scope.slots.inject('conversation.input.model.label', () => scope.slots.register({
                 name: 'conversation.input.model.label',
                 id: 'delta.model.route-label',
-              }, ModelLabelExtension))
+              }, ModelLabelExtension)) } catch { /* unsupported optional Host surface */ }
 
               // ZIP-first: never replace the ZIP sidebar/search/theme. These
               // additional modules only register their own public Host slots.
@@ -4059,26 +4063,27 @@ window.__ModuleLoader__.load({
                   }
                 })
               }
-              registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark)
-              registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName)
+              try { registerBrand('sidebar.brand.mark', 'delta.brand.mark', DeltaBrandMark) } catch { /* unsupported optional Host surface */ }
+              try { registerBrand('sidebar.brand.name', 'delta.brand.name', DeltaBrandName) } catch { /* unsupported optional Host surface */ }
 
 
               // The published inline trailing Slot renders status without owning
               // native Session rows. If an older Host lacks it, retain native UI.
-              scope.slots.inject('sidebar.session.row.trailing', () => scope.slots.register<{ sessionId: string }>({
+              try { scope.slots.inject('sidebar.session.row.trailing', () => scope.slots.register<{ sessionId: string }>({
                 name: 'sidebar.session.row.trailing',
                 id: 'delta.session.protection',
                 order: 450,
-              }, props => SessionProtectionIndicator(props, controller)))
+              }, props => SessionProtectionIndicator(props, controller))) } catch { /* unsupported optional Host surface */ }
 
-              scope.slots.inject('sidebar.session.row.hover', () => scope.slots.register<SessionHoverProps>({
+              try { scope.slots.inject('sidebar.session.row.hover', () => scope.slots.register<SessionHoverProps>({
                 name: 'sidebar.session.row.hover',
                 id: 'delta.session.identity',
                 order: 500,
-              }, props => SessionHoverDetail(props, controller)))
+              }, props => SessionHoverDetail(props, controller))) } catch { /* unsupported optional Host surface */ }
 
               // Guard Host workspace mutations, register session move/lock/delete menus, and project durable session changes.
-              scope.inject(['workspaces'], workspaceScope => {
+              try { scope.inject(['workspaces'], workspaceScope => {
+                if (typeof workspaceScope.effect !== 'function') return
                 const workspaces = workspaceScope.workspaces
                 if (!workspaces || typeof workspaces.list?.getSnapshot !== 'function') return
 
@@ -4091,9 +4096,10 @@ window.__ModuleLoader__.load({
                 ).dispose, 'delta-suite: workspaces reference')
 
                 // Host owns native Workspace mutation permissions and UI.
-              })
+              }) } catch { /* unsupported optional Host service */ }
 
-              scope.inject(['sessions', 'uiWorkspace'], searchScope => {
+              try { scope.inject(['sessions', 'uiWorkspace'], searchScope => {
+                if (typeof searchScope.effect !== 'function') return
                 if (!searchScope.sessions || typeof searchScope.sessions.list?.getSnapshot !== 'function' ||
                     !searchScope.uiWorkspace) return
                 const sessionsApi = searchScope.sessions
@@ -4244,20 +4250,22 @@ window.__ModuleLoader__.load({
                     catch { /* optional search installation must not own Host references */ }
                   }, 'delta-suite: public-slot service-backed search palette')
                 }
-              })
+              }) } catch { /* unsupported optional Host service */ }
 
-              scope.inject(['theme'], themeScope => {
+              try { scope.inject(['theme'], themeScope => {
+                if (typeof themeScope.effect !== 'function') return
                 themeScope.effect(() => bindThemeReference(
                   () => controller.bindTheme(themeScope.theme),
                   () => controller.bindTheme(undefined),
                 ).dispose, 'delta-suite: theme service lifetime')
-              })
-              scope.inject(['layout'], layoutScope => {
+              }) } catch { controller.bindTheme(undefined) }
+              try { scope.inject(['layout'], layoutScope => {
+                if (typeof layoutScope.effect !== 'function') return
                 layoutScope.effect(() => bindLayoutReference(
                   () => controller.bindLayout(layoutScope.layout),
                   () => controller.bindLayout(undefined),
                 ).dispose, 'delta-suite: layout service lifetime')
-              })
+              }) } catch { /* unsupported optional Host service */ }
               try {
                 scope.inject(['sidebarRight'], rightScope => {
                   rightScope.effect(() => bindRightReference(
