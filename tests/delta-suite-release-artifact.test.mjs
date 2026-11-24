@@ -43,8 +43,8 @@ function validEntries(version = '0.1.0-beta.2') {
       'dtd-host-search',
       'const OWNED_CSS = ' + JSON.stringify(approvedTheme) + ';',
     ].join('\n'),
-    'locale/en.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'New conversation', ...fallbackLabels } }),
-    'locale/zh.json': JSON.stringify({ meta: { title: 'Delta' }, ui: { newConversation: 'Start', ...fallbackLabels } }),
+    'locale/en.json': readFileSync(join(import.meta.dirname, '../packages/delta-suite/locale/en.json'), 'utf8'),
+    'locale/zh.json': readFileSync(join(import.meta.dirname, '../packages/delta-suite/locale/zh.json'), 'utf8'),
     'icon.svg': '<svg/>',
   }
   return new Map(Object.entries(files).map(([key, value]) => [key, Buffer.from(value)]))
@@ -154,6 +154,28 @@ test('release refuses stale ZIP and TGZ bundles missing public Settings or model
   }
 })
 
+test('release validates current shipped bilingual locales without retired navigation keys', () => {
+  const valid = validEntries()
+  for (const lang of ['en', 'zh']) {
+    const path = 'locale/' + lang + '.json'
+    const locale = JSON.parse(valid.get(path).toString())
+    assert.equal(locale.ui.newConversation, undefined)
+    for (const format of ['ZIP', 'TGZ']) {
+      assert.doesNotThrow(() => verifyEntries(valid, '0.1.0-beta.2', format))
+      for (const key of ['theme', 'unavailable']) {
+        for (const variant of ['missing', 'empty']) {
+          const broken = new Map(valid)
+          const copy = { ...locale, ui: { ...locale.ui } }
+          if (variant === 'missing') delete copy.ui[key]
+          else copy.ui[key] = ''
+          broken.set(path, Buffer.from(JSON.stringify(copy)))
+          assert.throws(() => verifyEntries(broken, '0.1.0-beta.2', format),
+            /locale (?:en|zh)/, format + ': ' + lang + '.' + key + ' (' + variant + ')')
+        }
+      }
+    }
+  }
+})
 test('release refuses incomplete Host fallback translations in either archive', () => {
   const valid = validEntries()
   for (const lang of ['en', 'zh']) {
