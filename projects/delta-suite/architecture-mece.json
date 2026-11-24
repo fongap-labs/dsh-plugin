@@ -69,7 +69,8 @@
         "assistant-discussion",
         "assistant-optimization",
         "context-usage",
-        "compaction-status"
+        "compaction-status",
+        "task-intent"
       ]
     },
     {
@@ -145,5 +146,12 @@
       ],
       "action": "replace hand-wired feature registration with lifecycle-managed descriptors"
     }
-  ]
+  ],
+  "host_feature_registration": {
+    "context.compaction-status": "context",
+    "context.task-intent": "context",
+    "security.privacy-guards": "security",
+    "discovery.session-search": "discovery",
+    "sessions.session-operations": "sessions"
+  }
 }

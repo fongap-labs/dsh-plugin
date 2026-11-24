@@ -1,5 +1,7 @@
 # Delta Suite 宿主 DOM 接管清单
 
+> 当前边界以架构治理、安全规范和就绪清单为准；以下记录为分阶段核查证据。 见 [架构治理](ARCHITECTURE_GOVERNANCE.md)。
+
 本清单追踪 Issue #333 的现有兼容路径，并区分**已审计的公开 Slot**与**尚无公开 API 证据的 DOM 操作**。这不是功能已交付清单；功能就绪状态仍由 `projects/delta-suite/feature-readiness.json` 决定。来源为 `packages/delta-suite/src/client.ts` 与现有 Slot 注册；未获证据的 Host API 一律视为不可用。
 
 | 接管对象 | 已确认公开接口或缺口 | 当前处理及回退 | 第三方插件影响 | 验收条件 |

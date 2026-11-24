@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "products": [
+    {
+      "id": "delta-suite",
+      "package": "@fongap-labs/delta-suite",
+      "path": "packages/delta-suite",
+      "architecture": "projects/delta-suite/architecture-mece.json",
+      "readiness": "projects/delta-suite/feature-readiness.json",
+      "capabilities": [
+        "general-experience",
+        "general-task-intent",
+        "general-assistant-collaboration"
+      ],
+      "allowed_workspace_dependencies": []
+    },
+    {
+      "id": "delta-code",
+      "package": "@fongap-labs/delta-code",
+      "path": "packages/delta-code",
+      "architecture": "projects/delta-code/architecture-mece.json",
+      "readiness": "projects/delta-code/feature-readiness.json",
+      "capabilities": [
+        "coding-strategy",
+        "code-editing",
+        "repository-operations",
+        "coding-verification",
+        "coding-delegation"
+      ],
+      "allowed_workspace_dependencies": [
+        "@fongap-labs/shared"
+      ]
+    }
+  ],
+  "internal_packages": [
+    {
+      "package": "@fongap-labs/shared",
+      "path": "packages/shared",
+      "capabilities": [
+        "neutral-tool-registration",
+        "safe-subprocess"
+      ],
+      "standalone_release": false,
+      "allowed_workspace_dependencies": []
+    }
+  ],
+  "host_authority": [
+    "agent-execution",
+    "session-authority",
+    "model-execution",
+    "mcp-configuration",
+    "credential-resolution",
+    "permission-enforcement",
+    "workspace-mutation"
+  ],
+  "central_authority": "fongap-labs/action-worker",
+  "verification_levels": [
+    "static",
+    "behavior",
+    "mock-host",
+    "real-host",
+    "cross-host"
+  ]
+}

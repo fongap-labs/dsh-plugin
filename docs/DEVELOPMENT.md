@@ -38,11 +38,14 @@ pnpm install --frozen-lockfile
 
 ## 4. 套件模块约定
 
-Host 端新功能按职责放入 `src/host/`，入口只负责注册和组合。配置、视觉识别、搜索和路由不得重新堆回单一入口文件。
+Host 端新功能按现有产品所有权和适配层组织，入口只负责注册和组合。不得新建平行 `src/host/` 目录或将搜索、路由及配置重新堆入入口；不引入 Vision Bridge 或网络代理。
 
 Browser 端当前只有一个构建入口。任何客户端模块化工作必须同时提交构建配置、锁文件和产物契约测试，并验证真实 Harness 安装。不能只拆 TypeScript 文件而让运行时出现无法解析的相对模块。
 
 ## 5. 测试要求
+
+新增或变更产品能力须同步 [架构合同](../projects/architecture.json) 及对应产品合同、实现和回归测试；运行 `node --test tests/plugins-architecture-governance.test.mjs` 验证仓库边界。真实宿主验收按 [兼容性规范](COMPATIBILITY.md) 分级记录。
+
 
 - 单元测试验证输入边界、错误处理和纯函数行为。
 - 插件契约测试验证 `apply`、`inject`、路由及宿主降级行为。
