@@ -16,8 +16,12 @@ let compiled
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
     file('packages/delta-suite/tsconfig.client.json'), '--outDir', compileDir], { stdio: 'pipe' })
-  compiled = ['client-workspace-projection.js', 'client-search-protection.js', 'client.js']
-    .map(name => readFileSync(join(compileDir, name), 'utf8')).join('\n')
+  // Use the production client manifest instead of a second, drifting helper list.
+  const clientConfig = JSON.parse(readFileSync(file('packages/delta-suite/tsconfig.client.json'), 'utf8'))
+  compiled = clientConfig.include
+    .filter(path => path.endsWith('.ts') && !path.endsWith('.d.ts'))
+    .map(path => readFileSync(join(compileDir, path.replace(/^src\//, '').replace(/\.ts$/, '.js')), 'utf8'))
+    .join('\n')
 } finally { rmSync(compileDir, { recursive: true, force: true }) }
 const locales = Object.fromEntries(['en', 'zh'].map(lang =>
   [lang, JSON.parse(readFileSync(file('packages/delta-suite/locale/' + lang + '.json'), 'utf8'))]))
