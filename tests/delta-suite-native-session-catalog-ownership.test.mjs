@@ -8,13 +8,16 @@ import { join } from 'node:path'
 import vm from 'node:vm'
 
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
-const source = readFileSync(file('packages/delta-suite/src/client.ts'), 'utf8')
+const source = ['client-workspace-projection.ts', 'client-search-protection.ts', 'client.ts']
+  .map(name => readFileSync(file('packages/delta-suite/src/' + name), 'utf8')).join('\n')
 const dir = mkdtempSync(join(tmpdir(), 'delta-session-catalog-'))
-let compiled
+let compiled, workspaceProjection, searchProtection
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
     file('packages/delta-suite/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
   compiled = readFileSync(join(dir, 'client.js'), 'utf8')
+  workspaceProjection = readFileSync(join(dir, 'client-workspace-projection.js'), 'utf8')
+  searchProtection = readFileSync(join(dir, 'client-search-protection.js'), 'utf8')
 } finally { rmSync(dir, { recursive: true, force: true }) }
 const start = compiled.indexOf('function canCallHostHttp(')
 const end = compiled.indexOf('const deltaFeatures = createClientFeatureManager()', start)
@@ -23,10 +26,10 @@ assert.ok(start >= 0 && end > start)
 const timeStart = compiled.indexOf('function normalizeSearchTime(', end)
 const timeEnd = compiled.indexOf('function revealSessionTurnInChat(', timeStart)
 assert.ok(timeStart > end && timeEnd > timeStart)
-const managerSource = compiled.slice(start, end) + '\n' +
+const managerSource = workspaceProjection + '\n' + searchProtection + '\n' + compiled.slice(start, end) + '\n' +
   compiled.slice(timeStart, timeEnd) + '\ncreateClientFeatureManager()'
 const createProjection = () => vm.runInNewContext(
-  compiled.slice(start, end) + '\ncreateWorkspaceCompatibilityProjection()',
+  workspaceProjection + '\ncreateWorkspaceCompatibilityProjection()',
 )
 
 function fixture({ initial = {}, response, unavailable = false, rejectRefresh = false } = {}) {
@@ -556,7 +559,7 @@ test('Suite has no Client-side native Workspace method wrapper or synthetic muta
   assert.match(source, /function createSearchContentProtection\(/)
 })
 
-const makeSearchProtection = vm.runInNewContext(compiled.slice(start, end) + '\ncreateSearchContentProtection')
+const makeSearchProtection = vm.runInNewContext(searchProtection + '\ncreateSearchContentProtection')
 test('client search excludes durable protection independently of temporary viewing grants', () => {
   const empty = { isSearchProtectionReady: true, lockedSessionIds: [], deletedSessionIds: [], lockedWorkspaceIds: [], movedSessions: {} }
   const raw = { items: [

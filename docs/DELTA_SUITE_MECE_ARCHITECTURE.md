@@ -28,3 +28,7 @@
 ## 会话搜索投影边界
 
 `src/delta-suite-discovery/session-search-projection.ts` 负责会话文本的脱敏提取、检索词匹配、结果评分和摘要定位；只接受数据与查询参数，不读取宿主服务、不持有缓存、不注册路由。`src/host-search.ts` 保留 Host 观察租约、会话保护复核、内存 LRU、时间预算、查询编排及释放流程，并转发原有公开类型和函数。不得将安全策略或宿主读取权限移入纯投影模块；现有会话搜索行为测试继续验证真实入口。
+
+## 客户端会话投影与保护边界
+
+`src/client-workspace-projection.ts` 由 Sessions 域维护只读工作区快照投影及引用稳定性；`src/client-search-protection.ts` 由 Security 域维护 Suite Search 的只读保护判断，缺失可信成员快照时保持失败关闭。二者不调用 Host 服务、不修改宿主数据；`createClientFeatureManager` 通过显式快照参数调用，保留状态发布、授权请求和 UI 生命周期。浏览器构建仍按同一清单合并为唯一 `lib/client.js`。本阶段不宣称管理器全部拆分完成。

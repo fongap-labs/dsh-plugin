@@ -366,7 +366,8 @@ export function verifyEntries(entries, version, format) {
     /\bexport\s+function\s+negotiateHostCapabilities\s*\(/.test(contract),
     format + ' capability module')
   ensure(!hasUnsafeHostPatch(host), format + ' unsafe Host patch')
-  for (const helper of ['client-theme-tokens', 'client-context-projection', 'client-totp-qr']) {
+  for (const helper of ['client-theme-tokens', 'client-context-projection', 'client-totp-qr',
+    'client-workspace-projection', 'client-search-protection']) {
     ensure(!entries.has('lib/' + helper + '.js') && !entries.has('lib/' + helper + '.d.ts'),
       format + ' unexpected separately shipped browser helper: ' + helper)
   }
