@@ -78,3 +78,7 @@ GitHub 仓库名称固定为 `fongap-labs/plugins`，Delta 和 DeepSeek Harness 
 - **版本规则**：每次通过 Action Worker 的 `workflow_dispatch` 显式输入 `source_repository=fongap-labs/plugins`、`product=delta-*` 和 `requested_version`，不接受自动推算或仓库派发绕过手动限制。
 - **发布门禁**：稳定版在正式 Tag 生效前必须完成 npm 发布及验证；`-beta.N` 只作为 GitHub 预发布，不进入 npm 正式发布分支；版本和证据验证失败时一律保持失败状态。
 - **验收边界**：只能通过中央 CI、只读清单核对和不执行生产发布的预检确认迁移成功，不得通过创建测试版 Release、冒险发布 npm 包或覆盖既有 Tag 来探测链路。
+
+## 8. 中央 CI 通知入口
+
+本仓库只保留与 Action Worker 模板逐字一致的 `.github/workflows/notify-action-worker.yml`。PR 事件通知中央治理，main push 唤醒 Intake，由中央重新核实默认分支 SHA、安排 CI、主分支写入审计及签名证据；不再并行派发 `run-central-ci-ref`。旧 `ci.yml` 的仓库内手动入口已退役；中央 Intake 自动对账，必要时由维护者在 Action Worker 的 Intake 工作流手动发起对账。通知成功不等于 CI 通过，必须核查同一 main SHA 的 `CI Evidence` 与 `Main Write Guard`。不修改中央 Runner、执行清单、测试、授权或 required check。
