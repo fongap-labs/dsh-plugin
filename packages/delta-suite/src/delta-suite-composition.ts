@@ -5,6 +5,7 @@ import { installHostSessionSearch } from './host-search.js'
 import { installHostSessionOps, readHostSearchExclusion } from './host-sessions.js'
 import { createHostStateStore } from './host-state.js'
 import { registerCompactionStatusProjection } from './context-projection.js'
+import { installHostTaskIntent } from './host-task-intent.js'
 import { DeltaFeatureRegistry } from './delta-suite-kernel/feature-lifecycle-registry.js'
 
 export function apply(ctx?: PrivacyHostContext): () => void {
@@ -24,6 +25,12 @@ export function apply(ctx?: PrivacyHostContext): () => void {
     optional: true,
     install: () => typeof ctx.inject === 'function'
       ? registerCompactionStatusProjection(legacyCtx) : () => {},
+  })
+  registry.register({
+    id: 'context.task-intent',
+    owner: 'context',
+    optional: true,
+    install: () => installHostTaskIntent(ctx),
   })
   registry.register({
     id: 'security.privacy-guards',
