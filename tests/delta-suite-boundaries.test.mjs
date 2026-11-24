@@ -16,7 +16,7 @@ test('Suite composition, kernel and adapter are separate modules', () => {
   const adapter = read(base + 'delta-suite-adapter/host-capability-contract.ts')
   assert.match(entry, /export \{ apply \} from '\.\/delta-suite-composition\.js'/)
   assert.match(composition, /new DeltaFeatureRegistry<PrivacyHostContext>/)
-  assert.match(composition, /registry\.mount\(ctx, new Set<string>\(\)\)/)
+  assert.match(composition, /registry\.mount\(ctx, readHostContextActivationCapabilities\(ctx\)\)/)
   assert.match(kernel, /class DeltaFeatureRegistry/)
   assert.match(kernel, /for \(let index = this\.cleanups\.length - 1; index >= 0; index--\)/)
   assert.doesNotMatch(kernel, /@deepseek-ai\//)
