@@ -286,3 +286,77 @@ test('corrupt previous state fails closed instead of silently dropping deletion 
     await fs.rm(home, { recursive: true, force: true })
   }
 })
+
+
+test('route groups roll back partial registrations in either transport', () => {
+  for (const broken of ['connection', 'webServer']) {
+    const active = new Map(), released = []
+    let count = 0
+    const current = state.normalizeDeltaState({})
+    const stop = ops.installHostSessionOps({
+      get: () => undefined,
+      inject(deps, callback) {
+        if (deps[0] !== broken) return () => {}
+        const register = spec => {
+          if (++count === 3) throw new Error('injected registration failure')
+          active.set(spec.path, spec)
+          return () => { released.push(spec.path); active.delete(spec.path) }
+        }
+        return callback(broken === 'connection'
+          ? { connection: { fetch: { register } } }
+          : { webServer: { register } })
+      },
+    }, { read: async () => current, getCached: () => current, update: async fn => fn(current) })
+    assert.equal(count, 3)
+    assert.equal(active.size, 0, broken + ' leaked a partially registered API')
+    assert.deepEqual(released, [ops.DELTA_SESSION_LOCK_PATH, ops.DELTA_STATE_PATH])
+    stop()
+    assert.equal(released.length, 2)
+  }
+})
+
+test('connection scope and plugin disposal release each route only once', () => {
+  const released = [], active = new Map(), effects = []
+  const current = state.normalizeDeltaState({})
+  const stop = ops.installHostSessionOps({
+    get: () => undefined,
+    inject(deps, callback) {
+      if (deps[0] !== 'connection') return () => {}
+      return callback({
+        connection: { fetch: { register(spec) {
+          active.set(spec.path, spec)
+          return () => { released.push(spec.path); active.delete(spec.path) }
+        } } },
+        effect(create) { effects.push(create()) },
+      })
+    },
+  }, { read: async () => current, getCached: () => current, update: async fn => fn(current) })
+  assert.equal(active.size, 6)
+  assert.equal(effects.length, 1)
+  effects[0]()
+  stop()
+  stop()
+  assert.equal(active.size, 0)
+  assert.equal(released.length, 6)
+  assert.equal(new Set(released).size, 6)
+})
+
+test('failed scope effect registration also rolls back the connection group', () => {
+  const active = new Set()
+  const current = state.normalizeDeltaState({})
+  const stop = ops.installHostSessionOps({
+    get: () => undefined,
+    inject(deps, callback) {
+      if (deps[0] !== 'connection') return () => {}
+      return callback({
+        connection: { fetch: { register(spec) {
+          active.add(spec.path)
+          return () => active.delete(spec.path)
+        } } },
+        effect() { throw new Error('scope effect registration failed') },
+      })
+    },
+  }, { read: async () => current, getCached: () => current, update: async fn => fn(current) })
+  assert.equal(active.size, 0)
+  stop()
+})

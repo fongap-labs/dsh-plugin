@@ -55,6 +55,31 @@ interface SessionOpsHostContext {
   inject?(deps: string[], cb: (scope: any) => void | (() => void)): unknown
 }
 
+// Register a transport's routes as one reversible group. A failure partway
+// through registration must not leave a partially installed API.
+function registerRouteGroup(install: (track: (stop: () => void) => void) => void): () => void {
+  const stops: Array<() => void> = []
+  let disposed = false
+  const cleanup = (): void => {
+    if (disposed) return
+    disposed = true
+    for (let index = stops.length - 1; index >= 0; index--) {
+      try { stops[index]() } catch { /* release the remaining routes */ }
+    }
+    stops.length = 0
+  }
+  try {
+    install(stop => {
+      if (disposed) { stop(); return }
+      stops.push(stop)
+    })
+    return cleanup
+  } catch (error) {
+    cleanup()
+    throw error
+  }
+}
+
 function isInsideRoot(pathMod: any, rootDir: string, candidatePath: string): boolean {
   const rel = pathMod.relative(pathMod.resolve(rootDir), pathMod.resolve(candidatePath))
   return rel !== '' && rel !== '..' && !rel.startsWith('..' + pathMod.sep) && !pathMod.isAbsolute(rel)
@@ -942,56 +967,57 @@ export function installHostSessionOps(
       }) => {
         if (isDisposed) return () => {}
         if (typeof scope?.connection?.fetch?.register !== 'function') return () => {}
-        const stops = [
-          scope.connection.fetch.register({
+        const register = scope.connection.fetch.register.bind(scope.connection.fetch)
+        const cleanup = registerRouteGroup(track => {
+          track(register({
             path: DELTA_STATE_PATH,
             methods: ['GET'],
             requestBody: 'buffered',
             fetch: () => serializeRequest(() => handleState()),
-          }),
-          scope.connection.fetch.register({
+          }))
+          track(register({
             path: DELTA_SESSION_LOCK_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
             fetch: req => serializeRequest(() => handleLock(req)),
-          }),
-          scope.connection.fetch.register({
+          }))
+          track(register({
             path: DELTA_SESSION_MOVE_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
             fetch: req => serializeRequest(() => handleMove(req)),
-          }),
-          scope.connection.fetch.register({
+          }))
+          track(register({
             path: DELTA_SESSION_DELETE_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
             fetch: req => serializeRequest(() => handleDelete(req)),
-          }),
-          scope.connection.fetch.register({
+          }))
+          track(register({
             path: DELTA_SESSION_DELETE_UNGROUPED_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
             fetch: req => serializeRequest(() => handleDeleteUngrouped(req)),
-          }),
-          scope.connection.fetch.register({
+          }))
+          track(register({
             path: DELTA_OPEN_FOLDER_PATH,
             methods: ['POST'],
             requestBody: 'buffered',
             fetch: req => serializeRequest(() => handleOpenFolder(req)),
-          }),
-        ]
-        const cleanup = () => {
-          for (const stop of stops) {
-            try { stop?.() } catch {}
+          }))
+        })
+        try {
+          if (typeof (scope as { effect?: (fn: () => () => void, label?: string) => void }).effect === 'function') {
+            (scope as { effect: (fn: () => () => void, label?: string) => void }).effect(
+              () => cleanup,
+              'delta-suite: host session ops routes',
+            )
           }
+          return cleanup
+        } catch (error) {
+          cleanup()
+          throw error
         }
-        if (typeof (scope as { effect?: (fn: () => () => void, label?: string) => void }).effect === 'function') {
-          (scope as { effect: (fn: () => () => void, label?: string) => void }).effect(
-            () => cleanup,
-            'delta-suite: host session ops routes',
-          )
-        }
-        return cleanup
       })
       if (typeof unsub === 'function') {
         unregisterCallbacks.push(unsub as () => void)
@@ -1028,19 +1054,15 @@ export function installHostSessionOps(
             }
           },
         })
-        const stops = [
-          ws.register(makeRoute(DELTA_STATE_PATH, () => serializeRequest(() => handleState()))),
-          ws.register(makeRoute(DELTA_SESSION_LOCK_PATH, req => serializeRequest(() => handleLock(req)))),
-          ws.register(makeRoute(DELTA_SESSION_MOVE_PATH, req => serializeRequest(() => handleMove(req)))),
-          ws.register(makeRoute(DELTA_SESSION_DELETE_PATH, req => serializeRequest(() => handleDelete(req)))),
-          ws.register(makeRoute(DELTA_SESSION_DELETE_UNGROUPED_PATH, req => serializeRequest(() => handleDeleteUngrouped(req)))),
-          ws.register(makeRoute(DELTA_OPEN_FOLDER_PATH, req => serializeRequest(() => handleOpenFolder(req)))),
-        ]
-        return () => {
-          for (const s of stops) {
-            try { s?.() } catch {}
-          }
-        }
+        const register = ws.register.bind(ws)
+        return registerRouteGroup(track => {
+          track(register(makeRoute(DELTA_STATE_PATH, () => serializeRequest(() => handleState()))))
+          track(register(makeRoute(DELTA_SESSION_LOCK_PATH, req => serializeRequest(() => handleLock(req)))))
+          track(register(makeRoute(DELTA_SESSION_MOVE_PATH, req => serializeRequest(() => handleMove(req)))))
+          track(register(makeRoute(DELTA_SESSION_DELETE_PATH, req => serializeRequest(() => handleDelete(req)))))
+          track(register(makeRoute(DELTA_SESSION_DELETE_UNGROUPED_PATH, req => serializeRequest(() => handleDeleteUngrouped(req)))))
+          track(register(makeRoute(DELTA_OPEN_FOLDER_PATH, req => serializeRequest(() => handleOpenFolder(req)))))
+        })
       })
       if (typeof unsubWebServer === 'function') {
         unregisterCallbacks.push(unsubWebServer as () => void)
