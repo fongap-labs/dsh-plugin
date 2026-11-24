@@ -91,7 +91,7 @@ Delta Code is one installable Harness plugin with a small composition kernel and
 - Each GitHub Token reference binds to exactly one configured account/organization owner; routing never crosses owners. There is no repository-count cap. With no configured accounts, Host `GITHUB_TOKEN` is accepted only under its `/user`-verified login; organizations require a dedicated owner binding. GitHub validates permissions on every repository request.
 - Host permission denial must never be downgraded to Node filesystem access or shell execution.
 - Kernel does not schedule agent work, store sessions, maintain a model catalog or own context compression.
-- Old `lib/tools/*` and root import paths remain as compatibility re-exports until consumers are migrated and existing tests pass.
+- Old `lib/tools/*` and root import paths remain as compatibility re-exports until consumers are migrated and existing tests pass. Internal configuration, composition and DSH adapters must import the owning implementation or stable adapter boundary rather than route through a legacy facade. Compatibility files are retained for existing consumers and must not acquire new business logic.
 - Only DSH `tools` is a root dependency. `subprocess` is injected only for LSP probes, command-backed Quality, and local Git/worktree/workspace operations; its absence preserves Strategies, Skills, and lightweight metrics.
 - An absent provider is not the same as an explicitly denied provider; fail closed where permission semantics cannot be preserved.
 

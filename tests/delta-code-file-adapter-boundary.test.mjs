@@ -31,3 +31,19 @@ describe('Delta Code file adapter boundary', () => {
     assert.match(adapterSource, /writeTextSafe/)
   })
 })
+
+
+// These compiled adapters must use the stable file port directly. Keep the
+// legacy runtime exports tested above for consumers outside the implementation.
+describe('Delta Code internal file port routing', () => {
+  it('compiled DSH adapters no longer obtain file authority through runtime facades', () => {
+    const base = new URL('../packages/delta-code/lib/delta-code-adapter/providers/dsh/', import.meta.url)
+    for (const name of ['lsp', 'resume', 'delivery-gate', 'multi-edit', 'profile', 'session-repositories']) {
+      const source = readFileSync(new URL(name + '.js', base), 'utf8')
+      assert.match(source, /from ['"]\.\.\/\.\.\/workspace-files\.js['"]/)
+      for (const match of source.matchAll(/import\s*\{([^}]*)\}\s*from ['"][^'"]*\/runtime\.js['"]/g)) {
+        assert.doesNotMatch(match[1], /\b(?:resolveRoot|readTextSafe|writeTextSafe|validateWriteTargetSafe)\b/)
+      }
+    }
+  })
+})

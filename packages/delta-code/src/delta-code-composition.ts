@@ -16,7 +16,7 @@ import { registerCodingSkills } from './delta-code-adapter/providers/dsh/skills.
 import { registerApprovedGitHubSkills } from './delta-code-adapter/providers/dsh/github-skills.js'
 import { registerDeltaCodePrompt } from './delta-code-adapter/providers/dsh/prompt.js'
 import { deltaCodeQuality } from './delta-code-quality/index.js'
-import { registerNativeResume } from './delta-code-quality/resume.js'
+import { registerNativeResume } from './delta-code-adapter/providers/dsh/resume.js'
 import { observeNativeDelegation } from './delta-code-adapter/providers/dsh/native-delegation.js'
 import { deltaCodeRepositoryRemote, deltaCodeRepositoryCommands } from './delta-code-repository/index.js'
 import { deltaCodeSupport } from './delta-code-support/index.js'

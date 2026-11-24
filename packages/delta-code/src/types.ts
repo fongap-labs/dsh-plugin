@@ -1,4 +1,4 @@
-import type { LanguageConventionRule } from './consistency.js'
+import type { LanguageConventionRule } from './delta-code-quality/consistency.js'
 import type { DeltaFileWriteContract } from './delta-code-adapter/contracts/files.js'
 
 /** Host-independent public configuration and result types. */

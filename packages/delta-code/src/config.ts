@@ -4,7 +4,7 @@
  * are stored. The native credentials service owns values, with masked UI.
  */
 import Schema from '@deepseek-ai/schemastery'
-import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'
+import { DEFAULT_LSP_SERVERS } from './delta-code-coding/lsp-defaults.js'
 
 const Account = Schema.object({
   owner: Schema.string().required(),
