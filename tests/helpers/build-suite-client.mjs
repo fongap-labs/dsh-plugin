@@ -24,7 +24,13 @@ export function buildDesktopClientFixture() {
       '--outDir', temp,
     ], { stdio: 'pipe' })
     let source = readFileSync(join(temp, 'client.js'), 'utf8')
-    const paletteSource = readFileSync(join(temp, 'client-theme-tokens.js'), 'utf8')
+    const config = JSON.parse(readFileSync(fixture('packages/delta-suite/tsconfig.client.json'), 'utf8'))
+    const helperSources = config.include.filter(file => /^src\/client-.+\.ts$/.test(file) && !file.endsWith('.d.ts'))
+      .map(file => readFileSync(join(temp, file.slice(4).replace(/\.ts$/, '.js')), 'utf8'))
+    for (const helper of helperSources) {
+      if (/^\s*(?:import|export)\s/m.test(helper)) throw new Error('Client helper must not import or export at runtime')
+    }
+    const paletteSource = helperSources[0]
     if (!/\bconst TOKENS\s*=/.test(paletteSource)) throw new Error('Compiled Theme palette missing')
     const dictionaries = Object.fromEntries(['zh', 'en'].map(lang => [
       lang, JSON.parse(readFileSync(fixture('packages/delta-suite/locale/' + lang + '.json'), 'utf8')),
@@ -45,7 +51,7 @@ export function buildDesktopClientFixture() {
     if (!source.includes('window.__ModuleLoader__.load({')) {
       throw new Error('Fixture client registration missing')
     }
-    return ';(() => {\n' + paletteSource + '\n' + source + '\n})();\n'
+    return ';(() => {\n' + helperSources.join('\n') + '\n' + source + '\n})();\n'
   } finally {
     rmSync(temp, { recursive: true, force: true })
   }

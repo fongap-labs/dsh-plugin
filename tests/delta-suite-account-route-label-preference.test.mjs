@@ -10,7 +10,7 @@ const source = readFileSync(fileURLToPath(
 const readiness = JSON.parse(readFileSync(fileURLToPath(
   new URL('../projects/delta-suite/feature-readiness.json', import.meta.url)), 'utf8'))
 const preferencesStart = source.indexOf('type FeaturePreferences =')
-const preferencesEnd = source.indexOf('\nfunction readContextUsage(', preferencesStart)
+const preferencesEnd = source.indexOf('\ninterface Loader {', preferencesStart)
 const labelStart = source.indexOf('    function ModelLabelExtension(')
 const labelEnd = source.indexOf('    function AssistantInputControls(', labelStart)
 assert.ok(preferencesStart >= 0 && preferencesEnd > preferencesStart &&

@@ -20,3 +20,7 @@
 ## 会话保护实现边界
 
 `src/delta-suite-security/session-protection.ts` 统一维护锁、墓碑、工作区成员快照和子 Agent 继承保护；只读取状态和公开宿主快照，不注册 HTTP 路由、不直接修改宿主或持久状态。`src/delta-suite-adapter/workspace-contract.ts` 定义已有 Host Workspace 接口类型。`src/host-sessions.ts` 保留操作编排及原有导出；发现模块通过同一安全判断接收搜索排除函数，避免重复授权策略。现有行为及实机验收要求不变。
+
+## 浏览器构建边界
+
+`src/client-context-projection.ts` 负责只读上下文、压缩摘要和消息标识投影；`src/client-totp-qr.ts` 负责本地 TOTP 二维码编码，不执行网络请求。`client.ts` 负责 UI 调用、资源与宿主生命周期。浏览器 `tsconfig.client.json` 是辅助脚本的有序构建清单；发布 finalizer 与隔离测试 fixture 按同一清单组装单一 `lib/client.js`，中间辅助文件不随包发布，不引入新的宿主模块加载或运行时依赖。Host TypeScript 构建排除浏览器脚本。现有算法与宿主边界不变。

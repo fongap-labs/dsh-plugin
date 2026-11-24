@@ -366,6 +366,10 @@ export function verifyEntries(entries, version, format) {
     /\bexport\s+function\s+negotiateHostCapabilities\s*\(/.test(contract),
     format + ' capability module')
   ensure(!hasUnsafeHostPatch(host), format + ' unsafe Host patch')
+  for (const helper of ['client-theme-tokens', 'client-context-projection', 'client-totp-qr']) {
+    ensure(!entries.has('lib/' + helper + '.js') && !entries.has('lib/' + helper + '.d.ts'),
+      format + ' unexpected separately shipped browser helper: ' + helper)
+  }
   const client = entries.get('lib/client.js').toString()
   ensure(client.includes('window.__ModuleLoader__.load({'), format + ' boot registration')
   ensure(client.includes('settings.section') && client.includes('sidebar.brand.mark'), format + ' UI modules')
