@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
 import { normalizeConfig } from '../packages/delta-code/lib/runtime.js'
 import { DEFAULT_LSP_SERVERS } from '../packages/delta-code/lib/lsp-defaults.js'
+import { DEFAULT_LSP_SERVERS as OWNER_LSP_SERVERS } from '../packages/delta-code/lib/delta-code-coding/lsp-defaults.js'
 const root = new URL('../packages/delta-code/', import.meta.url)
 const read = (p) => readFileSync(new URL(p,root),'utf8')
 describe('Delta Code native settings contract', () => {
@@ -60,11 +61,12 @@ describe('Delta Code native settings contract', () => {
   })
 
   it('uses one shared default LSP catalog in settings and runtime', () => {
-    assert.deepEqual(normalizeConfig({}).lspServers, DEFAULT_LSP_SERVERS)
+    assert.equal(DEFAULT_LSP_SERVERS, OWNER_LSP_SERVERS, 'legacy catalog export preserves owner identity')
+    assert.deepEqual(normalizeConfig({}).lspServers, OWNER_LSP_SERVERS)
     const settings = read('src/config.ts')
     const runtime = read('src/runtime.ts')
-    assert.match(settings, /import \{ DEFAULT_LSP_SERVERS \} from '\.\/lsp-defaults\.js'/)
-    assert.match(runtime, /import \{ DEFAULT_LSP_SERVERS \} from '\.\/lsp-defaults\.js'/)
+    assert.match(settings, /import \{ DEFAULT_LSP_SERVERS \} from '\.\/delta-code-coding\/lsp-defaults\.js'/)
+    assert.match(runtime, /import \{ DEFAULT_LSP_SERVERS \} from '\.\/delta-code-coding\/lsp-defaults\.js'/)
     assert.doesNotMatch(settings, /typescript-language-server/)
     assert.doesNotMatch(runtime, /typescript-language-server/)
     assert.equal(DEFAULT_LSP_SERVERS.length, 5)

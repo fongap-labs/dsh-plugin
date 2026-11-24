@@ -7,10 +7,10 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition, ToolRunContext } from '@deepseek-ai/dsh-tools'
 import { defineTool, runCommand } from '@fongap-labs/shared'
 import type { Settings } from '../../../types.js'
-import { resolveRoot } from '../../../runtime.js'
+import { resolveRoot } from '../../workspace-files.js'
 import { resolveAuthorizedGitCwd } from './host-git-cwd.js'
 import { remainingDeliveryTasks } from '../../../delta-code-quality/delivery-policy.js'
-import { parseGitStatus } from '../../../delta-code-repository/git.js'
+import { parseGitStatus } from '../../../delta-code-repository/git-status-policy.js'
 import { retryReadOnly, classifyFailure } from '../../../delta-code-quality/failure-policy.js'
 
 import {

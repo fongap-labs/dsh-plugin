@@ -1,6 +1,6 @@
 import type { CodeWorkerConfig, GitHubAccountConfig, LspServerConfig, Settings } from './types.js'
-import { normalizeLanguageConventions } from './consistency.js'
-import { DEFAULT_LSP_SERVERS } from './lsp-defaults.js'
+import { normalizeLanguageConventions } from './delta-code-quality/consistency.js'
+import { DEFAULT_LSP_SERVERS } from './delta-code-coding/lsp-defaults.js'
 
 export const TOOL_PREFIX = 'code_'
 export const DEFAULT_GUIDANCE = [
