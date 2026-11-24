@@ -24,6 +24,6 @@
 
 新增能力先确定唯一所有者、公开宿主接口、权限、失败回退、卸载及验收，再修改合同、实现与回归测试。禁止重新引入已移除的网络代理、Vision Bridge、宿主源码 Patch、私有凭据读取或重复执行权威。
 
-仓库结构和直接跨包依赖由 [中央架构测试](https://github.com/fongap-labs/action-worker/blob/main/tests/packs/plugins/plugins-architecture-governance-test.mjs) 自动检查；现有产品测试继续验证行为、注册、权限和产物。新增架构检查不得降低已有门禁。完整内部导入图、循环依赖及适配层迁移须在实际清查后逐步加强，不能把未实现的约束描述为已自动验证。
+仓库结构、直接跨包依赖、双内核隔离及循环、内部包随包依赖和已声明源码边界由 [中央架构测试](https://github.com/fongap-labs/action-worker/blob/main/tests/packs/plugins/plugins-architecture-governance-test.mjs) 自动检查；现有产品测试继续验证行为、注册、权限和产物。新增架构检查不得降低已有门禁。完整内部导入图、循环依赖及适配层迁移须在实际清查后逐步加强，不能把未实现的约束描述为已自动验证。
 
 新增普通插件应通过新增包、产品合同、发布清单及对应测试接入；不修改其他产品内核，不在 Action Worker 新增项目专属执行分支。

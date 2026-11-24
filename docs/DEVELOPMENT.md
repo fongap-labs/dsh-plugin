@@ -2,7 +2,7 @@
 
 ## 1. 环境
 
-- Node.js：24，版本来源为 `packages/.nvmrc`。
+- Node.js：构建与开发使用 24，版本来源为 `packages/.nvmrc`；各包 `engines.node` 是独立运行时声明（Suite >=22.0.0，Code/Shared >=20.10.0），不等同于已完成对应版本实机验证。
 - pnpm：以根目录 `package.json.packageManager` 为唯一版本来源，当前为 `pnpm@11.28.5`。
 - TypeScript：由根目录锁文件固定版本。
 
@@ -40,7 +40,7 @@ pnpm install --frozen-lockfile
 
 Host 端新功能按现有产品所有权和适配层组织，入口只负责注册和组合。不得新建平行 `src/host/` 目录或将搜索、路由及配置重新堆入入口；不引入 Vision Bridge 或网络代理。
 
-Browser 端当前只有一个构建入口。任何客户端模块化工作必须同时提交构建配置、锁文件和产物契约测试，并验证真实 Harness 安装。不能只拆 TypeScript 文件而让运行时出现无法解析的相对模块。
+Browser 端当前只有一个构建入口。任何客户端模块化工作必须同时提交构建配置、产物契约测试及实际依赖发生变化时的锁文件，并验证真实 Harness 安装。不能只拆 TypeScript 文件而让运行时出现无法解析的相对模块。
 
 ## 5. 测试要求
 
