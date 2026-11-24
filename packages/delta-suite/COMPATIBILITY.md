@@ -1,5 +1,7 @@
 # Delta UI 宿主兼容性与迁移
 
+> 本文保留按日期排列的历史核查证据，不是当前就绪状态。现行规范见 [宿主兼容性](../../docs/COMPATIBILITY.md)，当前状态以 [feature-readiness.json](../../projects/delta-suite/feature-readiness.json) 及实际验证证据为准。历史故障不得重新解释为当前仍存在。
+
 新的插件身份为 `@fongap-labs/delta-suite`，历史 `@fongap-labs/dsh-theme-delta` 的发布记录和错误日志不修改。首次安装新包前先停用旧插件，确保不会重复覆盖主题或重复注册 `settings.section`；禁止在没有实际宿主验证前声称可自动迁移。
 
 

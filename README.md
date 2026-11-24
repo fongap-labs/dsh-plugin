@@ -18,11 +18,11 @@
 
 ## 功能扩展
 
-这是一个插件包，内部允许多个功能模块及设置栏目，不会将后续功能强制限制在“个性设置”。
+每个插件包内部允许多个功能模块及设置栏目，不会将后续功能强制限制在“个性设置”。
 
 每个模块须分别声明宿主依赖、配置/本地化、生命周期和失败回退。只有能力真正接通时才向 `settings.section` 注册独立设置页，避免出现无法生效的按钮或虚假开关。详见 [架构](docs/ARCHITECTURE.md) 和 [包内 README](packages/delta-suite/README.md)。
 
-Delta Suite 的上下文功能组合 Harness 原生 `dsh-compaction-basic`、`message-quotes` 和公开 Client 插槽。Profile 层压缩后端在主会话与侧栏会话的模型请求前处理高压力上下文，并将较早消息压成结构化 checkpoint；不会删除会话原始日志。引用、侧栏、输入优化及显示开关的使用方式和实机验收边界见 [包内说明](packages/delta-suite/README.md)。
+Delta Suite 的上下文体验遵循公开 Host 能力；原生模型执行、压缩及日志仍由宿主负责。各功能的实现与实机验收状态以 [就绪清单](projects/delta-suite/feature-readiness.json) 为准，不将目标设计视为实际交付。
 
 ## 开发
 

@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "principle": "MECE",
+  "owners": [
+    {
+      "id": "kernel",
+      "path": "packages/delta-code/src/delta-code-kernel",
+      "capabilities": [
+        "feature-registration",
+        "lifecycle",
+        "rollback"
+      ]
+    },
+    {
+      "id": "adapter",
+      "path": "packages/delta-code/src/delta-code-adapter",
+      "capabilities": [
+        "host-ports",
+        "host-service-adaptation",
+        "github-transport"
+      ]
+    },
+    {
+      "id": "strategy",
+      "path": "packages/delta-code/src/delta-code-strategy",
+      "capabilities": [
+        "coding-route",
+        "skill-catalog",
+        "skill-selection"
+      ]
+    },
+    {
+      "id": "coding",
+      "path": "packages/delta-code/src/delta-code-coding",
+      "capabilities": [
+        "edit-planning",
+        "code-transformation",
+        "language-conventions"
+      ]
+    },
+    {
+      "id": "quality",
+      "path": "packages/delta-code/src/delta-code-quality",
+      "capabilities": [
+        "verification",
+        "recovery",
+        "delivery-evidence"
+      ]
+    },
+    {
+      "id": "repository",
+      "path": "packages/delta-code/src/delta-code-repository",
+      "capabilities": [
+        "repository-binding",
+        "git-worktree",
+        "pr-ci-policy"
+      ]
+    },
+    {
+      "id": "collaboration",
+      "path": "packages/delta-code/src/delta-code-collaboration",
+      "capabilities": [
+        "coding-delegation-policy"
+      ]
+    },
+    {
+      "id": "support",
+      "path": "packages/delta-code/src/delta-code-support",
+      "capabilities": [
+        "ephemeral-execution-observation"
+      ]
+    }
+  ],
+  "composition": "packages/delta-code/src/delta-code-composition.ts",
+  "legacy_facades": [
+    "auto-routing.ts",
+    "consistency.ts",
+    "execution-stats.ts",
+    "gateway-retry-coordination.ts",
+    "host-adapter.ts",
+    "host-fs.ts",
+    "lsp-defaults.ts",
+    "skills.ts",
+    "workflow-route.ts",
+    "workflow-skills.ts"
+  ],
+  "host_owned_authority": [
+    "agent-execution",
+    "session-authority",
+    "model-execution",
+    "mcp-configuration",
+    "credential-resolution",
+    "permission-enforcement",
+    "workspace-mutation"
+  ]
+}

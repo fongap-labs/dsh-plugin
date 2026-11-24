@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "scope": "capability families; source inventory is not execution evidence",
+  "capabilities": {
+    "coding-strategy": {
+      "source": "present",
+      "behavior": "not assessed in this inventory",
+      "mock_host": "not assessed in this inventory",
+      "real_host": "not verified in this inventory",
+      "cross_host": "not verified in this inventory"
+    },
+    "code-editing": {
+      "source": "present",
+      "behavior": "not assessed in this inventory",
+      "mock_host": "not assessed in this inventory",
+      "real_host": "not verified in this inventory",
+      "cross_host": "not verified in this inventory"
+    },
+    "repository-operations": {
+      "source": "present",
+      "behavior": "not assessed in this inventory",
+      "mock_host": "not assessed in this inventory",
+      "real_host": "not verified in this inventory",
+      "cross_host": "not verified in this inventory"
+    },
+    "coding-verification": {
+      "source": "present",
+      "behavior": "not assessed in this inventory",
+      "mock_host": "not assessed in this inventory",
+      "real_host": "not verified in this inventory",
+      "cross_host": "not verified in this inventory"
+    },
+    "coding-delegation": {
+      "source": "present",
+      "behavior": "not assessed in this inventory",
+      "mock_host": "not assessed in this inventory",
+      "real_host": "not verified in this inventory",
+      "cross_host": "not verified in this inventory"
+    }
+  },
+  "evidence_sources": [
+    "packages/delta-code/ARCHITECTURE.md",
+    "docs/CODE_WORKER_HOST_SMOKE.md",
+    "tests/"
+  ],
+  "rule": "Record exact source SHA, Host build, OS, test and result for any claimed verification; do not infer runtime acceptance from CI."
+}

@@ -1,5 +1,7 @@
 # Delta Suite · Gateway Reasoning Effort 公开契约
 
+> 当前状态：自动同步及凭据读取已停用；下文为阶段性技术参考，不是当前已启用能力。 见 [架构治理](ARCHITECTURE_GOVERNANCE.md)。
+
 本文件为 #280 的阶段性代码交付与集成边界，不是自动同步或完整验收报告。Delta Suite 始终是 Harness 插件，模型选择与请求调度仍由 Harness 官方服务负责。
 
 ## 已核实的上游公开接口

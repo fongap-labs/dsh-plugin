@@ -2,7 +2,7 @@
 
 ## 1. 发布模型
 
-每个插件独立版本、独立发布。发布清单位于：
+每个插件独立版本、独立发布。Shared 为随产品打包的内部基础库，不作为独立发布目标；仓库级产品范围由 [架构合同](../projects/architecture.json) 定义。发布清单位于：
 
 ```text
 projects/<plugin>/release.manifest.json

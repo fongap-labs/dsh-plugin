@@ -14,16 +14,22 @@ Shared documents: https://github.com/fongap-labs/action-worker/tree/main/docs
 2. Action Worker `docs/01_SHARED_GOVERNANCE.md`
 3. Action Worker `docs/05_INTEGRATION_GUIDE.md`
 4. Action Worker `docs/DEVELOPMENT_GUIDE.md`
-5. Action Worker `docs/04_CHANGELOG_CONVENTIONS.md`, before any change that needs a changelog fragment
+5. Action Worker `docs/04_CHANGELOG_CONVENTIONS.md`, before any change requiring an Unreleased changelog entry
 6. `README.md`
 
 ## Project boundary
 
-- This repository owns the DeepSeek harness plugin: product code, product tests, and project build and package scripts.
+- This repository owns independent Delta / DeepSeek Harness plugins: product code, approved non-externalizable tests, and project build and package scripts. New externalizable tests belong in Action Worker `tests/packs/plugins/`.
 - Heavy execution (CI, build, AI review, release, deploy, task) runs in Action Worker. Do not add full CI, release or deploy workflows here.
-- `.github/workflows/notify-action-worker.yml` is the only dispatch bridge. It must stay byte-identical to `templates/bridge/notify-action-worker.yml` in Action Worker.
+- `.github/workflows/notify-action-worker.yml` is the approved event bridge. The existing main CI dispatch is a migration path; do not expand it or remove it without verifying central intake. It must stay byte-identical to `templates/bridge/notify-action-worker.yml` in Action Worker.
 - Project execution needs are declared in `.github/execution-manifest.json` once the project scripts exist. The manifest declares runner profiles, never runner names or labels.
 - Commit and pull request attribution follow the commit hygiene section of Action Worker `AGENTS.md`.
+
+## Product architecture
+
+- Read `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/SECURITY.md`, `docs/COMPATIBILITY.md`, `projects/architecture.json`, and the affected product architecture/readiness contracts before changing a product.
+- Keep Suite, Code, Shared and Host ownership distinct. No product-to-product internal imports, second Agent runtime, private Host patches, proxy or Vision Bridge revival. Missing public Host capabilities must preserve native behavior.
+- Update the affected contract, implementation and regression tests together. Do not infer real Host acceptance from static checks or Windows source CI.
 
 ## Project prohibitions
 

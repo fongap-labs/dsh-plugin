@@ -1,18 +1,21 @@
 # 文档索引
 
-产品入口见仓库 [README](../README.md)。Fongap Labs 共用仓库治理统一维护在 [Action Worker](https://github.com/fongap-labs/action-worker/tree/main/docs)，此处只保留插件专属架构、开发和运维资料。
+组织共用治理统一维护在 [Action Worker](https://github.com/fongap-labs/action-worker/tree/main/docs)。本仓库只维护产品专属内容。
 
-## 仓库工程
+## 现行规范
 
-- [架构](ARCHITECTURE.md)：仓库与组件责任边界
-- [开发指南](DEVELOPMENT.md)：本地开发、构建与验证
-- [运维指南](OPERATIONS.md)：发布、维护与日常操作
+- [总体架构](ARCHITECTURE.md)
+- [架构治理](ARCHITECTURE_GOVERNANCE.md)
+- [开发与测试](DEVELOPMENT.md)
+- [运维与发布](OPERATIONS.md)
+- [产品安全](SECURITY.md)
+- [宿主兼容性与验收](COMPATIBILITY.md)
+- [仓库架构机器合同](../projects/architecture.json)
 
-## Delta 产品设计
+## 产品与专项参考
 
-设计文档按主题维护在仓库内的对应文件中。
+- [Delta Suite](../packages/delta-suite/README.md)：[MECE](DELTA_SUITE_MECE_ARCHITECTURE.md)、[DOM 所有权](DELTA_SUITE_DOM_OWNERSHIP.md)、[Gateway 公开契约](DELTA_SUITE_GATEWAY_REASONING.md)、[UI 参考](DELTA_SUITE_ZIP_UI.md)、[兼容历史](../packages/delta-suite/COMPATIBILITY.md)
+- [Delta Code](../packages/delta-code/README.md)：[架构](../packages/delta-code/ARCHITECTURE.md)、[宿主冒烟](CODE_WORKER_HOST_SMOKE.md)、[宿主结果契约](../packages/delta-code/docs/host-outcome-contract.md)、[可信 Skill](../packages/delta-code/docs/trusted-github-skills-governance.md)
+- [Shared](../packages/shared/README.md)
 
-## 专项验证与包文档
-
-- [Code Worker 宿主冒烟测试](CODE_WORKER_HOST_SMOKE.md)
-- 各包的专项文档随对应包维护。
+历史记录及专项设计不是现行权威；发生冲突时以中央规则、仓库合同、产品合同和现行安全边界为准。
