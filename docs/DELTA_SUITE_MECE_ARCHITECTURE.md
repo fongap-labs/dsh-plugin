@@ -24,3 +24,7 @@
 ## 浏览器构建边界
 
 `src/client-context-projection.ts` 负责只读上下文、压缩摘要和消息标识投影；`src/client-totp-qr.ts` 负责本地 TOTP 二维码编码，不执行网络请求。`client.ts` 负责 UI 调用、资源与宿主生命周期。浏览器 `tsconfig.client.json` 是辅助脚本的有序构建清单；发布 finalizer 与隔离测试 fixture 按同一清单组装单一 `lib/client.js`，中间辅助文件不随包发布，不引入新的宿主模块加载或运行时依赖。Host TypeScript 构建排除浏览器脚本。现有算法与宿主边界不变。
+
+## 会话搜索投影边界
+
+`src/delta-suite-discovery/session-search-projection.ts` 负责会话文本的脱敏提取、检索词匹配、结果评分和摘要定位；只接受数据与查询参数，不读取宿主服务、不持有缓存、不注册路由。`src/host-search.ts` 保留 Host 观察租约、会话保护复核、内存 LRU、时间预算、查询编排及释放流程，并转发原有公开类型和函数。不得将安全策略或宿主读取权限移入纯投影模块；现有会话搜索行为测试继续验证真实入口。
