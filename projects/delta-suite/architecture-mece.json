@@ -39,7 +39,6 @@
       ],
       "capabilities": [
         "workspace-state",
-        "workspace-protection",
         "session-move",
         "session-delete",
         "session-archive",
@@ -85,7 +84,8 @@
         "request-redaction",
         "session-lock",
         "totp-setup",
-        "locked-session-access"
+        "locked-session-access",
+        "workspace-protection"
       ]
     },
     {
@@ -153,5 +153,23 @@
     "security.privacy-guards": "security",
     "discovery.session-search": "discovery",
     "sessions.session-operations": "sessions"
+  },
+  "source_boundaries": {
+    "session_protection": {
+      "owner": "security",
+      "path": "packages/delta-suite/src/delta-suite-security/session-protection.ts",
+      "host_contract": "packages/delta-suite/src/delta-suite-adapter/workspace-contract.ts",
+      "compatibility_entry": "packages/delta-suite/src/host-sessions.ts",
+      "allowed_runtime_imports": [
+        "../host-state.js"
+      ],
+      "public_functions": [
+        "readHostSessionProtection",
+        "isConfirmedHostWorkspaceFolder",
+        "readHostUnarchiveProtection",
+        "readHostAgentStepProtection",
+        "readHostSearchExclusion"
+      ]
+    }
   }
 }
