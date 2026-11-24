@@ -54,10 +54,10 @@ export function installHostTaskIntent(ctx: TaskIntentHostContext): () => void {
   if (typeof ctx.on !== 'function' || typeof ctx.inject !== 'function') return () => {}
   const tracker = new TaskIntentTracker()
   const disposers: Array<() => void> = []
-  let active = true
+  let isActive = true
 
   const claim = ctx.on('agent/inbox/claimed', (payload: ClaimedMessage) => {
-    if (!active || !payload?.agent || typeof payload.agent !== 'object' ||
+    if (!isActive || !payload?.agent || typeof payload.agent !== 'object' ||
       payload.message?.source?.kind !== 'user') return
     const text = Array.isArray(payload.message.content)
       ? payload.message.content
@@ -69,7 +69,7 @@ export function installHostTaskIntent(ctx: TaskIntentHostContext): () => void {
   if (typeof claim === 'function') disposers.push(claim)
 
   const idle = ctx.on('agent/status', (payload: AgentState) => {
-    if (active && payload?.agent && payload.status === 'idle') {
+    if (isActive && payload?.agent && payload.status === 'idle') {
       tracker.finishTurn(payload.agent)
     }
   })
@@ -81,18 +81,18 @@ export function installHostTaskIntent(ctx: TaskIntentHostContext): () => void {
   if (typeof disposed === 'function') disposers.push(disposed)
 
   const injection = ctx.inject(['systemPrompt'], (child: PromptHost) => {
-    if (!active || typeof child?.systemPrompt?.context !== 'function') return
+    if (!isActive || typeof child?.systemPrompt?.context !== 'function') return
     return child.systemPrompt.context({
       name: 'delta-suite:task-intent',
       order: 1250,
       interpolate: false,
-      text: context => active ? tracker.guidance(context.agent) : '',
+      text: context => isActive ? tracker.guidance(context.agent) : '',
     })
   })
 
   return () => {
-    if (!active) return
-    active = false
+    if (!isActive) return
+    isActive = false
     release(injection)
     for (const dispose of disposers.reverse()) release(dispose)
     tracker.dispose()
