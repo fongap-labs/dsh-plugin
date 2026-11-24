@@ -27,7 +27,7 @@ export function decideTaskIntentMode(message: string, hasPreviousTask = false): 
   if (CONTINUE_ONLY.test(text)) return hasPreviousTask ? 'skip' : 'evaluate'
   if (ASK_RESTATEMENT.test(text)) return AWAIT_CONFIRMATION.test(text) ? 'wait' : 'restate'
   if (hasPreviousTask && (AMENDMENT.test(text) ||
-    (CONTINUE.test(text) && text.length > 24))) return 'change'
+    (CONTINUE.test(text) && !CONTINUE_ONLY.test(text)))) return 'change'
   const bounded = text.length > 16_384 ? text.slice(0, 4096) + '\n' + text.slice(-4096) : text
   const count = occurrences(bounded, NUMBERED_LINE)
   const constraints = occurrences(bounded, CONSTRAINT)
