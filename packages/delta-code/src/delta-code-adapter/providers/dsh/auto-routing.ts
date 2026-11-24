@@ -239,7 +239,9 @@ export function registerAutomaticCodingRouter(
           ] : []),
           ...taskResourceGuidance(resources.get(context.agent) ?? [], policy.resourceRules),
           ...gateGuidance,
-          'Before claiming completion, verify the actual changes and tests. Do not report an unrun check as passed.',
+          'When the user message contains a numbered or multi-item requirement list, record each item once in the native Todo ledger before editing, and compare the final result against every item before reporting. List items not done as not done; do not silently drop them.',
+          'Avoid re-reading an unchanged file: use narrow search with line ranges and reuse earlier results. Run only the checks affected by the change, then one final full check.',
+          'Before claiming completion, verify the actual changes and tests. Do not report an unrun check as passed. If any test or check failed, was skipped or was not counted, find the cause or report it as an open gap; do not describe the work as complete.',
         ].join('\n')
       },
     })
