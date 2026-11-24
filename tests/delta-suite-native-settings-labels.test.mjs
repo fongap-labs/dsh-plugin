@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdtempSync, mkdirSync, copyFileSync, existsSync, rmSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
 import { patchAccountMenu, patchAccountMenuStyle, patchCurrentVersionStyle, patchHeroStyle,
@@ -289,15 +292,46 @@ test('extracted native palette keeps the same public browser entry and Theme ove
   assert.doesNotMatch(palette, /^\s*(?:import|export)\s/m)
 })
 
-test('build concatenates the compiled palette in one client without second module', () => {
-  const tsconfig = JSON.parse(read('packages/delta-suite/tsconfig.client.json'))
-  const finalizer = read('packages/delta-suite/scripts/finalize-client.mjs')
-  assert.ok(tsconfig.include.includes('src/client-theme-tokens.ts'))
+test('build concatenates the compiled palette and feature helpers in one client without second module', () => {
+  const base = 'packages/delta-suite/'
+  const resolveFile = path => fileURLToPath(new URL('../' + path, import.meta.url))
+  const tsconfig = JSON.parse(read(base + 'tsconfig.client.json'))
+  const helpers = tsconfig.include.filter(path => /^src\/client-.+\.ts$/.test(path) && !path.endsWith('.d.ts'))
+  assert.equal(helpers[0], 'src/client-theme-tokens.ts')
+  assert.ok(helpers.includes('src/client-context-projection.ts'))
+  assert.ok(helpers.includes('src/client-totp-qr.ts'))
   assert.ok(tsconfig.include.includes('src/client.ts'))
-  assert.match(finalizer, /lib\/client-theme-tokens\.js/)
-  assert.match(finalizer, /paletteSource \+ '\\n' \+ source/)
-  assert.match(finalizer, /unlinkSync\(palettePath\)/)
+  assert.equal(new Set(helpers).size, helpers.length)
   assert.match(palette, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
+
+  const temp = mkdtempSync(join(tmpdir(), 'delta-suite-finalizer-'))
+  try {
+    for (const dir of ['scripts', 'src', 'locale']) mkdirSync(join(temp, dir))
+    for (const file of ['scripts/finalize-client.mjs', 'tsconfig.client.json', 'package.json',
+      'src/theme.css', 'src/feature-extras.css', 'locale/zh.json', 'locale/en.json']) {
+      copyFileSync(resolveFile(base + file), join(temp, file))
+    }
+    execFileSync(process.execPath, [
+      resolveFile('node_modules/typescript/bin/tsc'),
+      '-p', resolveFile(base + 'tsconfig.client.json'),
+      '--outDir', join(temp, 'lib'),
+    ], { stdio: 'pipe' })
+
+    const compiledPaths = helpers.map(path => join(temp, 'lib', path.slice(4).replace(/\.ts$/, '.js')))
+    const compiled = compiledPaths.map(path => readFileSync(path, 'utf8'))
+    const clientPath = join(temp, 'lib/client.js')
+    execFileSync(process.execPath, [join(temp, 'scripts/finalize-client.mjs')], { stdio: 'pipe' })
+
+    const bundle = readFileSync(clientPath, 'utf8')
+    assert.ok(bundle.startsWith(';(() => {\n' + compiled.join('\n') + '\n'),
+      'every compiled helper must be included in manifest order before the client')
+    assert.equal((bundle.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1)
+    assert.doesNotMatch(bundle, /__DELTA_SUITE_/)
+    for (const path of compiledPaths) assert.ok(!existsSync(path), 'helper must not ship separately: ' + path)
+    assert.match(bundle, /\bconst TOKENS\s*=/)
+  } finally {
+    rmSync(temp, { recursive: true, force: true })
+  }
 })
 
 test('Delta owned feature CSS uses defined Delta tokens without native fallbacks', () => {

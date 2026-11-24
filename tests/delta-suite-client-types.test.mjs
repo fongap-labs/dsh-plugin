@@ -15,9 +15,12 @@ test('client service contracts are types-only and excluded from the Host build',
     assert.doesNotMatch(client, new RegExp('^interface ' + name + ' \\{', 'm'))
   }
   assert.doesNotMatch(ambient, /McpConfigSnapshot|McpServices|McpManagerApi|CredentialRemoteApi/)
-  assert.deepEqual(clientConfig.include, ['src/client-theme-tokens.ts', 'src/client.ts', 'src/client-types.d.ts'])
+  assert.deepEqual(clientConfig.include, ["src/client-theme-tokens.ts","src/client-context-projection.ts","src/client-totp-qr.ts","src/client.ts","src/client-types.d.ts"])
   assert.ok(hostConfig.exclude.includes('src/client.ts'))
   assert.ok(hostConfig.exclude.includes('src/client-types.d.ts'))
+  for (const helper of clientConfig.include.filter(path => /^src\/client-.+\.ts$/.test(path) && !path.endsWith('.d.ts'))) {
+    assert.ok(hostConfig.exclude.includes(helper), 'browser helper must be excluded from Host build: ' + helper)
+  }
   assert.doesNotMatch(ambient, /^(?:const|let|function|class|import|export)\s/m)
   assert.equal((client.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1)
 })

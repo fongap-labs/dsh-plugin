@@ -170,6 +170,27 @@
         "readHostAgentStepProtection",
         "readHostSearchExclusion"
       ]
+    },
+    "client_context_projection": {
+      "owner": "context",
+      "path": "packages/delta-suite/src/client-context-projection.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "readContextUsage",
+        "conversationContext",
+        "latestCheckpoint",
+        "latestAssistantMessageId"
+      ]
+    },
+    "client_totp_qr": {
+      "owner": "security",
+      "path": "packages/delta-suite/src/client-totp-qr.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "encodeQrMatrix"
+      ]
     }
   }
 }

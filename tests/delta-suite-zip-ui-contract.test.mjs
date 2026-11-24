@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto'
 
 const root = resolve(import.meta.dirname, '..')
 const file = path => readFileSync(join(root, 'packages/delta-suite', path), 'utf8')
-const client = file('src/client.ts')
+const client = file('src/client-totp-qr.ts') + '\n' + file('src/client-context-projection.ts') + '\n' + file('src/client.ts')
 const css = file('src/theme.css')
 const zh = JSON.parse(file('locale/zh.json'))
 const en = JSON.parse(file('locale/en.json'))
