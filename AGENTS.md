@@ -19,7 +19,7 @@ Shared documents: https://github.com/fongap-labs/action-worker/tree/main/docs
 
 ## Project boundary
 
-- This repository owns independent Delta / DeepSeek Harness plugins: product code, product tests, and project build and package scripts.
+- This repository owns independent Delta / DeepSeek Harness plugins: product code, approved non-externalizable tests, and project build and package scripts. New externalizable tests belong in Action Worker `tests/packs/plugins/`.
 - Heavy execution (CI, build, AI review, release, deploy, task) runs in Action Worker. Do not add full CI, release or deploy workflows here.
 - `.github/workflows/notify-action-worker.yml` is the approved event bridge. The existing main CI dispatch is a migration path; do not expand it or remove it without verifying central intake. It must stay byte-identical to `templates/bridge/notify-action-worker.yml` in Action Worker.
 - Project execution needs are declared in `.github/execution-manifest.json` once the project scripts exist. The manifest declares runner profiles, never runner names or labels.

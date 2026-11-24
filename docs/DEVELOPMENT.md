@@ -44,7 +44,7 @@ Browser 端当前只有一个构建入口。任何客户端模块化工作必须
 
 ## 5. 测试要求
 
-新增或变更产品能力须同步 [架构合同](../projects/architecture.json) 及对应产品合同、实现和回归测试；运行 `node --test tests/plugins-architecture-governance.test.mjs` 验证仓库边界。真实宿主验收按 [兼容性规范](COMPATIBILITY.md) 分级记录。
+新增或变更产品能力须同步 [架构合同](../projects/architecture.json) 及对应产品合同、实现和回归测试；由 Action Worker 的 [中央架构测试](https://github.com/fongap-labs/action-worker/blob/main/tests/packs/plugins/plugins-architecture-governance-test.mjs) 验证仓库边界；新增可外置测试必须进入中央测试包。真实宿主验收按 [兼容性规范](COMPATIBILITY.md) 分级记录。
 
 
 - 单元测试验证输入边界、错误处理和纯函数行为。
