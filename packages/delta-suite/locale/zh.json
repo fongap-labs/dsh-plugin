@@ -79,7 +79,15 @@
     "compacting": "正在整理较早的对话…",
     "sessionIdle": "空闲",
     "archivedSession": "此会话已归档。请先通过官方工作区列表恢复后再打开。",
-    "sessionRunning": "运行中"
+    "sessionRunning": "运行中",
+    "preferenceBackupTitle": "偏好设置备份与恢复",
+    "preferenceBackupDescription": "生成备份文本并复制到本地文件，或粘贴已保存的备份后主动恢复。仅包含主题和三个功能开关，不包含账号、凭据、会话历史及锁定信息。",
+    "preferenceBackupGenerate": "生成备份文本",
+    "preferenceBackupRestore": "恢复这些偏好设置",
+    "preferenceBackupText": "备份 JSON 文本",
+    "preferenceBackupApplied": "偏好设置已应用。本地存储不可用时，重启后可能无法保留。",
+    "preferenceBackupInvalid": "备份格式无效或版本不受支持，未修改偏好设置。",
+    "preferenceBackupUnavailable": "无法应用外观或插件已停用，未修改功能开关。"
   },
   "sessionMenu": {
     "moveSession": "移动会话",

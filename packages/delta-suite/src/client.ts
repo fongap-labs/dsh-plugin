@@ -3252,6 +3252,33 @@ window.__ModuleLoader__.load({
           prefs.inputOptimization, value => updateFeaturePreference('inputOptimization', value)),
         null)
     }
+    function PreferenceBackupSection({ controller }: DeltaProps): unknown {
+      const { copy } = useCopy(controller)
+      const [draft, setDraft] = React.useState('')
+      const [feedback, setFeedback] = React.useState<'applied' | 'invalid' | 'unavailable' | ''>('')
+      return el('section', { className: 'dtd-preference-backup', 'aria-label': copy.ui.preferenceBackupTitle },
+        el('h3', null, copy.ui.preferenceBackupTitle),
+        el('p', null, copy.ui.preferenceBackupDescription),
+        el('div', { className: 'dtd-context-actions' },
+          el('button', { type: 'button', className: 'dtd-context-action', onClick: () => {
+            if (!controller.isActive()) return
+            setDraft(createClientPreferenceBackup(controller.getSnapshot().mode))
+            setFeedback('')
+          } }, copy.ui.preferenceBackupGenerate),
+          el('button', { type: 'button', className: 'dtd-context-action', disabled: !draft.trim(), onClick: () => {
+            setFeedback(restoreClientPreferenceBackup(controller, draft))
+          } }, copy.ui.preferenceBackupRestore)),
+        el('textarea', {
+          'aria-label': copy.ui.preferenceBackupText, value: draft, rows: 7,
+          maxLength: MAX_PREFERENCE_BACKUP_LENGTH, spellCheck: false,
+          onChange: (event: { currentTarget: { value: string } }) => {
+            setDraft(event.currentTarget.value); setFeedback('')
+          },
+        }),
+        feedback ? el('p', { role: 'status', className: 'dtd-context-feedback' },
+          feedback === 'applied' ? copy.ui.preferenceBackupApplied :
+            feedback === 'invalid' ? copy.ui.preferenceBackupInvalid : copy.ui.preferenceBackupUnavailable) : null)
+    }
     function ModelLabelExtension(props: AssistantSlotProps & {
       provider?: { id?: string; name?: string }
       model?: { name?: string; reasoning?: {
@@ -3826,7 +3853,8 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
         state.error ? el('p', { role: 'alert', className: 'dtd-error' }, copy.ui.unavailable) : null,
         el('details', { className: 'dtd-advanced-features' },
           el('summary', null, copy.ui.contextFeatures),
-          el(FeaturePreferencesSection, {})))
+          el(FeaturePreferencesSection, {}),
+          el(PreferenceBackupSection, { controller })))
     }
     return {
       inject: [],

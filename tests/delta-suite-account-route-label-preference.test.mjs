@@ -38,11 +38,12 @@ function fixture(initial = null, { blocked = false } = {}) {
   }
   const body = stripTypeScriptTypes(preferences + '\n' +
     source.slice(labelStart, labelEnd) +
-    '\nthis.render = ModelLabelExtension; this.update = updateFeaturePreference; this.snapshot = () => featurePreferences; this.subscribe = subscribeFeaturePreferences',
+    '\nthis.render = ModelLabelExtension; this.update = updateFeaturePreference; this.snapshot = () => featurePreferences; this.subscribe = subscribeFeaturePreferences; this.backup = createClientPreferenceBackup; this.parse = parseClientPreferenceBackup; this.restore = restoreClientPreferenceBackup',
     { mode: 'strip' })
   runInNewContext(body, context, { timeout: 1000 })
   return { render: context.render, update: context.update, snapshot: context.snapshot,
-    getStored: () => stored, getWrites: () => writes, subscribe: context.subscribe }
+    getStored: () => stored, getWrites: () => writes, subscribe: context.subscribe,
+    backup: context.backup, parse: context.parse, restore: context.restore }
 }
 const route = {
   provider: { id: 'deepseek-account', name: 'DeepSeek Account' },
@@ -165,4 +166,72 @@ test('existing feature preferences retain supported values and discard retired k
   const invalid = fixture('[]')
   assert.equal(invalid.snapshot().showModelInfo, true)
   assert.equal(invalid.getWrites(), 0)
+})
+
+function backupController({ mode = 'delta', fail = false, active = true } = {}) {
+  let state = { mode, error: false }
+  let calls = 0
+  return {
+    isActive: () => active, getSnapshot: () => state,
+    setMode(next) { calls++; state = fail ? { ...state, error: true } : { mode: next, error: false } },
+    get calls() { return calls },
+  }
+}
+test('preference backup is an exact portable schema and restores the three switches in one publication', () => {
+  const from = fixture()
+  from.update('showModelInfo', false)
+  from.update('inputOptimization', false)
+  const backup = from.backup('official')
+  const parsed = JSON.parse(backup)
+  assert.deepEqual(Object.keys(parsed), ['format', 'schema', 'mode', 'preferences'])
+  assert.deepEqual(Object.keys(parsed.preferences), ['showDeepSeekAccountInfo', 'showModelInfo', 'inputOptimization'])
+  const to = fixture()
+  const controller = backupController()
+  let published = 0
+  to.subscribe(() => { published++ })
+  assert.equal(to.restore(controller, backup), 'applied')
+  assert.equal(controller.getSnapshot().mode, 'official')
+  assert.equal(JSON.stringify(to.snapshot()), JSON.stringify(parsed.preferences))
+  assert.equal(to.getWrites(), 1)
+  assert.equal(published, 1)
+  assert.equal(to.restore(controller, backup), 'applied')
+  assert.equal(to.getWrites(), 1)
+  assert.equal(published, 1)
+})
+test('backup import rejects unknown versions, extra keys, malformed values and oversized input before changes', () => {
+  const f = fixture()
+  const controller = backupController()
+  const valid = JSON.parse(f.backup('official'))
+  const candidates = [
+    '{', '[]', JSON.stringify({ ...valid, schema: 2 }),
+    JSON.stringify({ ...valid, extra: true }),
+    JSON.stringify({ ...valid, mode: 'other' }),
+    JSON.stringify({ ...valid, preferences: { ...valid.preferences, extra: true } }),
+    JSON.stringify({ ...valid, preferences: { showModelInfo: false } }),
+    JSON.stringify({ ...valid, preferences: { ...valid.preferences, showModelInfo: 'false' } }),
+    f.backup('official') + ' '.repeat(4096),
+  ]
+  const before = f.snapshot()
+  for (const candidate of candidates) {
+    assert.equal(f.parse(candidate), undefined)
+    assert.equal(f.restore(controller, candidate), 'invalid')
+  }
+  assert.equal(controller.calls, 0)
+  assert.equal(f.snapshot(), before)
+  assert.equal(f.getWrites(), 0)
+})
+test('failed appearance or inactive controller prevents feature import, blocked storage retains runtime state', () => {
+  const from = fixture()
+  from.update('showModelInfo', false)
+  const backup = from.backup('official')
+  const to = fixture()
+  for (const controller of [backupController({ fail: true }), backupController({ active: false })]) {
+    assert.equal(to.restore(controller, backup), 'unavailable')
+    assert.equal(to.snapshot().showModelInfo, true)
+    assert.equal(to.getWrites(), 0)
+  }
+  const blocked = fixture(null, { blocked: true })
+  assert.equal(blocked.restore(backupController(), backup), 'applied')
+  assert.equal(blocked.snapshot().showModelInfo, false)
+  assert.equal(blocked.getStored(), null)
 })

@@ -79,7 +79,15 @@
     "compacting": "Condensing earlier conversation…",
     "sessionIdle": "Idle",
     "archivedSession": "This session is archived. Restore it in the native workspace list before opening.",
-    "sessionRunning": "Running"
+    "sessionRunning": "Running",
+    "preferenceBackupTitle": "Preferences backup and restore",
+    "preferenceBackupDescription": "Generate and copy the text to a local file, or paste a saved backup and explicitly restore it. Only the theme and three feature switches are included; accounts, credentials, session history, and locks are excluded.",
+    "preferenceBackupGenerate": "Generate backup text",
+    "preferenceBackupRestore": "Restore these preferences",
+    "preferenceBackupText": "Backup JSON text",
+    "preferenceBackupApplied": "Preferences applied. If local storage is unavailable, changes may not survive a restart.",
+    "preferenceBackupInvalid": "Invalid or unsupported backup. No preferences were changed.",
+    "preferenceBackupUnavailable": "Appearance could not be applied or the plugin is inactive. Feature switches were not changed."
   },
   "sessionMenu": {
     "moveSession": "Move session",

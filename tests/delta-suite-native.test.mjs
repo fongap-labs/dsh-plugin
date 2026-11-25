@@ -1189,6 +1189,13 @@ test('ZIP personalization keeps its layout and includes only a collapsed feature
   assert.ok(advanced, 'optional settings are appended to the ZIP Settings page')
   assert.ok(advanced.children.some(child => child?.type?.name === 'FeaturePreferencesSection'),
     'the feature settings component is nested rather than replacing the ZIP UI')
+  const backup = advanced.children.find(child => child?.type?.name === 'PreferenceBackupSection')
+  assert.ok(backup, 'portable preference backup stays within collapsed Suite settings')
+  const backupPage = backup.type(backup.props)
+  const text = backupPage.children.find(child => child?.type === 'textarea')
+  assert.equal(text.props.maxLength, 4096)
+  assert.equal(text.props.value, '')
+  assert.equal(typeof text.props.onChange, 'function')
   assert.equal(app.deletedWorkspaces.length, 0, 'rendering settings must not mutate Host workspaces')
   const css = readFileSync(fixture('packages/delta-suite/src/theme.css'), 'utf8')
   assert.ok(css.includes('dtd-'), 'ZIP design system is preserved')
