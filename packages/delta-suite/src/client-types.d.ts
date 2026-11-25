@@ -153,13 +153,22 @@ interface SearchNavigationApi {
   startSession(workspaceId?: string): void
 }
 
+interface ClientMenuTarget {
+  readonly sessionId?: unknown
+  readonly displayTitle?: unknown
+  readonly workspaceId?: unknown
+  readonly id?: unknown
+  readonly path?: unknown
+  readonly title?: unknown
+}
+
 interface ClientContextMenusApi {
   register(spec: {
     id: string
     target: 'session' | 'workspace'
     order: number
-    observe?: (target: any) => readonly { getSnapshot(): unknown; subscribe(listener: () => void): () => void }[]
-    resolve: (target: any) => unknown[]
+    observe?: (target: ClientMenuTarget) => readonly { getSnapshot(): unknown; subscribe(listener: () => void): () => void }[]
+    resolve: (target: ClientMenuTarget) => unknown[]
   }): () => void
 }
 

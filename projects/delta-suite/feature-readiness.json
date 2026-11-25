@@ -263,12 +263,24 @@
   "p0_native_menu_service_binding": {
     "as_of": "2026-11-25",
     "baseline": "2313fae48475e83a33af6a565483b4f0950f1a32",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "explicit public contextMenus dependency, independent lifetime, workspace target isolation, reactive lock action",
     "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified",
-    "native_rename_order": "not implemented"
+    "native_rename_order": "not implemented",
+    "verified_head": "7f353b18a457d0b8e5b35b0ffea6fe006b36e2d0",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45537456266"
+  },
+  "p0_menu_action_lifetime": {
+    "as_of": "2026-11-25",
+    "baseline": "da42335de63c91e7c126fb45547a19f9c623d16f",
+    "stage": "implementation-pending-ci",
+    "scope": "isolated menu registration, reactive labels, validated captured targets, stale callback rejection",
+    "verification": "tests/delta-suite-native.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }
