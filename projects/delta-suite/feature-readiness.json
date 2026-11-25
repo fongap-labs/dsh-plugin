@@ -398,7 +398,7 @@
     "baseline": "a53e6c5be566ecda4e24f062c58f5afeca2b657d",
     "stage": "implementation-pending-ci",
     "scope": "explicit credential-free native wallet query and validated official usage link; double access grant, account lifecycle revocation and stale response rejection",
-    "verification": "tests/delta-suite-account-summary.test.mjs",
+    "verification": "action-worker/tests/packs/plugins/delta-suite-account-summary-test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"
