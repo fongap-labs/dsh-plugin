@@ -48,6 +48,7 @@ function createClientAccountSummary() {
   let isDisposed = false
   let revokeBinding: (() => void) | undefined
   let refreshCurrent: (() => Promise<void>) | undefined
+  let usageCurrent: (() => string | undefined) | undefined
   const publish = (next: AccountSummarySnapshot): void => {
     if (snapshot === next) return
     snapshot = Object.freeze(next)
@@ -57,7 +58,7 @@ function createClientAccountSummary() {
   }
   const bind = (scope: ClientContext): (() => void) => {
     if (isDisposed) return () => {}
-    revokeBinding?.()
+    try { revokeBinding?.() } catch { /* old grant is already invalidated */ }
     const ui = scope.accountUi
     const access = scope.remoteAccess
     const remote = scope.remote?.account
@@ -72,6 +73,7 @@ function createClientAccountSummary() {
       if (revokeBinding === dispose) revokeBinding = undefined
       try { stopAccess?.() } finally {
         refreshCurrent = undefined
+        usageCurrent = undefined
         publish(EMPTY_ACCOUNT_SUMMARY)
       }
     }
@@ -81,8 +83,10 @@ function createClientAccountSummary() {
         if (!isBound || isDisposed) return () => {}
         let isAllowed = true
         let generation = 0
+        let confirmedView: ReturnType<ClientAccountUi['getSnapshot']>['view']
         const read = (): void => {
           generation++
+          confirmedView = undefined
           if (!isAllowed || !isBound || isDisposed) return
           try {
             const state = ui.getSnapshot()
@@ -91,11 +95,25 @@ function createClientAccountSummary() {
               publish({ ...EMPTY_ACCOUNT_SUMMARY, status: 'signed-out' }); return
             }
             if (state.view.status !== 'credential-stored') { publish(EMPTY_ACCOUNT_SUMMARY); return }
+            confirmedView = state.view
             publish({ ...EMPTY_ACCOUNT_SUMMARY, status: 'ready', usageUrl: safeAccountUsageUrl(state.view.links?.usageUrl) })
           } catch { publish(EMPTY_ACCOUNT_SUMMARY) }
         }
+        // Re-read the native snapshot at the user gesture, not just when the
+        // account event arrives. An old rendered action must not target a new
+        // sign-in during the interval before the event reaches this listener.
+        const isConfirmedViewCurrent = (): boolean => {
+          if (!isAllowed || !isBound || isDisposed || !confirmedView) return false
+          try {
+            const state = ui.getSnapshot()
+            if (!state.failed && state.view === confirmedView && state.view.status === 'credential-stored') return true
+          } catch {}
+          read()
+          return false
+        }
+        const usage = (): string | undefined => isConfirmedViewCurrent() ? snapshot.usageUrl : undefined
         const refresh = async (): Promise<void> => {
-          if (!isAllowed || !isBound || isDisposed || !['ready', 'loaded', 'unavailable'].includes(snapshot.status)) return
+          if (!isConfirmedViewCurrent() || !['ready', 'loaded', 'unavailable'].includes(snapshot.status)) return
           const generationAtStart = ++generation
           const current = (): boolean => isAllowed && isBound && !isDisposed && generation === generationAtStart
           const usageUrl = snapshot.usageUrl
@@ -103,8 +121,7 @@ function createClientAccountSummary() {
           try {
             const result = await remote.getBalance(ui.clientMetadata(currentHostLocale || language()))
             if (!current()) return
-            const state = ui.getSnapshot()
-            if (state.failed || state.view?.status !== 'credential-stored') { read(); return }
+            if (!isConfirmedViewCurrent()) return
             const value = result.ok && result.value && typeof result.value === 'object'
               ? result.value as { status?: unknown; value?: unknown; bonusWallets?: unknown } : undefined
             const wallets = value?.status === 'ready' ? readAccountWallets(value.value) : undefined
@@ -112,7 +129,7 @@ function createClientAccountSummary() {
             if (!wallets || !bonusWallets) throw new Error('wallets unavailable')
             publish({ status: 'loaded', usageUrl, wallets, bonusWallets })
           } catch {
-            if (current()) publish({ ...EMPTY_ACCOUNT_SUMMARY, status: 'unavailable', usageUrl })
+            if (current() && isConfirmedViewCurrent()) publish({ ...EMPTY_ACCOUNT_SUMMARY, status: 'unavailable', usageUrl })
           }
         }
         const stopChange = scope.on!('account-ui/change', read)
@@ -120,12 +137,14 @@ function createClientAccountSummary() {
         try { stopRefresh = scope.on!('account-ui/refresh', read) }
         catch (error) { stopChange(); throw error }
         refreshCurrent = refresh
+        usageCurrent = usage
         read()
         return () => {
           isAllowed = false
           generation++
           if (refreshCurrent === refresh) {
             refreshCurrent = undefined
+            usageCurrent = undefined
             publish(EMPTY_ACCOUNT_SUMMARY)
           }
           try { stopRefresh?.() } finally { stopChange() }
@@ -142,12 +161,20 @@ function createClientAccountSummary() {
       listeners.add(listener)
       return () => { listeners.delete(listener) }
     },
-    refresh: async () => { await refreshCurrent?.() },
+    refresh: async (expected?: AccountSummarySnapshot) => {
+      if (expected && expected !== snapshot) return
+      await refreshCurrent?.()
+    },
+    usageUrlFor(expected: AccountSummarySnapshot): string | undefined {
+      if (expected !== snapshot) return
+      return usageCurrent?.()
+    },
     dispose() {
       if (isDisposed) return
       isDisposed = true
       try { revokeBinding?.() } catch {}
       refreshCurrent = undefined
+      usageCurrent = undefined
       publish(EMPTY_ACCOUNT_SUMMARY)
       listeners.clear()
     },

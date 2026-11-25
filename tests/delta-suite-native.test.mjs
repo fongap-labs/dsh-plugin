@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false, rejectStyleMarker, failStyleRemoveOnce } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false, rejectStyleMarker, failStyleRemoveOnce, accountServices } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   const menus = new Map()
@@ -123,7 +123,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
         if (!nativeLocale) return
       }
       if (names.join(',') === 'contextMenus' && !nativeMenus) return
-      if (names.join(',') === 'accountUi,remote,remote.account,remoteAccess') return
+      if (names.join(',') === 'accountUi,remote,remote.account,remoteAccess' && !accountServices) return
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'contextMenus' && names.join(',') !== 'contextMenus') throw new Error('undeclared contextMenus')
@@ -137,6 +137,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     effect(create) { effects.push(create()) },
     workspaces,
     modelDirectories,
+    ...accountServices,
     contextMenus: nativeMenus ? { register(spec) {
       if (rejectWorkspaceMenu && spec.target === 'workspace') throw new Error('unsupported workspace target')
       if (rejectSessionMenu && spec.id === 'session.delta.lock') throw new Error('failed session contribution')
@@ -1203,6 +1204,72 @@ test('ZIP personalization keeps its layout and includes only a collapsed feature
   controller.setMode('official')
   assert.equal(app.layers.size, 0)
   app.cleanup()
+})
+
+test('compiled account controls reject stale gestures and wallet results across account lifetimes', async () => {
+  const opened = [], calls = [], events = new Map()
+  let nativeState = { view: { status: 'credential-stored', links: { usageUrl: 'https://platform.deepseek.com/usage' } } }
+  const grants = new Map()
+  const accountServices = {
+    accountUi: {
+      getSnapshot: () => nativeState,
+      clientMetadata: locale => ({ version: 'fixture', locale, timezoneOffsetSeconds: 0 }),
+    },
+    remote: { account: { getBalance: metadata => new Promise(resolve => calls.push({ metadata, resolve })) } },
+    remoteAccess: { whenAccess(action, install) {
+      let release
+      const toggle = allowed => {
+        if (allowed && !release) release = install()
+        else if (!allowed && release) { const stop = release; release = undefined; stop() }
+      }
+      grants.set(action, toggle)
+      return () => { toggle(false); grants.delete(action) }
+    } },
+    on(event, callback) { events.set(event, callback); return () => events.delete(event) },
+  }
+  const app = harness({ accountServices })
+  app.context.URL = URL
+  app.context.window.open = (...args) => opened.push(args)
+  const entry = app.components.get('settings.section')
+  const controller = entry.spec.inject().controller
+  const section = () => {
+    const page = entry.component({ controller })
+    const advanced = page.children.find(child => child?.props?.className === 'dtd-advanced-features')
+    const account = advanced.children.find(child => child?.type?.name === 'AccountSummarySection')
+    return account.type(account.props)
+  }
+  const controls = () => section().children[2].children.filter(child => child?.type === 'button')
+  assert.equal(section(), null)
+  grants.get('account/watch')(true)
+  grants.get('account/getBalance')(true)
+  const old = controls()
+  assert.equal(old.length, 2)
+  old[1].props.onClick()
+  assert.equal(opened.length, 1)
+  old[0].props.onClick()
+  assert.equal(calls.length, 1)
+  // The native view changes before the event is delivered.
+  nativeState = { view: { status: 'credential-stored', links: { usageUrl: 'https://platform.deepseek.com/usage' } } }
+  calls[0].resolve({ ok: true, value: { status: 'ready', value: [{ currency: 'CNY', balance: '99' }], bonusWallets: [] } })
+  for (let i = 0; i < 5; i++) await Promise.resolve()
+  assert.doesNotMatch(JSON.stringify(section()), /CNY 99/)
+  old[0].props.onClick()
+  old[1].props.onClick()
+  assert.equal(calls.length, 1)
+  assert.equal(opened.length, 1)
+  const next = controls()
+  next[1].props.onClick()
+  assert.equal(opened.length, 2)
+  // Even a currently rendered control cannot act on an unannounced account change.
+  nativeState = { view: { status: 'signed-out' } }
+  next[1].props.onClick()
+  next[0].props.onClick()
+  assert.equal(opened.length, 2)
+  assert.equal(calls.length, 1)
+  grants.get('account/getBalance')(false)
+  assert.equal(section(), null)
+  app.cleanup()
+  assert.equal(events.size, 0)
 })
 
 test('Host Locale snapshot updates Suite language and unsubscribes on unload', () => {
