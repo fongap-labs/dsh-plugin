@@ -74,52 +74,6 @@ interface AssistantSlotProps {
 }
 
 
-type FeaturePreferences = Readonly<{
-  showDeepSeekAccountInfo: boolean
-  showModelInfo: boolean
-  inputOptimization: boolean
-}>
-type FeaturePreferenceKey = keyof FeaturePreferences
-const FEATURE_STORAGE_KEY = 'fongap.delta-suite.features.v1'
-const DEFAULT_FEATURE_PREFERENCES: FeaturePreferences = Object.freeze({
-  showDeepSeekAccountInfo: true, showModelInfo: true, inputOptimization: true,
-})
-function readFeaturePreferences(): FeaturePreferences {
-  try {
-    const value = JSON.parse(localStorage.getItem(FEATURE_STORAGE_KEY) ?? 'null') as unknown
-    if (value && typeof value === 'object') {
-      const saved = value as Record<string, unknown>
-      const preferences = {
-        showDeepSeekAccountInfo: typeof saved.showDeepSeekAccountInfo === 'boolean' ? saved.showDeepSeekAccountInfo : true,
-        showModelInfo: typeof saved.showModelInfo === 'boolean' ? saved.showModelInfo : true,
-        inputOptimization: typeof saved.inputOptimization === 'boolean' ? saved.inputOptimization : true,
-      }
-      const isFeaturePreferences = 'showDeepSeekAccountInfo' in saved || 'showModelInfo' in saved || 'inputOptimization' in saved
-      if (isFeaturePreferences && Object.keys(saved).some(key => !['showDeepSeekAccountInfo', 'showModelInfo', 'inputOptimization'].includes(key))) {
-        try { localStorage.setItem(FEATURE_STORAGE_KEY, JSON.stringify(preferences)) }
-        catch { /* remove retired preference keys when storage permits */ }
-      }
-      return Object.freeze(preferences)
-    }
-  } catch { /* blocked or malformed preference storage falls back to defaults */ }
-  return DEFAULT_FEATURE_PREFERENCES
-}
-let featurePreferences = readFeaturePreferences()
-const featurePreferenceListeners = new Set<() => void>()
-function updateFeaturePreference(key: FeaturePreferenceKey, isEnabled: boolean): void {
-  featurePreferences = Object.freeze({ ...featurePreferences, [key]: isEnabled })
-  try { localStorage.setItem(FEATURE_STORAGE_KEY, JSON.stringify(featurePreferences)) }
-  catch { /* preference remains available for this runtime */ }
-  featurePreferenceListeners.forEach(listener => listener())
-}
-function subscribeFeaturePreferences(listener: () => void): () => void {
-  featurePreferenceListeners.add(listener)
-  return () => { featurePreferenceListeners.delete(listener) }
-}
-function useFeaturePreferences(React: ReactApi): FeaturePreferences {
-  return React.useSyncExternalStore(subscribeFeaturePreferences, () => featurePreferences)
-}
-
 interface Loader {
   load(entry: { id: string; factory(require: (id: string) => unknown): { inject: string[]; apply(ctx: ClientContext): void } }): void
 }

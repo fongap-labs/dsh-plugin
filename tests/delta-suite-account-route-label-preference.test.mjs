@@ -9,15 +9,16 @@ const source = readFileSync(fileURLToPath(
   new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
 const readiness = JSON.parse(readFileSync(fileURLToPath(
   new URL('../projects/delta-suite/feature-readiness.json', import.meta.url)), 'utf8'))
-const preferencesStart = source.indexOf('type FeaturePreferences =')
-const preferencesEnd = source.indexOf('\ninterface Loader {', preferencesStart)
+const preferences = readFileSync(fileURLToPath(
+  new URL('../packages/delta-suite/src/client-feature-preferences.ts', import.meta.url)), 'utf8')
 const labelStart = source.indexOf('    function ModelLabelExtension(')
 const labelEnd = source.indexOf('    function AssistantInputControls(', labelStart)
-assert.ok(preferencesStart >= 0 && preferencesEnd > preferencesStart &&
-  labelStart > preferencesEnd && labelEnd > labelStart, 'the real preference and model-slot implementations must exist')
+assert.ok(preferences.includes('function updateFeaturePreference(') &&
+  labelStart >= 0 && labelEnd > labelStart, 'the real preference and model-slot implementations must exist')
 
-function fixture(initial = null) {
+function fixture(initial = null, { blocked = false } = {}) {
   let stored = initial
+  let writes = 0
   const localStorage = {
     getItem(key) {
       assert.equal(key, 'fongap.delta-suite.features.v1')
@@ -25,6 +26,8 @@ function fixture(initial = null) {
     },
     setItem(key, value) {
       assert.equal(key, 'fongap.delta-suite.features.v1')
+      writes++
+      if (blocked) throw Error('storage unavailable')
       stored = value
     },
   }
@@ -33,13 +36,13 @@ function fixture(initial = null) {
     React: { useSyncExternalStore(_subscribe, getSnapshot) { return getSnapshot() } },
     el(type, props, ...children) { return { type, props, children } },
   }
-  const body = stripTypeScriptTypes(source.slice(preferencesStart, preferencesEnd) + '\n' +
+  const body = stripTypeScriptTypes(preferences + '\n' +
     source.slice(labelStart, labelEnd) +
-    '\nthis.render = ModelLabelExtension; this.update = updateFeaturePreference; this.snapshot = () => featurePreferences',
+    '\nthis.render = ModelLabelExtension; this.update = updateFeaturePreference; this.snapshot = () => featurePreferences; this.subscribe = subscribeFeaturePreferences',
     { mode: 'strip' })
   runInNewContext(body, context, { timeout: 1000 })
   return { render: context.render, update: context.update, snapshot: context.snapshot,
-    getStored: () => stored }
+    getStored: () => stored, getWrites: () => writes, subscribe: context.subscribe }
 }
 const route = {
   provider: { id: 'deepseek-account', name: 'DeepSeek Account' },
@@ -119,4 +122,47 @@ test('malformed persisted preferences do not leak account metadata', () => {
   assert.equal(f.snapshot().showDeepSeekAccountInfo, true)
   f.update('showDeepSeekAccountInfo', false)
   assert.equal(f.render(route)?.children?.[0], null)
+})
+
+test('same preference value and invalid inputs neither publish nor write', () => {
+  const f = fixture()
+  const before = f.snapshot()
+  let notifications = 0
+  const release = f.subscribe(() => { notifications++ })
+  for (const [key, value] of [['showModelInfo', true], ['retired', false], ['__proto__', false], ['inputOptimization', 'false']]) {
+    f.update(key, value)
+  }
+  assert.equal(f.snapshot(), before)
+  assert.equal(notifications, 0)
+  assert.equal(f.getWrites(), 0)
+  f.update('showModelInfo', false)
+  assert.equal(notifications, 1)
+  assert.equal(f.getWrites(), 1)
+  release()
+  f.update('showModelInfo', true)
+  assert.equal(notifications, 1)
+})
+
+test('blocked storage and throwing subscribers preserve independent preferences', () => {
+  const f = fixture(null, { blocked: true })
+  f.subscribe(() => { throw Error('view unavailable') })
+  let notifications = 0
+  f.subscribe(() => { notifications++ })
+  f.update('inputOptimization', false)
+  assert.equal(f.snapshot().inputOptimization, false)
+  assert.equal(f.snapshot().showModelInfo, true)
+  assert.equal(notifications, 1)
+  assert.equal(f.getStored(), null)
+  assert.equal(f.getWrites(), 1)
+})
+
+test('existing feature preferences retain supported values and discard retired keys', () => {
+  const f = fixture(JSON.stringify({ showModelInfo: false, retiredOption: true, inputOptimization: 'invalid' }))
+  assert.equal(f.snapshot().showModelInfo, false)
+  assert.equal(f.snapshot().inputOptimization, true)
+  assert.deepEqual(Object.keys(JSON.parse(f.getStored())).sort(), ['inputOptimization', 'showDeepSeekAccountInfo', 'showModelInfo'])
+  assert.equal(f.getWrites(), 1)
+  const invalid = fixture('[]')
+  assert.equal(invalid.snapshot().showModelInfo, true)
+  assert.equal(invalid.getWrites(), 0)
 })
