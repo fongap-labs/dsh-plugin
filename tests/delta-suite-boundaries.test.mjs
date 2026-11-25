@@ -257,6 +257,7 @@ test('Delta Suite no longer mounts private native DOM adapters', () => {
 test('official account and Theme services retain native control', () => {
   const client = read(base + 'client.ts')
   assert.match(client, /Native sidebar, session-menu and account chrome remain Host-owned/)
+  assert.match(client, /scope\.inject\(\['accountUi', 'remote', 'remote\.account', 'remoteAccess'\]/)
   assert.doesNotMatch(client, /scope\.inject\(\['accountUi'\]/)
   assert.doesNotMatch(client, /installLiveNativePresentation|getLiveSessionTarget|readLiveAccountState/)
   assert.match(client, /scope\.inject\(\['theme'\]/)

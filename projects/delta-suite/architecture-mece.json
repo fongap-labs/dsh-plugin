@@ -270,6 +270,17 @@
         "isConfirmedLockState",
         "projectConfirmedClientSessionState"
       ]
+    },
+    "client_account_summary": {
+      "owner": "integrations",
+      "path": "packages/delta-suite/src/client-account-summary.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createClientAccountSummary",
+        "safeAccountUsageUrl",
+        "readAccountWallets"
+      ]
     }
   },
   "host_feature_access": {

@@ -115,7 +115,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
       if (names.join(',') === unavailableService) throw new Error('unsupported Host service')
       assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess',
         'sessions,resources,sidebarRightTabs,sidebarRight', 'configForms,remote',
-        'modelDirectories', 'locale', 'contextMenus'].includes(names.join(',')))
+        'modelDirectories', 'locale', 'contextMenus', 'accountUi,remote,remote.account,remoteAccess'].includes(names.join(',')))
       // Optional model directories may be absent on older Hosts.
       if (names.join(',') === 'modelDirectories' && !modelDirectories) return
       if (names.join(',') === 'locale') {
@@ -123,6 +123,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
         if (!nativeLocale) return
       }
       if (names.join(',') === 'contextMenus' && !nativeMenus) return
+      if (names.join(',') === 'accountUi,remote,remote.account,remoteAccess') return
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
         if (property === 'contextMenus' && names.join(',') !== 'contextMenus') throw new Error('undeclared contextMenus')
