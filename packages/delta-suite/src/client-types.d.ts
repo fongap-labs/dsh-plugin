@@ -81,6 +81,14 @@ interface DeltaCopy {
     sessionIdle: string
     archivedSession: string
     sessionRunning: string
+    preferenceBackupTitle: string
+    preferenceBackupDescription: string
+    preferenceBackupGenerate: string
+    preferenceBackupRestore: string
+    preferenceBackupText: string
+    preferenceBackupApplied: string
+    preferenceBackupInvalid: string
+    preferenceBackupUnavailable: string
   }
   sessionMenu: {
     moveSession: string

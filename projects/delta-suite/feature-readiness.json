@@ -372,9 +372,21 @@
   "p0_locale_schema_and_compatibility_copy": {
     "as_of": "2026-11-25",
     "baseline": "d69619084bf8a4741df4e1d0c87cd6413485fd08",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "strict bilingual copy schema and truthful compatibility notes for implemented reversible sidebar patch; keep native locale resources untouched",
     "verification": "tests/delta-suite-public-slots-locale-boundary.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "793f583eb5ae2d5cccb296b26f43506a5688bd58",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45562962764"
+  },
+  "p1_portable_preference_backup": {
+    "as_of": "2026-11-25",
+    "baseline": "d1a54c6b65ff0a03cede8efc1907514cd677ab73",
+    "stage": "implementation-pending-ci",
+    "scope": "versioned allowlisted theme and three feature switches; explicit text backup and restore in collapsed Suite settings; no native or sensitive configuration",
+    "verification": "tests/delta-suite-account-route-label-preference.test.mjs and tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"

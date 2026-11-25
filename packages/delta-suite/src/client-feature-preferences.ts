@@ -41,7 +41,17 @@ let featurePreferences = readFeaturePreferences()
 const featurePreferenceListeners = new Set<() => void>()
 function updateFeaturePreference(key: FeaturePreferenceKey, isEnabled: boolean): void {
   if (!isFeaturePreferenceKey(key) || typeof isEnabled !== 'boolean' || featurePreferences[key] === isEnabled) return
-  featurePreferences = Object.freeze({ ...featurePreferences, [key]: isEnabled })
+  replaceFeaturePreferences({ ...featurePreferences, [key]: isEnabled })
+}
+function replaceFeaturePreferences(next: FeaturePreferences): void {
+  if (featurePreferences.showDeepSeekAccountInfo === next.showDeepSeekAccountInfo &&
+      featurePreferences.showModelInfo === next.showModelInfo &&
+      featurePreferences.inputOptimization === next.inputOptimization) return
+  featurePreferences = Object.freeze({
+    showDeepSeekAccountInfo: next.showDeepSeekAccountInfo,
+    showModelInfo: next.showModelInfo,
+    inputOptimization: next.inputOptimization,
+  })
   persistFeaturePreferences(featurePreferences)
   for (const listener of [...featurePreferenceListeners]) {
     if (!featurePreferenceListeners.has(listener)) continue
@@ -54,4 +64,59 @@ function subscribeFeaturePreferences(listener: () => void): () => void {
 }
 function useFeaturePreferences(React: ReactApi): FeaturePreferences {
   return React.useSyncExternalStore(subscribeFeaturePreferences, () => featurePreferences)
+}
+
+/** Portable preferences only; never serialize native settings or security state. */
+type ClientPreferenceBackup = Readonly<{
+  format: 'delta-suite-preferences'
+  schema: 1
+  mode: Mode
+  preferences: FeaturePreferences
+}>
+const MAX_PREFERENCE_BACKUP_LENGTH = 4096
+function createClientPreferenceBackup(mode: Mode): string {
+  const value: ClientPreferenceBackup = {
+    format: 'delta-suite-preferences', schema: 1, mode,
+    preferences: {
+      showDeepSeekAccountInfo: featurePreferences.showDeepSeekAccountInfo,
+      showModelInfo: featurePreferences.showModelInfo,
+      inputOptimization: featurePreferences.inputOptimization,
+    },
+  }
+  return JSON.stringify(value, null, 2)
+}
+function parseClientPreferenceBackup(text: string): ClientPreferenceBackup | undefined {
+  if (typeof text !== 'string' || text.length > MAX_PREFERENCE_BACKUP_LENGTH) return
+  const exactRecord = (value: unknown, keys: readonly string[]): value is Record<string, unknown> =>
+    !!value && typeof value === 'object' && !Array.isArray(value) &&
+    Object.keys(value).length === keys.length &&
+    keys.every(key => Object.prototype.hasOwnProperty.call(value, key))
+  try {
+    const value: unknown = JSON.parse(text)
+    if (!exactRecord(value, ['format', 'schema', 'mode', 'preferences']) ||
+        value.format !== 'delta-suite-preferences' || value.schema !== 1 ||
+        (value.mode !== 'delta' && value.mode !== 'official')) return
+    const prefs = value.preferences
+    if (!exactRecord(prefs, ['showDeepSeekAccountInfo', 'showModelInfo', 'inputOptimization']) ||
+        typeof prefs.showDeepSeekAccountInfo !== 'boolean' ||
+        typeof prefs.showModelInfo !== 'boolean' || typeof prefs.inputOptimization !== 'boolean') return
+    return Object.freeze({
+      format: 'delta-suite-preferences', schema: 1, mode: value.mode,
+      preferences: Object.freeze({
+        showDeepSeekAccountInfo: prefs.showDeepSeekAccountInfo,
+        showModelInfo: prefs.showModelInfo, inputOptimization: prefs.inputOptimization,
+      }),
+    })
+  } catch { return undefined }
+}
+function restoreClientPreferenceBackup(controller: DeltaController, text: string): 'applied' | 'invalid' | 'unavailable' {
+  const backup = parseClientPreferenceBackup(text)
+  if (!backup) return 'invalid'
+  if (!controller.isActive()) return 'unavailable'
+  // A failed appearance operation must not silently import other settings.
+  controller.setMode(backup.mode)
+  const state = controller.getSnapshot()
+  if (!controller.isActive() || state.error || state.mode !== backup.mode) return 'unavailable'
+  replaceFeaturePreferences(backup.preferences)
+  return 'applied'
 }

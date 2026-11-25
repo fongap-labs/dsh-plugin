@@ -229,3 +229,9 @@
   outline: 2px solid var(--dtd-border-focus);
   outline-offset: 2px;
 }
+
+.dtd-preference-backup { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dtd-preference-backup h3, .dtd-preference-backup p { margin: 0; }
+.dtd-preference-backup p { color: var(--dtd-fg-secondary); font-size: 12px; line-height: 1.5; }
+.dtd-preference-backup textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; padding: 10px; border: 1px solid var(--dtd-border); border-radius: 8px; background: var(--dtd-bg-surface); color: var(--dtd-fg-primary); font: inherit; }
+.dtd-preference-backup textarea:focus-visible { outline: 2px solid var(--dtd-accent); outline-offset: 2px; }
