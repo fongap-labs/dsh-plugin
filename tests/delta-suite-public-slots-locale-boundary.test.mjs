@@ -91,17 +91,19 @@ test('navigation and palette copy uses central dictionaries without dead Gateway
 })
 
 test('language uses public Locale first and a scoped read-only lang Patch as fallback', () => {
-  assert.match(client, /scope\.inject\(\['locale'\], localeScope =>/)
-  assert.match(client, /localeApi\.getSnapshot\(\)\?\.active/)
-  assert.match(client, /localeApi\.subscribe\(sync\)/)
-  assert.match(client, /typeof release === 'function'\) release\(\)/)
-  assert.match(client, /fallback\.stop\(\)/)
-  assert.match(client, /fallback\.dispose\(\)/)
   const lifecycle = read('packages/delta-suite/src/client-registration-lifecycle.ts')
-  const fallback = lifecycle.slice(lifecycle.indexOf('function createClientLocaleFallback('))
+  assert.match(client, /bindClientLocale\(scope,/)
+  assert.match(client, /releaseLocale\(\)/)
+  assert.match(lifecycle, /scope\.inject\(\['locale'\], localeScope =>/)
+  assert.match(lifecycle, /localeApi\.getSnapshot\(\)\?\.active/)
+  assert.match(lifecycle, /localeApi\.subscribe\(sync\)/)
+  assert.match(lifecycle, /typeof release === 'function'\) release\(\)/)
+  assert.match(lifecycle, /fallback\.stop\(\)/)
+  assert.match(lifecycle, /fallback\.dispose\(\)/)
+  const fallback = lifecycle.slice(lifecycle.indexOf('function createClientLocaleFallback('), lifecycle.indexOf('function bindClientLocale('))
   assert.match(fallback, /observer\.observe\(document\.documentElement, \{ attributes: true, attributeFilter: \['lang'\] \}\)/)
   assert.doesNotMatch(fallback, /subtree:\s*true|\.setAttribute\(|\.removeAttribute\(|setInterval\(/)
-  assert.doesNotMatch(client, /localeApi\.setLocale\(/)
+  assert.doesNotMatch(client + lifecycle, /localeApi\.setLocale\(/)
 })
 
 test('Suite locale dictionaries contain no unused leaf key', () => {

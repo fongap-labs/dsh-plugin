@@ -101,7 +101,8 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
       useSyncExternalStore(_subscribe, get) { return get() },
     }
   })
-  const nativeLocale = localeService === undefined ? {
+  let localeInjection
+  let nativeLocale = localeService === undefined ? {
     getSnapshot() { return { active: documentElement.lang } },
     subscribe(callback) {
       context.localeListeners.push(callback)
@@ -117,7 +118,10 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
         'modelDirectories', 'locale', 'contextMenus'].includes(names.join(',')))
       // Optional model directories may be absent on older Hosts.
       if (names.join(',') === 'modelDirectories' && !modelDirectories) return
-      if (names.join(',') === 'locale' && !nativeLocale) return
+      if (names.join(',') === 'locale') {
+        localeInjection = callback
+        if (!nativeLocale) return
+      }
       if (names.join(',') === 'contextMenus' && !nativeMenus) return
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
@@ -161,6 +165,10 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
   return { registration, context, documentElement, components, slots, layers, changes, styles, nativeTheme: ctx.theme, menus, menuReleases,
     workspaces, deletedWorkspaces, originalDelete, defaultSessions,
     features: context.testDeltaFeatures,
+    replaceLocale(service) {
+      nativeLocale = service
+      if (localeInjection) ctx.inject(['locale'], localeInjection)
+    },
     cleanup() { effects.forEach(fn => fn?.()) },
     get removed() { return removed },
     get appearanceWrites() { return appearanceWrites },
@@ -1174,6 +1182,49 @@ test('Host Locale snapshot updates Suite language and unsubscribes on unload', (
   assert.equal(notify, undefined)
 })
 
+
+test('Locale service replacement revokes old subscription and skips unchanged normalized language', () => {
+  const makeService = initial => {
+    let active = initial
+    let notify
+    let releases = 0
+    return {
+      api: { getSnapshot() { return { active } },
+        subscribe(fn) { notify = fn; return () => { releases++ } } },
+      update(value) { active = value; notify() },
+      get releases() { return releases },
+    }
+  }
+  const old = makeService('zh-CN')
+  const next = makeService('fr')
+  const app = harness({ localeService: old.api })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  let notifications = 0
+  controller.subscribe(() => { notifications++ })
+  const revision = controller.getSnapshot().revision
+  old.update('zh-Hans')
+  old.update(' zh-CN ')
+  assert.equal(controller.getSnapshot().revision, revision)
+  assert.equal(notifications, 0)
+  app.replaceLocale(next.api)
+  assert.equal(old.releases, 1)
+  assert.equal(controller.getSnapshot().language, 'en')
+  assert.equal(notifications, 1)
+  old.update('zh-CN')
+  assert.equal(controller.getSnapshot().language, 'en')
+  assert.equal(notifications, 1)
+  next.update('ja')
+  assert.equal(notifications, 1)
+  next.update('zh-TW')
+  assert.equal(controller.getSnapshot().language, 'zh')
+  assert.equal(notifications, 2)
+  app.cleanup()
+  assert.equal(old.releases, 1)
+  assert.equal(next.releases, 1)
+  next.update('en-US')
+  assert.equal(controller.getSnapshot().language, 'zh')
+  assert.equal(notifications, 2)
+})
 
 test('older Host language Patch observes only root lang and stops on disable', () => {
   const app = harness({ localeService: null })
