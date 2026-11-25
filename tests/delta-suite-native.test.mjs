@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -27,8 +27,10 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
   }
   const originalDelete = workspaces.delete
   const attributes = new Map()
+  if (initialAppearance !== undefined) attributes.set('data-delta-ui', initialAppearance)
+  let appearanceWrites = 0
   const documentElement = { lang: 'zh-CN',
-    setAttribute(key, value) { attributes.set(key, value) },
+    setAttribute(key, value) { appearanceWrites++; attributes.set(key, value) },
     removeAttribute(key) { attributes.delete(key) },
     getAttribute(key) { return attributes.get(key) },
   }
@@ -101,7 +103,10 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     theme: { overrideTokens(id, values) {
       if (failTheme) throw new Error('theme unavailable')
       layers.set(id, values)
-      return () => { layers.delete(id) }
+      return () => {
+        if (failThemeRelease) throw new Error('theme release unavailable')
+        layers.delete(id)
+      }
     } },
     layout: failLayout ? undefined : { toggleSidebar() { changes.push('sidebar') }, selectPanel(id) { changes.push(id) } },
     slots: {
@@ -120,6 +125,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     features: context.testDeltaFeatures,
     cleanup() { effects.forEach(fn => fn?.()) },
     get removed() { return removed },
+    get appearanceWrites() { return appearanceWrites },
     get stored() { return stored } }
 }
 test('lazy ModuleLoader registration and browser-safe artifact', () => {
@@ -707,6 +713,42 @@ test('missing native layout does not report successful no-op actions', () => {
   assert.equal(controller.getSnapshot().error, true)
   assert.deepEqual(app.changes, [])
   app.cleanup()
+})
+
+test('appearance Patch restores the original value and avoids repeated writes on locale updates', () => {
+  const app = harness({ initialAppearance: 'host-value' })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
+  const writes = app.appearanceWrites
+  app.documentElement.lang = 'fr'
+  app.context.localeListeners.forEach(notify => notify())
+  assert.equal(app.appearanceWrites, writes)
+  controller.setMode('official')
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'host-value')
+  controller.setMode('delta')
+  app.documentElement.setAttribute('data-delta-ui', 'other-owner')
+  app.cleanup()
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'other-owner')
+})
+
+test('appearance Patch does not claim an already-present marker', () => {
+  const app = harness({ initialAppearance: 'delta' })
+  assert.equal(app.appearanceWrites, 0)
+  app.cleanup()
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'delta')
+})
+
+test('a failed Host theme disposer reports failure and does not interrupt other cleanup', () => {
+  const app = harness({ failThemeRelease: true, localeService: null })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  assert.doesNotThrow(() => controller.setMode('official'))
+  assert.equal(controller.getSnapshot().error, true)
+  assert.equal(controller.getSnapshot().mode, 'delta')
+  assert.doesNotThrow(() => app.cleanup())
+  assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
+  assert.equal(app.context.localeObserverDisconnects, 1)
+  assert.ok(app.removed >= 2)
+  assert.equal(app.components.size, 0)
 })
 
 test('missing theme keeps the independent Settings entry usable', () => {

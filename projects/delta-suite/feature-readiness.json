@@ -211,10 +211,22 @@
   "p0_locale_compatibility_patch": {
     "as_of": "2026-11-25",
     "baseline": "6a4b6d3dacfad19bc2bac24c9e1b47064333889a",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "primary": "public LocaleRuntime getSnapshot and subscribe",
     "fallback": "read-only document root lang attribute observer; no subtree or preference writes; stop on public recovery and dispose",
     "verification": "tests/delta-suite-native.test.mjs and tests/delta-suite-public-slots-locale-boundary.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "75c1a04c7772d5c0a9fd0fd4579a315d061e3320",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45522596958"
+  },
+  "p0_appearance_patch_lifecycle": {
+    "as_of": "2026-11-25",
+    "baseline": "33033fe712d663c7e24df66e2443e5bad82dcfcb",
+    "stage": "implementation-pending-ci",
+    "scope": "scoped appearance marker ownership, reversible restore, isolated theme disposer failure",
+    "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"

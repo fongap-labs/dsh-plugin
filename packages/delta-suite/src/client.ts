@@ -193,11 +193,19 @@ function createController(): DeltaController {
   const publish = (change: Partial<Omit<DeltaState, 'revision'>>): void => {
     if (isDisposed) return
     snapshot = Object.freeze({ ...snapshot, ...change, revision: snapshot.revision + 1 })
-    listeners.forEach(listener => listener())
+    listeners.forEach(listener => {
+      try { listener() } catch { /* a failed view must not block sibling subscribers */ }
+    })
+  }
+  const releasePalette = (): boolean => {
+    try {
+      ownedLayer?.()
+      ownedLayer = undefined
+      return true
+    } catch { return false }
   }
   const applyPalette = (mode: Mode): boolean => {
-    ownedLayer?.()
-    ownedLayer = undefined
+    if (!releasePalette()) return false
     if (mode === 'official') return true
     try {
       if (!activeTheme || typeof activeTheme.overrideTokens !== 'function') return false
@@ -240,8 +248,9 @@ function createController(): DeltaController {
     dispose: () => {
       if (isDisposed) return
       isDisposed = true
-      ownedLayer?.()
+      releasePalette()
       ownedLayer = undefined
+      activeTheme = undefined
       activeLayout = undefined
       activeSidebarRight = undefined
       listeners.clear()
@@ -3950,14 +3959,9 @@ window.__ModuleLoader__.load({
                 } catch { /* Optional public service; use the scoped fallback. */ }
                 if (!isPublicLocaleActive) useFallback()
 
+                const appearance = createClientAppearancePatch()
                 const syncAppearance = (): void => {
-                  if (controller.getSnapshot().mode === 'delta') {
-                    document.documentElement.setAttribute('data-delta-ui', 'delta')
-                    document.body?.setAttribute?.('data-delta-ui', 'delta')
-                  } else {
-                    document.documentElement.removeAttribute('data-delta-ui')
-                    document.body?.removeAttribute?.('data-delta-ui')
-                  }
+                  appearance.sync(controller.getSnapshot().mode === 'delta')
                 }
                 syncAppearance()
                 deltaFeatures.ensureLoaded()
@@ -3979,12 +3983,16 @@ window.__ModuleLoader__.load({
                   localeGeneration++
                   fallback.dispose()
                   currentHostLocale = undefined
-                  stopAppearance()
-                  clearDeltaToasts()
-                  document.documentElement.removeAttribute('data-delta-ui')
-                  document.body?.removeAttribute('data-delta-ui')
-                  tag.parentNode?.removeChild(tag)
-                  controller.dispose()
+                  // Cleanup continues even if an optional resource fails.
+                  for (const release of [
+                    () => stopAppearance(),
+                    () => appearance.dispose(),
+                    () => clearDeltaToasts(),
+                    () => tag.parentNode?.removeChild(tag),
+                    () => controller.dispose(),
+                  ]) {
+                    try { release() } catch {}
+                  }
                 }
               }, 'delta-suite: personalization resource ownership')
 
