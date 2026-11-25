@@ -1,79 +1,196 @@
 /** Client-only ambient type contracts. No browser runtime code lives here. */
 interface DeltaCopy {
-  meta: { title: string; description: string }
-  ui: {
-    [key: string]: string
-     theme: string; official: string; delta: string;
-    open: string; close: string; conversation: string; sidebar: string;
-    status: string; unavailable: string;  shortcut: string;
-    personalization: string;  enabled: string;
-    appearance: string; appearanceDescription: string; 
-    integrationTitle: string; integrationSummary: string;
-    integrationSidebar: string; integrationCollapse: string;
-    integrationDeletion: string; integrationRunning: string;
-    integrationNative: string; integrationReasoning: string; integrationGuidance: string;
-    sessionId: string; copySessionId: string; copy: string; sessionLastUpdated: string;
-    modelReasoningLevels: string;
-    searchSessions: string;  searching: string; noResults: string;
-    copied: string; copyFailed: string; 
-      
-     
-     
-     
-    
-    cancel: string; confirm: string; delete: string;
+  meta: {
+    title: string
+    description: string
   }
-  privacy: {
-    title: string; description: string; 
-     
-     
+  ui: {
+    theme: string
+    official: string
+    delta: string
+    open: string
+    close: string
+    conversation: string
+    sidebar: string
+    status: string
+    unavailable: string
+    shortcut: string
+    personalization: string
+    appearance: string
+    appearanceDescription: string
+    sessionId: string
+    sessionLastUpdated: string
+    modelReasoningLevels: string
+    copySessionId: string
+    copy: string
+    searchSessions: string
+    copied: string
+    copyFailed: string
+    searching: string
+    noResults: string
+    cancel: string
+    confirm: string
+    delete: string
+    integrationTitle: string
+    integrationSummary: string
+    integrationSidebar: string
+    integrationCollapse: string
+    integrationDeletion: string
+    integrationRunning: string
+    integrationNative: string
+    integrationReasoning: string
+    integrationGuidance: string
+    contextFeatures: string
+    contextFeaturesDescription: string
+    showDeepSeekAccountInfo: string
+    showDeepSeekAccountInfoDescription: string
+    showModelInfo: string
+    showModelInfoDescription: string
+    inputOptimization: string
+    inputOptimizationDescription: string
+    discussTask: string
+    optimizeDraft: string
+    optimizationDisabled: string
+    assistantUnavailable: string
+    assistantStarting: string
+    assistantReady: string
+    assistantContext: string
+    mainTaskStatus: string
+    contextUsage: string
+    contextBreakdown: string
+    loadedTurns: string
+    mainContext: string
+    checkpoint: string
+    automaticCompactionFailed: string
+    compactionCompleted: string
+    viewCheckpoint: string
+    correctionPlaceholder: string
+    queueCorrection: string
+    reviewCorrection: string
+    confirmQueue: string
+    queueOnly: string
+    correctionQueued: string
+    correctionFailed: string
+    directionChange: string
+    previewOptimization: string
+    applyOptimization: string
+    restoreOriginal: string
+    copyText: string
+    draftChanged: string
+    compacting: string
+    sessionIdle: string
+    archivedSession: string
+    sessionRunning: string
   }
   sessionMenu: {
-    moveSession: string; lockSession: string; unlockSession: string; deleteSession: string;
-    moveTitle: string; moveDescription: string; moveEmpty: string; movedToast: string;
-    deleteTitle: string; deleteDescription: string; deletedToast: string;
-    deleteUngrouped: string; deleteUngroupedTitle: string; deleteUngroupedDescription: string;
-    deleteUngroupedLockedWarning: string; deletedUngroupedToast: string;
-    unlockFirst: string;
-    setPinTitle: string; setPinDescription: string;  pinConfirmLabel: string;
-    pinPlaceholder: string; pinTooShort: string; pinMismatch: string; wrongPin: string;
-    lockedShieldTitle: string; lockedShieldDesc: string; unlockViewOnce: string; unlockPermanent: string;
-    lockedToast: string; unlockedToast: string;
-    pinSettingsTitle: string; pinSetStatus: string; pinUnsetStatus: string;
-    clearPin: string; clearPinTitle: string; clearPinDesc: string; pinClearedToast: string;
-    copySecret: string; totpLoading: string; totpInitFailed: string;
+    moveSession: string
+    lockSession: string
+    unlockSession: string
+    deleteSession: string
+    moveTitle: string
+    moveDescription: string
+    moveEmpty: string
+    movedToast: string
+    deleteTitle: string
+    deleteDescription: string
+    deletedToast: string
+    deleteUngrouped: string
+    deleteUngroupedTitle: string
+    deleteUngroupedDescription: string
+    deleteUngroupedLockedWarning: string
+    deletedUngroupedToast: string
+    unlockFirst: string
+    setPinTitle: string
+    setPinDescription: string
+    pinConfirmLabel: string
+    pinPlaceholder: string
+    pinTooShort: string
+    pinMismatch: string
+    wrongPin: string
+    lockedShieldTitle: string
+    lockedShieldDesc: string
+    unlockViewOnce: string
+    unlockPermanent: string
+    lockedToast: string
+    unlockedToast: string
+    pinSettingsTitle: string
+    pinSetStatus: string
+    pinUnsetStatus: string
+    clearPin: string
+    clearPinTitle: string
+    clearPinDesc: string
+    pinClearedToast: string
+    copySecret: string
+    totpLoading: string
+    totpInitFailed: string
   }
   workspaceMenu: {
-    lockWorkspace: string;
-    unlockWorkspace: string;
-    lockedToast: string;
-    unlockedToast: string;
-    unlockFirst: string;
-    lockedShieldTitle: string;
-    lockedShieldDesc: string;
-    unlockPermanent: string;
-    setPinTitle?: string;
-    setPinDescription?: string;
+    lockWorkspace: string
+    unlockWorkspace: string
+    lockedToast: string
+    unlockedToast: string
+    unlockFirst: string
+    lockedShieldTitle: string
+    lockedShieldDesc: string
+    unlockPermanent: string
+    setPinTitle: string
+    setPinDescription: string
+  }
+  privacy: {
+    title: string
+    description: string
   }
   searchPalette: {
-     sidebarPlaceholder: string; placeholder: string;
-    clear: string; close: string; searchingContent: string;
-    noResults: string; noResultsHint: string; turnLabel: string;
-    roleUser: string; roleAssistant: string;
-    tabAll: string; tabSession: string; tabWorkspace: string;
-    tabPlugin: string; tabSkill: string; tabShortcut: string; tabAction: string;
-    kindSession: string; kindContent: string; kindWorkspace: string;
-     kindSkill: string; kindCommand: string;
-    kindShortcut: string; kindAction: string;
-    actionNewConversation: string; 
-     
-    actionToggleSidebar: string; actionToggleRightbar: string;
-    footerNav: string; footerOpen: string; footerTab: string; footerEsc: string;
-    commandCopyLabel: string; commandCopyHint: string; commandCopied: string; commandCopyFailed: string;
-    commandPickerLabel: string; commandInsertLabel: string; commandInsertHint: string; commandInserted: string; commandInsertFailed: string;
-    globalCommandSearch: string; workspaceFiles: string; builtInBrowser: string; archivedBadge: string;
-    builtinPlan: string; builtinGoal: string; builtinCompact: string; builtinSchedule: string;
-    builtinBrowser: string; builtinBoost: string;
+    sidebarPlaceholder: string
+    placeholder: string
+    clear: string
+    close: string
+    searchingContent: string
+    noResults: string
+    noResultsHint: string
+    turnLabel: string
+    roleUser: string
+    roleAssistant: string
+    tabAll: string
+    tabSession: string
+    tabWorkspace: string
+    tabPlugin: string
+    tabSkill: string
+    tabShortcut: string
+    tabAction: string
+    kindSession: string
+    kindContent: string
+    kindWorkspace: string
+    kindSkill: string
+    kindCommand: string
+    kindShortcut: string
+    kindAction: string
+    actionNewConversation: string
+    actionToggleSidebar: string
+    actionToggleRightbar: string
+    footerNav: string
+    footerOpen: string
+    footerTab: string
+    footerEsc: string
+    commandCopyLabel: string
+    commandCopyHint: string
+    commandCopied: string
+    commandCopyFailed: string
+    commandPickerLabel: string
+    commandInsertLabel: string
+    commandInsertHint: string
+    commandInserted: string
+    commandInsertFailed: string
+    globalCommandSearch: string
+    workspaceFiles: string
+    builtInBrowser: string
+    archivedBadge: string
+    builtinPlan: string
+    builtinGoal: string
+    builtinCompact: string
+    builtinSchedule: string
+    builtinBrowser: string
+    builtinBoost: string
   }
 }
 type Language = 'zh' | 'en'

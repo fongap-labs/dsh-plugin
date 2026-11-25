@@ -132,3 +132,26 @@ test('MCP credentials stay native: Suite publishes no credential editor, service
     assert.equal(Object.keys(dictionary.ui).some(key => /^mcp[A-Z]/.test(key)), false)
   }
 })
+
+// The locale contract must enumerate real dictionary keys, without a catch-all
+// index signature that silently accepts misspelled UI keys.
+test('DeltaCopy type declares exactly the actual bilingual dictionary schema', () => {
+  const types = read('packages/delta-suite/src/client-types.d.ts')
+  const start = types.indexOf('interface DeltaCopy {')
+  const end = types.indexOf('\ntype Language =', start)
+  assert.ok(start >= 0 && end > start)
+  const expected = 'interface DeltaCopy {\n' + Object.entries(enCopy).map(([section, entries]) =>
+    '  ' + section + ': {\n' + Object.keys(entries).map(key => '    ' + key + ': string').join('\n') + '\n  }'
+  ).join('\n') + '\n}'
+  assert.equal(types.slice(start, end), expected)
+})
+
+test('compatibility copy describes implemented sidebar Patch without claiming installed Host acceptance', () => {
+  assert.match(enCopy.ui.integrationSummary, /scoped, reversible compatibility patches/)
+  assert.match(zhCopy.ui.integrationSummary, /局部、可撤销的兼容补丁/)
+  assert.match(enCopy.ui.integrationSidebar, /client verification pending/)
+  assert.match(zhCopy.ui.integrationSidebar, /待客户端验收/)
+  assert.match(client, /nativeFeatureNotes\.map/)
+  assert.match(enCopy.ui.integrationGuidance, /switch to the official theme or disable Delta Suite/)
+  assert.match(zhCopy.ui.integrationGuidance, /切换至官方主题或停用 Delta Suite/)
+})
