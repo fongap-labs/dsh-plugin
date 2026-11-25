@@ -222,3 +222,80 @@ function createClientLocaleFallback(sync: () => void) {
   }
   return { start, stop, dispose: () => { isDisposed = true; stop() } }
 }
+
+/** Public-first Locale adapter. A service replacement revokes the old
+ * subscription immediately, independent of Cordis's eventual effect cleanup.
+ */
+function bindClientLocale(scope: ClientContext, setHostLocale: (value: string | undefined) => void, syncLanguage: () => void): () => void {
+  let isDisposed = false
+  let generation = 0
+  let isPublicActive = false
+  let releasePublic: (() => void) | undefined
+  const fallback = createClientLocaleFallback(() => {
+    if (!isDisposed && !isPublicActive) syncLanguage()
+  })
+  const useFallback = (): void => {
+    if (isDisposed) return
+    isPublicActive = false
+    setHostLocale(undefined)
+    fallback.start()
+    syncLanguage()
+  }
+  try {
+    scope.inject(['locale'], localeScope => {
+      if (isDisposed) return
+      const localeApi = localeScope.locale
+      localeScope.effect(() => {
+        if (isDisposed) return
+        const token = ++generation
+        releasePublic?.()
+        releasePublic = undefined
+        if (!localeApi || typeof localeApi.getSnapshot !== 'function' ||
+            typeof localeApi.subscribe !== 'function') {
+          useFallback()
+          return
+        }
+        let isLive = true
+        let release: (() => void) | undefined
+        const sync = (): void => {
+          if (!isLive || isDisposed || token !== generation) return
+          let active: unknown
+          try { active = localeApi.getSnapshot()?.active } catch { useFallback(); return }
+          if (typeof active !== 'string' || !active.trim()) { useFallback(); return }
+          setHostLocale(active.trim())
+          isPublicActive = true
+          fallback.stop()
+          syncLanguage()
+        }
+        const dispose = (): void => {
+          if (!isLive) return
+          isLive = false
+          try { if (typeof release === 'function') release() } catch {}
+          if (token === generation && !isDisposed) {
+            releasePublic = undefined
+            useFallback()
+          }
+        }
+        releasePublic = dispose
+        try {
+          release = localeApi.subscribe(sync)
+          if (typeof release !== 'function') throw new Error('Locale subscription is not disposable')
+          sync()
+        } catch {
+          dispose()
+        }
+        return dispose
+      }, 'delta-suite: public Host Locale subscription')
+    })
+  } catch { /* Optional public service; use the scoped fallback. */ }
+  if (!isPublicActive) useFallback()
+  return () => {
+    if (isDisposed) return
+    isDisposed = true
+    generation++
+    releasePublic?.()
+    releasePublic = undefined
+    fallback.dispose()
+    setHostLocale(undefined)
+  }
+}

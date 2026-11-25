@@ -265,7 +265,10 @@ function createController(): DeltaController {
       listeners.clear()
     },
     // Used by the owning activation to sync a host language switch.
-    syncLanguage: () => { publish({ language: language() }) },
+    syncLanguage: () => {
+      const next = language()
+      if (next !== snapshot.language) publish({ language: next })
+    },
     activate: () => { if (!applyPalette(snapshot.mode)) publish({ error: true }) },
     bindTheme: (theme: ThemeApi | undefined) => {
       if (isDisposed) return
@@ -4073,59 +4076,7 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
               scope.effect(() => {
                 // Optional visual resources must not prevent public Slot registration.
                 const releaseOwnedStyle = mountClientOwnedStyle(OWNED_CSS, 'plugin', DELTA_SUITE_OWNER)
-                // Prefer the public LocaleRuntime; a read-only lang observer is
-                // the scoped fallback for older Hosts or unavailable services.
-                let isLocaleDisposed = false
-                let localeGeneration = 0
-                let isPublicLocaleActive = false
-                const fallback = createClientLocaleFallback(() => {
-                  if (!isLocaleDisposed && !isPublicLocaleActive) controller.syncLanguage()
-                })
-                const useFallback = (): void => {
-                  if (isLocaleDisposed) return
-                  isPublicLocaleActive = false
-                  currentHostLocale = undefined
-                  fallback.start()
-                  controller.syncLanguage()
-                }
-                try {
-                  scope.inject(['locale'], localeScope => {
-                    const localeApi = localeScope.locale
-                    if (!localeApi || typeof localeApi.getSnapshot !== 'function' ||
-                        typeof localeApi.subscribe !== 'function') return
-                    localeScope.effect(() => {
-                      if (isLocaleDisposed) return
-                      const token = ++localeGeneration
-                      let isLive = true
-                      const sync = (): void => {
-                        if (!isLive || isLocaleDisposed || token !== localeGeneration) return
-                        let active: unknown
-                        try { active = localeApi.getSnapshot()?.active } catch { useFallback(); return }
-                        if (typeof active !== 'string' || !active.trim()) { useFallback(); return }
-                        currentHostLocale = active
-                        isPublicLocaleActive = true
-                        fallback.stop()
-                        controller.syncLanguage()
-                      }
-                      let release: (() => void) | undefined
-                      try {
-                        release = localeApi.subscribe(sync)
-                        if (typeof release !== 'function') throw new Error('Locale subscription is not disposable')
-                        sync()
-                      } catch {
-                        isLive = false
-                        try { release?.() } catch {}
-                        useFallback()
-                      }
-                      return () => {
-                        isLive = false
-                        try { if (typeof release === 'function') release() } catch {}
-                        if (token === localeGeneration) useFallback()
-                      }
-                    }, 'delta-suite: public Host Locale subscription')
-                  })
-                } catch { /* Optional public service; use the scoped fallback. */ }
-                if (!isPublicLocaleActive) useFallback()
+                const releaseLocale = bindClientLocale(scope, value => { currentHostLocale = value }, () => controller.syncLanguage())
 
                 const appearance = createClientAppearancePatch()
                 // The native layout has no public fixed-navigation setting.
@@ -4161,10 +4112,7 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
                 // Unsupported native UI adjustments remain under Harness ownership.
 
                 return () => {
-                  isLocaleDisposed = true
-                  localeGeneration++
-                  fallback.dispose()
-                  currentHostLocale = undefined
+                  releaseLocale()
                   // Cleanup continues even if an optional resource fails.
                   for (const release of [
                     () => stopAppearance(),
