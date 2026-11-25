@@ -48,6 +48,51 @@ function createClientBindingLifetime() {
   }
 }
 
+/** Scoped reversible attribute Patch. Restore only values still owned by this activation. */
+function createClientAppearancePatch() {
+  const originals = new Map<Element, string | null>()
+  const attribute = 'data-delta-ui'
+  const value = 'delta'
+  let isDisposed = false
+  const restore = (target: Element): void => {
+    if (!originals.has(target)) return
+    const previous = originals.get(target)
+    originals.delete(target)
+    try {
+      if (target.getAttribute(attribute) !== value) return
+      if (previous == null) target.removeAttribute(attribute)
+      else target.setAttribute(attribute, previous)
+    } catch { /* detached or unavailable target must not block sibling cleanup */ }
+  }
+  const sync = (isEnabled: boolean): void => {
+    if (isDisposed) return
+    const targets = new Set<Element>()
+    if (isEnabled && typeof document !== 'undefined') {
+      if (document.documentElement) targets.add(document.documentElement)
+      if (document.body) targets.add(document.body)
+    }
+    for (const target of originals.keys()) {
+      if (!targets.has(target)) restore(target)
+    }
+    for (const target of targets) {
+      try {
+        const previous = target.getAttribute(attribute)
+        if (originals.has(target) || previous === value) continue
+        target.setAttribute(attribute, value)
+        originals.set(target, previous ?? null)
+      } catch { /* optional presentation only; never interrupt native services */ }
+    }
+  }
+  return {
+    sync,
+    dispose: () => {
+      if (isDisposed) return
+      sync(false)
+      isDisposed = true
+    },
+  }
+}
+
 /** Narrow read-only Patch for older Hosts: observe only the document language attribute.
  * No subtree scanning, mutations, polling, or Host preference writes.
  */
