@@ -3817,10 +3817,10 @@ window.__ModuleLoader__.load({
         controller.getSnapshot().revision === view.revision &&
         revision === deltaFeatures.getContentProtectionRevision() &&
         deltaFeatures.readSessionHoverSelection(sessionId) !== null
-      const reportCopy = (success: boolean): void => {
+      const reportCopy = (isSuccess: boolean): void => {
         if (!isCurrent()) return
         const labels = (DICTIONARIES[controller.getSnapshot().language] ?? DICTIONARIES.en).ui
-        showDeltaToast(success ? labels.copied : labels.copyFailed)
+        showDeltaToast(isSuccess ? labels.copied : labels.copyFailed)
       }
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
