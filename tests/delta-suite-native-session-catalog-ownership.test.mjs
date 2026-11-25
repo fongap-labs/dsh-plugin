@@ -638,6 +638,51 @@ test('confirmed state projection retains only still-locked temporary grants and 
   assert.deepEqual(previous.tempUnlockedIds, ['a', 'b'])
 })
 
+test('temporary session and workspace grants are revoked when Host confirmation is lost and never restored by refresh', async () => {
+  const f = fixture({ initial: lockedState, response: {
+    status: 200, data: { ok: true, verified: true, state: lockedState },
+  } })
+  await f.manager.refreshState()
+  assert.equal((await f.manager.verifyOrUnlockSession('target', '123456', false)).ok, true)
+  assert.equal((await f.manager.verifyOrUnlockWorkspace('b', '123456', false)).ok, true)
+  assert.equal(f.manager.isProtectedView('target'), false)
+  assert.equal(f.manager.isWorkspaceProtected('b'), false)
+  const confirmed = f.manager.getSnapshot()
+  const originalFetch = f.env.fetch
+  f.env.fetch = async () => ({ ok: false, status: 503 })
+  await f.manager.refreshState()
+  const revoked = f.manager.getSnapshot()
+  assert.equal(revoked.isSearchProtectionReady, false)
+  assert.equal(revoked.lockedSessionIds, confirmed.lockedSessionIds)
+  assert.equal(revoked.lockedWorkspaceIds, confirmed.lockedWorkspaceIds)
+  assert.equal(revoked.tempUnlockedIds.length, 0)
+  assert.equal(revoked.tempUnlockedWorkspaceIds.length, 0)
+  assert.equal(f.manager.isProtectedView('target'), true)
+  assert.equal(f.manager.isWorkspaceProtected('b'), true)
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot(), revoked)
+  f.env.fetch = originalFetch
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
+  assert.equal(f.manager.isProtectedView('target'), true)
+  assert.equal(f.manager.isWorkspaceProtected('b'), true)
+  assert.equal((await f.manager.verifyOrUnlockSession('target', '123456', false)).ok, true)
+  assert.equal(f.manager.isProtectedView('target'), false)
+})
+
+test('a changed credential mode revokes temporary grants even with identical durable membership', () => {
+  const project = vm.runInNewContext(sessionState + '\nprojectConfirmedClientSessionState')
+  const previous = {
+    ...lockedState, isSearchProtectionReady: true, revision: 9,
+    tempUnlockedIds: ['target'], tempUnlockedWorkspaceIds: ['b'],
+  }
+  const next = project(previous, { ...lockedState, lockMode: lockedState.lockMode === 'pin' ? 'totp' : 'pin' })
+  assert.equal(next.lockedSessionIds, previous.lockedSessionIds)
+  assert.equal(next.lockedWorkspaceIds, previous.lockedWorkspaceIds)
+  assert.equal(next.tempUnlockedIds.length, 0)
+  assert.equal(next.tempUnlockedWorkspaceIds.length, 0)
+})
+
 test('incomplete Host refresh preserves locks and disables Suite-owned Search', async () => {
   const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
   await f.manager.refreshState()

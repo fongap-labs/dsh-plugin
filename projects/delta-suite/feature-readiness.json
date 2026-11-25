@@ -348,9 +348,21 @@
   "p0_client_session_state_projection": {
     "as_of": "2026-11-25",
     "baseline": "6274e497937475f4b9ffc90178d5e18cb50916fc",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "separate pure confirmed session state projection; stable snapshots; retain fail-closed authorization and refresh generation",
     "verification": "tests/delta-suite-native-session-catalog-ownership.test.mjs and tests/delta-suite-client-types.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "8865390250b5aa45cd0281ffbad8ccf51b511186",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45555680294"
+  },
+  "p0_session_view_grant_revocation": {
+    "as_of": "2026-11-25",
+    "baseline": "0cf5174352d6ba9b53af181014f5a782cc26add0",
+    "stage": "implementation-pending-ci",
+    "scope": "revoke temporary session and workspace view grants when Host confirmation is lost or credential mode changes; retain durable locks; avoid duplicate revocation",
+    "verification": "tests/delta-suite-native-session-catalog-ownership.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"

@@ -48,6 +48,8 @@ function projectConfirmedClientSessionState(previous: ClientFeatureSnapshot, pay
       Object.prototype.hasOwnProperty.call(moved, id) && moved[id] === target)
   const locked = new Set(payload.lockedSessionIds)
   const lockedWorkspaces = new Set(payload.lockedWorkspaceIds)
+  const mayRetainGrants = previous.isSearchProtectionReady &&
+    previous.hasPin === payload.hasPin && previous.lockMode === payload.lockMode
   return {
     isSearchProtectionReady: true,
     hasPin: payload.hasPin,
@@ -56,8 +58,20 @@ function projectConfirmedClientSessionState(previous: ClientFeatureSnapshot, pay
     lockedWorkspaceIds: stableIds(previous.lockedWorkspaceIds, payload.lockedWorkspaceIds),
     movedSessions: hasSameMoves ? previous.movedSessions : Object.freeze({ ...moved }),
     deletedSessionIds: stableIds(previous.deletedSessionIds, payload.deletedSessionIds),
-    tempUnlockedIds: stableIds(previous.tempUnlockedIds, previous.tempUnlockedIds.filter(id => locked.has(id))),
+    tempUnlockedIds: stableIds(previous.tempUnlockedIds,
+      mayRetainGrants ? previous.tempUnlockedIds.filter(id => locked.has(id)) : []),
     tempUnlockedWorkspaceIds: stableIds(previous.tempUnlockedWorkspaceIds,
-      previous.tempUnlockedWorkspaceIds.filter(id => lockedWorkspaces.has(id))),
+      mayRetainGrants ? previous.tempUnlockedWorkspaceIds.filter(id => lockedWorkspaces.has(id)) : []),
+  }
+}
+
+/** Revoke only transient viewing grants, never the last confirmed durable locks. */
+function revokeClientSessionViewGrants(previous: ClientFeatureSnapshot): Pick<ClientFeatureSnapshot,
+  'isSearchProtectionReady' | 'tempUnlockedIds' | 'tempUnlockedWorkspaceIds'> | undefined {
+  if (!previous.isSearchProtectionReady && !previous.tempUnlockedIds.length && !previous.tempUnlockedWorkspaceIds.length) return
+  return {
+    isSearchProtectionReady: false,
+    tempUnlockedIds: previous.tempUnlockedIds.length ? Object.freeze([]) : previous.tempUnlockedIds,
+    tempUnlockedWorkspaceIds: previous.tempUnlockedWorkspaceIds.length ? Object.freeze([]) : previous.tempUnlockedWorkspaceIds,
   }
 }

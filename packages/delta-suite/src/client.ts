@@ -442,7 +442,7 @@ function createClientFeatureManager(): ClientFeatureManager {
     // Never accept a partial response as evidence that durable locks vanished.
     const patch = projectConfirmedClientSessionState(state, payload)
     if (!patch) {
-      if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+      revokeHostConfirmation()
       return
     }
     // Even an identical confirmed response supersedes an older in-flight read.
@@ -476,7 +476,8 @@ function createClientFeatureManager(): ClientFeatureManager {
   const revokeHostConfirmation = (): void => {
     hostStateConfirmation += 1
     hasSyncedStateFromHost = false
-    if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
+    const patch = revokeClientSessionViewGrants(state)
+    if (patch) publish(patch)
   }
 
   const refreshState = async (): Promise<void> => {
