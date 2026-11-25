@@ -136,7 +136,7 @@ test('MCP credentials stay native: Suite publishes no credential editor, service
 // The locale contract must enumerate real dictionary keys, without a catch-all
 // index signature that silently accepts misspelled UI keys.
 test('DeltaCopy type declares exactly the actual bilingual dictionary schema', () => {
-  const types = read('packages/delta-suite/src/client-types.d.ts')
+  const types = read('packages/delta-suite/src/client-types.d.ts').replace(/\r\n/g, '\n')
   const start = types.indexOf('interface DeltaCopy {')
   const end = types.indexOf('\ntype Language =', start)
   assert.ok(start >= 0 && end > start)
