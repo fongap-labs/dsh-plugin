@@ -312,9 +312,21 @@
   "p0_locale_adapter_lifetime": {
     "as_of": "2026-11-25",
     "baseline": "d01bd8a1f57c4692a0484bdf4711c7dbbdea254a",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "extract public-first Locale binding, revoke replaced subscriptions, suppress identical normalized language publications",
     "verification": "tests/delta-suite-native.test.mjs and tests/delta-suite-public-slots-locale-boundary.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "399d2e9e9a91c71555292c2def199c4d6773406b",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45550904442"
+  },
+  "p1_feature_preferences_module": {
+    "as_of": "2026-11-25",
+    "baseline": "249d1f262ccf24ee480b182881bcfa289c8f6169",
+    "stage": "implementation-pending-ci",
+    "scope": "extract existing feature preferences; validate and suppress duplicate writes; isolate storage and subscribers; preserve persisted schema and single bundle",
+    "verification": "tests/delta-suite-account-route-label-preference.test.mjs and tests/delta-suite-native-settings-labels.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"

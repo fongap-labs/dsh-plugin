@@ -239,6 +239,18 @@
         "registerClientFeatureGroup",
         "createClientBindingLifetime"
       ]
+    },
+    "client_feature_preferences": {
+      "owner": "shell",
+      "path": "packages/delta-suite/src/client-feature-preferences.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "readFeaturePreferences",
+        "updateFeaturePreference",
+        "subscribeFeaturePreferences",
+        "useFeaturePreferences"
+      ]
     }
   },
   "host_feature_access": {
@@ -325,7 +337,10 @@
       "activation_requires": [
         "contextMenus.register"
       ],
-      "inherited_requires": ["slots.register", "effect"],
+      "inherited_requires": [
+        "slots.register",
+        "effect"
+      ],
       "access": "register public session and workspace menu actions",
       "fallback": "native-menus-preserved",
       "authorization": "Host operation and existing protection checks"
