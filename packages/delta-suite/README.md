@@ -8,9 +8,9 @@
 
 ## 原生 Harness 公开接口边界（P0-2）
 
-Delta Suite 仅使用官方公开的 Cordis Service、Slots、Theme、Settings 等能力。原生侧栏布局、头像菜单、Session 右键既有菜单、Workspace 删除授权、模型请求和全部原生语言均由 Harness 保留。
+Delta Suite 优先使用官方公开的 Cordis Service、Slots、Theme、Settings 等能力；缺少公开接口时仅采用经能力检测、局部且可撤销的运行时 Patch。原生头像菜单、Session 既有操作、Workspace 删除授权、模型请求和全部原生语言均由 Harness 保留。
 
-- **不挂载原生界面 DOM 扫描/迁移**：不再启用 `installLiveNativePresentation`，不将原生会话按钮通过 Portal 移至私人选择器，也不包装 Workspace 私有方法。无法公开实现的原生侧栏重排、原生右键菜单排序、宿主文案替换均保持原生表现，并记录能力缺口。
+- **不挂载原生界面 DOM 扫描/迁移**：不再启用 `installLiveNativePresentation`，不将原生会话按钮通过 Portal 移至私人选择器，也不包装 Workspace 私有方法。侧栏已实现局部 CSS 固定导航补丁，仍待实机验收；原生右键菜单排序及宿主文案替换未交付。
 - **不修改 Harness 源码**：插件发布包不包含 `apply-harness-ui-patch.mjs`，不修改 `app.asar`、全局语言配置或宿主翻译资源。仓库历史脚本不得用于 Delta Suite 插件发行或运行时注入。
 - **Gateway Effort 自动同步禁用**：尚未确认官方提供无需读取原始凭据的请求代理接口，故停用 Gateway HTTP `/models` 探测和写入界面；不调用 `credentials.resolve`，不缓存/传递原始 Token。现有无网络纯函数仅供单元验证，不代表已启用功能。
 - **保持原生安全行为**：登录/退出、账户授权、真实 Session 操作及模型选择继续由 Harness 自身控制。官方 Session Log 的排除仅依赖 `sessionLogDeepSeek.registerExclusion`，不代表关闭其他遥测。
@@ -66,11 +66,11 @@ Windows 实机验收使用隔离 Profile：备份并停用旧插件，安装并�
 
 公开的 `sidebar.panellist.actions` 只提供 More 菜单入口；`sidebar.session.row.hover` 只提供悬浮卡装饰区域。Suite 在此插槽内使用公开 Session 目录的 `updatedAt` 添加可选的本地化最近更新时间，并通过 `sessions.list.subscribe` 响应数据变化；无日期、未验证的保护状态、锁定/删除的会话均不显示此内容，也不读取 Host 私有路径。这**不是**完整的原生悬浮卡布局替换，更不意味着完整侧栏重排已经可用。
 
-禁止使用宿主 DOM 选择器、私有 CSS 类、私有 Store、React setter monkey-patch 或服务方法替换来伪造能力。宿主不支持的功能必须保留原生行为，并继续标记为未完成。
+禁止通过全局接管、私有状态篡改或仅视觉模拟来伪造能力。公开接口优先，缺少接口时允许经能力检测且可撤销的局部 Patch；无法安全适配时保留原生行为，并标记未完成。
 
 ## 后续模块规划（尚未验收）
 
-计划继续围绕 `Theme`、`Sidebar`、`Search`、`Conversation`、`Workspace` 和 `Host Adapter` 分层；涉及宿主私有状态或缺少公开扩展接口的需求不做兼容性接管。所有可交付能力仍集成在**一个插件包**中，不添加新桌面进程。
+计划继续围绕 `Theme`、`Sidebar`、`Search`、`Conversation`、`Workspace` 和 `Host Adapter` 分层；缺少公开扩展接口的需求评估安全的局部 Patch，不能保证原生行为及回退时不接管。所有可交付能力仍集成在**一个插件包**中，不添加新桌面进程。
 
 ## 安装迁移
 

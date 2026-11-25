@@ -68,7 +68,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
     console: { error(...values) { diagnosticMessages.push(values.map(String).join(' ')) }, warn(...values) { diagnosticMessages.push(values.map(String).join(' ')) } },
   }
   // The production fixture is wrapped in an IIFE; expose the test hook inside it.
-  const testClientSource = clientSource.replace(/\n\}\)\(\);\n$/, '\n;globalThis.testFeatures = deltaFeatures\n})();\n')
+  const testClientSource = clientSource.replace(/\n\}\)\(\);\n$/, '\n;globalThis.testFeatures = deltaFeatures; globalThis.testSetPreference = updateFeaturePreference\n})();\n')
   assert.notEqual(testClientSource, clientSource, 'desktop fixture wrapper must be present')
   vm.runInNewContext(testClientSource, context)
   const react = {
@@ -213,6 +213,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   return { components, effects, prompts, commands, created, opened, refCounts, storage, resources, tabs,
     dialogRoots, diagnosticMessages, mcpMutations, mcpFormQueries, deltaSettingsMutations, render, mainProps, setDraft(value) { draftValue = value },
     get draft() { return draftValue }, sessions,
+    setOptimization(value) { context.testSetPreference('inputOptimization', value) },
     ready: context.testFeatures.refreshState(),
     revision: () => context.testFeatures.getContentProtectionRevision(),
     setProtection: async patch => { protectionState = { ...protectionState, ...patch }; await context.testFeatures.refreshState() },
@@ -540,6 +541,70 @@ test('a failed automatic compaction reports in the chat and preserves the draft'
   assert.equal(findClass(notice, 'dtd-compaction-event is-failed')?.props.role, 'alert')
   assert.equal(app.draft, 'Please explain the request clearly.')
   assert.equal(app.commands.length, 0)
+})
+
+test('obsolete optimization controls and repeated clicks cannot submit stale or duplicate drafts', async () => {
+  const app = makeHarness()
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  const old = findButton(app.render('input', input.component, app.mainProps), 'Optimize input')
+  app.setDraft('New current draft.')
+  const current = findButton(app.render('input', input.component, app.mainProps), 'Optimize input')
+  old.props.onClick()
+  await turn()
+  assert.equal(app.created.length, 0)
+  const release = app.deferRetain()
+  current.props.onClick()
+  current.props.onClick()
+  await turn()
+  assert.equal(app.created.length, 1)
+  release()
+  await turn()
+  assert.equal(app.prompts.length, 1)
+  assert.match(app.prompts[0].content[0].text, /New current draft/)
+})
+
+test('disabling optimization during retain revokes the pending operation even after re-enabling', async () => {
+  const app = makeHarness()
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  const button = findButton(app.render('input', input.component, app.mainProps), 'Optimize input')
+  const release = app.deferRetain()
+  button.props.onClick()
+  await turn()
+  assert.equal(app.refCounts.get('assistant-1'), 1)
+  app.setOptimization(false)
+  app.setOptimization(true)
+  release()
+  await turn()
+  assert.equal(app.prompts.length, 0)
+  assert.equal(app.opened.length, 0)
+  assert.equal(app.refCounts.get('assistant-1'), 0)
+  app.setOptimization(false)
+  button.props.onClick()
+  await turn()
+  assert.equal(app.created.length, 1)
+})
+
+test('disabling optimization prevents an already rendered preview from applying or restoring', async () => {
+  const app = makeHarness()
+  await app.ready
+  const input = app.components.get('conversation.input.left:delta.context.assistant-actions')
+  findButton(app.render('input', input.component, app.mainProps), 'Optimize input').props.onClick()
+  await turn()
+  const action = app.components.get('conversation.chat.assistant-actions:delta.context.optimizer-apply')
+  const outputChat = { nodes: { values: () => [{ kind: 'assistant-step', data: {
+    finalNode: { messageId: 'message-disable' }, blocks: [{ kind: 'text', text: 'Rewritten text.' }],
+  } }] } }
+  const props = { ...app.mainProps, sessionId: 'assistant-1', messageId: 'message-disable', useChat: selector => selector(outputChat) }
+  findButton(app.render('result', action.component, props), 'Optimization preview').props.onClick()
+  const preview = app.render('result', action.component, props)
+  app.setOptimization(false)
+  findButton(preview, 'Use this version').props.onClick()
+  findButton(preview, 'Restore original').props.onClick()
+  assert.equal(app.draft, 'Please explain the request clearly.')
+  assert.equal(app.prompts.some(value => 'persistedDraft' in value), false)
+  assert.equal(app.render('result', action.component, props), null)
 })
 
 test('input optimization refuses to replace a draft edited while the result was being prepared', async () => {
