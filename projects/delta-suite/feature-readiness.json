@@ -360,9 +360,21 @@
   "p0_session_view_grant_revocation": {
     "as_of": "2026-11-25",
     "baseline": "0cf5174352d6ba9b53af181014f5a782cc26add0",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "revoke temporary session and workspace view grants when Host confirmation is lost or credential mode changes; retain durable locks; avoid duplicate revocation",
     "verification": "tests/delta-suite-native-session-catalog-ownership.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "b68c7f71e3d9f05856a951d504ec292d7dd8dc3f",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45556946648"
+  },
+  "p0_locale_schema_and_compatibility_copy": {
+    "as_of": "2026-11-25",
+    "baseline": "d69619084bf8a4741df4e1d0c87cd6413485fd08",
+    "stage": "implementation-pending-ci",
+    "scope": "strict bilingual copy schema and truthful compatibility notes for implemented reversible sidebar patch; keep native locale resources untouched",
+    "verification": "tests/delta-suite-public-slots-locale-boundary.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"

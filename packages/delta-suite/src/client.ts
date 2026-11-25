@@ -3775,10 +3775,9 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
       deltaFeatures.ensureLoaded()
       const { state, copy } = useCopy(controller)
       const fSnap = React.useSyncExternalStore(deltaFeatures.subscribe, deltaFeatures.getSnapshot)
-      // These four feature contracts are not verified in the installed Host.
-      // Present a truthful native fallback, never a simulated success or
-      // a live capability claim inferred from the Host version or DOM.
-      const unsupportedNativeFeatures = [
+      // Describe implemented compatibility and native fallbacks, not a
+      // live capability claim or completed acceptance for the installed Host.
+      const nativeFeatureNotes = [
         copy.ui.integrationSidebar,
         copy.ui.integrationCollapse,
         copy.ui.integrationDeletion,
@@ -3805,7 +3804,7 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
           el('strong', null, copy.ui.integrationTitle),
           el('p', { className: 'dtd-integration-summary' }, copy.ui.integrationSummary),
           el('ul', { className: 'dtd-integration-list' },
-            unsupportedNativeFeatures.map((label, idx) =>
+            nativeFeatureNotes.map((label, idx) =>
               el('li', { key: idx },
                 el('span', null, label),
                 el('span', { className: 'dtd-integration-native' }, copy.ui.integrationNative)))),
