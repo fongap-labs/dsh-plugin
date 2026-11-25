@@ -3847,17 +3847,17 @@ window.__ModuleLoader__.load({
           el('path', { d: 'M3 6h18' }),
           el('path', { d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
           el('path', { d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' }))
-    
-    
+
+
         menuScope.effect(() => {
           try {
             return registerClientFeatureGroup(track => {
-              let live = true
+              let isLive = true
               // Registered last so invalidation runs before Host disposers.
               const validId = (value: unknown): value is string =>
                 typeof value === 'string' && value.trim().length > 0
               const sessionAvailable = (id: unknown): id is string =>
-                live && validId(id) && !deltaFeatures.isDeleted(id)
+                isLive && validId(id) && !deltaFeatures.isDeleted(id)
               const observe = () => [deltaFeatures, controller]
               const registerMenu = contextMenus.register.bind(contextMenus)
               try {
@@ -3904,7 +3904,7 @@ window.__ModuleLoader__.load({
                         deltaFeatures.openUnlockPinDialog(id)
                       } else if (deltaFeatures.getSnapshot().hasPin) {
                         void deltaFeatures.lockSession(id).then(res => {
-                          if (res.ok && live) showDeltaToast((DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.lockedToast)
+                          if (res.ok && isLive) showDeltaToast((DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.lockedToast)
                         })
                       } else {
                         deltaFeatures.openSetPinDialog(id, title)
@@ -3940,7 +3940,7 @@ window.__ModuleLoader__.load({
                 observe,
                 resolve: t => {
                   const id = [t?.workspaceId, t?.id, t?.path].find(validId)
-                  if (!live || !id) return []
+                  if (!isLive || !id) return []
                   const title = typeof t.displayTitle === 'string' ? t.displayTitle :
                     typeof t.title === 'string' ? t.title : undefined
                   const locked = deltaFeatures.isWorkspaceLocked(id)
@@ -3950,12 +3950,12 @@ window.__ModuleLoader__.load({
                     label: locked ? copy.workspaceMenu.unlockWorkspace : copy.workspaceMenu.lockWorkspace,
                     icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
                     run: () => {
-                      if (!live) return
+                      if (!isLive) return
                       if (deltaFeatures.isWorkspaceLocked(id)) {
                         deltaFeatures.openUnlockWorkspaceDialog(id)
                       } else if (deltaFeatures.getSnapshot().hasPin) {
                         void deltaFeatures.lockWorkspace(id).then(res => {
-                          if (res.ok && live) showDeltaToast((DICTIONARIES[language()] ?? DICTIONARIES.en).workspaceMenu.lockedToast)
+                          if (res.ok && isLive) showDeltaToast((DICTIONARIES[language()] ?? DICTIONARIES.en).workspaceMenu.lockedToast)
                         })
                       } else {
                         deltaFeatures.openSetPinWorkspaceDialog(id, title)
@@ -3964,15 +3964,15 @@ window.__ModuleLoader__.load({
                   }]
                 },
               })) } catch { /* optional workspace target */ }
-              track(() => { live = false })
-              } catch (error) { live = false; throw error }
+              track(() => { isLive = false })
+              } catch (error) { isLive = false; throw error }
             })
           } catch { /* optional menu group rolled back; native menus remain */ }
         }, 'delta-suite: session move/lock/delete menus')
       }) } catch { /* unsupported optional Host menu service */ }
     }
 
-    function PersonalizationSection({ controller }: DeltaProps): unknown {
+function PersonalizationSection({ controller }: DeltaProps): unknown {
       deltaFeatures.ensureLoaded()
       const { state, copy } = useCopy(controller)
       const fSnap = React.useSyncExternalStore(deltaFeatures.subscribe, deltaFeatures.getSnapshot)
