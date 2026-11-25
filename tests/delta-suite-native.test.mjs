@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -34,11 +34,14 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     removeAttribute(key) { attributes.delete(key) },
     getAttribute(key) { return attributes.get(key) },
   }
+  const styles = new Set()
   const head = { appendChild(tag) {
-    tag.parentNode = { removeChild(value) { removed++; value.parentNode = null } }
+    styles.add(tag)
+    tag.parentNode = { removeChild(value) { removed++; styles.delete(value); value.parentNode = null } }
   } }
   const context = {
     observers: [],
+    ...(supportsSidebarPatch ? { CSS: { supports() { return true } } } : {}),
     localeObserverOptions: [],
     localeObserverDisconnects: 0,
     localeListeners: [],
@@ -120,7 +123,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     },
   }
   client.apply(ctx)
-  return { registration, context, documentElement, components, slots, layers, changes,
+  return { registration, context, documentElement, components, slots, layers, changes, styles,
     workspaces, deletedWorkspaces, originalDelete, defaultSessions,
     features: context.testDeltaFeatures,
     cleanup() { effects.forEach(fn => fn?.()) },
@@ -729,6 +732,32 @@ test('appearance Patch restores the original value and avoids repeated writes on
   app.documentElement.setAttribute('data-delta-ui', 'other-owner')
   app.cleanup()
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), 'other-owner')
+})
+
+test('sidebar layout Patch is scoped to expanded native structure and Delta mode', () => {
+  const app = harness({ supportsSidebarPatch: true })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  const patches = () => [...app.styles].filter(style => 'deltaSidebarLayout' in style.dataset)
+  assert.equal(patches().length, 1)
+  const css = patches()[0].textContent
+  assert.ok(css.includes(':root[data-delta-ui="delta"] [data-sidebar-scrollport]:has(> nav + div [data-slot="sidebar.workspaces"])'))
+  assert.ok(css.includes('grid-template-rows: 8px max-content 2px minmax(0, 1fr)'))
+  assert.ok(css.includes('container-type: size'))
+  assert.doesNotMatch(css, /!important|display:\s*none|\[class\*=/)
+  app.context.localeListeners.forEach(notify => notify())
+  assert.equal(patches().length, 1)
+  controller.setMode('official')
+  assert.equal(patches().length, 0)
+  controller.setMode('delta')
+  assert.equal(patches().length, 1)
+  app.cleanup()
+  assert.equal(patches().length, 0)
+})
+
+test('sidebar layout Patch leaves native layout alone without browser feature support', () => {
+  const app = harness()
+  assert.equal([...app.styles].some(style => 'deltaSidebarLayout' in style.dataset), false)
+  app.cleanup()
 })
 
 test('appearance Patch does not claim an already-present marker', () => {

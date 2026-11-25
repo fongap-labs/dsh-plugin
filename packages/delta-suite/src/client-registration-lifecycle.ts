@@ -93,6 +93,35 @@ function createClientAppearancePatch() {
   }
 }
 
+/** Expanded SidebarRoot compatibility: preserve native nodes and scroll handoff.
+ * The Host exposes a scrollport marker and a workspace Slot, but no public
+ * setting to keep its panel navigation fixed. Match both structural anchors;
+ * unknown markup keeps the original grid. CSS applies to remounted nodes.
+ */
+function installClientSidebarLayoutPatch(): () => void {
+  if (typeof document === 'undefined' || !document.head || typeof CSS === 'undefined' ||
+      typeof CSS.supports !== 'function') return () => {}
+  const region = '[data-sidebar-scrollport]:has(> nav + div [data-slot="sidebar.workspaces"])'
+  const scope = ':root[data-delta-ui="delta"] ' + region
+  if (!CSS.supports('selector(' + region + ')') ||
+      !CSS.supports('container-type', 'size') ||
+      !CSS.supports('grid-template-rows', '8px max-content 2px minmax(0, 1fr)')) return () => {}
+  const style = document.createElement('style')
+  style.dataset.deltaSidebarLayout = ''
+  // Keep the panel list at its original grid position. The workspace gets
+  // the remaining height and becomes the nearest height-query container.
+  // Its own native list scroller and cqh sizing continue to own scrolling.
+  style.textContent = scope + ' { grid-template-rows: 8px max-content 2px minmax(0, 1fr); }\n' +
+    scope + ' > nav + div:has([data-slot="sidebar.workspaces"]) { container-type: size; min-height: 0; }'
+  try {
+    document.head.appendChild(style)
+  } catch {
+    try { style.parentNode?.removeChild(style) } catch {}
+    return () => {}
+  }
+  return () => { style.parentNode?.removeChild(style) }
+}
+
 /** Narrow read-only Patch for older Hosts: observe only the document language attribute.
  * No subtree scanning, mutations, polling, or Host preference writes.
  */
