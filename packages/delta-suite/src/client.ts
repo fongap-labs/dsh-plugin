@@ -3896,24 +3896,59 @@ window.__ModuleLoader__.load({
                 tag.dataset.plugin = DELTA_SUITE_OWNER
                 tag.textContent = OWNED_CSS
                 document.head.appendChild(tag)
-                // Official Host LocaleRuntime is the only live language source.
+                // Prefer the public LocaleRuntime; a read-only lang observer is
+                // the scoped fallback for older Hosts or unavailable services.
+                let isLocaleDisposed = false
+                let localeGeneration = 0
+                let isPublicLocaleActive = false
+                const fallback = createClientLocaleFallback(() => {
+                  if (!isLocaleDisposed && !isPublicLocaleActive) controller.syncLanguage()
+                })
+                const useFallback = (): void => {
+                  if (isLocaleDisposed) return
+                  isPublicLocaleActive = false
+                  currentHostLocale = undefined
+                  fallback.start()
+                  controller.syncLanguage()
+                }
                 try {
                   scope.inject(['locale'], localeScope => {
                     const localeApi = localeScope.locale
                     if (!localeApi || typeof localeApi.getSnapshot !== 'function' ||
                         typeof localeApi.subscribe !== 'function') return
                     localeScope.effect(() => {
+                      if (isLocaleDisposed) return
+                      const token = ++localeGeneration
+                      let isLive = true
                       const sync = (): void => {
-                        const active = localeApi.getSnapshot()?.active
-                        currentHostLocale = typeof active === 'string' ? active : undefined
+                        if (!isLive || isLocaleDisposed || token !== localeGeneration) return
+                        let active: unknown
+                        try { active = localeApi.getSnapshot()?.active } catch { useFallback(); return }
+                        if (typeof active !== 'string' || !active.trim()) { useFallback(); return }
+                        currentHostLocale = active
+                        isPublicLocaleActive = true
+                        fallback.stop()
                         controller.syncLanguage()
                       }
-                      const release = localeApi.subscribe(sync)
-                      sync()
-                      return () => { release(); currentHostLocale = undefined }
+                      let release: (() => void) | undefined
+                      try {
+                        release = localeApi.subscribe(sync)
+                        if (typeof release !== 'function') throw new Error('Locale subscription is not disposable')
+                        sync()
+                      } catch {
+                        isLive = false
+                        try { release?.() } catch {}
+                        useFallback()
+                      }
+                      return () => {
+                        isLive = false
+                        try { if (typeof release === 'function') release() } catch {}
+                        if (token === localeGeneration) useFallback()
+                      }
                     }, 'delta-suite: public Host Locale subscription')
                   })
-                } catch { /* Older Hosts retain initial document/browser language fallback. */ }
+                } catch { /* Optional public service; use the scoped fallback. */ }
+                if (!isPublicLocaleActive) useFallback()
 
                 const syncAppearance = (): void => {
                   if (controller.getSnapshot().mode === 'delta') {
@@ -3940,6 +3975,10 @@ window.__ModuleLoader__.load({
                 // Unsupported native UI adjustments remain under Harness ownership.
 
                 return () => {
+                  isLocaleDisposed = true
+                  localeGeneration++
+                  fallback.dispose()
+                  currentHostLocale = undefined
                   stopAppearance()
                   clearDeltaToasts()
                   document.documentElement.removeAttribute('data-delta-ui')

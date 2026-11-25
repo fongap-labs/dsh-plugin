@@ -87,13 +87,16 @@ test('navigation and palette copy uses central dictionaries without dead Gateway
   assert.match(client, /\/\^zh\(\?:-\|\$\)\/i/)
 })
 
-test('language subscription uses public Locale and never DOM observer', () => {
+test('language uses public Locale first and a scoped read-only lang Patch as fallback', () => {
   assert.match(client, /scope\.inject\(\['locale'\], localeScope =>/)
   assert.match(client, /localeApi\.getSnapshot\(\)\?\.active/)
   assert.match(client, /localeApi\.subscribe\(sync\)/)
-  assert.match(client, /release\(\)/)
-  assert.doesNotMatch(client, /new MutationObserver\(\(\) => controller\.syncLanguage\(\)\)/)
-  assert.doesNotMatch(client, /observer\?\.observe\(document\.documentElement/)
+  assert.match(client, /typeof release === 'function'\) release\(\)/)
+  assert.match(client, /fallback\.stop\(\)/)
+  assert.match(client, /fallback\.dispose\(\)/)
+  const fallback = read('packages/delta-suite/src/client-registration-lifecycle.ts')
+  assert.match(fallback, /observer\.observe\(document\.documentElement, \{ attributes: true, attributeFilter: \['lang'\] \}\)/)
+  assert.doesNotMatch(fallback, /subtree:\s*true|\.setAttribute\(|\.removeAttribute\(|setInterval\(/)
   assert.doesNotMatch(client, /localeApi\.setLocale\(/)
 })
 

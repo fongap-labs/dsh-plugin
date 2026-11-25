@@ -37,13 +37,19 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
   } }
   const context = {
     observers: [],
+    localeObserverOptions: [],
+    localeObserverDisconnects: 0,
     localeListeners: [],
     window: { __ModuleLoader__: { load(entry) { registration = entry } } },
     document: { documentElement, head, createElement(name) { return { name, dataset: {}, textContent: '', parentNode: null } } },
     navigator: { language: 'en-US' },
     ...(fetchImpl ? { fetch: fetchImpl } : {}),
     localStorage: { getItem() { return stored }, setItem(_key, value) { stored = value } },
-    MutationObserver: class { constructor(callback) { context.observers.push(callback) } observe() {} disconnect() {} },
+    MutationObserver: class {
+      constructor(callback) { context.observers.push(callback) }
+      observe(target, options) { context.localeObserverOptions.push({ target, options }) }
+      disconnect() { context.localeObserverDisconnects++ }
+    },
   }
   const fixtureEnd = '\n})();\n'
   assert.ok(source.endsWith(fixtureEnd), 'compiled client closure is available for fixture-only instrumentation')
@@ -816,6 +822,49 @@ test('Host Locale snapshot updates Suite language and unsubscribes on unload', (
   assert.equal(notify, undefined)
 })
 
+
+test('older Host language Patch observes only root lang and stops on disable', () => {
+  const app = harness({ localeService: null })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  assert.equal(controller.getSnapshot().language, 'zh')
+  assert.equal(app.context.observers.length, 1)
+  const [{ target, options }] = app.context.localeObserverOptions
+  assert.equal(target, app.documentElement)
+  assert.equal(options.attributes, true)
+  assert.deepEqual(Array.from(options.attributeFilter), ['lang'])
+  assert.equal(options.subtree, undefined)
+  app.documentElement.lang = 'ja'
+  app.context.observers[0]()
+  assert.equal(controller.getSnapshot().language, 'en')
+  app.cleanup()
+  assert.equal(app.context.localeObserverDisconnects, 1)
+  app.documentElement.lang = 'zh-CN'
+  app.context.observers[0]()
+  assert.equal(controller.getSnapshot().language, 'en')
+})
+
+test('public Locale takes priority; invalid snapshots use the Patch and recover', () => {
+  let active = 'ja'
+  let notify
+  const app = harness({ localeService: {
+    getSnapshot() { return { active } },
+    subscribe(fn) { notify = fn; return () => {} },
+  } })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  assert.equal(app.context.observers.length, 0)
+  assert.equal(controller.getSnapshot().language, 'en')
+  active = undefined
+  notify()
+  assert.equal(app.context.observers.length, 1)
+  assert.equal(controller.getSnapshot().language, 'zh')
+  active = 'fr'
+  notify()
+  assert.equal(app.context.localeObserverDisconnects, 1)
+  assert.equal(controller.getSnapshot().language, 'en')
+  app.context.observers[0]()
+  assert.equal(controller.getSnapshot().language, 'en')
+  app.cleanup()
+})
 
 test('unsupported optional Host service does not prevent later independent registrations', () => {
   for (const unavailableService of ['workspaces', 'sessions,uiWorkspace', 'theme', 'layout']) {

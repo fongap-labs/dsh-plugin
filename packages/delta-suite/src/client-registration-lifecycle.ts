@@ -47,3 +47,30 @@ function createClientBindingLifetime() {
     return { isCurrent, dispose }
   }
 }
+
+/** Narrow read-only Patch for older Hosts: observe only the document language attribute.
+ * No subtree scanning, mutations, polling, or Host preference writes.
+ */
+function createClientLocaleFallback(sync: () => void) {
+  let observer: MutationObserver | undefined
+  let isDisposed = false
+  let generation = 0
+  const stop = (): void => {
+    generation++
+    const previous = observer
+    observer = undefined
+    try { previous?.disconnect() } catch { /* optional compatibility path */ }
+  }
+  const start = (): void => {
+    if (isDisposed || observer) return
+    const token = ++generation
+    try {
+      if (typeof MutationObserver === 'undefined' || typeof document === 'undefined' || !document.documentElement) return
+      observer = new MutationObserver(() => {
+        if (!isDisposed && token === generation) sync()
+      })
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
+    } catch { stop() }
+  }
+  return { start, stop, dispose: () => { isDisposed = true; stop() } }
+}
