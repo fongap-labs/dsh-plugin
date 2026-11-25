@@ -237,12 +237,25 @@
     "as_of": "2026-11-25",
     "baseline": "5276b709a1a26a40004f410165ce5d70f53490bb",
     "host_source_reference": "deepseek-ai/deepseek-harness@4b399c39a6d1479cd84ca591b4d7c88e24d38a96",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "native panel nav above session action; workspace below; guarded nested CSS subgrid with basic fixed-layout fallback; native slot order preserved",
     "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified",
-    "navigation_contract": "Plugins (order 0), schedules (order 10), later plugin panels via sidebar.panellist above session action; no external slot enforcement"
+    "navigation_contract": "Plugins (order 0), schedules (order 10), later plugin panels via sidebar.panellist above session action; no external slot enforcement",
+    "verified_head": "3261d699d2a7a0cb0b10638e17c7a0190ad29718",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45534244964"
+  },
+  "p0_theme_palette_fallback": {
+    "as_of": "2026-11-25",
+    "baseline": "58119495ae6ad1da8e540882230a27df141451c3",
+    "stage": "implementation-pending-ci",
+    "primary": "public Theme overrideTokens",
+    "fallback": "scoped CSS using identical palette, recognized Host body markers and computed token check; only when public API absent",
+    "verification": "tests/delta-suite-native.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }

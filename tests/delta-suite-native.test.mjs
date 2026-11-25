@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   let removed = 0
@@ -28,6 +28,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
   const originalDelete = workspaces.delete
   const attributes = new Map()
   if (initialAppearance !== undefined) attributes.set('data-delta-ui', initialAppearance)
+  if (fallbackTheme) attributes.set('data-ds-theme-source', 'system')
   let appearanceWrites = 0
   const documentElement = { lang: 'zh-CN',
     setAttribute(key, value) { appearanceWrites++; attributes.set(key, value) },
@@ -39,6 +40,22 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     styles.add(tag)
     tag.parentNode = { removeChild(value) { removed++; styles.delete(value); value.parentNode = null } }
   } }
+  const fallbackDocument = fallbackTheme ? {
+    body: {
+      hasAttribute(key) { return key === 'data-ds-dark-theme' && fallbackTheme === 'dark' },
+      getAttribute() { return null },
+      setAttribute() {},
+      removeAttribute() {},
+    },
+    defaultView: { getComputedStyle() {
+      return { getPropertyValue(key) {
+        if (fallbackTheme === 'blocked') return 'host-value'
+        const css = [...styles].find(style => 'deltaThemeFallback' in style.dataset)?.textContent
+        const rule = css?.split('\n')[fallbackTheme === 'dark' ? 1 : 0]
+        return rule?.split(key + ':')[1]?.split(';')[0] ?? ''
+      } }
+    } },
+  } : {}
   const context = {
     observers: [],
     ...(supportsSidebarPatch ? { CSS: { supports() { return true } } } : {}),
@@ -46,7 +63,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     localeObserverDisconnects: 0,
     localeListeners: [],
     window: { __ModuleLoader__: { load(entry) { registration = entry } } },
-    document: { documentElement, head, createElement(name) { return { name, dataset: {}, textContent: '', parentNode: null } } },
+    document: { documentElement, head, ...fallbackDocument, createElement(name) { return { name, dataset: {}, textContent: '', parentNode: null } } },
     navigator: { language: 'en-US' },
     ...(fetchImpl ? { fetch: fetchImpl } : {}),
     localStorage: { getItem() { return stored }, setItem(_key, value) { stored = value } },
@@ -123,7 +140,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     },
   }
   client.apply(ctx)
-  return { registration, context, documentElement, components, slots, layers, changes, styles,
+  return { registration, context, documentElement, components, slots, layers, changes, styles, nativeTheme: ctx.theme,
     workspaces, deletedWorkspaces, originalDelete, defaultSessions,
     features: context.testDeltaFeatures,
     cleanup() { effects.forEach(fn => fn?.()) },
@@ -796,6 +813,52 @@ test('a failed Host theme disposer reports failure and does not interrupt other 
   assert.equal(app.context.localeObserverDisconnects, 1)
   assert.ok(app.removed >= 2)
   assert.equal(app.components.size, 0)
+})
+
+test('missing public Theme uses one verified CSS palette and restores it on public recovery', () => {
+  for (const fallbackTheme of ['light', 'dark']) {
+    const app = harness({ unavailableService: 'theme', fallbackTheme })
+    const controller = app.components.get('settings.section').spec.inject().controller
+    const patches = () => [...app.styles].filter(style => 'deltaThemeFallback' in style.dataset)
+    assert.equal(controller.getSnapshot().error, false)
+    assert.equal(app.layers.size, 0)
+    assert.equal(patches().length, 1)
+    const css = patches()[0].textContent
+    assert.match(css, /body:not\(\[data-ds-dark-theme\]\)/)
+    assert.match(css, /body\[data-ds-dark-theme\]/)
+    assert.match(css, /--dsw-menu-surface-fill:#FFFFFF;/)
+    assert.match(css, /--dsw-menu-surface-fill:#1E1E20;/)
+    assert.doesNotMatch(css, /!important/)
+    controller.setMode('delta')
+    assert.equal(patches()[0].textContent, css)
+    controller.setMode('official')
+    assert.equal(patches().length, 0)
+    controller.setMode('delta')
+    assert.equal(patches().length, 1)
+    controller.bindTheme(app.nativeTheme)
+    assert.equal(patches().length, 0)
+    assert.equal(app.layers.size, 1)
+    controller.bindTheme(undefined)
+    assert.equal(app.layers.size, 0)
+    assert.equal(patches().length, 1)
+    app.cleanup()
+    assert.equal(patches().length, 0)
+  }
+})
+
+test('Theme Patch rejects a blocked cascade and never stacks over a throwing public API', () => {
+  for (const options of [{ unavailableService: 'theme', fallbackTheme: 'blocked' },
+    { failTheme: true, fallbackTheme: 'light' }]) {
+    const app = harness(options)
+    const controller = app.components.get('settings.section').spec.inject().controller
+    assert.equal(controller.getSnapshot().error, true)
+    assert.equal([...app.styles].some(style => 'deltaThemeFallback' in style.dataset), false)
+    app.cleanup()
+  }
+  const app = harness({ fallbackTheme: 'light' })
+  assert.equal(app.layers.size, 1)
+  assert.equal([...app.styles].some(style => 'deltaThemeFallback' in style.dataset), false)
+  app.cleanup()
 })
 
 test('missing theme keeps the independent Settings entry usable', () => {

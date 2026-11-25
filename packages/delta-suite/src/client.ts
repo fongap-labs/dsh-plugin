@@ -208,9 +208,16 @@ function createController(): DeltaController {
     if (!releasePalette()) return false
     if (mode === 'official') return true
     try {
-      if (!activeTheme || typeof activeTheme.overrideTokens !== 'function') return false
-      ownedLayer = activeTheme.overrideTokens(DELTA_SUITE_OWNER, TOKENS)
-      return typeof ownedLayer === 'function'
+      if (!activeTheme || typeof activeTheme.overrideTokens !== 'function') {
+        ownedLayer = installClientThemeFallback()
+        return typeof ownedLayer === 'function'
+      }
+      // Do not install a second layer if the public API throws or cannot
+      // provide a disposer: it may already have mutated the Host cascade.
+      const release = activeTheme.overrideTokens(DELTA_SUITE_OWNER, TOKENS)
+      if (typeof release !== 'function') return false
+      ownedLayer = release
+      return true
     } catch { return false }
   }
   const safeLayout = (command: (layout: LayoutApi) => void): void => {
@@ -230,6 +237,7 @@ function createController(): DeltaController {
     },
     setMode: (mode) => {
       if (isDisposed || (mode !== 'delta' && mode !== 'official')) return
+      if (mode === snapshot.mode && !snapshot.error && (mode === 'official' || ownedLayer)) return
       const success = applyPalette(mode)
       if (!success) { publish({ error: true }); return }
       writeMode(mode)
@@ -4311,13 +4319,15 @@ window.__ModuleLoader__.load({
                 }
               }) } catch { /* unsupported optional Host service */ }
 
+              let isThemeBound = false
               try { scope.inject(['theme'], themeScope => {
                 if (typeof themeScope.effect !== 'function') return
                 themeScope.effect(() => bindThemeReference(
-                  () => controller.bindTheme(themeScope.theme),
-                  () => controller.bindTheme(undefined),
+                  () => { isThemeBound = true; controller.bindTheme(themeScope.theme) },
+                  () => { isThemeBound = false; controller.bindTheme(undefined) },
                 ).dispose, 'delta-suite: theme service lifetime')
-              }) } catch { controller.bindTheme(undefined) }
+              }) } catch { /* optional public service */ }
+              if (!isThemeBound) controller.bindTheme(undefined)
               try { scope.inject(['layout'], layoutScope => {
                 if (typeof layoutScope.effect !== 'function') return
                 layoutScope.effect(() => bindLayoutReference(

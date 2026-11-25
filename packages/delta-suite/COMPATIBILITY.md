@@ -26,6 +26,8 @@
 
 侧栏固定导航兼容路径：官方 SidebarRoot 公开的插槽不能控制外层滚动网格；基于源码 `4b399c39a6d1479cd84ca591b4d7c88e24d38a96` 的展开侧栏 scrollport 标记、直接 nav 与相邻 workspace Slot 结构，独立 CSS Patch 将工作区限制在剩余高度，使原生列表承担滚动。仅 Delta 模式生效；检查 CSS 特性，结构不匹配时不应用规则，不移动节点、不修改原生操作、无轮询和监听；官方模式及卸载移除样式。进一步采用 CSS subgrid 保留整个原生 panel nav 在开始会话上方，工作区在其下方；公开 sidebar.panellist 的插件管理（order=0）、定时任务（order=10）沿用宿主排序，后续插件导航统一注册 sidebar.panellist，不能将导航入口占用 sidebar.session.action、工作区或页脚插槽。无需接管第三方组件或改写注册数据。支持具备对应结构和 subgrid 的展开及折叠侧栏；不具备 subgrid 时仅保留基础固定布局。视觉重排不改变 DOM 键盘焦点顺序。真实客户端的滚动、折叠、权限变化、键盘导航及窄窗口表现仍待验证；无法约束不遵守公开插槽约定的第三方插件。
 
+主题公开 API 缺失时，新增基于官方 `data-ds-theme-source` 和 `data-ds-dark-theme` 标记的可撤销 CSS Palette Patch，直接复用同一套 Token，不强制覆盖 inline style。仅已识别的原生亮、暗或系统主题启用；至少验证品牌主色、主文字与菜单背景的计算值，失败立即撤销并报告降级。公开能力恢复时先移除 Patch 再使用原生 API；公开 API 抛错时不叠加补丁，以免未知的部分写入造成冲突。真实宿主的完整级联、动态主题切换和视觉一致性仍待验证。
+
 ## 验收证据
 
 | 项目 | 记录 |
