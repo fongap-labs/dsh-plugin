@@ -452,6 +452,78 @@ test('published Session hover Slot shows only an authorized, path-free identity 
 })
 
 
+test('hover copy rejects stale actions and suppresses late clipboard feedback across mode changes and unload', async () => {
+  const app = harness()
+  const controller = app.components.get('settings.section').spec.inject().controller
+  const hover = app.components.get('sidebar.session.row.hover')
+  const pending = [], copies = [], toasts = new Set(), timers = new Map()
+  let serial = 0
+  app.context.document.body = {
+    getAttribute() { return null },
+    setAttribute() {}, removeAttribute() {},
+    appendChild(node) { toasts.add(node) },
+  }
+  const createElement = app.context.document.createElement
+  app.context.document.createElement = name => ({
+    ...createElement(name), setAttribute() {}, remove() { toasts.delete(this) },
+  })
+  app.context.window.setTimeout = callback => { timers.set(++serial, callback); return serial }
+  app.context.window.clearTimeout = id => { timers.delete(id) }
+  app.context.window.location = { href: 'https://harness.test/' }
+  app.context.navigator.clipboard = { writeText(id) {
+    copies.push(id)
+    return new Promise((resolve, reject) => pending.push({ resolve, reject }))
+  } }
+  let lockedSessionIds = []
+  app.context.fetch = async () => ({ ok: true, status: 200, json: async () => ({ state: {
+    hasPin: true, lockMode: 'pin', lockedSessionIds, lockedWorkspaceIds: [],
+    deletedSessionIds: [], movedSessions: {},
+  } }) })
+  await app.features.refreshState()
+  const render = () => hover.component({ sessionId: 'session-one' }).children[2]
+  const click = button => button.props.onClick({ stopPropagation() {} })
+  const flush = async () => { for (let i = 0; i < 4; i++) await Promise.resolve() }
+  const old = render()
+  click(old)
+  controller.setMode('official')
+  controller.setMode('delta')
+  pending[0].resolve()
+  await flush()
+  assert.equal(toasts.size, 0)
+  click(old)
+  assert.equal(copies.length, 1)
+  click(render())
+  lockedSessionIds = ['session-one']
+  await app.features.refreshState()
+  pending[1].reject(Error('clipboard denied'))
+  await flush()
+  assert.equal(toasts.size, 0)
+  lockedSessionIds = []
+  await app.features.refreshState()
+  click(render())
+  pending[2].resolve()
+  await flush()
+  assert.equal(toasts.size, 1)
+  click(render())
+  pending[3].reject(Error('clipboard denied'))
+  await flush()
+  assert.equal(toasts.size, 2)
+  assert.equal(timers.size, 2)
+  const last = render()
+  click(last)
+  const staleTimers = [...timers.values()]
+  app.cleanup()
+  assert.equal(toasts.size, 0)
+  assert.equal(timers.size, 0)
+  pending[4].resolve()
+  await flush()
+  click(last)
+  staleTimers.forEach(callback => callback())
+  assert.equal(copies.length, 5)
+  assert.equal(toasts.size, 0)
+  assert.equal(hover.component({ sessionId: 'session-one' }), null)
+})
+
 test('published Session hover renders public catalog time and no record details', async () => {
   const app = harness()
   const hover = app.components.get('sidebar.session.row.hover')

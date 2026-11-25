@@ -80,6 +80,7 @@ type Language = 'zh' | 'en'
 type Mode = 'delta' | 'official'
 type DeltaState = Readonly<{ mode: Mode; language: Language; error: boolean; revision: number }>
 interface DeltaController {
+  isActive(): boolean
   getSnapshot(): DeltaState
   subscribe(listener: () => void): () => void
   setMode(mode: Mode): void
