@@ -34,7 +34,10 @@ test('clean-up still keeps native appearance and unrelated UI resource ownership
   assert.doesNotMatch(client, /onMenuClickCapture|hiddenSoleWorkspaceNodes/)
   assert.doesNotMatch(client, /stopPrivacyGuards\(\)|installClientPrivacyGuards\(/)
   assert.doesNotMatch(client, /installClientVisionBridge|stopVisionBridge|data-composer-input/)
-  assert.match(client, /tag\.parentNode\?\.removeChild\(tag\)/)
+  assert.match(client, /mountClientOwnedStyle\(OWNED_CSS, 'plugin', DELTA_SUITE_OWNER\)/)
+  assert.match(client, /releaseOwnedStyle\?\.\(\)/)
+  const lifecycle = read('packages/delta-suite/src/client-registration-lifecycle.ts')
+  assert.match(lifecycle, /if \(tag\?\.parentNode\) tag\.parentNode\.removeChild\(tag\)/)
   // Native Sidebar adapter was retired; public Host Slots retain ownership.
   assert.doesNotMatch(client, /function installSidebarCompatibility/)
   assert.doesNotMatch(client, /installSidebarCompatibility\(controller\)/)

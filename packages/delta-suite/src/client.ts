@@ -4071,10 +4071,8 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
               const bindLayoutReference = createClientBindingLifetime()
               const bindRightReference = createClientBindingLifetime()
               scope.effect(() => {
-                const tag = document.createElement('style')
-                tag.dataset.plugin = DELTA_SUITE_OWNER
-                tag.textContent = OWNED_CSS
-                document.head.appendChild(tag)
+                // Optional visual resources must not prevent public Slot registration.
+                const releaseOwnedStyle = mountClientOwnedStyle(OWNED_CSS, 'plugin', DELTA_SUITE_OWNER)
                 // Prefer the public LocaleRuntime; a read-only lang observer is
                 // the scoped fallback for older Hosts or unavailable services.
                 let isLocaleDisposed = false
@@ -4139,9 +4137,12 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
                   if (isDelta && !releaseSidebarLayout) {
                     try { releaseSidebarLayout = installClientSidebarLayoutPatch() } catch {}
                   } else if (!isDelta && releaseSidebarLayout) {
-                    const release = releaseSidebarLayout
-                    releaseSidebarLayout = undefined
-                    try { release() } catch {}
+                    // Retain the disposer if removal fails, so returning to
+                    // Delta cannot stack a second copy over the first.
+                    try {
+                      releaseSidebarLayout()
+                      releaseSidebarLayout = undefined
+                    } catch { /* retry only on a later state transition */ }
                   }
                 }
                 syncAppearance()
@@ -4170,7 +4171,7 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
                     () => { releaseSidebarLayout?.(); releaseSidebarLayout = undefined },
                     () => appearance.dispose(),
                     () => clearDeltaToasts(),
-                    () => tag.parentNode?.removeChild(tag),
+                    () => releaseOwnedStyle?.(),
                     () => controller.dispose(),
                   ]) {
                     try { release() } catch {}

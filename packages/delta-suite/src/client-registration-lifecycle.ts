@@ -93,6 +93,30 @@ function createClientAppearancePatch() {
   }
 }
 
+/** One owner for a mounted stylesheet. A failed append may already have
+ * attached the node; roll back that exact node, never another owner's style.
+ * The returned release is idempotent and propagates removal failure so
+ * callers must not claim a successful rollback or stack a second palette.
+ */
+function mountClientOwnedStyle(css: string, marker: 'plugin' | 'deltaSidebarLayout' | 'deltaThemeFallback', value = ''): (() => void) | undefined {
+  if (typeof document === 'undefined' || !document.head) return
+  let tag: HTMLStyleElement | undefined
+  const release = (): void => {
+    if (tag?.parentNode) tag.parentNode.removeChild(tag)
+  }
+  try {
+    tag = document.createElement('style')
+    tag.dataset[marker] = value
+    tag.textContent = css
+    document.head.appendChild(tag)
+    if (!tag.parentNode) return
+    return release
+  } catch {
+    try { release() } catch { /* best-effort rollback; never remove unrelated styles */ }
+    return undefined
+  }
+}
+
 /** Expanded SidebarRoot compatibility: preserve native nodes and scroll handoff.
  * The Host exposes a scrollport marker and a workspace Slot, but no public
  * setting to keep its panel navigation fixed. Match both structural anchors;
@@ -106,12 +130,10 @@ function installClientSidebarLayoutPatch(): () => void {
   if (!CSS.supports('selector(' + region + ')') ||
       !CSS.supports('container-type', 'size') ||
       !CSS.supports('grid-template-rows', '8px max-content 2px minmax(0, 1fr)')) return () => {}
-  const style = document.createElement('style')
-  style.dataset.deltaSidebarLayout = ''
   // Keep the panel list at its original grid position. The workspace gets
   // the remaining height and becomes the nearest height-query container.
   // Its own native list scroller and cqh sizing continue to own scrolling.
-  style.textContent = scope + ' { grid-template-rows: 8px max-content 2px minmax(0, 1fr); }\n' +
+  let css = scope + ' { grid-template-rows: 8px max-content 2px minmax(0, 1fr); }\n' +
     scope + ' > nav + div:has([data-slot="sidebar.workspaces"]) { container-type: size; min-height: 0; }'
   // SidebarRoot renders the native session action outside the panel scrollport.
   // Use nested subgrids to reserve its row BETWEEN the entire native panel
@@ -125,7 +147,7 @@ function installClientSidebarLayoutPatch(): () => void {
   const scrollRegion = shell + ' > ' + session + ' + div'
   const scrollArea = scrollRegion + ' > ' + panel
   if (CSS.supports('grid-template-rows', 'subgrid') && CSS.supports('selector(' + shell + ')')) {
-    style.textContent += '\n' + [
+    css += '\n' + [
       shell + ' { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; }',
       shell + ' > [data-window-drag]:has(+ [data-window-drag]) { grid-area: 1 / 1; }',
       shell + ' > [data-window-drag]:has(+ ' + session + ') { grid-area: 2 / 1; }',
@@ -140,13 +162,7 @@ function installClientSidebarLayoutPatch(): () => void {
       shell + ' > div:has([data-slot="sidebar.settings"]):has([data-slot="sidebar.footer.action"]) { grid-area: 6 / 1; }',
     ].join('\n')
   }
-  try {
-    document.head.appendChild(style)
-  } catch {
-    try { style.parentNode?.removeChild(style) } catch {}
-    return () => {}
-  }
-  return () => { style.parentNode?.removeChild(style) }
+  return mountClientOwnedStyle(css, 'deltaSidebarLayout') ?? (() => {})
 }
 
 /** Theme fallback only for a missing public overrideTokens capability.
@@ -161,16 +177,14 @@ function installClientThemeFallback(): (() => void) | undefined {
   const body = document.body
   const preference = root?.getAttribute('data-ds-theme-source')
   if (preference !== 'light' && preference !== 'dark' && preference !== 'system') return
-  const style = document.createElement('style')
-  style.dataset.deltaThemeFallback = ''
   const declarations = (mode: 'light' | 'dark'): string => Object.entries(TOKENS)
     .map(([name, pair]) => name + ':' + pair[mode] + ';').join('')
   const selector = 'html[data-ds-theme-source] > body'
-  style.textContent = selector + ':not([data-ds-dark-theme]){' + declarations('light') + '}\n' +
+  const css = selector + ':not([data-ds-dark-theme]){' + declarations('light') + '}\n' +
     selector + '[data-ds-dark-theme]{' + declarations('dark') + '}'
-  const release = (): void => { style.parentNode?.removeChild(style) }
+  const release = mountClientOwnedStyle(css, 'deltaThemeFallback')
+  if (!release) return
   try {
-    document.head.appendChild(style)
     const scheme = body.hasAttribute('data-ds-dark-theme') ? 'dark' : 'light'
     const computed = document.defaultView.getComputedStyle(body)
     const samples = ['--dsw-alias-brand-primary', '--dsw-alias-label-primary', '--dsw-menu-surface-fill']
