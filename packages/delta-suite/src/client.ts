@@ -3292,9 +3292,13 @@ window.__ModuleLoader__.load({
         el('p', null, signedIn ? copy.ui.accountWalletDescription : copy.ui.accountWalletSignedOut),
         signedIn ? el('div', { className: 'dtd-context-actions' },
           el('button', { type: 'button', className: 'dtd-context-action', disabled: account.status === 'loading',
-            onClick: () => { if (controller.isActive()) void summary.refresh() } }, copy.ui.accountWalletRefresh),
-          account.usageUrl ? el('a', { className: 'dtd-context-action', href: account.usageUrl, target: '_blank',
-            rel: 'noopener noreferrer' }, copy.ui.accountWalletUsage) : null) : null,
+            onClick: () => { if (controller.isActive()) void summary.refresh(account) } }, copy.ui.accountWalletRefresh),
+          account.usageUrl ? el('button', { type: 'button', className: 'dtd-context-action',
+            onClick: () => {
+              if (!controller.isActive()) return
+              const url = summary.usageUrlFor(account)
+              if (url && typeof window.open === 'function') window.open(url, '_blank', 'noopener,noreferrer')
+            } }, copy.ui.accountWalletUsage) : null) : null,
         account.status === 'loading' ? el('p', { role: 'status' }, copy.ui.accountWalletLoading) :
           account.status === 'unavailable' ? el('p', { role: 'status' }, copy.ui.accountWalletUnavailable) :
           account.status === 'loaded' ? el('div', { role: 'status' },
