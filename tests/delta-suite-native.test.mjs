@@ -12,9 +12,11 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
+  const menus = new Map()
+  const menuReleases = []
   let removed = 0
   const deletedWorkspaces = []
   const defaultSessions = ['session-one']
@@ -104,12 +106,14 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
       if (names.join(',') === unavailableService) throw new Error('unsupported Host service')
       assert.ok(['slots', 'theme', 'layout', 'workspaces', 'sessions,uiWorkspace', 'remoteAccess',
         'sessions,resources,sidebarRightTabs,sidebarRight', 'configForms,remote',
-        'modelDirectories', 'locale'].includes(names.join(',')))
+        'modelDirectories', 'locale', 'contextMenus'].includes(names.join(',')))
       // Optional model directories may be absent on older Hosts.
       if (names.join(',') === 'modelDirectories' && !modelDirectories) return
       if (names.join(',') === 'locale' && !nativeLocale) return
+      if (names.join(',') === 'contextMenus' && !nativeMenus) return
       // Cordis throws for undeclared services even when optional chaining is used.
       callback(new Proxy(ctx, { get(target, property) {
+        if (property === 'contextMenus' && names.join(',') !== 'contextMenus') throw new Error('undeclared contextMenus')
         if (property === 'locale') {
           if (names.join(',') !== 'locale') throw new Error('cannot get property "locale" without inject')
           return nativeLocale
@@ -120,6 +124,12 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     effect(create) { effects.push(create()) },
     workspaces,
     modelDirectories,
+    contextMenus: nativeMenus ? { register(spec) {
+      if (rejectWorkspaceMenu && spec.target === 'workspace') throw new Error('unsupported workspace target')
+      if (rejectSessionMenu && spec.id === 'session.delta.lock') throw new Error('failed session contribution')
+      menus.set(spec.id, spec)
+      return () => { menuReleases.push(spec.id); menus.delete(spec.id) }
+    } } : undefined,
     theme: { overrideTokens(id, values) {
       if (failTheme) throw new Error('theme unavailable')
       layers.set(id, values)
@@ -140,7 +150,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     },
   }
   client.apply(ctx)
-  return { registration, context, documentElement, components, slots, layers, changes, styles, nativeTheme: ctx.theme,
+  return { registration, context, documentElement, components, slots, layers, changes, styles, nativeTheme: ctx.theme, menus, menuReleases,
     workspaces, deletedWorkspaces, originalDelete, defaultSessions,
     features: context.testDeltaFeatures,
     cleanup() { effects.forEach(fn => fn?.()) },
@@ -858,6 +868,42 @@ test('Theme Patch rejects a blocked cascade and never stacks over a throwing pub
   const app = harness({ fallbackTheme: 'light' })
   assert.equal(app.layers.size, 1)
   assert.equal([...app.styles].some(style => 'deltaThemeFallback' in style.dataset), false)
+  app.cleanup()
+})
+
+test('native session menus use explicit public service injection without Search services', () => {
+  const app = harness({ nativeMenus: true, unavailableService: 'sessions,uiWorkspace', rejectWorkspaceMenu: true })
+  assert.deepEqual([...app.menus.keys()], ['session.delta.move', 'session.delta.lock', 'session.delta.delete'])
+  const target = { sessionId: 'session-one', displayTitle: 'Session' }
+  const lock = app.menus.get('session.delta.lock')
+  const [source] = lock.observe(target)
+  assert.equal(source, app.features)
+  assert.equal(typeof source.subscribe, 'function')
+  assert.equal(typeof source.getSnapshot, 'function')
+  const [action] = lock.resolve(target)
+  assert.equal(action.icon.key, 'delta.session.lock')
+  assert.equal(app.menus.get('session.delta.delete').resolve(target)[0].danger, true)
+  assert.equal(app.menus.get('session.delta.move').resolve(target)[0].id, 'delta-move')
+  app.cleanup()
+  assert.equal(app.menus.size, 0)
+  assert.deepEqual(app.menuReleases, ['session.delta.delete', 'session.delta.lock', 'session.delta.move'])
+})
+
+test('native menu service absence or partial registration failure preserves independent Settings', () => {
+  for (const options of [{}, { nativeMenus: true, rejectSessionMenu: true }]) {
+    const app = harness(options)
+    assert.equal(app.menus.size, 0)
+    assert.ok(app.components.has('settings.section'))
+    app.cleanup()
+    assert.equal(app.menus.size, 0)
+  }
+})
+
+test('workspace menu does not produce actions without a captured workspace identity', () => {
+  const app = harness({ nativeMenus: true })
+  const workspace = app.menus.get('workspace.delta.lock')
+  assert.equal(workspace.resolve({}).length, 0)
+  assert.equal(workspace.resolve({ workspaceId: 'default' })[0].id, 'delta-workspace-lock')
   app.cleanup()
 })
 

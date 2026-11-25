@@ -250,12 +250,25 @@
   "p0_theme_palette_fallback": {
     "as_of": "2026-11-25",
     "baseline": "58119495ae6ad1da8e540882230a27df141451c3",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "primary": "public Theme overrideTokens",
     "fallback": "scoped CSS using identical palette, recognized Host body markers and computed token check; only when public API absent",
     "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
-    "second_host_version": "not verified"
+    "second_host_version": "not verified",
+    "verified_head": "667c7da450e8cd9ff7c13a2b46ad4d0b9f84b81f",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45534841572"
+  },
+  "p0_native_menu_service_binding": {
+    "as_of": "2026-11-25",
+    "baseline": "2313fae48475e83a33af6a565483b4f0950f1a32",
+    "stage": "implementation-pending-ci",
+    "scope": "explicit public contextMenus dependency, independent lifetime, workspace target isolation, reactive lock action",
+    "verification": "tests/delta-suite-native.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "native_rename_order": "not implemented"
   }
 }

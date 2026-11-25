@@ -115,7 +115,9 @@ test('client group cleanup is idempotent, isolated and supports remount', () => 
 })
 
 test('menu group and service bindings each have a Cordis-owned lifetime', () => {
-  assert.match(source, /searchScope\.effect\(\(\) => \{\s*try \{\s*return registerClientFeatureGroup\(track => \{/)
+  assert.match(source, /menuScope\.effect\(\(\) => \{\s*try \{\s*return registerClientFeatureGroup\(track => \{/)
+  assert.match(source, /scope\.inject\(\['contextMenus'\], menuScope =>/)
+  assert.doesNotMatch(source, /searchScope\.effect\(\(\) => \{\s*try \{\s*return registerClientFeatureGroup\(track => \{/)
   assert.equal((source.match(/track\(scope\.slots\.register\(\{ name: 'contextMenu\.icon'/g) ?? []).length, 4)
   assert.equal((source.match(/track\(registerMenu\(\{/g) ?? []).length, 4)
   assert.match(source, /searchScope\.effect\(\(\) => registerClientFeatureGroup\(track => \{\s*const binding = bindSessionReferences\(/)

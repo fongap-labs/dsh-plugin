@@ -325,12 +325,7 @@
       "activation_requires": [
         "contextMenus.register"
       ],
-      "inherited_requires": [
-        "sessions.list.getSnapshot",
-        "uiWorkspace",
-        "slots.register",
-        "effect"
-      ],
+      "inherited_requires": ["slots.register", "effect"],
       "access": "register public session and workspace menu actions",
       "fallback": "native-menus-preserved",
       "authorization": "Host operation and existing protection checks"
