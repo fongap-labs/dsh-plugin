@@ -889,6 +889,43 @@ test('native session menus use explicit public service injection without Search 
   assert.deepEqual(app.menuReleases, ['session.delta.delete', 'session.delta.lock', 'session.delta.move'])
 })
 
+test('native menu actions capture valid targets, follow locale updates, and stop after unload', () => {
+  const app = harness({ nativeMenus: true })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  const move = app.menus.get('session.delta.move')
+  const lock = app.menus.get('session.delta.lock')
+  const remove = app.menus.get('session.delta.delete')
+  const workspace = app.menus.get('workspace.delta.lock')
+  for (const contribution of [move, lock, remove]) {
+    for (const target of [{}, { sessionId: '' }, { sessionId: '  ' }, { sessionId: 1 }]) {
+      assert.equal(contribution.resolve(target).length, 0)
+    }
+    assert.equal(contribution.observe({})[1], controller)
+  }
+  assert.equal(workspace.resolve({ workspaceId: 7 }).length, 0)
+  const calls = []
+  app.features.openMoveDialog = (...args) => calls.push(args)
+  app.features.openSetPinDialog = (...args) => calls.push(args)
+  app.features.openDeleteDialog = (...args) => calls.push(args)
+  app.features.openSetPinWorkspaceDialog = (...args) => calls.push(args)
+  const target = { sessionId: 'session-one', displayTitle: 'Original' }
+  const first = move.resolve(target)[0]
+  target.sessionId = 'other'
+  first.run()
+  assert.deepEqual(calls, [['session-one', 'Original']])
+  const chinese = first.label
+  app.documentElement.lang = 'en-US'
+  app.context.localeListeners.forEach(notify => notify())
+  assert.notEqual(move.resolve(target)[0].label, chinese)
+  const stale = [move, lock, remove].map(item => item.resolve(target)[0])
+  stale.push(workspace.resolve({ workspaceId: 'default' })[0])
+  app.cleanup()
+  for (const action of stale) action.run()
+  assert.equal(calls.length, 1)
+  assert.equal(move.resolve(target).length, 0)
+  assert.equal(workspace.resolve({ workspaceId: 'default' }).length, 0)
+})
+
 test('native menu service absence or partial registration failure preserves independent Settings', () => {
   for (const options of [{}, { nativeMenus: true, rejectSessionMenu: true }]) {
     const app = harness(options)

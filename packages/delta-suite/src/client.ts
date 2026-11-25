@@ -3831,7 +3831,148 @@ window.__ModuleLoader__.load({
           copy.ui.sessionLastUpdated + ': ',
           el('time', { dateTime: new Date(updatedAt!).toISOString() }, updatedText)) : null)
     }
-    function PersonalizationSection({ controller }: DeltaProps): unknown {
+    function registerNativeMenuContributions(scope: ClientContext, controller: DeltaController): void {
+      try { scope.inject(['contextMenus'], menuScope => {
+        const contextMenus = menuScope.contextMenus
+        if (typeof menuScope.effect !== 'function' ||
+            !contextMenus || typeof contextMenus.register !== 'function') return
+        const iconMov = () => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          el('path', { d: 'M15 3h6v6' }),
+          el('path', { d: 'M10 14 21 3' }),
+          el('path', { d: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6' }))
+        const iconLock = (isUnlocked: boolean) => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          el('rect', { x: 4, y: 11, width: 16, height: 10, rx: 2, ry: 2 }),
+          el('path', { d: isUnlocked ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4' }))
+        const iconTrash = () => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          el('path', { d: 'M3 6h18' }),
+          el('path', { d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
+          el('path', { d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' }))
+
+
+        menuScope.effect(() => {
+          try {
+            return registerClientFeatureGroup(track => {
+              let isLive = true
+              // Registered last so invalidation runs before Host disposers.
+              const validId = (value: unknown): value is string =>
+                typeof value === 'string' && value.trim().length > 0
+              const sessionAvailable = (id: unknown): id is string =>
+                isLive && validId(id) && !deltaFeatures.isDeleted(id)
+              const observe = () => [deltaFeatures, controller]
+              const registerMenu = contextMenus.register.bind(contextMenus)
+              try {
+              track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.move', key: 'delta.session.move' }, iconMov))
+              track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.lock', key: 'delta.session.lock' }, () => iconLock(false)))
+              track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.unlock', key: 'delta.session.unlock' }, () => iconLock(true)))
+              track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.delete', key: 'delta.session.delete' }, iconTrash))
+              track(registerMenu({
+                id: 'session.delta.move',
+                target: 'session',
+                order: 400,
+                observe,
+                resolve: t => {
+                  const id = t?.sessionId
+                  if (!sessionAvailable(id)) return []
+                  const title = typeof t.displayTitle === 'string' ? t.displayTitle : ''
+                  return [{
+                    id: 'delta-move',
+                    label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.moveSession,
+                    icon: { key: 'delta.session.move' },
+                    run: () => { if (sessionAvailable(id)) deltaFeatures.openMoveDialog(id, title) },
+                  }]
+                },
+              }))
+              track(registerMenu({
+                id: 'session.delta.lock',
+                target: 'session',
+                order: 580,
+                observe,
+                resolve: t => {
+                  const id = t?.sessionId
+                  if (!sessionAvailable(id)) return []
+                  const title = typeof t.displayTitle === 'string' ? t.displayTitle : ''
+                  const locked = deltaFeatures.isLocked(id)
+                  const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+                  return [{
+                    id: 'delta-lock',
+                    label: locked ? copy.sessionMenu.unlockSession : copy.sessionMenu.lockSession,
+                    icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
+                    afterContent: true,
+                    run: () => {
+                      if (!sessionAvailable(id)) return
+                      if (deltaFeatures.isLocked(id)) {
+                        deltaFeatures.openUnlockPinDialog(id)
+                      } else if (deltaFeatures.getSnapshot().hasPin) {
+                        void deltaFeatures.lockSession(id).then(res => {
+                          if (res.ok && isLive) showDeltaToast((DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.lockedToast)
+                        })
+                      } else {
+                        deltaFeatures.openSetPinDialog(id, title)
+                      }
+                    },
+                  }]
+                },
+              }))
+              track(registerMenu({
+                id: 'session.delta.delete',
+                target: 'session',
+                order: 650,
+                observe,
+                resolve: t => {
+                  const id = t?.sessionId
+                  if (!sessionAvailable(id)) return []
+                  const title = typeof t.displayTitle === 'string' ? t.displayTitle : ''
+                  return [{
+                    id: 'delta-delete',
+                    label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.deleteSession,
+                    icon: { key: 'delta.session.delete' },
+                    danger: true,
+                    separatorBefore: true,
+                    afterContent: true,
+                    run: () => { if (sessionAvailable(id)) deltaFeatures.openDeleteDialog(id, title) },
+                  }]
+                },
+              }))
+              try { track(registerMenu({
+                id: 'workspace.delta.lock',
+                target: 'workspace',
+                order: 250,
+                observe,
+                resolve: t => {
+                  const id = [t?.workspaceId, t?.id, t?.path].find(validId)
+                  if (!isLive || !id) return []
+                  const title = typeof t.displayTitle === 'string' ? t.displayTitle :
+                    typeof t.title === 'string' ? t.title : undefined
+                  const locked = deltaFeatures.isWorkspaceLocked(id)
+                  const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
+                  return [{
+                    id: 'delta-workspace-lock',
+                    label: locked ? copy.workspaceMenu.unlockWorkspace : copy.workspaceMenu.lockWorkspace,
+                    icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
+                    run: () => {
+                      if (!isLive) return
+                      if (deltaFeatures.isWorkspaceLocked(id)) {
+                        deltaFeatures.openUnlockWorkspaceDialog(id)
+                      } else if (deltaFeatures.getSnapshot().hasPin) {
+                        void deltaFeatures.lockWorkspace(id).then(res => {
+                          if (res.ok && isLive) showDeltaToast((DICTIONARIES[language()] ?? DICTIONARIES.en).workspaceMenu.lockedToast)
+                        })
+                      } else {
+                        deltaFeatures.openSetPinWorkspaceDialog(id, title)
+                      }
+                    },
+                  }]
+                },
+              })) } catch { /* optional workspace target */ }
+              track(() => { isLive = false })
+              } catch (error) { isLive = false; throw error }
+            })
+          } catch { /* optional menu group rolled back; native menus remain */ }
+        }, 'delta-suite: session move/lock/delete menus')
+      }) } catch { /* unsupported optional Host menu service */ }
+    }
+
+function PersonalizationSection({ controller }: DeltaProps): unknown {
       deltaFeatures.ensureLoaded()
       const { state, copy } = useCopy(controller)
       const fSnap = React.useSyncExternalStore(deltaFeatures.subscribe, deltaFeatures.getSnapshot)
@@ -4201,121 +4342,7 @@ window.__ModuleLoader__.load({
                 }
               }) } catch { /* unsupported optional Host service */ }
 
-              // Native context menu contributions have their own optional public
-              // service lifetime, independent of the Search and navigation bindings.
-              try { scope.inject(['contextMenus'], menuScope => {
-                const contextMenus = menuScope.contextMenus
-                if (typeof menuScope.effect !== 'function' ||
-                    !contextMenus || typeof contextMenus.register !== 'function') return
-                try {
-                const iconMov = () => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
-                  el('path', { d: 'M15 3h6v6' }),
-                  el('path', { d: 'M10 14 21 3' }),
-                  el('path', { d: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6' }))
-                const iconLock = (isUnlocked: boolean) => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
-                  el('rect', { x: 4, y: 11, width: 16, height: 10, rx: 2, ry: 2 }),
-                  el('path', { d: isUnlocked ? 'M7 11V7a5 5 0 0 1 9.9-1' : 'M7 11V7a5 5 0 0 1 10 0v4' }))
-                const iconTrash = () => el('svg', { viewBox: '0 0 24 24', width: 16, height: 16, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
-                  el('path', { d: 'M3 6h18' }),
-                  el('path', { d: 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2' }),
-                  el('path', { d: 'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6' }))
-
-                const registerMenu = contextMenus.register.bind(contextMenus)
-                menuScope.effect(() => {
-                  try {
-                    return registerClientFeatureGroup(track => {
-                      track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.move', key: 'delta.session.move' }, iconMov))
-                      track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.lock', key: 'delta.session.lock' }, () => iconLock(false)))
-                      track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.unlock', key: 'delta.session.unlock' }, () => iconLock(true)))
-                      track(scope.slots.register({ name: 'contextMenu.icon', id: 'delta.icon.delete', key: 'delta.session.delete' }, iconTrash))
-                      track(registerMenu({
-                        id: 'session.delta.move',
-                        target: 'session',
-                        order: 400,
-                        resolve: (t) => [{
-                          id: 'delta-move',
-                          label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.moveSession,
-                          icon: { key: 'delta.session.move' },
-                          run: () => deltaFeatures.openMoveDialog(t.sessionId, t.displayTitle),
-                        }],
-                      }))
-                      track(registerMenu({
-                        id: 'session.delta.lock',
-                        target: 'session',
-                        order: 580,
-                        observe: () => [deltaFeatures],
-                        resolve: (t) => {
-                          const locked = deltaFeatures.isLocked(t.sessionId)
-                          const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                          return [{
-                            id: 'delta-lock',
-                            label: locked ? copy.sessionMenu.unlockSession : copy.sessionMenu.lockSession,
-                            icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
-                            afterContent: true,
-                            run: () => {
-                              if (deltaFeatures.isLocked(t.sessionId)) {
-                                deltaFeatures.openUnlockPinDialog(t.sessionId)
-                              } else if (deltaFeatures.getSnapshot().hasPin) {
-                                void deltaFeatures.lockSession(t.sessionId).then(res => {
-                                  if (res.ok) showDeltaToast(copy.sessionMenu.lockedToast)
-                                })
-                              } else {
-                                deltaFeatures.openSetPinDialog(t.sessionId, t.displayTitle)
-                              }
-                            },
-                          }]
-                        },
-                      }))
-                      track(registerMenu({
-                        id: 'session.delta.delete',
-                        target: 'session',
-                        order: 650,
-                        resolve: (t) => [{
-                          id: 'delta-delete',
-                          label: (DICTIONARIES[language()] ?? DICTIONARIES.en).sessionMenu.deleteSession,
-                          icon: { key: 'delta.session.delete' },
-                          danger: true,
-                          separatorBefore: true,
-                          afterContent: true,
-                          run: () => deltaFeatures.openDeleteDialog(t.sessionId, t.displayTitle),
-                        }],
-                      }))
-                      // Not every Host exposes workspace menu targets. A rejected
-                      // contribution must not roll back valid session actions.
-                      try { track(registerMenu({
-                        id: 'workspace.delta.lock',
-                        target: 'workspace',
-                        order: 250,
-                        observe: () => [deltaFeatures],
-                        resolve: (t: any) => {
-                          const wsId = t?.workspaceId ?? t?.id ?? ''
-                          const wsPath = t?.path ?? ''
-                          if (!wsId && !wsPath) return []
-                          const locked = deltaFeatures.isWorkspaceLocked(wsId || wsPath)
-                          const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
-                          return [{
-                            id: 'delta-workspace-lock',
-                            label: locked ? copy.workspaceMenu.unlockWorkspace : copy.workspaceMenu.lockWorkspace,
-                            icon: { key: locked ? 'delta.session.unlock' : 'delta.session.lock' },
-                            run: () => {
-                              if (deltaFeatures.isWorkspaceLocked(wsId || wsPath)) {
-                                deltaFeatures.openUnlockWorkspaceDialog(wsId || wsPath)
-                              } else if (deltaFeatures.getSnapshot().hasPin) {
-                                void deltaFeatures.lockWorkspace(wsId || wsPath).then(res => {
-                                  if (res.ok) showDeltaToast(copy.workspaceMenu.lockedToast)
-                                })
-                              } else {
-                                deltaFeatures.openSetPinWorkspaceDialog(wsId || wsPath, t?.displayTitle ?? t?.title)
-                              }
-                            },
-                          }]
-                        },
-                      })) } catch { /* optional workspace target */ }
-                    })
-                  } catch { /* optional menu group rolled back; native menus remain */ }
-                }, 'delta-suite: session move/lock/delete menus')
-                } catch { /* unavailable optional menu surface */ }
-              }) } catch { /* unsupported optional Host menu service */ }
+              registerNativeMenuContributions(scope, controller)
 
               let isThemeBound = false
               try { scope.inject(['theme'], themeScope => {
