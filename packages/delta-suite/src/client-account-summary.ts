@@ -64,11 +64,11 @@ function createClientAccountSummary() {
     if (!ui || !access || !remote || typeof scope.on !== 'function' ||
         typeof ui.getSnapshot !== 'function' || typeof ui.clientMetadata !== 'function' ||
         typeof access.whenAccess !== 'function' || typeof remote.getBalance !== 'function') return () => {}
-    let bound = true
+    let isBound = true
     let stopAccess: (() => void) | undefined
     const dispose = (): void => {
-      if (!bound) return
-      bound = false
+      if (!isBound) return
+      isBound = false
       if (revokeBinding === dispose) revokeBinding = undefined
       try { stopAccess?.() } finally {
         refreshCurrent = undefined
@@ -78,12 +78,12 @@ function createClientAccountSummary() {
     revokeBinding = dispose
     try {
       stopAccess = access.whenAccess('account/watch', () => access.whenAccess('account/getBalance', () => {
-        if (!bound || isDisposed) return () => {}
-        let allowed = true
+        if (!isBound || isDisposed) return () => {}
+        let isAllowed = true
         let generation = 0
         const read = (): void => {
           generation++
-          if (!allowed || !bound || isDisposed) return
+          if (!isAllowed || !isBound || isDisposed) return
           try {
             const state = ui.getSnapshot()
             if (state.failed || !state.view) { publish(EMPTY_ACCOUNT_SUMMARY); return }
@@ -95,9 +95,9 @@ function createClientAccountSummary() {
           } catch { publish(EMPTY_ACCOUNT_SUMMARY) }
         }
         const refresh = async (): Promise<void> => {
-          if (!allowed || !bound || isDisposed || !['ready', 'loaded', 'unavailable'].includes(snapshot.status)) return
+          if (!isAllowed || !isBound || isDisposed || !['ready', 'loaded', 'unavailable'].includes(snapshot.status)) return
           const generationAtStart = ++generation
-          const current = (): boolean => allowed && bound && !isDisposed && generation === generationAtStart
+          const current = (): boolean => isAllowed && isBound && !isDisposed && generation === generationAtStart
           const usageUrl = snapshot.usageUrl
           publish({ ...EMPTY_ACCOUNT_SUMMARY, status: 'loading', usageUrl })
           try {
@@ -122,7 +122,7 @@ function createClientAccountSummary() {
         refreshCurrent = refresh
         read()
         return () => {
-          allowed = false
+          isAllowed = false
           generation++
           if (refreshCurrent === refresh) {
             refreshCurrent = undefined
