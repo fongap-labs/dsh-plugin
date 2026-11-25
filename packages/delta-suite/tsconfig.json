@@ -23,6 +23,7 @@
     "src/client-registration-lifecycle.ts",
     "src/client-feature-preferences.ts",
     "src/client-appearance-controller.ts",
-    "src/client-session-state.ts"
+    "src/client-session-state.ts",
+    "src/client-account-summary.ts"
   ]
 }

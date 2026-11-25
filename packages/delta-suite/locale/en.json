@@ -87,7 +87,17 @@
     "preferenceBackupText": "Backup JSON text",
     "preferenceBackupApplied": "Preferences applied. If local storage is unavailable, changes may not survive a restart.",
     "preferenceBackupInvalid": "Invalid or unsupported backup. No preferences were changed.",
-    "preferenceBackupUnavailable": "Appearance could not be applied or the plugin is inactive. Feature switches were not changed."
+    "preferenceBackupUnavailable": "Appearance could not be applied or the plugin is inactive. Feature switches were not changed.",
+    "accountWalletTitle": "DeepSeek account balances",
+    "accountWalletDescription": "Use the native account's read-only balance interface. Refresh manually; usage and charging details remain on the official Platform.",
+    "accountWalletSignedOut": "Sign in using the native Harness account menu first.",
+    "accountWalletRefresh": "Query balances",
+    "accountWalletUsage": "Official usage details",
+    "accountWalletLoading": "Reading balances…",
+    "accountWalletUnavailable": "Balance unavailable. Try again or open official usage details.",
+    "accountWalletRecharge": "Recharge balance",
+    "accountWalletBonus": "Bonus balance",
+    "accountWalletEmpty": "No wallet reported"
   },
   "sessionMenu": {
     "moveSession": "Move session",

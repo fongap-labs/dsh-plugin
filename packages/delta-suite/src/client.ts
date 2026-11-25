@@ -3279,6 +3279,28 @@ window.__ModuleLoader__.load({
           feedback === 'applied' ? copy.ui.preferenceBackupApplied :
             feedback === 'invalid' ? copy.ui.preferenceBackupInvalid : copy.ui.preferenceBackupUnavailable) : null)
     }
+    function AccountSummarySection({ controller, summary }: DeltaProps & { summary: ClientAccountSummary }): unknown {
+      const { copy } = useCopy(controller)
+      const account = React.useSyncExternalStore(summary.subscribe, summary.getSnapshot)
+      if (account.status === 'hidden') return null
+      const signedIn = account.status !== 'signed-out'
+      const rows = (wallets: readonly AccountWalletSummary[]) => wallets.length
+        ? wallets.map(wallet => el('span', { key: wallet.currency }, wallet.currency + ' ' + wallet.balance))
+        : el('span', null, copy.ui.accountWalletEmpty)
+      return el('section', { className: 'dtd-feature-settings', 'aria-label': copy.ui.accountWalletTitle },
+        el('h3', null, copy.ui.accountWalletTitle),
+        el('p', null, signedIn ? copy.ui.accountWalletDescription : copy.ui.accountWalletSignedOut),
+        signedIn ? el('div', { className: 'dtd-context-actions' },
+          el('button', { type: 'button', className: 'dtd-context-action', disabled: account.status === 'loading',
+            onClick: () => { if (controller.isActive()) void summary.refresh() } }, copy.ui.accountWalletRefresh),
+          account.usageUrl ? el('a', { className: 'dtd-context-action', href: account.usageUrl, target: '_blank',
+            rel: 'noopener noreferrer' }, copy.ui.accountWalletUsage) : null) : null,
+        account.status === 'loading' ? el('p', { role: 'status' }, copy.ui.accountWalletLoading) :
+          account.status === 'unavailable' ? el('p', { role: 'status' }, copy.ui.accountWalletUnavailable) :
+          account.status === 'loaded' ? el('div', { role: 'status' },
+            el('div', { className: 'dtd-context-actions' }, el('strong', null, copy.ui.accountWalletRecharge), ...[rows(account.wallets)]),
+            el('div', { className: 'dtd-context-actions' }, el('strong', null, copy.ui.accountWalletBonus), ...[rows(account.bonusWallets)])) : null)
+    }
     function ModelLabelExtension(props: AssistantSlotProps & {
       provider?: { id?: string; name?: string }
       model?: { name?: string; reasoning?: {
@@ -3854,7 +3876,10 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
         el('details', { className: 'dtd-advanced-features' },
           el('summary', null, copy.ui.contextFeatures),
           el(FeaturePreferencesSection, {}),
-          el(PreferenceBackupSection, { controller })))
+          el(PreferenceBackupSection, { controller }),
+          clientAccountSummaries.has(controller) ? el(AccountSummarySection, {
+            controller, summary: clientAccountSummaries.get(controller)!,
+          }) : null))
     }
     return {
       inject: [],
@@ -3872,6 +3897,12 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
                 bindLayout(layout: LayoutApi | undefined): void
                 bindSidebarRight(sidebarRight: SidebarRightApi | undefined): void
               }
+              const accountSummary = createClientAccountSummary()
+              clientAccountSummaries.set(controller, accountSummary)
+              scope.effect(() => () => accountSummary.dispose(), 'delta-suite: account summary ownership')
+              try { scope.inject(['accountUi', 'remote', 'remote.account', 'remoteAccess'], accountScope => {
+                accountScope.effect(() => accountSummary.bind(accountScope), 'delta-suite: public account summary')
+              }) } catch { /* missing public account capabilities */ }
               const bindThemeReference = createClientBindingLifetime()
               const bindLayoutReference = createClientBindingLifetime()
               const bindRightReference = createClientBindingLifetime()

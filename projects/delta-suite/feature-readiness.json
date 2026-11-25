@@ -384,9 +384,21 @@
   "p1_portable_preference_backup": {
     "as_of": "2026-11-25",
     "baseline": "d1a54c6b65ff0a03cede8efc1907514cd677ab73",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "versioned allowlisted theme and three feature switches; explicit text backup and restore in collapsed Suite settings; no native or sensitive configuration",
     "verification": "tests/delta-suite-account-route-label-preference.test.mjs and tests/delta-suite-native.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "6eaed66c6290527681d2074f7984fd5b29eca58c",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45564994697"
+  },
+  "p1_native_account_summary": {
+    "as_of": "2026-11-25",
+    "baseline": "a53e6c5be566ecda4e24f062c58f5afeca2b657d",
+    "stage": "implementation-pending-ci",
+    "scope": "explicit credential-free native wallet query and validated official usage link; double access grant, account lifecycle revocation and stale response rejection",
+    "verification": "action-worker/tests/packs/plugins/delta-suite-account-summary-test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"

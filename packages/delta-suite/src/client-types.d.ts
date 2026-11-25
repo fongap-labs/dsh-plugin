@@ -89,6 +89,16 @@ interface DeltaCopy {
     preferenceBackupApplied: string
     preferenceBackupInvalid: string
     preferenceBackupUnavailable: string
+    accountWalletTitle: string
+    accountWalletDescription: string
+    accountWalletSignedOut: string
+    accountWalletRefresh: string
+    accountWalletUsage: string
+    accountWalletLoading: string
+    accountWalletUnavailable: string
+    accountWalletRecharge: string
+    accountWalletBonus: string
+    accountWalletEmpty: string
   }
   sessionMenu: {
     moveSession: string
@@ -304,6 +314,10 @@ interface ClientContext {
   layout?: LayoutApi
   sidebarRight?: SidebarRightApi
   contextMenus?: ClientContextMenusApi
+  accountUi?: ClientAccountUi
+  remoteAccess?: ClientAccountAccess
+  remote?: { account?: ClientAccountRemote }
+  on?(event: 'account-ui/change' | 'account-ui/refresh', listener: () => void): () => void
   workspaces?: WorkspacesApi
   sessions?: SearchSessionsApi
   uiWorkspace?: SearchNavigationApi

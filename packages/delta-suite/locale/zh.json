@@ -87,7 +87,17 @@
     "preferenceBackupText": "备份 JSON 文本",
     "preferenceBackupApplied": "偏好设置已应用。本地存储不可用时，重启后可能无法保留。",
     "preferenceBackupInvalid": "备份格式无效或版本不受支持，未修改偏好设置。",
-    "preferenceBackupUnavailable": "无法应用外观或插件已停用，未修改功能开关。"
+    "preferenceBackupUnavailable": "无法应用外观或插件已停用，未修改功能开关。",
+    "accountWalletTitle": "DeepSeek 账号余额",
+    "accountWalletDescription": "使用原生账号的只读余额接口，手动刷新；消费明细与充值仍由官方平台提供。",
+    "accountWalletSignedOut": "请先通过 Harness 原生账号菜单登录。",
+    "accountWalletRefresh": "查询余额",
+    "accountWalletUsage": "官方用量明细",
+    "accountWalletLoading": "正在查询余额…",
+    "accountWalletUnavailable": "暂无法获取余额，请重试或查看官方用量明细。",
+    "accountWalletRecharge": "充值余额",
+    "accountWalletBonus": "赠金余额",
+    "accountWalletEmpty": "未返回钱包数据"
   },
   "sessionMenu": {
     "moveSession": "移动会话",
