@@ -64,10 +64,10 @@ function createClientAppearancePatch() {
       else target.setAttribute(attribute, previous)
     } catch { /* detached or unavailable target must not block sibling cleanup */ }
   }
-  const sync = (enabled: boolean): void => {
+  const sync = (isEnabled: boolean): void => {
     if (isDisposed) return
     const targets = new Set<Element>()
-    if (enabled && typeof document !== 'undefined') {
+    if (isEnabled && typeof document !== 'undefined') {
       if (document.documentElement) targets.add(document.documentElement)
       if (document.body) targets.add(document.body)
     }
