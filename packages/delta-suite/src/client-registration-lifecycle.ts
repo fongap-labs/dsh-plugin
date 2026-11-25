@@ -53,7 +53,7 @@ function createClientBindingLifetime() {
  */
 function createClientLocaleFallback(sync: () => void) {
   let observer: MutationObserver | undefined
-  let disposed = false
+  let isDisposed = false
   let generation = 0
   const stop = (): void => {
     generation++
@@ -62,15 +62,15 @@ function createClientLocaleFallback(sync: () => void) {
     try { previous?.disconnect() } catch { /* optional compatibility path */ }
   }
   const start = (): void => {
-    if (disposed || observer) return
+    if (isDisposed || observer) return
     const token = ++generation
     try {
       if (typeof MutationObserver === 'undefined' || typeof document === 'undefined' || !document.documentElement) return
       observer = new MutationObserver(() => {
-        if (!disposed && token === generation) sync()
+        if (!isDisposed && token === generation) sync()
       })
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] })
     } catch { stop() }
   }
-  return { start, stop, dispose: () => { disposed = true; stop() } }
+  return { start, stop, dispose: () => { isDisposed = true; stop() } }
 }
