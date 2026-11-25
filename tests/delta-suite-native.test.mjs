@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false, rejectStyleMarker, failStyleRemoveOnce } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   const menus = new Map()
@@ -38,9 +38,17 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
     getAttribute(key) { return attributes.get(key) },
   }
   const styles = new Set()
+  let didFailStyleRemove = false
   const head = { appendChild(tag) {
     styles.add(tag)
-    tag.parentNode = { removeChild(value) { removed++; styles.delete(value); value.parentNode = null } }
+    tag.parentNode = { removeChild(value) {
+      if (failStyleRemoveOnce && failStyleRemoveOnce in value.dataset && !didFailStyleRemove) {
+        didFailStyleRemove = true
+        throw Error('style removal failed once')
+      }
+      removed++; styles.delete(value); value.parentNode = null
+    } }
+    if (rejectStyleMarker && rejectStyleMarker in tag.dataset) throw Error('style append failed after attachment')
   } }
   const fallbackDocument = fallbackTheme ? {
     body: {
@@ -869,6 +877,43 @@ test('sidebar ordering retains the basic fixed-layout fallback when subgrid is u
   assert.ok(css.includes('grid-template-rows: 8px max-content 2px minmax(0, 1fr)'))
   assert.ok(!css.includes('grid-template-rows: subgrid'))
   app.cleanup()
+})
+
+test('owned style mount failures roll back only the failed node and preserve public features', () => {
+  for (const marker of ['plugin', 'deltaSidebarLayout', 'deltaThemeFallback']) {
+    const app = harness({
+      supportsSidebarPatch: true,
+      rejectStyleMarker: marker,
+      ...(marker === 'deltaThemeFallback' ? { unavailableService: 'theme', fallbackTheme: 'light' } : {}),
+    })
+    assert.ok(app.components.has('settings.section'), marker)
+    assert.ok(app.components.has('sidebar.session.row.hover'), marker)
+    assert.equal([...app.styles].some(style => marker in style.dataset), false, marker)
+    assert.ok([...app.styles].some(style => (marker === 'plugin' ? 'deltaSidebarLayout' : 'plugin') in style.dataset), marker)
+    if (marker === 'deltaThemeFallback') {
+      assert.equal(app.components.get('settings.section').spec.inject().controller.getSnapshot().error, true)
+    }
+    app.cleanup()
+    assert.equal(app.styles.size, 0, marker)
+  }
+})
+
+test('a transient sidebar style removal failure does not stack another Patch', () => {
+  const app = harness({ supportsSidebarPatch: true, failStyleRemoveOnce: 'deltaSidebarLayout' })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  const patches = () => [...app.styles].filter(style => 'deltaSidebarLayout' in style.dataset)
+  const first = patches()[0]
+  controller.setMode('official')
+  assert.equal(patches().length, 1)
+  controller.setMode('delta')
+  assert.equal(patches().length, 1)
+  assert.equal(patches()[0], first)
+  controller.setMode('official')
+  assert.equal(patches().length, 0)
+  controller.setMode('delta')
+  assert.equal(patches().length, 1)
+  app.cleanup()
+  assert.equal(app.styles.size, 0)
 })
 
 test('sidebar layout Patch leaves native layout alone without browser feature support', () => {

@@ -288,9 +288,21 @@
   "p0_hover_feedback_lifetime": {
     "as_of": "2026-11-25",
     "baseline": "67d4c2fadc4bc84fa7251c876f2780b060d25d83",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "reject stale hover actions and late clipboard feedback; isolated toast cleanup",
     "verification": "tests/delta-suite-native.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "180a22be9537023dc04f5eb9499520b1b7a09def",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45548687003"
+  },
+  "p0_owned_style_lifetime": {
+    "as_of": "2026-11-25",
+    "baseline": "c5c8b0bea6647dcac7cb0663b15af3e2d5714651",
+    "stage": "implementation-pending-ci",
+    "scope": "unified owned stylesheet mounting and rollback, isolate optional style failure, avoid duplicate sidebar patch on release failure",
+    "verification": "tests/delta-suite-native.test.mjs and tests/delta-suite-public-slots-locale-boundary.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"
