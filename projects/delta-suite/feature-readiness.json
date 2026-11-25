@@ -207,5 +207,16 @@
       "dom_ownership": "https://github.com/fongap-labs/plugins/blob/ed772aa0cecb0e4d20ed80f88418f49c19e995d6/docs/DELTA_SUITE_DOM_OWNERSHIP.md",
       "readiness": "https://github.com/fongap-labs/plugins/blob/ed772aa0cecb0e4d20ed80f88418f49c19e995d6/projects/delta-suite/feature-readiness.json"
     }
+  },
+  "p0_locale_compatibility_patch": {
+    "as_of": "2026-11-25",
+    "baseline": "6a4b6d3dacfad19bc2bac24c9e1b47064333889a",
+    "stage": "implementation-pending-ci",
+    "primary": "public LocaleRuntime getSnapshot and subscribe",
+    "fallback": "read-only document root lang attribute observer; no subtree or preference writes; stop on public recovery and dispose",
+    "verification": "tests/delta-suite-native.test.mjs and tests/delta-suite-public-slots-locale-boundary.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }
