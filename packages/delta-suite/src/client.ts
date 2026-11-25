@@ -3919,10 +3919,15 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
                 // The native layout has no public fixed-navigation setting.
                 // Install only the scoped CSS fallback; no node reparenting.
                 let releaseSidebarLayout: (() => void) | undefined
+                let attemptedSidebarRevision: number | undefined
                 const syncAppearance = (): void => {
-                  const isDelta = controller.getSnapshot().mode === 'delta'
+                  const state = controller.getSnapshot()
+                  const isDelta = state.mode === 'delta'
                   appearance.sync(isDelta)
-                  if (isDelta && !releaseSidebarLayout) {
+                  if (isDelta && !releaseSidebarLayout && attemptedSidebarRevision !== state.revision) {
+                    // A missing capability or failed mount is not an installed
+                    // Patch. Retry only on an actual controller publication.
+                    attemptedSidebarRevision = state.revision
                     try { releaseSidebarLayout = installClientSidebarLayoutPatch() } catch {}
                   } else if (!isDelta && releaseSidebarLayout) {
                     // Retain the disposer if removal fails, so returning to
@@ -3949,9 +3954,9 @@ function PersonalizationSection({ controller }: DeltaProps): unknown {
                 // Unsupported native UI adjustments remain under Harness ownership.
 
                 return () => {
-                  releaseLocale()
                   // Cleanup continues even if an optional resource fails.
                   for (const release of [
+                    () => releaseLocale(),
                     () => stopAppearance(),
                     () => { releaseSidebarLayout?.(); releaseSidebarLayout = undefined },
                     () => appearance.dispose(),

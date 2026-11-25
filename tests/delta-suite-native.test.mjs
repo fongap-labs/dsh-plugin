@@ -12,7 +12,7 @@ const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.jso
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
   fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
-function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false, rejectStyleMarker, failStyleRemoveOnce, accountServices } = {}) {
+function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false, rejectStyleMarker, failStyleRemoveOnce, accountServices, failStyleMountOnce } = {}) {
   let registration
   const effects = [], slots = [], layers = new Map(), changes = []
   const menus = new Map()
@@ -39,6 +39,7 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
   }
   const styles = new Set()
   let didFailStyleRemove = false
+  let didFailStyleMount = false
   const head = { appendChild(tag) {
     styles.add(tag)
     tag.parentNode = { removeChild(value) {
@@ -48,6 +49,10 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
       }
       removed++; styles.delete(value); value.parentNode = null
     } }
+    if (failStyleMountOnce && failStyleMountOnce in tag.dataset && !didFailStyleMount) {
+      didFailStyleMount = true
+      throw Error('style append failed once after attachment')
+    }
     if (rejectStyleMarker && rejectStyleMarker in tag.dataset) throw Error('style append failed after attachment')
   } }
   const fallbackDocument = fallbackTheme ? {
@@ -924,6 +929,36 @@ test('a transient sidebar style removal failure does not stack another Patch', (
   assert.equal(patches().length, 1)
   app.cleanup()
   assert.equal(app.styles.size, 0)
+})
+
+test('sidebar layout Patch retries on a later controller publication after capabilities become available', () => {
+  const app = harness()
+  const patches = () => [...app.styles].filter(style => 'deltaSidebarLayout' in style.dataset)
+  assert.equal(patches().length, 0)
+  app.context.CSS = { supports() { return true } }
+  app.documentElement.lang = 'en-US'
+  app.context.localeListeners.forEach(notify => notify())
+  assert.equal(patches().length, 1)
+  const first = patches()[0]
+  app.documentElement.lang = 'zh-CN'
+  app.context.localeListeners.forEach(notify => notify())
+  assert.equal(patches().length, 1)
+  assert.equal(patches()[0], first)
+  app.cleanup()
+  assert.equal(patches().length, 0)
+})
+
+test('sidebar layout Patch recovers from a transient append failure without a mode toggle', () => {
+  const app = harness({ supportsSidebarPatch: true, failStyleMountOnce: 'deltaSidebarLayout' })
+  const patches = () => [...app.styles].filter(style => 'deltaSidebarLayout' in style.dataset)
+  // A subsequent public theme binding may already have retried during mount.
+  // In either case an actual locale publication must restore a single Patch.
+  app.documentElement.lang = 'en-US'
+  app.context.localeListeners.forEach(notify => notify())
+  assert.equal(patches().length, 1)
+  assert.ok(app.components.has('settings.section'))
+  app.cleanup()
+  assert.equal(patches().length, 0)
 })
 
 test('sidebar layout Patch leaves native layout alone without browser feature support', () => {

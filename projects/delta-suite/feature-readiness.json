@@ -408,18 +408,37 @@
   "p1_account_gesture_lifetime": {
     "as_of": "2026-11-25",
     "baseline": "0e98a55ed79e5d828f97641642e3fa29192be07e",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "revalidate current native account view at explicit user gestures and result publication, reject stale rendered actions; compiled client controls regression",
     "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
-    "second_host_version": "not verified"
+    "second_host_version": "not verified",
+    "verified_head": "b72476043f79cc58b7f8616e454907ffcb7e5a1f",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45571360931"
   },
   "p0_workspace_collapse_review": {
     "as_of": "2026-11-25",
     "upstream": "deepseek-ai/deepseek-harness@4b399c39a6d1479cd84ca591b4d7c88e24d38a96",
     "stage": "native-default-retained-no-safe-override-verified",
     "scope": "ui-workspace stores.ts, WorkspaceBrowser.tsx, navigation.ts; default grouping collapsed except active/reveal and tree ancestors; no public expansion initialization",
+    "real_harness": "not verified"
+  },
+  "p0_sidebar_patch_retry": {
+    "as_of": "2026-11-25",
+    "baseline": "e4c936748082461e36778475b15ef7ab159f4fa4",
+    "stage": "implementation-pending-ci",
+    "scope": "distinguish unavailable/failed sidebar mount from installed; retry only on later controller publication; isolated locale cleanup",
+    "verification": "tests/delta-suite-native.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
+  },
+  "p0_native_rename_order_review": {
+    "as_of": "2026-11-25",
+    "upstream": "deepseek-ai/deepseek-harness@4b399c39a6d1479cd84ca591b4d7c88e24d38a96",
+    "stage": "no-safe-shared-menu-reorder-verified",
+    "scope": "context menu index.ts, registry.ts, View.tsx, Menu.tsx; public resolve does not drive shared popup; native keyboard traverses DOM order",
     "real_harness": "not verified"
   }
 }

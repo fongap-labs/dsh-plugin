@@ -122,14 +122,14 @@ function mountClientOwnedStyle(css: string, marker: 'plugin' | 'deltaSidebarLayo
  * setting to keep its panel navigation fixed. Match both structural anchors;
  * unknown markup keeps the original grid. CSS applies to remounted nodes.
  */
-function installClientSidebarLayoutPatch(): () => void {
+function installClientSidebarLayoutPatch(): (() => void) | undefined {
   if (typeof document === 'undefined' || !document.head || typeof CSS === 'undefined' ||
-      typeof CSS.supports !== 'function') return () => {}
+      typeof CSS.supports !== 'function') return
   const region = '[data-sidebar-scrollport]:has(> nav + div [data-slot="sidebar.workspaces"])'
   const scope = ':root[data-delta-ui="delta"] ' + region
   if (!CSS.supports('selector(' + region + ')') ||
       !CSS.supports('container-type', 'size') ||
-      !CSS.supports('grid-template-rows', '8px max-content 2px minmax(0, 1fr)')) return () => {}
+      !CSS.supports('grid-template-rows', '8px max-content 2px minmax(0, 1fr)')) return
   // Keep the panel list at its original grid position. The workspace gets
   // the remaining height and becomes the nearest height-query container.
   // Its own native list scroller and cqh sizing continue to own scrolling.
@@ -162,7 +162,7 @@ function installClientSidebarLayoutPatch(): () => void {
       shell + ' > div:has([data-slot="sidebar.settings"]):has([data-slot="sidebar.footer.action"]) { grid-area: 6 / 1; }',
     ].join('\n')
   }
-  return mountClientOwnedStyle(css, 'deltaSidebarLayout') ?? (() => {})
+  return mountClientOwnedStyle(css, 'deltaSidebarLayout')
 }
 
 /** Theme fallback only for a missing public overrideTokens capability.
