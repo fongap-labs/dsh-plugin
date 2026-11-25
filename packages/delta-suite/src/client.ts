@@ -3898,15 +3898,15 @@ window.__ModuleLoader__.load({
                 document.head.appendChild(tag)
                 // Prefer the public LocaleRuntime; a read-only lang observer is
                 // the scoped fallback for older Hosts or unavailable services.
-                let localeDisposed = false
+                let isLocaleDisposed = false
                 let localeGeneration = 0
-                let publicLocaleActive = false
+                let isPublicLocaleActive = false
                 const fallback = createClientLocaleFallback(() => {
-                  if (!localeDisposed && !publicLocaleActive) controller.syncLanguage()
+                  if (!isLocaleDisposed && !isPublicLocaleActive) controller.syncLanguage()
                 })
                 const useFallback = (): void => {
-                  if (localeDisposed) return
-                  publicLocaleActive = false
+                  if (isLocaleDisposed) return
+                  isPublicLocaleActive = false
                   currentHostLocale = undefined
                   fallback.start()
                   controller.syncLanguage()
@@ -3917,16 +3917,16 @@ window.__ModuleLoader__.load({
                     if (!localeApi || typeof localeApi.getSnapshot !== 'function' ||
                         typeof localeApi.subscribe !== 'function') return
                     localeScope.effect(() => {
-                      if (localeDisposed) return
+                      if (isLocaleDisposed) return
                       const token = ++localeGeneration
-                      let live = true
+                      let isLive = true
                       const sync = (): void => {
-                        if (!live || localeDisposed || token !== localeGeneration) return
+                        if (!isLive || isLocaleDisposed || token !== localeGeneration) return
                         let active: unknown
                         try { active = localeApi.getSnapshot()?.active } catch { useFallback(); return }
                         if (typeof active !== 'string' || !active.trim()) { useFallback(); return }
                         currentHostLocale = active
-                        publicLocaleActive = true
+                        isPublicLocaleActive = true
                         fallback.stop()
                         controller.syncLanguage()
                       }
@@ -3936,19 +3936,19 @@ window.__ModuleLoader__.load({
                         if (typeof release !== 'function') throw new Error('Locale subscription is not disposable')
                         sync()
                       } catch {
-                        live = false
+                        isLive = false
                         try { release?.() } catch {}
                         useFallback()
                       }
                       return () => {
-                        live = false
+                        isLive = false
                         try { if (typeof release === 'function') release() } catch {}
                         if (token === localeGeneration) useFallback()
                       }
                     }, 'delta-suite: public Host Locale subscription')
                   })
                 } catch { /* Optional public service; use the scoped fallback. */ }
-                if (!publicLocaleActive) useFallback()
+                if (!isPublicLocaleActive) useFallback()
 
                 const syncAppearance = (): void => {
                   if (controller.getSnapshot().mode === 'delta') {
@@ -3975,7 +3975,7 @@ window.__ModuleLoader__.load({
                 // Unsupported native UI adjustments remain under Harness ownership.
 
                 return () => {
-                  localeDisposed = true
+                  isLocaleDisposed = true
                   localeGeneration++
                   fallback.dispose()
                   currentHostLocale = undefined
