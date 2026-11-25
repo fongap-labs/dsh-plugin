@@ -743,6 +743,12 @@ test('sidebar layout Patch is scoped to expanded native structure and Delta mode
   assert.ok(css.includes(':root[data-delta-ui="delta"] [data-sidebar-scrollport]:has(> nav + div [data-slot="sidebar.workspaces"])'))
   assert.ok(css.includes('grid-template-rows: 8px max-content 2px minmax(0, 1fr)'))
   assert.ok(css.includes('container-type: size'))
+  assert.ok(css.includes('div:has(> [data-slot="sidebar.session.action"])'))
+  assert.ok(css.includes('grid-area: 4 / 1; position: relative;'))
+  assert.ok(css.includes('grid-area: 3 / 1 / 6 / 2; grid-template-rows: subgrid'))
+  assert.ok(css.includes('> nav { grid-row: 1; }'))
+  assert.ok(css.includes('> nav + div { grid-row: 3; container-type: size;'))
+  assert.ok(css.includes(':not([data-sidebar-scrollport]) > nav'))
   assert.doesNotMatch(css, /!important|display:\s*none|\[class\*=/)
   app.context.localeListeners.forEach(notify => notify())
   assert.equal(patches().length, 1)
@@ -752,6 +758,18 @@ test('sidebar layout Patch is scoped to expanded native structure and Delta mode
   assert.equal(patches().length, 1)
   app.cleanup()
   assert.equal(patches().length, 0)
+})
+
+test('sidebar ordering retains the basic fixed-layout fallback when subgrid is unavailable', () => {
+  const app = harness({ supportsSidebarPatch: true })
+  const controller = app.components.get('settings.section').spec.inject().controller
+  controller.setMode('official')
+  app.context.CSS.supports = (property, value) => value !== 'subgrid'
+  controller.setMode('delta')
+  const css = [...app.styles].find(style => 'deltaSidebarLayout' in style.dataset).textContent
+  assert.ok(css.includes('grid-template-rows: 8px max-content 2px minmax(0, 1fr)'))
+  assert.ok(!css.includes('grid-template-rows: subgrid'))
+  app.cleanup()
 })
 
 test('sidebar layout Patch leaves native layout alone without browser feature support', () => {

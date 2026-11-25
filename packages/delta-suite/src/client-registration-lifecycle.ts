@@ -113,6 +113,33 @@ function installClientSidebarLayoutPatch(): () => void {
   // Its own native list scroller and cqh sizing continue to own scrolling.
   style.textContent = scope + ' { grid-template-rows: 8px max-content 2px minmax(0, 1fr); }\n' +
     scope + ' > nav + div:has([data-slot="sidebar.workspaces"]) { container-type: size; min-height: 0; }'
+  // SidebarRoot renders the native session action outside the panel scrollport.
+  // Use nested subgrids to reserve its row BETWEEN the entire native panel
+  // list and the workspace. Keep React's DOM ownership and native events.
+  // The public sidebar.panellist registry already sorts plugins (0),
+  // schedules (10), and other registrations by order. Every registered panel
+  // stays in the same nav track regardless of later registration/removal.
+  const panel = 'div:has(> nav + div > [data-slot="sidebar.workspaces"])'
+  const session = 'div:has(> [data-slot="sidebar.session.action"])'
+  const shell = ':root[data-delta-ui="delta"] div:has(> [data-window-drag] + ' + session + ' + div > ' + panel + ')'
+  const scrollRegion = shell + ' > ' + session + ' + div'
+  const scrollArea = scrollRegion + ' > ' + panel
+  if (CSS.supports('grid-template-rows', 'subgrid') && CSS.supports('selector(' + shell + ')')) {
+    style.textContent += '\n' + [
+      shell + ' { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; }',
+      shell + ' > [data-window-drag]:has(+ [data-window-drag]) { grid-area: 1 / 1; }',
+      shell + ' > [data-window-drag]:has(+ ' + session + ') { grid-area: 2 / 1; }',
+      shell + ' > ' + session + ' { grid-area: 4 / 1; position: relative; z-index: 1; }',
+      scrollRegion + ' { display: grid; grid-area: 3 / 1 / 6 / 2; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); container-type: normal; margin-top: 0; min-height: 0; }',
+      scrollArea + ' { display: grid; grid-row: 1 / 4; grid-template-rows: subgrid; min-height: 0; }',
+      scrollArea + ':not([data-sidebar-scrollport]) { grid-template-columns: minmax(0, 1fr); }',
+      scrollArea + '::before, ' + scrollArea + '::after { content: none; }',
+      scrollArea + ' > nav { grid-row: 1; }',
+      scrollArea + ' > nav + div { grid-row: 3; container-type: size; min-height: 0; }',
+      scrollArea + ':not([data-sidebar-scrollport]) > nav, ' + scrollArea + ':not([data-sidebar-scrollport]) > nav + div { grid-column: 1; }',
+      shell + ' > div:has([data-slot="sidebar.settings"]):has([data-slot="sidebar.footer.action"]) { grid-area: 6 / 1; }',
+    ].join('\n')
+  }
   try {
     document.head.appendChild(style)
   } catch {

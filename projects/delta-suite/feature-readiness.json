@@ -238,10 +238,11 @@
     "baseline": "5276b709a1a26a40004f410165ce5d70f53490bb",
     "host_source_reference": "deepseek-ai/deepseek-harness@4b399c39a6d1479cd84ca591b4d7c88e24d38a96",
     "stage": "implementation-pending-ci",
-    "scope": "expanded sidebar navigation; guarded grid sizing CSS; native workspace scroll ownership preserved",
+    "scope": "native panel nav above session action; workspace below; guarded nested CSS subgrid with basic fixed-layout fallback; native slot order preserved",
     "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
-    "second_host_version": "not verified"
+    "second_host_version": "not verified",
+    "navigation_contract": "Plugins (order 0), schedules (order 10), later plugin panels via sidebar.panellist above session action; no external slot enforcement"
   }
 }
