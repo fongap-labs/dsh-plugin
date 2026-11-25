@@ -229,6 +229,7 @@ function createController(): DeltaController {
     } catch { publish({ error: true }) }
   }
   return {
+    isActive: () => !isDisposed,
     getSnapshot: () => snapshot,
     subscribe: (listener) => {
       if (isDisposed) return () => {}
@@ -336,19 +337,29 @@ const showDeltaToast = (message: string): void => {
     node.textContent = message
     document.body.appendChild(node)
     const entry = { node, timer: 0 }
-    entry.timer = scheduleTimer(() => {
-      node.remove()
-      toastEntries.delete(entry)
-    }, 3000)
     toastEntries.add(entry)
+    try {
+      entry.timer = scheduleTimer(() => {
+        if (!toastEntries.delete(entry)) return
+        try { node.remove() } catch { /* optional presentation */ }
+      }, 3000)
+      if (!entry.timer) {
+        toastEntries.delete(entry)
+        try { node.remove() } catch {}
+      }
+    } catch {
+      toastEntries.delete(entry)
+      try { node.remove() } catch {}
+    }
   } catch { /* Toasts must never prevent native interaction. */ }
 }
 const clearDeltaToasts = (): void => {
-  for (const entry of toastEntries) {
-    cancelTimer(entry.timer)
-    entry.node.remove()
-  }
+  const entries = [...toastEntries]
   toastEntries.clear()
+  for (const entry of entries) {
+    try { cancelTimer(entry.timer) } catch {}
+    try { entry.node.remove() } catch { /* continue with other owned toasts */ }
+  }
 }
 
 function createSearchIconSvg(): SVGElement {
@@ -3798,7 +3809,19 @@ window.__ModuleLoader__.load({
       )
       // The published hover Slot is decoration only: no Session binding, raw
       // workspace path or native hover-card layout changes are permitted here.
-      if (view.mode !== 'delta' || hoverSelection === null) return null
+      if (!controller.isActive() || view.mode !== 'delta' || hoverSelection === null) return null
+      // An old rendered button cannot authorize an operation in a later
+      // activation or after an appearance/protection transition.
+      const isCurrent = (): boolean => controller.isActive() &&
+        controller.getSnapshot().mode === 'delta' &&
+        controller.getSnapshot().revision === view.revision &&
+        revision === deltaFeatures.getContentProtectionRevision() &&
+        deltaFeatures.readSessionHoverSelection(sessionId) !== null
+      const reportCopy = (isSuccess: boolean): void => {
+        if (!isCurrent()) return
+        const labels = (DICTIONARIES[controller.getSnapshot().language] ?? DICTIONARIES.en).ui
+        showDeltaToast(isSuccess ? labels.copied : labels.copyFailed)
+      }
       const shortId = sessionId.length > 12 ? sessionId.slice(0, 12) + '…' : sessionId
       const copy = DICTIONARIES[view.language] ?? DICTIONARIES.en
       const label = copy.ui.sessionId
@@ -3817,14 +3840,12 @@ window.__ModuleLoader__.load({
           onPointerDown: (event?: { stopPropagation?: () => void }) => event?.stopPropagation?.(),
           onClick: (event?: { stopPropagation?: () => void }) => {
             event?.stopPropagation?.()
-            const labels = (DICTIONARIES[language()] ?? DICTIONARIES.en).ui
-            if (controller.getSnapshot().mode !== 'delta' || revision !== deltaFeatures.getContentProtectionRevision() ||
-                deltaFeatures.readSessionHoverSelection(sessionId) === null) return
-            let request: Promise<void> | undefined
-            try { request = typeof navigator !== 'undefined' ? navigator.clipboard?.writeText(sessionId) : undefined }
-            catch { /* clipboard security errors are shown as a safe toast */ }
-            if (!request) { showDeltaToast(labels.copyFailed); return }
-            void request.then(() => showDeltaToast(labels.copied), () => showDeltaToast(labels.copyFailed))
+            if (!isCurrent()) return
+            try {
+              const request = typeof navigator !== 'undefined' ? navigator.clipboard?.writeText(sessionId) : undefined
+              if (!request) { reportCopy(false); return }
+              void Promise.resolve(request).then(() => reportCopy(true), () => reportCopy(false))
+            } catch { reportCopy(false) }
           },
         }, copy.ui.copy),
         updatedText ? el('span', { className: 'dtd-session-meta-updated' },
