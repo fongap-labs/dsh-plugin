@@ -3960,8 +3960,19 @@ window.__ModuleLoader__.load({
                 if (!isPublicLocaleActive) useFallback()
 
                 const appearance = createClientAppearancePatch()
+                // The native layout has no public fixed-navigation setting.
+                // Install only the scoped CSS fallback; no node reparenting.
+                let releaseSidebarLayout: (() => void) | undefined
                 const syncAppearance = (): void => {
-                  appearance.sync(controller.getSnapshot().mode === 'delta')
+                  const isDelta = controller.getSnapshot().mode === 'delta'
+                  appearance.sync(isDelta)
+                  if (isDelta && !releaseSidebarLayout) {
+                    try { releaseSidebarLayout = installClientSidebarLayoutPatch() } catch {}
+                  } else if (!isDelta && releaseSidebarLayout) {
+                    const release = releaseSidebarLayout
+                    releaseSidebarLayout = undefined
+                    try { release() } catch {}
+                  }
                 }
                 syncAppearance()
                 deltaFeatures.ensureLoaded()
@@ -3986,6 +3997,7 @@ window.__ModuleLoader__.load({
                   // Cleanup continues even if an optional resource fails.
                   for (const release of [
                     () => stopAppearance(),
+                    () => { releaseSidebarLayout?.(); releaseSidebarLayout = undefined },
                     () => appearance.dispose(),
                     () => clearDeltaToasts(),
                     () => tag.parentNode?.removeChild(tag),

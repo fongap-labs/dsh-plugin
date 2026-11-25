@@ -224,11 +224,25 @@
   "p0_appearance_patch_lifecycle": {
     "as_of": "2026-11-25",
     "baseline": "33033fe712d663c7e24df66e2443e5bad82dcfcb",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "scoped appearance marker ownership, reversible restore, isolated theme disposer failure",
     "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
-    "second_host_version": "not verified"
+    "second_host_version": "not verified",
+    "verified_head": "7f99fce6cd15aacd07cb658d1517ffbf174ecc2c",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45527009293"
+  },
+  "p0_sidebar_fixed_navigation_patch": {
+    "as_of": "2026-11-25",
+    "baseline": "5276b709a1a26a40004f410165ce5d70f53490bb",
+    "host_source_reference": "deepseek-ai/deepseek-harness@4b399c39a6d1479cd84ca591b4d7c88e24d38a96",
+    "stage": "implementation-pending-ci",
+    "scope": "native panel nav above session action; workspace below; guarded nested CSS subgrid with basic fixed-layout fallback; native slot order preserved",
+    "verification": "tests/delta-suite-native.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "navigation_contract": "Plugins (order 0), schedules (order 10), later plugin panels via sidebar.panellist above session action; no external slot enforcement"
   }
 }

@@ -93,6 +93,62 @@ function createClientAppearancePatch() {
   }
 }
 
+/** Expanded SidebarRoot compatibility: preserve native nodes and scroll handoff.
+ * The Host exposes a scrollport marker and a workspace Slot, but no public
+ * setting to keep its panel navigation fixed. Match both structural anchors;
+ * unknown markup keeps the original grid. CSS applies to remounted nodes.
+ */
+function installClientSidebarLayoutPatch(): () => void {
+  if (typeof document === 'undefined' || !document.head || typeof CSS === 'undefined' ||
+      typeof CSS.supports !== 'function') return () => {}
+  const region = '[data-sidebar-scrollport]:has(> nav + div [data-slot="sidebar.workspaces"])'
+  const scope = ':root[data-delta-ui="delta"] ' + region
+  if (!CSS.supports('selector(' + region + ')') ||
+      !CSS.supports('container-type', 'size') ||
+      !CSS.supports('grid-template-rows', '8px max-content 2px minmax(0, 1fr)')) return () => {}
+  const style = document.createElement('style')
+  style.dataset.deltaSidebarLayout = ''
+  // Keep the panel list at its original grid position. The workspace gets
+  // the remaining height and becomes the nearest height-query container.
+  // Its own native list scroller and cqh sizing continue to own scrolling.
+  style.textContent = scope + ' { grid-template-rows: 8px max-content 2px minmax(0, 1fr); }\n' +
+    scope + ' > nav + div:has([data-slot="sidebar.workspaces"]) { container-type: size; min-height: 0; }'
+  // SidebarRoot renders the native session action outside the panel scrollport.
+  // Use nested subgrids to reserve its row BETWEEN the entire native panel
+  // list and the workspace. Keep React's DOM ownership and native events.
+  // The public sidebar.panellist registry already sorts plugins (0),
+  // schedules (10), and other registrations by order. Every registered panel
+  // stays in the same nav track regardless of later registration/removal.
+  const panel = 'div:has(> nav + div > [data-slot="sidebar.workspaces"])'
+  const session = 'div:has(> [data-slot="sidebar.session.action"])'
+  const shell = ':root[data-delta-ui="delta"] div:has(> [data-window-drag] + ' + session + ' + div > ' + panel + ')'
+  const scrollRegion = shell + ' > ' + session + ' + div'
+  const scrollArea = scrollRegion + ' > ' + panel
+  if (CSS.supports('grid-template-rows', 'subgrid') && CSS.supports('selector(' + shell + ')')) {
+    style.textContent += '\n' + [
+      shell + ' { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; }',
+      shell + ' > [data-window-drag]:has(+ [data-window-drag]) { grid-area: 1 / 1; }',
+      shell + ' > [data-window-drag]:has(+ ' + session + ') { grid-area: 2 / 1; }',
+      shell + ' > ' + session + ' { grid-area: 4 / 1; position: relative; z-index: 1; }',
+      scrollRegion + ' { display: grid; grid-area: 3 / 1 / 6 / 2; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); container-type: normal; margin-top: 0; min-height: 0; }',
+      scrollArea + ' { display: grid; grid-row: 1 / 4; grid-template-rows: subgrid; min-height: 0; }',
+      scrollArea + ':not([data-sidebar-scrollport]) { grid-template-columns: minmax(0, 1fr); }',
+      scrollArea + '::before, ' + scrollArea + '::after { content: none; }',
+      scrollArea + ' > nav { grid-row: 1; }',
+      scrollArea + ' > nav + div { grid-row: 3; container-type: size; min-height: 0; }',
+      scrollArea + ':not([data-sidebar-scrollport]) > nav, ' + scrollArea + ':not([data-sidebar-scrollport]) > nav + div { grid-column: 1; }',
+      shell + ' > div:has([data-slot="sidebar.settings"]):has([data-slot="sidebar.footer.action"]) { grid-area: 6 / 1; }',
+    ].join('\n')
+  }
+  try {
+    document.head.appendChild(style)
+  } catch {
+    try { style.parentNode?.removeChild(style) } catch {}
+    return () => {}
+  }
+  return () => { style.parentNode?.removeChild(style) }
+}
+
 /** Narrow read-only Patch for older Hosts: observe only the document language attribute.
  * No subtree scanning, mutations, polling, or Host preference writes.
  */
