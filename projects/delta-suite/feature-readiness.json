@@ -336,9 +336,21 @@
   "p0_appearance_controller_module": {
     "as_of": "2026-11-25",
     "baseline": "3325b1785687cb8612b73489c5e54247e1b2d0d4",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "extract appearance controller; preserve healthy same-service palette; release before replacement; single client bundle",
     "verification": "tests/delta-suite-native.test.mjs and tests/delta-suite-client-types.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified",
+    "verified_head": "68cedbb3da445ba4fe7658eb0d104c6e2ee8bbd4",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45554971473"
+  },
+  "p0_client_session_state_projection": {
+    "as_of": "2026-11-25",
+    "baseline": "6274e497937475f4b9ffc90178d5e18cb50916fc",
+    "stage": "implementation-pending-ci",
+    "scope": "separate pure confirmed session state projection; stable snapshots; retain fail-closed authorization and refresh generation",
+    "verification": "tests/delta-suite-native-session-catalog-ownership.test.mjs and tests/delta-suite-client-types.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
     "second_host_version": "not verified"

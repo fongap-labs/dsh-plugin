@@ -260,6 +260,16 @@
       "public_functions": [
         "createController"
       ]
+    },
+    "client_session_state": {
+      "owner": "sessions",
+      "path": "packages/delta-suite/src/client-session-state.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "isConfirmedLockState",
+        "projectConfirmedClientSessionState"
+      ]
     }
   },
   "host_feature_access": {

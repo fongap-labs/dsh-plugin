@@ -224,20 +224,6 @@ function createSearchIconSvg(): SVGElement {
   return svg
 }
 
-interface ClientFeatureSnapshot {
-  isSearchProtectionReady: boolean
-  hasPin: boolean
-  lockMode?: 'totp' | 'pin' | 'none'
-  lockedSessionIds: readonly string[]
-  lockedWorkspaceIds: readonly string[]
-  movedSessions: Readonly<Record<string, string>>
-  deletedSessionIds: readonly string[]
-  tempUnlockedIds: readonly string[]
-  tempUnlockedWorkspaceIds: readonly string[]
-  activeSessionId?: string
-  revision: number
-}
-
 function createQrSvgElement(uri: string): Element {
   const grid = encodeQrMatrix(uri)
   const quiet = 4
@@ -452,45 +438,20 @@ function createClientFeatureManager(): ClientFeatureManager {
   // The Client must not retry archive/unarchive via Workspace services: it
   // lacks durable attribution and could undo a user's independent archive.
 
-  const applyHostStatePayload = (payload: {
-    hasPin?: boolean
-    lockMode?: 'totp' | 'pin' | 'none'
-    lockedSessionIds?: string[]
-    lockedWorkspaceIds?: string[]
-    movedSessions?: Record<string, string>
-    deletedSessionIds?: string[]
-  }): void => {
-    // A partial response is not evidence that previously durable locks vanished.
-    // Preserve the prior membership, but revoke mutation/search readiness.
-    if (!isConfirmedLockState(payload)) {
+  const applyHostStatePayload = (payload: unknown): void => {
+    // Never accept a partial response as evidence that durable locks vanished.
+    const patch = projectConfirmedClientSessionState(state, payload)
+    if (!patch) {
       if (state.isSearchProtectionReady) publish({ isSearchProtectionReady: false })
       return
     }
-    // A confirmed mutation or refresh supersedes any older in-flight read.
+    // Even an identical confirmed response supersedes an older in-flight read.
     hostStateConfirmation += 1
     hasSyncedStateFromHost = true
-    const locked = payload.lockedSessionIds!
-    const lockedWorkspaces = Array.isArray(payload.lockedWorkspaceIds) ? payload.lockedWorkspaceIds : []
-    const deleted = Array.isArray(payload.deletedSessionIds) ? payload.deletedSessionIds : []
-    const moved = payload.movedSessions && typeof payload.movedSessions === 'object' ? payload.movedSessions : {}
-    const stableIds = (previous: readonly string[], next: readonly string[]): readonly string[] =>
-      previous.length === next.length && previous.every((id, index) => id === next[index])
-        ? previous : Object.freeze([...next])
-    const previousMoves = Object.entries(state.movedSessions)
-    const nextMoves = Object.entries(moved)
-    const hasSameMoves = previousMoves.length === nextMoves.length &&
-      previousMoves.every(([id, target], index) => id === nextMoves[index][0] && target === nextMoves[index][1])
-    publish({
-      isSearchProtectionReady: isConfirmedLockState(payload),
-      hasPin: Boolean(payload.hasPin),
-      lockMode: payload.lockMode ?? (payload.hasPin ? 'totp' : 'none'),
-      lockedSessionIds: stableIds(state.lockedSessionIds, locked),
-      lockedWorkspaceIds: stableIds(state.lockedWorkspaceIds, lockedWorkspaces),
-      movedSessions: hasSameMoves ? state.movedSessions : Object.freeze({ ...moved }),
-      deletedSessionIds: stableIds(state.deletedSessionIds, deleted),
-      tempUnlockedIds: Object.freeze(state.tempUnlockedIds.filter(id => locked.includes(id))),
-      tempUnlockedWorkspaceIds: Object.freeze((state.tempUnlockedWorkspaceIds ?? []).filter(id => lockedWorkspaces.includes(id))),
-    })
+    if ((Object.keys(patch) as (keyof typeof patch)[]).some(key => !Object.is(state[key], patch[key]))) {
+      publish(patch)
+    }
+    // Keep explicit Host refresh notifications independent of UI state changes.
     notifyDataApis()
   }
 
@@ -532,7 +493,7 @@ function createClientFeatureManager(): ClientFeatureManager {
         const body = await response.json().catch(() => null) as { state?: unknown } | null
         if (!isCurrent()) return
         if (isConfirmedLockState(body?.state)) {
-          applyHostStatePayload(body!.state as Parameters<typeof applyHostStatePayload>[0])
+          applyHostStatePayload(body!.state)
         } else revokeHostConfirmation()
       } catch { if (isCurrent()) revokeHostConfirmation() }
     })().finally(() => { refreshInFlight = undefined })
@@ -543,23 +504,6 @@ function createClientFeatureManager(): ClientFeatureManager {
     if (hasSyncedStateFromHost || refreshInFlight) return
     if (Date.now() - lastRefreshAttemptAt < 1200) return
     void refreshState()
-  }
-
-  // Lock operations require the complete public Host state, never a locally
-  // fabricated success. Reject partial acknowledgements before applying them.
-  const isConfirmedLockState = (payload: unknown): boolean => {
-    if (!payload || typeof payload !== 'object') return false
-    const value = payload as Partial<ClientFeatureSnapshot>
-    const isIdList = (items: unknown): boolean =>
-      Array.isArray(items) && items.every(id => typeof id === 'string' && id.length > 0)
-    return typeof value.hasPin === 'boolean' &&
-      (value.lockMode === 'none' || value.lockMode === 'pin' || value.lockMode === 'totp') &&
-      value.hasPin === (value.lockMode !== 'none') &&
-      isIdList(value.lockedSessionIds) && isIdList(value.lockedWorkspaceIds) &&
-      isIdList(value.deletedSessionIds) &&
-      !!value.movedSessions && typeof value.movedSessions === 'object' && !Array.isArray(value.movedSessions) &&
-      Object.values(value.movedSessions).every(id => typeof id === 'string' && id.length > 0) &&
-      (value.hasPin || (value.lockedSessionIds?.length === 0 && value.lockedWorkspaceIds?.length === 0))
   }
 
   // Serialize complete state operations, including validation and publication.

@@ -8,16 +8,17 @@ import { join } from 'node:path'
 import vm from 'node:vm'
 
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
-const source = ['client-workspace-projection.ts', 'client-search-protection.ts', 'client.ts']
+const source = ['client-workspace-projection.ts', 'client-search-protection.ts', 'client-session-state.ts', 'client.ts']
   .map(name => readFileSync(file('packages/delta-suite/src/' + name), 'utf8')).join('\n')
 const dir = mkdtempSync(join(tmpdir(), 'delta-session-catalog-'))
-let compiled, workspaceProjection, searchProtection
+let compiled, workspaceProjection, searchProtection, sessionState
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
     file('packages/delta-suite/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
   compiled = readFileSync(join(dir, 'client.js'), 'utf8')
   workspaceProjection = readFileSync(join(dir, 'client-workspace-projection.js'), 'utf8')
   searchProtection = readFileSync(join(dir, 'client-search-protection.js'), 'utf8')
+  sessionState = readFileSync(join(dir, 'client-session-state.js'), 'utf8')
 } finally { rmSync(dir, { recursive: true, force: true }) }
 const start = compiled.indexOf('function canCallHostHttp(')
 const end = compiled.indexOf('const deltaFeatures = createClientFeatureManager()', start)
@@ -26,7 +27,7 @@ assert.ok(start >= 0 && end > start)
 const timeStart = compiled.indexOf('function normalizeSearchTime(', end)
 const timeEnd = compiled.indexOf('function revealSessionTurnInChat(', timeStart)
 assert.ok(timeStart > end && timeEnd > timeStart)
-const managerSource = workspaceProjection + '\n' + searchProtection + '\n' + compiled.slice(start, end) + '\n' +
+const managerSource = workspaceProjection + '\n' + searchProtection + '\n' + sessionState + '\n' + compiled.slice(start, end) + '\n' +
   compiled.slice(timeStart, timeEnd) + '\ncreateClientFeatureManager()'
 const createProjection = () => vm.runInNewContext(
   workspaceProjection + '\ncreateWorkspaceCompatibilityProjection()',
@@ -585,6 +586,57 @@ test('client search excludes durable protection independently of temporary viewi
   assert.equal(makeSearchProtection(empty, () => { throw new Error('not needed') }).canUseNativeFallback, true)
 })
 
+
+test('identical confirmed state preserves view snapshot and protection revision, while real changes publish', async () => {
+  const f = fixture({ initial: { hasPin: true, lockedSessionIds: ['locked'], movedSessions: { target: 'a', other: 'b' } } })
+  await f.manager.refreshState()
+  const before = f.manager.getSnapshot()
+  const revision = f.manager.getContentProtectionRevision()
+  let notifications = 0, protectionNotifications = 0, refreshNotifications = 0
+  const stop = f.manager.subscribe(() => { notifications++ })
+  const stopProtection = f.manager.subscribeContentProtection(() => { protectionNotifications++ })
+  const stopRefresh = f.manager.onDataMutate(() => { refreshNotifications++ })
+  f.env.fetch = async () => ({ ok: true, status: 200, json: async () => ({
+    state: { ...f.state([]), movedSessions: { other: 'b', target: 'a' } },
+  }) })
+  await f.manager.refreshState()
+  assert.equal(f.manager.getSnapshot(), before)
+  assert.equal(f.manager.getContentProtectionRevision(), revision)
+  assert.equal(notifications, 0)
+  assert.equal(protectionNotifications, 0)
+  assert.equal(refreshNotifications, 1)
+  f.env.fetch = async () => ({ ok: true, status: 200, json: async () => ({
+    state: { ...f.state([]), lockedSessionIds: ['locked', 'target'] },
+  }) })
+  await f.manager.refreshState()
+  assert.equal(f.manager.isLocked('target'), true)
+  assert.equal(f.manager.getContentProtectionRevision(), revision + 1)
+  assert.equal(notifications, 1)
+  assert.equal(protectionNotifications, 1)
+  assert.equal(refreshNotifications, 2)
+  stop(); stopProtection(); stopRefresh()
+})
+
+test('confirmed state projection retains only still-locked temporary grants and rejects partial responses', () => {
+  const project = vm.runInNewContext(sessionState + '\nprojectConfirmedClientSessionState')
+  const previous = {
+    isSearchProtectionReady: true, hasPin: true, lockMode: 'pin',
+    lockedSessionIds: ['a', 'b'], lockedWorkspaceIds: ['one', 'two'],
+    deletedSessionIds: [], movedSessions: {}, tempUnlockedIds: ['a', 'b'],
+    tempUnlockedWorkspaceIds: ['one', 'two'], revision: 7,
+  }
+  const payload = { hasPin: true, lockMode: 'pin', lockedSessionIds: ['b'],
+    lockedWorkspaceIds: ['one'], deletedSessionIds: [], movedSessions: {} }
+  assert.equal(project(previous, { lockedSessionIds: [] }), undefined)
+  assert.equal(project(previous, { ...payload, hasPin: false }), undefined)
+  const next = project(previous, payload)
+  assert.deepEqual(Array.from(next.tempUnlockedIds), ['b'])
+  assert.deepEqual(Array.from(next.tempUnlockedWorkspaceIds), ['one'])
+  assert.equal(next.deletedSessionIds, previous.deletedSessionIds)
+  assert.equal(next.movedSessions, previous.movedSessions)
+  assert.ok(Object.isFrozen(next.tempUnlockedIds))
+  assert.deepEqual(previous.tempUnlockedIds, ['a', 'b'])
+})
 
 test('incomplete Host refresh preserves locks and disables Suite-owned Search', async () => {
   const f = fixture({ initial: { lockedSessionIds: ['locked'] } })

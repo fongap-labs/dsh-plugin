@@ -305,6 +305,7 @@ test('build concatenates the compiled palette and feature helpers in one client 
   assert.ok(helpers.includes('src/client-registration-lifecycle.ts'))
   assert.ok(helpers.includes('src/client-feature-preferences.ts'))
   assert.ok(helpers.includes('src/client-appearance-controller.ts'))
+  assert.ok(helpers.includes('src/client-session-state.ts'))
   assert.ok(tsconfig.include.includes('src/client.ts'))
   assert.equal(new Set(helpers).size, helpers.length)
   assert.match(palette, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
