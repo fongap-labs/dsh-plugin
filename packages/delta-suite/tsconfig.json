@@ -21,6 +21,7 @@
     "src/client-workspace-projection.ts",
     "src/client-search-protection.ts",
     "src/client-registration-lifecycle.ts",
-    "src/client-feature-preferences.ts"
+    "src/client-feature-preferences.ts",
+    "src/client-appearance-controller.ts"
   ]
 }

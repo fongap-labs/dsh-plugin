@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const source = ['client-workspace-projection.ts', 'client-search-protection.ts', 'client.ts']
-  .map(name => read('packages/delta-suite/src/' + name)).join('\n')
+const clientConfig = JSON.parse(read('packages/delta-suite/tsconfig.client.json'))
+const source = clientConfig.include.filter(path => path.endsWith('.ts') && !path.endsWith('.d.ts'))
+  .map(path => read('packages/delta-suite/' + path)).join('\n')
 const style = read('packages/delta-suite/src/theme.css')
 const extras = read('packages/delta-suite/src/feature-extras.css')
 const readiness = JSON.parse(read('projects/delta-suite/feature-readiness.json'))

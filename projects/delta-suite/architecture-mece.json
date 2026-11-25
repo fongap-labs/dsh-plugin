@@ -251,6 +251,15 @@
         "subscribeFeaturePreferences",
         "useFeaturePreferences"
       ]
+    },
+    "client_appearance_controller": {
+      "owner": "shell",
+      "path": "packages/delta-suite/src/client-appearance-controller.ts",
+      "runtime_entry": "packages/delta-suite/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createController"
+      ]
     }
   },
   "host_feature_access": {

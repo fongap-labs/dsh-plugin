@@ -111,7 +111,6 @@ const DICTIONARIES = '__DELTA_SUITE_LOCALES__' as unknown as Record<Language, De
 const OWNED_CSS = '__DELTA_SUITE_STYLE__'
 const FEATURE_ONLY_CSS = '__DELTA_SUITE_FEATURE_STYLE__'
 const DELTA_SUITE_OWNER = '@fongap-labs/delta-suite'
-const STORAGE_KEY = 'fongap.delta-suite.v1'
 // Theme palette is compiled from client-theme-tokens.ts into this single bundle.
 
 // Public Host locale wins; other locales fall back to Suite English.
@@ -122,129 +121,6 @@ function language(): Language {
   const value = currentHostLocale || docLang || navLang || 'en'
   return /^zh(?:-|$)/i.test(value) ? 'zh' : 'en'
 }
-function readMode(): Mode {
-  try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as unknown
-    if (value !== null && typeof value === 'object' && 'schema' in value &&
-        'mode' in value && value.schema === 1 &&
-        (value.mode === 'delta' || value.mode === 'official')) return value.mode
-  } catch { /* storage is optional */ }
-  return 'delta'
-}
-function writeMode(mode: Mode): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ schema: 1, mode })) }
-  catch { /* session-only preference when storage is blocked */ }
-}
-
-function createController(): DeltaController {
-  let snapshot: DeltaState = Object.freeze({ mode: readMode(), language: language(), error: false, revision: 0 })
-  let ownedLayer: (() => void) | undefined
-  let activeTheme: ThemeApi | undefined
-  let activeLayout: LayoutApi | undefined
-  let activeSidebarRight: SidebarRightApi | undefined
-  let isDisposed = false
-  const listeners = new Set<() => void>()
-  const publish = (change: Partial<Omit<DeltaState, 'revision'>>): void => {
-    if (isDisposed) return
-    snapshot = Object.freeze({ ...snapshot, ...change, revision: snapshot.revision + 1 })
-    listeners.forEach(listener => {
-      try { listener() } catch { /* a failed view must not block sibling subscribers */ }
-    })
-  }
-  const releasePalette = (): boolean => {
-    try {
-      ownedLayer?.()
-      ownedLayer = undefined
-      return true
-    } catch { return false }
-  }
-  const applyPalette = (mode: Mode): boolean => {
-    if (!releasePalette()) return false
-    if (mode === 'official') return true
-    try {
-      if (!activeTheme || typeof activeTheme.overrideTokens !== 'function') {
-        ownedLayer = installClientThemeFallback()
-        return typeof ownedLayer === 'function'
-      }
-      // Do not install a second layer if the public API throws or cannot
-      // provide a disposer: it may already have mutated the Host cascade.
-      const release = activeTheme.overrideTokens(DELTA_SUITE_OWNER, TOKENS)
-      if (typeof release !== 'function') return false
-      ownedLayer = release
-      return true
-    } catch { return false }
-  }
-  const safeLayout = (command: (layout: LayoutApi) => void): void => {
-    if (isDisposed) return
-    try {
-      if (!activeLayout) throw new Error('Host layout capability is unavailable')
-      command(activeLayout)
-      publish({ error: false })
-    } catch { publish({ error: true }) }
-  }
-  return {
-    isActive: () => !isDisposed,
-    getSnapshot: () => snapshot,
-    subscribe: (listener) => {
-      if (isDisposed) return () => {}
-      listeners.add(listener)
-      return () => { listeners.delete(listener) }
-    },
-    setMode: (mode) => {
-      if (isDisposed || (mode !== 'delta' && mode !== 'official')) return
-      if (mode === snapshot.mode && !snapshot.error && (mode === 'official' || ownedLayer)) return
-      const success = applyPalette(mode)
-      if (!success) { publish({ error: true }); return }
-      writeMode(mode)
-      publish({ mode, error: false })
-    },
-    toggleSidebar: () => { safeLayout(layout => layout.toggleSidebar()) },
-    toggleSidebarSafe: () => {
-      if (isDisposed || !activeLayout || typeof activeLayout.toggleSidebar !== 'function') return false
-      try { activeLayout.toggleSidebar(); return true } catch { return false }
-    },
-    toggleRightbarSafe: () => {
-      if (isDisposed || !activeSidebarRight || typeof activeSidebarRight.toggleExpanded !== 'function') return false
-      try { activeSidebarRight.toggleExpanded(); return true } catch { return false }
-    },
-    openConversation: () => { safeLayout(layout => layout.selectPanel(null)) },
-    dispose: () => {
-      if (isDisposed) return
-      isDisposed = true
-      releasePalette()
-      ownedLayer = undefined
-      activeTheme = undefined
-      activeLayout = undefined
-      activeSidebarRight = undefined
-      listeners.clear()
-    },
-    // Used by the owning activation to sync a host language switch.
-    syncLanguage: () => {
-      const next = language()
-      if (next !== snapshot.language) publish({ language: next })
-    },
-    activate: () => { if (!applyPalette(snapshot.mode)) publish({ error: true }) },
-    bindTheme: (theme: ThemeApi | undefined) => {
-      if (isDisposed) return
-      activeTheme = theme
-      publish({ error: !applyPalette(snapshot.mode) })
-    },
-    bindLayout: (layout: LayoutApi | undefined) => {
-      if (isDisposed) return
-      activeLayout = layout
-    },
-    bindSidebarRight: (sidebarRight: SidebarRightApi | undefined) => {
-      if (!isDisposed) activeSidebarRight = sidebarRight
-    },
-  } as DeltaController & {
-    syncLanguage(): void
-    activate(): void
-    toggleSidebarSafe(): boolean
-    toggleRightbarSafe(): boolean
-    bindSidebarRight(sidebarRight: SidebarRightApi | undefined): void
-  }
-}
-
 const toastEntries = new Set<{ node: HTMLElement; timer: number }>()
 const scheduleTimer = (fn: () => void, ms: number): number => {
   if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') return window.setTimeout(fn, ms)

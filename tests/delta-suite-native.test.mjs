@@ -1069,6 +1069,41 @@ test('workspace menu does not produce actions without a captured workspace ident
   app.cleanup()
 })
 
+test('appearance controller preserves healthy same-service palettes and releases before replacement', () => {
+  const app = harness()
+  const controller = app.components.get('settings.section').spec.inject().controller
+  const events = []
+  const makeTheme = name => ({
+    overrideTokens() {
+      events.push(name + ':install')
+      return () => events.push(name + ':release')
+    },
+  })
+  const first = makeTheme('first')
+  const second = makeTheme('second')
+  controller.bindTheme(first)
+  const revision = controller.getSnapshot().revision
+  controller.bindTheme(first)
+  controller.setMode('delta')
+  controller.activate()
+  assert.deepEqual(events, ['first:install'])
+  assert.equal(controller.getSnapshot().revision, revision)
+  controller.bindTheme(second)
+  assert.deepEqual(events, ['first:install', 'first:release', 'second:install'])
+  controller.setMode('official')
+  controller.bindTheme(first)
+  assert.deepEqual(events, ['first:install', 'first:release', 'second:install', 'second:release'])
+  controller.setMode('delta')
+  assert.equal(events.at(-1), 'first:install')
+  app.cleanup()
+  assert.equal(events.at(-1), 'first:release')
+  const count = events.length
+  controller.bindTheme(second)
+  controller.activate()
+  controller.setMode('delta')
+  assert.equal(events.length, count)
+})
+
 test('missing theme keeps the independent Settings entry usable', () => {
   const app = harness({ failTheme: true })
   const entry = app.components.get('settings.section')
