@@ -149,6 +149,39 @@ function installClientSidebarLayoutPatch(): () => void {
   return () => { style.parentNode?.removeChild(style) }
 }
 
+/** Theme fallback only for a missing public overrideTokens capability.
+ * Use the same palette and the documented Host body color-scheme marker.
+ * No inline style changes, preference writes, forced priority or observers.
+ * Confirm representative computed tokens before reporting success.
+ */
+function installClientThemeFallback(): (() => void) | undefined {
+  if (typeof document === 'undefined' || !document.head || !document.body ||
+      !document.defaultView || typeof document.defaultView.getComputedStyle !== 'function') return
+  const root = document.documentElement
+  const body = document.body
+  const preference = root?.getAttribute('data-ds-theme-source')
+  if (preference !== 'light' && preference !== 'dark' && preference !== 'system') return
+  const style = document.createElement('style')
+  style.dataset.deltaThemeFallback = ''
+  const declarations = (mode: 'light' | 'dark'): string => Object.entries(TOKENS)
+    .map(([name, pair]) => name + ':' + pair[mode] + ';').join('')
+  const selector = 'html[data-ds-theme-source] > body'
+  style.textContent = selector + ':not([data-ds-dark-theme]){' + declarations('light') + '}\n' +
+    selector + '[data-ds-dark-theme]{' + declarations('dark') + '}'
+  const release = (): void => { style.parentNode?.removeChild(style) }
+  try {
+    document.head.appendChild(style)
+    const scheme = body.hasAttribute('data-ds-dark-theme') ? 'dark' : 'light'
+    const computed = document.defaultView.getComputedStyle(body)
+    const samples = ['--dsw-alias-brand-primary', '--dsw-alias-label-primary', '--dsw-menu-surface-fill']
+    if (samples.every(key => computed.getPropertyValue(key).trim().toLowerCase() === TOKENS[key][scheme].toLowerCase())) {
+      return release
+    }
+  } catch { /* unknown Host cascade or unavailable document: fail closed */ }
+  try { release() } catch {}
+  return undefined
+}
+
 /** Narrow read-only Patch for older Hosts: observe only the document language attribute.
  * No subtree scanning, mutations, polling, or Host preference writes.
  */
