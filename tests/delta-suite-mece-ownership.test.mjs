@@ -98,8 +98,12 @@ test('Browser registration requirements match declared public groups', () => {
     const pattern = 'typeof capabilities.' + method.split('.').join('?.') + " !== 'function'"
     assert.ok(client.includes(pattern), 'missing Assistant prerequisite: ' + method)
   }
-  assert.match(client, /try \{ contextMenus = searchScope\.get\?\.\('contextMenus'\) as typeof contextMenus \}\s*catch/)
-  assert.match(client, /typeof contextMenus\.register === 'function'/)
+  const menus = access['sessions.context-menus']
+  assert.deepEqual(menus.activation_requires, ['contextMenus.register'])
+  assert.deepEqual(menus.inherited_requires, ['slots.register', 'effect'])
+  assert.match(client, /try \{ scope\.inject\(\['contextMenus'\], menuScope => \{\s*const contextMenus = menuScope\.contextMenus/)
+  assert.match(client, /typeof menuScope\.effect !== 'function'\s*\|\|\s*!contextMenus \|\| typeof contextMenus\.register !== 'function'/)
+  assert.doesNotMatch(client, /searchScope\.get\?\.\('contextMenus'\)/)
   for (const [method, expression] of [
     ['uiWorkspace.openSession', 'navApi.openSession'],
     ['uiWorkspace.startSession', 'navApi.startSession'],
@@ -124,7 +128,7 @@ test('independent browser services and optional slots have isolated registration
     'conversation.input.model.label', 'sidebar.session.row.trailing', 'sidebar.session.row.hover']) {
     assert.ok(client.includes("try { scope.slots.inject('" + name + "'"), name)
   }
-  for (const scope of ['workspaceScope', 'searchScope', 'themeScope', 'layoutScope']) {
+  for (const scope of ['workspaceScope', 'searchScope', 'menuScope', 'themeScope', 'layoutScope']) {
     assert.ok(client.includes('typeof ' + scope + ".effect !== 'function'"), scope)
   }
 })
