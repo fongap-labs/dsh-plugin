@@ -148,10 +148,10 @@ test('DeltaCopy type declares exactly the actual bilingual dictionary schema', (
 
 test('compatibility copy describes implemented sidebar Patch without claiming installed Host acceptance', () => {
   assert.match(enCopy.ui.integrationSummary, /scoped, reversible compatibility patches/)
-  assert.match(zhCopy.ui.integrationSummary, /局部、可撤销的兼容补丁/)
+  assert.ok(zhCopy.ui.integrationSummary.includes("局部、可撤销的兼容补丁"))
   assert.match(enCopy.ui.integrationSidebar, /client verification pending/)
-  assert.match(zhCopy.ui.integrationSidebar, /待客户端验收/)
+  assert.ok(zhCopy.ui.integrationSidebar.includes("待客户端验收"))
   assert.match(client, /nativeFeatureNotes\.map/)
   assert.match(enCopy.ui.integrationGuidance, /switch to the official theme or disable Delta Suite/)
-  assert.match(zhCopy.ui.integrationGuidance, /切换至官方主题或停用 Delta Suite/)
+  assert.ok(zhCopy.ui.integrationGuidance.includes("切换至官方主题或停用 Delta Suite"))
 })
