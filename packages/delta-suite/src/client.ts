@@ -43,7 +43,7 @@ interface AssistantWorkflow {
   readonly parentSessionId: string
   readonly originalDraft?: string
   appliedDraft?: string
-  readonly getCurrentDraft?: () => string
+  readonly getCurrentDraft?: () => string | undefined
   readonly inputActions?: { setDraft(text: string): void; persistDraft(): void }
 }
 interface AssistantServices {
@@ -3176,9 +3176,10 @@ window.__ModuleLoader__.load({
       initialPrompt: string,
       workflow?: AssistantWorkflow,
       revision = deltaFeatures.getContentProtectionRevision(),
+      isRequestCurrent: () => boolean = () => true,
     ): Promise<string> {
       const services = assistantServices
-      if (!services || !isCurrentAssistantAccess(services, revision, parentSessionId)) {
+      if (!services || !isRequestCurrent() || !isCurrentAssistantAccess(services, revision, parentSessionId)) {
         throw new Error('Delta Assistant: session protected or unavailable')
       }
       let assistantSessionId = purpose === 'discussion' ? savedAssistantSession(parentSessionId) : undefined
@@ -3197,13 +3198,13 @@ window.__ModuleLoader__.load({
         })
         isCreated = true
       }
-      if (parentSessionId === assistantSessionId ||
+      if (parentSessionId === assistantSessionId || !isRequestCurrent() ||
           !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
         throw new Error('Delta Assistant: session protected or unavailable')
       }
       const lease = retainAssistantAccess(services, assistantSessionId)
       try {
-        if (!await lease.ready() || !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
+        if (!await lease.ready() || !isRequestCurrent() || !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
           throw new Error('Delta Assistant: session protected or unavailable')
         }
         if (isCreated) {
@@ -3211,7 +3212,7 @@ window.__ModuleLoader__.load({
           if (!result.ok) throw new Error(result.error?.message || 'Assistant prompt was rejected')
         }
       } finally { lease.release() }
-      if (!isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
+      if (!isRequestCurrent() || !isCurrentAssistantAccess(services, revision, parentSessionId, assistantSessionId)) {
         throw new Error('Delta Assistant: session protected or unavailable')
       }
       if (purpose === 'discussion') rememberAssistantSession(parentSessionId, assistantSessionId)
@@ -3352,6 +3353,7 @@ window.__ModuleLoader__.load({
       draftRef.current = draft
       const sessionRef = React.useRef(props.sessionId)
       sessionRef.current = props.sessionId
+      const optimizationPending = React.useRef(false)
       const [message, setMessage] = React.useState('')
       const alive = React.useRef(true)
       React.useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
@@ -3371,20 +3373,34 @@ window.__ModuleLoader__.load({
       }
       const optimize = async (): Promise<void> => {
         if (!canAct()) return
-        if (!prefs.inputOptimization) { setMessage(copy.ui.optimizationDisabled); return }
-        if (!draft.trim()) return
+        if (!featurePreferences.inputOptimization) { setMessage(copy.ui.optimizationDisabled); return }
+        if (optimizationPending.current || !draft.trim() || draftRef.current !== draft) return
         const original = draft
+        // Capture this preference's current object only for the in-flight
+        // operation. Disabling and re-enabling never revives an old request.
+        let isEnabled = true
+        const stopPreference = subscribeFeaturePreferences(() => {
+          if (!featurePreferences.inputOptimization) isEnabled = false
+        })
+        const isRequestCurrent = () => isEnabled && featurePreferences.inputOptimization &&
+          canAct() && draftRef.current === original
+        optimizationPending.current = true
         const context = conversationContext(chat, 1800)
         const prompt = `Optimize the user's draft while preserving its exact intent, facts, tone, and constraints. Do not add unsupported facts, requirements, or commitments. Return only the revised text, with no preface or explanation.\n\nMain task context (use only to resolve references; do not add facts):\n${context || '(none)'}\n\n<original-user-input>\n${original}\n</original-user-input>`
         try {
           setMessage(copy.ui.assistantStarting)
           await openAssistantSession(props.sessionId, 'optimization', prompt, {
             purpose: 'optimization', parentSessionId: props.sessionId, originalDraft: original,
-            getCurrentDraft: () => canAct() ? draftRef.current : '',
+            getCurrentDraft: () => canAct() && featurePreferences.inputOptimization ? draftRef.current : undefined,
             inputActions: props.inputActions,
-          }, revision)
-          if (canAct()) setMessage(copy.ui.assistantReady)
-        } catch (error) { setMessage(error instanceof Error ? error.message : copy.ui.assistantUnavailable) }
+          }, revision, isRequestCurrent)
+          if (isRequestCurrent()) setMessage(copy.ui.assistantReady)
+        } catch {
+          if (canAct()) setMessage(featurePreferences.inputOptimization ? copy.ui.assistantUnavailable : copy.ui.optimizationDisabled)
+        } finally {
+          stopPreference()
+          optimizationPending.current = false
+        }
       }
       return el('div', { className: 'dtd-context-controls' },
         el('div', { className: 'dtd-context-actions' },
@@ -3397,13 +3413,15 @@ window.__ModuleLoader__.load({
       const revision = useContentProtectionRevision()
       const scope = assistantServices
       const workflow = assistantWorkflows.get(props.sessionId)
+      const preferences = useFeaturePreferences(React)
       const chat = props.useChat(state => state)
       const [open, setOpen] = React.useState(false)
       const [edited, setEdited] = React.useState('')
       const [message, setMessage] = React.useState('')
-      const canAct = () => !!workflow && assistantWorkflows.get(props.sessionId) === workflow &&
+      const canAct = () => featurePreferences.inputOptimization && !!workflow &&
+        assistantWorkflows.get(props.sessionId) === workflow &&
         isCurrentAssistantAccess(scope, revision, props.sessionId, workflow.parentSessionId)
-      if (!workflow || workflow.purpose !== 'optimization' || !props.messageId || !canAct()) return null
+      if (!preferences.inputOptimization || !workflow || workflow.purpose !== 'optimization' || !props.messageId || !canAct()) return null
       const copy = DICTIONARIES[language()] ?? DICTIONARIES.en
       const node = chat.nodes?.values().find(value => {
         const data = value?.data as Record<string, any> | undefined
@@ -3423,7 +3441,7 @@ window.__ModuleLoader__.load({
             el('button', { type: 'button', onClick: () => {
               if (!canAct()) return
               const current = workflow.getCurrentDraft?.()
-              if (!workflow.inputActions || !workflow.getCurrentDraft ||
+              if (!workflow.inputActions || !workflow.getCurrentDraft || typeof current !== 'string' ||
                   (current !== workflow.originalDraft && current !== workflow.appliedDraft)) {
                 setMessage(copy.ui.draftChanged); return
               }
@@ -3435,7 +3453,7 @@ window.__ModuleLoader__.load({
             el('button', { type: 'button', onClick: () => {
               if (!canAct()) return
               const current = workflow.getCurrentDraft?.()
-              if (!workflow.inputActions || !workflow.getCurrentDraft ||
+              if (!workflow.inputActions || !workflow.getCurrentDraft || typeof current !== 'string' ||
                   (current !== workflow.originalDraft && current !== workflow.appliedDraft)) {
                 setMessage(copy.ui.draftChanged); return
               }

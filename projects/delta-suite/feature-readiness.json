@@ -22,7 +22,7 @@
     "request_redaction": false,
     "mcp_server_management": false
   },
-  "note": "Current scope: the required flags are source-level delivery diagnostics, not real Host acceptance. Native personalization, theme tokens, brand slots and two independent public model-label preferences have reviewed public contracts and regression coverage. Unsupported native layout, workspace and context contracts remain false. Suite uses only declared public Host metadata, version-agnostic capability fallback and optional read-only Locale subscription. Network proxy, Vision Bridge, native DOM takeover, private Workspace wrappers, raw Gateway credential resolution and Suite-owned MCP credential editing are retired. Gateway Effort automatic sync remains disabled; the pure adapter is not runtime delivery. Official session-log exclusion does not prove all Host telemetry is disabled. Historical p0_* and audit_stage_1 entries below describe the evidence available at their recorded stage, not current blockers. See current_evidence for the latest recorded verified source baseline; real Host/Windows/second Host version acceptance remains unverified.",
+  "note": "Current scope: the required flags are source-level delivery diagnostics, not real Host acceptance. Native personalization, theme tokens, brand slots and two independent public model-label preferences have reviewed public contracts and regression coverage. Unsupported native layout, workspace and context contracts remain false. Suite uses only declared public Host metadata, version-agnostic capability detection, reversible scoped sidebar/theme patches and optional read-only Locale subscription. Network proxy, Vision Bridge, native DOM takeover, private Workspace wrappers, raw Gateway credential resolution and Suite-owned MCP credential editing are retired. Gateway Effort automatic sync remains disabled; the pure adapter is not runtime delivery. Official session-log exclusion does not prove all Host telemetry is disabled. Historical p0_* and audit_stage_1 entries below describe the evidence available at their recorded stage, not current blockers. See current_evidence for the latest recorded verified source baseline; real Host/Windows/second Host version acceptance remains unverified.",
   "verification": {
     "native_client": "tests/delta-suite-native.test.mjs",
     "account_route_label": "tests/delta-suite-account-route-label-preference.test.mjs",
@@ -427,12 +427,14 @@
   "p0_sidebar_patch_retry": {
     "as_of": "2026-11-25",
     "baseline": "e4c936748082461e36778475b15ef7ab159f4fa4",
-    "stage": "implementation-pending-ci",
+    "stage": "central-ci-passed-real-host-unverified",
     "scope": "distinguish unavailable/failed sidebar mount from installed; retry only on later controller publication; isolated locale cleanup",
     "verification": "tests/delta-suite-native.test.mjs",
     "real_harness": "not verified",
     "windows_client": "not verified",
-    "second_host_version": "not verified"
+    "second_host_version": "not verified",
+    "verified_head": "50038a0f63f749a830b3828fb9b7847867b0d524",
+    "central_ci": "https://github.com/fongap-labs/action-worker/actions/runs/45572734002"
   },
   "p0_native_rename_order_review": {
     "as_of": "2026-11-25",
@@ -440,5 +442,15 @@
     "stage": "no-safe-shared-menu-reorder-verified",
     "scope": "context menu index.ts, registry.ts, View.tsx, Menu.tsx; public resolve does not drive shared popup; native keyboard traverses DOM order",
     "real_harness": "not verified"
+  },
+  "p1_input_optimization_lifetime": {
+    "as_of": "2026-11-25",
+    "baseline": "9c42d3f4c8bfc2155676b80a20a21e0d224d5c9c",
+    "stage": "implementation-pending-ci",
+    "scope": "reject stale and duplicate optimization gestures, disabled pending prompt and stale preview operations; preserve draft and native task ownership",
+    "verification": "tests/delta-suite-context.test.mjs",
+    "real_harness": "not verified",
+    "windows_client": "not verified",
+    "second_host_version": "not verified"
   }
 }
