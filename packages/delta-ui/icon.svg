@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title desc">
+  <title id="title">Delta UI</title>
+  <desc id="desc">The Delta mark in white on a Delta teal circular background</desc>
+  <defs>
+    <mask id="delta-mark" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64" mask-type="alpha">
+      <image
+        href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAsCAYAAAAehFoBAAAEnklEQVR4AeyYV6geRRiGjx0rYkFU7NhFrCCoINgvrCCKNyKiol5YQCyoKCqCBRRERb2wYEOwIlhRUVCsWNIJhJCENNJ7SHmek383809m/92dPf9FIIf3/b9vvp3yntnZaduPbGV/2wQP+4UNu4d34h/YGW4HxwRjIfgAlFwPn4Nfw/FwPlwDV8NVcC3cG3ZGF8Gn0PqncCZ8B94DL4THw32hvWvPyh1Id2mL4puQW8nVFP8VXg4VgxnFH/w+C2+G5rkYexE03zJsZ+QI3otWX4O7wAKLcM6DZ8J74evwY+gQ+Qb7OXSIYLohR/DpNLkPDKGoH8PAsPwcwQsTYs4htj8cOnIE/4uqP2GIA0n8Ah2zmOEhR/B65FwLp8IQR5H4Ev4Ob4ND6fEcwWgZUeypOI/BFTDEGSRegjOgY/sGrIsHpjtyBdvyUn4ehSdB52NMHxR5AZE34CRor4czC6H26CK4aM15eAKJuKcJlTgcz14fh70CZqOL4GNp9T2o2Puxu8E6OM4/IdNH0CUd0w45gn3Vj9OMs8V12B1hCP+BBwmcBs23GBvjKgJ/wXNhK7QVfDC1/wwfggrHlHCpvoTUifAp+Dd8BB4JX4HOLpgSB+F9C13CMc3QRvChVPkTdPnFlFiO5wd1NvYruAGGWEDC55di58AQ/tMOKzdNYbzSbyp4d2r4Ah4BQ8wiodBUD/KoD+4rziIyBYZQ9PsE7BDMYDQV/CTVOH1hSizBc2X7B9sU08joVDcbG8K9yYthoMpvIvgYCt8BY9xF4H/YFtMpcCOMh85lxFx0MNVoItjxF88E/1HlWzAXLuFuOePyN8WBOF0puJfR08KVPT80r5JYB7vAhSQu70Z/oKaBD6ntMOgqhenDd32pvMQPFItXR6c62+RRGnWCXc3ikp4c3PzE8bZpD6gTE4WOTsTKUJ1gv94yc8+xVxTdS3Yy8xKl90vEylCdYE++Zeae47juuZ1Nqv2B9acKhCq8TwjT+i4iu+qMAVO96YG2suo6wa5kcWGnuNTYjvPVpV3hnOPjfM7TcaxM1wl2R5aavlytykoyHXdqvi2LF4uI38dkA1WsE+wJ+bdE4VuIpcY34cbwsqXIXIxbd4LOHkV8C1sn2AIecbQhnXq8mgpjbXyvBa5JFHg7EesLNRH8JiXctGD68ASp1CpIeCDclb1Ljrhtd3EfEB+IuFAqs6/IIRCPZT++Dyng1ZQ+bi3OJ4f3F4dgQ1j3rQRSsxLhzWgi2Nwe1x/AKT4O3FEo9Gk8t5h3Yp094jq9n/Dg6cnaelx+yVrCOu8j9T2sRVz5oALP8PBuaG9g+nACqeehS61nOJduv/a5xNz7evB0Y1N8XIRH4bHJN+Td8mig7qeNYOt6gR9fq2Jwk9iDqOc4P0x7t6oNvwvPgI3FUu9IVWU+q6K3lCfz8HZoj2JawUsVN/++FYdIq8I5gm3AD/FlHBv1OO8p2jFqz3sodVz6ur3EVuBn5H0YeqLwht43tZJ0a+QKLhpSmMd5z3xOcX50DgkXFbknGY+DfnROg956WoZQHroKrmrVD9MernqeHR+W4GxBdQW3OsEbAQAA//+CDizjAAAABklEQVQDAF5Gs1k0+PamAAAAAElFTkSuQmCC"
+        x="10" y="10" width="44" height="44" preserveAspectRatio="none"/>
+    </mask>
+  </defs>
+  <circle cx="32" cy="32" r="30" fill="#286F78"/>
+  <rect width="64" height="64" fill="#FFFFFF" mask="url(#delta-mark)"/>
+</svg>

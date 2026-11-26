@@ -4,12 +4,12 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const clientConfig = JSON.parse(read('packages/delta-suite/tsconfig.client.json'))
+const clientConfig = JSON.parse(read('packages/delta-ui/tsconfig.client.json'))
 const source = clientConfig.include.filter(path => path.endsWith('.ts') && !path.endsWith('.d.ts'))
-  .map(path => read('packages/delta-suite/' + path)).join('\n')
-const style = read('packages/delta-suite/src/theme.css')
-const extras = read('packages/delta-suite/src/feature-extras.css')
-const readiness = JSON.parse(read('projects/delta-suite/feature-readiness.json'))
+  .map(path => read('packages/delta-ui/' + path)).join('\n')
+const style = read('packages/delta-ui/src/theme.css')
+const extras = read('packages/delta-ui/src/feature-extras.css')
+const readiness = JSON.parse(read('projects/delta-ui/feature-readiness.json'))
 
 test('retired native Sidebar DOM interception is absent, not merely unmounted', () => {
   for (const marker of ['installSidebarCompatibility', 'createFrameScheduler',
@@ -19,11 +19,11 @@ test('retired native Sidebar DOM interception is absent, not merely unmounted', 
     assert.equal(source.includes(marker), false, 'Host-only code remains: ' + marker)
   }
   assert.match(source, /function installHostSearch\(/)
-  assert.match(source, /activeTheme\.overrideTokens\(DELTA_SUITE_OWNER, TOKENS\)/)
+  assert.match(source, /activeTheme\.overrideTokens\(DELTA_UI_OWNER, TOKENS\)/)
   assert.match(source, /scope\.slots\.inject\('sidebar\.session\.row\.hover'/)
 })
 
-test('Suite UI styling never overrides unowned Host popup, list or sidebar layout selectors', () => {
+test('Delta UI styling never overrides unowned Host popup, list or sidebar layout selectors', () => {
   for (const selector of ['[role="tooltip"]', '[role="menu"]', '[role="menuitem"]',
     '[role="listbox"]', '[data-context-menu]', '[data-radix-menu-content]',
     '[class*="wtg9ga_moreMenu"]', '[class*="mP3x-q_frame"]',
@@ -114,7 +114,7 @@ test('Session hover decoration checks public content protection before rendering
   assert.equal(readiness.required.session_hover_card_layout, false)
 })
 
-test('native context menus remain Host-owned; Suite contributes only registered actions', () => {
+test('native context menus remain Host-owned; Delta UI contributes only registered actions', () => {
   assert.match(source, /contextMenus\.register/)
   assert.doesNotMatch(source, /\b(?:document|window)\.(?:addEventListener|removeEventListener)\s*\(\s*['"]contextmenu['"]/)
   assert.doesNotMatch(source, /onMenuClickCapture|syncMenus|dtd-context-menu/)
@@ -132,8 +132,8 @@ test('native Settings and turn error elements are not suppressed by private sele
 })
 
 test('localized Workspace controls remain independent of native UI permissions', () => {
-  const zh = JSON.parse(read('packages/delta-suite/locale/zh.json'))
-  const en = JSON.parse(read('packages/delta-suite/locale/en.json'))
+  const zh = JSON.parse(read('packages/delta-ui/locale/zh.json'))
+  const en = JSON.parse(read('packages/delta-ui/locale/en.json'))
   assert.equal(en.workspaceMenu.lockWorkspace, 'Lock workspace')
   assert.equal(zh.workspaceMenu.lockWorkspace, '\u9501\u5b9a\u5de5\u4f5c\u533a')
   assert.equal('visionBridge' in en, false)

@@ -1,27 +1,24 @@
-# Delta Suite native experience plugin; official UI modules remain enabled.
+# Delta Suite is inert until a user supplies an explicitly authorized provider endpoint.
 - insert:
     - id: delta-suite
       name: '@fongap-labs/delta-suite'
-      config: {}
-    # Install the official backend on the Profile layer so all agent presets
-    # receive the same pre-step pressure and context-overflow checks.
-    - id: delta-global-compaction
-      name: '@deepseek-ai/dsh-compaction-basic'
       config:
-        auto: true
-    - id: delta-context-preset
-      name: '@deepseek-ai/dsh-agent-preset'
-      config:
-        id: delta-context
-        name: Delta Context Assistant
-        description: Independent, tool-free discussion and input optimization.
-        order: 90
-        plugins:
-          - id: persona
-            name: '@deepseek-ai/dsh-persona'
-            config:
-              prefix: >-
-                You are Delta Context Assistant. Help the user discuss, clarify, and improve their request. You have no tools. Preserve supplied facts, constraints, intent, and tone. Never claim to have changed or controlled the user's main task. When asked to optimize text, return only the improved text without adding information.
-              complete: true
-              includeRuntimeContext: false
-
+        enabled: true
+        modules:
+          duckai: true
+          chatgpt: true
+          customApi: true
+          vision: true
+          modelDiscovery: true
+          capabilityProbe: false
+          apiService: true
+        discovery:
+          refreshOnStart: true
+          refreshIntervalMs: 900000
+        api:
+          enabled: true
+          pathPrefix: '/delta-suite/v1'
+          exposeExternally: false
+        providers: []
+        vision:
+          allowFallback: false

@@ -7,9 +7,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $scriptPath = Join-Path $TargetRoot 'scripts/central-ci-windows.mjs'
 if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
-    throw 'Missing Delta Suite Windows CI entrypoint.'
+    throw 'Missing Delta UI Windows CI entrypoint.'
 }
 & node $scriptPath $TargetRoot
 if ($LASTEXITCODE -ne 0) {
-    throw "Delta Suite Windows CI failed with exit code $LASTEXITCODE."
+    throw "Delta UI Windows CI failed with exit code $LASTEXITCODE."
 }

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+- 新增: 将原 `delta-suite` UI 插件更名为 `delta-ui`，将原 `delta-bridge` 模型桥接插件更名为 `delta-suite`；同步更新包名、Cordis ID、发布资产和配置入口，不自动迁移旧包与历史 Release。
+
+- 新增: Delta Suite 提供三步式原生设置页，默认只展示服务商、地址和 API Key，高级设置按需展开；API Key 通过 Host 凭据服务保存，并支持保存后的本地连接测试。
+
+- 新增: Delta Suite 增加 Provider 无关的 Capability Registry、优先级请求 Pipeline、可独立关闭的模型行为增强、统一权限策略和运行状态查询；仅明确声明 `input.image === true` 时保留原生多模态路径。
+
 - 修复: Delta Suite 输入优化拒绝过期草稿和重复触发，关闭优化开关后不发送尚未提交的助手请求或应用旧预览；补充模拟客户端回归并统一公开接口优先、局部可撤销 Patch 的说明。
 
 - 修复: Delta Suite 侧栏兼容补丁不再将缺失浏览器能力或挂载失败误记为已安装，后续状态更新时可重试，成功后不重复注入；补充延迟能力和瞬时挂载失败回归，并隔离语言资源清理异常。

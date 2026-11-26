@@ -8,9 +8,9 @@ import vm from 'node:vm'
 
 // Central CI invokes node --test directly, so build the actual client artifact here.
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
-const uiZh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.json'), 'utf8')).ui
+const uiZh = JSON.parse(readFileSync(fixture('packages/delta-ui/locale/zh.json'), 'utf8')).ui
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
+  fixture('packages/delta-ui/tsconfig.json')], { stdio: 'pipe' })
 const source = buildDesktopClientFixture()
 function harness({ stored = null, failTheme = false, failLayout = false, modelDirectories, fetchImpl, localeService, unavailableService, unavailableSlot, initialAppearance, failThemeRelease = false, supportsSidebarPatch = false, fallbackTheme, nativeMenus = false, rejectWorkspaceMenu = false, rejectSessionMenu = false, rejectStyleMarker, failStyleRemoveOnce, accountServices, failStyleMountOnce } = {}) {
   let registration
@@ -184,9 +184,9 @@ function harness({ stored = null, failTheme = false, failLayout = false, modelDi
 test('lazy ModuleLoader registration and browser-safe artifact', () => {
   let loaded
   vm.runInNewContext(source, { window: { __ModuleLoader__: { load(x) { loaded = x } } } })
-  assert.equal(loaded.id, '@fongap-labs/delta-suite')
+  assert.equal(loaded.id, '@fongap-labs/delta-ui')
   assert.equal(typeof loaded.factory, 'function')
-  assert.doesNotMatch(source, /__DELTA_SUITE_|process\.env|from\s+['"]/)
+  assert.doesNotMatch(source, /__DELTA_UI_|process\.env|from\s+['"]/)
 })
 test('web boot stays active while waiting for UI services or when React is unavailable', () => {
   let entry
@@ -224,7 +224,7 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(app.components.has('settings.models.footer'), false,
     'unverified Gateway discovery must not register a Models footer')
   assert.equal(typeof app.components.get('settings.section.icon').component, 'function')
-  assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta Suite'))
+  assert.ok(JSON.stringify(app.components.get('sidebar.brand.name').component({})).includes('Delta UI'))
   assert.match(JSON.stringify(app.components.get('sidebar.brand.mark').component({})), /Δ/)
   const hover = app.components.get('sidebar.session.row.hover')
   assert.equal(hover.spec.id, 'delta.session.identity')
@@ -238,14 +238,14 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   assert.equal(palette['--dsw-alias-brand-primary'].dark, '#60B4BF')
   const entry = app.components.get('settings.section')
   assert.equal(entry.spec.id, 'delta.personalization')
-  assert.equal(entry.spec.label(), 'Delta Suite')
+  assert.equal(entry.spec.label(), 'Delta UI')
   const tab = app.components.get('settings.plugins.tab')
-  assert.equal(tab.spec.id, 'delta.suite.configuration')
-  assert.equal(tab.spec.label(), 'Delta Suite')
+  assert.equal(tab.spec.id, 'delta.ui.configuration')
+  assert.equal(tab.spec.label(), 'Delta UI')
   assert.equal(tab.component, entry.component, 'both Host entries use the same Settings page')
   const bundle = app.components.get('plugins.bundle.config')
   assert.equal(bundle.spec.name, 'plugins.bundle.config')
-  assert.equal(bundle.spec.key, '@fongap-labs/delta-suite',
+  assert.equal(bundle.spec.key, '@fongap-labs/delta-ui',
     'installed-bundle configuration is keyed by package name, not the Cordis row id')
   assert.equal(bundle.component({ view: 'summary' }), null, 'bundle configuration does not double-render a summary')
   const controller = entry.spec.inject().controller
@@ -285,8 +285,8 @@ test('appearance and Settings mount when undeclared locale access is rejected', 
   app.context.localeListeners.forEach(notify => notify())
   assert.match(JSON.stringify(entry.component({ controller })), /data-delta-personalization/,
     'language changes must preserve the ZIP settings surface')
-  assert.equal(entry.spec.label(), 'Delta Suite')
-  assert.equal(tab.spec.label(), 'Delta Suite')
+  assert.equal(entry.spec.label(), 'Delta UI')
+  assert.equal(tab.spec.label(), 'Delta UI')
   app.cleanup(); app.cleanup()
   assert.equal(app.layers.size, 0)
   assert.equal(app.documentElement.getAttribute('data-delta-ui'), undefined)
@@ -306,7 +306,7 @@ test('Gateway Effort footer stays absent without a verified Host request proxy',
     app.features.setActiveSessionId('session-one')
     assert.equal(app.components.has('settings.models.footer'), false)
     assert.doesNotMatch(source, /scope\.slots\.inject\('settings\.models\.footer'/)
-    const gateway = readFileSync(fixture('packages/delta-suite/src/host-gateway-effort.ts'), 'utf8')
+    const gateway = readFileSync(fixture('packages/delta-ui/src/host-gateway-effort.ts'), 'utf8')
     assert.match(gateway, /export function installHostGatewayEffortSync\(/)
     assert.match(gateway, /return \(\) => \{\}/)
   } finally { app.cleanup() }
@@ -331,7 +331,7 @@ test('Gateway discovery does not initiate unauthorized network requests', async 
     await Promise.resolve()
     assert.equal(directoryReads, 0)
     assert.deepEqual(requests.filter(path =>
-      String(path).includes('/api/delta-suite/gateway-effort/')), [])
+      String(path).includes('/api/delta-ui/gateway-effort/')), [])
   } finally { app.cleanup() }
 })
 
@@ -350,7 +350,7 @@ test('Settings identifies unsupported Host contracts without claiming native tak
   const app = harness()
   const entry = app.components.get('settings.section')
   const controller = entry.spec.inject().controller
-  const required = JSON.parse(readFileSync(fixture('projects/delta-suite/feature-readiness.json'), 'utf8')).required
+  const required = JSON.parse(readFileSync(fixture('projects/delta-ui/feature-readiness.json'), 'utf8')).required
   const contracts = [
     'sidebar_search_placement',
     'sidebar_navigation_order',
@@ -361,8 +361,8 @@ test('Settings identifies unsupported Host contracts without claiming native tak
   for (const capability of contracts) {
     assert.equal(required[capability], false, 'unsupported Host contract must remain not-ready: ' + capability)
   }
-  const zh = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/zh.json'), 'utf8')).ui
-  const en = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/en.json'), 'utf8')).ui
+  const zh = JSON.parse(readFileSync(fixture('packages/delta-ui/locale/zh.json'), 'utf8')).ui
+  const en = JSON.parse(readFileSync(fixture('packages/delta-ui/locale/en.json'), 'utf8')).ui
   const serialized = () => JSON.stringify(entry.component({ controller }))
   let markup = serialized()
   assert.match(markup, /data-delta-integration-status/)
@@ -471,7 +471,7 @@ test('published Session hover Slot shows only an authorized, path-free identity 
   assert.equal(hover.component({ sessionId: 'session-one' })?.type, 'div')
   app.cleanup()
   assert.equal(app.components.has('sidebar.session.row.hover'), false,
-    'disposing the Suite unregisters the public hover contribution')
+    'disposing the Delta UI unregisters the public hover contribution')
 })
 
 
@@ -681,10 +681,10 @@ test('Client never archives or unarchives Host sessions after state refresh, loc
   })
   app.context.window.location = { href: 'https://harness.test/' }
   app.context.fetch = async (path, options = {}) => {
-    if (path === '/api/delta-suite/state') {
+    if (path === '/api/delta-ui/state') {
       return { ok: true, status: 200, json: async () => ({ state: state() }) }
     }
-    if (path === '/api/delta-suite/session-lock') {
+    if (path === '/api/delta-ui/session-lock') {
       const body = JSON.parse(options.body)
       if (body.action === 'unlock') isLocked = false
       if (body.action === 'lock' || body.action === 'setup-confirm') isLocked = true
@@ -747,7 +747,7 @@ test('public native Session trailing Slot renders only Host-confirmed protected 
   let deleted = []
   app.context.fetch = async path => ({
     ok: true, status: 200,
-    json: async () => path === '/api/delta-suite/state'
+    json: async () => path === '/api/delta-ui/state'
       ? { state: {
         hasPin: true, lockMode: 'pin',
         lockedSessionIds: locks, lockedWorkspaceIds: workspaces,
@@ -1144,8 +1144,8 @@ test('appearance controller preserves healthy same-service palettes and releases
 test('missing theme keeps the independent Settings entry usable', () => {
   const app = harness({ failTheme: true })
   const entry = app.components.get('settings.section')
-  assert.equal(entry.spec.label(), 'Delta Suite')
-  assert.equal(app.components.get('settings.plugins.tab').spec.label(), 'Delta Suite')
+  assert.equal(entry.spec.label(), 'Delta UI')
+  assert.equal(app.components.get('settings.plugins.tab').spec.label(), 'Delta UI')
   const controller = entry.spec.inject().controller
   assert.equal(controller.getSnapshot().error, true)
   assert.equal(app.layers.size, 0, 'missing theme must not install a broken palette')
@@ -1172,28 +1172,28 @@ test('invalid persisted values and missing theme services are recoverable', () =
   failed.cleanup()
 })
 test('package identity, localization and assets are independent', () => {
-  const base = '../packages/delta-suite/'
+  const base = '../packages/delta-ui/'
   const json = path => JSON.parse(readFileSync(new URL(base + path, import.meta.url), 'utf8'))
   const pkg = json('package.json')
-  assert.equal(pkg.name, '@fongap-labs/delta-suite')
+  assert.equal(pkg.name, '@fongap-labs/delta-ui')
   assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
   assert.equal(pkg.dsh.client.platform, 'web')
   assert.deepEqual(pkg.dsh.client.inject, [], 'optional UI dependencies must never block web boot')
   assert.equal(pkg.description, json('locale/en.json').meta.description)
-  assert.equal(json('locale/en.json').meta.title, 'Delta Suite')
-  assert.equal(json('locale/zh.json').meta.title, 'Delta Suite')
+  assert.equal(json('locale/en.json').meta.title, 'Delta UI')
+  assert.equal(json('locale/zh.json').meta.title, 'Delta UI')
   assert.equal(pkg.dependencies?.['@deepseek-ai/cordis'], undefined)
-  const rel = json('../../projects/delta-suite/release.manifest.json')
-  assert.equal(rel.release_key, 'delta-suite')
-  assert.equal(rel.release_name, 'Delta Suite')
+  const rel = json('../../projects/delta-ui/release.manifest.json')
+  assert.equal(rel.release_key, 'delta-ui')
+  assert.equal(rel.release_name, 'Delta UI')
 })
 
 test('obsolete standalone routes and UI packages are excluded from Desktop', () => {
   assert.equal(existsSync(fixture('packages/dsh-ui-delta')), false)
   assert.equal(existsSync(fixture('packages/dsh-theme-delta')), false)
-  assert.equal(existsSync(fixture('packages/delta-suite/src/host/routes.ts')), false)
+  assert.equal(existsSync(fixture('packages/delta-ui/src/host/routes.ts')), false)
   assert.equal(existsSync(fixture('scripts/verify-delta-poc-host.mjs')), false)
-  assert.equal(existsSync(fixture('scripts/verify-delta-suite-ui.mjs')), false)
+  assert.equal(existsSync(fixture('scripts/verify-delta-ui-ui.mjs')), false)
   assert.match(source, /const settingsModules/)
   assert.match(source, /scope\.slots\.inject\('settings\.plugins\.tab'/)
 })
@@ -1227,14 +1227,14 @@ test('ZIP personalization keeps its layout and includes only a collapsed feature
   assert.ok(advanced.children.some(child => child?.type?.name === 'FeaturePreferencesSection'),
     'the feature settings component is nested rather than replacing the ZIP UI')
   const backup = advanced.children.find(child => child?.type?.name === 'PreferenceBackupSection')
-  assert.ok(backup, 'portable preference backup stays within collapsed Suite settings')
+  assert.ok(backup, 'portable preference backup stays within collapsed Delta UI settings')
   const backupPage = backup.type(backup.props)
   const text = backupPage.children.find(child => child?.type === 'textarea')
   assert.equal(text.props.maxLength, 4096)
   assert.equal(text.props.value, '')
   assert.equal(typeof text.props.onChange, 'function')
   assert.equal(app.deletedWorkspaces.length, 0, 'rendering settings must not mutate Host workspaces')
-  const css = readFileSync(fixture('packages/delta-suite/src/theme.css'), 'utf8')
+  const css = readFileSync(fixture('packages/delta-ui/src/theme.css'), 'utf8')
   assert.ok(css.includes('dtd-'), 'ZIP design system is preserved')
   controller.setMode('official')
   assert.equal(app.layers.size, 0)
@@ -1307,7 +1307,7 @@ test('compiled account controls reject stale gestures and wallet results across 
   assert.equal(events.size, 0)
 })
 
-test('Host Locale snapshot updates Suite language and unsubscribes on unload', () => {
+test('Host Locale snapshot updates Delta UI language and unsubscribes on unload', () => {
   let active = 'ja'
   let notify
   let disposed = 0

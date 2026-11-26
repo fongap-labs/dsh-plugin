@@ -4,8 +4,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const file = (relative) => readFileSync(fileURLToPath(new URL(relative, import.meta.url)), 'utf8')
-const taxonomy = JSON.parse(file('../projects/delta-suite/architecture-mece.json'))
-const client = file('../packages/delta-suite/src/client.ts')
+const taxonomy = JSON.parse(file('../projects/delta-ui/architecture-mece.json'))
+const client = file('../packages/delta-ui/src/client.ts')
 
 test('MECE feature taxonomy contains exactly one owner for each declared capability', () => {
   assert.equal(taxonomy.schema_version, 1)
@@ -51,10 +51,10 @@ test('Host remains responsible for privileged effects and extensions remain cons
 })
 
 test('Host extension bootstrap uses the registered MECE domains rather than a hidden parallel installer', () => {
-  const host = file('../packages/delta-suite/src/index.ts')
-  const composition = file('../packages/delta-suite/src/delta-suite-composition.ts')
-  const registry = file('../packages/delta-suite/src/delta-suite-kernel/feature-lifecycle-registry.ts')
-  assert.match(host, /export \{ apply \} from '\.\/delta-suite-composition\.js'/)
+  const host = file('../packages/delta-ui/src/index.ts')
+  const composition = file('../packages/delta-ui/src/delta-ui-composition.ts')
+  const registry = file('../packages/delta-ui/src/delta-ui-kernel/feature-lifecycle-registry.ts')
+  assert.match(host, /export \{ apply \} from '\.\/delta-ui-composition\.js'/)
   assert.match(composition, /new DeltaFeatureRegistry<PrivacyHostContext>/)
   assert.match(composition, /registry\.mount\(ctx, readHostContextActivationCapabilities\(ctx\)\)/)
   assert.match(registry, /DELTA_EXTENSION_SURFACES/)
@@ -74,7 +74,7 @@ test('Host extension bootstrap uses the registered MECE domains rather than a hi
 
 
 test('Host feature access declarations cover every mounted descriptor and its activation requirements', () => {
-  const composition = file('../packages/delta-suite/src/delta-suite-composition.ts')
+  const composition = file('../packages/delta-ui/src/delta-ui-composition.ts')
   const entries = [...composition.matchAll(/registry\.register\(\{\s*id: '([^']+)',\s*owner: '([^']+)',\s*requires: \[([^\]]*)\]/g)]
   assert.deepEqual(entries.map(entry => entry[1]).sort(), Object.keys(taxonomy.host_feature_registration).sort())
   assert.deepEqual(Object.keys(taxonomy.host_feature_access).sort(), Object.keys(taxonomy.host_feature_registration).sort())

@@ -37,7 +37,7 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/delta-suite:
+  packages/delta-ui:
     dependencies:
       '@deepseek-ai/schemastery':
         specifier: 3.18.5
@@ -45,6 +45,12 @@ importers:
       zod:
         specifier: 4.4.3
         version: 4.4.3
+
+  packages/delta-suite:
+    dependencies:
+      '@deepseek-ai/schemastery':
+        specifier: 3.18.5
+        version: 3.18.5
 
 
   packages/shared: {}

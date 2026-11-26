@@ -15,21 +15,21 @@ const compileDir = mkdtempSync(join(tmpdir(), 'delta-search-'))
 let compiled
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-    file('packages/delta-suite/tsconfig.client.json'), '--outDir', compileDir], { stdio: 'pipe' })
+    file('packages/delta-ui/tsconfig.client.json'), '--outDir', compileDir], { stdio: 'pipe' })
   // Use the production client manifest instead of a second, drifting helper list.
-  const clientConfig = JSON.parse(readFileSync(file('packages/delta-suite/tsconfig.client.json'), 'utf8'))
+  const clientConfig = JSON.parse(readFileSync(file('packages/delta-ui/tsconfig.client.json'), 'utf8'))
   compiled = clientConfig.include
     .filter(path => path.endsWith('.ts') && !path.endsWith('.d.ts'))
     .map(path => readFileSync(join(compileDir, path.replace(/^src\//, '').replace(/\.ts$/, '.js')), 'utf8'))
     .join('\n')
 } finally { rmSync(compileDir, { recursive: true, force: true }) }
 const locales = Object.fromEntries(['en', 'zh'].map(lang =>
-  [lang, JSON.parse(readFileSync(file('packages/delta-suite/locale/' + lang + '.json'), 'utf8'))]))
-assert.equal(compiled.split("'__DELTA_SUITE_LOCALES__'").length, 2)
-assert.equal(compiled.split("'__DELTA_SUITE_STYLE__'").length, 2)
-const source = compiled.replace("'__DELTA_SUITE_LOCALES__'", JSON.stringify(locales))
-  .replace("'__DELTA_SUITE_STYLE__'", JSON.stringify(
-    readFileSync(file('packages/delta-suite/src/theme.css'), 'utf8')))
+  [lang, JSON.parse(readFileSync(file('packages/delta-ui/locale/' + lang + '.json'), 'utf8'))]))
+assert.equal(compiled.split("'__DELTA_UI_LOCALES__'").length, 2)
+assert.equal(compiled.split("'__DELTA_UI_STYLE__'").length, 2)
+const source = compiled.replace("'__DELTA_UI_LOCALES__'", JSON.stringify(locales))
+  .replace("'__DELTA_UI_STYLE__'", JSON.stringify(
+    readFileSync(file('packages/delta-ui/src/theme.css'), 'utf8')))
 
 class Element {
   constructor(tag) {
@@ -260,7 +260,7 @@ test('service-backed Search Palette uses public composer Slot without native sid
   env.window.location = { href: 'https://harness.test/' }
   env.fetch = async path => ({
     ok: !path.includes('/session-search'), status: path.includes('/session-search') ? 503 : 200,
-    json: async () => path === '/api/delta-suite/state' ? { state: protectionState } : {},
+    json: async () => path === '/api/delta-ui/state' ? { state: protectionState } : {},
   })
   await env.testFeatures.refreshState()
   assert.equal(hostSessions.list.getSnapshot, originalSessionSnapshot, 'Host snapshot method is not wrapped')

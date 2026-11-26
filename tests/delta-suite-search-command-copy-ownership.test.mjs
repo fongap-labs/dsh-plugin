@@ -2,12 +2,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
+import { verifyApprovedZip3Client } from '../scripts/verify-delta-ui-release.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const source = read('packages/delta-suite/src/client.ts')
+const source = read('packages/delta-ui/src/client.ts')
 const normalized = source.replace(/\r\n/g, '\n')
-const theme = read('packages/delta-suite/src/theme.css')
+const theme = read('packages/delta-ui/src/theme.css')
 const searchStart = normalized.indexOf('function installHostSearch(')
 const searchEnd = normalized.indexOf('\nwindow.__ModuleLoader__.load(', searchStart)
 const search = searchStart >= 0 && searchEnd > searchStart
@@ -45,7 +45,7 @@ test('copy action returns to conversation only after clipboard success', () => {
 
 test('Chinese and English labels disclose copy-and-paste semantics', () => {
   for (const lang of ['en', 'zh']) {
-    const dictionary = JSON.parse(read('packages/delta-suite/locale/' + lang + '.json'))
+    const dictionary = JSON.parse(read('packages/delta-ui/locale/' + lang + '.json'))
     const palette = dictionary.searchPalette
     for (const key of ['commandCopyLabel', 'commandCopyHint', 'commandCopied', 'commandCopyFailed',
       'commandPickerLabel', 'commandInsertLabel', 'commandInsertHint', 'commandInserted', 'commandInsertFailed']) {

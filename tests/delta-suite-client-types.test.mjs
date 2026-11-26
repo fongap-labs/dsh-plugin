@@ -4,10 +4,10 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const read = (path) => readFileSync(fileURLToPath(new URL(path, import.meta.url)), 'utf8')
-const client = read('../packages/delta-suite/src/client.ts')
-const ambient = read('../packages/delta-suite/src/client-types.d.ts')
-const clientConfig = JSON.parse(read('../packages/delta-suite/tsconfig.client.json'))
-const hostConfig = JSON.parse(read('../packages/delta-suite/tsconfig.json'))
+const client = read('../packages/delta-ui/src/client.ts')
+const ambient = read('../packages/delta-ui/src/client-types.d.ts')
+const clientConfig = JSON.parse(read('../packages/delta-ui/tsconfig.client.json'))
+const hostConfig = JSON.parse(read('../packages/delta-ui/tsconfig.json'))
 
 test('client service contracts are types-only and excluded from the Host build', () => {
   for (const name of ['DeltaCopy', 'ReactApi', 'ClientContext', 'SlotsApi']) {

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const source = readFileSync(fileURLToPath(
-  new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-ui/src/client.ts', import.meta.url)), 'utf8')
 const extract = (begin, end) => {
   const start = source.indexOf(begin)
   const stop = source.indexOf(end, start + begin.length)

@@ -6,11 +6,11 @@ import { stripTypeScriptTypes } from 'node:module'
 import { runInNewContext } from 'node:vm'
 
 const source = readFileSync(fileURLToPath(
-  new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-ui/src/client.ts', import.meta.url)), 'utf8')
 const readiness = JSON.parse(readFileSync(fileURLToPath(
-  new URL('../projects/delta-suite/feature-readiness.json', import.meta.url)), 'utf8'))
+  new URL('../projects/delta-ui/feature-readiness.json', import.meta.url)), 'utf8'))
 const preferences = readFileSync(fileURLToPath(
-  new URL('../packages/delta-suite/src/client-feature-preferences.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-ui/src/client-feature-preferences.ts', import.meta.url)), 'utf8')
 const labelStart = source.indexOf('    function ModelLabelExtension(')
 const labelEnd = source.indexOf('    function AssistantInputControls(', labelStart)
 assert.ok(preferences.includes('function updateFeaturePreference(') &&
@@ -20,12 +20,12 @@ function fixture(initial = null, { blocked = false } = {}) {
   let stored = initial
   let writes = 0
   const localStorage = {
-    getItem(key) {
-      assert.equal(key, 'fongap.delta-suite.features.v1')
+    getItem(storageName) {
+      assert.equal(storageName, 'fongap.delta-ui.features.v1')
       return stored
     },
-    setItem(key, value) {
-      assert.equal(key, 'fongap.delta-suite.features.v1')
+    setItem(storageName, value) {
+      assert.equal(storageName, 'fongap.delta-ui.features.v1')
       writes++
       if (blocked) throw Error('storage unavailable')
       stored = value

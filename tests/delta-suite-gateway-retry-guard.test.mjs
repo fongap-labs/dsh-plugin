@@ -5,8 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
-const built = relative => pathToFileURL(fixture(`packages/delta-suite/lib/${relative}`)).href
+  fixture('packages/delta-ui/tsconfig.json')], { stdio: 'pipe' })
+const built = relative => pathToFileURL(fixture(`packages/delta-ui/lib/${relative}`)).href
 const { installGatewayRetryGuard, isDeferredGatewayExhaustion } = await import(built('host-gateway-retry-guard.js'))
 
 const gatewayFailure = (wait, code = 'gateway_attempt_budget_exhausted', status = 503) => ({

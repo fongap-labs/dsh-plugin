@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { findRetiredIdentifiers } from '../scripts/verify-delta-suite-naming.mjs'
+import { findRetiredIdentifiers } from '../scripts/verify-delta-ui-naming.mjs'
 
 test('All Delta plugins use only canonical package, Cordis and release identities', () => {
   assert.deepEqual(findRetiredIdentifiers(), [])

@@ -67,14 +67,14 @@ CI 检查包许可证与发布清单一致，并确保 Bundle 包含对应许可
 3. 修复源码并走正常 PR、中央 CI 和新版本发布。
 4. 不覆盖或重写已发布的 tag、Release 资产和来源证明。
 
-当前 Delta Suite 使用 MIT 许可证，发布清单位于 `projects/delta-suite/release.manifest.json`。所有历史发行的既有许可与 Tag 保持原状，不再提供旧独立网页 `/dsh-ui-delta/app`；新版本须由人工选择未使用过的发行版本。
+当前 Delta UI 使用 MIT 许可证，发布清单位于 `projects/delta-ui/release.manifest.json`。所有历史发行的既有许可与 Tag 保持原状，不再提供旧独立网页 `/dsh-ui-delta/app`；新版本须由人工选择未使用过的发行版本。
 
 ## 7. 仓库更名后的验收
 
 GitHub 仓库名称固定为 `fongap-labs/plugins`，Delta 和 DeepSeek Harness 共用同一组 Cordis 插件。旧仓库路径只保留在历史 Tag、提交或历史审计记录中；新请求不得继续使用旧名称。
 
 - **中央治理**：Action Worker 的仓库准入名单、PR Governance、CI Evidence、validate-merge 和中央可信 `tests/packs/plugins/` 测试包必须针对本仓库当前完整 SHA 成功；单独的通知工作流成功不能代替中央 CI。
-- **产品发现**：两个独立清单分别位于 `projects/delta-suite/`、`projects/delta-code/`；二者均以 `root: packages` 为构建根，使用各自的 `build-release.mjs`。不将整个插件集合误当成单产品发布。
+- **产品发现**：两个独立清单分别位于 `projects/delta-ui/`、`projects/delta-code/`；二者均以 `root: packages` 为构建根，使用各自的 `build-release.mjs`。不将整个插件集合误当成单产品发布。
 - **版本规则**：每次通过 Action Worker 的 `workflow_dispatch` 显式输入 `source_repository=fongap-labs/plugins`、`product=delta-*` 和 `requested_version`，不接受自动推算或仓库派发绕过手动限制。
 - **发布门禁**：稳定版在正式 Tag 生效前必须完成 npm 发布及验证；`-beta.N` 只作为 GitHub 预发布，不进入 npm 正式发布分支；版本和证据验证失败时一律保持失败状态。
 - **验收边界**：只能通过中央 CI、只读清单核对和不执行生产发布的预检确认迁移成功，不得通过创建测试版 Release、冒险发布 npm 包或覆盖既有 Tag 来探测链路。

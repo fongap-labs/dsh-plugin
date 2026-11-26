@@ -20,11 +20,11 @@ export function buildDesktopClientFixture() {
   try {
     execFileSync(process.execPath, [
       fixture('node_modules/typescript/bin/tsc'),
-      '-p', fixture('packages/delta-suite/tsconfig.client.json'),
+      '-p', fixture('packages/delta-ui/tsconfig.client.json'),
       '--outDir', temp,
     ], { stdio: 'pipe' })
     let source = readFileSync(join(temp, 'client.js'), 'utf8')
-    const config = JSON.parse(readFileSync(fixture('packages/delta-suite/tsconfig.client.json'), 'utf8'))
+    const config = JSON.parse(readFileSync(fixture('packages/delta-ui/tsconfig.client.json'), 'utf8'))
     const helperSources = config.include.filter(file => /^src\/client-.+\.ts$/.test(file) && !file.endsWith('.d.ts'))
       .map(file => readFileSync(join(temp, file.slice(4).replace(/\.ts$/, '.js')), 'utf8'))
     for (const helper of helperSources) {
@@ -33,19 +33,19 @@ export function buildDesktopClientFixture() {
     const paletteSource = helperSources[0]
     if (!/\bconst TOKENS\s*=/.test(paletteSource)) throw new Error('Compiled Theme palette missing')
     const dictionaries = Object.fromEntries(['zh', 'en'].map(lang => [
-      lang, JSON.parse(readFileSync(fixture('packages/delta-suite/locale/' + lang + '.json'), 'utf8')),
+      lang, JSON.parse(readFileSync(fixture('packages/delta-ui/locale/' + lang + '.json'), 'utf8')),
     ]))
     const replacements = new Map([
-      ['__DELTA_SUITE_LOCALES__', JSON.stringify(dictionaries)],
-      ['__DELTA_SUITE_STYLE__', JSON.stringify(readFileSync(fixture('packages/delta-suite/src/theme.css'), 'utf8'))],
-      ['__DELTA_SUITE_FEATURE_STYLE__', JSON.stringify(readFileSync(fixture('packages/delta-suite/src/feature-extras.css'), 'utf8'))],
+      ['__DELTA_UI_LOCALES__', JSON.stringify(dictionaries)],
+      ['__DELTA_UI_STYLE__', JSON.stringify(readFileSync(fixture('packages/delta-ui/src/theme.css'), 'utf8'))],
+      ['__DELTA_UI_FEATURE_STYLE__', JSON.stringify(readFileSync(fixture('packages/delta-ui/src/feature-extras.css'), 'utf8'))],
     ])
     for (const [marker, value] of replacements) {
       const literal = "'" + marker + "'"
       if (source.split(literal).length !== 2) throw new Error('Expected exactly one ' + marker)
       source = source.replace(literal, value)
     }
-    if (/\b(?:from|import)\s*\(['"]|\bprocess\.env\b|__DELTA_SUITE_/.test(source)) {
+    if (/\b(?:from|import)\s*\(['"]|\bprocess\.env\b|__DELTA_UI_/.test(source)) {
       throw new Error('Fixture client contains unresolved runtime imports or markers')
     }
     if (!source.includes('window.__ModuleLoader__.load({')) {

@@ -4,17 +4,17 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { patchSidebarRoot, patchSidebarStyle, patchHeroStyle, patchDictionary, changes,
   patchAccountMenu, patchAccountMenuStyle, patchSettingsRoot, patchSettingsRootStyle }
-  from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
+  from '../packages/delta-ui/scripts/apply-harness-ui-patch.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const base = 'packages/delta-suite/src/'
+const base = 'packages/delta-ui/src/'
 
-test('Suite composition, kernel and adapter are separate modules', () => {
+test('Delta UI composition, kernel and adapter are separate modules', () => {
   const entry = read(base + 'index.ts')
-  const composition = read(base + 'delta-suite-composition.ts')
-  const kernel = read(base + 'delta-suite-kernel/feature-lifecycle-registry.ts')
-  const adapter = read(base + 'delta-suite-adapter/host-capability-contract.ts')
-  assert.match(entry, /export \{ apply \} from '\.\/delta-suite-composition\.js'/)
+  const composition = read(base + 'delta-ui-composition.ts')
+  const kernel = read(base + 'delta-ui-kernel/feature-lifecycle-registry.ts')
+  const adapter = read(base + 'delta-ui-adapter/host-capability-contract.ts')
+  assert.match(entry, /export \{ apply \} from '\.\/delta-ui-composition\.js'/)
   assert.match(composition, /new DeltaFeatureRegistry<PrivacyHostContext>/)
   assert.match(composition, /registry\.mount\(ctx, readHostContextActivationCapabilities\(ctx\)\)/)
   assert.match(kernel, /class DeltaFeatureRegistry/)
@@ -25,10 +25,10 @@ test('Suite composition, kernel and adapter are separate modules', () => {
 })
 
 test('Legacy import paths remain re-exports, never duplicate implementations', () => {
-  assert.match(read(base + 'feature-registry.ts'), /export \* from '\.\/delta-suite-kernel\/feature-lifecycle-registry\.js'/)
-  assert.match(read(base + 'host-capabilities.ts'), /export \* from '\.\/delta-suite-adapter\/host-capability-contract\.js'/)
+  assert.match(read(base + 'feature-registry.ts'), /export \* from '\.\/delta-ui-kernel\/feature-lifecycle-registry\.js'/)
+  assert.match(read(base + 'host-capabilities.ts'), /export \* from '\.\/delta-ui-adapter\/host-capability-contract\.js'/)
   const entry = read(base + 'index.ts')
-  assert.match(entry, /export const name = '@fongap-labs\/delta-suite'/)
+  assert.match(entry, /export const name = '@fongap-labs\/delta-ui'/)
   assert.match(entry, /export const inject: string\[\] = \[\]/)
 })
 
@@ -202,7 +202,7 @@ test('Host source patch upgrades pre-patched v1 footer without duplicating accou
     "import { AccountAvatar } from './AccountAvatar.tsx'",
     "function AccountMenu() {",
     "  const [open, setOpen] = useState(false)",
-    "  // delta-suite:footer-ui-v1 account",
+    "  // delta-ui:footer-ui-v1 account",
     "  return <div data-delta-footer-wide={wide ? 'true' : 'false'}>",
     "    <Menu anchor={<button",
     '        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(value => !value) }}>',
@@ -212,37 +212,37 @@ test('Host source patch upgrades pre-patched v1 footer without duplicating accou
     "}",
   ].join('\n')
   const upgraded = patchAccountMenu(oldFooter)
-  assert.match(upgraded, /delta-suite:account-hover-v1/)
+  assert.match(upgraded, /delta-ui:account-hover-v1/)
   assert.match(upgraded, /deltaHoverCard/)
   assert.match(upgraded, /hoverLabels\.missing/)
   assert.equal(patchAccountMenu(upgraded), upgraded)
-  assert.equal((upgraded.match(/delta-suite:footer-ui-v1 account/g) ?? []).length, 1)
+  assert.equal((upgraded.match(/delta-ui:footer-ui-v1 account/g) ?? []).length, 1)
 
-  const oldCss = '/* delta-suite:footer-ui-v1 account-style */\n.root {}\n.anchor {}\n.trigger {}\n.avatar {}\n'
+  const oldCss = '/* delta-ui:footer-ui-v1 account-style */\n.root {}\n.anchor {}\n.trigger {}\n.avatar {}\n'
   const css = patchAccountMenuStyle(oldCss)
-  assert.match(css, /delta-suite:account-hover-style-v1/)
+  assert.match(css, /delta-ui:account-hover-style-v1/)
   assert.match(css, /\.deltaHoverCard \{/)
   assert.match(css, /\.deltaHoverRow \{/)
   assert.equal(patchAccountMenuStyle(css), css)
 })
 
 test('today spending remains explicitly unavailable until authenticated platform figures are verified', () => {
-  const script = read('packages/delta-suite/scripts/apply-harness-ui-patch.mjs')
+  const script = read('packages/delta-ui/scripts/apply-harness-ui-patch.mjs')
   assert.match(script, /today: '今日消费'/)
   assert.match(script, /missing: '暂无数据'/)
   assert.match(script, /<strong>\{hoverLabels\.missing\}<\/strong>/)
   assert.doesNotMatch(script, /todaySpend\s*=\s*wallet|balanceDelta\s*=|lastBalance\s*-/)
   assert.doesNotMatch(script, /<small className=\{css\.deltaHoverHint\}>/)
-  const copy = read('packages/delta-suite/README.md')
+  const copy = read('packages/delta-ui/README.md')
   assert.ok(copy.includes('不缓存/传递原始 Token'))
   assert.ok(copy.includes('登录/退出、账户授权'))
-  const pkg = JSON.parse(read('packages/delta-suite/package.json'))
+  const pkg = JSON.parse(read('packages/delta-ui/package.json'))
   assert.equal(pkg.files.some(file => file.includes('apply-harness-ui-patch')), false,
     'legacy account patch must not ship in the plugin')
 })
 
 
-test('Delta Suite no longer mounts private native DOM adapters', () => {
+test('Delta UI no longer mounts private native DOM adapters', () => {
   const client = read(base + 'client.ts')
   assert.doesNotMatch(client, /const stopLivePresentation = installLiveNativePresentation\(/)
   assert.doesNotMatch(client, /stopLivePresentation\(\)/)
@@ -275,12 +275,12 @@ test('retired native presentation has no active or dormant compatibility hooks',
   assert.match(client, /scope\.slots\.inject\('settings\.plugins\.tab'/)
 })
 
-test('Delta Suite contains no proxy or Vision Bridge service registration or front-end settings', () => {
-  const composition = read('packages/delta-suite/src/delta-suite-composition.ts')
-  const main = read('packages/delta-suite/src/index.ts')
+test('Delta UI contains no proxy or Vision Bridge service registration or front-end settings', () => {
+  const composition = read('packages/delta-ui/src/delta-ui-composition.ts')
+  const main = read('packages/delta-ui/src/index.ts')
   const client = read(base + 'client.ts')
-  const zh = JSON.parse(read('packages/delta-suite/locale/zh.json'))
-  const en = JSON.parse(read('packages/delta-suite/locale/en.json'))
+  const zh = JSON.parse(read('packages/delta-ui/locale/zh.json'))
+  const en = JSON.parse(read('packages/delta-ui/locale/en.json'))
   for (const removed of ['installHostProxyManager', 'installHostVisionOps', 'integrations.proxy-settings', 'integrations.vision-bridge']) {
     assert.equal(composition.includes(removed), false, removed)
     assert.equal(main.includes(removed), false, removed)
@@ -294,15 +294,15 @@ test('Delta Suite contains no proxy or Vision Bridge service registration or fro
     assert.equal('visionBridge' in copy, false)
     assert.equal(Object.keys(copy.ui).some(x => x.startsWith('vision')), false)
   }
-  const policy = read('packages/delta-suite/src/privacy-bridge.ts')
+  const policy = read('packages/delta-ui/src/privacy-bridge.ts')
   assert.doesNotMatch(policy, /redactModelRequest|Object\.defineProperty|listModels\(/)
   assert.equal(policy.includes('requestVisionDescription'), false)
 })
 
 test('Gateway credential integration is unavailable rather than reading raw Tokens', () => {
-  const host = read('packages/delta-suite/src/host-gateway-effort.ts')
-  const composition = read('packages/delta-suite/src/delta-suite-composition.ts')
-  const client = read('packages/delta-suite/src/client.ts')
+  const host = read('packages/delta-ui/src/host-gateway-effort.ts')
+  const composition = read('packages/delta-ui/src/delta-ui-composition.ts')
+  const client = read('packages/delta-ui/src/client.ts')
   assert.doesNotMatch(host, /credentials\.resolve\s*\(/)
   assert.doesNotMatch(host, /credential\??\.value/)
   assert.doesNotMatch(host, /authorization\s*:/i)
@@ -311,8 +311,8 @@ test('Gateway credential integration is unavailable rather than reading raw Toke
   assert.match(host, /return \(\) => \{\}/)
 })
 
-test('published Suite excludes Host-source patching and active native DOM takeover', () => {
-  const pkg = JSON.parse(read('packages/delta-suite/package.json'))
+test('published Delta UI excludes Host-source patching and active native DOM takeover', () => {
+  const pkg = JSON.parse(read('packages/delta-ui/package.json'))
   const client = read(base + 'client.ts')
   assert.ok(!pkg.files.some(file => file.includes('apply-harness-ui-patch')))
   assert.doesNotMatch(client, /const stopLivePresentation = installLiveNativePresentation\(/)

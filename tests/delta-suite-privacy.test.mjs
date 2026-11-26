@@ -6,8 +6,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
-const built = relative => pathToFileURL(fixture(`packages/delta-suite/lib/${relative}`)).href
+  fixture('packages/delta-ui/tsconfig.json')], { stdio: 'pipe' })
+const built = relative => pathToFileURL(fixture(`packages/delta-ui/lib/${relative}`)).href
 const { createSensitiveRedactor, redactModelRequest, restoreStream } = await import(built('privacy.js'))
 const { installHostPrivacyGuards } = await import(built('host-privacy.js'))
 
@@ -48,11 +48,11 @@ test('missing official Session Log capability leaves ordinary Host behavior unto
 })
 
 test('unsafe model, HTTP response, browser and local feedback interception is retired', () => {
-  const source = name => readFileSync(fixture('packages/delta-suite/src/' + name), 'utf8')
+  const source = name => readFileSync(fixture('packages/delta-ui/src/' + name), 'utf8')
   const bridge = source('privacy-bridge.ts')
   const host = source('host-privacy.ts')
   const cookies = source('host-auth-cookies.ts')
-  const composition = source('delta-suite-composition.ts')
+  const composition = source('delta-ui-composition.ts')
   assert.doesNotMatch(bridge, /Object\.defineProperty|listModels|resolveModelInfo|llm\.stream\(|ctx\.on\('llm\/stream'/)
   assert.doesNotMatch(host, /connection\/request|session-telemetry\/record|\/api\/messagefeedback/)
   assert.doesNotMatch(cookies, /prependListener|writeHead|setHeader|\.server\b/)

@@ -2,11 +2,11 @@
   "schema_version": 1,
   "products": [
     {
-      "id": "delta-suite",
-      "package": "@fongap-labs/delta-suite",
-      "path": "packages/delta-suite",
-      "architecture": "projects/delta-suite/architecture-mece.json",
-      "readiness": "projects/delta-suite/feature-readiness.json",
+      "id": "delta-ui",
+      "package": "@fongap-labs/delta-ui",
+      "path": "packages/delta-ui",
+      "architecture": "projects/delta-ui/architecture-mece.json",
+      "readiness": "projects/delta-ui/feature-readiness.json",
       "capabilities": [
         "general-experience",
         "general-task-intent",
@@ -30,6 +30,22 @@
       "allowed_workspace_dependencies": [
         "@fongap-labs/shared"
       ]
+    },
+    {
+      "id": "delta-suite",
+      "package": "@fongap-labs/delta-suite",
+      "path": "packages/delta-suite",
+      "architecture": "projects/delta-suite/architecture-mece.json",
+      "readiness": "projects/delta-suite/feature-readiness.json",
+      "capabilities": [
+        "module-lifecycle",
+        "model-provider-adapters",
+        "openai-compatible-protocol",
+        "model-discovery",
+        "vision-evidence",
+        "local-api-service"
+      ],
+      "allowed_workspace_dependencies": []
     }
   ],
   "internal_packages": [

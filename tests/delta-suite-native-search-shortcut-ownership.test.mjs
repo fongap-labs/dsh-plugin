@@ -2,12 +2,12 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
+import { verifyApprovedZip3Client } from '../scripts/verify-delta-ui-release.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const source = read('packages/delta-suite/src/client.ts')
+const source = read('packages/delta-ui/src/client.ts')
 const norm = source.replace(/\r\n/g, '\n')
-const theme = read('packages/delta-suite/src/theme.css')
+const theme = read('packages/delta-ui/src/theme.css')
 const start = norm.indexOf('function installHostSearch(')
 const end = norm.indexOf('\nwindow.__ModuleLoader__.load(', start)
 const emitted = [
@@ -28,7 +28,7 @@ test('Ctrl/Cmd+K remains native, Delta palette opens on its own input Enter', ()
   assert.match(section, /kbdHint\.textContent = 'Enter'/)
   assert.ok(section.includes("pushShortcut('search', (DICTIONARIES[language()] ?? DICTIONARIES.en).searchPalette.globalCommandSearch, '', () => openPalette(''))"))
   for (const language of ['zh', 'en']) {
-    const dictionary = JSON.parse(read(`packages/delta-suite/locale/${language}.json`))
+    const dictionary = JSON.parse(read(`packages/delta-ui/locale/${language}.json`))
     assert.ok(dictionary.searchPalette.globalCommandSearch?.trim(), 'missing search label: ' + language)
   }
   assert.match(section, /modal\.addEventListener\('keydown', \(e: KeyboardEvent\)/)

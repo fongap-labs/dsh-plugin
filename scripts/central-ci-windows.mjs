@@ -31,14 +31,15 @@ execute(command('pnpm'), ['install', '--frozen-lockfile'], 'frozen install')
 const configurations = [
   'packages/shared/tsconfig.json',
   'packages/delta-code/tsconfig.json',
+  'packages/delta-ui/tsconfig.json',
   'packages/delta-suite/tsconfig.json',
-  'packages/delta-suite/tsconfig.client.json',
+  'packages/delta-ui/tsconfig.client.json',
 ]
 for (const config of configurations) {
   execute(process.execPath, [join(targetRoot, 'node_modules/typescript/bin/tsc'), '-p', config],
     'compile ' + config)
 }
-execute(process.execPath, ['packages/delta-suite/scripts/finalize-client.mjs'],
+execute(process.execPath, ['packages/delta-ui/scripts/finalize-client.mjs'],
   'finalize Delta client')
 execute(process.execPath, ['--test', 'tests/**/*.test.mjs'], 'run Windows regression tests')
 execute(process.execPath, ['scripts/pack-bundles.mjs', '--check'], 'validate native plugin bundles')

@@ -3,27 +3,9 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "lib",
-    "types": [],
-    "lib": [
-      "ES2022",
-      "DOM"
-    ]
+    "moduleDetection": "legacy",
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": [
-    "src/**/*.ts"
-  ],
-  "exclude": [
-    "src/client.ts",
-    "src/client-types.d.ts",
-    "src/client-theme-tokens.ts",
-    "src/client-context-projection.ts",
-    "src/client-totp-qr.ts",
-    "src/client-workspace-projection.ts",
-    "src/client-search-protection.ts",
-    "src/client-registration-lifecycle.ts",
-    "src/client-feature-preferences.ts",
-    "src/client-appearance-controller.ts",
-    "src/client-session-state.ts",
-    "src/client-account-summary.ts"
-  ]
+  "include": ["src"]
 }

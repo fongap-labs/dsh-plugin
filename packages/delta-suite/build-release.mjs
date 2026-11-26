@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// Packaging is operator initiated. Feature readiness is diagnostic metadata,
-// not permission for this wrapper to decide whether an operator may release.
 import { spawnSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'

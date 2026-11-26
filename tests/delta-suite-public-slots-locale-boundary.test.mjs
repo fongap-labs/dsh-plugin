@@ -4,9 +4,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const client = read('packages/delta-suite/src/client.ts')
+const client = read('packages/delta-ui/src/client.ts')
 
-test('Delta Suite does not rewrite Harness Slots internals or built-in contributions', () => {
+test('Delta UI does not rewrite Harness Slots internals or built-in contributions', () => {
   for (const forbidden of [
     /__deltaWrapped_/, /slotsObj\??\._core/, /slotsObj\??\._host/,
     /target\[methodName\]\s*=/, /wrapSlotMethod\(/,
@@ -16,7 +16,7 @@ test('Delta Suite does not rewrite Harness Slots internals or built-in contribut
   assert.match(client, /scope\.slots\.inject\('conversation\.chat\.assistant-actions'/)
 })
 
-test('Delta Suite does not mutate Cordis originals or the Host locale service', () => {
+test('Delta UI does not mutate Cordis originals or the Host locale service', () => {
   for (const forbidden of [
     /cordis\.original/, /unwrapCordisOriginal/, /__deltaLocaleAttached/,
     /__deltaTranslatePatched/, /__deltaPatched/, /__deltaLocaleHooked/,
@@ -34,9 +34,9 @@ test('clean-up still keeps native appearance and unrelated UI resource ownership
   assert.doesNotMatch(client, /onMenuClickCapture|hiddenSoleWorkspaceNodes/)
   assert.doesNotMatch(client, /stopPrivacyGuards\(\)|installClientPrivacyGuards\(/)
   assert.doesNotMatch(client, /installClientVisionBridge|stopVisionBridge|data-composer-input/)
-  assert.match(client, /mountClientOwnedStyle\(OWNED_CSS, 'plugin', DELTA_SUITE_OWNER\)/)
+  assert.match(client, /mountClientOwnedStyle\(OWNED_CSS, 'plugin', DELTA_UI_OWNER\)/)
   assert.match(client, /releaseOwnedStyle\?\.\(\)/)
-  const lifecycle = read('packages/delta-suite/src/client-registration-lifecycle.ts')
+  const lifecycle = read('packages/delta-ui/src/client-registration-lifecycle.ts')
   assert.match(lifecycle, /if \(tag\?\.parentNode\) tag\.parentNode\.removeChild\(tag\)/)
   // Native Sidebar adapter was retired; public Host Slots retain ownership.
   assert.doesNotMatch(client, /function installSidebarCompatibility/)
@@ -44,8 +44,8 @@ test('clean-up still keeps native appearance and unrelated UI resource ownership
 })
 
 
-const zhCopy = JSON.parse(read('packages/delta-suite/locale/zh.json'))
-const enCopy = JSON.parse(read('packages/delta-suite/locale/en.json'))
+const zhCopy = JSON.parse(read('packages/delta-ui/locale/zh.json'))
+const enCopy = JSON.parse(read('packages/delta-ui/locale/en.json'))
 const flattenCopy = (value, prefix = '') =>
   Object.entries(value).flatMap(([key, entry]) => typeof entry === 'string'
     ? [[prefix + key, entry]]
@@ -53,7 +53,7 @@ const flattenCopy = (value, prefix = '') =>
 const placeholders = value => [...value.matchAll(/\{([a-zA-Z_][a-zA-Z0-9_.-]*)\}/g)]
   .map(match => match[1]).sort()
 
-test('Suite zh and en dictionaries have identical nonempty keys and placeholders', () => {
+test('Delta UI zh and en dictionaries have identical nonempty keys and placeholders', () => {
   const zh = new Map(flattenCopy(zhCopy))
   const en = new Map(flattenCopy(enCopy))
   assert.deepEqual([...zh.keys()].sort(), [...en.keys()].sort())
@@ -69,7 +69,7 @@ test('navigation and palette copy uses central dictionaries without dead Gateway
   assert.equal('gatewayEffort' in zhCopy, false)
   assert.equal('gatewayEffort' in enCopy, false)
   assert.doesNotMatch(client, /GatewayEffortFooter|nativeGatewaySelection|emptyGatewayDirectoryState/)
-  const types = read('packages/delta-suite/src/client-types.d.ts')
+  const types = read('packages/delta-ui/src/client-types.d.ts')
   assert.doesNotMatch(types, /gatewayEffort|GatewayModelDirectory|modelDirectories/)
   assert.equal('gatewayEffort' in zhCopy, false)
   assert.equal('gatewayEffort' in enCopy, false)
@@ -91,7 +91,7 @@ test('navigation and palette copy uses central dictionaries without dead Gateway
 })
 
 test('language uses public Locale first and a scoped read-only lang Patch as fallback', () => {
-  const lifecycle = read('packages/delta-suite/src/client-registration-lifecycle.ts')
+  const lifecycle = read('packages/delta-ui/src/client-registration-lifecycle.ts')
   assert.match(client, /bindClientLocale\(scope,/)
   assert.match(client, /releaseLocale\(\)/)
   assert.match(lifecycle, /scope\.inject\(\['locale'\], localeScope =>/)
@@ -106,7 +106,7 @@ test('language uses public Locale first and a scoped read-only lang Patch as fal
   assert.doesNotMatch(client + lifecycle, /localeApi\.setLocale\(/)
 })
 
-test('Suite locale dictionaries contain no unused leaf key', () => {
+test('Delta UI locale dictionaries contain no unused leaf key', () => {
   const used = key =>
     client.includes('.' + key) ||
     client.includes("['" + key + "']") ||
@@ -114,13 +114,13 @@ test('Suite locale dictionaries contain no unused leaf key', () => {
     client.includes("'" + key + "'")
   for (const [name] of flattenCopy(zhCopy)) {
     const key = name.split('.').at(-1)
-    assert.ok(used(key), 'unused Suite locale key: ' + name)
+    assert.ok(used(key), 'unused Delta UI locale key: ' + name)
   }
 })
 
-test('MCP credentials stay native: Suite publishes no credential editor, service or styles', () => {
-  const types = read('packages/delta-suite/src/client-types.d.ts')
-  const css = read('packages/delta-suite/src/feature-extras.css')
+test('MCP credentials stay native: Delta UI publishes no credential editor, service or styles', () => {
+  const types = read('packages/delta-ui/src/client-types.d.ts')
+  const css = read('packages/delta-ui/src/feature-extras.css')
   for (const pattern of [
     /McpManagementDialog/, /pairsText\(/, /entry\.env/, /entry\.headers/,
     /scope\.slots\.inject\('plugins\.add\.actions'/,
@@ -136,7 +136,7 @@ test('MCP credentials stay native: Suite publishes no credential editor, service
 // The locale contract must enumerate real dictionary keys, without a catch-all
 // index signature that silently accepts misspelled UI keys.
 test('DeltaCopy type declares exactly the actual bilingual dictionary schema', () => {
-  const types = read('packages/delta-suite/src/client-types.d.ts').replace(/\r\n/g, '\n')
+  const types = read('packages/delta-ui/src/client-types.d.ts').replace(/\r\n/g, '\n')
   const start = types.indexOf('interface DeltaCopy {')
   const end = types.indexOf('\ntype Language =', start)
   assert.ok(start >= 0 && end > start)
@@ -152,6 +152,6 @@ test('compatibility copy describes implemented sidebar Patch without claiming in
   assert.match(enCopy.ui.integrationSidebar, /client verification pending/)
   assert.ok(zhCopy.ui.integrationSidebar.includes("待客户端验收"))
   assert.match(client, /nativeFeatureNotes\.map/)
-  assert.match(enCopy.ui.integrationGuidance, /switch to the official theme or disable Delta Suite/)
-  assert.ok(zhCopy.ui.integrationGuidance.includes("切换至官方主题或停用 Delta Suite"))
+  assert.match(enCopy.ui.integrationGuidance, /switch to the official theme or disable Delta UI/)
+  assert.ok(zhCopy.ui.integrationGuidance.includes("切换至官方主题或停用 Delta UI"))
 })

@@ -14,8 +14,8 @@ try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'),
     '--target', 'ES2022', '--module', 'node16', '--moduleResolution', 'node16',
     '--lib', 'ES2022,DOM', '--strict', '--skipLibCheck', '--outDir', dir,
-    file('packages/delta-suite/src/host-state.ts'),
-    file('packages/delta-suite/src/host-sessions.ts')], { stdio: 'pipe' })
+    file('packages/delta-ui/src/host-state.ts'),
+    file('packages/delta-ui/src/host-sessions.ts')], { stdio: 'pipe' })
   ops = await import(pathToFileURL(join(dir, 'host-sessions.js')).href)
   state = await import(pathToFileURL(join(dir, 'host-state.js')).href)
 } finally { rmSync(dir, { recursive: true, force: true }) }
@@ -509,8 +509,8 @@ test('method resolution alone is not evidence of native archive membership', asy
 test('corrupt state file is not an empty profile and failed read permits later recovery', async () => {
   const root = mkdtempSync(join(tmpdir(), 'delta-state-read-'))
   const path = join(root, 'state.json')
-  const previous = process.env.DELTA_SUITE_STATE_FILE
-  process.env.DELTA_SUITE_STATE_FILE = path
+  const previous = process.env.DELTA_UI_STATE_FILE
+  process.env.DELTA_UI_STATE_FILE = path
   try {
     writeFileSync(path, '{broken')
     const store = state.createHostStateStore({})
@@ -519,8 +519,8 @@ test('corrupt state file is not an empty profile and failed read permits later r
     writeFileSync(path, JSON.stringify(state.normalizeDeltaState({ totpSecret: secret, lockedSessionIds: ['locked'] })))
     assert.deepEqual((await store.read()).lockedSessionIds, ['locked'])
   } finally {
-    if (previous === undefined) delete process.env.DELTA_SUITE_STATE_FILE
-    else process.env.DELTA_SUITE_STATE_FILE = previous
+    if (previous === undefined) delete process.env.DELTA_UI_STATE_FILE
+    else process.env.DELTA_UI_STATE_FILE = previous
     rmSync(root, { recursive: true, force: true })
   }
 })

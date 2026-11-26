@@ -12,8 +12,8 @@ let Registry, readHostContextActivationCapabilities
 try {
   execFileSync(process.execPath, [
     fixture('node_modules/typescript/bin/tsc'),
-    fixture('packages/delta-suite/src/feature-registry.ts'),
-    fixture('packages/delta-suite/src/host-capabilities.ts'),
+    fixture('packages/delta-ui/src/feature-registry.ts'),
+    fixture('packages/delta-ui/src/host-capabilities.ts'),
     '--target', 'ES2022', '--module', 'node16', '--moduleResolution', 'node16',
     '--outDir', temp, '--strict', '--skipLibCheck',
   ], { stdio: 'pipe' })
@@ -104,7 +104,7 @@ test('activation prerequisites use only public registration methods, not Host ve
 })
 
 test('actual Host feature prerequisites skip optional context features without disabling protection installers', () => {
-  const manifest = JSON.parse(readFileSync(fixture('projects/delta-suite/architecture-mece.json'), 'utf8'))
+  const manifest = JSON.parse(readFileSync(fixture('projects/delta-ui/architecture-mece.json'), 'utf8'))
   for (const [ctx, expectedSkipped] of [
     [{}, ['context.compaction-status', 'context.task-intent']],
     [{ inject() {} }, ['context.task-intent']],
