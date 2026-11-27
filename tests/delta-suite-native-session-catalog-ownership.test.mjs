@@ -9,12 +9,12 @@ import vm from 'node:vm'
 
 const file = path => fileURLToPath(new URL('../' + path, import.meta.url))
 const source = ['client-workspace-projection.ts', 'client-search-protection.ts', 'client-session-state.ts', 'client.ts']
-  .map(name => readFileSync(file('packages/delta-suite/src/' + name), 'utf8')).join('\n')
+  .map(name => readFileSync(file('packages/delta-ui/src/' + name), 'utf8')).join('\n')
 const dir = mkdtempSync(join(tmpdir(), 'delta-session-catalog-'))
 let compiled, workspaceProjection, searchProtection, sessionState
 try {
   execFileSync(process.execPath, [file('node_modules/typescript/bin/tsc'), '-p',
-    file('packages/delta-suite/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
+    file('packages/delta-ui/tsconfig.client.json'), '--outDir', dir], { stdio: 'pipe' })
   compiled = readFileSync(join(dir, 'client.js'), 'utf8')
   workspaceProjection = readFileSync(join(dir, 'client-workspace-projection.js'), 'utf8')
   searchProtection = readFileSync(join(dir, 'client-search-protection.js'), 'utf8')
@@ -61,7 +61,7 @@ function fixture({ initial = {}, response, unavailable = false, rejectRefresh = 
         return { ok: response.status === 200, status: response.status, json: async () => response.data }
       }
       return { ok: true, status: 200, json: async () =>
-        path === '/api/delta-suite/state' ? { state: state([]) } : {} }
+        path === '/api/delta-ui/state' ? { state: state([]) } : {} }
     },
   }
   const manager = vm.runInNewContext(managerSource, env)
@@ -552,7 +552,7 @@ test('Client never retries Host archive or stop-activity on reattached Workspace
   assert.equal(f.manager.isLocked('target'), true)
 })
 
-test('Suite has no Client-side native Workspace method wrapper or synthetic mutation policy', () => {
+test('Delta UI has no Client-side native Workspace method wrapper or synthetic mutation policy', () => {
   for (const marker of ['readWorkspaceMutationPolicy', 'installWorkspaceMutationGuards',
     'guardedDelete', 'guardedUnarchive']) {
     assert.equal(source.includes(marker), false, 'retired native Workspace mutation: ' + marker)
@@ -683,13 +683,13 @@ test('a changed credential mode revokes temporary grants even with identical dur
   assert.equal(next.tempUnlockedWorkspaceIds.length, 0)
 })
 
-test('incomplete Host refresh preserves locks and disables Suite-owned Search', async () => {
+test('incomplete Host refresh preserves locks and disables Delta UI-owned Search', async () => {
   const f = fixture({ initial: { lockedSessionIds: ['locked'] } })
   await f.manager.refreshState()
   assert.equal(f.manager.isLocked('locked'), true)
   assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
   f.env.fetch = async path => ({
-    ok: true, status: 200, json: async () => path === '/api/delta-suite/state'
+    ok: true, status: 200, json: async () => path === '/api/delta-ui/state'
       ? { state: { lockedSessionIds: [], deletedSessionIds: [] } } : {},
   })
   await f.manager.refreshState()
@@ -737,7 +737,7 @@ test('transient Host state failure revokes mutations yet automatically recovers 
   assert.equal(f.manager.getSnapshot().isSearchProtectionReady, true)
   let stateRequests = 0
   f.env.fetch = async path => {
-    if (path === '/api/delta-suite/state') {
+    if (path === '/api/delta-ui/state') {
       stateRequests++
       return { ok: false, status: 503, json: async () => ({ error: 'offline' }) }
     }
@@ -750,7 +750,7 @@ test('transient Host state failure revokes mutations yet automatically recovers 
   let now = Date.now() + 5000
   f.env.Date = class extends Date { static now() { return now } }
   f.env.fetch = async path => {
-    if (path === '/api/delta-suite/state') {
+    if (path === '/api/delta-ui/state') {
       stateRequests++
       return { ok: true, status: 200, json: async () => ({ state: f.state([]) }) }
     }
@@ -767,7 +767,7 @@ test('transient Host state failure revokes mutations yet automatically recovers 
   assert.equal(stateRequests, 2, 'a newly confirmed state does not schedule needless rereads')
 })
 
-test('Host transport failure does not patch native Workspace methods and Suite Search recovers', async () => {
+test('Host transport failure does not patch native Workspace methods and Delta UI Search recovers', async () => {
   const f = fixture()
   await f.manager.refreshState()
   const calls = []
@@ -776,7 +776,7 @@ test('Host transport failure does not patch native Workspace methods and Suite S
   const original = host.delete
   assert.equal(await host.delete('b'), 'native')
   f.env.fetch = async path => {
-    if (path === '/api/delta-suite/state') throw new Error('network offline')
+    if (path === '/api/delta-ui/state') throw new Error('network offline')
     return { ok: true, status: 200, json: async () => ({}) }
   }
   await f.manager.refreshState()
@@ -787,7 +787,7 @@ test('Host transport failure does not patch native Workspace methods and Suite S
   assert.equal(host.delete, original, 'native Workspace operation stays Host-owned')
   f.env.fetch = async path => ({
     ok: true, status: 200,
-    json: async () => path === '/api/delta-suite/state' ? { state: f.state([]) } : {},
+    json: async () => path === '/api/delta-ui/state' ? { state: f.state([]) } : {},
   })
   await f.manager.refreshState()
   const warm = makeSearchProtection(f.manager.getSnapshot(), host.list.getSnapshot)

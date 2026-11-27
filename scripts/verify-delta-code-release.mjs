@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { createContext, Script } from 'node:vm'
 import { pathToFileURL } from 'node:url'
-import { readZip, readTgz } from './verify-delta-suite-release.mjs'
+import { readZip, readTgz } from './verify-delta-ui-release.mjs'
 
 const PACKAGE = '@fongap-labs/delta-code'
 const REQUIRED = ['package.json', 'lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'icon.svg']

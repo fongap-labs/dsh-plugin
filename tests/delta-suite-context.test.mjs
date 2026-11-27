@@ -7,13 +7,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import vm from 'node:vm'
 
 const fixture = relative => fileURLToPath(new URL('../' + relative, import.meta.url))
-const uiEn = JSON.parse(readFileSync(fixture('packages/delta-suite/locale/en.json'), 'utf8')).ui
+const uiEn = JSON.parse(readFileSync(fixture('packages/delta-ui/locale/en.json'), 'utf8')).ui
 execFileSync(process.execPath, [fixture('node_modules/typescript/bin/tsc'), '-p',
-  fixture('packages/delta-suite/tsconfig.json')], { stdio: 'pipe' })
+  fixture('packages/delta-ui/tsconfig.json')], { stdio: 'pipe' })
 const clientSource = buildDesktopClientFixture()
-const readiness = JSON.parse(readFileSync(fixture('projects/delta-suite/feature-readiness.json'), 'utf8'))
+const readiness = JSON.parse(readFileSync(fixture('projects/delta-ui/feature-readiness.json'), 'utf8'))
 const { EMPTY_COMPACTION_STATUS, foldCompactionStatus, registerCompactionStatusProjection } = await import(pathToFileURL(
-  fixture('packages/delta-suite/lib/context-projection.js')).href)
+  fixture('packages/delta-ui/lib/context-projection.js')).href)
 
 function makeHarness({ draft = 'Please explain the request clearly.', pressure, mainRunning = true,
   compactionStatus, command = async () => ({ matched: true }), persistedStorage = new Map(),
@@ -61,7 +61,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
   }
   const context = {
     window: { __ModuleLoader__: { load(entry) { registration = entry } }, location: { href: 'https://harness.test/' } },
-    fetch: async path => ({ ok: true, json: async () => path === '/api/delta-suite/state' ? { state: protectionState } : {} }),
+    fetch: async path => ({ ok: true, json: async () => path === '/api/delta-ui/state' ? { state: protectionState } : {} }),
     document, navigator: { language: 'en-US' }, URL, URLSearchParams, AbortController,
     localStorage: { getItem(key) { return storage.get(key) ?? null }, setItem(key, value) { storage.set(key, value) } },
     MutationObserver: class { observe() {} disconnect() {} },
@@ -162,7 +162,7 @@ function makeHarness({ draft = 'Please explain the request clearly.', pressure, 
       mcpFormQueries.push(namespace)
       return namespace === mcpNamespace ? mcpForm : undefined
     }
-    if (namespace === 'delta-suite') return deltaForm
+    if (namespace === 'delta-ui') return deltaForm
     throw new Error(`Unexpected config namespace ${namespace}`)
   } } : undefined
   const ctx = {
@@ -264,7 +264,7 @@ function findSwitch(tree, label) {
 }
 const turn = () => new Promise(resolve => setTimeout(resolve, 0))
 
-test('Harness keeps native MCP actions and secrets when Suite mounts', () => {
+test('Harness keeps native MCP actions and secrets when Delta UI mounts', () => {
   const app = makeHarness({
     mcpSnapshot: { status: 'ready', value: { servers: { privateServer: {
       env: { API_KEY: 'host-only' }, headers: { Authorization: 'host-only' },
@@ -277,7 +277,7 @@ test('Harness keeps native MCP actions and secrets when Suite mounts', () => {
 })
 
 test('the package enables the official automatic compaction backend at Profile level', () => {
-  const patch = readFileSync(fixture('packages/delta-suite/cordis.patch.yml'), 'utf8')
+  const patch = readFileSync(fixture('packages/delta-ui/cordis.patch.yml'), 'utf8')
   assert.match(patch, /- id: delta-global-compaction\s+name: '@deepseek-ai\/dsh-compaction-basic'\s+config:\s+auto: true/)
   const preset = patch.slice(patch.indexOf('id: delta-context-preset'))
   assert.match(preset, /id: delta-context/)
@@ -330,14 +330,14 @@ test('the optional session projection registers a client-readable result and dis
   assert.equal(disposed, true)
 })
 
-test('Installed plugins bundle detail mounts the Suite configuration using the same controller', () => {
+test('Installed plugins bundle detail mounts the Delta UI configuration using the same controller', () => {
   const app = makeHarness()
   const section = app.components.get('settings.section:delta.personalization')
-  const bundle = app.components.get('plugins.bundle.config:@fongap-labs/delta-suite')
-  assert.ok(section, 'Settings still keeps its original Suite page')
-  assert.ok(bundle, 'Installed plugins must expose Suite configuration')
+  const bundle = app.components.get('plugins.bundle.config:@fongap-labs/delta-ui')
+  assert.ok(section, 'Settings still keeps its original Delta UI page')
+  assert.ok(bundle, 'Installed plugins must expose Delta UI configuration')
   assert.equal(bundle.spec.name, 'plugins.bundle.config')
-  assert.equal(bundle.spec.key, '@fongap-labs/delta-suite')
+  assert.equal(bundle.spec.key, '@fongap-labs/delta-ui')
   assert.equal(bundle.component({ view: 'summary' }), null)
   const mounted = app.render('bundle-slot', bundle.component, { view: 'page' })
   assert.equal(mounted.type.name, 'PersonalizationSection')
@@ -418,11 +418,11 @@ test('model label shows only the DeepSeek Account route name under its separate 
 })
 
 test('retired display preference fields are removed while supported preferences are preserved', () => {
-  const storage = new Map([['fongap.delta-suite.features.v1', JSON.stringify({
+  const storage = new Map([['fongap.delta-ui.features.v1', JSON.stringify({
     showDeepSeekAccountInfo: false, showModelInfo: false, inputOptimization: true, retiredPreference: false,
   })]])
   makeHarness({ persistedStorage: storage })
-  assert.deepEqual(JSON.parse(storage.get('fongap.delta-suite.features.v1')),
+  assert.deepEqual(JSON.parse(storage.get('fongap.delta-ui.features.v1')),
     { showDeepSeekAccountInfo: false, showModelInfo: false, inputOptimization: true })
 })
 
@@ -468,7 +468,7 @@ test('main-task corrections require a review step and are queued without steerin
   findButton(app.render('input', input.component, app.mainProps), 'Discuss independently').props.onClick()
   await turn()
   const address = app.opened[0]
-  const tab = [...app.components.values()].find(value => value.spec.name === 'sidebar.right.pane.tab' && value.spec.key === '@fongap-labs/delta-suite')
+  const tab = [...app.components.values()].find(value => value.spec.name === 'sidebar.right.pane.tab' && value.spec.key === '@fongap-labs/delta-ui')
   assert.ok(tab)
   const props = {
     ...app.mainProps,

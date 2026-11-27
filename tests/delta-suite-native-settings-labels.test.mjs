@@ -5,16 +5,16 @@ import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
+import { verifyApprovedZip3Client } from '../scripts/verify-delta-ui-release.mjs'
 import { patchAccountMenu, patchAccountMenuStyle, patchCurrentVersionStyle, patchHeroStyle,
   patchSettingsRootStyle, patchDictionary, patchSessionLogBackend, patchSessionLogSettings,
-  patchSidebarStyle, patchSessionMenuOrder, auditThemeTokens, changes } from '../packages/delta-suite/scripts/apply-harness-ui-patch.mjs'
+  patchSidebarStyle, patchSessionMenuOrder, auditThemeTokens, changes } from '../packages/delta-ui/scripts/apply-harness-ui-patch.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const source = read('packages/delta-suite/src/client.ts')
-const palette = read('packages/delta-suite/src/client-theme-tokens.ts')
+const source = read('packages/delta-ui/src/client.ts')
+const palette = read('packages/delta-ui/src/client-theme-tokens.ts')
 const normalizedSource = source.replace(/\r\n/g, '\n')
-const theme = read('packages/delta-suite/src/theme.css')
+const theme = read('packages/delta-ui/src/theme.css')
 const begin = normalizedSource.indexOf('function installHostSearch(')
 const end = normalizedSource.indexOf('\nwindow.__ModuleLoader__.load(', begin)
 
@@ -143,7 +143,7 @@ test('Delta removes native Session Log switch registration, not just switch styl
   ].join('\n')
   const changed = patchSessionLogSettings(host)
   assert.doesNotMatch(changed, /ctx\.slots\.inject\('settings\.general\.item'/)
-  assert.match(changed, /delta-suite:hide-session-log-preference-v1/)
+  assert.match(changed, /delta-ui:hide-session-log-preference-v1/)
   assert.equal(patchSessionLogSettings(changed), changed)
 })
 
@@ -151,7 +151,7 @@ test('native navigation placement remains under Harness ownership', () => {
   assert.doesNotMatch(source, /mark\(nav, 'pinned-nav'\)/)
   assert.doesNotMatch(source, /data-dtd-live-pinned-nav/)
   assert.doesNotMatch(source, /installLiveNativePresentation/)
-  const pkg = JSON.parse(read('packages/delta-suite/package.json'))
+  const pkg = JSON.parse(read('packages/delta-ui/package.json'))
   assert.equal(pkg.files.includes('scripts/apply-harness-ui-patch.mjs'), false)
 })
 
@@ -287,13 +287,13 @@ test('extracted native palette keeps the same public browser entry and Theme ove
   assert.match(palette, /const TOKENS: Record<string,/)
   assert.doesNotMatch(source, /const DELTA_PALETTE =/)
   assert.doesNotMatch(source, /const TOKENS: Record<string,/)
-  assert.match(read('packages/delta-suite/src/client-appearance-controller.ts'), /activeTheme\.overrideTokens\(DELTA_SUITE_OWNER, TOKENS\)/)
+  assert.match(read('packages/delta-ui/src/client-appearance-controller.ts'), /activeTheme\.overrideTokens\(DELTA_UI_OWNER, TOKENS\)/)
   assert.match(source, /window\.__ModuleLoader__\.load\(\{/)
   assert.doesNotMatch(palette, /^\s*(?:import|export)\s/m)
 })
 
 test('build concatenates the compiled palette and feature helpers in one client without second module', () => {
-  const base = 'packages/delta-suite/'
+  const base = 'packages/delta-ui/'
   const resolveFile = path => fileURLToPath(new URL('../' + path, import.meta.url))
   const tsconfig = JSON.parse(read(base + 'tsconfig.client.json'))
   const helpers = tsconfig.include.filter(path => /^src\/client-.+\.ts$/.test(path) && !path.endsWith('.d.ts'))
@@ -311,7 +311,7 @@ test('build concatenates the compiled palette and feature helpers in one client 
   assert.equal(new Set(helpers).size, helpers.length)
   assert.match(palette, /'--dsw-menu-surface-fill': DELTA_PALETTE\.popupBg/)
 
-  const temp = mkdtempSync(join(tmpdir(), 'delta-suite-finalizer-'))
+  const temp = mkdtempSync(join(tmpdir(), 'delta-ui-finalizer-'))
   try {
     for (const dir of ['scripts', 'src', 'locale']) mkdirSync(join(temp, dir))
     for (const file of ['scripts/finalize-client.mjs', 'tsconfig.client.json', 'package.json',
@@ -333,7 +333,7 @@ test('build concatenates the compiled palette and feature helpers in one client 
     assert.ok(bundle.startsWith(';(() => {\n' + compiled.join('\n') + '\n'),
       'every compiled helper must be included in manifest order before the client')
     assert.equal((bundle.match(/window\.__ModuleLoader__\.load\(/g) ?? []).length, 1)
-    assert.doesNotMatch(bundle, /__DELTA_SUITE_/)
+    assert.doesNotMatch(bundle, /__DELTA_UI_/)
     for (const path of compiledPaths) assert.ok(!existsSync(path), 'helper must not ship separately: ' + path)
     assert.match(bundle, /\bconst TOKENS\s*=/)
   } finally {
@@ -342,7 +342,7 @@ test('build concatenates the compiled palette and feature helpers in one client 
 })
 
 test('Delta owned feature CSS uses defined Delta tokens without native fallbacks', () => {
-  const css = read('packages/delta-suite/src/feature-extras.css')
+  const css = read('packages/delta-ui/src/feature-extras.css')
   const defined = new Set([...theme.matchAll(/(--dtd-[a-z0-9-]+)\s*:/g)].map(x => x[1]))
   assert.doesNotMatch(css, /--dsw-[a-z0-9-]+/)
   assert.doesNotMatch(css, /color:\s*inherit\s*;/)
@@ -354,9 +354,9 @@ test('Delta owned feature CSS uses defined Delta tokens without native fallbacks
 test('Delta colors remain scoped and use public reversible Theme API', () => {
   assert.match(theme, /:root\[data-delta-ui="delta"\]/)
   assert.match(theme, /data-ds-dark-theme/)
-  assert.match(read('packages/delta-suite/src/client-appearance-controller.ts'), /activeTheme\.overrideTokens\(DELTA_SUITE_OWNER, TOKENS\)/)
-  assert.match(read('packages/delta-suite/src/client-appearance-controller.ts'), /ownedLayer\?\.\(\)/)
+  assert.match(read('packages/delta-ui/src/client-appearance-controller.ts'), /activeTheme\.overrideTokens\(DELTA_UI_OWNER, TOKENS\)/)
+  assert.match(read('packages/delta-ui/src/client-appearance-controller.ts'), /ownedLayer\?\.\(\)/)
   assert.doesNotMatch(theme, /\[role=["'](?:menu|menuitem|tooltip|listbox)["']\]/)
-  const css = read('packages/delta-suite/src/feature-extras.css')
+  const css = read('packages/delta-ui/src/feature-extras.css')
   assert.doesNotMatch(css, /\[class[*~^$|]?=/)
 })

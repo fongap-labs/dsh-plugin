@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "root": "packages",
+  "artifact_name": "delta-ui-release",
+  "target_repository": "fongap-labs/plugins",
+  "release_key": "delta-ui",
+  "release_name": "Delta UI",
+  "release_notes": "首次以 Delta UI 新名称提供可安装的功能验证候选包。适用于隔离 Profile 中的 Windows Harness 实机验收，不代表完整原生侧栏替换或工作区授权已交付。安装后通过“设置 → Delta UI”、插件设置标签或已安装插件详情检查同一配置页；检查官方主题回退、会话锁状态与第三方插件共存。宿主未开放侧栏重排、工作区默认折叠/删除前置拒绝和原生运行文案替换等接口时继续使用原生界面；Gateway Reasoning Effort 自动元数据适配尚未验收。不得使用历史旧版安装包代替此版本。",
+  "changelog_entries": [
+    "变更: 原 Delta Suite UI 插件更名为 Delta UI，包名、Cordis ID、配置入口和发布资产同步更新。",
+    "新增: Delta UI 通过官方设置栏目、插件设置标签和已安装插件详情共用完整配置页。",
+    "新增: 设置页显示未验证的原生侧栏、工作区与运行文案能力，保留 Harness 原生回退。",
+    "新增: 官方 Session trailing Slot 按已确认状态显示会话及继承工作区锁标记。",
+    "修复: 删除会话的批量别名扫描与取消顺序保持一致，降低重复扫描。",
+    "修复: 清理宿主私有 CSS 接管，保留正式 Theme API 与 Delta 自有组件样式。",
+    "修复: Host 隐私请求拦截支持 URL 编码、重复分隔符及路径回退，保持原生无关路由。",
+    "修复: Delta 卸载与状态切换只恢复本次接管的宿主隐藏节点，尊重第三方可见性。",
+    "说明: 原生 Workspace/Session 统一权限拒绝接口与 Gateway Effort 元数据自动适配仍待官方能力及 Windows 实机验证。"
+  ],
+  "license_expression": "MIT",
+  "node_version_file": ".nvmrc",
+  "python_version_file": "",
+  "sbom_asset": "delta-ui-sbom.cdx.json",
+  "builds": [
+    {
+      "id": "portable",
+      "runner_profile": "linux-standard",
+      "target": "portable",
+      "script": "delta-ui/build-release.mjs",
+      "assets": [
+        "fongap-labs-delta-ui.zip",
+        "fongap-labs-delta-ui.tgz"
+      ],
+      "attest_asset": "fongap-labs-delta-ui.zip",
+      "setup_rust": false
+    }
+  ]
+}

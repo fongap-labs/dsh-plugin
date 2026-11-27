@@ -1,0 +1,457 @@
+{
+  "schema_version": 1,
+  "principle": "MECE",
+  "purpose": "single-owner feature domains with replaceable Host adapters and declared UI surfaces",
+  "allowed_ui_extension_zones": [
+    "left-sidebar",
+    "right-sidebar",
+    "settings"
+  ],
+  "dependency_direction": [
+    "shell -> extension-registry",
+    "extension-registry -> feature-contracts",
+    "feature -> ports",
+    "adapter -> Host API",
+    "surface -> feature view-model"
+  ],
+  "owners": [
+    {
+      "id": "shell",
+      "description": "Bootstrap, display mode, appearance, branding, locale, notifications and lifecycle",
+      "surfaces": [
+        "left-sidebar",
+        "settings"
+      ],
+      "capabilities": [
+        "mode-switch",
+        "theme-tokens",
+        "brand",
+        "localization",
+        "notifications",
+        "feature-preferences"
+      ]
+    },
+    {
+      "id": "sessions",
+      "description": "Session/workspace state, projection and lifecycle; requests authorization from security",
+      "surfaces": [
+        "left-sidebar"
+      ],
+      "capabilities": [
+        "workspace-state",
+        "session-move",
+        "session-delete",
+        "session-archive",
+        "session-list-projection"
+      ]
+    },
+    {
+      "id": "discovery",
+      "description": "Search/query/index and navigation results; never mutates sessions",
+      "surfaces": [
+        "left-sidebar"
+      ],
+      "capabilities": [
+        "seven-category-search",
+        "session-content-search",
+        "search-shortcuts",
+        "search-navigation"
+      ]
+    },
+    {
+      "id": "context",
+      "description": "Agent companion, context usage and compaction projection",
+      "surfaces": [
+        "right-sidebar"
+      ],
+      "capabilities": [
+        "assistant-discussion",
+        "assistant-optimization",
+        "context-usage",
+        "compaction-status",
+        "task-intent"
+      ]
+    },
+    {
+      "id": "security",
+      "description": "Host-enforced policy, privacy, identity and session-lock authorization",
+      "surfaces": [
+        "left-sidebar",
+        "settings"
+      ],
+      "capabilities": [
+        "host-privacy",
+        "request-redaction",
+        "session-lock",
+        "totp-setup",
+        "locked-session-access",
+        "workspace-protection"
+      ]
+    },
+    {
+      "id": "integrations",
+      "description": "MCP management and native model settings integration; policy decisions belong to security",
+      "surfaces": [
+        "left-sidebar",
+        "settings"
+      ],
+      "capabilities": [
+        "mcp-management",
+        "gateway-effort-sync"
+      ]
+    }
+  ],
+  "host_owned_authority": [
+    "file-modification",
+    "external-data-egress",
+    "session-access",
+    "workspace-deletion",
+    "credentials"
+  ],
+  "browser_prohibited_authority": [
+    "approval-bypass",
+    "raw-credential-read",
+    "host-private-dom-ownership"
+  ],
+  "pending_capabilities": [
+    "general-outbound-approval",
+    "versioned-host-adapters",
+    "feature-permission-manifests"
+  ],
+  "legacy_hotspots": [
+    {
+      "symbol": "createClientFeatureManager",
+      "owner": "sessions",
+      "cross_cuts": [
+        "security",
+        "integrations"
+      ],
+      "action": "split policy and session projections behind typed ports; retain Host authorization"
+    },
+    {
+      "symbol": "installHostSearch",
+      "owner": "discovery",
+      "cross_cuts": [
+        "sessions"
+      ],
+      "action": "pass read-only session query/navigation ports, not mutable Host objects"
+    },
+    {
+      "symbol": "window.__ModuleLoader__.load",
+      "owner": "shell",
+      "cross_cuts": [
+        "context",
+        "integrations",
+        "security"
+      ],
+      "action": "replace hand-wired feature registration with lifecycle-managed descriptors"
+    }
+  ],
+  "host_feature_registration": {
+    "context.compaction-status": "context",
+    "context.task-intent": "context",
+    "security.privacy-guards": "security",
+    "discovery.session-search": "discovery",
+    "sessions.session-operations": "sessions"
+  },
+  "source_boundaries": {
+    "session_protection": {
+      "owner": "security",
+      "path": "packages/delta-ui/src/delta-ui-security/session-protection.ts",
+      "host_contract": "packages/delta-ui/src/delta-ui-adapter/workspace-contract.ts",
+      "compatibility_entry": "packages/delta-ui/src/host-sessions.ts",
+      "allowed_runtime_imports": [
+        "../host-state.js"
+      ],
+      "public_functions": [
+        "readHostSessionProtection",
+        "isConfirmedHostWorkspaceFolder",
+        "readHostUnarchiveProtection",
+        "readHostAgentStepProtection",
+        "readHostSearchExclusion"
+      ]
+    },
+    "client_context_projection": {
+      "owner": "context",
+      "path": "packages/delta-ui/src/client-context-projection.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "readContextUsage",
+        "conversationContext",
+        "latestCheckpoint",
+        "latestAssistantMessageId"
+      ]
+    },
+    "client_totp_qr": {
+      "owner": "security",
+      "path": "packages/delta-ui/src/client-totp-qr.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "encodeQrMatrix"
+      ]
+    },
+    "session_search_projection": {
+      "owner": "discovery",
+      "path": "packages/delta-ui/src/delta-ui-discovery/session-search-projection.ts",
+      "compatibility_entry": "packages/delta-ui/src/host-search.ts",
+      "allowed_runtime_imports": [
+        "../redact.js"
+      ],
+      "public_functions": [
+        "extractConversationBlocks",
+        "scoreAndExtractSessionHit"
+      ]
+    },
+    "client_workspace_projection": {
+      "owner": "sessions",
+      "path": "packages/delta-ui/src/client-workspace-projection.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createWorkspaceCompatibilityProjection"
+      ]
+    },
+    "client_search_protection": {
+      "owner": "security",
+      "path": "packages/delta-ui/src/client-search-protection.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createSearchContentProtection"
+      ]
+    },
+    "host_session_query": {
+      "owner": "discovery",
+      "path": "packages/delta-ui/src/delta-ui-adapter/session-query-port.ts",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createHostSessionQueryPort"
+      ]
+    },
+    "client_registration_lifecycle": {
+      "owner": "shell",
+      "path": "packages/delta-ui/src/client-registration-lifecycle.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "registerClientFeatureGroup",
+        "createClientBindingLifetime"
+      ]
+    },
+    "client_feature_preferences": {
+      "owner": "shell",
+      "path": "packages/delta-ui/src/client-feature-preferences.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "readFeaturePreferences",
+        "updateFeaturePreference",
+        "subscribeFeaturePreferences",
+        "useFeaturePreferences"
+      ]
+    },
+    "client_appearance_controller": {
+      "owner": "shell",
+      "path": "packages/delta-ui/src/client-appearance-controller.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createController"
+      ]
+    },
+    "client_session_state": {
+      "owner": "sessions",
+      "path": "packages/delta-ui/src/client-session-state.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "isConfirmedLockState",
+        "projectConfirmedClientSessionState"
+      ]
+    },
+    "client_account_summary": {
+      "owner": "integrations",
+      "path": "packages/delta-ui/src/client-account-summary.ts",
+      "runtime_entry": "packages/delta-ui/lib/client.js",
+      "allowed_runtime_imports": [],
+      "public_functions": [
+        "createClientAccountSummary",
+        "safeAccountUsageUrl",
+        "readAccountWallets"
+      ]
+    }
+  },
+  "host_feature_access": {
+    "context.compaction-status": {
+      "activation_requires": [
+        "host-context.inject"
+      ],
+      "access": "read-only-projection",
+      "host_services": [
+        "sessionProjections"
+      ],
+      "fallback": "skip-optional-feature",
+      "authorization": "Host projection registration"
+    },
+    "context.task-intent": {
+      "activation_requires": [
+        "host-context.inject",
+        "host-context.on"
+      ],
+      "access": "read-user-claim-and-contribute-prompt",
+      "host_services": [
+        "systemPrompt"
+      ],
+      "fallback": "skip-optional-feature",
+      "authorization": "Host event and prompt scope"
+    },
+    "security.privacy-guards": {
+      "activation_requires": [],
+      "access": "register-log-exclusion",
+      "host_services": [
+        "sessionLogDeepSeek"
+      ],
+      "fallback": "installer-checks-public-service",
+      "authorization": "Host exclusion registration"
+    },
+    "discovery.session-search": {
+      "activation_requires": [],
+      "access": "read-session-content-and-protection-state",
+      "host_services": [
+        "connection",
+        "sessionQuery",
+        "sessions",
+        "sessionPersistence",
+        "workspaceRegistry"
+      ],
+      "fallback": "installer-checks-public-service",
+      "authorization": "Host query and existing protection checks"
+    },
+    "sessions.session-operations": {
+      "activation_requires": [],
+      "access": "protected-session-operations-and-state",
+      "host_services": [
+        "connection",
+        "webServer",
+        "workspaceRegistry",
+        "sessions",
+        "sessionPersistence"
+      ],
+      "fallback": "per-operation-fail-closed",
+      "authorization": "Host operation and existing protection checks"
+    }
+  },
+  "host_feature_access_scope": "Host composition activation prerequisites only; service and authorization declarations are descriptive and do not grant authority. Security and session installers retain operation-level checks and deferred service injection. Browser registration groups are separately scoped in browser_feature_access.",
+  "browser_feature_access": {
+    "context.assistant-surface": {
+      "owner": "context",
+      "activation_requires": [
+        "sessions.create",
+        "sessions.retain",
+        "sessions.list.getSnapshot",
+        "resources.register",
+        "sidebarRightTabs.register",
+        "sidebarRight.openResource",
+        "slots.inject",
+        "slots.register",
+        "effect"
+      ],
+      "access": "Host-owned assistant session, resource, prompt and UI contributions",
+      "fallback": "skip-optional-surface",
+      "authorization": "Host session and prompt access plus current content protection"
+    },
+    "sessions.context-menus": {
+      "owner": "sessions",
+      "activation_requires": [
+        "contextMenus.register"
+      ],
+      "inherited_requires": [
+        "slots.register",
+        "effect"
+      ],
+      "access": "register public session and workspace menu actions",
+      "fallback": "native-menus-preserved",
+      "authorization": "Host operation and existing protection checks"
+    },
+    "discovery.search-palette": {
+      "owner": "discovery",
+      "activation_requires": [
+        "uiWorkspace.openSession",
+        "uiWorkspace.startSession",
+        "slots.inject",
+        "slots.register"
+      ],
+      "inherited_requires": [
+        "sessions.list.getSnapshot",
+        "effect"
+      ],
+      "access": "read protected search results and request Host navigation",
+      "fallback": "native-search-preserved; independent catalog/protection observer remains bound",
+      "authorization": "Host query, navigation and existing protection checks"
+    },
+    "shell.public-slots": {
+      "owner": "shell",
+      "activation_requires": [
+        "slots.inject",
+        "slots.register",
+        "effect",
+        "inject"
+      ],
+      "access": "register Delta-owned settings, model label, brand and style contributions",
+      "fallback": "skip-unsupported-slot; preserve other independent slots",
+      "authorization": "Host public slot registration"
+    },
+    "sessions.row-decoration": {
+      "owner": "sessions",
+      "activation_requires": [
+        "slots.inject",
+        "slots.register"
+      ],
+      "access": "display protected session indicators and authorized identity",
+      "fallback": "native-row-preserved",
+      "authorization": "Host catalog and existing protection checks"
+    },
+    "sessions.workspace-catalog": {
+      "owner": "sessions",
+      "activation_requires": [
+        "workspaces.list.getSnapshot",
+        "effect"
+      ],
+      "access": "read native workspace catalog",
+      "fallback": "skip-unsupported-service",
+      "authorization": "Host catalog access"
+    },
+    "sessions.session-catalog": {
+      "owner": "sessions",
+      "activation_requires": [
+        "sessions.list.getSnapshot",
+        "uiWorkspace",
+        "effect"
+      ],
+      "access": "observe confirmed session catalog and navigation references",
+      "fallback": "skip-unsupported-service",
+      "authorization": "Host catalog and existing protection checks"
+    },
+    "shell.theme": {
+      "owner": "shell",
+      "activation_requires": [
+        "effect"
+      ],
+      "access": "contribute own theme tokens using overrideTokens when available",
+      "fallback": "no palette; report unavailable if Delta mode requested",
+      "authorization": "Host theme contribution"
+    },
+    "shell.layout": {
+      "owner": "shell",
+      "activation_requires": [
+        "effect"
+      ],
+      "access": "invoke available public layout actions with per-action checks",
+      "fallback": "unsupported action fails without affecting other features",
+      "authorization": "Host layout action"
+    }
+  },
+  "browser_feature_access_scope": "Nine browser registration groups, covering public slot contributions, session/workspace catalogs, theme/layout and the previously declared assistant, menus and search. Requirements describe public registration prerequisites, not permission grants. Right-sidebar, locale, and other operation-level checks remain governed by their existing code; actual slot/service availability is Host-owned."
+}

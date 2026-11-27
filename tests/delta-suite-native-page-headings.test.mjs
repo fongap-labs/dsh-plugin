@@ -2,13 +2,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { verifyApprovedZip3Client } from '../scripts/verify-delta-suite-release.mjs'
+import { verifyApprovedZip3Client } from '../scripts/verify-delta-ui-release.mjs'
 
 const read = path => readFileSync(fileURLToPath(new URL('../' + path, import.meta.url)), 'utf8')
-const source = read('packages/delta-suite/src/client.ts')
-const theme = read('packages/delta-suite/src/theme.css')
+const source = read('packages/delta-ui/src/client.ts')
+const theme = read('packages/delta-ui/src/theme.css')
 
-test('Delta Suite leaves built-in Harness page headings in native ownership', () => {
+test('Delta UI leaves built-in Harness page headings in native ownership', () => {
   assert.doesNotMatch(source, /\b(?:syncPageHeadings|mutatedPageHeadings)\b/)
   assert.doesNotMatch(source, /PluginManagerPage\|TaskManagerPage\|pageHeading/)
   assert.doesNotMatch(source, /syncSettingsNav|syncMenus|data-dtd-nav-tail/)

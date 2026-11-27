@@ -82,9 +82,10 @@ phase_end
 SHARED_TSCONFIG=packages/shared/tsconfig.json
 HOST_TSCONFIGS=(
   packages/delta-code/tsconfig.json
+  packages/delta-ui/tsconfig.json
   packages/delta-suite/tsconfig.json
 )
-CLIENT_TSCONFIG=packages/delta-suite/tsconfig.client.json
+CLIENT_TSCONFIG=packages/delta-ui/tsconfig.client.json
 TSCONFIGS=(
   "$SHARED_TSCONFIG"
   "${HOST_TSCONFIGS[@]}"

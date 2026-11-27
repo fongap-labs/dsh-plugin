@@ -12,8 +12,8 @@ let installHostSessionSearch, readHostSearchExclusion
 try {
   execFileSync(process.execPath, [
     fixture('node_modules/typescript/bin/tsc'),
-    fixture('packages/delta-suite/src/host-search.ts'),
-    fixture('packages/delta-suite/src/host-sessions.ts'),
+    fixture('packages/delta-ui/src/host-search.ts'),
+    fixture('packages/delta-ui/src/host-sessions.ts'),
     '--target', 'ES2022', '--module', 'node16', '--moduleResolution', 'node16',
     '--outDir', temp, '--strict', '--skipLibCheck',
   ], { stdio: 'pipe' })
@@ -24,7 +24,7 @@ try {
   rmSync(temp, { recursive: true, force: true })
 }
 
-const searchUrl = 'http://localhost/api/delta-suite/session-search?q=needle'
+const searchUrl = 'http://localhost/api/delta-ui/session-search?q=needle'
 const makeLease = (released) => ({
   events: [{
     type: 'user/message',

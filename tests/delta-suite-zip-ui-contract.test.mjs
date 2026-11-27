@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 
 const root = resolve(import.meta.dirname, '..')
-const file = path => readFileSync(join(root, 'packages/delta-suite', path), 'utf8')
+const file = path => readFileSync(join(root, 'packages/delta-ui', path), 'utf8')
 const config = JSON.parse(file('tsconfig.client.json'))
 const client = config.include.filter(path => !path.endsWith('.d.ts')).map(file).join('\n')
 const css = file('src/theme.css')
@@ -13,14 +13,14 @@ const zh = JSON.parse(file('locale/zh.json'))
 const en = JSON.parse(file('locale/en.json'))
 
 describe('Authoritative ZIP3 Desktop UI and additive feature integration', () => {
-  it('retains the reviewed ZIP3 theme with Delta Suite additions', () => {
+  it('retains the reviewed ZIP3 theme with Delta UI additions', () => {
     // Six-digit CSS Unicode escapes preserve the ZIP's selector semantics.
     // Git may check out CRLF on Windows; canonical ZIP CSS uses LF.
     const canonical = css.replace(/\r\n/g, '\n').replace(/\\([0-9A-F]{6})/g, (_, hex) =>
       String.fromCodePoint(Number.parseInt(hex, 16)))
     const b = Buffer.from(canonical)
     const sha = createHash('sha1').update('blob ' + b.length + '\0').update(b).digest('hex')
-    assert.equal(sha, '1bc86d3be948e39269a334e69da2d950811a9ec3')
+    assert.equal(sha, '6302fba0d6631ea0e97deeca538895431c6debd1')
   })
   it('does not style native Host inputs, hero, guide cards or global token scales', () => {
     assert.doesNotMatch(css, /\[class[*~^$|]?=/)
@@ -187,7 +187,7 @@ describe('Delta-owned visual tokens and modal accessibility', () => {
     assert.match(css, /--dtd-brand:\s*#60B4BF/)
   })
 
-  it('styles only Suite-owned modal overlays, surfaces and visible keyboard focus', () => {
+  it('styles only Delta UI-owned modal overlays, surfaces and visible keyboard focus', () => {
     const extras = file('src/feature-extras.css')
     assert.doesNotMatch(extras, /rgba?\(/, 'component colors must use semantic tokens')
     assert.match(extras, /\.dtd-correction-overlay[^\{]*\{[^\}]*var\(--dtd-bg-mask\)/)

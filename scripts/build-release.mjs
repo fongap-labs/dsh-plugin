@@ -84,9 +84,9 @@ async function main() {
       await rm(temp, { recursive: true, force: true })
     }
     // Verify the *shipped* client registration, not only the TypeScript source.
-    if (name === 'delta-suite' || name === 'delta-code') {
+    if (name === 'delta-ui' || name === 'delta-code') {
       const verifier = name === 'delta-code'
-        ? 'verify-delta-code-release.mjs' : 'verify-delta-suite-release.mjs'
+        ? 'verify-delta-code-release.mjs' : 'verify-delta-ui-release.mjs'
       run(process.execPath, [
         join(root, 'scripts', verifier),
         '--zip', join(output, safeName + '.zip'),

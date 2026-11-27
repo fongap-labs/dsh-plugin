@@ -3,9 +3,9 @@ import assert from 'node:assert/strict'
 import { gzipSync } from 'node:zlib'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { readZip, readTgz, verifyEntries, hasUnsafeHostPatch } from '../scripts/verify-delta-suite-release.mjs'
+import { readZip, readTgz, verifyEntries, hasUnsafeHostPatch } from '../scripts/verify-delta-ui-release.mjs'
 
-const approvedTheme = readFileSync(join(import.meta.dirname, '../packages/delta-suite/src/theme.css'), 'utf8')
+const approvedTheme = readFileSync(join(import.meta.dirname, '../packages/delta-ui/src/theme.css'), 'utf8')
 const fallbackLabels = Object.fromEntries([
   'integrationTitle', 'integrationSummary', 'integrationSidebar',
   'integrationCollapse', 'integrationDeletion', 'integrationRunning',
@@ -15,14 +15,14 @@ const fallbackLabels = Object.fromEntries([
 function validEntries(version = '0.1.0-beta.2') {
   const files = {
     'package.json': JSON.stringify({
-      name: '@fongap-labs/delta-suite', version,
+      name: '@fongap-labs/delta-ui', version,
       dsh: { client: { platform: 'web' } },
       exports: { './client': './lib/client.js' },
     }),
-    'cordis.patch.yml': 'id: delta-suite\nname: @fongap-labs/delta-suite',
+    'cordis.patch.yml': 'id: delta-ui\nname: @fongap-labs/delta-ui',
     'lib/index.js': 'export { negotiateHostCapabilities, DELTA_HOST_CONTRACT_VERSION } from "./host-capabilities.js"',
-    'lib/host-capabilities.js': "export * from './delta-suite-adapter/host-capability-contract.js';",
-    'lib/delta-suite-adapter/host-capability-contract.js': [
+    'lib/host-capabilities.js': "export * from './delta-ui-adapter/host-capability-contract.js';",
+    'lib/delta-ui-adapter/host-capability-contract.js': [
       'export const DELTA_HOST_CONTRACT_VERSION = 1;',
       'export function negotiateHostCapabilities() {}',
     ].join('\n'),
@@ -32,8 +32,8 @@ function validEntries(version = '0.1.0-beta.2') {
       "scope.slots.inject('settings.plugins.tab'",
       "scope.slots.inject('plugins.bundle.config', () => scope.slots.register({",
       "name: 'plugins.bundle.config',",
-      "key: '@fongap-labs/delta-suite'",
-      "id: 'delta.suite.configuration'",
+      "key: '@fongap-labs/delta-ui'",
+      "id: 'delta.ui.configuration'",
       "'data-delta-personalization'",
       "'data-delta-integration-status'",
       "scope.slots.inject('sidebar.session.row.trailing'",
@@ -43,8 +43,8 @@ function validEntries(version = '0.1.0-beta.2') {
       'dtd-host-search',
       'const OWNED_CSS = ' + JSON.stringify(approvedTheme) + ';',
     ].join('\n'),
-    'locale/en.json': readFileSync(join(import.meta.dirname, '../packages/delta-suite/locale/en.json'), 'utf8'),
-    'locale/zh.json': readFileSync(join(import.meta.dirname, '../packages/delta-suite/locale/zh.json'), 'utf8'),
+    'locale/en.json': readFileSync(join(import.meta.dirname, '../packages/delta-ui/locale/en.json'), 'utf8'),
+    'locale/zh.json': readFileSync(join(import.meta.dirname, '../packages/delta-ui/locale/zh.json'), 'utf8'),
     'icon.svg': '<svg/>',
   }
   return new Map(Object.entries(files).map(([key, value]) => [key, Buffer.from(value)]))
@@ -84,7 +84,7 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
   noContract.delete('lib/host-capabilities.js')
   assert.throws(() => verifyEntries(noContract, '0.1.0-beta.2', 'TGZ'), /missing lib\/host-capabilities.js/)
   const unresolved = new Map(entries)
-  unresolved.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + '__DELTA_SUITE_STYLE__'))
+  unresolved.set('lib/client.js', Buffer.from(entries.get('lib/client.js').toString() + '__DELTA_UI_STYLE__'))
   assert.throws(() => verifyEntries(unresolved, '0.1.0-beta.2', 'ZIP'), /build markers/)
   const oldName = new Map(entries)
   oldName.set('package.json', Buffer.from(JSON.stringify({ ...JSON.parse(entries.get('package.json').toString()),
@@ -104,7 +104,7 @@ test('reject stale names, missing client, mismatched versions and unresolved mar
 
 test('validates the concrete capability contract and compatibility link in ZIP and TGZ', () => {
   const valid = validEntries()
-  const implementation = 'lib/delta-suite-adapter/host-capability-contract.js'
+  const implementation = 'lib/delta-ui-adapter/host-capability-contract.js'
   const compatibility = 'lib/host-capabilities.js'
   for (const format of ['ZIP', 'TGZ']) {
     assert.doesNotThrow(() => verifyEntries(valid, '0.1.0-beta.2', format))
@@ -112,7 +112,7 @@ test('validates the concrete capability contract and compatibility link in ZIP a
     const noImplementation = new Map(valid)
     noImplementation.delete(implementation)
     assert.throws(() => verifyEntries(noImplementation, '0.1.0-beta.2', format),
-      /missing lib\/delta-suite-adapter\/host-capability-contract\.js/)
+      /missing lib\/delta-ui-adapter\/host-capability-contract\.js/)
 
     const wrongLink = new Map(valid)
     wrongLink.set(compatibility, Buffer.from("export * from './incorrect-module.js';"))
@@ -139,7 +139,7 @@ test('release refuses stale ZIP and TGZ bundles missing public Settings or model
     "scope.slots.inject('settings.section'",
     "scope.slots.inject('settings.plugins.tab'",
     "scope.slots.inject('plugins.bundle.config'",
-    "id: 'delta.suite.configuration'",
+    "id: 'delta.ui.configuration'",
     "'data-delta-personalization'",
     "'data-delta-integration-status'",
     "scope.slots.inject('sidebar.session.row.trailing'",
@@ -149,7 +149,7 @@ test('release refuses stale ZIP and TGZ bundles missing public Settings or model
       const broken = new Map(valid)
       broken.set('lib/client.js', Buffer.from(shipped.replace(marker, '')))
       assert.throws(() => verifyEntries(broken, '0.1.0-beta.2', format),
-        /installable Suite UI registration/, format + ': ' + marker)
+        /installable Delta UI registration/, format + ': ' + marker)
     }
   }
 })
@@ -198,8 +198,8 @@ test('release refuses incomplete Host fallback translations in either archive', 
 
 test('beta release manifest clearly declares Windows acceptance and unavailable native contracts', () => {
   const manifest = JSON.parse(readFileSync(join(import.meta.dirname,
-    '../projects/delta-suite/release.manifest.json'), 'utf8'))
-  assert.equal(manifest.release_key, 'delta-suite')
+    '../projects/delta-ui/release.manifest.json'), 'utf8'))
+  assert.equal(manifest.release_key, 'delta-ui')
   assert.match(manifest.release_notes, /Windows Harness/)
   assert.match(manifest.release_notes, /Gateway Reasoning Effort/)
   assert.ok(manifest.changelog_entries.some(line => line.includes('Session trailing Slot')))
@@ -211,7 +211,7 @@ test('release rejects an Installed plugins configuration bound to the wrong bund
   for (const format of ['ZIP', 'TGZ']) {
     const broken = new Map(valid)
     broken.set('lib/client.js', Buffer.from(valid.get('lib/client.js').toString()
-      .replace("key: '@fongap-labs/delta-suite'",
+      .replace("key: '@fongap-labs/delta-ui'",
         "key: '@fongap-labs/another-plugin'")))
     assert.throws(() => verifyEntries(broken, '0.1.0-beta.2', format),
       /installed bundle config package-key binding/)
@@ -220,7 +220,7 @@ test('release rejects an Installed plugins configuration bound to the wrong bund
 
 test('central manual release verifies both packaged archives after build', () => {
   const script = readFileSync(join(import.meta.dirname, '../scripts/build-release.mjs'), 'utf8')
-  assert.match(script, /verify-delta-suite-release\.mjs/)
+  assert.match(script, /verify-delta-ui-release\.mjs/)
   assert.match(script, /--zip/)
   assert.match(script, /--tgz/)
   assert.match(script, /--version/)

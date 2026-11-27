@@ -1,0 +1,1152 @@
+/* ============================================================================
+ * Delta UI Design System
+ * Centralized semantic tokens & reusable component styles (light & dark).
+ * No magic hex values inside component rules; all rules consume --dtd-* tokens.
+ * ============================================================================ */
+
+:root[data-delta-ui="delta"],
+:root[data-delta-ui="delta"] body {
+  /* Core Palette Tokens (Light) */
+  --dtd-brand: #286F78;
+  --dtd-brand-hover: #1D5E66;
+  --dtd-brand-bright: #45939D;
+  --dtd-brand-soft: #EAF3F4;
+  --dtd-brand-soft-strong: #DCEBEC;
+  --dtd-brand-border: #9AC9CE;
+  --dtd-brand-ink-on-soft: #10373C;
+  --dtd-brand-ink-on-solid: #FFFFFF;
+  --dtd-selection-bg: rgba(40, 111, 120, 0.22);
+
+  /* Surface & Text Tokens (Light) */
+  --dtd-bg-canvas: #FFFFFF;
+  --dtd-bg-sidebar: #F2F4F6;
+  --dtd-bg-surface: #FFFFFF;
+  --dtd-bg-subtle: #F8F9FA;
+  --dtd-bg-muted: #F2F5F6;
+  --dtd-bg-hover: #EEF0F2;
+  --dtd-bg-bubble: #F4F8F8;
+  --dtd-bg-bubble-border: #C2DFE2;
+  --dtd-bg-danger-soft: rgba(185, 28, 28, 0.08);
+  --dtd-bg-mask: rgba(15, 23, 42, 0.28);
+
+  --dtd-fg-primary: #18181B;
+  --dtd-fg-secondary: #52525B;
+  --dtd-fg-muted: #71717A;
+  --dtd-fg-inverted: #FFFFFF;
+  --dtd-fg-danger: #B91C1C;
+  --dtd-warning-border: #D9A441;
+  --dtd-bg-qr: #FFFFFF;
+
+  --dtd-border: #E5E9EB;
+  --dtd-border-subtle: #ECEFF1;
+  --dtd-border-focus: var(--dtd-brand);
+
+  /* Geometry Tokens */
+  --dtd-radius-xs: 4px;
+  --dtd-radius-sm: 6px;
+  --dtd-radius-md: 8px;
+  --dtd-radius-lg: 12px;
+  --dtd-radius-panel: 16px;
+  --dtd-radius-pill: 9999px;
+
+  /* Component Semantic Tokens */
+  --dtd-accent: var(--dtd-brand);
+  --dtd-spinner-color: var(--dtd-brand);
+
+  --dtd-popup-bg: var(--dtd-bg-surface);
+  --dtd-popup-fg: var(--dtd-fg-primary);
+  --dtd-popup-muted: var(--dtd-fg-muted);
+  --dtd-popup-border: var(--dtd-border);
+  --dtd-popup-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  --dtd-popup-radius: var(--dtd-radius-lg);
+
+  --dtd-modal-bg: var(--dtd-bg-surface);
+  --dtd-modal-border: var(--dtd-border);
+  --dtd-modal-shadow: 0 20px 45px -12px rgba(0, 0, 0, 0.16), 0 4px 14px -4px rgba(0, 0, 0, 0.06);
+  --dtd-qr-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+
+  --dtd-input-bg: var(--dtd-bg-surface);
+  --dtd-input-bg-hover: var(--dtd-bg-surface);
+  --dtd-input-bg-focus: var(--dtd-bg-surface);
+  --dtd-input-border: var(--dtd-border);
+  --dtd-input-border-hover: var(--dtd-input-border-focus);
+  --dtd-input-border-focus: var(--dtd-brand);
+  --dtd-input-fg: var(--dtd-fg-primary);
+  --dtd-input-placeholder: var(--dtd-fg-muted);
+  --dtd-input-radius: var(--dtd-radius-md);
+
+  --dtd-clear-fg: var(--dtd-fg-muted);
+  --dtd-clear-hover-fg: var(--dtd-fg-primary);
+  --dtd-clear-hover-bg: var(--dtd-bg-hover);
+  --dtd-clear-radius: var(--dtd-radius-sm);
+
+  --dtd-btn-icon-size: 28px;
+  --dtd-avatar-size: 24px;
+  --dtd-sidebar-row-height: 36px;
+
+
+}
+
+:root[data-delta-ui="delta"] [data-ds-dark-theme],
+:root[data-delta-ui="delta"][data-ds-dark-theme],
+:root[data-delta-ui="delta"] body[data-ds-dark-theme] {
+  /* Core Palette Tokens (Dark) */
+  --dtd-brand: #60B4BF;
+  --dtd-brand-hover: #75CBD5;
+  --dtd-brand-bright: #8EE0EA;
+  --dtd-brand-soft: #1C3B40;
+  --dtd-brand-soft-strong: #244E55;
+  --dtd-brand-border: #357079;
+  --dtd-brand-ink-on-soft: #E4F4F6;
+  --dtd-brand-ink-on-solid: #0E1A1C;
+  --dtd-selection-bg: rgba(96, 180, 191, 0.28);
+
+  /* Surface & Text Tokens (Dark) */
+  --dtd-bg-canvas: #121316;
+  --dtd-bg-sidebar: #181A1E;
+  --dtd-bg-surface: #1C1E22;
+  --dtd-bg-subtle: #24262B;
+  --dtd-bg-muted: #282D31;
+  --dtd-bg-hover: rgba(255, 255, 255, 0.08);
+  --dtd-bg-bubble: #132225;
+  --dtd-bg-bubble-border: #244E55;
+  --dtd-bg-danger-soft: rgba(239, 68, 68, 0.14);
+  --dtd-bg-mask: rgba(0, 0, 0, 0.56);
+
+  --dtd-fg-primary: #FAFAFA;
+  --dtd-fg-secondary: #D4D4D8;
+  --dtd-fg-muted: #A1A1AA;
+  --dtd-fg-inverted: #0E1A1C;
+  --dtd-fg-danger: #F87171;
+  --dtd-warning-border: #D9A441;
+  --dtd-bg-qr: #FFFFFF;
+
+  --dtd-border: rgba(255, 255, 255, 0.12);
+  --dtd-border-subtle: rgba(255, 255, 255, 0.08);
+  --dtd-border-focus: var(--dtd-brand);
+  --dtd-input-bg: var(--dtd-bg-surface);
+  --dtd-input-bg-hover: var(--dtd-bg-surface);
+  --dtd-input-bg-focus: var(--dtd-bg-surface);
+  --dtd-input-border-hover: var(--dtd-brand);
+  --dtd-input-border-focus: var(--dtd-brand);
+
+  --dtd-popup-bg: #1E1E20;
+  --dtd-popup-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.35);
+  --dtd-modal-bg: #1B1C20;
+  --dtd-modal-shadow: 0 24px 54px -14px rgba(0, 0, 0, 0.65);
+  --dtd-qr-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+
+
+}
+
+
+/* Delta-owned popup, search and status surfaces only.
+ * Native Harness menus, tooltips, listboxes and third-party overlays retain their own CSS. */
+:root[data-delta-ui="delta"] :is(
+  .dtd-tooltip,
+  .dtd-host-search-results,
+  .dtd-toast
+) {
+  background: var(--dtd-popup-bg) !important;
+  background-color: var(--dtd-popup-bg) !important;
+  color: var(--dtd-popup-fg) !important;
+  border: 1px solid var(--dtd-popup-border) !important;
+  box-shadow: var(--dtd-popup-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+:root[data-delta-ui="delta"] .dtd-tooltip {
+  z-index: 2147482900 !important;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 18px !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  border-radius: var(--dtd-popup-radius) !important;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-results {
+  border-radius: var(--dtd-popup-radius) !important;
+}
+:root[data-delta-ui="delta"] .dtd-host-search-result:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--dtd-bg-hover) !important;
+}
+:root[data-delta-ui="delta"] .dtd-spinner {
+  color: var(--dtd-spinner-color) !important;
+}
+
+/* ============================================================================
+ * 4. Settings Page and Host Navigation Tail Order
+ * ============================================================================ */
+.dtd-page {
+  --dtd-surface: var(--dtd-bg-surface, transparent);
+  --dtd-border-local: var(--dtd-border, currentColor);
+  --dtd-text: var(--dtd-fg-primary, inherit);
+  --dtd-muted: var(--dtd-fg-muted, inherit);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 960px;
+  padding: 2px 0 20px;
+  color: var(--dtd-text);
+  font: inherit;
+}
+.dtd-preference-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px;
+  background: var(--dtd-surface);
+  border: 1px solid var(--dtd-border-local);
+  border-radius: var(--dtd-radius-panel);
+}
+.dtd-page p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dtd-muted);
+}
+.dtd-preference-copy {
+  flex: 1 1 245px;
+  min-width: 0;
+}
+.dtd-preference-copy strong {
+  font-weight: 600;
+}
+.dtd-preference-copy p {
+  margin-top: 6px;
+}
+.dtd-segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border: 1px solid var(--dtd-border-local);
+  border-radius: 10px;
+  padding: 4px;
+}
+.dtd-segment button {
+  border: 0;
+  border-radius: 7px;
+  padding: 9px 12px;
+  cursor: pointer;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.dtd-segment button.dtd-active {
+  background: var(--dtd-brand);
+  color: var(--dtd-fg-inverted);
+}
+.dtd-page :focus-visible {
+  outline: 1px solid var(--dtd-border-focus);
+  outline-offset: 1px;
+}
+.dtd-page .dtd-error {
+  color: var(--dtd-fg-danger);
+}
+.dtd-page .dtd-current {
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .dtd-preference-row { padding: 16px; }
+  .dtd-segment { width: 100%; }
+  .dtd-segment button { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dtd-page * { transition: none !important; }
+}
+
+/* Harness owns native modal masks, panels, positioning, drag behavior, and Settings order. */
+/* ============================================================================
+ * 5. Public Brand Slot & Legacy Hero Preview Styling
+ * ============================================================================ */
+.dtd-brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  font-size: 20px;
+  font-weight: 650;
+  color: var(--dtd-brand);
+}
+.dtd-brand-name {
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+/* Native sidebar brand rows and expand/collapse controls remain Harness-owned;
+ * Delta branding uses public sidebar.brand Slot contributions instead. */
+
+/* Harness owns native session and workspace hover-card layout; the public
+ * sidebar.session.row.hover Slot remains available to multiple providers. */
+
+/* ============================================================================
+ * 6. Left Sidebar Layout, Search, Nav Items, Workspace List & Footer
+ * ============================================================================ */
+
+/* 6.1 Top Search Box */
+
+:root[data-delta-ui="delta"] .dtd-host-search {
+  order: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  position: relative !important;
+  margin: 0 0 8px 0 !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-field {
+  display: flex !important;
+  flex-direction: row !important;
+  min-height: var(--dtd-sidebar-row-height) !important;
+  height: var(--dtd-sidebar-row-height) !important;
+  align-items: center !important;
+  padding: 0 10px !important;
+  gap: 8px !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-search-icon {
+  display: inline-block !important;
+  width: 15px !important;
+  height: 15px !important;
+  flex-shrink: 0 !important;
+  color: var(--dtd-fg-muted) !important;
+  stroke: var(--dtd-fg-muted) !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-field input {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  font: inherit !important;
+  font-size: 13px !important;
+  line-height: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-field input::-webkit-search-cancel-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  display: none !important;
+}
+
+
+:root[data-delta-ui="delta"] .dtd-host-search-results {
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  max-height: min(320px, 55vh) !important;
+  overflow-y: auto !important;
+  padding: 6px !important;
+  border-radius: var(--dtd-radius-lg) !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-results[hidden] {
+  display: none !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-result {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  padding: 8px 10px !important;
+  border: 0 !important;
+  border-radius: var(--dtd-radius-md) !important;
+  background: transparent !important;
+  color: var(--dtd-fg-primary) !important;
+  font: inherit !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-result-title {
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-result-snippet,
+:root[data-delta-ui="delta"] .dtd-host-search-hint {
+  margin: 0 !important;
+  overflow: hidden !important;
+  color: var(--dtd-fg-muted) !important;
+  font-size: 12px !important;
+  text-overflow: ellipsis !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-host-search-hint {
+  padding: 8px 10px !important;
+}
+
+/* Harness owns its original workspace search control; Delta does not hide it. */
+
+/* 6.2 Navigation Rows: Harness retains the native More action. */
+
+/* 6.3 Harness owns the native New Session button; no mirrored controls or hiding. */
+
+/* Native workspace/session list layout, row treatment, scrollbars and fades belong to Harness. */
+
+.dtd-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483000;
+  max-width: min(360px, calc(100vw - 48px));
+  padding: 11px 15px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+/* Harness retains ownership of frame columns, splitters, collapse controls, and widths. */
+
+/* Harness owns native center, header, Composer, hero, trajectory and dock geometry. */
+/* Only plugin-controlled protected states may be visually concealed here.
+ * Native Settings rows and empty Ungrouped buckets remain Harness-owned. */
+[data-dtd-hidden-session-log="1"],
+[data-dtd-hidden-privacy-cmd="1"],
+[data-dtd-hidden-sole-workspace="1"],
+[data-dtd-hidden-deleted="1"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* ============================================================================
+ * 10. Privacy Card & Multi-Dimension Centered Search Palette (dsh-claude-style)
+ * ============================================================================ */
+.dtd-privacy-card {
+  margin-top: 12px;
+  padding: 20px 24px;
+  background: var(--dtd-surface);
+  border: 1px solid var(--dtd-border-local);
+  border-radius: var(--dtd-radius-panel);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dtd-privacy-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dtd-privacy-header strong {
+  font-weight: 600;
+}
+.dtd-privacy-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--dtd-radius-pill);
+  background: var(--dtd-brand-soft, transparent);
+  color: var(--dtd-brand-ink-on-soft, var(--dtd-brand, currentColor));
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dtd-privacy-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dtd-privacy-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--dtd-fg-secondary, inherit);
+}
+.dtd-privacy-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--dtd-radius-pill);
+  background: var(--dtd-brand, currentColor);
+  flex: none;
+}
+
+/* Sidebar search clear button + shortcut keycap */
+
+:root[data-delta-ui="delta"] .dtd-search-clear {
+  flex: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: var(--dtd-clear-radius, var(--dtd-radius-sm)) !important;
+  background: transparent !important;
+  color: var(--dtd-clear-fg, var(--dtd-fg-muted)) !important;
+  cursor: pointer !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-search-clear[hidden] {
+  display: none !important;
+}
+@media (hover: hover) {
+  
+:root[data-delta-ui="delta"] .dtd-search-clear:hover {
+    color: var(--dtd-clear-hover-fg, var(--dtd-fg-primary)) !important;
+    background: var(--dtd-clear-hover-bg, var(--dtd-bg-hover)) !important;
+  }
+}
+
+:root[data-delta-ui="delta"] .dtd-search-kbd {
+  flex: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 20px !important;
+  padding: 0 6px !important;
+  border-radius: var(--dtd-radius-xs, 4px) !important;
+  border: 1px solid var(--dtd-border) !important;
+  background: var(--dtd-bg-subtle) !important;
+  color: var(--dtd-fg-muted) !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 11px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+:root[data-delta-ui="delta"] .dtd-search-kbd[hidden] {
+  display: none !important;
+}
+
+/* Centered Command Search Palette Modal */
+.dtd-search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(44px, 10vh, 110px) 16px 24px;
+  background: var(--dtd-bg-mask);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-sizing: border-box;
+}
+.dtd-search-backdrop[hidden] {
+  display: none;
+}
+.dtd-search-modal {
+  width: min(680px, 100%);
+  max-height: min(620px, 78vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--dtd-modal-bg, var(--dtd-bg-surface));
+  color: var(--dtd-fg-primary);
+  border: 1px solid var(--dtd-modal-border, var(--dtd-border));
+  border-radius: var(--dtd-radius-panel, 16px);
+  box-shadow: var(--dtd-modal-shadow);
+  font-family: inherit;
+}
+.dtd-search-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--dtd-border-subtle, var(--dtd-border));
+  box-sizing: border-box;
+}
+.dtd-search-header > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--dtd-fg-muted);
+}
+.dtd-search-modal-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 24px;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--dtd-input-fg, var(--dtd-fg-primary)) !important;
+  font: inherit;
+  font-size: 14px;
+  line-height: 24px;
+  padding: 0;
+  margin: 0;
+}
+.dtd-search-modal-input::placeholder {
+  color: var(--dtd-input-placeholder, var(--dtd-fg-muted));
+}
+
+:root[data-delta-ui="delta"] .dtd-search-modal-input::-webkit-search-cancel-button,
+.dtd-search-modal-input::-webkit-search-cancel-button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  display: none !important;
+}
+.dtd-search-modal .dtd-search-clear {
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: var(--dtd-radius-xs, 6px) !important;
+  color: var(--dtd-clear-fg, var(--dtd-fg-muted)) !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+}
+.dtd-search-modal .dtd-search-clear svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.dtd-search-modal .dtd-search-kbd {
+  height: 24px !important;
+  padding: 0 7px !important;
+  border-radius: var(--dtd-radius-xs, 6px) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  box-sizing: border-box !important;
+}
+.dtd-search-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--dtd-border-subtle, var(--dtd-border));
+  background: var(--dtd-bg-subtle);
+  scrollbar-width: none;
+}
+.dtd-search-tabs::-webkit-scrollbar {
+  display: none;
+}
+.dtd-search-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--dtd-radius-pill);
+  background: transparent;
+  color: var(--dtd-fg-secondary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+@media (hover: hover) {
+  .dtd-search-tab:hover {
+    background: var(--dtd-bg-hover);
+    color: var(--dtd-fg-primary);
+  }
+}
+.dtd-search-tab.dtd-active {
+  background: var(--dtd-brand);
+  color: var(--dtd-fg-inverted);
+}
+.dtd-search-tab-count {
+  font-size: 11px;
+  opacity: 0.78;
+  font-variant-numeric: tabular-nums;
+}
+.dtd-search-list {
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dtd-search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--dtd-radius-md);
+  background: transparent;
+  color: var(--dtd-fg-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.dtd-search-item[data-active="1"],
+.dtd-search-item:focus-visible {
+  background: var(--dtd-bg-hover);
+  border-color: var(--dtd-border);
+  outline: none;
+}
+@media (hover: hover) {
+  .dtd-search-item:hover {
+    background: var(--dtd-bg-hover);
+  }
+}
+.dtd-search-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.dtd-search-item-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--dtd-fg-primary);
+}
+.dtd-search-item-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.dtd-search-item-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: var(--dtd-radius-pill);
+  background: var(--dtd-brand-soft);
+  color: var(--dtd-brand-ink-on-soft);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.dtd-search-item-badge[data-muted="1"] {
+  background: var(--dtd-bg-subtle);
+  color: var(--dtd-fg-muted);
+  border: 1px solid var(--dtd-border-subtle);
+}
+.dtd-search-item-snippet {
+  margin: 0;
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--dtd-fg-secondary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+.dtd-search-modal mark {
+  background: var(--dtd-brand-soft-strong);
+  color: var(--dtd-brand-ink-on-soft, var(--dtd-fg-primary));
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+}
+.dtd-search-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--dtd-fg-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+.dtd-search-empty strong {
+  color: var(--dtd-fg-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dtd-search-empty span {
+  font-size: 12px;
+}
+.dtd-search-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--dtd-border-subtle, var(--dtd-border));
+  background: var(--dtd-bg-subtle);
+  color: var(--dtd-fg-muted);
+  font-size: 11px;
+}
+.dtd-search-footer-hints {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+@keyframes dtdHitFlash {
+  0% { box-shadow: 0 0 0 2px var(--dtd-brand); background-color: var(--dtd-brand-soft); }
+  75% { box-shadow: 0 0 0 2px var(--dtd-brand); background-color: var(--dtd-brand-soft); }
+  100% { box-shadow: 0 0 0 0 transparent; background-color: transparent; }
+}
+.dtd-search-hit-flash {
+  border-radius: var(--dtd-radius-md);
+  animation: dtdHitFlash 1.8s ease-out forwards;
+}
+
+/* ============================================================================
+ * 11. Session Lock Shield, Move/Delete Modals, 1-Line Errors
+ * ============================================================================ */
+.dtd-lock-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--dtd-bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.dtd-lock-shield[hidden] {
+  display: none !important;
+}
+.dtd-lock-card {
+  position: relative;
+  width: min(380px, 100%);
+  padding: 24px;
+  border-radius: var(--dtd-radius-panel, 16px);
+  background: var(--dtd-modal-bg, var(--dtd-bg-surface));
+  border: 1px solid var(--dtd-modal-border, var(--dtd-border));
+  box-shadow: var(--dtd-modal-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  color: var(--dtd-fg-primary);
+}
+.dtd-lock-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--dtd-radius-pill);
+  background: var(--dtd-brand-soft);
+  color: var(--dtd-brand-ink-on-soft, var(--dtd-brand));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dtd-lock-card h3,
+.dtd-dialog-card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dtd-fg-primary);
+}
+.dtd-lock-card p,
+.dtd-dialog-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dtd-fg-muted);
+}
+.dtd-lock-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dtd-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--dtd-bg-mask);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-sizing: border-box;
+}
+.dtd-dialog-card {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 20px 22px;
+  border-radius: var(--dtd-radius-panel, 16px);
+  background: var(--dtd-modal-bg, var(--dtd-bg-surface));
+  border: 1px solid var(--dtd-modal-border, var(--dtd-border));
+  box-shadow: var(--dtd-modal-shadow);
+  color: var(--dtd-fg-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-family: inherit;
+}
+.dtd-dialog-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--dtd-fg-muted);
+  border-radius: var(--dtd-radius-sm, 6px);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+  z-index: 2;
+}
+.dtd-dialog-close-btn:hover {
+  background: var(--dtd-bg-hover);
+  color: var(--dtd-fg-primary);
+}
+.dtd-dialog-input,
+.dtd-form-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--dtd-input-radius, 8px);
+  border: 1px solid var(--dtd-input-border, var(--dtd-border));
+  background: var(--dtd-input-bg, var(--dtd-bg-surface));
+  color: var(--dtd-input-fg, var(--dtd-fg-primary));
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.14s ease;
+}
+@media (hover: hover) {
+  .dtd-dialog-input:hover,
+  .dtd-form-input:hover {
+    border-color: var(--dtd-input-border-hover, var(--dtd-brand));
+  }
+}
+.dtd-dialog-input:focus,
+.dtd-form-input:focus {
+  border-color: var(--dtd-input-border-focus, var(--dtd-brand));
+}
+.dtd-dialog-list {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dtd-dialog-ws-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--dtd-radius-md);
+  border: 1px solid var(--dtd-border);
+  background: var(--dtd-bg-subtle);
+  color: var(--dtd-fg-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.14s ease, border-color 0.14s ease;
+}
+@media (hover: hover) {
+  .dtd-dialog-ws-btn:hover {
+    background: var(--dtd-bg-hover);
+    border-color: var(--dtd-border-focus);
+  }
+}
+.dtd-dialog-ws-btn strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.dtd-dialog-ws-btn span {
+  font-size: 12px;
+  color: var(--dtd-fg-muted);
+  word-break: break-all;
+}
+.dtd-dialog-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dtd-fg-danger);
+}
+.dtd-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dtd-btn-secondary,
+.dtd-btn-primary,
+.dtd-btn-danger {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--dtd-radius-md);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.14s ease, opacity 0.14s ease;
+}
+.dtd-btn-secondary {
+  background: var(--dtd-bg-subtle);
+  border-color: var(--dtd-border);
+  color: var(--dtd-fg-primary);
+}
+@media (hover: hover) {
+  .dtd-btn-secondary:hover {
+    background: var(--dtd-bg-hover);
+  }
+}
+.dtd-btn-primary {
+  background: var(--dtd-brand);
+  color: var(--dtd-fg-inverted);
+}
+@media (hover: hover) {
+  .dtd-btn-primary:hover {
+    background: var(--dtd-brand-hover);
+  }
+}
+.dtd-btn-danger {
+  background: var(--dtd-fg-danger);
+  color: var(--dtd-fg-inverted);
+}
+.dtd-btn-secondary:disabled,
+.dtd-btn-primary:disabled,
+.dtd-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* PIN settings rows inside .dtd-page */
+.dtd-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 24px;
+  background: var(--dtd-surface);
+  border: 1px solid var(--dtd-border-local);
+  border-radius: var(--dtd-radius-panel);
+}
+.dtd-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dtd-form-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dtd-text);
+}
+.dtd-pin-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dtd-border-local);
+}
+.dtd-totp-setup-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+.dtd-totp-qr-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border-radius: var(--dtd-radius-md, 10px);
+  background: var(--dtd-bg-qr);
+  border: 1px solid var(--dtd-border);
+  box-shadow: var(--dtd-qr-shadow);
+}
+.dtd-totp-qr-svg {
+  display: block;
+  width: 176px;
+  height: 176px;
+  shape-rendering: crispEdges;
+}
+.dtd-totp-secret-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--dtd-radius-sm, 8px);
+  background: var(--dtd-bg-muted);
+  border: 1px solid var(--dtd-border-local, var(--dtd-border));
+  box-sizing: border-box;
+}
+.dtd-totp-secret-label {
+  font-size: 11px;
+  color: var(--dtd-fg-muted);
+  white-space: nowrap;
+}
+.dtd-totp-secret-code {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--dtd-fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: all;
+}
+.dtd-totp-copy-btn {
+  flex: 0 0 auto;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 6px;
+  border: 1px solid var(--dtd-border);
+  background: var(--dtd-bg-surface);
+  color: var(--dtd-fg-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.dtd-totp-copy-btn:hover {
+  background: var(--dtd-bg-hover);
+}
+.dtd-totp-code-input {
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: 20px !important;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  height: 44px !important;
+  padding: 0 12px !important;
+}
+
+/* Host menus and Ungrouped context actions retain their native styling. */

@@ -7,9 +7,9 @@ import { stripTypeScriptTypes } from 'node:module'
 
 // Test the live, read-only Search policy. Native Workspace mutations are Host-owned.
 const source = readFileSync(fileURLToPath(
-  new URL('../packages/delta-suite/src/client.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-ui/src/client.ts', import.meta.url)), 'utf8')
 const protection = readFileSync(fileURLToPath(
-  new URL('../packages/delta-suite/src/client-search-protection.ts', import.meta.url)), 'utf8')
+  new URL('../packages/delta-ui/src/client-search-protection.ts', import.meta.url)), 'utf8')
 assert.match(protection, /function createSearchContentProtection\(/)
 const compiled = stripTypeScriptTypes(
   protection + '\nthis.policy = createSearchContentProtection', { mode: 'strip' })
