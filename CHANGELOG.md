@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 将根项目 Node.js 运行时声明统一为中央基准 26.13.1，保持 pnpm 锁文件及已解析依赖不变。
+
 - 新增: 将原 `delta-suite` UI 插件更名为 `delta-ui`，将原 `delta-bridge` 模型桥接插件更名为 `delta-suite`；同步更新包名、Cordis ID、发布资产和配置入口，不自动迁移旧包与历史 Release。
 
 - 新增: Delta Suite 提供三步式原生设置页，默认只展示服务商、地址和 API Key，高级设置按需展开；API Key 通过 Host 凭据服务保存，并支持保存后的本地连接测试。
