@@ -1,42 +1,29 @@
-# Agent Guide
+# AGENTS
 
-## Documentation map
+## Common rules
 
-Read docs/README.md for architecture, development, operations, and product design documents.
+- Inspect the requested branch, source SHA, relevant code and existing contracts before editing. Do not read unrelated trees or expand the task.
+- Reuse existing implementations; fix the root cause. Delete obsolete code. No speculative features, duplicate abstractions, unnecessary dependencies, fallback stacking or new workflows.
+- Own boolean variables and parameters must use is/has/can/should: `enabled` -> `isEnabled`, `retry` -> `shouldRetry`; Python/Rust: `is_enabled`. Preserve external protocol names.
+- Use precise language-native identifiers. Governed file names: `helper.ts` -> `validate-token-format.ts`. Own external configuration: `AW_TOKEN` -> `AW_STATUS_TOKEN`. Use three semantic segments; preserve standard platform names.
+- Comments: add or retain only if omission would cause a concrete foreseeable error. Delete optional explanations, code narration, decorative separators and commented-out code. Preserve required legal notices, machine directives and external contracts.
+- Tests: verify necessary observable behavior, security and regressions. Extend existing coverage before adding tests. Delete redundant or retired tests; never weaken useful coverage. Externalizable tests belong in the central test packs; local tests require an existing approved exception.
+- Update existing authoritative documentation; no duplicate guides, task summaries or speculative plans.
+- Commit and PR titles: only feat/fix/chore, in English (e.g. `fix(auth): reject invalid token`). Every commit requires a blank line and a substantive Chinese body explaining why and what changed. No AI attribution.
+- Update only the Unreleased section of CHANGELOG.md with matching Chinese entries (feat=addition, fix=correction, chore=maintenance); do not rewrite released history.
+- Use the declared target branch; omitted targets mean main. main is stable/production; dev is Beta only when enabled. Never fall back to another branch. No direct protected-branch writes, cross-branch transfer or history rewrite without the applicable authorization.
+- No secrets in code, logs or untrusted execution. No bypass of security, CI, merge or release gates. Never change tests merely to obtain green status.
+- Run the applicable central preflight before submission; fix introduced failures. Verify the final diff and actual outcomes. Report unverified checks and blockers; never claim success without fresh evidence.
 
-This repository is a managed Fongap Labs repository. Shared governance (task dispatch, PR governance, CI evidence, merge gate, release and deploy policy, naming, changelog and attribution rules) is owned by `fongap-labs/action-worker`. Do not copy it here.
+## Branch rules
 
-Shared documents: https://github.com/fongap-labs/action-worker/tree/main/docs
+- main is stable/production; dev is Beta only. Use independent task branches and PRs.
 
-## Required reading
+## Repository rules
 
-1. Action Worker `skills/agent-execution/SKILL.md`
-2. Action Worker `docs/01_SHARED_GOVERNANCE.md`
-3. Action Worker `docs/05_INTEGRATION_GUIDE.md`
-4. Action Worker `docs/DEVELOPMENT_GUIDE.md`
-5. Action Worker `docs/04_CHANGELOG_CONVENTIONS.md`, before any change requiring an Unreleased changelog entry
-6. `README.md`
-
-## Project boundary
-
-- This repository owns independent Delta / DeepSeek Harness plugins: product code, approved non-externalizable tests, and project build and package scripts. New externalizable tests belong in Action Worker `tests/packs/plugins/`.
-- Heavy execution (CI, build, AI review, release, deploy, task) runs in Action Worker. Do not add full CI, release or deploy workflows here.
-- `.github/workflows/notify-action-worker.yml` is the approved event bridge and must stay byte-identical to `templates/bridge/notify-action-worker.yml`. `.github/workflows/ci.yml` is the centrally required main-ref CI bridge and must stay byte-identical to `templates/bridge/dispatch-central-ci.yml`. Both are mandatory under the current central engineering-ownership gate. Do not add a third bridge, modify either locally, or remove either until an explicit centrally governed replacement is approved and validated.
-- Project execution needs are declared in `.github/execution-manifest.json` once the project scripts exist. The manifest declares runner profiles, never runner names or labels.
-- Commit and pull request attribution follow the commit hygiene section of Action Worker `AGENTS.md`.
-
-## Product architecture
-
-- Read `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/SECURITY.md`, `docs/COMPATIBILITY.md`, `projects/architecture.json`, and the affected product architecture/readiness contracts before changing a product.
-- Keep Suite, Code, Shared and Host ownership distinct. No product-to-product internal imports, second Agent runtime, private Host patches, proxy or Vision Bridge revival. Missing public Host capabilities must preserve native behavior.
-- Update the affected contract, implementation and regression tests together. Do not infer real Host acceptance from static checks or Windows source CI.
-
-## Project prohibitions
-
-- Do not store central secrets, tokens or cross-repository write credentials in this repository. The only repository secret allowed is `AW_DISPATCH_TOKEN`, used by the bridge.
-- Do not name self-hosted runners, runner labels or runner groups.
-- Do not add workflows that use `pull_request_target`, except the approved bridge.
-
-## Commit messages
-
-- Follow the organization’s required format for commit titles. Every non-empty Git commit body must use Chinese for its natural-language explanation; preserve technical identifiers, paths, and commands verbatim. See the [changelog conventions](https://github.com/fongap-labs/action-worker/blob/main/docs/04_CHANGELOG_CONVENTIONS.md).
+- Keep plugins independent: Delta UI owns general interaction, Code owns coding orchestration, Shared owns neutral utilities and Host owns execution, sessions, models, credentials and authorization. No cross-plugin internal imports or second Agent runtime.
+- Use public Host contracts only. No private DOM/Store patches, credential reads, network proxy or Vision Bridge revival. When a public capability is absent, disable only the affected feature and preserve native behavior.
+- Keep the kernel limited to registration, lifecycle, failure isolation and rollback; inject dependencies at composition boundaries.
+- Before changing a product, read docs/ARCHITECTURE_GOVERNANCE.md, docs/SECURITY.md, docs/COMPATIBILITY.md, projects/architecture.json and the affected architecture/readiness contracts. Update relevant contracts and behavior evidence together; static/Windows source CI does not prove real Host acceptance.
+- Heavy CI/build/release/deploy/task execution belongs centrally. Externalizable tests belong in Action Worker tests/packs/plugins/. Keep both approved workflow bridges byte-identical to their central templates; no third bridge or independent workflow. Declare runner profiles in .github/execution-manifest.json, never names or labels.
+- Only the approved bridge may use AW_DISPATCH_TOKEN. No other repository secrets or cross-repository write credentials.

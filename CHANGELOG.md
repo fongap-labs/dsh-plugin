@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- 维护: 统一智能体基础规范和分支指令，保留开发分支插件专属约束。
+
 - 维护: 将根项目 Node.js 运行时声明统一为中央基准 26.13.1，保持 pnpm 锁文件及已解析依赖不变。
 
 - 新增: 将原 `delta-suite` UI 插件更名为 `delta-ui`，将原 `delta-bridge` 模型桥接插件更名为 `delta-suite`；同步更新包名、Cordis ID、发布资产和配置入口，不自动迁移旧包与历史 Release。
